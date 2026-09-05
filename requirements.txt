@@ -1,2 +1,2 @@
 websocket-client
-tabdeal-python==0.4.7
+git+https://github.com/Tabdeal-Exchange/tabdeal-python.git
