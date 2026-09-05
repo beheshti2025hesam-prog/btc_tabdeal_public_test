@@ -1,8 +1,8 @@
 import csv
 import json
 import os
+import signal
 import time
-from datetime import datetime, timezone
 
 import websocket
 
@@ -13,75 +13,118 @@ OUTPUT_FILE = "data/trades.csv"
 
 RECONNECT_DELAY = 5
 
+# مدت اجرای Collector
+# 5 ساعت و 45 دقیقه
+RUN_SECONDS = 5 * 60 * 60 + 45 * 60
+
 
 os.makedirs("data", exist_ok=True)
 
+running = True
+last_sequence = None
+trade_count = 0
 
-def get_last_sequence():
+csv_file = None
+csv_writer = None
+
+
+def load_last_sequence():
+    """فقط یک بار در شروع، آخرین sequence ذخیره‌شده را بخوان."""
     if not os.path.exists(OUTPUT_FILE):
         return None
 
     try:
         with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
-            rows = list(csv.DictReader(f))
+            reader = csv.DictReader(f)
+            last_row = None
 
-        if not rows:
-            return None
+            for row in reader:
+                last_row = row
 
-        return rows[-1].get("sequence")
+            if last_row and last_row.get("sequence"):
+                return int(last_row["sequence"])
 
     except Exception as e:
-        print(f"Could not read last sequence: {e}", flush=True)
-        return None
-
-
-def save_trade(trade):
-    sequence = str(trade.get("sequence", ""))
-
-    if not sequence:
-        return
-
-    last_sequence = get_last_sequence()
-
-    # جلوگیری از ذخیره Trade تکراری
-    if last_sequence == sequence:
         print(
-            f"DUPLICATE IGNORED | sequence={sequence}",
+            f"Could not read last sequence: {e}",
             flush=True
         )
-        return
+
+    return None
+
+
+def open_csv():
+    global csv_file, csv_writer
 
     file_exists = os.path.exists(OUTPUT_FILE)
+    file_empty = not file_exists or os.path.getsize(OUTPUT_FILE) == 0
 
-    with open(
+    csv_file = open(
         OUTPUT_FILE,
         "a",
         newline="",
         encoding="utf-8"
-    ) as f:
+    )
 
-        writer = csv.writer(f)
+    csv_writer = csv.writer(csv_file)
 
-        if not file_exists:
-            writer.writerow([
-                "symbol",
-                "price",
-                "amount",
-                "side",
-                "updated",
-                "sequence"
-            ])
-
-        writer.writerow([
-            trade.get("symbol"),
-            trade.get("price"),
-            trade.get("amount"),
-            trade.get("side_name"),
-            trade.get("updated"),
-            sequence
+    if file_empty:
+        csv_writer.writerow([
+            "symbol",
+            "price",
+            "amount",
+            "side",
+            "updated",
+            "sequence"
         ])
 
-        f.flush()
+        csv_file.flush()
+
+
+def close_csv():
+    global csv_file
+
+    if csv_file:
+        try:
+            csv_file.flush()
+            csv_file.close()
+        except Exception:
+            pass
+
+        csv_file = None
+
+
+def save_trade(trade):
+    global last_sequence
+    global trade_count
+
+    sequence_raw = trade.get("sequence")
+
+    if sequence_raw is None:
+        return
+
+    try:
+        sequence = int(sequence_raw)
+    except (ValueError, TypeError):
+        return
+
+    # جلوگیری از ذخیره Trade تکراری
+    if last_sequence is not None and sequence <= last_sequence:
+        return
+
+    csv_writer.writerow([
+        trade.get("symbol"),
+        trade.get("price"),
+        trade.get("amount"),
+        trade.get("side_name"),
+        trade.get("updated"),
+        sequence
+    ])
+
+    csv_file.flush()
+
+    last_sequence = sequence
+    trade_count += 1
 
     print(
         f"SAVED | "
@@ -92,6 +135,21 @@ def save_trade(trade):
         f"seq={sequence}",
         flush=True
     )
+
+
+def stop_collector(signum=None, frame=None):
+    global running
+
+    print(
+        "\n=== STOP SIGNAL RECEIVED ===",
+        flush=True
+    )
+
+    running = False
+
+
+signal.signal(signal.SIGINT, stop_collector)
+signal.signal(signal.SIGTERM, stop_collector)
 
 
 def on_open(ws):
@@ -109,7 +167,10 @@ def on_message(ws, message):
             save_trade(data["trade"])
 
         elif "order" in data:
-            print("ORDER EVENT IGNORED", flush=True)
+            print(
+                "ORDER EVENT IGNORED",
+                flush=True
+            )
 
         else:
             print(
@@ -141,11 +202,42 @@ def on_close(ws, close_status_code, close_msg):
 
 
 def collect_forever():
-    print("=== TABDEAL FUTURES COLLECTOR ===", flush=True)
-    print(f"Symbol: {SYMBOL}", flush=True)
-    print(f"Output: {OUTPUT_FILE}", flush=True)
+    global running
 
-    while True:
+    start_time = time.time()
+
+    print(
+        "=== TABDEAL FUTURES COLLECTOR ===",
+        flush=True
+    )
+
+    print(
+        f"Symbol: {SYMBOL}",
+        flush=True
+    )
+
+    print(
+        f"Output: {OUTPUT_FILE}",
+        flush=True
+    )
+
+    print(
+        f"Duration: {RUN_SECONDS // 3600}h "
+        f"{(RUN_SECONDS % 3600) // 60}m",
+        flush=True
+    )
+
+    while running:
+
+        elapsed = time.time() - start_time
+
+        if elapsed >= RUN_SECONDS:
+            print(
+                "=== COLLECTION TIME COMPLETE ===",
+                flush=True
+            )
+            break
+
         try:
             print(
                 f"=== CONNECTING {WS_URL} ===",
@@ -171,13 +263,51 @@ def collect_forever():
                 flush=True
             )
 
+        if running:
+            print(
+                f"=== RECONNECTING IN "
+                f"{RECONNECT_DELAY}s ===",
+                flush=True
+            )
+
+            time.sleep(RECONNECT_DELAY)
+
+    print(
+        f"=== TOTAL TRADES COLLECTED: "
+        f"{trade_count} ===",
+        flush=True
+    )
+
+
+def main():
+    global last_sequence
+
+    last_sequence = load_last_sequence()
+
+    if last_sequence is not None:
         print(
-            f"=== RECONNECTING IN {RECONNECT_DELAY}s ===",
+            f"Last saved sequence: {last_sequence}",
+            flush=True
+        )
+    else:
+        print(
+            "No previous sequence found.",
             flush=True
         )
 
-        time.sleep(RECONNECT_DELAY)
+    open_csv()
+
+    try:
+        collect_forever()
+
+    finally:
+        close_csv()
+
+        print(
+            "=== CSV CLOSED SAFELY ===",
+            flush=True
+        )
 
 
 if __name__ == "__main__":
-    collect_forever()
+    main()
