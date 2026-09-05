@@ -10,10 +10,13 @@ on:
     - cron: "*/10 * * * *"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
+    # جلوگیری از اجرای دوباره Workflow بعد از Commit خودکار
+    if: github.actor != 'github-actions[bot]'
+
     runs-on: ubuntu-latest
 
     steps:
@@ -24,17 +27,33 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - name: Install dependencies
-        run: pip install -r requirements.txt 
 
-      - name: Run Tabdeal public API test
-        run: python tabdeal_public_test.py
-      - name: Run Tabdeal Futures WebSocket test
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Tabdeal Public API test
+        run: python -u tabdeal_public_test.py
+
+      - name: Collect Futures Trades
         run: timeout 20 python -u tabdeal_futures_ws_test.py || true
-   
+
       - name: Upload collected trades
         uses: actions/upload-artifact@v4
         with:
           name: tabdeal-trades
           path: data/trades.csv
           if-no-files-found: warn
+
+      - name: Save trades to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/trades.csv
+
+          if git diff --cached --quiet; then
+            echo "No new trades to save."
+          else
+            git commit -m "Update Tabdeal BTC_USDT trade data"
+            git push
+          fi
