@@ -1,33 +1,25 @@
-import time
+import inspect
+import tabdeal.websocket_client as wc
 
-from tabdeal.websocket_client import FutureWebsocketClient
+print("=== TABDEAL WEBSOCKET SDK INSPECTION ===")
+print("Module:", wc.__file__)
+print()
 
+print("=== AVAILABLE WEBSOCKET CLASSES ===")
+for name in dir(wc):
+    if "Websocket" in name:
+        print(name)
 
-def handler(message):
-    print("=== MESSAGE RECEIVED ===")
-    print(message)
+print()
+print("=== FUTURE WEBSOCKET SOURCE ===")
 
+if hasattr(wc, "FutureWebsocketClient"):
+    print(inspect.getsource(wc.FutureWebsocketClient))
+else:
+    print("FutureWebsocketClient NOT FOUND")
 
-print("=== TABDEAL OFFICIAL FUTURES SDK TEST ===")
+print()
+print("=== MARKET ORDER BOOK SOURCE ===")
 
-try:
-    ws = FutureWebsocketClient()
-
-    print("=== SDK CLIENT CREATED ===")
-
-    ws.market_order_book(
-        symbol="btcusdt",
-        id=1,
-        callback=handler,
-    )
-
-    print("=== SUBSCRIPTION SENT ===")
-    print("Waiting for Futures order book data...")
-
-    time.sleep(15)
-
-    print("=== TEST FINISHED ===")
-
-except Exception as e:
-    print("=== ERROR ===")
-    print(type(e).__name__, ":", e)
+if hasattr(wc, "FutureWebsocketClient"):
+    print(inspect.getsource(wc.FutureWebsocketClient.market_order_book))
