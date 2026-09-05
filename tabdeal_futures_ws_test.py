@@ -12,8 +12,7 @@ def on_open(ws):
     payload = {
         "method": "SUBSCRIBE",
         "params": [
-            "btcusdt@trade",
-            "btcusdt@aggTrade",
+            "btcusdt@depth@2000ms"
         ],
         "id": 1
     }
