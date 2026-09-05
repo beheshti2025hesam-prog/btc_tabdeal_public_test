@@ -6,21 +6,15 @@ from urllib.error import HTTPError, URLError
 from config import SYMBOL, TIMEOUT
 
 
-BASE_URLS = [
-    "https://api.tabdeal.org",
-    "https://api1.tabdeal.org",
-]
+BASE_URL = "https://api1.tabdeal.org"
 
 ENDPOINTS = [
-    "/api/v1/ping",
-    "/api/v1/exchangeInfo",
-    "/api/v1/time",
-
-    # Candidate public market-data endpoints
-    "/api/v1/klines",
-    "/api/v1/futures/klines",
-    "/fapi/v1/klines",
-    "/api/v1/fapi/klines",
+    "/r/fapi/v1/ping",
+    "/r/fapi/v1/time",
+    "/r/fapi/v1/exchangeInfo",
+    "/r/fapi/v1/depth",
+    "/r/fapi/v1/aggDepth",
+    "/r/fapi/v1/klines",
 ]
 
 
@@ -52,7 +46,7 @@ def test_endpoint(url):
                 data,
                 ensure_ascii=False,
                 separators=(",", ":")
-            )[:1200]
+            )[:2500]
         )
 
         return True
@@ -72,44 +66,39 @@ def test_endpoint(url):
 
 def main():
 
-    print("=== TABDEAL FUTURES API DISCOVERY TEST ===")
-    print(f"Target symbol: {SYMBOL}")
+    print("=== TABDEAL FUTURES API TEST ===")
+    print(f"Symbol: {SYMBOL}")
+    print("Tabdeal Futures symbol: BTC_USDT")
     print()
 
     successful = []
 
-    for base_url in BASE_URLS:
+    for endpoint in ENDPOINTS:
 
-        print()
-        print("#" * 70)
-        print(f"BASE URL: {base_url}")
-        print("#" * 70)
+        url = BASE_URL + endpoint
 
-        for endpoint in ENDPOINTS:
+        if endpoint.endswith("/exchangeInfo"):
+            url += "?symbol=BTC_USDT"
 
-            url = base_url + endpoint
+        elif endpoint.endswith("/depth"):
+            url += "?symbol=BTC_USDT&limit=5"
 
-            # Add parameters only to endpoints where they may be useful.
-            if "klines" in endpoint:
-                url += f"?symbol={SYMBOL}&interval=15m&limit=5"
+        elif endpoint.endswith("/aggDepth"):
+            url += "?symbol=BTC_USDT&limit=5"
 
-            if endpoint.endswith("exchangeInfo"):
-                url += f"?symbol={SYMBOL}"
+        elif endpoint.endswith("/klines"):
+            url += "?symbol=BTC_USDT&interval=15m&limit=5"
 
-            if test_endpoint(url):
-                successful.append(url)
+        if test_endpoint(url):
+            successful.append(url)
 
     print()
     print("=" * 70)
-    print("DISCOVERY SUMMARY")
+    print("TEST SUMMARY")
     print("=" * 70)
 
-    if successful:
-        print("Successful endpoints:")
-        for url in successful:
-            print(f"  + {url}")
-    else:
-        print("No candidate endpoint returned a successful response.")
+    for url in successful:
+        print(f"  + {url}")
 
     print()
     print("=== TEST COMPLETE ===")
