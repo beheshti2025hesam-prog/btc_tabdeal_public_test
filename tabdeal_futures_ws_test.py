@@ -1,32 +1,31 @@
 import json
-import time
 import websocket
 
-WS_URL = "wss://api1.tabdeal.org/special_margin/stream/"
+WS_URL = "wss://api1.tabdeal.org/special_margin/broadcast/"
 
-print("=== TABDEAL FUTURES DEPTH TEST ===")
+print("=== TABDEAL FUTURES TRADE TEST ===")
 print("URL:", WS_URL)
+
 
 def on_open(ws):
     print("=== CONNECTED ===")
+    print("=== SUBSCRIBE BTC_USDT ===")
 
-    payload = {
-        "method": "SUBSCRIBE",
-        "params": [
-            "special_margin@BTC_USDT@depth@1000ms"
-        ],
-        "id": 1
-    }
-
-    print("=== SUBSCRIBE ===")
-    print(json.dumps(payload))
-
-    ws.send(json.dumps(payload))
+    # Futures Broadcast uses plain text, not JSON
+    ws.send("BTC_USDT")
 
 
 def on_message(ws, message):
-    print("=== MESSAGE RECEIVED ===")
+    print("=== TRADE MESSAGE ===")
     print(message)
+
+    # Try to decode the JSON message
+    try:
+        data = json.loads(message)
+        print("=== PARSED ===")
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    except Exception as e:
+        print("Could not parse message:", e)
 
 
 def on_error(ws, error):
