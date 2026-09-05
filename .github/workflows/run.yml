@@ -2,8 +2,12 @@ name: Tabdeal Public API Test
 
 on:
   workflow_dispatch:
+
   push:
     branches: ["main"]
+
+  schedule:
+    - cron: "*/10 * * * *"
 
 permissions:
   contents: read
