@@ -1,48 +1,32 @@
-import json
 import time
-import websocket
 
-WS_URL = "wss://api1.tabdeal.org/special_margin/stream/"
+from tabdeal.websocket_client import FutureWebsocketClient
 
-print("=== TABDEAL FUTURES DEPTH TEST ===")
-print("URL:", WS_URL)
+
+def handler(message):
+    print("=== MESSAGE RECEIVED ===")
+    print(message)
+
+
+print("=== TABDEAL OFFICIAL FUTURES SDK TEST ===")
 
 try:
-    ws = websocket.create_connection(
-        WS_URL,
-        timeout=10,
-        origin="https://api1.tabdeal.org"
+    ws = FutureWebsocketClient()
+
+    print("=== SDK CLIENT CREATED ===")
+
+    ws.market_order_book(
+        symbol="btcusdt",
+        id=1,
+        callback=handler,
     )
 
-    print("=== CONNECTED ===")
+    print("=== SUBSCRIPTION SENT ===")
+    print("Waiting for Futures order book data...")
 
-    payload = {
-        "method": "SUBSCRIBE",
-        "params": [
-            "btcusdt@depth@2000ms"
-        ],
-        "id": 1
-    }
+    time.sleep(15)
 
-    print("=== SUBSCRIBE ===")
-    print(json.dumps(payload))
-
-    ws.send(json.dumps(payload))
-
-    start = time.time()
-
-    while time.time() - start < 10:
-        try:
-            message = ws.recv()
-
-            if message:
-                print("=== MESSAGE RECEIVED ===")
-                print(message)
-
-        except websocket.WebSocketTimeoutException:
-            print("No message received yet...")
-
-    ws.close()
+    print("=== TEST FINISHED ===")
 
 except Exception as e:
     print("=== ERROR ===")
