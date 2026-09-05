@@ -31,3 +31,10 @@ jobs:
         run: python tabdeal_public_test.py
       - name: Run Tabdeal Futures WebSocket test
         run: timeout 20 python -u tabdeal_futures_ws_test.py || true
+   
+      - name: Upload collected trades
+        uses: actions/upload-artifact@v4
+        with:
+          name: tabdeal-trades
+          path: data/trades.csv
+          if-no-files-found: warn
