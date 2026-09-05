@@ -1,25 +1,51 @@
-import inspect
-import tabdeal.websocket_client as wc
+import json
+import time
+import websocket
 
-print("=== TABDEAL WEBSOCKET SDK INSPECTION ===")
-print("Module:", wc.__file__)
-print()
+WS_URL = "wss://api1.tabdeal.org/special_margin/stream/"
 
-print("=== AVAILABLE WEBSOCKET CLASSES ===")
-for name in dir(wc):
-    if "Websocket" in name:
-        print(name)
+print("=== TABDEAL FUTURES DEPTH TEST ===")
+print("URL:", WS_URL)
 
-print()
-print("=== FUTURE WEBSOCKET SOURCE ===")
+def on_open(ws):
+    print("=== CONNECTED ===")
 
-if hasattr(wc, "FutureWebsocketClient"):
-    print(inspect.getsource(wc.FutureWebsocketClient))
-else:
-    print("FutureWebsocketClient NOT FOUND")
+    payload = {
+        "method": "SUBSCRIBE",
+        "params": [
+            "special_margin@BTC_USDT@depth@1000ms"
+        ],
+        "id": 1
+    }
 
-print()
-print("=== MARKET ORDER BOOK SOURCE ===")
+    print("=== SUBSCRIBE ===")
+    print(json.dumps(payload))
 
-if hasattr(wc, "FutureWebsocketClient"):
-    print(inspect.getsource(wc.FutureWebsocketClient.market_order_book))
+    ws.send(json.dumps(payload))
+
+
+def on_message(ws, message):
+    print("=== MESSAGE RECEIVED ===")
+    print(message)
+
+
+def on_error(ws, error):
+    print("=== WEBSOCKET ERROR ===")
+    print(error)
+
+
+def on_close(ws, close_status_code, close_msg):
+    print("=== WEBSOCKET CLOSED ===")
+    print("Code:", close_status_code)
+    print("Message:", close_msg)
+
+
+ws = websocket.WebSocketApp(
+    WS_URL,
+    on_open=on_open,
+    on_message=on_message,
+    on_error=on_error,
+    on_close=on_close,
+)
+
+ws.run_forever()
