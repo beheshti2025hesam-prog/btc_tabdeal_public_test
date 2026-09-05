@@ -1,25 +1,28 @@
-name: Tabdeal Public API Test
+name: Tabdeal BTC Futures Collector
 
 on:
   workflow_dispatch:
 
-  push:
-    branches: ["main"]
-
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 */6 * * *"
 
 permissions:
   contents: write
 
+concurrency:
+  group: tabdeal-btc-usdt-collector
+  cancel-in-progress: false
+
 jobs:
-  test:
-    # جلوگیری از اجرای دوباره Workflow بعد از Commit خودکار
-    if: github.actor != 'github-actions[bot]'
+  collector:
+
+    # حداکثر زمان Job کمتر از سقف 6 ساعته GitHub
+    timeout-minutes: 355
 
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -29,18 +32,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
 
-      - name: Run Tabdeal Public API test
-        run: python -u tabdeal_public_test.py
-
-      - name: Collect Futures Trades
-        run: timeout 20 python -u tabdeal_futures_ws_test.py || true
+      - name: Collect BTC_USDT Futures Trades
+        run: |
+          python -u tabdeal_futures_ws_test.py
 
       - name: Upload collected trades
         uses: actions/upload-artifact@v4
         with:
-          name: tabdeal-trades
+          name: tabdeal-btc-usdt-trades
           path: data/trades.csv
           if-no-files-found: warn
 
