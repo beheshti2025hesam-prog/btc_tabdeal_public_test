@@ -2,6 +2,7 @@ import csv
 import json
 import os
 import signal
+import subprocess
 import time
 
 import websocket
@@ -13,12 +14,13 @@ OUTPUT_FILE = "data/trades.csv"
 
 RECONNECT_DELAY = 5
 
-# مدت اجرای Collector
-# 5 ساعت و 45 دقیقه
-RUN_SECONDS = 5 * 60 * 60 + 45 * 60
+# مدت اجرای Collector:
+# 5 ساعت و 20 دقیقه
+RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 
+# ذخیره روی GitHub هر 20 دقیقه
+CHECKPOINT_SECONDS = 20 * 60
 
-os.makedirs("data", exist_ok=True)
 
 running = True
 last_sequence = None
@@ -27,9 +29,10 @@ trade_count = 0
 csv_file = None
 csv_writer = None
 
+last_checkpoint_time = time.time()
+
 
 def load_last_sequence():
-    """فقط یک بار در شروع، آخرین sequence ذخیره‌شده را بخوان."""
     if not os.path.exists(OUTPUT_FILE):
         return None
 
@@ -57,7 +60,10 @@ def open_csv():
     global csv_file, csv_writer
 
     file_exists = os.path.exists(OUTPUT_FILE)
-    file_empty = not file_exists or os.path.getsize(OUTPUT_FILE) == 0
+    file_empty = (
+        not file_exists
+        or os.path.getsize(OUTPUT_FILE) == 0
+    )
 
     csv_file = open(
         OUTPUT_FILE,
@@ -94,6 +100,92 @@ def close_csv():
         csv_file = None
 
 
+def git_checkpoint():
+    global last_checkpoint_time
+
+    try:
+        if csv_file:
+            csv_file.flush()
+
+        print(
+            "=== GIT CHECKPOINT START ===",
+            flush=True
+        )
+
+        subprocess.run(
+            ["git", "config", "user.name", "github-actions[bot]"],
+            check=True
+        )
+
+        subprocess.run(
+            [
+                "git",
+                "config",
+                "user.email",
+                "41898282+github-actions[bot]@users.noreply.github.com"
+            ],
+            check=True
+        )
+
+        subprocess.run(
+            ["git", "add", OUTPUT_FILE],
+            check=True
+        )
+
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--cached",
+                "--quiet"
+            ]
+        )
+
+        if result.returncode == 0:
+            print(
+                "=== NO NEW DATA FOR CHECKPOINT ===",
+                flush=True
+            )
+
+            last_checkpoint_time = time.time()
+            return
+
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                "Checkpoint Tabdeal BTC_USDT trades"
+            ],
+            check=True
+        )
+
+        subprocess.run(
+            ["git", "push"],
+            check=True
+        )
+
+        print(
+            "=== GIT CHECKPOINT COMPLETE ===",
+            flush=True
+        )
+
+        last_checkpoint_time = time.time()
+
+    except Exception as e:
+        print(
+            f"=== CHECKPOINT ERROR: {e} ===",
+            flush=True
+        )
+
+
+def maybe_checkpoint():
+    global last_checkpoint_time
+
+    if time.time() - last_checkpoint_time >= CHECKPOINT_SECONDS:
+        git_checkpoint()
+
+
 def save_trade(trade):
     global last_sequence
     global trade_count
@@ -108,7 +200,6 @@ def save_trade(trade):
     except (ValueError, TypeError):
         return
 
-    # جلوگیری از ذخیره Trade تکراری
     if last_sequence is not None and sequence <= last_sequence:
         return
 
@@ -135,6 +226,8 @@ def save_trade(trade):
         f"seq={sequence}",
         flush=True
     )
+
+    maybe_checkpoint()
 
 
 def stop_collector(signum=None, frame=None):
@@ -201,7 +294,7 @@ def on_close(ws, close_status_code, close_msg):
     )
 
 
-def collect_forever():
+def collect():
     global running
 
     start_time = time.time()
@@ -222,8 +315,12 @@ def collect_forever():
     )
 
     print(
-        f"Duration: {RUN_SECONDS // 3600}h "
-        f"{(RUN_SECONDS % 3600) // 60}m",
+        "Duration: 5h 20m",
+        flush=True
+    )
+
+    print(
+        "Checkpoint: every 20 minutes",
         flush=True
     )
 
@@ -298,10 +395,13 @@ def main():
     open_csv()
 
     try:
-        collect_forever()
+        collect()
 
     finally:
         close_csv()
+
+        # آخرین ذخیره قبل از پایان
+        git_checkpoint()
 
         print(
             "=== CSV CLOSED SAFELY ===",
