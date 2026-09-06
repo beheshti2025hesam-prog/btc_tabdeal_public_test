@@ -14,11 +14,10 @@ OUTPUT_FILE = "data/trades.csv"
 
 RECONNECT_DELAY = 5
 
-# مدت اجرای Collector:
-# 5 ساعت و 20 دقیقه
+# Run for 5 hours and 20 minutes
 RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 
-# ذخیره روی GitHub هر 20 دقیقه
+# Save progress to GitHub every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
 
 
@@ -48,10 +47,7 @@ def load_last_sequence():
                 return int(last_row["sequence"])
 
     except Exception as e:
-        print(
-            f"Could not read last sequence: {e}",
-            flush=True
-        )
+        print(f"Could not read last sequence: {e}", flush=True)
 
     return None
 
@@ -63,6 +59,11 @@ def open_csv():
     file_empty = (
         not file_exists
         or os.path.getsize(OUTPUT_FILE) == 0
+    )
+
+    os.makedirs(
+        os.path.dirname(OUTPUT_FILE),
+        exist_ok=True
     )
 
     csv_file = open(
@@ -113,7 +114,12 @@ def git_checkpoint():
         )
 
         subprocess.run(
-            ["git", "config", "user.name", "github-actions[bot]"],
+            [
+                "git",
+                "config",
+                "user.name",
+                "github-actions[bot]"
+            ],
             check=True
         )
 
@@ -180,8 +186,6 @@ def git_checkpoint():
 
 
 def maybe_checkpoint():
-    global last_checkpoint_time
-
     if time.time() - last_checkpoint_time >= CHECKPOINT_SECONDS:
         git_checkpoint()
 
@@ -200,6 +204,7 @@ def save_trade(trade):
     except (ValueError, TypeError):
         return
 
+    # Ignore old or duplicate trades
     if last_sequence is not None and sequence <= last_sequence:
         return
 
@@ -400,7 +405,7 @@ def main():
     finally:
         close_csv()
 
-        # آخرین ذخیره قبل از پایان
+        # Final checkpoint before the workflow ends
         git_checkpoint()
 
         print(
