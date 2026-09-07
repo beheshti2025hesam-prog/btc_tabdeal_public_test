@@ -3,6 +3,7 @@ import json
 import os
 import signal
 import subprocess
+import threading
 import time
 
 import websocket
@@ -14,10 +15,10 @@ OUTPUT_FILE = "data/trades.csv"
 
 RECONNECT_DELAY = 5
 
-# Run for 5 hours and 20 minutes
+# EXACT COLLECTION TIME: 5 hours 20 minutes
 RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 
-# Save progress to GitHub every 20 minutes
+# Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
 
 
@@ -56,6 +57,7 @@ def open_csv():
     global csv_file, csv_writer
 
     file_exists = os.path.exists(OUTPUT_FILE)
+
     file_empty = (
         not file_exists
         or os.path.getsize(OUTPUT_FILE) == 0
@@ -101,6 +103,13 @@ def close_csv():
         csv_file = None
 
 
+def run_git(command):
+    return subprocess.run(
+        command,
+        check=True
+    )
+
+
 def git_checkpoint():
     global last_checkpoint_time
 
@@ -113,30 +122,41 @@ def git_checkpoint():
             flush=True
         )
 
-        subprocess.run(
-            [
-                "git",
-                "config",
-                "user.name",
-                "github-actions[bot]"
-            ],
-            check=True
-        )
+        run_git([
+            "git",
+            "config",
+            "user.name",
+            "github-actions[bot]"
+        ])
 
-        subprocess.run(
-            [
-                "git",
-                "config",
-                "user.email",
-                "41898282+github-actions[bot]@users.noreply.github.com"
-            ],
-            check=True
-        )
+        run_git([
+            "git",
+            "config",
+            "user.email",
+            "41898282+github-actions[bot]@users.noreply.github.com"
+        ])
 
-        subprocess.run(
-            ["git", "add", OUTPUT_FILE],
-            check=True
-        )
+        # Get latest remote state.
+        run_git([
+            "git",
+            "fetch",
+            "origin",
+            "main"
+        ])
+
+        # Bring local branch in line with remote BEFORE staging.
+        run_git([
+            "git",
+            "reset",
+            "--soft",
+            "origin/main"
+        ])
+
+        run_git([
+            "git",
+            "add",
+            OUTPUT_FILE
+        ])
 
         result = subprocess.run(
             [
@@ -154,22 +174,21 @@ def git_checkpoint():
             )
 
             last_checkpoint_time = time.time()
-            return
+            return True
 
-        subprocess.run(
-            [
-                "git",
-                "commit",
-                "-m",
-                "Checkpoint Tabdeal BTC_USDT trades"
-            ],
-            check=True
-        )
+        run_git([
+            "git",
+            "commit",
+            "-m",
+            "Checkpoint Tabdeal BTC_USDT trades"
+        ])
 
-        subprocess.run(
-            ["git", "push"],
-            check=True
-        )
+        run_git([
+            "git",
+            "push",
+            "origin",
+            "main"
+        ])
 
         print(
             "=== GIT CHECKPOINT COMPLETE ===",
@@ -178,15 +197,22 @@ def git_checkpoint():
 
         last_checkpoint_time = time.time()
 
+        return True
+
     except Exception as e:
         print(
             f"=== CHECKPOINT ERROR: {e} ===",
             flush=True
         )
 
+        return False
+
 
 def maybe_checkpoint():
-    if time.time() - last_checkpoint_time >= CHECKPOINT_SECONDS:
+    if (
+        time.time() - last_checkpoint_time
+        >= CHECKPOINT_SECONDS
+    ):
         git_checkpoint()
 
 
@@ -204,8 +230,10 @@ def save_trade(trade):
     except (ValueError, TypeError):
         return
 
-    # Ignore old or duplicate trades
-    if last_sequence is not None and sequence <= last_sequence:
+    if (
+        last_sequence is not None
+        and sequence <= last_sequence
+    ):
         return
 
     csv_writer.writerow([
@@ -251,8 +279,15 @@ signal.signal(signal.SIGTERM, stop_collector)
 
 
 def on_open(ws):
-    print("=== CONNECTED ===", flush=True)
-    print(f"=== SUBSCRIBE {SYMBOL} ===", flush=True)
+    print(
+        "=== CONNECTED ===",
+        flush=True
+    )
+
+    print(
+        f"=== SUBSCRIBE {SYMBOL} ===",
+        flush=True
+    )
 
     ws.send(SYMBOL)
 
@@ -299,10 +334,26 @@ def on_close(ws, close_status_code, close_msg):
     )
 
 
+def close_websocket(ws):
+    try:
+        print(
+            "=== COLLECTION TIMER: CLOSING WEBSOCKET ===",
+            flush=True
+        )
+
+        ws.close()
+
+    except Exception as e:
+        print(
+            f"WEBSOCKET CLOSE ERROR: {e}",
+            flush=True
+        )
+
+
 def collect():
     global running
 
-    start_time = time.time()
+    start_time = time.monotonic()
 
     print(
         "=== TABDEAL FUTURES COLLECTOR ===",
@@ -331,7 +382,7 @@ def collect():
 
     while running:
 
-        elapsed = time.time() - start_time
+        elapsed = time.monotonic() - start_time
 
         if elapsed >= RUN_SECONDS:
             print(
@@ -339,6 +390,8 @@ def collect():
                 flush=True
             )
             break
+
+        remaining = RUN_SECONDS - elapsed
 
         try:
             print(
@@ -354,16 +407,36 @@ def collect():
                 on_close=on_close,
             )
 
+            timer = threading.Timer(
+                remaining,
+                close_websocket,
+                args=(ws,)
+            )
+
+            timer.daemon = True
+            timer.start()
+
             ws.run_forever(
                 ping_interval=20,
                 ping_timeout=10
             )
+
+            timer.cancel()
 
         except Exception as e:
             print(
                 f"COLLECTOR ERROR: {e}",
                 flush=True
             )
+
+        elapsed = time.monotonic() - start_time
+
+        if elapsed >= RUN_SECONDS:
+            print(
+                "=== COLLECTION TIME COMPLETE ===",
+                flush=True
+            )
+            break
 
         if running:
             print(
@@ -372,7 +445,15 @@ def collect():
                 flush=True
             )
 
-            time.sleep(RECONNECT_DELAY)
+            sleep_time = min(
+                RECONNECT_DELAY,
+                RUN_SECONDS - elapsed
+            )
+
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
+    running = False
 
     print(
         f"=== TOTAL TRADES COLLECTED: "
@@ -405,7 +486,11 @@ def main():
     finally:
         close_csv()
 
-        # Final checkpoint before the workflow ends
+        print(
+            "=== FINAL GIT CHECKPOINT ===",
+            flush=True
+        )
+
         git_checkpoint()
 
         print(
