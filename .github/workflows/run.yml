@@ -16,7 +16,7 @@ concurrency:
 jobs:
   collector:
 
-    timeout-minutes: 335
+    timeout-minutes: 350
 
     runs-on: ubuntu-latest
 
