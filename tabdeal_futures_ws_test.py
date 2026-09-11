@@ -29,15 +29,8 @@ trade_count = 0
 csv_file = None
 csv_writer = None
 
-start_time = None
-last_checkpoint_time = None
+last_checkpoint_time = time.time()
 
-checkpoint_lock = threading.Lock()
-
-
-# =========================================================
-# LOAD LAST SEQUENCE
-# =========================================================
 
 def load_last_sequence():
     if not os.path.exists(OUTPUT_FILE):
@@ -55,21 +48,13 @@ def load_last_sequence():
                 return int(last_row["sequence"])
 
     except Exception as e:
-        print(
-            f"Could not read last sequence: {e}",
-            flush=True
-        )
+        print(f"Could not read last sequence: {e}", flush=True)
 
     return None
 
 
-# =========================================================
-# CSV
-# =========================================================
-
 def open_csv():
-    global csv_file
-    global csv_writer
+    global csv_file, csv_writer
 
     file_exists = os.path.exists(OUTPUT_FILE)
 
@@ -118,27 +103,15 @@ def close_csv():
         csv_file = None
 
 
-# =========================================================
-# GIT
-# =========================================================
-
 def run_git(command):
     return subprocess.run(
         command,
-        check=True,
-        timeout=120
+        check=True
     )
 
 
 def git_checkpoint():
     global last_checkpoint_time
-
-    if not checkpoint_lock.acquire(blocking=False):
-        print(
-            "=== CHECKPOINT ALREADY RUNNING ===",
-            flush=True
-        )
-        return False
 
     try:
         if csv_file:
@@ -163,7 +136,7 @@ def git_checkpoint():
             "41898282+github-actions[bot]@users.noreply.github.com"
         ])
 
-        # Update remote information.
+        # Get latest remote state.
         run_git([
             "git",
             "fetch",
@@ -171,7 +144,7 @@ def git_checkpoint():
             "main"
         ])
 
-        # Make local branch match the latest remote commit.
+        # Bring local branch in line with remote BEFORE staging.
         run_git([
             "git",
             "reset",
@@ -191,8 +164,7 @@ def git_checkpoint():
                 "diff",
                 "--cached",
                 "--quiet"
-            ],
-            timeout=30
+            ]
         )
 
         if result.returncode == 0:
@@ -201,7 +173,7 @@ def git_checkpoint():
                 flush=True
             )
 
-            last_checkpoint_time = time.monotonic()
+            last_checkpoint_time = time.time()
             return True
 
         run_git([
@@ -223,17 +195,9 @@ def git_checkpoint():
             flush=True
         )
 
-        last_checkpoint_time = time.monotonic()
+        last_checkpoint_time = time.time()
 
         return True
-
-    except subprocess.TimeoutExpired:
-        print(
-            "=== CHECKPOINT TIMEOUT ===",
-            flush=True
-        )
-
-        return False
 
     except Exception as e:
         print(
@@ -243,45 +207,14 @@ def git_checkpoint():
 
         return False
 
-    finally:
-        checkpoint_lock.release()
 
+def maybe_checkpoint():
+    if (
+        time.time() - last_checkpoint_time
+        >= CHECKPOINT_SECONDS
+    ):
+        git_checkpoint()
 
-# =========================================================
-# CHECKPOINT THREAD
-# =========================================================
-
-def checkpoint_worker():
-    global running
-
-    while running:
-
-        time.sleep(5)
-
-        if not running:
-            break
-
-        if last_checkpoint_time is None:
-            continue
-
-        elapsed = (
-            time.monotonic()
-            - last_checkpoint_time
-        )
-
-        if elapsed >= CHECKPOINT_SECONDS:
-
-            print(
-                "=== CHECKPOINT TIMER TRIGGERED ===",
-                flush=True
-            )
-
-            git_checkpoint()
-
-
-# =========================================================
-# TRADE SAVE
-# =========================================================
 
 def save_trade(trade):
     global last_sequence
@@ -294,7 +227,6 @@ def save_trade(trade):
 
     try:
         sequence = int(sequence_raw)
-
     except (ValueError, TypeError):
         return
 
@@ -328,10 +260,8 @@ def save_trade(trade):
         flush=True
     )
 
+    maybe_checkpoint()
 
-# =========================================================
-# STOP
-# =========================================================
 
 def stop_collector(signum=None, frame=None):
     global running
@@ -344,23 +274,11 @@ def stop_collector(signum=None, frame=None):
     running = False
 
 
-signal.signal(
-    signal.SIGINT,
-    stop_collector
-)
+signal.signal(signal.SIGINT, stop_collector)
+signal.signal(signal.SIGTERM, stop_collector)
 
-signal.signal(
-    signal.SIGTERM,
-    stop_collector
-)
-
-
-# =========================================================
-# WEBSOCKET
-# =========================================================
 
 def on_open(ws):
-
     print(
         "=== CONNECTED ===",
         flush=True
@@ -375,32 +293,25 @@ def on_open(ws):
 
 
 def on_message(ws, message):
-
     try:
         data = json.loads(message)
 
         if "trade" in data:
-
-            save_trade(
-                data["trade"]
-            )
+            save_trade(data["trade"])
 
         elif "order" in data:
-
             print(
                 "ORDER EVENT IGNORED",
                 flush=True
             )
 
         else:
-
             print(
                 f"OTHER MESSAGE: {message}",
                 flush=True
             )
 
     except Exception as e:
-
         print(
             f"MESSAGE ERROR: {e}",
             flush=True
@@ -408,19 +319,13 @@ def on_message(ws, message):
 
 
 def on_error(ws, error):
-
     print(
         f"=== WEBSOCKET ERROR === {error}",
         flush=True
     )
 
 
-def on_close(
-    ws,
-    close_status_code,
-    close_msg
-):
-
+def on_close(ws, close_status_code, close_msg):
     print(
         f"=== WEBSOCKET CLOSED === "
         f"code={close_status_code} "
@@ -430,33 +335,23 @@ def on_close(
 
 
 def close_websocket(ws):
-
     try:
-
         print(
-            "=== COLLECTION DEADLINE: "
-            "CLOSING WEBSOCKET ===",
+            "=== COLLECTION TIMER: CLOSING WEBSOCKET ===",
             flush=True
         )
 
         ws.close()
 
     except Exception as e:
-
         print(
             f"WEBSOCKET CLOSE ERROR: {e}",
             flush=True
         )
 
 
-# =========================================================
-# COLLECTOR
-# =========================================================
-
 def collect():
-
     global running
-    global start_time
 
     start_time = time.monotonic()
 
@@ -487,27 +382,18 @@ def collect():
 
     while running:
 
-        elapsed = (
-            time.monotonic()
-            - start_time
-        )
+        elapsed = time.monotonic() - start_time
 
         if elapsed >= RUN_SECONDS:
-
             print(
                 "=== COLLECTION TIME COMPLETE ===",
                 flush=True
             )
-
             break
 
-        remaining = (
-            RUN_SECONDS
-            - elapsed
-        )
+        remaining = RUN_SECONDS - elapsed
 
         try:
-
             print(
                 f"=== CONNECTING {WS_URL} ===",
                 flush=True
@@ -538,37 +424,30 @@ def collect():
             timer.cancel()
 
         except Exception as e:
-
             print(
                 f"COLLECTOR ERROR: {e}",
                 flush=True
             )
 
-        elapsed = (
-            time.monotonic()
-            - start_time
-        )
+        elapsed = time.monotonic() - start_time
 
         if elapsed >= RUN_SECONDS:
-
             print(
                 "=== COLLECTION TIME COMPLETE ===",
                 flush=True
             )
-
             break
 
         if running:
+            print(
+                f"=== RECONNECTING IN "
+                f"{RECONNECT_DELAY}s ===",
+                flush=True
+            )
 
             sleep_time = min(
                 RECONNECT_DELAY,
                 RUN_SECONDS - elapsed
-            )
-
-            print(
-                f"=== RECONNECTING IN "
-                f"{sleep_time:.1f}s ===",
-                flush=True
             )
 
             if sleep_time > 0:
@@ -583,27 +462,17 @@ def collect():
     )
 
 
-# =========================================================
-# MAIN
-# =========================================================
-
 def main():
-
     global last_sequence
-    global last_checkpoint_time
 
     last_sequence = load_last_sequence()
 
     if last_sequence is not None:
-
         print(
-            f"Last saved sequence: "
-            f"{last_sequence}",
+            f"Last saved sequence: {last_sequence}",
             flush=True
         )
-
     else:
-
         print(
             "No previous sequence found.",
             flush=True
@@ -611,30 +480,16 @@ def main():
 
     open_csv()
 
-    # Start checkpoint clock AFTER CSV is ready.
-    last_checkpoint_time = time.monotonic()
-
-    checkpoint_thread = threading.Thread(
-        target=checkpoint_worker,
-        daemon=True
-    )
-
-    checkpoint_thread.start()
-
     try:
-
         collect()
 
     finally:
-
-        running = False
+        close_csv()
 
         print(
             "=== FINAL GIT CHECKPOINT ===",
             flush=True
         )
-
-        close_csv()
 
         git_checkpoint()
 
