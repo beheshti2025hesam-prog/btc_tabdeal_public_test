@@ -9,13 +9,11 @@ import time
 import websocket
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
-
 WS_URL = "wss://api1.tabdeal.org/special_margin/broadcast/"
 SYMBOL = "BTC_USDT"
+
 OUTPUT_FILE = "data/trades.csv"
+ARCHIVE_DIR = "data/archive"
 
 RECONNECT_DELAY = 5
 
@@ -25,14 +23,16 @@ RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
 
+# Active CSV size management
+MAX_ACTIVE_ROWS = 150000
+ARCHIVE_BATCH_ROWS = 50000
 
-# ============================================================
-# RUNTIME STATE
-# ============================================================
 
 running = True
 last_sequence = None
 trade_count = 0
+
+active_rows = 0
 
 csv_file = None
 csv_writer = None
@@ -43,16 +43,28 @@ last_checkpoint_time = time.time()
 
 
 # ============================================================
-# LOAD LAST SEQUENCE
+# CSV / FILE UTILITIES
 # ============================================================
 
-def load_last_sequence():
+def flush_csv():
+    global csv_file
 
+    if csv_file:
+        try:
+            csv_file.flush()
+            os.fsync(csv_file.fileno())
+        except Exception as e:
+            print(
+                f"CSV FLUSH ERROR: {e}",
+                flush=True
+            )
+
+
+def load_last_sequence():
     if not os.path.exists(OUTPUT_FILE):
         return None
 
     try:
-
         with open(
             OUTPUT_FILE,
             "r",
@@ -60,19 +72,16 @@ def load_last_sequence():
         ) as f:
 
             reader = csv.DictReader(f)
+
             last_row = None
 
             for row in reader:
                 last_row = row
 
             if last_row and last_row.get("sequence"):
-
-                return int(
-                    last_row["sequence"]
-                )
+                return int(last_row["sequence"])
 
     except Exception as e:
-
         print(
             f"Could not read last sequence: {e}",
             flush=True
@@ -81,29 +90,53 @@ def load_last_sequence():
     return None
 
 
-# ============================================================
-# CSV
-# ============================================================
+def count_active_rows():
+    if not os.path.exists(OUTPUT_FILE):
+        return 0
+
+    try:
+        with open(
+            OUTPUT_FILE,
+            "r",
+            encoding="utf-8"
+        ) as f:
+
+            reader = csv.reader(f)
+
+            next(reader, None)
+
+            return sum(
+                1
+                for _ in reader
+            )
+
+    except Exception as e:
+        print(
+            f"Could not count active CSV rows: {e}",
+            flush=True
+        )
+
+        return 0
+
 
 def open_csv():
-
     global csv_file
     global csv_writer
+    global active_rows
+
+    os.makedirs(
+        os.path.dirname(OUTPUT_FILE),
+        exist_ok=True
+    )
+
+    os.makedirs(
+        ARCHIVE_DIR,
+        exist_ok=True
+    )
 
     file_exists = os.path.exists(
         OUTPUT_FILE
     )
-
-    directory = os.path.dirname(
-        OUTPUT_FILE
-    )
-
-    if directory:
-
-        os.makedirs(
-            directory,
-            exist_ok=True
-        )
 
     file_empty = (
         not file_exists
@@ -122,7 +155,6 @@ def open_csv():
     )
 
     if file_empty:
-
         csv_writer.writerow([
             "symbol",
             "price",
@@ -132,62 +164,234 @@ def open_csv():
             "sequence"
         ])
 
-        csv_file.flush()
+        flush_csv()
 
-        try:
-            os.fsync(
-                csv_file.fileno()
-            )
-        except Exception:
-            pass
+        active_rows = 0
+
+    else:
+        active_rows = count_active_rows()
+
+    print(
+        f"Active CSV rows: {active_rows}",
+        flush=True
+    )
 
 
 def close_csv():
-
     global csv_file
+    global csv_writer
 
     if csv_file:
-
         try:
-
-            csv_file.flush()
-
-            try:
-                os.fsync(
-                    csv_file.fileno()
-                )
-            except Exception:
-                pass
-
+            flush_csv()
             csv_file.close()
-
         except Exception:
             pass
 
-        csv_file = None
+    csv_file = None
+    csv_writer = None
 
 
-def flush_csv():
+# ============================================================
+# ARCHIVE MANAGEMENT
+# ============================================================
 
-    if csv_file:
+def archive_old_rows():
+    global active_rows
+    global csv_file
+    global csv_writer
+
+    print(
+        "=== CSV ARCHIVE START ===",
+        flush=True
+    )
+
+    print(
+        f"Active rows before archive: {active_rows}",
+        flush=True
+    )
+
+    print(
+        f"Moving oldest rows: {ARCHIVE_BATCH_ROWS}",
+        flush=True
+    )
+
+    if active_rows < MAX_ACTIVE_ROWS:
+        print(
+            "Archive not required.",
+            flush=True
+        )
+        return True
+
+    close_csv()
+
+    os.makedirs(
+        ARCHIVE_DIR,
+        exist_ok=True
+    )
+
+    timestamp = time.strftime(
+        "%Y%m%d_%H%M%S",
+        time.gmtime()
+    )
+
+    archive_file = os.path.join(
+        ARCHIVE_DIR,
+        f"trades_archive_{timestamp}.csv"
+    )
+
+    temp_archive = (
+        archive_file + ".tmp"
+    )
+
+    temp_active = (
+        OUTPUT_FILE + ".tmp"
+    )
+
+    try:
+        archived_count = 0
+        remaining_count = 0
+
+        with open(
+            OUTPUT_FILE,
+            "r",
+            newline="",
+            encoding="utf-8"
+        ) as source:
+
+            reader = csv.reader(source)
+
+            header = next(reader)
+
+            with open(
+                temp_archive,
+                "w",
+                newline="",
+                encoding="utf-8"
+            ) as archive_out:
+
+                archive_writer = csv.writer(
+                    archive_out
+                )
+
+                archive_writer.writerow(
+                    header
+                )
+
+                with open(
+                    temp_active,
+                    "w",
+                    newline="",
+                    encoding="utf-8"
+                ) as active_out:
+
+                    active_writer = csv.writer(
+                        active_out
+                    )
+
+                    active_writer.writerow(
+                        header
+                    )
+
+                    for row in reader:
+
+                        if (
+                            archived_count
+                            < ARCHIVE_BATCH_ROWS
+                        ):
+                            archive_writer.writerow(
+                                row
+                            )
+
+                            archived_count += 1
+
+                        else:
+                            active_writer.writerow(
+                                row
+                            )
+
+                            remaining_count += 1
+
+                    archive_out.flush()
+                    os.fsync(
+                        archive_out.fileno()
+                    )
+
+                    active_out.flush()
+                    os.fsync(
+                        active_out.fileno()
+                    )
+
+        if archived_count != ARCHIVE_BATCH_ROWS:
+            raise RuntimeError(
+                "Archive row count mismatch"
+            )
+
+        os.replace(
+            temp_archive,
+            archive_file
+        )
+
+        os.replace(
+            temp_active,
+            OUTPUT_FILE
+        )
+
+        active_rows = remaining_count
+
+        print(
+            f"Archived rows: {archived_count}",
+            flush=True
+        )
+
+        print(
+            f"Active rows after archive: {active_rows}",
+            flush=True
+        )
+
+        print(
+            f"Archive file: {archive_file}",
+            flush=True
+        )
+
+        print(
+            "=== CSV ARCHIVE COMPLETE ===",
+            flush=True
+        )
+
+        open_csv()
+
+        return True
+
+    except Exception as e:
+
+        print(
+            f"=== CSV ARCHIVE ERROR: {e} ===",
+            flush=True
+        )
 
         try:
+            if os.path.exists(temp_archive):
+                os.remove(temp_archive)
+        except Exception:
+            pass
 
-            csv_file.flush()
+        try:
+            if os.path.exists(temp_active):
+                os.remove(temp_active)
+        except Exception:
+            pass
 
-            try:
-                os.fsync(
-                    csv_file.fileno()
-                )
-            except Exception:
-                pass
+        open_csv()
 
-        except Exception as e:
+        return False
 
-            print(
-                f"CSV FLUSH ERROR: {e}",
-                flush=True
-            )
+
+def ensure_archive_capacity():
+    if active_rows >= MAX_ACTIVE_ROWS:
+        return archive_old_rows()
+
+    return True
 
 
 # ============================================================
@@ -195,7 +399,6 @@ def flush_csv():
 # ============================================================
 
 def run_git(command):
-
     return subprocess.run(
         command,
         check=True
@@ -203,13 +406,12 @@ def run_git(command):
 
 
 def prepare_git_checkpoint():
+    print(
+        "=== PREPARING GIT CHECKPOINT ===",
+        flush=True
+    )
 
-    """
-    Prepare the local repository for a checkpoint.
-
-    The repository is synchronized with origin/main
-    before staging the latest CSV.
-    """
+    flush_csv()
 
     run_git([
         "git",
@@ -228,20 +430,19 @@ def prepare_git_checkpoint():
     run_git([
         "git",
         "add",
-        OUTPUT_FILE
+        OUTPUT_FILE,
+        ARCHIVE_DIR
     ])
 
 
 def commit_if_needed():
-
     result = subprocess.run(
         [
             "git",
             "diff",
             "--cached",
             "--quiet"
-        ],
-        check=False
+        ]
     )
 
     if result.returncode == 0:
@@ -265,15 +466,6 @@ def commit_if_needed():
 
 def push_checkpoint(max_retries=3):
 
-    """
-    Push the current checkpoint.
-
-    If another remote change appears, refresh origin/main,
-    rebuild the checkpoint commit and retry.
-
-    Git failure does NOT stop the collector.
-    """
-
     for attempt in range(
         1,
         max_retries + 1
@@ -282,8 +474,7 @@ def push_checkpoint(max_retries=3):
         try:
 
             print(
-                f"=== GIT PUSH ATTEMPT "
-                f"{attempt}/{max_retries} ===",
+                f"=== GIT PUSH ATTEMPT {attempt}/{max_retries} ===",
                 flush=True
             )
 
@@ -301,82 +492,51 @@ def push_checkpoint(max_retries=3):
 
             return True
 
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
 
             print(
-                f"=== GIT PUSH FAILED "
-                f"ATTEMPT {attempt}: {e} ===",
+                f"GIT PUSH ERROR: {e}",
                 flush=True
             )
 
             if attempt >= max_retries:
-                break
+                print(
+                    "=== GIT PUSH FAILED AFTER RETRIES ===",
+                    flush=True
+                )
+
+                return False
 
             try:
-
-                print(
-                    "=== REFRESHING REMOTE STATE "
-                    "FOR RETRY ===",
-                    flush=True
-                )
-
                 prepare_git_checkpoint()
 
-                if not commit_if_needed():
+                committed = commit_if_needed()
 
-                    print(
-                        "=== NOTHING TO PUSH AFTER RETRY PREPARATION ===",
-                        flush=True
-                    )
-
+                if not committed:
                     return True
 
-            except Exception as retry_error:
+            except Exception as refresh_error:
 
                 print(
-                    f"=== GIT RETRY PREPARATION ERROR: "
-                    f"{retry_error} ===",
+                    f"GIT REFRESH ERROR: {refresh_error}",
                     flush=True
                 )
-
-                break
-
-            time.sleep(2)
-
-        except Exception as e:
-
-            print(
-                f"=== UNEXPECTED GIT PUSH ERROR: {e} ===",
-                flush=True
-            )
-
-            break
-
-    print(
-        "=== GIT PUSH FAILED - "
-        "COLLECTOR WILL CONTINUE ===",
-        flush=True
-    )
 
     return False
 
 
-# ============================================================
-# GIT CHECKPOINT
-# ============================================================
-
 def git_checkpoint():
-
     global last_checkpoint_time
 
     try:
-
-        flush_csv()
 
         print(
             "=== GIT CHECKPOINT START ===",
             flush=True
         )
+
+        if csv_file:
+            flush_csv()
 
         run_git([
             "git",
@@ -394,12 +554,10 @@ def git_checkpoint():
 
         prepare_git_checkpoint()
 
-        has_commit = commit_if_needed()
+        committed = commit_if_needed()
 
-        if not has_commit:
-
+        if not committed:
             last_checkpoint_time = time.time()
-
             return True
 
         success = push_checkpoint(
@@ -407,23 +565,10 @@ def git_checkpoint():
         )
 
         if success:
+            last_checkpoint_time = time.time()
+            return True
 
-            print(
-                "=== GIT CHECKPOINT COMPLETE ===",
-                flush=True
-            )
-
-        else:
-
-            print(
-                "=== GIT CHECKPOINT FAILED "
-                "BUT COLLECTOR CONTINUES ===",
-                flush=True
-            )
-
-        last_checkpoint_time = time.time()
-
-        return success
+        return False
 
     except Exception as e:
 
@@ -432,19 +577,8 @@ def git_checkpoint():
             flush=True
         )
 
-        print(
-            "=== COLLECTOR WILL CONTINUE ===",
-            flush=True
-        )
-
-        last_checkpoint_time = time.time()
-
         return False
 
-
-# ============================================================
-# PERIODIC CHECKPOINT
-# ============================================================
 
 def maybe_checkpoint():
 
@@ -458,13 +592,13 @@ def maybe_checkpoint():
 
 
 # ============================================================
-# SAVE TRADE
+# TRADE SAVING
 # ============================================================
 
 def save_trade(trade):
-
     global last_sequence
     global trade_count
+    global active_rows
 
     sequence_raw = trade.get(
         "sequence"
@@ -474,21 +608,34 @@ def save_trade(trade):
         return
 
     try:
-
         sequence = int(
             sequence_raw
         )
 
-    except (ValueError, TypeError):
-
+    except (
+        ValueError,
+        TypeError
+    ):
         return
 
     if (
         last_sequence is not None
         and sequence <= last_sequence
     ):
-
         return
+
+    # Keep active CSV below the maximum.
+    if active_rows >= MAX_ACTIVE_ROWS:
+
+        success = ensure_archive_capacity()
+
+        if not success:
+            print(
+                "ARCHIVE FAILED - TRADE NOT WRITTEN",
+                flush=True
+            )
+
+            return
 
     csv_writer.writerow([
         trade.get("symbol"),
@@ -502,8 +649,8 @@ def save_trade(trade):
     flush_csv()
 
     last_sequence = sequence
-
     trade_count += 1
+    active_rows += 1
 
     print(
         f"SAVED | "
@@ -519,16 +666,14 @@ def save_trade(trade):
 
 
 # ============================================================
-# SIGNAL HANDLING
+# SIGNALS
 # ============================================================
 
 def stop_collector(
     signum=None,
     frame=None
 ):
-
     global running
-    global current_ws
 
     print(
         "\n=== STOP SIGNAL RECEIVED ===",
@@ -537,23 +682,13 @@ def stop_collector(
 
     running = False
 
-    if current_ws is not None:
+    if current_ws:
 
         try:
-
-            print(
-                "=== CLOSING WEBSOCKET FOR CLEAN SHUTDOWN ===",
-                flush=True
-            )
-
             current_ws.close()
 
-        except Exception as e:
-
-            print(
-                f"WEBSOCKET CLOSE ERROR: {e}",
-                flush=True
-            )
+        except Exception:
+            pass
 
 
 signal.signal(
@@ -586,7 +721,10 @@ def on_open(ws):
     ws.send(SYMBOL)
 
 
-def on_message(ws, message):
+def on_message(
+    ws,
+    message
+):
 
     try:
 
@@ -622,7 +760,10 @@ def on_message(ws, message):
         )
 
 
-def on_error(ws, error):
+def on_error(
+    ws,
+    error
+):
 
     print(
         f"=== WEBSOCKET ERROR === {error}",
@@ -649,8 +790,7 @@ def close_websocket(ws):
     try:
 
         print(
-            "=== COLLECTION TIMER: "
-            "CLOSING WEBSOCKET ===",
+            "=== COLLECTION TIMER: CLOSING WEBSOCKET ===",
             flush=True
         )
 
@@ -665,11 +805,10 @@ def close_websocket(ws):
 
 
 # ============================================================
-# COLLECT
+# COLLECTION
 # ============================================================
 
 def collect():
-
     global running
     global current_ws
 
@@ -687,6 +826,21 @@ def collect():
 
     print(
         f"Output: {OUTPUT_FILE}",
+        flush=True
+    )
+
+    print(
+        f"Archive: {ARCHIVE_DIR}",
+        flush=True
+    )
+
+    print(
+        f"Max active rows: {MAX_ACTIVE_ROWS}",
+        flush=True
+    )
+
+    print(
+        f"Archive batch rows: {ARCHIVE_BATCH_ROWS}",
         flush=True
     )
 
@@ -745,7 +899,6 @@ def collect():
             )
 
             timer.daemon = True
-
             timer.start()
 
             try:
@@ -759,7 +912,8 @@ def collect():
 
                 timer.cancel()
 
-                current_ws = None
+                if current_ws is ws:
+                    current_ws = None
 
         except Exception as e:
 
@@ -796,7 +950,6 @@ def collect():
             )
 
             if sleep_time > 0:
-
                 time.sleep(
                     sleep_time
                 )
@@ -815,10 +968,11 @@ def collect():
 # ============================================================
 
 def main():
-
     global last_sequence
 
-    last_sequence = load_last_sequence()
+    last_sequence = (
+        load_last_sequence()
+    )
 
     if last_sequence is not None:
 
@@ -842,11 +996,8 @@ def main():
 
     finally:
 
-        # ----------------------------------------------------
-        # Always flush/close CSV safely
-        # ----------------------------------------------------
-
-        flush_csv()
+        if csv_file:
+            flush_csv()
 
         print(
             "=== FINAL GIT CHECKPOINT ===",
@@ -863,10 +1014,5 @@ def main():
         )
 
 
-# ============================================================
-# ENTRY POINT
-# ============================================================
-
 if __name__ == "__main__":
-
     main()
