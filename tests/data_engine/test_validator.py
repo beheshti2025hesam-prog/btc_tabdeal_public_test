@@ -1,0 +1,98 @@
+"""
+Tests for Mother Agent Raw Data Validator.
+"""
+
+from core.data_engine.validator import RawDataValidator
+
+
+def valid_raw_row():
+    return {
+        "symbol": "BTC_USDT",
+        "price": "100000.50",
+        "amount": "0.001",
+        "side": "buy",
+        "updated": "2026-09-20T10:00:00Z",
+        "sequence": "123456",
+    }
+
+
+def test_valid_row_has_no_errors():
+    validator = RawDataValidator()
+
+    errors = validator.validate_row(valid_raw_row())
+
+    assert errors == []
+
+
+def test_missing_required_column_is_detected():
+    validator = RawDataValidator()
+
+    row = valid_raw_row()
+    del row["price"]
+
+    errors = validator.validate_row(row)
+
+    assert any("Missing columns" in error for error in errors)
+
+
+def test_empty_symbol_is_detected():
+    validator = RawDataValidator()
+
+    row = valid_raw_row()
+    row["symbol"] = ""
+
+    errors = validator.validate_row(row)
+
+    assert "Empty symbol" in errors
+
+
+def test_invalid_price_is_detected():
+    validator = RawDataValidator()
+
+    row = valid_raw_row()
+    row["price"] = "not-a-number"
+
+    errors = validator.validate_row(row)
+
+    assert "Invalid price" in errors
+
+
+def test_invalid_amount_is_detected():
+    validator = RawDataValidator()
+
+    row = valid_raw_row()
+    row["amount"] = "not-a-number"
+
+    errors = validator.validate_row(row)
+
+    assert "Invalid amount" in errors
+
+
+def test_invalid_sequence_is_detected():
+    validator = RawDataValidator()
+
+    row = valid_raw_row()
+    row["sequence"] = "not-an-integer"
+
+    errors = validator.validate_row(row)
+
+    assert "Invalid sequence" in errors
+
+
+def test_validate_rows_returns_summary():
+    validator = RawDataValidator()
+
+    valid_row = valid_raw_row()
+
+    invalid_row = valid_raw_row()
+    invalid_row["price"] = "invalid"
+
+    result = validator.validate_rows(
+        [valid_row, invalid_row]
+    )
+
+    assert result == {
+        "total_rows": 2,
+        "valid_rows": 1,
+        "invalid_rows": 1,
+    }
