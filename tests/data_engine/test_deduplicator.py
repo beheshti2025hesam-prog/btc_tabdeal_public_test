@@ -23,7 +23,7 @@ def make_trade(event_id, sequence=1):
             20,
             10,
             0,
-            sequence,
+            0,
             tzinfo=timezone.utc,
         ),
         sequence=sequence,
@@ -40,7 +40,9 @@ def test_unique_trades_are_preserved():
         make_trade("event-3", 3),
     ]
 
-    result = list(deduplicator.deduplicate(trades))
+    result = list(
+        deduplicator.deduplicate(trades)
+    )
 
     assert result == trades
 
