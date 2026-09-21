@@ -60,248 +60,34 @@ def flush_csv():
             )
 
 
-def get_max_sequence_from_file(file_path):
-    """
-    Return the maximum valid sequence found in a CSV file.
-
-    Physical row order is intentionally ignored.
-    """
-
-    max_sequence = None
-
-    if not os.path.exists(file_path):
+def load_last_sequence():
+    if not os.path.exists(OUTPUT_FILE):
         return None
 
     try:
         with open(
-            file_path,
+            OUTPUT_FILE,
             "r",
-            encoding="utf-8",
-            newline=""
+            encoding="utf-8"
         ) as f:
 
             reader = csv.DictReader(f)
 
-            for row in reader:
-
-                sequence = row.get("sequence")
-
-                if not sequence:
-                    continue
-
-                try:
-                    sequence = int(sequence)
-
-                except (
-                    ValueError,
-                    TypeError
-                ):
-                    continue
-
-                if (
-                    max_sequence is None
-                    or sequence > max_sequence
-                ):
-                    max_sequence = sequence
-
-    except Exception as e:
-
-        print(
-            f"Error reading sequence from {file_path}: {e}",
-            flush=True
-        )
-
-    return max_sequence
-
-
-def get_last_physical_sequence(file_path):
-    """
-    Return the sequence from the last physical CSV row.
-
-    This is diagnostic only and is NOT used for recovery.
-    """
-
-    last_sequence = None
-
-    if not os.path.exists(file_path):
-        return None
-
-    try:
-        with open(
-            file_path,
-            "r",
-            encoding="utf-8",
-            newline=""
-        ) as f:
-
-            reader = csv.DictReader(f)
+            last_row = None
 
             for row in reader:
-                last_sequence = row.get("sequence")
+                last_row = row
+
+            if last_row and last_row.get("sequence"):
+                return int(last_row["sequence"])
 
     except Exception as e:
-
         print(
-            f"Error reading physical last row from {file_path}: {e}",
+            f"Could not read last sequence: {e}",
             flush=True
         )
-
-    if last_sequence:
-
-        try:
-            return int(last_sequence)
-
-        except (
-            ValueError,
-            TypeError
-        ):
-            return None
 
     return None
-
-
-def load_global_last_sequence():
-    """
-    Recover the latest sequence globally from:
-
-    1. Active CSV
-    2. All archive CSV files
-
-    Recovery uses the maximum valid sequence across
-    Active + Archives.
-
-    Physical CSV row order is NOT trusted.
-    """
-
-    print(
-        "=== SEQUENCE RECOVERY START ===",
-        flush=True
-    )
-
-    # --------------------------------------------------------
-    # ACTIVE CSV
-    # --------------------------------------------------------
-
-    active_max = get_max_sequence_from_file(
-        OUTPUT_FILE
-    )
-
-    active_last_physical = get_last_physical_sequence(
-        OUTPUT_FILE
-    )
-
-    print(
-        f"Active last physical sequence: {active_last_physical}",
-        flush=True
-    )
-
-    print(
-        f"Active MAX sequence: {active_max}",
-        flush=True
-    )
-
-    # --------------------------------------------------------
-    # ARCHIVES
-    # --------------------------------------------------------
-
-    archive_max = None
-
-    if os.path.isdir(ARCHIVE_DIR):
-
-        for filename in os.listdir(ARCHIVE_DIR):
-
-            if not filename.lower().endswith(".csv"):
-                continue
-
-            file_path = os.path.join(
-                ARCHIVE_DIR,
-                filename
-            )
-
-            file_max = get_max_sequence_from_file(
-                file_path
-            )
-
-            if file_max is None:
-                continue
-
-            if (
-                archive_max is None
-                or file_max > archive_max
-            ):
-                archive_max = file_max
-
-    print(
-        f"Archive MAX sequence: {archive_max}",
-        flush=True
-    )
-
-    # --------------------------------------------------------
-    # GLOBAL MAX
-    # --------------------------------------------------------
-
-    sequences = []
-
-    if active_max is not None:
-        sequences.append(active_max)
-
-    if archive_max is not None:
-        sequences.append(archive_max)
-
-    if not sequences:
-
-        global_max = None
-
-    else:
-
-        global_max = max(
-            sequences
-        )
-
-    print(
-        f"GLOBAL MAX sequence: {global_max}",
-        flush=True
-    )
-
-    # --------------------------------------------------------
-    # DIAGNOSTIC WARNING
-    # --------------------------------------------------------
-
-    if (
-        active_last_physical is not None
-        and active_max is not None
-        and active_last_physical != active_max
-    ):
-
-        print(
-            "WARNING: CSV physical order is not chronological.",
-            flush=True
-        )
-
-    # --------------------------------------------------------
-    # FINAL RECOVERY RESULT
-    # --------------------------------------------------------
-
-    if global_max is None:
-
-        print(
-            "No valid sequence found. Starting without sequence recovery.",
-            flush=True
-        )
-
-    else:
-
-        print(
-            f"Using GLOBAL MAX sequence: {global_max}",
-            flush=True
-        )
-
-    print(
-        "=== SEQUENCE RECOVERY COMPLETE ===",
-        flush=True
-    )
-
-    return global_max
 
 
 def count_active_rows():
@@ -325,7 +111,6 @@ def count_active_rows():
             )
 
     except Exception as e:
-
         print(
             f"Could not count active CSV rows: {e}",
             flush=True
@@ -370,7 +155,6 @@ def open_csv():
     )
 
     if file_empty:
-
         csv_writer.writerow([
             "symbol",
             "price",
@@ -385,7 +169,6 @@ def open_csv():
         active_rows = 0
 
     else:
-
         active_rows = count_active_rows()
 
     print(
@@ -399,11 +182,9 @@ def close_csv():
     global csv_writer
 
     if csv_file:
-
         try:
             flush_csv()
             csv_file.close()
-
         except Exception:
             pass
 
@@ -436,12 +217,10 @@ def archive_old_rows():
     )
 
     if active_rows < MAX_ACTIVE_ROWS:
-
         print(
             "Archive not required.",
             flush=True
         )
-
         return True
 
     close_csv()
@@ -470,7 +249,6 @@ def archive_old_rows():
     )
 
     try:
-
         archived_count = 0
         remaining_count = 0
 
@@ -521,7 +299,6 @@ def archive_old_rows():
                             archived_count
                             < ARCHIVE_BATCH_ROWS
                         ):
-
                             archive_writer.writerow(
                                 row
                             )
@@ -529,7 +306,6 @@ def archive_old_rows():
                             archived_count += 1
 
                         else:
-
                             active_writer.writerow(
                                 row
                             )
@@ -537,19 +313,16 @@ def archive_old_rows():
                             remaining_count += 1
 
                     archive_out.flush()
-
                     os.fsync(
                         archive_out.fileno()
                     )
 
                     active_out.flush()
-
                     os.fsync(
                         active_out.fileno()
                     )
 
         if archived_count != ARCHIVE_BATCH_ROWS:
-
             raise RuntimeError(
                 "Archive row count mismatch"
             )
@@ -598,18 +371,14 @@ def archive_old_rows():
         )
 
         try:
-
             if os.path.exists(temp_archive):
                 os.remove(temp_archive)
-
         except Exception:
             pass
 
         try:
-
             if os.path.exists(temp_active):
                 os.remove(temp_active)
-
         except Exception:
             pass
 
@@ -619,9 +388,7 @@ def archive_old_rows():
 
 
 def ensure_archive_capacity():
-
     if active_rows >= MAX_ACTIVE_ROWS:
-
         return archive_old_rows()
 
     return True
@@ -632,7 +399,6 @@ def ensure_archive_capacity():
 # ============================================================
 
 def run_git(command):
-
     return subprocess.run(
         command,
         check=True
@@ -640,7 +406,6 @@ def run_git(command):
 
 
 def prepare_git_checkpoint():
-
     print(
         "=== PREPARING GIT CHECKPOINT ===",
         flush=True
@@ -671,13 +436,14 @@ def prepare_git_checkpoint():
 
 
 def commit_if_needed():
-
-    result = subprocess.run([
-        "git",
-        "diff",
-        "--cached",
-        "--quiet"
-    ])
+    result = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--cached",
+            "--quiet"
+        ]
+    )
 
     if result.returncode == 0:
 
@@ -734,7 +500,6 @@ def push_checkpoint(max_retries=3):
             )
 
             if attempt >= max_retries:
-
                 print(
                     "=== GIT PUSH FAILED AFTER RETRIES ===",
                     flush=True
@@ -743,7 +508,6 @@ def push_checkpoint(max_retries=3):
                 return False
 
             try:
-
                 prepare_git_checkpoint()
 
                 committed = commit_if_needed()
@@ -762,7 +526,6 @@ def push_checkpoint(max_retries=3):
 
 
 def git_checkpoint():
-
     global last_checkpoint_time
 
     try:
@@ -794,9 +557,7 @@ def git_checkpoint():
         committed = commit_if_needed()
 
         if not committed:
-
             last_checkpoint_time = time.time()
-
             return True
 
         success = push_checkpoint(
@@ -804,9 +565,7 @@ def git_checkpoint():
         )
 
         if success:
-
             last_checkpoint_time = time.time()
-
             return True
 
         return False
@@ -837,7 +596,6 @@ def maybe_checkpoint():
 # ============================================================
 
 def save_trade(trade):
-
     global last_sequence
     global trade_count
     global active_rows
@@ -850,7 +608,6 @@ def save_trade(trade):
         return
 
     try:
-
         sequence = int(
             sequence_raw
         )
@@ -859,14 +616,12 @@ def save_trade(trade):
         ValueError,
         TypeError
     ):
-
         return
 
     if (
         last_sequence is not None
         and sequence <= last_sequence
     ):
-
         return
 
     # Keep active CSV below the maximum.
@@ -875,7 +630,6 @@ def save_trade(trade):
         success = ensure_archive_capacity()
 
         if not success:
-
             print(
                 "ARCHIVE FAILED - TRADE NOT WRITTEN",
                 flush=True
@@ -895,9 +649,7 @@ def save_trade(trade):
     flush_csv()
 
     last_sequence = sequence
-
     trade_count += 1
-
     active_rows += 1
 
     print(
@@ -921,7 +673,6 @@ def stop_collector(
     signum=None,
     frame=None
 ):
-
     global running
 
     print(
@@ -1058,7 +809,6 @@ def close_websocket(ws):
 # ============================================================
 
 def collect():
-
     global running
     global current_ws
 
@@ -1149,7 +899,6 @@ def collect():
             )
 
             timer.daemon = True
-
             timer.start()
 
             try:
@@ -1201,7 +950,6 @@ def collect():
             )
 
             if sleep_time > 0:
-
                 time.sleep(
                     sleep_time
                 )
@@ -1220,12 +968,25 @@ def collect():
 # ============================================================
 
 def main():
-
     global last_sequence
 
     last_sequence = (
-        load_global_last_sequence()
+        load_last_sequence()
     )
+
+    if last_sequence is not None:
+
+        print(
+            f"Last saved sequence: {last_sequence}",
+            flush=True
+        )
+
+    else:
+
+        print(
+            "No previous sequence found.",
+            flush=True
+        )
 
     open_csv()
 
