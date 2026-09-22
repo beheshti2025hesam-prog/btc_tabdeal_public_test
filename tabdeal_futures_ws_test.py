@@ -60,6 +60,172 @@ def flush_csv():
             )
 
 
+def get_max_sequence_from_file(file_path):
+    max_sequence = None
+
+    if not os.path.exists(file_path):
+        return None
+
+    try:
+        with open(
+            file_path,
+            "r",
+            encoding="utf-8",
+            newline=""
+        ) as f:
+            reader = csv.DictReader(f)
+
+            for row in reader:
+                sequence = row.get("sequence")
+
+                if not sequence:
+                    continue
+
+                try:
+                    sequence = int(sequence)
+                except (ValueError, TypeError):
+                    continue
+
+                if max_sequence is None or sequence > max_sequence:
+                    max_sequence = sequence
+
+    except Exception as e:
+        print(
+            f"Error reading sequence from {file_path}: {e}",
+            flush=True
+        )
+
+    return max_sequence
+
+
+def get_last_physical_sequence(file_path):
+    last_sequence = None
+
+    if not os.path.exists(file_path):
+        return None
+
+    try:
+        with open(
+            file_path,
+            "r",
+            encoding="utf-8",
+            newline=""
+        ) as f:
+            reader = csv.DictReader(f)
+
+            for row in reader:
+                last_sequence = row.get("sequence")
+
+    except Exception as e:
+        print(
+            f"Error reading physical last row from {file_path}: {e}",
+            flush=True
+        )
+
+    if last_sequence:
+        try:
+            return int(last_sequence)
+        except (ValueError, TypeError):
+            return None
+
+    return None
+
+
+def load_global_last_sequence():
+    print(
+        "=== SEQUENCE RECOVERY START ===",
+        flush=True
+    )
+
+    active_max = get_max_sequence_from_file(
+        OUTPUT_FILE
+    )
+
+    active_last_physical = get_last_physical_sequence(
+        OUTPUT_FILE
+    )
+
+    print(
+        f"Active last physical sequence: {active_last_physical}",
+        flush=True
+    )
+
+    print(
+        f"Active MAX sequence: {active_max}",
+        flush=True
+    )
+
+    archive_max = None
+
+    if os.path.isdir(ARCHIVE_DIR):
+        for filename in os.listdir(ARCHIVE_DIR):
+            if not filename.lower().endswith(".csv"):
+                continue
+
+            file_path = os.path.join(
+                ARCHIVE_DIR,
+                filename
+            )
+
+            file_max = get_max_sequence_from_file(
+                file_path
+            )
+
+            if file_max is None:
+                continue
+
+            if archive_max is None or file_max > archive_max:
+                archive_max = file_max
+
+    print(
+        f"Archive MAX sequence: {archive_max}",
+        flush=True
+    )
+
+    sequences = []
+
+    if active_max is not None:
+        sequences.append(active_max)
+
+    if archive_max is not None:
+        sequences.append(archive_max)
+
+    global_max = max(sequences) if sequences else None
+
+    print(
+        f"GLOBAL MAX sequence: {global_max}",
+        flush=True
+    )
+
+    if (
+        active_last_physical is not None
+        and active_max is not None
+        and active_last_physical != active_max
+    ):
+        print(
+            "WARNING: CSV physical order is not chronological.",
+            flush=True
+        )
+
+    if global_max is None:
+        print(
+            "No valid sequence found. Starting without sequence recovery.",
+            flush=True
+        )
+    else:
+        print(
+            f"Using GLOBAL MAX sequence: {global_max}",
+            flush=True
+        )
+
+    print(
+        "=== SEQUENCE RECOVERY COMPLETE ===",
+        flush=True
+    )
+
+    return global_max
+
+
 def load_last_sequence():
     if not os.path.exists(OUTPUT_FILE):
         return None
@@ -971,7 +1137,7 @@ def main():
     global last_sequence
 
     last_sequence = (
-        load_last_sequence()
+        load_global_last_sequence()
     )
 
     if last_sequence is not None:
