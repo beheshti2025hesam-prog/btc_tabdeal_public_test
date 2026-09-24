@@ -13,6 +13,7 @@ from core.data_engine.volume import VolumeSnapshot, VolumeIntelligenceCalculator
 from core.data_engine.vwap import VWAPSnapshot, VWAPCalculator
 from core.data_engine.ema import EMAValue, EMACalculator
 from core.data_engine.support_resistance import PriceLevel, SupportResistanceCalculator
+from core.data_engine.feature_engine import FeatureSnapshot, FeatureEngine
 
 __all__ = [
     "Candle",
@@ -31,4 +32,6 @@ __all__ = [
     "EMACalculator",
     "PriceLevel",
     "SupportResistanceCalculator",
+    "FeatureSnapshot",
+    "FeatureEngine",
 ]
