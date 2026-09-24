@@ -38,9 +38,9 @@ def get_run_seconds():
     environment.
 
     Example:
-        COLLECTOR_RUN_SECONDS=15600
+        COLLECTOR_RUN_SECONDS=16200
 
-    15600 seconds = 4h 20m
+    16200 seconds = 4h 30m
     """
 
     raw_value = os.getenv("COLLECTOR_RUN_SECONDS")
