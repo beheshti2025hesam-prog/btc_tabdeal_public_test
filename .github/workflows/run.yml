@@ -24,6 +24,10 @@ permissions:
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
+  # GitHub's default queue keeps only one pending run and
+  # replaces older pending runs. Keep a bounded FIFO queue
+  # so scheduled collectors are not silently discarded.
+  queue: max
 
 jobs:
   collector:
@@ -35,6 +39,10 @@ jobs:
     timeout-minutes: 350
 
     runs-on: ubuntu-latest
+
+    env:
+      # 4h30m collection + ~18m schedule margin.
+      COLLECTOR_RUN_SECONDS: "16200"
 
     steps:
       - name: Checkout
