@@ -20,7 +20,12 @@ permissions:
   contents: write
 
 # Keep only one Collector run active at a time.
-# Scheduled runs use GitHub's native concurrency behavior; no unsupported queue setting is used.
+# Do not cancel an older run: a scheduled run may be delayed by GitHub and
+# must never interrupt a collector that is already persisting live data.
+#
+# IMPORTANT: manual dispatch uses the same lock intentionally. Running a
+# manual collector beside a scheduled/pending collector could corrupt the
+# shared CSV/archive state.
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
