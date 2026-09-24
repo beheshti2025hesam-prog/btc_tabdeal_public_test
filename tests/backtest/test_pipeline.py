@@ -113,3 +113,12 @@ def test_analysis_only_cannot_enter_backtest_path():
 
     with pytest.raises(ValueError, match="ANALYSIS_ONLY"):
         DecisionBacktestPipeline(mode=SignalMode.ANALYSIS_ONLY)
+
+
+def test_duplicate_snapshot_timestamp_is_rejected():
+    with pytest.raises(ValueError, match="duplicate feature snapshot"):
+        DecisionBacktestPipeline().run(
+            [snapshot(0), snapshot(0)],
+            [candle(1)],
+            levels_by_timestamp={T0: (101.0, 95.0, 110.0)},
+        )
