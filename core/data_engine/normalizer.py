@@ -4,6 +4,7 @@ Data Engine v1.0
 """
 
 import hashlib
+import math
 from datetime import datetime, timezone
 from typing import Dict
 
@@ -64,11 +65,18 @@ class RawDataNormalizer:
         field_name: str,
     ) -> float:
         try:
-            return float(value)
+            parsed = float(value)
         except (ValueError, TypeError) as exc:
             raise ValueError(
                 f"Invalid {field_name}: {value!r}"
             ) from exc
+
+        if not math.isfinite(parsed) or parsed <= 0:
+            raise ValueError(
+                f"Invalid {field_name}: {value!r}"
+            )
+
+        return parsed
 
     @staticmethod
     def _parse_int(
