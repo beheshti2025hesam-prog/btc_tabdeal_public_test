@@ -42,7 +42,8 @@ class StrategyDecisionTests(unittest.TestCase):
         result = StrategyDecisionEngine(
             risk_veto=RiskVeto(max_realized_volatility=0.001)
         ).evaluate(snapshot)
-        self.assertEqual(result.decision, Decision.LONG)
+        self.assertEqual(result.decision, Decision.NO_TRADE)
+        self.assertIn("volatility_above_limit", result.reasons)
 
 
 if __name__ == "__main__":
