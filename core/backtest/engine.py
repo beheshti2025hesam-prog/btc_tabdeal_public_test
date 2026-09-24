@@ -1,10 +1,11 @@
-"""Mother Agent - deterministic candle-path backtest engine v1.0.
+"""Mother Agent - deterministic candle-path backtest engine v1.1.
 
 Research/evaluation only. No live execution and no exchange connectivity.
 """
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable, Sequence
+
 
 from core.data_engine.candles import Candle
 from core.evaluation.metrics import EvaluationMetrics, EvaluationMetricsCalculator
@@ -22,6 +23,8 @@ class BacktestSignal:
     entry_price: float
     stop_price: float
     target_price: float
+    symbol: str | None = None
+    quantity: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,8 @@ class SimulatedTrade:
     fees: float
     net_pnl: float
     exit_reason: str
+    symbol: str | None = None
+    quantity: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -45,14 +50,28 @@ class BacktestResult:
 
 
 class BacktestEngine:
-    """Simulate fixed-risk signal intents against historical candles.
+    """Simulate fixed-quantity signal intents against historical candles.
 
-    Entry occurs at the first candle whose end is after the signal timestamp.
-    Stop/target checks use candle OHLC. If both are touched in one candle,
-    stop wins conservatively because intrabar ordering is unknowable from OHLC.
+    Signals may optionally identify a symbol. Symbol-scoped signals are matched
+    only to candles for that symbol, preventing cross-market contamination.
+    A signal with no symbol keeps v1 compatibility and uses the full candle set.
+
+    Each signal represents one position. Overlapping positions are skipped:
+    this keeps the v1 execution model deterministic and prevents multiple
+    signals from reusing the same open position.
+
+    Entry occurs at the first matching candle whose end is after the signal
+    timestamp. Stop/target checks use candle OHLC. If both are touched in one
+    candle, stop wins conservatively because intrabar ordering is unknowable
+    from OHLC.
     """
 
-    def __init__(self, *, fee_bps: float = 0.0, slippage_bps: float = 0.0):
+    def __init__(
+        self,
+        *,
+        fee_bps: float = 0.0,
+        slippage_bps: float = 0.0,
+    ):
         if fee_bps < 0 or slippage_bps < 0:
             raise ValueError("fee_bps and slippage_bps must be nonnegative")
         self.fee_bps = fee_bps
@@ -66,15 +85,30 @@ class BacktestEngine:
         ordered = sorted(candles, key=lambda c: (c.symbol, c.start))
         signal_list = sorted(signals, key=lambda s: s.timestamp)
         trades: list[SimulatedTrade] = []
+        last_exit_by_symbol: dict[str, object] = {}
 
         for signal in signal_list:
-            if signal.entry_price <= 0 or signal.stop_price <= 0 or signal.target_price <= 0:
+            if (
+                signal.entry_price <= 0
+                or signal.stop_price <= 0
+                or signal.target_price <= 0
+                or signal.quantity <= 0
+            ):
                 continue
-            entry_index = next(
-                (i for i, candle in enumerate(ordered) if candle.end > signal.timestamp),
-                None,
-            )
-            if entry_index is None:
+
+            matching = [
+                candle
+                for candle in ordered
+                if (signal.symbol is None or candle.symbol == signal.symbol)
+                and candle.end > signal.timestamp
+            ]
+            if not matching:
+                continue
+
+            entry_candle = matching[0]
+            position_key = signal.symbol or entry_candle.symbol
+            previous_exit = last_exit_by_symbol.get(position_key)
+            if previous_exit is not None and signal.timestamp < previous_exit:
                 continue
 
             entry = self._apply_entry_slippage(signal.entry_price, signal.side)
@@ -88,7 +122,7 @@ class BacktestEngine:
             exit_price = None
             exit_reason = None
             exit_time = None
-            for candle in ordered[entry_index:]:
+            for candle in matching:
                 if signal.side == BacktestSide.LONG:
                     stop_hit = candle.low <= signal.stop_price
                     target_hit = candle.high >= signal.target_price
@@ -109,17 +143,18 @@ class BacktestEngine:
                 continue
 
             executed_exit = self._apply_exit_slippage(exit_price, signal.side)
-            gross = (
+            gross_per_unit = (
                 executed_exit - entry
                 if signal.side == BacktestSide.LONG
                 else entry - executed_exit
             )
-            notional = abs(entry) + abs(executed_exit)
+            gross = gross_per_unit * signal.quantity
+            notional = (abs(entry) + abs(executed_exit)) * signal.quantity
             fees = notional * (self.fee_bps / 10000.0)
             net = gross - fees
             trades.append(
                 SimulatedTrade(
-                    entry_time=ordered[entry_index].start,
+                    entry_time=entry_candle.start,
                     exit_time=exit_time,
                     side=signal.side,
                     entry_price=entry,
@@ -128,8 +163,11 @@ class BacktestEngine:
                     fees=fees,
                     net_pnl=net,
                     exit_reason=exit_reason,
+                    symbol=entry_candle.symbol,
+                    quantity=signal.quantity,
                 )
             )
+            last_exit_by_symbol[position_key] = exit_time
 
         pnls = [trade.net_pnl for trade in trades]
         metrics = EvaluationMetricsCalculator().calculate(pnls)
