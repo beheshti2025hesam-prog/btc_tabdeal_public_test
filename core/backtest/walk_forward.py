@@ -85,6 +85,8 @@ class WalkForwardRunner:
                     raise ValueError(
                         "walk-forward test data must be timestamp-ordered"
                     )
+                self._validate_timestamp_order(window.train, "training")
+                self._validate_timestamp_order(window.test, "test")
 
             result = evaluator(window.train, window.test)
             results.append(
@@ -99,6 +101,18 @@ class WalkForwardRunner:
                 )
             )
         return tuple(results)
+
+    @staticmethod
+    def _validate_timestamp_order(values, label: str) -> None:
+        timestamps = []
+        for value in values:
+            timestamp = WalkForwardRunner._timestamp_of(value)
+            if timestamp is not None:
+                timestamps.append(timestamp)
+        if any(right < left for left, right in zip(timestamps, timestamps[1:])):
+            raise ValueError(
+                f"walk-forward {label} data must be timestamp-ordered"
+            )
 
     @staticmethod
     def _timestamp_of(value):
