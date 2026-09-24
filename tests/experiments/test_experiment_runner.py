@@ -115,7 +115,7 @@ def test_experiment_runner_rejects_naive_candle_timestamp():
 
 
 def test_experiment_runner_requires_starting_capital():
-    with pytest.raises(ValueError, match="starting capital"):
+    with pytest.raises(ValueError, match="starting_capital"):
         ExperimentRunner(
             spec(),
             splitter=WalkForwardSplitter(train_size=1, test_size=1),
