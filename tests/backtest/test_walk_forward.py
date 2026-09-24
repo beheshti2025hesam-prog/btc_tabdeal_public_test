@@ -31,3 +31,37 @@ def test_zero_step_size_is_rejected_instead_of_silently_defaulting():
         assert "step_size" in str(exc)
     else:
         raise AssertionError("step_size=0 must be rejected")
+
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+
+@dataclass(frozen=True)
+class TimedValue:
+    timestamp: datetime
+    value: int
+
+
+def test_walk_forward_runner_passes_isolated_train_and_test_windows():
+    values = tuple(
+        TimedValue(datetime(2026, 1, 1, tzinfo=timezone.utc), i)
+        for i in range(6)
+    )
+    seen = []
+
+    def evaluator(train, test):
+        seen.append((train, test))
+        return sum(item.value for item in test)
+
+    from core.backtest.walk_forward import WalkForwardRunner
+
+    runs = WalkForwardRunner(
+        WalkForwardSplitter(train_size=3, test_size=2, step_size=2)
+    ).run(values, evaluator)
+
+    assert len(runs) == 1
+    assert seen[0][0] == values[:3]
+    assert seen[0][1] == values[3:5]
+    assert runs[0].result == 7
+    assert runs[0].train_end < runs[0].test_start <= runs[0].test_end
