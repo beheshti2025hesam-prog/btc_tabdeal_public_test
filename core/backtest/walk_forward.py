@@ -20,7 +20,7 @@ class WalkForwardSplitter:
             raise ValueError("train_size and test_size must be positive")
         self.train_size = train_size
         self.test_size = test_size
-        self.step_size = step_size or test_size
+        self.step_size = test_size if step_size is None else step_size
         if self.step_size <= 0:
             raise ValueError("step_size must be positive")
 
