@@ -46,3 +46,30 @@ def test_confidence_is_bounded():
             confidence=1.2,
             reasons=(),
         )
+
+
+def test_naive_signal_timestamp_is_rejected():
+    with pytest.raises(ValueError, match="timezone-aware"):
+        SignalRecord(
+            symbol="BTC_USDT",
+            timeframe_seconds=900,
+            timestamp=datetime(2026, 1, 1),
+            mode=SignalMode.SIGNAL_ONLY,
+            intent=SignalIntent.LONG,
+            confidence=None,
+            reasons=(),
+        )
+
+
+def test_non_positive_actionable_trade_price_is_rejected():
+    with pytest.raises(ValueError, match="positive"):
+        SignalRecord(
+            symbol="BTC_USDT",
+            timeframe_seconds=900,
+            timestamp=datetime.now(timezone.utc),
+            mode=SignalMode.SIGNAL_ONLY,
+            intent=SignalIntent.LONG,
+            confidence=None,
+            reasons=(),
+            entry_price=0,
+        )
