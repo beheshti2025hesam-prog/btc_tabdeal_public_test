@@ -4,6 +4,7 @@ from core.data_engine.feature_engine import FeatureEngine
 from core.data_engine.ema import EMAValue
 from core.data_engine.vwap import VWAPSnapshot
 from core.data_engine.pressure import BuySellPressure
+from core.data_engine.volatility import VolatilitySnapshot
 from core.strategy.baseline import Decision
 from core.strategy.confirmation import ConfirmationEngine
 from core.strategy.decision import StrategyDecisionEngine
@@ -23,6 +24,9 @@ class StrategyDecisionTests(unittest.TestCase):
                 100, buy_ratio * 100 - (1 - buy_ratio) * 100,
                 buy_ratio, 1 - buy_ratio, 1, 1,
             ),
+            volatility=VolatilitySnapshot(
+                "BTC_USDT", 900, 2, 0.0, volatility, volatility, 1.0
+            ),
         )
 
     def test_confirmation_requires_alignment(self):
@@ -38,7 +42,7 @@ class StrategyDecisionTests(unittest.TestCase):
         self.assertEqual(result.decision, Decision.NO_TRADE)
 
     def test_risk_veto_blocks_decision(self):
-        snapshot = self.snapshot(105, 100, 102, 0.6)
+        snapshot = self.snapshot(105, 100, 102, 0.6, volatility=0.01)
         result = StrategyDecisionEngine(
             risk_veto=RiskVeto(max_realized_volatility=0.001)
         ).evaluate(snapshot)
