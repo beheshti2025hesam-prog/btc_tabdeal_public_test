@@ -93,3 +93,17 @@ def test_walk_forward_runner_rejects_backwards_test_timestamps():
         WalkForwardRunner(
             WalkForwardSplitter(train_size=2, test_size=2)
         ).run(values, lambda train, test: None)
+
+
+def test_walk_forward_runner_rejects_backwards_training_timestamps():
+    values = [
+        TimedValue(2, datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)),
+        TimedValue(1, datetime(2026, 1, 1, 0, 1, tzinfo=timezone.utc)),
+        TimedValue(3, datetime(2026, 1, 1, 0, 3, tzinfo=timezone.utc)),
+    ]
+    runner = WalkForwardRunner(
+        WalkForwardSplitter(train_size=2, test_size=1)
+    )
+
+    with pytest.raises(ValueError, match="training"):
+        runner.run(values, lambda train, test: None)
