@@ -72,5 +72,5 @@ def test_fees_and_slippage_are_applied():
     )
     result = BacktestEngine(fee_bps=10, slippage_bps=10).run(candles, [signal])
     assert result.trades[0].entry_price == 100.1
-    assert result.trades[0].exit_price == 102.9
+    assert abs(result.trades[0].exit_price - 102.897) < 1e-12
     assert result.trades[0].net_pnl < result.trades[0].gross_pnl
