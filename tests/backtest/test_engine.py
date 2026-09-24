@@ -111,3 +111,16 @@ def test_invalid_quantity_is_skipped_without_affecting_metrics():
 
     assert result.trades == ()
     assert result.equity_curve == ()
+
+def test_naive_backtest_timestamp_is_rejected():
+    naive_signal = BacktestSignal(
+        timestamp=datetime(2026, 1, 1),
+        side=BacktestSide.LONG,
+        entry_price=100.0,
+        stop_price=95.0,
+        target_price=110.0,
+        symbol="BTC_USDT",
+    )
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        BacktestEngine().run([candle("BTC_USDT", 1, low=99.0, high=110.0)], [naive_signal])
