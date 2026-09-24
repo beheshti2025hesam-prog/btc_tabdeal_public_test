@@ -124,3 +124,26 @@ def test_naive_backtest_timestamp_is_rejected():
 
     with pytest.raises(ValueError, match="timezone-aware"):
         BacktestEngine().run([candle("BTC_USDT", 1, low=99.0, high=110.0)], [naive_signal])
+
+
+def test_starting_capital_drives_equity_curve_and_drawdown_percentage():
+    candles = [candle("BTC_USDT", 1, low=99.0, high=110.0)]
+    signal = BacktestSignal(
+        timestamp=T0,
+        side=BacktestSide.LONG,
+        entry_price=100.0,
+        stop_price=95.0,
+        target_price=110.0,
+        symbol="BTC_USDT",
+    )
+
+    result = BacktestEngine().run(candles, [signal], starting_capital=1000.0)
+
+    assert result.equity_curve == pytest.approx((1010.0,))
+    assert result.metrics.net_pnl == pytest.approx(10.0)
+    assert result.metrics.max_drawdown_pct == pytest.approx(0.0)
+
+
+def test_non_positive_starting_capital_is_rejected():
+    with pytest.raises(ValueError, match="starting_capital must be positive"):
+        BacktestEngine().run([], [], starting_capital=0.0)
