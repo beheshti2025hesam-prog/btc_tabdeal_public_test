@@ -1,10 +1,16 @@
 """
 Mother Agent - Data Intelligence Interface
-Data Foundation v1.1
+Data Intelligence v1.1
 
-Produces deterministic OHLCV candles from the canonical trade layer.
+Exports deterministic primitives built from the canonical trade layer.
 """
 
 from core.data_engine.candles import Candle, TradeCandleAggregator
+from core.data_engine.pressure import BuySellPressure, BuySellPressureCalculator
 
-__all__ = ["Candle", "TradeCandleAggregator"]
+__all__ = [
+    "Candle",
+    "TradeCandleAggregator",
+    "BuySellPressure",
+    "BuySellPressureCalculator",
+]
