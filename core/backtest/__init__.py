@@ -6,10 +6,13 @@ from core.backtest.engine import (
     SimulatedTrade,
 )
 from core.backtest.signal_adapter import SignalBacktestAdapter
+from core.backtest.pipeline import DecisionBacktestPipeline, DecisionBacktestResult
 from core.backtest.walk_forward import WalkForwardSplitter, WalkForwardWindow
 
 __all__ = [
     "BacktestEngine",
+    "DecisionBacktestPipeline",
+    "DecisionBacktestResult",
     "BacktestResult",
     "BacktestSignal",
     "SignalBacktestAdapter",
