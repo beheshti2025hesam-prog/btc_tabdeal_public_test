@@ -53,29 +53,30 @@ class CapitalRiskEngine:
         target_price: float,
         side: RiskSide = RiskSide.LONG,
     ) -> RiskAssessment:
-        reasons: list[str] = []
         if entry_price <= 0 or stop_price <= 0 or target_price <= 0:
             return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_prices",))
 
-        if side == RiskSide.LONG:
-            if stop_price >= entry_price:
-                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_long_stop",))
-            if target_price <= entry_price:
-                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_long_target",))
-        elif side == RiskSide.SHORT:
-            if stop_price <= entry_price:
-                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_short_stop",))
-            if target_price >= entry_price:
-                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_short_target",))
-        else:
+        if side not in (RiskSide.LONG, RiskSide.SHORT):
             return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_side",))
 
         stop_distance = abs(entry_price - stop_price)
-        reward_distance = abs(target_price - entry_price)
         if stop_distance == 0:
             return RiskAssessment(False, 0.0, 0.0, 0.0, ("zero_stop_distance",))
 
+        if side == RiskSide.LONG:
+            if stop_price > entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_long_stop",))
+            if target_price <= entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_long_target",))
+        else:
+            if stop_price < entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_short_stop",))
+            if target_price >= entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_short_target",))
+
+        reward_distance = abs(target_price - entry_price)
         rr = reward_distance / stop_distance
+        reasons: list[str] = []
         if rr < self.config.min_reward_risk:
             reasons.append("reward_risk_below_minimum")
 
