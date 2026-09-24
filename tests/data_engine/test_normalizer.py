@@ -102,3 +102,21 @@ def test_normalizer_does_not_modify_input_row():
     normalizer.normalize_row(row)
 
     assert row == original_row
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "-inf"])
+def test_invalid_non_positive_or_non_finite_price_raises(value):
+    row = valid_raw_row()
+    row["price"] = value
+
+    with pytest.raises(ValueError, match="Invalid price"):
+        RawDataNormalizer().normalize_row(row)
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "-inf"])
+def test_invalid_non_positive_or_non_finite_amount_raises(value):
+    row = valid_raw_row()
+    row["amount"] = value
+
+    with pytest.raises(ValueError, match="Invalid amount"):
+        RawDataNormalizer().normalize_row(row)
