@@ -9,6 +9,10 @@ import time
 import websocket
 
 
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
 WS_URL = "wss://api1.tabdeal.org/special_margin/broadcast/"
 SYMBOL = "BTC_USDT"
 
@@ -17,8 +21,49 @@ ARCHIVE_DIR = "data/archive"
 
 RECONNECT_DELAY = 5
 
-# EXACT COLLECTION TIME: 5 hours 20 minutes
-RUN_SECONDS = 5 * 60 * 60 + 20 * 60
+# Default collection window.
+#
+# IMPORTANT:
+# If COLLECTOR_RUN_SECONDS is not provided by the runtime,
+# the collector keeps the original 5h 20m behavior.
+#
+# GitHub Actions / VPS / future runtimes can override this
+# without changing the collector source code.
+DEFAULT_RUN_SECONDS = 5 * 60 * 60 + 20 * 60
+
+
+def get_run_seconds():
+    """
+    Return the validated collection window from the runtime
+    environment.
+
+    Example:
+        COLLECTOR_RUN_SECONDS=15600
+
+    15600 seconds = 4h 20m
+    """
+
+    raw_value = os.getenv("COLLECTOR_RUN_SECONDS")
+
+    if raw_value is None:
+        return DEFAULT_RUN_SECONDS
+
+    try:
+        run_seconds = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "COLLECTOR_RUN_SECONDS must be a positive integer"
+        ) from exc
+
+    if run_seconds <= 0:
+        raise ValueError(
+            "COLLECTOR_RUN_SECONDS must be a positive integer"
+        )
+
+    return run_seconds
+
+
+RUN_SECONDS = get_run_seconds()
 
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
@@ -27,6 +72,10 @@ CHECKPOINT_SECONDS = 20 * 60
 MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
 
+
+# ============================================================
+# RUNTIME STATE
+# ============================================================
 
 running = True
 last_sequence = None
@@ -1011,7 +1060,8 @@ def collect():
     )
 
     print(
-        "Duration: 5h 20m",
+        f"Duration: {RUN_SECONDS // 3600}h "
+        f"{(RUN_SECONDS % 3600) // 60}m",
         flush=True
     )
 
