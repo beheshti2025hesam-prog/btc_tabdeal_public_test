@@ -38,18 +38,16 @@ class RiskVeto:
         if decision == Decision.NO_TRADE:
             return RiskDecision(False, ("no_trade_decision",))
 
-        if (
-            self.max_realized_volatility is not None
-            and snapshot.realized_volatility is not None
-            and snapshot.realized_volatility > self.max_realized_volatility
-        ):
-            reasons.append("volatility_above_limit")
+        if self.max_realized_volatility is not None:
+            if snapshot.realized_volatility is None:
+                reasons.append("volatility_missing")
+            elif snapshot.realized_volatility > self.max_realized_volatility:
+                reasons.append("volatility_above_limit")
 
-        if (
-            self.min_volume_ratio is not None
-            and snapshot.volume_ratio is not None
-            and snapshot.volume_ratio < self.min_volume_ratio
-        ):
-            reasons.append("volume_below_minimum")
+        if self.min_volume_ratio is not None:
+            if snapshot.volume_ratio is None:
+                reasons.append("volume_ratio_missing")
+            elif snapshot.volume_ratio < self.min_volume_ratio:
+                reasons.append("volume_below_minimum")
 
         return RiskDecision(allowed=not reasons, reasons=tuple(reasons))
