@@ -3,6 +3,7 @@
 Research/evaluation only. No live execution and no exchange connectivity.
 """
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Iterable, Sequence
 
@@ -84,6 +85,7 @@ class BacktestEngine:
     ) -> BacktestResult:
         ordered = sorted(candles, key=lambda c: (c.symbol, c.start))
         signal_list = sorted(signals, key=lambda s: s.timestamp)
+        self._validate_timestamps(ordered, signal_list)
         trades: list[SimulatedTrade] = []
         last_exit_by_symbol: dict[str, object] = {}
 
@@ -185,3 +187,15 @@ class BacktestEngine:
     def _apply_exit_slippage(self, price: float, side: BacktestSide) -> float:
         move = price * self.slippage_bps / 10000.0
         return price - move if side == BacktestSide.LONG else price + move
+
+    @staticmethod
+    def _validate_timestamps(candles: Sequence[Candle], signals: Sequence[BacktestSignal]) -> None:
+        """Reject naive datetimes so historical ordering cannot depend on local time."""
+        for candle in candles:
+            if not isinstance(candle.start, datetime) or candle.start.tzinfo is None:
+                raise ValueError("candle start timestamp must be timezone-aware")
+            if not isinstance(candle.end, datetime) or candle.end.tzinfo is None:
+                raise ValueError("candle end timestamp must be timezone-aware")
+        for signal in signals:
+            if not isinstance(signal.timestamp, datetime) or signal.timestamp.tzinfo is None:
+                raise ValueError("signal timestamp must be timezone-aware")
