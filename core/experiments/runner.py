@@ -6,7 +6,7 @@ ExperimentSpec -> walk-forward isolation -> decision pipeline -> backtest
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Mapping, Sequence
 
 from core.backtest.pipeline import DecisionBacktestPipeline, DecisionBacktestResult
@@ -77,11 +77,12 @@ class ExperimentRunner:
             del train  # Reserved for future train/fit stages; never mixed into test.
             test_timestamps = {snapshot.timestamp for snapshot in test}
             test_end = test[-1].timestamp
+            horizon = test_end + timedelta(seconds=test[-1].timeframe_seconds)
             test_candles = tuple(
                 candle
                 for candle in candles
-                if candle.end <= test_end
-                and candle.start <= test_end
+                if candle.end <= horizon
+                and candle.end > test[0].timestamp
             )
             test_levels = {
                 timestamp: levels_by_timestamp[timestamp]
