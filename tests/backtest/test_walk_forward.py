@@ -34,7 +34,7 @@ def test_zero_step_size_is_rejected_instead_of_silently_defaulting():
 
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ class TimedValue:
 
 def test_walk_forward_runner_passes_isolated_train_and_test_windows():
     values = tuple(
-        TimedValue(datetime(2026, 1, 1, tzinfo=timezone.utc), i)
+        TimedValue(datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=i), i)
         for i in range(6)
     )
     seen = []
