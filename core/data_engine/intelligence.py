@@ -16,6 +16,7 @@ from core.data_engine.support_resistance import PriceLevel, SupportResistanceCal
 from core.data_engine.feature_engine import FeatureSnapshot, FeatureEngine
 from core.data_engine.momentum import MomentumSnapshot, MomentumCalculator
 from core.data_engine.structure import StructureSnapshot, MarketStructureCalculator
+from core.data_engine.feature_quality import FeatureQualityResult, FeatureQualityGate
 
 __all__ = [
     "Candle",
@@ -40,4 +41,6 @@ __all__ = [
     "MomentumCalculator",
     "StructureSnapshot",
     "MarketStructureCalculator",
+    "FeatureQualityResult",
+    "FeatureQualityGate",
 ]
