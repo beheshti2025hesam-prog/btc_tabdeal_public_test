@@ -1,4 +1,4 @@
-name: Data Engine Tests
+name: Core Test Suite
 
 on:
   push:
@@ -29,8 +29,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Run Data Engine tests
+      - name: Run full core test suite
         env:
           PYTHONPATH: .
         run: |
-          pytest -q tests/data_engine
+          pytest -q tests
