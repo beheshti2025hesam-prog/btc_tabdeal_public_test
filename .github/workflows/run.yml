@@ -1,63 +1,66 @@
 name: Tabdeal BTC Futures Collector
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
 
-  schedule:
-    # Run every 4h 48m.
-    # Collector runs for approximately 5h 20m,
-    # so the next run is intentionally created
-    # about 32 minutes before the previous run finishes.
-    #
-    # This allows GitHub Actions concurrency to keep
-    # the next run queued/pending instead of cancelling it.
-    #
-    # Schedule times are UTC.
-    - cron: "00 00 * * *"
-    - cron: "48 04 * * *"
-    - cron: "36 09 * * *"
-    - cron: "24 14 * * *"
-    - cron: "12 19 * * *"
+schedule:
+# Run every 4h 48m.
+# Collector runs for 4h 20m.
+# This leaves approximately 28 minutes of buffer
+# before the next scheduled run is created.
+#
+# Schedule times are UTC.
+- cron: "00 00 * * *"
+- cron: "48 04 * * *"
+- cron: "36 09 * * *"
+- cron: "24 14 * * *"
+- cron: "12 19 * * *"
 
 permissions:
-  contents: write
+contents: write
 
-# CORE PROJECT REQUIREMENT:
-# Keep the next run queued instead of cancelling it.
-# This supports near-continuous 24/7 data collection.
+Keep only one Collector run active at a time.
+
+A later scheduled run may remain pending until the active run finishes.
+
 concurrency:
-  group: tabdeal-btc-usdt-collector
-  cancel-in-progress: false
+group: tabdeal-btc-usdt-collector
+cancel-in-progress: false
 
 jobs:
-  collector:
+collector:
 
-    timeout-minutes: 350
+# Collector runtime is configured through an environment variable.
+# 15600 seconds = 4 hours 20 minutes.
+env:
+  COLLECTOR_RUN_SECONDS: "15600"
 
-    runs-on: ubuntu-latest
+timeout-minutes: 350
 
-    steps:
+runs-on: ubuntu-latest
 
-      - name: Checkout
-        uses: actions/checkout@v6
+steps:
 
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
+  - name: Checkout
+    uses: actions/checkout@v6
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+  - name: Setup Python
+    uses: actions/setup-python@v7
+    with:
+      python-version: "3.12"
 
-      - name: Collect BTC_USDT Futures Trades
-        run: |
-          python -u tabdeal_futures_ws_test.py
+  - name: Install dependencies
+    run: |
+      pip install -r requirements.txt
 
-      - name: Upload collected trades
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tabdeal-btc-usdt-trades
-          path: data/trades.csv
-          if-no-files-found: warn
+  - name: Collect BTC_USDT Futures Trades
+    run: |
+      python -u tabdeal_futures_ws_test.py
+
+  - name: Upload collected trades
+    if: always()
+    uses: actions/upload-artifact@v4
+    with:
+      name: tabdeal-btc-usdt-trades
+      path: data/trades.csv
+      if-no-files-found: warn
