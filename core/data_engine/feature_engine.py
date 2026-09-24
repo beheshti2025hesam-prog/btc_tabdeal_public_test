@@ -19,7 +19,6 @@ from core.data_engine.vwap import VWAPSnapshot
 @dataclass(frozen=True)
 class FeatureSnapshot:
     symbol: str
-    timestamp: Optional[datetime]
     timeframe_seconds: int
     close: Optional[float]
     ema: Optional[float]
@@ -31,6 +30,8 @@ class FeatureSnapshot:
     volume_ratio: Optional[float]
     volume_spike: Optional[bool]
     regime: Optional[str]
+    # Appended for backward-compatible positional construction.
+    timestamp: Optional[datetime] = None
 
 
 class FeatureEngine:
