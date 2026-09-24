@@ -3,6 +3,8 @@ Mother Agent - Raw Data Validator
 Data Engine v1.0
 """
 
+from datetime import datetime
+import math
 from typing import Dict, Iterable, List
 
 
@@ -61,12 +63,16 @@ class RawDataValidator:
             errors.append("Empty sequence")
 
         try:
-            float(row["price"])
+            price = float(row["price"])
+            if not math.isfinite(price) or price <= 0:
+                errors.append("Invalid price")
         except (ValueError, TypeError):
             errors.append("Invalid price")
 
         try:
-            float(row["amount"])
+            amount = float(row["amount"])
+            if not math.isfinite(amount) or amount <= 0:
+                errors.append("Invalid amount")
         except (ValueError, TypeError):
             errors.append("Invalid amount")
 
@@ -74,6 +80,16 @@ class RawDataValidator:
             int(row["sequence"])
         except (ValueError, TypeError):
             errors.append("Invalid sequence")
+
+        try:
+            normalized_timestamp = row["updated"]
+            if normalized_timestamp.endswith("Z"):
+                normalized_timestamp = normalized_timestamp[:-1] + "+00:00"
+            timestamp = datetime.fromisoformat(normalized_timestamp)
+            if timestamp.tzinfo is None:
+                errors.append("Timestamp must be timezone-aware")
+        except (ValueError, TypeError, AttributeError):
+            errors.append("Invalid timestamp")
 
         return errors
 
