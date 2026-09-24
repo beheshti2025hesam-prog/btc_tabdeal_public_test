@@ -97,9 +97,9 @@ def test_walk_forward_runner_rejects_backwards_test_timestamps():
 
 def test_walk_forward_runner_rejects_backwards_training_timestamps():
     values = [
-        TimedValue(2, datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc)),
-        TimedValue(1, datetime(2026, 1, 1, 0, 1, tzinfo=timezone.utc)),
-        TimedValue(3, datetime(2026, 1, 1, 0, 3, tzinfo=timezone.utc)),
+        TimedValue(datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc), 2),
+        TimedValue(datetime(2026, 1, 1, 0, 1, tzinfo=timezone.utc), 1),
+        TimedValue(datetime(2026, 1, 1, 0, 3, tzinfo=timezone.utc), 3),
     ]
     runner = WalkForwardRunner(
         WalkForwardSplitter(train_size=2, test_size=1)
