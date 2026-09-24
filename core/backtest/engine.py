@@ -82,7 +82,11 @@ class BacktestEngine:
         self,
         candles: Sequence[Candle],
         signals: Iterable[BacktestSignal],
+        *,
+        starting_capital: float = 1.0,
     ) -> BacktestResult:
+        if starting_capital <= 0:
+            raise ValueError("starting_capital must be positive")
         ordered = sorted(candles, key=lambda c: (c.symbol, c.start))
         signal_list = sorted(signals, key=lambda s: s.timestamp)
         self._validate_timestamps(ordered, signal_list)
@@ -172,9 +176,11 @@ class BacktestEngine:
             last_exit_by_symbol[position_key] = exit_time
 
         pnls = [trade.net_pnl for trade in trades]
-        metrics = EvaluationMetricsCalculator().calculate(pnls)
+        metrics = EvaluationMetricsCalculator().calculate(
+            pnls, starting_capital=starting_capital
+        )
         equity = []
-        running = 0.0
+        running = starting_capital
         for pnl in pnls:
             running += pnl
             equity.append(running)
