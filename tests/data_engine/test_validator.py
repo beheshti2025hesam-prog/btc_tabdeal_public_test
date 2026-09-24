@@ -96,3 +96,28 @@ def test_validate_rows_returns_summary():
         "valid_rows": 1,
         "invalid_rows": 1,
     }
+
+
+def test_rejects_non_positive_or_non_finite_trade_values():
+    validator = RawDataValidator()
+
+    for value in ("0", "-1", "nan", "inf", "-inf"):
+        row = valid_raw_row()
+        row["price"] = value
+        assert "Invalid price" in validator.validate_row(row)
+
+        row = valid_raw_row()
+        row["amount"] = value
+        assert "Invalid amount" in validator.validate_row(row)
+
+
+def test_rejects_invalid_or_naive_timestamp():
+    validator = RawDataValidator()
+
+    row = valid_raw_row()
+    row["updated"] = "not-a-timestamp"
+    assert "Invalid timestamp" in validator.validate_row(row)
+
+    row = valid_raw_row()
+    row["updated"] = "2026-09-20T10:00:00"
+    assert "Timestamp must be timezone-aware" in validator.validate_row(row)
