@@ -1,8 +1,11 @@
 import csv
 import os
+import sys
+from pathlib import Path
 
 import pytest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import tabdeal_futures_ws_test as collector
 
 
@@ -51,7 +54,7 @@ def test_save_trade_rejects_duplicate_and_backward_sequence(tmp_path, monkeypatc
 
     monkeypatch.setattr(collector, "OUTPUT_FILE", str(output))
     monkeypatch.setattr(collector, "ARCHIVE_DIR", str(archive_dir))
-    monkeypatch.setattr(collector, "last_sequence", 100)
+    monkeypatch.setattr(collector, "last_sequence", 99)
     monkeypatch.setattr(collector, "trade_count", 0)
     monkeypatch.setattr(collector, "active_rows", 0)
 
@@ -83,6 +86,8 @@ def test_save_trade_rejects_duplicate_and_backward_sequence(tmp_path, monkeypatc
     )
 
     collector.csv_file.close()
+    collector.csv_file = None
+    collector.csv_writer = None
 
     rows = list(csv.DictReader(output.open(encoding="utf-8")))
     assert len(rows) == 1
@@ -121,3 +126,5 @@ def test_archive_moves_exact_batch_and_preserves_newest_rows(tmp_path, monkeypat
 
     assert [int(r["sequence"]) for r in archived] == [1, 2, 3, 4]
     assert [int(r["sequence"]) for r in active] == [5, 6, 7, 8, 9, 10]
+
+    collector.close_csv()
