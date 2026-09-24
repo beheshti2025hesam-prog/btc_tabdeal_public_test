@@ -5,6 +5,7 @@ exchange-independent feature snapshot. This layer does not generate trades.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional, Sequence
 
 from core.data_engine.ema import EMAValue
@@ -18,6 +19,7 @@ from core.data_engine.vwap import VWAPSnapshot
 @dataclass(frozen=True)
 class FeatureSnapshot:
     symbol: str
+    timestamp: Optional[datetime]
     timeframe_seconds: int
     close: Optional[float]
     ema: Optional[float]
@@ -39,6 +41,7 @@ class FeatureEngine:
         *,
         symbol: str,
         timeframe_seconds: int,
+        timestamp: Optional[datetime] = None,
         close: Optional[float] = None,
         ema: Optional[EMAValue] = None,
         vwap: Optional[VWAPSnapshot] = None,
@@ -71,6 +74,7 @@ class FeatureEngine:
 
         return FeatureSnapshot(
             symbol=symbol,
+            timestamp=timestamp,
             timeframe_seconds=timeframe_seconds,
             close=close,
             ema=ema.value if ema else None,
