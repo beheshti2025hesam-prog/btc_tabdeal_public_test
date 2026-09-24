@@ -57,5 +57,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tabdeal-btc-usdt-trades
-          path: data/trades.csv
+          path: |
+            data/trades.csv
+            data/archive
           if-no-files-found: warn
