@@ -20,22 +20,13 @@ permissions:
   contents: write
 
 # Keep only one Collector run active at a time.
-# A later scheduled run may remain pending until the active run finishes.
+# Scheduled runs use GitHub's native concurrency behavior; no unsupported queue setting is used.
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
-  # GitHub's default queue keeps only one pending run and
-  # replaces older pending runs. Keep a bounded FIFO queue
-  # so scheduled collectors are not silently discarded.
-  queue: max
 
 jobs:
   collector:
-    # Collector runtime is configured through an environment variable.
-    # 15600 seconds = 4 hours 20 minutes.
-    env:
-      COLLECTOR_RUN_SECONDS: "15600"
-
     timeout-minutes: 350
 
     runs-on: ubuntu-latest
