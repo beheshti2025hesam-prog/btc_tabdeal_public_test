@@ -6,7 +6,6 @@ Execution remains outside this package.
 
 from core.strategy.baseline import Decision, BaselineStrategy, StrategyDecision
 from core.strategy.decision import FinalDecision, StrategyDecisionEngine
-from core.strategy.decision_signal import DecisionSignalAdapter
 
 __all__ = [
     "BaselineStrategy",
@@ -14,5 +13,4 @@ __all__ = [
     "StrategyDecision",
     "FinalDecision",
     "StrategyDecisionEngine",
-    "DecisionSignalAdapter",
 ]
