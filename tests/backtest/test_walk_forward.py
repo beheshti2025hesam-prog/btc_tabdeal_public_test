@@ -1,4 +1,9 @@
-from core.backtest.walk_forward import WalkForwardSplitter
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from core.backtest.walk_forward import WalkForwardRunner, WalkForwardSplitter
 
 
 def test_walk_forward_windows_are_ordered_and_non_overlapping():
@@ -33,10 +38,6 @@ def test_zero_step_size_is_rejected_instead_of_silently_defaulting():
         raise AssertionError("step_size=0 must be rejected")
 
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-
-
 @dataclass(frozen=True)
 class TimedValue:
     timestamp: datetime
@@ -45,7 +46,10 @@ class TimedValue:
 
 def test_walk_forward_runner_passes_isolated_train_and_test_windows():
     values = tuple(
-        TimedValue(datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=i), i)
+        TimedValue(
+            datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=i),
+            i,
+        )
         for i in range(6)
     )
     seen = []
@@ -53,8 +57,6 @@ def test_walk_forward_runner_passes_isolated_train_and_test_windows():
     def evaluator(train, test):
         seen.append((train, test))
         return sum(item.value for item in test)
-
-    from core.backtest.walk_forward import WalkForwardRunner
 
     runs = WalkForwardRunner(
         WalkForwardSplitter(train_size=3, test_size=2, step_size=2)
@@ -65,3 +67,29 @@ def test_walk_forward_runner_passes_isolated_train_and_test_windows():
     assert seen[0][1] == values[3:5]
     assert runs[0].result == 7
     assert runs[0].train_end < runs[0].test_start <= runs[0].test_end
+
+
+def test_walk_forward_runner_rejects_naive_timestamps():
+    values = tuple(
+        TimedValue(datetime(2026, 1, 1) + timedelta(minutes=i), i)
+        for i in range(5)
+    )
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        WalkForwardRunner(
+            WalkForwardSplitter(train_size=2, test_size=2)
+        ).run(values, lambda train, test: None)
+
+
+def test_walk_forward_runner_rejects_backwards_test_timestamps():
+    values = (
+        TimedValue(datetime(2026, 1, 1, tzinfo=timezone.utc), 0),
+        TimedValue(datetime(2026, 1, 1, 0, 1, tzinfo=timezone.utc), 1),
+        TimedValue(datetime(2026, 1, 1, 0, 3, tzinfo=timezone.utc), 2),
+        TimedValue(datetime(2026, 1, 1, 0, 2, tzinfo=timezone.utc), 3),
+    )
+
+    with pytest.raises(ValueError, match="timestamp-ordered"):
+        WalkForwardRunner(
+            WalkForwardSplitter(train_size=2, test_size=2)
+        ).run(values, lambda train, test: None)
