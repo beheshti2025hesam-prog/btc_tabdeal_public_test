@@ -56,14 +56,15 @@ class CapitalRiskEngine:
         if entry_price <= 0 or stop_price <= 0 or target_price <= 0:
             return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_prices",))
 
-        if side not in (RiskSide.LONG, RiskSide.SHORT):
+        side_value = getattr(side, "value", side)
+        if side_value not in (RiskSide.LONG.value, RiskSide.SHORT.value):
             return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_side",))
 
         stop_distance = abs(entry_price - stop_price)
         if stop_distance == 0:
             return RiskAssessment(False, 0.0, 0.0, 0.0, ("zero_stop_distance",))
 
-        if side == RiskSide.LONG:
+        if side_value == RiskSide.LONG.value:
             if stop_price > entry_price:
                 return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_long_stop",))
             if target_price <= entry_price:
