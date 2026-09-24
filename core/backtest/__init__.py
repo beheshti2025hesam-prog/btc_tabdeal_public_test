@@ -7,7 +7,7 @@ from core.backtest.engine import (
 )
 from core.backtest.signal_adapter import SignalBacktestAdapter
 from core.backtest.pipeline import DecisionBacktestPipeline, DecisionBacktestResult
-from core.backtest.walk_forward import WalkForwardSplitter, WalkForwardWindow
+from core.backtest.walk_forward import WalkForwardRun, WalkForwardRunner, WalkForwardSplitter, WalkForwardWindow
 
 __all__ = [
     "BacktestEngine",
@@ -17,6 +17,8 @@ __all__ = [
     "BacktestSignal",
     "SignalBacktestAdapter",
     "SimulatedTrade",
+    "WalkForwardRun",
+    "WalkForwardRunner",
     "WalkForwardSplitter",
     "WalkForwardWindow",
 ]
