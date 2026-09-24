@@ -1,6 +1,7 @@
 """Mother Agent - Deterministic evaluation metrics v1.0."""
 
 from dataclasses import dataclass
+import math
 from typing import Sequence
 
 
@@ -28,6 +29,9 @@ class EvaluationMetricsCalculator:
             raise ValueError("starting_capital must be positive")
 
         values = list(pnls)
+        if any(not math.isfinite(pnl) for pnl in values):
+            raise ValueError("pnls must contain only finite values")
+
         wins = sum(1 for pnl in values if pnl > 0)
         losses = sum(1 for pnl in values if pnl < 0)
         gross_profit = sum(pnl for pnl in values if pnl > 0)
