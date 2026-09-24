@@ -9,6 +9,10 @@ from core.data_engine.candles import Candle, TradeCandleAggregator
 from core.data_engine.pressure import BuySellPressure, BuySellPressureCalculator
 from core.data_engine.volatility import VolatilitySnapshot, VolatilityCalculator
 from core.data_engine.regime import MarketRegime, MarketRegimeClassifier
+from core.data_engine.volume import VolumeSnapshot, VolumeIntelligenceCalculator
+from core.data_engine.vwap import VWAPSnapshot, VWAPCalculator
+from core.data_engine.ema import EMAValue, EMACalculator
+from core.data_engine.support_resistance import PriceLevel, SupportResistanceCalculator
 
 __all__ = [
     "Candle",
@@ -19,4 +23,12 @@ __all__ = [
     "VolatilityCalculator",
     "MarketRegime",
     "MarketRegimeClassifier",
+    "VolumeSnapshot",
+    "VolumeIntelligenceCalculator",
+    "VWAPSnapshot",
+    "VWAPCalculator",
+    "EMAValue",
+    "EMACalculator",
+    "PriceLevel",
+    "SupportResistanceCalculator",
 ]
