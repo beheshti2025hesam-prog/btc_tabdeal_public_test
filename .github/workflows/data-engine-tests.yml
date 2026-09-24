@@ -30,5 +30,7 @@ jobs:
           pip install pytest
 
       - name: Run Data Engine tests
+        env:
+          PYTHONPATH: .
         run: |
           pytest -q tests/data_engine
