@@ -4,6 +4,7 @@ Pure calculation and hard-veto layer. No exchange or order execution.
 """
 
 from dataclasses import dataclass
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -13,6 +14,12 @@ class RiskConfig:
     max_leverage: float = 1.0
     max_position_notional: float | None = None
     min_reward_risk: float = 3.0
+
+
+@dataclass(frozen=True)
+class RiskSide(str, Enum):
+    LONG = "LONG"
+    SHORT = "SHORT"
 
 
 @dataclass(frozen=True)
@@ -44,10 +51,24 @@ class CapitalRiskEngine:
         entry_price: float,
         stop_price: float,
         target_price: float,
+        side: RiskSide = RiskSide.LONG,
     ) -> RiskAssessment:
         reasons: list[str] = []
         if entry_price <= 0 or stop_price <= 0 or target_price <= 0:
             return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_prices",))
+
+        if side == RiskSide.LONG:
+            if stop_price >= entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_long_stop",))
+            if target_price <= entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_long_target",))
+        elif side == RiskSide.SHORT:
+            if stop_price <= entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_short_stop",))
+            if target_price >= entry_price:
+                return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_short_target",))
+        else:
+            return RiskAssessment(False, 0.0, 0.0, 0.0, ("invalid_side",))
 
         stop_distance = abs(entry_price - stop_price)
         reward_distance = abs(target_price - entry_price)
