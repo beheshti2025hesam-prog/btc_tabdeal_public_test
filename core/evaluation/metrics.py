@@ -1,7 +1,6 @@
 """Mother Agent - Deterministic evaluation metrics v1.0."""
 
 from dataclasses import dataclass
-from math import sqrt
 from typing import Sequence
 
 
@@ -19,18 +18,25 @@ class EvaluationMetrics:
 
 
 class EvaluationMetricsCalculator:
-    def calculate(self, pnls: Sequence[float], *, starting_capital: float = 1.0) -> EvaluationMetrics:
+    def calculate(
+        self,
+        pnls: Sequence[float],
+        *,
+        starting_capital: float = 1.0,
+    ) -> EvaluationMetrics:
         if starting_capital <= 0:
             raise ValueError("starting_capital must be positive")
+
         values = list(pnls)
         wins = sum(1 for pnl in values if pnl > 0)
         losses = sum(1 for pnl in values if pnl < 0)
         gross_profit = sum(pnl for pnl in values if pnl > 0)
         gross_loss = abs(sum(pnl for pnl in values if pnl < 0))
 
-        equity = 0.0
-        peak = 0.0
+        equity = starting_capital
+        peak = starting_capital
         max_drawdown = 0.0
+
         for pnl in values:
             equity += pnl
             peak = max(peak, equity)
