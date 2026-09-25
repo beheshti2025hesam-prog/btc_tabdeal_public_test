@@ -39,7 +39,7 @@ class MomentumCalculator:
             returns = [
                 (closes[i] / closes[i - 1]) - 1.0
                 for i in range(1, len(closes))
-                if closes[i - 1] != 0
+                if closes[i - 1] != 0 and closes[i] != 0
             ]
             window = returns[-self.lookback:]
             momentum = 0.0
