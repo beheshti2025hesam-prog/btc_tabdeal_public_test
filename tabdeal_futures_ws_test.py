@@ -1228,7 +1228,7 @@ def main():
             flush=True
         )
 
-        git_checkpoint()
+        checkpoint_ok = git_checkpoint()
 
         close_csv()
 
@@ -1236,6 +1236,11 @@ def main():
             "=== CSV CLOSED SAFELY ===",
             flush=True
         )
+
+        if not checkpoint_ok:
+            raise RuntimeError(
+                "Final Git checkpoint failed; collected data may not be persisted to origin/main."
+            )
 
 
 if __name__ == "__main__":
