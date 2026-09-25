@@ -24,3 +24,27 @@ class FeatureQualityTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_rejects_non_finite_and_non_positive_numeric_features(self):
+        from core.data_engine.feature_engine import FeatureSnapshot
+
+        gate = FeatureQualityGate()
+        for value in (float("nan"), float("inf"), float("-inf"), 0.0, -1.0):
+            snapshot = FeatureSnapshot(
+                symbol="BTC_USDT",
+                timeframe_seconds=900,
+                close=value,
+                ema=100.0,
+                vwap=100.0,
+                buy_sell_delta=None,
+                buy_ratio=0.5,
+                realized_volatility=0.1,
+                average_true_range=1.0,
+                volume_ratio=1.0,
+                volume_spike=False,
+                regime="range",
+            )
+            result = gate.evaluate(snapshot)
+            self.assertFalse(result.passed)
+            self.assertIn("invalid_close", result.violations)
