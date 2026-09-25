@@ -1,4 +1,4 @@
-# Hes Trade Agent
+# HRS Trade Agent
 
 **Owner:** Seyed Hesameddin Beheshti Shirazi
 
@@ -11,7 +11,7 @@
 
 ## Current data-collection component
 
-This repository contains the first Tabdeal BTC/USDT futures market-data collector used by the **Hes Trade Agent** project.
+This repository contains the first Tabdeal BTC/USDT futures market-data collector used by the **HRS Trade Agent** project.
 
 - does NOT use Binance
 - does NOT require a Tabdeal API key
@@ -23,5 +23,5 @@ It collects public Tabdeal BTC_USDT futures trade data for the Data Foundation p
 
 ## Ownership / attribution
 
-**Hes Trade Agent**  
+**HRS Trade Agent**  
 **Owner: Seyed Hesameddin Beheshti Shirazi**
