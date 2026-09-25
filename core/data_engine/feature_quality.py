@@ -5,6 +5,7 @@ It never creates, ranks, or recommends trades.
 """
 
 from dataclasses import dataclass
+import math
 
 from core.data_engine.feature_engine import FeatureSnapshot
 
@@ -20,6 +21,14 @@ class FeatureQualityGate:
         self.require_ema = require_ema
         self.require_vwap = require_vwap
 
+    @staticmethod
+    def _is_positive_finite(value: float | None) -> bool:
+        return value is not None and math.isfinite(value) and value > 0
+
+    @staticmethod
+    def _is_finite_non_negative(value: float | None) -> bool:
+        return value is not None and math.isfinite(value) and value >= 0
+
     def evaluate(self, snapshot: FeatureSnapshot) -> FeatureQualityResult:
         violations: list[str] = []
 
@@ -27,20 +36,24 @@ class FeatureQualityGate:
             violations.append("missing_symbol")
         if snapshot.timeframe_seconds <= 0:
             violations.append("invalid_timeframe")
-        if snapshot.close is None or snapshot.close <= 0:
+        if not self._is_positive_finite(snapshot.close):
             violations.append("invalid_close")
-        if self.require_ema and snapshot.ema is None:
-            violations.append("missing_ema")
-        if self.require_vwap and snapshot.vwap is None:
-            violations.append("missing_vwap")
+        if self.require_ema and not self._is_positive_finite(snapshot.ema):
+            violations.append("missing_or_invalid_ema")
+        if self.require_vwap and not self._is_positive_finite(snapshot.vwap):
+            violations.append("missing_or_invalid_vwap")
 
-        if snapshot.buy_ratio is not None and not 0 <= snapshot.buy_ratio <= 1:
+        if snapshot.buy_ratio is not None and (
+            not math.isfinite(snapshot.buy_ratio)
+            or not 0 <= snapshot.buy_ratio <= 1
+        ):
             violations.append("invalid_buy_ratio")
-        if snapshot.volume_ratio is not None and snapshot.volume_ratio < 0:
+
+        if snapshot.volume_ratio is not None and not self._is_finite_non_negative(snapshot.volume_ratio):
             violations.append("invalid_volume_ratio")
-        if snapshot.realized_volatility is not None and snapshot.realized_volatility < 0:
+        if snapshot.realized_volatility is not None and not self._is_finite_non_negative(snapshot.realized_volatility):
             violations.append("invalid_volatility")
-        if snapshot.average_true_range is not None and snapshot.average_true_range < 0:
+        if snapshot.average_true_range is not None and not self._is_finite_non_negative(snapshot.average_true_range):
             violations.append("invalid_atr")
 
         return FeatureQualityResult(
