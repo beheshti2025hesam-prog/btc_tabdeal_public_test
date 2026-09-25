@@ -1,4 +1,4 @@
-name: Tabdeal BTC Futures Collector
+name: Hes Trade Agent — Tabdeal BTC Futures Collector
 
 on:
   workflow_dispatch:
