@@ -3,3 +3,11 @@
 This package defines execution boundaries only. It does not connect to venues,
 submit orders, mutate capital, or enable live trading.
 """
+
+from .idempotency import IdempotencyKey, IdempotencyRecord, IdempotencyRegistry
+
+__all__ = [
+    "IdempotencyKey",
+    "IdempotencyRecord",
+    "IdempotencyRegistry",
+]
