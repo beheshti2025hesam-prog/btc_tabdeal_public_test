@@ -11,3 +11,7 @@ __all__ = [
     "IdempotencyRecord",
     "IdempotencyRegistry",
 ]
+
+from .order_state import OrderEvent, OrderState, OrderStateMachine
+
+__all__ += ["OrderEvent", "OrderState", "OrderStateMachine"]
