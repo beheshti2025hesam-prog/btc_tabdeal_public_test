@@ -20,8 +20,7 @@ def valid_raw_row():
 
 
 def test_normalizer_returns_canonical_trade():
-    normalizer = RawDataNormalizer()
-
+    normalizer = RawDataNormalizer(source="raw_csv", exchange="tabdeal")
     trade = normalizer.normalize_row(valid_raw_row())
 
     assert isinstance(trade, CanonicalTrade)
@@ -30,7 +29,25 @@ def test_normalizer_returns_canonical_trade():
     assert trade.quantity == 0.001
     assert trade.side == "buy"
     assert trade.sequence == 123456
+    assert trade.source == "raw_csv"
+    assert trade.exchange == "tabdeal"
     assert trade.ingested_at is None
+
+
+def test_provenance_is_configurable():
+    normalizer = RawDataNormalizer(source="normalized_stream", exchange="example_exchange")
+    trade = normalizer.normalize_row(valid_raw_row())
+
+    assert trade.source == "normalized_stream"
+    assert trade.exchange == "example_exchange"
+
+
+def test_empty_provenance_is_rejected():
+    with pytest.raises(ValueError, match="source must not be empty"):
+        RawDataNormalizer(source="", exchange="tabdeal")
+
+    with pytest.raises(ValueError, match="exchange must not be empty"):
+        RawDataNormalizer(source="raw_csv", exchange="")
 
 
 def test_normalizer_converts_z_timestamp_to_timezone_aware_utc():
@@ -46,7 +63,6 @@ def test_event_id_is_deterministic():
     normalizer = RawDataNormalizer()
 
     row = valid_raw_row()
-
     trade_1 = normalizer.normalize_row(row)
     trade_2 = normalizer.normalize_row(row)
 
@@ -63,11 +79,31 @@ def test_invalid_price_raises_error():
         normalizer.normalize_row(row)
 
 
+def test_non_positive_price_raises_error():
+    normalizer = RawDataNormalizer()
+
+    row = valid_raw_row()
+    row["price"] = "0"
+
+    with pytest.raises(ValueError, match="Invalid price"):
+        normalizer.normalize_row(row)
+
+
 def test_invalid_amount_raises_error():
     normalizer = RawDataNormalizer()
 
     row = valid_raw_row()
     row["amount"] = "not-a-number"
+
+    with pytest.raises(ValueError, match="Invalid amount"):
+        normalizer.normalize_row(row)
+
+
+def test_non_positive_amount_raises_error():
+    normalizer = RawDataNormalizer()
+
+    row = valid_raw_row()
+    row["amount"] = "-0.001"
 
     with pytest.raises(ValueError, match="Invalid amount"):
         normalizer.normalize_row(row)
