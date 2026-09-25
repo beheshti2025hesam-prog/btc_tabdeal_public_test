@@ -19,7 +19,7 @@ _IDENTITY_FINGERPRINT = hashlib.sha256(
 # The expected fingerprint is embedded separately so accidental edits to either
 # canonical value fail closed at runtime.
 _EXPECTED_IDENTITY_FINGERPRINT = (
-    "REPLACE_AFTER_COMPUTING"
+    "d8cf1ec0cc866f0924d0c662d15ac83b597bbb638d9b38458beaa60590dd6dc0"
 )
 
 
