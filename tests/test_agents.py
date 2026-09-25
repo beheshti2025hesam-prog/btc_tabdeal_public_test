@@ -45,3 +45,4 @@ def test_registry_rejects_duplicates_and_invalid_context():
         registry.register(definition)
     with pytest.raises(ValueError):
         AgentContext("", 900, "SIGNAL_ONLY", {})
+
