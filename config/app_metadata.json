@@ -1,0 +1,14 @@
+{
+  "application_name": "Hes Trade Agent",
+  "owner": "Seyed Hesameddin Beheshti Shirazi",
+  "default_language": "en",
+  "supported_languages": [
+    "en",
+    "fa"
+  ],
+  "rtl_languages": [
+    "fa"
+  ],
+  "localization_mode": "local-first",
+  "cost_model": "zero-cost-by-default"
+}
