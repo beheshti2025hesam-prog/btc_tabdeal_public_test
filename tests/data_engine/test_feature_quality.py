@@ -21,11 +21,6 @@ class FeatureQualityTests(unittest.TestCase):
         result = FeatureQualityGate(require_ema=False, require_vwap=False).evaluate(snapshot)
         self.assertTrue(result.passed)
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_rejects_non_finite_and_non_positive_numeric_features(self):
         from core.data_engine.feature_engine import FeatureSnapshot
 
@@ -48,3 +43,7 @@ if __name__ == "__main__":
             result = gate.evaluate(snapshot)
             self.assertFalse(result.passed)
             self.assertIn("invalid_close", result.violations)
+
+
+if __name__ == "__main__":
+    unittest.main()
