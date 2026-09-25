@@ -1,0 +1,27 @@
+name: Feature Engine Price VWAP Relationship Tests
+
+on:
+  push:
+    branches: ["main", "feature-engine-price-vwap-relationship-v1"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  feature-engine-price-vwap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+      - name: Run price-VWAP relationship tests
+        env:
+          PYTHONPATH: .
+        run: pytest -q tests/feature_engine/test_price_vwap.py
