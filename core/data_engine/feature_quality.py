@@ -36,6 +36,8 @@ class FeatureQualityGate:
             violations.append("missing_symbol")
         if snapshot.timeframe_seconds <= 0:
             violations.append("invalid_timeframe")
+        if snapshot.timestamp is not None and snapshot.timestamp.tzinfo is None:
+            violations.append("invalid_timestamp")
         if not self._is_positive_finite(snapshot.close):
             violations.append("invalid_close")
         if self.require_ema:
