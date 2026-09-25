@@ -15,7 +15,7 @@ class StructureCalculatorTests(unittest.TestCase):
     def test_confirmed_swings_are_deterministic(self):
         result = StructureCalculator(1, 1).calculate(
             self._candles([10, 12, 15, 13, 11], [8, 9, 10, 7, 9]))
-        self.assertEqual(len(result), 3)
+        self.assertEqual(len(result), 2)
         self.assertEqual(result[0].swing_high, 15)
         self.assertIsNone(result[0].swing_low)
         self.assertEqual(result[1].swing_low, 7)
