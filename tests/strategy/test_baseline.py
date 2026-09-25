@@ -42,6 +42,10 @@ class BaselineStrategyTests(unittest.TestCase):
             BaselineDecision.NO_TRADE,
         )
 
+    def test_invalid_bias_returns_no_trade(self):
+        data = BaselineStrategyInput(self._features(), trend="up", structure_bias=None)
+        self.assertEqual(BaselineStrategy().evaluate(data), BaselineDecision.NO_TRADE)
+
     def test_deterministic_result(self):
         data = BaselineStrategyInput(self._features(), trend="long", structure_bias="long")
         strategy = BaselineStrategy()
