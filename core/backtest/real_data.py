@@ -10,7 +10,7 @@ from typing import Iterable
 
 from core.backtest.engine import BacktestSample, BacktestResult
 from core.backtest.validation import HistoricalObservation, HistoricalValidation
-from core.data_engine.candles import Candle, TradeCandleAggregator
+from core.data_engine.candles import TradeCandleAggregator
 from core.data_engine.normalizer import RawDataNormalizer
 from core.data_engine.reader import RawDataReader
 from core.data_engine.validator import RawDataValidator
@@ -19,7 +19,7 @@ from core.feature_engine.quality import FeatureSnapshot
 from core.data_engine.vwap import VWAPCalculator
 from core.models.trade import CanonicalTrade
 from core.risk.boundary import RiskDecision, RiskInput, RiskPolicy
-from core.strategy.baseline import BaselineDecision, BaselineStrategy, BaselineStrategyInput
+from core.strategy.baseline import BaselineStrategy, BaselineStrategyInput
 
 
 @dataclass(frozen=True)
@@ -71,16 +71,15 @@ class RealDataBacktest:
 
     def _pressure_by_candle(
         self, trades: Iterable[CanonicalTrade]
-    ) -> dict[tuple[str, object], tuple[float, float]]:
-        groups: dict[tuple[str, object], list[CanonicalTrade]] = {}
+    ) -> dict[tuple[str, int], tuple[float, float]]:
+        groups: dict[tuple[str, int], list[CanonicalTrade]] = {}
         for trade in trades:
-            timestamp = trade.timestamp
-            epoch = int(timestamp.timestamp())
+            epoch = int(trade.timestamp.timestamp())
             bucket_epoch = epoch - (epoch % self.timeframe_seconds)
             key = (trade.symbol, bucket_epoch)
             groups.setdefault(key, []).append(trade)
 
-        result = {}
+        result: dict[tuple[str, int], tuple[float, float]] = {}
         for key, group in groups.items():
             buy = sum(t.quantity for t in group if t.side == "buy")
             sell = sum(t.quantity for t in group if t.side == "sell")
@@ -113,7 +112,8 @@ class RealDataBacktest:
             if candle.symbol != next_candle.symbol:
                 continue
 
-            key = (candle.symbol, candle.start.timestamp())
+            bucket_epoch = int(candle.start.timestamp())
+            key = (candle.symbol, bucket_epoch)
             buy_ratio, delta = pressure.get(key, (None, None))
             ema_value = ema_by_end.get((candle.symbol, candle.end))
             vwap_value = vwap_by_end.get((candle.symbol, candle.end))
