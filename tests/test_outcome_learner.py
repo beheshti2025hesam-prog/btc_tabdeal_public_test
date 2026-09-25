@@ -32,3 +32,4 @@ def test_outcome_learner_rejects_invalid_input():
         learner.observe("", 1.0)
     with pytest.raises(ValueError):
         learner.observe("x", float("nan"))
+
