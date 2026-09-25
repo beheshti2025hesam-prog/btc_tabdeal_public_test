@@ -11,6 +11,9 @@ import websocket
 
 # ============================================================
 # CONFIGURATION
+#
+# Application: Hes Trade Agent
+# Owner: Seyed Hesameddin Beheshti Shirazi
 # ============================================================
 
 WS_URL = "wss://api1.tabdeal.org/special_margin/broadcast/"
@@ -1030,7 +1033,12 @@ def collect():
     start_time = time.monotonic()
 
     print(
-        "=== TABDEAL FUTURES COLLECTOR ===",
+        "=== HES TRADE AGENT | TABDEAL FUTURES COLLECTOR ===",
+        flush=True
+    )
+
+    print(
+        "Owner: Seyed Hesameddin Beheshti Shirazi",
         flush=True
     )
 
