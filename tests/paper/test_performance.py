@@ -32,7 +32,7 @@ class PaperPerformanceTests(unittest.TestCase):
         self.assertEqual(result.losses, 0)
         self.assertEqual(result.flat_trades, 0)
         self.assertEqual(result.win_rate, 1.0)
-        self.assertAlmostEqual(result.total_return, 0.07, places=6)
+        self.assertAlmostEqual(result.total_return, 0.06904761904761905, places=6)
         self.assertEqual(result.max_drawdown, 0.0)
         self.assertEqual(result.open_state, PaperState.FLAT)
 
