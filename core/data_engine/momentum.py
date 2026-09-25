@@ -6,8 +6,6 @@ No trading decisions are produced.
 
 from dataclasses import dataclass
 from typing import Iterable, List
-from math import isnan
-
 from core.data_engine.candles import Candle
 
 
@@ -41,14 +39,15 @@ class MomentumCalculator:
             returns = [
                 (closes[i] / closes[i - 1]) - 1.0
                 for i in range(1, len(closes))
-                if closes[i - 1] != 0
+                if closes[i - 1] != 0 and closes[i] != 0
             ]
             window = returns[-self.lookback:]
-            momentum = (
-                (closes[-1] / closes[-len(window)-1]) - 1.0
-                if window and closes[-len(window)-1] != 0
-                else 0.0
-            )
+            momentum = 0.0
+            if window:
+                growth = 1.0
+                for r in window:
+                    growth *= 1.0 + r
+                momentum = growth - 1.0
             results.append(MomentumSnapshot(
                 symbol=symbol,
                 timeframe_seconds=timeframe,
