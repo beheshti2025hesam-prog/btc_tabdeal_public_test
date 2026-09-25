@@ -1,9 +1,4 @@
-"""Execution-free paper-validation session.
-
-This module validates signal/risk decisions as a virtual state stream. It
-never places orders, sizes positions, uses leverage, mutates capital, or
-connects to a venue.
-"""
+"""Execution-free paper-validation session."""
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -25,6 +20,14 @@ class PaperAction(str, Enum):
     ENTER_SHORT = "ENTER_SHORT"
     HOLD_LONG = "HOLD_LONG"
     HOLD_SHORT = "HOLD_SHORT"
+    CLOSE_LONG = "CLOSE_LONG"
+    CLOSE_SHORT = "CLOSE_SHORT"
+
+
+class PaperExit(str, Enum):
+    NONE = "NONE"
+    CLOSE_LONG = "CLOSE_LONG"
+    CLOSE_SHORT = "CLOSE_SHORT"
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ class PaperObservation:
     decision: BaselineDecision
     risk: RiskDecision
     price: float
+    exit: PaperExit = PaperExit.NONE
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,18 @@ class PaperSession:
 
         self._last_timestamp = timestamp
 
+        if observation.exit is PaperExit.CLOSE_LONG:
+            if self._state is not PaperState.LONG:
+                raise ValueError("cannot close LONG while not in LONG state")
+            self._state = PaperState.FLAT
+            return PaperEvent(timestamp, PaperAction.CLOSE_LONG, self._state, observation.price)
+
+        if observation.exit is PaperExit.CLOSE_SHORT:
+            if self._state is not PaperState.SHORT:
+                raise ValueError("cannot close SHORT while not in SHORT state")
+            self._state = PaperState.FLAT
+            return PaperEvent(timestamp, PaperAction.CLOSE_SHORT, self._state, observation.price)
+
         if observation.decision is BaselineDecision.NO_TRADE:
             return PaperEvent(timestamp, PaperAction.NO_TRADE, self._state, observation.price)
         if observation.risk is RiskDecision.VETO:
@@ -79,7 +95,7 @@ class PaperSession:
             elif self._state is PaperState.LONG:
                 action = PaperAction.HOLD_LONG
             else:
-                raise ValueError("opposite-direction signal requires an explicit exit contract")
+                raise ValueError("opposite-direction signal requires an explicit exit event")
         elif observation.decision is BaselineDecision.SHORT:
             if self._state is PaperState.FLAT:
                 self._state = PaperState.SHORT
@@ -87,7 +103,7 @@ class PaperSession:
             elif self._state is PaperState.SHORT:
                 action = PaperAction.HOLD_SHORT
             else:
-                raise ValueError("opposite-direction signal requires an explicit exit contract")
+                raise ValueError("opposite-direction signal requires an explicit exit event")
         else:
             raise ValueError("unknown strategy decision")
 
