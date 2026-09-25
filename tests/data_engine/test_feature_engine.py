@@ -15,12 +15,6 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertEqual(snapshot.close, 100.0)
         self.assertIsNone(snapshot.ema)
         self.assertIsNone(snapshot.regime)
-
-
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_rejects_non_positive_timeframe(self):
         with self.assertRaises(ValueError):
             FeatureEngine().build(symbol="BTC_USDT", timeframe_seconds=0)
@@ -41,3 +35,7 @@ if __name__ == "__main__":
                 timeframe_seconds=900,
                 timestamp=datetime(2026, 1, 1),
             )
+
+
+if __name__ == "__main__":
+    unittest.main()
