@@ -10,6 +10,7 @@ from typing import Iterable
 
 from core.backtest.engine import BacktestSample, BacktestResult
 from core.backtest.validation import HistoricalObservation, HistoricalValidation
+from core.backtest.walk_forward import WalkForwardResult, WalkForwardValidation
 from core.data_engine.candles import TradeCandleAggregator
 from core.data_engine.normalizer import RawDataNormalizer
 from core.data_engine.reader import RawDataReader
@@ -153,6 +154,7 @@ class RealDataBacktest:
             HistoricalObservation(timestamp=sample.timestamp, sample=sample)
             for sample in samples
         ]
+        self._last_observations = tuple(observations)
         backtest = HistoricalValidation().run(observations)
         return RealDataBacktestResult(
             rows_read=rows_read,
@@ -163,3 +165,24 @@ class RealDataBacktest:
             continuity_excluded=continuity_excluded,
             backtest=backtest,
         )
+
+    def run_walk_forward(
+        self,
+        train_size: int,
+        test_size: int,
+        step_size: int | None = None,
+        embargo_size: int = 0,
+    ) -> WalkForwardResult:
+        """Run strict OOS walk-forward measurement on this real-data pipeline.
+
+        The baseline currently has no learned parameters; the train window is
+        therefore retained as a temporal provenance boundary and is not used
+        for tuning.
+        """
+        self.run()
+        return WalkForwardValidation(
+            train_size=train_size,
+            test_size=test_size,
+            step_size=step_size,
+            embargo_size=embargo_size,
+        ).run(self._last_observations)
