@@ -41,6 +41,12 @@ class BaselineStrategy:
         long_score = 0
         short_score = 0
 
+        biases = (data.trend, data.structure_bias)
+        if "long" in biases and "short" in biases:
+            return BaselineDecision.NO_TRADE
+        if data.trend not in (None, "long", "short") or data.structure_bias not in (None, "long", "short"):
+            return BaselineDecision.NO_TRADE
+
         close = data.features.close
         ema = data.features.ema
         vwap = data.features.vwap
