@@ -38,10 +38,16 @@ class FeatureQualityGate:
             violations.append("invalid_timeframe")
         if not self._is_positive_finite(snapshot.close):
             violations.append("invalid_close")
-        if self.require_ema and not self._is_positive_finite(snapshot.ema):
-            violations.append("missing_or_invalid_ema")
-        if self.require_vwap and not self._is_positive_finite(snapshot.vwap):
-            violations.append("missing_or_invalid_vwap")
+        if self.require_ema:
+            if snapshot.ema is None:
+                violations.append("missing_ema")
+            elif not self._is_positive_finite(snapshot.ema):
+                violations.append("invalid_ema")
+        if self.require_vwap:
+            if snapshot.vwap is None:
+                violations.append("missing_vwap")
+            elif not self._is_positive_finite(snapshot.vwap):
+                violations.append("invalid_vwap")
 
         if snapshot.buy_ratio is not None and (
             not math.isfinite(snapshot.buy_ratio)
