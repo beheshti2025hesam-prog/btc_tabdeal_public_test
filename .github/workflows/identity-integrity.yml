@@ -1,4 +1,4 @@
-name: HRS Trade Agent Identity Integrity
+name: HES Trade Agent Identity Integrity
 
 on:
   push:
