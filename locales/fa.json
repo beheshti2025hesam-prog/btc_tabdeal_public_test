@@ -1,0 +1,12 @@
+{
+  "app.name": "Hes Trade Agent",
+  "app.owner": "Seyed Hesameddin Beheshti Shirazi",
+  "settings.language": "زبان",
+  "settings.language.english": "انگلیسی",
+  "settings.language.persian": "فارسی",
+  "common.save": "ذخیره",
+  "common.cancel": "لغو",
+  "trading.no_trade": "عدم معامله",
+  "risk.insufficient_confirmation": "تأیید کافی نیست",
+  "data.collector": "جمع‌آوری داده بازار"
+}
