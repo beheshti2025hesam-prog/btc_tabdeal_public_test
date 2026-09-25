@@ -56,8 +56,8 @@ class WalkForwardValidation:
             raise ValueError("train_size must be positive")
         if test_size <= 0:
             raise ValueError("test_size must be positive")
-        if step_size is not None and step_size <= 0:
-            raise ValueError("step_size must be positive")
+        if step_size is not None and step_size < test_size:
+            raise ValueError("step_size must be at least test_size")
         if embargo_size < 0:
             raise ValueError("embargo_size must not be negative")
         self.train_size = train_size
@@ -85,6 +85,8 @@ class WalkForwardValidation:
 
             if train[-1].timestamp >= test[0].timestamp:
                 raise ValueError("train/test windows overlap or are not chronological")
+            if folds and folds[-1].test_end >= test[0].timestamp:
+                raise ValueError("OOS test windows overlap")
 
             result = HistoricalValidation().run(test)
             folds.append(
