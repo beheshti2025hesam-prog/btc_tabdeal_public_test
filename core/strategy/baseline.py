@@ -52,6 +52,25 @@ class BaselineStrategy:
         vwap = data.features.vwap
         buy_ratio = data.features.buy_ratio
 
+        bullish_core = (
+            close is not None and ema is not None and vwap is not None
+            and close > ema and close > vwap
+            and (buy_ratio is None or buy_ratio > 0.5)
+        )
+        bearish_core = (
+            close is not None and ema is not None and vwap is not None
+            and close < ema and close < vwap
+            and (buy_ratio is None or buy_ratio < 0.5)
+        )
+        if bullish_core and "short" in biases:
+            return BaselineDecision.NO_TRADE
+        if bearish_core and "long" in biases:
+            return BaselineDecision.NO_TRADE
+
+        ema = data.features.ema
+        vwap = data.features.vwap
+        buy_ratio = data.features.buy_ratio
+
         if close is None or ema is None or vwap is None:
             return BaselineDecision.NO_TRADE
         if not all(math.isfinite(x) for x in (close, ema, vwap)):
