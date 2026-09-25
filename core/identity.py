@@ -1,4 +1,4 @@
-"""Canonical application identity for HRS Trade Agent.
+"""Canonical application identity for HES Trade Agent.
 
 This module is intentionally the single source of truth for application identity.
 The values are compile-time constants, not user configuration.
@@ -8,18 +8,11 @@ from __future__ import annotations
 
 import hashlib
 
-APP_NAME = "HRS Trade Agent"
+APP_NAME = "HES Trade Agent"
 OWNER_NAME = "Seyed Hesameddin Beheshti Shirazi"
 
-# Fixed integrity fingerprint of the canonical identity values.
-_IDENTITY_FINGERPRINT = hashlib.sha256(
-    f"{APP_NAME}\n{OWNER_NAME}".encode("utf-8")
-).hexdigest()
-
-# The expected fingerprint is embedded separately so accidental edits to either
-# canonical value fail closed at runtime.
 _EXPECTED_IDENTITY_FINGERPRINT = (
-    "d8cf1ec0cc866f0924d0c662d15ac83b597bbb638d9b38458beaa60590dd6dc0"
+    "24b913266e6a49e8df14884c3c0288cdbb3276b9bbc54ca7115a0d1abf2582b3"
 )
 
 
@@ -29,7 +22,7 @@ def validate_identity() -> None:
         f"{APP_NAME}\n{OWNER_NAME}".encode("utf-8")
     ).hexdigest()
     if actual != _EXPECTED_IDENTITY_FINGERPRINT:
-        raise RuntimeError("HRS Trade Agent identity integrity check failed.")
+        raise RuntimeError("HES Trade Agent identity integrity check failed.")
 
 
 __all__ = ["APP_NAME", "OWNER_NAME", "validate_identity"]
