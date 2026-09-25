@@ -10,13 +10,14 @@ from core.data_engine.normalizer import RawDataNormalizer
 
 
 def make_trade(seq, sec, price, amount, side="buy"):
+    minute, second = divmod(sec, 60)
     return RawDataNormalizer().normalize_row(
         {
             "symbol": "BTC_USDT",
             "price": str(price),
             "amount": str(amount),
             "side": side,
-            "updated": f"2026-09-24T00:00:{sec:02d}Z",
+            "updated": f"2026-09-24T00:{minute:02d}:{second:02d}Z",
             "sequence": str(seq),
         }
     )
