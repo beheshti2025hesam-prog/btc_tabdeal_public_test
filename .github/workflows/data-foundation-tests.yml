@@ -1,0 +1,27 @@
+name: Data Foundation Integration Tests
+
+on:
+  push:
+    branches: ["main", "integration/data-foundation-v1"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  data-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+      - name: Run Data Foundation integration tests
+        env:
+          PYTHONPATH: .
+        run: pytest -q tests/data_engine/test_foundation.py
