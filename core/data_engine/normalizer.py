@@ -21,7 +21,7 @@ class RawDataNormalizer:
     """
 
     DEFAULT_SOURCE = "raw_csv"
-    DEFAULT_EXCHANGE = "unknown"
+    DEFAULT_EXCHANGE = "tabdeal"
 
     def __init__(
         self,
