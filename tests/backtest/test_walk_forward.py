@@ -61,6 +61,10 @@ class WalkForwardValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             WalkForwardValidation(train_size=5, test_size=2).run(self.observations(6))
 
+    def test_rejects_overlapping_oos_configuration(self):
+        with self.assertRaises(ValueError):
+            WalkForwardValidation(train_size=4, test_size=3, step_size=2)
+
     def test_rejects_invalid_configuration(self):
         with self.assertRaises(ValueError):
             WalkForwardValidation(train_size=0, test_size=2)
