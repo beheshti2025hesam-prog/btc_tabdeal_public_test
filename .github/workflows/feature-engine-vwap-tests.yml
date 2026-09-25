@@ -1,0 +1,27 @@
+name: Feature Engine VWAP Tests
+
+on:
+  push:
+    branches: ["main", "feature-engine-vwap-integration-v1"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  feature-engine-vwap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+      - name: Run VWAP integration tests
+        env:
+          PYTHONPATH: .
+        run: pytest -q tests/data_engine/test_intelligence_core.py
