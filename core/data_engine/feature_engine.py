@@ -51,6 +51,13 @@ class FeatureEngine:
         volume: Optional[VolumeSnapshot] = None,
         regime: Optional[MarketRegime] = None,
     ) -> FeatureSnapshot:
+        if not symbol:
+            raise ValueError("symbol must not be empty")
+        if timeframe_seconds <= 0:
+            raise ValueError("timeframe_seconds must be positive")
+        if timestamp is not None and timestamp.tzinfo is None:
+            raise ValueError("timestamp must be timezone-aware")
+
         if ema and (ema.symbol != symbol or ema.timeframe_seconds != timeframe_seconds):
             raise ValueError("EMA does not match symbol/timeframe")
         if volatility and (
