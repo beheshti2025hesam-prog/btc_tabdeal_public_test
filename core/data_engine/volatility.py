@@ -37,8 +37,7 @@ class VolatilityCalculator:
             mean = sum(returns) / len(returns) if returns else 0.0
             variance = sum((v - mean) ** 2 for v in returns) / len(returns) if returns else 0.0
             stddev = sqrt(variance)
-            return VolatilitySnapshot(symbol, timeframe, len(ordered), mean, stddev,
+            results.append(VolatilitySnapshot(symbol, timeframe, len(ordered), mean, stddev,
                                       stddev * sqrt(len(returns)) if returns else 0.0,
-                                      sum(true_ranges) / len(true_ranges) if true_ranges else 0.0)
-            results.append(return)
+                                      sum(true_ranges) / len(true_ranges) if true_ranges else 0.0))
         return sorted(results, key=lambda item: (item.symbol, item.timeframe_seconds))
