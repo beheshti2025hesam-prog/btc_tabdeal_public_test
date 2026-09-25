@@ -8,18 +8,6 @@ class Snapshot:
         self.timestamp = timestamp
 
 
-
-def test_naive_target_timestamp_is_rejected():
-    from datetime import datetime
-    history = History("BTC_USDT", [])
-    try:
-        TimeframeAligner().align(target_timestamp=datetime(2026, 1, 1), histories=[history])
-    except ValueError as exc:
-        assert "timezone-aware" in str(exc)
-    else:
-        raise AssertionError("naive target timestamp must be rejected")
-
-
 class History:
     def __init__(self, symbol, snapshots):
         self.symbol = symbol
@@ -41,3 +29,15 @@ def test_empty_history_is_allowed_but_returns_no_selected_snapshot():
     history = History("BTC_USDT", [])
     result = TimeframeAligner().align(target_timestamp=t0, histories=[history])
     assert result.snapshots == ()
+
+
+
+def test_naive_target_timestamp_is_rejected():
+    from datetime import datetime
+    history = History("BTC_USDT", [])
+    try:
+        TimeframeAligner().align(target_timestamp=datetime(2026, 1, 1), histories=[history])
+    except ValueError as exc:
+        assert "timezone-aware" in str(exc)
+    else:
+        raise AssertionError("naive target timestamp must be rejected")
