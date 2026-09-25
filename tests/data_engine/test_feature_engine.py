@@ -19,3 +19,25 @@ class FeatureEngineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_rejects_non_positive_timeframe(self):
+        with self.assertRaises(ValueError):
+            FeatureEngine().build(symbol="BTC_USDT", timeframe_seconds=0)
+
+        with self.assertRaises(ValueError):
+            FeatureEngine().build(symbol="BTC_USDT", timeframe_seconds=-900)
+
+    def test_rejects_empty_symbol(self):
+        with self.assertRaises(ValueError):
+            FeatureEngine().build(symbol="", timeframe_seconds=900)
+
+    def test_rejects_naive_timestamp(self):
+        from datetime import datetime
+
+        with self.assertRaises(ValueError):
+            FeatureEngine().build(
+                symbol="BTC_USDT",
+                timeframe_seconds=900,
+                timestamp=datetime(2026, 1, 1),
+            )
