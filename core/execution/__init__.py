@@ -1,0 +1,5 @@
+"""Execution safety contracts for HES Trade Agent.
+
+This package defines execution boundaries only. It does not connect to venues,
+submit orders, mutate capital, or enable live trading.
+"""
