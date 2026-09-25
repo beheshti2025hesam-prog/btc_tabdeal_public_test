@@ -2,7 +2,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from core.paper.session import PaperAction, PaperObservation, PaperSession, PaperState
+from core.paper.session import PaperAction, PaperExit, PaperObservation, PaperSession, PaperState
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
 
@@ -39,10 +39,33 @@ class PaperSessionTests(unittest.TestCase):
         self.assertEqual(veto.action, PaperAction.VETO)
         self.assertEqual(session.state, PaperState.FLAT)
 
-    def test_rejects_reverse_signal_without_exit_contract(self):
+    def test_explicit_exit_returns_to_flat_without_reversal(self):
         base = datetime(2026, 9, 25, tzinfo=timezone.utc)
         session = PaperSession()
-        session.process(PaperObservation(base, BaselineDecision.LONG, RiskDecision.ALLOW_SIGNAL, 100.0))
+        session.process(
+            PaperObservation(base, BaselineDecision.LONG, RiskDecision.ALLOW_SIGNAL, 100.0)
+        )
+
+        closed = session.process(
+            PaperObservation(
+                base + timedelta(minutes=1),
+                BaselineDecision.NO_TRADE,
+                RiskDecision.VETO,
+                101.0,
+                PaperExit.CLOSE_LONG,
+            )
+        )
+
+        self.assertEqual(closed.action, PaperAction.CLOSE_LONG)
+        self.assertEqual(closed.state, PaperState.FLAT)
+        self.assertEqual(session.state, PaperState.FLAT)
+
+    def test_reverse_signal_still_requires_prior_exit_event(self):
+        base = datetime(2026, 9, 25, tzinfo=timezone.utc)
+        session = PaperSession()
+        session.process(
+            PaperObservation(base, BaselineDecision.LONG, RiskDecision.ALLOW_SIGNAL, 100.0)
+        )
 
         with self.assertRaises(ValueError):
             session.process(
@@ -60,7 +83,14 @@ class PaperSessionTests(unittest.TestCase):
         session.process(PaperObservation(base, BaselineDecision.NO_TRADE, RiskDecision.VETO, 100.0))
 
         with self.assertRaises(ValueError):
-            session.process(PaperObservation(base - timedelta(seconds=1), BaselineDecision.NO_TRADE, RiskDecision.VETO, 100.0))
+            session.process(
+                PaperObservation(
+                    base - timedelta(seconds=1),
+                    BaselineDecision.NO_TRADE,
+                    RiskDecision.VETO,
+                    100.0,
+                )
+            )
 
 
 if __name__ == "__main__":
