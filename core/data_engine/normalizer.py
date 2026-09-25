@@ -15,21 +15,28 @@ class RawDataNormalizer:
     """
     Converts Raw Trade Rows into CanonicalTrade objects.
 
-    This normalizer is independent from file paths, archive layout,
-    physical row order, and storage mechanisms.
+    The normalizer is independent from file paths, archive layout,
+    physical row order, and storage mechanisms. Source/exchange
+    provenance is configurable so the core remains venue-agnostic.
     """
 
-    SOURCE = "raw_csv"
-    EXCHANGE = "tabdeal"
+    DEFAULT_SOURCE = "raw_csv"
+    DEFAULT_EXCHANGE = "tabdeal"
 
-    def normalize_row(
+    def __init__(
         self,
-        row: Dict[str, str],
-    ) -> CanonicalTrade:
-        """
-        Normalize one raw trade row into CanonicalTrade.
-        """
+        source: str = DEFAULT_SOURCE,
+        exchange: str = DEFAULT_EXCHANGE,
+    ) -> None:
+        if not source.strip():
+            raise ValueError("source must not be empty")
+        if not exchange.strip():
+            raise ValueError("exchange must not be empty")
 
+        self.source = source
+        self.exchange = exchange
+
+    def normalize_row(self, row: Dict[str, str]) -> CanonicalTrade:
         symbol = row["symbol"]
         price = self._parse_float(row["price"], "price")
         quantity = self._parse_float(row["amount"], "amount")
@@ -48,8 +55,8 @@ class RawDataNormalizer:
 
         return CanonicalTrade(
             event_id=event_id,
-            source=self.SOURCE,
-            exchange=self.EXCHANGE,
+            source=self.source,
+            exchange=self.exchange,
             symbol=symbol,
             price=price,
             quantity=quantity,
@@ -60,60 +67,37 @@ class RawDataNormalizer:
         )
 
     @staticmethod
-    def _parse_float(
-        value: str,
-        field_name: str,
-    ) -> float:
+    def _parse_float(value: str, field_name: str) -> float:
         try:
             parsed = float(value)
         except (ValueError, TypeError) as exc:
-            raise ValueError(
-                f"Invalid {field_name}: {value!r}"
-            ) from exc
+            raise ValueError(f"Invalid {field_name}: {value!r}") from exc
 
         if not math.isfinite(parsed) or parsed <= 0:
-            raise ValueError(
-                f"Invalid {field_name}: {value!r}"
-            )
+            raise ValueError(f"Invalid {field_name}: {value!r}")
 
         return parsed
 
     @staticmethod
-    def _parse_int(
-        value: str,
-        field_name: str,
-    ) -> int:
+    def _parse_int(value: str, field_name: str) -> int:
         try:
             return int(value)
         except (ValueError, TypeError) as exc:
-            raise ValueError(
-                f"Invalid {field_name}: {value!r}"
-            ) from exc
+            raise ValueError(f"Invalid {field_name}: {value!r}") from exc
 
     @staticmethod
-    def _parse_timestamp(
-        value: str,
-    ) -> datetime:
+    def _parse_timestamp(value: str) -> datetime:
         if not value:
-            raise ValueError(
-                "Invalid timestamp: empty value"
-            )
+            raise ValueError("Invalid timestamp: empty value")
 
         normalized_value = value
-
         if normalized_value.endswith("Z"):
-            normalized_value = (
-                normalized_value[:-1] + "+00:00"
-            )
+            normalized_value = normalized_value[:-1] + "+00:00"
 
         try:
-            timestamp = datetime.fromisoformat(
-                normalized_value
-            )
+            timestamp = datetime.fromisoformat(normalized_value)
         except (ValueError, TypeError) as exc:
-            raise ValueError(
-                f"Invalid timestamp: {value!r}"
-            ) from exc
+            raise ValueError(f"Invalid timestamp: {value!r}") from exc
 
         if timestamp.tzinfo is None:
             raise ValueError(
@@ -132,12 +116,9 @@ class RawDataNormalizer:
         sequence: int,
     ) -> str:
         """
-        Build a deterministic event ID.
-
-        The ID depends only on trade content and is independent
-        from file name, file path, or physical row position.
+        Build a deterministic event ID independent of file path,
+        archive name, or physical row position.
         """
-
         payload = "|".join(
             [
                 symbol,
@@ -149,6 +130,4 @@ class RawDataNormalizer:
             ]
         )
 
-        return hashlib.sha256(
-            payload.encode("utf-8")
-        ).hexdigest()
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
