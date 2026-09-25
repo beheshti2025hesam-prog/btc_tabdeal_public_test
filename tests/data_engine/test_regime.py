@@ -20,6 +20,12 @@ class MarketRegimeTests(unittest.TestCase):
         ])[0]
         self.assertEqual(result.label,"range")
 
+    def test_zero_threshold_keeps_flat_window_as_range(self):
+        result=MarketRegimeClassifier(trend_threshold=0.0).classify([
+            candle(0,100,100),candle(1,100,100),candle(2,100,100)
+        ])[0]
+        self.assertEqual(result.label,"range")
+
     def test_insufficient_data(self):
         result=MarketRegimeClassifier(min_candles=3).classify([
             candle(0,100,101),candle(1,101,102)
