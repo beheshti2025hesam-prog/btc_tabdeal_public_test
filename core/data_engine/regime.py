@@ -50,9 +50,9 @@ class MarketRegimeClassifier:
                 net_return = 0.0
             else:
                 net_return = (ordered[-1].close - ordered[0].open) / ordered[0].open
-                if net_return >= self.trend_threshold:
+                if net_return > self.trend_threshold:
                     label = "uptrend"
-                elif net_return <= -self.trend_threshold:
+                elif net_return < -self.trend_threshold:
                     label = "downtrend"
                 else:
                     label = "range"
