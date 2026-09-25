@@ -121,3 +121,18 @@ def test_rejects_invalid_or_naive_timestamp():
     row = valid_raw_row()
     row["updated"] = "2026-09-20T10:00:00"
     assert "Timestamp must be timezone-aware" in validator.validate_row(row)
+
+
+def test_rejects_non_positive_sequence():
+    validator = RawDataValidator()
+    for value in ("0", "-1"):
+        row = valid_raw_row()
+        row["sequence"] = value
+        assert "Invalid sequence" in validator.validate_row(row)
+
+
+def test_rejects_unknown_side():
+    validator = RawDataValidator()
+    row = valid_raw_row()
+    row["side"] = "hold"
+    assert "Invalid side" in validator.validate_row(row)

@@ -33,6 +33,8 @@ def test_detects_sequence_gap_and_duplicate():
 
     assert result["duplicate_sequence_count"] == 1
     assert result["sequence_gap_count"] == 1
+    assert result["sequence_gap_total"] == 1
+    assert result["largest_sequence_gap"] == 1
     assert result["min_sequence"] == 1
     assert result["max_sequence"] == 3
 
