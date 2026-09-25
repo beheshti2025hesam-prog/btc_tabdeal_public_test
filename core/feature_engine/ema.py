@@ -35,8 +35,9 @@ class EMACalculator:
                 raise ValueError("candle symbol must be non-empty")
             if candle.timeframe_seconds <= 0:
                 raise ValueError("candle timeframe_seconds must be positive")
-            if candle.end.tzinfo is None or candle.end.utcoffset() is None:
-                raise ValueError("candle end timestamp must be timezone-aware")
+            if (candle.start.tzinfo is None or candle.start.utcoffset() is None or
+                    candle.end.tzinfo is None or candle.end.utcoffset() is None):
+                raise ValueError("candle timestamps must be timezone-aware")
             if not isfinite(candle.close):
                 raise ValueError("candle close must be finite")
             groups.setdefault((candle.symbol, candle.timeframe_seconds), []).append(candle)
