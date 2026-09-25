@@ -22,6 +22,8 @@ class TimeframeAligner:
         target_timestamp: datetime,
         histories: Iterable[MultiTimeframeFeatures],
     ) -> AlignedFeatureSnapshot:
+        if target_timestamp.tzinfo is None:
+            raise ValueError("target_timestamp must be timezone-aware")
         selected = []
         symbol = None
         for history in histories:
