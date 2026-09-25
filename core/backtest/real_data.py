@@ -29,6 +29,7 @@ class RealDataBacktestResult:
     rows_invalid: int
     candles: int
     observations: int
+    continuity_excluded: int
     backtest: BacktestResult
 
 
@@ -103,6 +104,7 @@ class RealDataBacktest:
         vwap_by_end = {(item.symbol, item.end): item.vwap for item in vwap}
 
         samples: list[BacktestSample] = []
+        continuity_excluded = 0
         strategy = BaselineStrategy(min_confirmations=3)
         risk = RiskPolicy()
 
@@ -110,6 +112,9 @@ class RealDataBacktest:
             candle = candles[index]
             next_candle = candles[index + 1]
             if candle.symbol != next_candle.symbol:
+                continue
+            if next_candle.start != candle.end:
+                continuity_excluded += 1
                 continue
 
             bucket_epoch = int(candle.start.timestamp())
@@ -155,5 +160,6 @@ class RealDataBacktest:
             rows_invalid=rows_invalid,
             candles=len(candles),
             observations=len(observations),
+            continuity_excluded=continuity_excluded,
             backtest=backtest,
         )
