@@ -70,6 +70,46 @@ class EvidenceRegistryTests(unittest.TestCase):
         self.assertIn("project_identity_mismatch", result.reasons)
         self.assertIn("owner_identity_mismatch", result.reasons)
 
+    def test_empty_evidence_snapshot_is_invalid(self):
+        snapshot = EvidenceSnapshot(
+            "HES Trade Agent",
+            "Seyed Hesameddin Beheshti Shirazi",
+            "commit-1",
+            (),
+            "0" * 64,
+        )
+        self.assertFalse(snapshot.verify())
+
+    def test_invalid_digest_is_rejected(self):
+        snapshot = EvidenceSnapshot(
+            "HES Trade Agent",
+            "Seyed Hesameddin Beheshti Shirazi",
+            "commit-1",
+            (("oos", True),),
+            "not-a-digest",
+        )
+        self.assertFalse(snapshot.verify())
+
+    def test_non_boolean_evidence_is_invalid(self):
+        snapshot = EvidenceSnapshot(
+            "HES Trade Agent",
+            "Seyed Hesameddin Beheshti Shirazi",
+            "commit-1",
+            (("oos", "true"),),
+            "0" * 64,
+        )
+        self.assertFalse(snapshot.verify())
+
+    def test_missing_source_commit_is_invalid(self):
+        snapshot = EvidenceSnapshot(
+            "HES Trade Agent",
+            "Seyed Hesameddin Beheshti Shirazi",
+            "",
+            (("oos", True),),
+            "0" * 64,
+        )
+        self.assertFalse(snapshot.verify())
+
 
 if __name__ == "__main__":
     unittest.main()
