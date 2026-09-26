@@ -4,6 +4,11 @@ from datetime import datetime, timedelta, timezone
 
 from core.data_engine.candles import Candle
 from core.data_engine.vwap import VWAPSnapshot
+
+from core.data_engine.pressure import BuySellPressure
+from core.data_engine.volume import VolumeSnapshot
+from core.data_engine.volatility import VolatilitySnapshot
+from core.data_engine.regime import MarketRegime
 from core.feature_engine.adapter import (
     DataIntelligenceFeatureAdapter,
     IntelligenceFeatureInput,
@@ -46,6 +51,28 @@ class DataIntelligenceFeatureAdapterTests(unittest.TestCase):
         bad = EMASnapshot("BTC_USDT", 60, 20, self.start, 101)
         with self.assertRaises(ValueError):
             DataIntelligenceFeatureAdapter().build(self.item(ema=bad))
+
+    def test_builds_from_windowed_intelligence(self):
+        pressure = BuySellPressure("BTC_USDT", 60, self.start, self.end, 8, 4, 12, 4, 2/3, 1/3, 5, 3)
+        volume = VolumeSnapshot("BTC_USDT", 60, self.start, self.end, 5, 60, 12, 2, 16, 4/3, False)
+        volatility = VolatilitySnapshot("BTC_USDT", 60, self.start, self.end, 5, 0.01, 0.02, 0.04, 1.2)
+        regime = MarketRegime("BTC_USDT", 60, self.start, self.end, "uptrend", 5, 0.03, 2.0)
+        snapshot = DataIntelligenceFeatureAdapter().build(
+            self.item(pressure=pressure, volume=volume, volatility=volatility, market_regime=regime)
+        )
+        self.assertEqual(snapshot.buy_sell_delta, 4)
+        self.assertEqual(snapshot.buy_ratio, 2/3)
+        self.assertEqual(snapshot.volume_ratio, 4/3)
+        self.assertFalse(snapshot.volume_spike)
+        self.assertEqual(snapshot.realized_volatility, 0.04)
+        self.assertEqual(snapshot.average_true_range, 1.2)
+        self.assertEqual(snapshot.regime, "uptrend")
+
+    def test_rejects_windowed_pressure_mismatch(self):
+        bad = BuySellPressure("BTC_USDT", 60, self.start + timedelta(minutes=1), self.end + timedelta(minutes=1),
+                              8, 4, 12, 4, 2/3, 1/3, 5, 3)
+        with self.assertRaises(ValueError):
+            DataIntelligenceFeatureAdapter().build(self.item(pressure=bad))
 
     def test_rejects_vwap_window_mismatch(self):
         bad = VWAPSnapshot("BTC_USDT", 60, self.start + timedelta(seconds=60),
