@@ -6,6 +6,7 @@ from core.feature_engine.structure import StructureSnapshot, StructureCalculator
 from core.feature_engine.quality import FeatureSnapshot, FeatureQualityResult, FeatureQualityGate
 from core.feature_engine.temporal import FeatureTemporalInput, FeatureTemporalAlignment
 from core.feature_engine.adapter import IntelligenceFeatureInput, DataIntelligenceFeatureAdapter
+from core.feature_engine.boundary import FeatureBoundaryResult, FeatureBoundaryGate
 
 __all__ = [
     "EMASnapshot", "EMACalculator",
@@ -15,4 +16,5 @@ __all__ = [
     "FeatureSnapshot", "FeatureQualityResult", "FeatureQualityGate",
     "FeatureTemporalInput", "FeatureTemporalAlignment",
     "IntelligenceFeatureInput", "DataIntelligenceFeatureAdapter",
+    "FeatureBoundaryResult", "FeatureBoundaryGate",
 ]
