@@ -102,8 +102,8 @@ class RealDataBacktest:
         vwap = VWAPCalculator(self.timeframe_seconds).calculate(trades)
         pressure = self._pressure_by_candle(trades)
 
-        ema_by_end = {(item.symbol, item.timestamp): item.value for item in ema}
-        vwap_by_end = {(item.symbol, item.end): item.vwap for item in vwap}
+        ema_by_end = {(item.symbol, item.timestamp): item for item in ema}
+        vwap_by_end = {(item.symbol, item.end): item for item in vwap}
 
         samples: list[BacktestSample] = []
         continuity_excluded = 0
@@ -122,16 +122,16 @@ class RealDataBacktest:
             bucket_epoch = int(candle.start.timestamp())
             key = (candle.symbol, bucket_epoch)
             buy_ratio, delta = pressure.get(key, (None, None))
-            ema_value = ema_by_end.get((candle.symbol, candle.end))
-            vwap_value = vwap_by_end.get((candle.symbol, candle.end))
-            if ema_value is None or vwap_value is None or buy_ratio is None:
+            ema_item = ema_by_end.get((candle.symbol, candle.end))
+            vwap_item = vwap_by_end.get((candle.symbol, candle.end))
+            if ema_item is None or vwap_item is None or buy_ratio is None:
                 continue
 
             boundary = FeatureBoundaryGate().evaluate(
                 IntelligenceFeatureInput(
                     candle=candle,
-                    ema=next(item for item in ema if item.symbol == candle.symbol and item.timestamp == candle.end),
-                    vwap=next(item for item in vwap if item.symbol == candle.symbol and item.end == candle.end),
+                    ema=ema_item,
+                    vwap=vwap_item,
                     buy_sell_delta=delta,
                     buy_ratio=buy_ratio,
                 )
