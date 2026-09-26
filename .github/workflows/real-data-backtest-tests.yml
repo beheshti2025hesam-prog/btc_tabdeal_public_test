@@ -2,7 +2,10 @@ name: Real Data Backtest Tests
 
 on:
   push:
-    branches: ["main", "real-data-backtest-integration-v1"]
+    branches:
+      - "main"
+      - "real-data-backtest-integration-v1"
+      - "feature/backtest-boundary-hardening-v1"
   pull_request:
     branches: ["main"]
 

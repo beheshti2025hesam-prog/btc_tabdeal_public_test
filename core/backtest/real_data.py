@@ -16,8 +16,8 @@ from core.data_engine.normalizer import RawDataNormalizer
 from core.data_engine.reader import RawDataReader
 from core.data_engine.validator import RawDataValidator
 from core.feature_engine.ema import EMACalculator
-from core.feature_engine.quality import FeatureSnapshot
-from core.feature_engine.temporal import FeatureTemporalAlignment, FeatureTemporalInput
+from core.feature_engine.adapter import IntelligenceFeatureInput
+from core.feature_engine.boundary import FeatureBoundaryGate
 from core.data_engine.vwap import VWAPCalculator
 from core.models.trade import CanonicalTrade
 from core.risk.boundary import RiskDecision, RiskInput, RiskPolicy
@@ -102,8 +102,8 @@ class RealDataBacktest:
         vwap = VWAPCalculator(self.timeframe_seconds).calculate(trades)
         pressure = self._pressure_by_candle(trades)
 
-        ema_by_end = {(item.symbol, item.timestamp): item.value for item in ema}
-        vwap_by_end = {(item.symbol, item.end): item.vwap for item in vwap}
+        ema_by_end = {(item.symbol, item.timestamp): item for item in ema}
+        vwap_by_end = {(item.symbol, item.end): item for item in vwap}
 
         samples: list[BacktestSample] = []
         continuity_excluded = 0
@@ -122,39 +122,26 @@ class RealDataBacktest:
             bucket_epoch = int(candle.start.timestamp())
             key = (candle.symbol, bucket_epoch)
             buy_ratio, delta = pressure.get(key, (None, None))
-            ema_value = ema_by_end.get((candle.symbol, candle.end))
-            vwap_value = vwap_by_end.get((candle.symbol, candle.end))
-            if ema_value is None or vwap_value is None or buy_ratio is None:
+            ema_item = ema_by_end.get((candle.symbol, candle.end))
+            vwap_item = vwap_by_end.get((candle.symbol, candle.end))
+            if ema_item is None or vwap_item is None or buy_ratio is None:
                 continue
 
-            temporal_violations = FeatureTemporalAlignment().validate(
-                FeatureTemporalInput(
-                    symbol=candle.symbol,
-                    timeframe_seconds=candle.timeframe_seconds,
-                    window_start=candle.start,
-                    window_end=candle.end,
-                    feature_timestamp=candle.end,
-                    source="real_data_candle",
-                    source_timestamp=candle.end,
+            boundary = FeatureBoundaryGate().evaluate(
+                IntelligenceFeatureInput(
+                    candle=candle,
+                    ema=ema_item,
+                    vwap=vwap_item,
+                    buy_sell_delta=delta,
+                    buy_ratio=buy_ratio,
                 )
             )
-            if temporal_violations:
-                raise ValueError(
-                    "feature temporal alignment failed: "
-                    + ", ".join(temporal_violations)
-                )
+            if not boundary.passed or boundary.snapshot is None:
+                continue
 
-            features = FeatureSnapshot(
-                symbol=candle.symbol,
-                timeframe_seconds=candle.timeframe_seconds,
-                close=candle.close,
-                ema=ema_value,
-                vwap=vwap_value,
-                buy_sell_delta=delta,
-                buy_ratio=buy_ratio,
-                timestamp=candle.end,
+            decision = strategy.evaluate(
+                BaselineStrategyInput(features=boundary.snapshot)
             )
-            decision = strategy.evaluate(BaselineStrategyInput(features=features))
             risk_decision = risk.evaluate(
                 RiskInput(decision=decision, equity=self.equity)
             )
