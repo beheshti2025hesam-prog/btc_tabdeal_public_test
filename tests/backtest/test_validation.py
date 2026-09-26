@@ -38,6 +38,13 @@ class HistoricalValidationTests(unittest.TestCase):
                 HistoricalObservation(self.t1, self.sample(self.t2, 100, 101)),
             ])
 
+    def test_backtest_kernel_does_not_hide_backward_order(self):
+        with self.assertRaises(ValueError):
+            self.validation.run([
+                HistoricalObservation(self.t2, self.sample(self.t2, 100, 101)),
+                HistoricalObservation(self.t1, self.sample(self.t1, 101, 102)),
+            ])
+
 
 if __name__ == "__main__":
     unittest.main()
