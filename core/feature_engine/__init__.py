@@ -5,6 +5,7 @@ from core.feature_engine.price_vwap import PriceVWAPRelationship, PriceVWAPRelat
 from core.feature_engine.structure import StructureSnapshot, StructureCalculator
 from core.feature_engine.quality import FeatureSnapshot, FeatureQualityResult, FeatureQualityGate
 from core.feature_engine.temporal import FeatureTemporalInput, FeatureTemporalAlignment
+from core.feature_engine.adapter import IntelligenceFeatureInput, DataIntelligenceFeatureAdapter
 
 __all__ = [
     "EMASnapshot", "EMACalculator",
@@ -13,4 +14,5 @@ __all__ = [
     "StructureSnapshot", "StructureCalculator",
     "FeatureSnapshot", "FeatureQualityResult", "FeatureQualityGate",
     "FeatureTemporalInput", "FeatureTemporalAlignment",
+    "IntelligenceFeatureInput", "DataIntelligenceFeatureAdapter",
 ]
