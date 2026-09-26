@@ -7,11 +7,12 @@ It does not promote, rank, execute, size, leverage, or connect to a venue.
 from dataclasses import dataclass
 
 from core.evaluation.evidence import EvidenceSnapshot
+from core.evaluation.producer import EvidenceResult
 
 
 @dataclass(frozen=True)
 class EvidenceRegistry:
-    """Append-only registry represented as an immutable tuple of snapshots."""
+    """Append-only registry represented as immutable snapshots."""
 
     snapshots: tuple[EvidenceSnapshot, ...] = ()
 
@@ -21,6 +22,30 @@ class EvidenceRegistry:
         if any(existing.digest == snapshot.digest for existing in self.snapshots):
             raise ValueError("duplicate evidence snapshot")
         return EvidenceRegistry(self.snapshots + (snapshot,))
+
+    def append_result(
+        self,
+        snapshot: EvidenceSnapshot,
+        result: EvidenceResult,
+    ) -> "EvidenceRegistry":
+        """Return a registry containing result evidence merged into a snapshot.
+
+        The original snapshot is never mutated. A result replaces no existing
+        gate: attempting to write the same gate twice fails closed.
+        """
+        if not result.gate_name.strip():
+            raise ValueError("cannot register evidence with an empty gate name")
+        evidence = dict(snapshot.evidence)
+        if result.gate_name in evidence:
+            raise ValueError("duplicate evidence gate")
+        evidence[result.gate_name] = result.passed
+        updated = EvidenceSnapshot.create(
+            snapshot.project_name,
+            snapshot.owner,
+            snapshot.source_commit,
+            evidence,
+        )
+        return self.append(updated)
 
     def latest(self) -> EvidenceSnapshot | None:
         return self.snapshots[-1] if self.snapshots else None
