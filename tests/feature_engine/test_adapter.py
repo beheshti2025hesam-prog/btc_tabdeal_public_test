@@ -74,6 +74,54 @@ class DataIntelligenceFeatureAdapterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DataIntelligenceFeatureAdapter().build(self.item(pressure=bad))
 
+    def _windowed(self):
+        pressure = BuySellPressure("BTC_USDT", 60, self.start, self.end, 8, 4, 12, 4, 2/3, 1/3, 5, 3)
+        volume = VolumeSnapshot("BTC_USDT", 60, self.start, self.end, 5, 60, 12, 2, 16, 4/3, False)
+        volatility = VolatilitySnapshot("BTC_USDT", 60, self.start, self.end, 5, 0.01, 0.02, 0.04, 1.2)
+        regime = MarketRegime("BTC_USDT", 60, self.start, self.end, "uptrend", 5, 0.03, 2.0)
+        return pressure, volume, volatility, regime
+
+    def test_rejects_windowed_symbol_mismatch(self):
+        pressure, volume, volatility, regime = self._windowed()
+        bad = BuySellPressure("ETH_USDT", 60, self.start, self.end, 8, 4, 12, 4, 2/3, 1/3, 5, 3)
+        with self.assertRaises(ValueError):
+            DataIntelligenceFeatureAdapter().build(
+                self.item(pressure=bad, volume=volume, volatility=volatility, market_regime=regime)
+            )
+
+    def test_rejects_windowed_timeframe_mismatch(self):
+        pressure, volume, volatility, regime = self._windowed()
+        bad = VolumeSnapshot("BTC_USDT", 300, self.start, self.end, 5, 60, 12, 2, 16, 4/3, False)
+        with self.assertRaises(ValueError):
+            DataIntelligenceFeatureAdapter().build(
+                self.item(pressure=pressure, volume=bad, volatility=volatility, market_regime=regime)
+            )
+
+    def test_rejects_windowed_end_mismatch(self):
+        pressure, volume, volatility, regime = self._windowed()
+        bad = VolatilitySnapshot("BTC_USDT", 60, self.start, self.end + timedelta(minutes=1),
+                                 5, 0.01, 0.02, 0.04, 1.2)
+        with self.assertRaises(ValueError):
+            DataIntelligenceFeatureAdapter().build(
+                self.item(pressure=pressure, volume=volume, volatility=bad, market_regime=regime)
+            )
+
+    def test_rejects_windowed_regime_start_mismatch(self):
+        pressure, volume, volatility, regime = self._windowed()
+        bad = MarketRegime("BTC_USDT", 60, self.start - timedelta(minutes=1), self.end - timedelta(minutes=1),
+                           "uptrend", 5, 0.03, 2.0)
+        with self.assertRaises(ValueError):
+            DataIntelligenceFeatureAdapter().build(
+                self.item(pressure=pressure, volume=volume, volatility=volatility, market_regime=bad)
+            )
+
+    def test_accepts_equivalent_timezone_window(self):
+        offset = timezone(timedelta(hours=2))
+        pressure = BuySellPressure("BTC_USDT", 60, self.start.astimezone(offset), self.end.astimezone(offset),
+                                   8, 4, 12, 4, 2/3, 1/3, 5, 3)
+        snapshot = DataIntelligenceFeatureAdapter().build(self.item(pressure=pressure))
+        self.assertEqual(snapshot.buy_sell_delta, 4)
+
     def test_rejects_vwap_window_mismatch(self):
         bad = VWAPSnapshot("BTC_USDT", 60, self.start + timedelta(seconds=60),
                            self.end + timedelta(seconds=60), 12, 102, 3)
