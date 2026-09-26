@@ -14,6 +14,7 @@ from core.feature_engine.adapter import (
     IntelligenceFeatureInput,
 )
 from core.feature_engine.ema import EMASnapshot
+from core.feature_engine.boundary import FeatureBoundaryGate
 
 
 class DataIntelligenceFeatureAdapterTests(unittest.TestCase):
@@ -28,6 +29,43 @@ class DataIntelligenceFeatureAdapterTests(unittest.TestCase):
         values = dict(candle=self.candle, ema=self.ema, vwap=self.vwap)
         values.update(overrides)
         return IntelligenceFeatureInput(**values)
+
+
+    def test_feature_boundary_go_with_complete_window(self):
+        pressure, volume, volatility, regime = self._windowed()
+        result = FeatureBoundaryGate().evaluate(
+            self.item(pressure=pressure, volume=volume, volatility=volatility, market_regime=regime)
+        )
+        self.assertTrue(result.passed)
+        self.assertIsNotNone(result.snapshot)
+        self.assertEqual(result.quality.violations, ())
+
+    def test_feature_boundary_no_go_on_window_mismatch(self):
+        pressure, volume, volatility, regime = self._windowed()
+        bad = VolumeSnapshot("BTC_USDT", 60, self.start, self.end + timedelta(minutes=1),
+                             5, 60, 12, 2, 16, 4/3, False)
+        result = FeatureBoundaryGate().evaluate(
+            self.item(pressure=pressure, volume=bad, volatility=volatility, market_regime=regime)
+        )
+        self.assertFalse(result.passed)
+        self.assertIsNone(result.snapshot)
+        self.assertTrue(result.quality.violations[0].startswith("alignment:"))
+
+    def test_feature_boundary_no_go_when_required_intelligence_is_missing(self):
+        result = FeatureBoundaryGate(
+            FeatureQualityGate(
+                require_buy_sell_pressure=True,
+                require_volume=True,
+                require_volatility=True,
+                require_regime=True,
+            )
+        ).evaluate(self.item())
+        self.assertFalse(result.passed)
+        self.assertIsNone(result.snapshot)
+        self.assertIn("missing_buy_sell_pressure", result.quality.violations)
+        self.assertIn("missing_volume", result.quality.violations)
+        self.assertIn("missing_volatility", result.quality.violations)
+        self.assertIn("missing_regime", result.quality.violations)
 
     def test_builds_aligned_snapshot(self):
         snapshot = DataIntelligenceFeatureAdapter().build(self.item(buy_ratio=0.6))
