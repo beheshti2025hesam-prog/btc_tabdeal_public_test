@@ -69,5 +69,31 @@ class EvidenceEndToEndTests(unittest.TestCase):
         self.assertIn("failed_evidence:oos", result.reasons)
 
 
+    def test_data_quality_producer_flows_into_registry_and_promotion(self):
+        from core.data_engine.quality import DataQualityReport
+        from core.evaluation.data_quality_producer import DataQualityEvidenceProducer
+
+        source_commit = "commit-real-quality-1"
+        schema = EvidenceGateSchema(
+            (EvidenceGate("data_quality", "Data Foundation quality evidence."),)
+        )
+        report = DataQualityReport(
+            total_trades=100,
+            validation={"invalid_rows": 0},
+            integrity={},
+        )
+        evidence = DataQualityEvidenceProducer().produce(report)
+        snapshot = EvidenceAggregator().build(source_commit, (evidence,))
+        registry = EvidenceRegistry().append(snapshot)
+
+        result = PromotionGate().evaluate_registry(
+            registry, source_commit, schema
+        )
+
+        self.assertTrue(result.eligible)
+        self.assertEqual(result.reasons, ())
+        self.assertEqual(registry.latest().evidence["data_quality"], True)
+
+
 if __name__ == "__main__":
     unittest.main()
