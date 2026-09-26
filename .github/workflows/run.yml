@@ -4,31 +4,39 @@ on:
   workflow_dispatch:
 
   schedule:
-    # Run every 4h 48m.
-    # Collector runs for 4h 30m.
-    # This leaves approximately 18 minutes of buffer
-    # before the next scheduled run is created.
+    # 24/7 collector cadence:
+    # - A collector run is configured for 4h30m.
+    # - A new scheduled run is created every 4h.
+    # - Therefore, under normal scheduling, the next run enters the
+    #   concurrency queue about 30 minutes before the current run ends.
+    # - The queued run starts immediately after the current run releases
+    #   the collector lock, preserving continuous collector execution.
     #
     # Schedule times are UTC.
     - cron: "00 00 * * *"
-    - cron: "48 04 * * *"
-    - cron: "36 09 * * *"
-    - cron: "24 14 * * *"
-    - cron: "12 19 * * *"
+    - cron: "00 04 * * *"
+    - cron: "00 08 * * *"
+    - cron: "00 12 * * *"
+    - cron: "00 16 * * *"
+    - cron: "00 20 * * *"
 
 permissions:
   contents: write
 
-# Keep only one Collector run active at a time.
-# Do not cancel an older run: a scheduled run may be delayed by GitHub and
-# must never interrupt a collector that is already persisting live data.
+# Collector safety boundary:
+# - Exactly one collector run may execute at a time.
+# - A running collector must NEVER be canceled by a newer run.
+# - Multiple pending runs must NOT replace/cancel each other.
+#   GitHub's default queue mode is "single", which cancels an older pending
+#   run when a newer one enters the same concurrency group. That behavior is
+#   unsafe for a continuous data collector, so use queue: max.
 #
-# IMPORTANT: manual dispatch uses the same lock intentionally. Running a
-# manual collector beside a scheduled/pending collector could corrupt the
-# shared CSV/archive state.
+# Manual dispatch intentionally uses the same lock so it cannot run beside
+# a scheduled/pending collector and corrupt the shared CSV/archive state.
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
+  queue: max
 
 jobs:
   collector:
@@ -37,7 +45,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # 4h30m collection + ~18m schedule margin.
+      # Collector duration: 4h30m.
+      # With a 4h schedule cadence, the next scheduled run normally waits
+      # in Pending/Queued state for approximately 30 minutes.
       COLLECTOR_RUN_SECONDS: "16200"
 
     steps:
