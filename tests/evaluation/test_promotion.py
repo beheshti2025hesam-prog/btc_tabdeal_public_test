@@ -3,6 +3,7 @@
 import unittest
 
 from core.evaluation.evidence import EvidenceSnapshot
+from core.evaluation.schema import EvidenceGate, EvidenceGateSchema
 from core.evaluation.promotion import PromotionGate
 
 
@@ -19,6 +20,17 @@ class PromotionGateTests(unittest.TestCase):
         result = PromotionGate().evaluate(
             self.snapshot(), "commit-1", ("oos", "robustness")
         )
+        self.assertTrue(result.eligible)
+        self.assertEqual(result.reasons, ())
+
+    def test_schema_can_supply_required_gates(self):
+        schema = EvidenceGateSchema(
+            (
+                EvidenceGate("oos", "Out-of-sample validation evidence."),
+                EvidenceGate("robustness", "Fold stability evidence."),
+            )
+        )
+        result = PromotionGate().evaluate(self.snapshot(), "commit-1", schema)
         self.assertTrue(result.eligible)
         self.assertEqual(result.reasons, ())
 
