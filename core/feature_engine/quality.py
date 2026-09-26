@@ -1,7 +1,8 @@
-"""HES Trade Agent - deterministic Feature Quality Gate v1.0.
+"""HES Trade Agent - deterministic Feature Quality Gate v1.1.
 
 Safety boundary between descriptive features and downstream strategy.
-This layer validates feature integrity only; it never creates or ranks trades.
+This layer validates feature integrity and explicit data sufficiency only;
+it never creates, ranks, or executes trading signals.
 """
 from dataclasses import dataclass
 from datetime import datetime
@@ -34,9 +35,21 @@ class FeatureQualityResult:
 class FeatureQualityGate:
     """Validate feature snapshots at the downstream safety boundary."""
 
-    def __init__(self, require_ema: bool = True, require_vwap: bool = True):
+    def __init__(
+        self,
+        require_ema: bool = True,
+        require_vwap: bool = True,
+        require_buy_sell_pressure: bool = False,
+        require_volume: bool = False,
+        require_volatility: bool = False,
+        require_regime: bool = False,
+    ):
         self.require_ema = require_ema
         self.require_vwap = require_vwap
+        self.require_buy_sell_pressure = require_buy_sell_pressure
+        self.require_volume = require_volume
+        self.require_volatility = require_volatility
+        self.require_regime = require_regime
 
     @staticmethod
     def _positive_finite(value: float | None) -> bool:
@@ -73,12 +86,29 @@ class FeatureQualityGate:
             elif not self._positive_finite(snapshot.vwap):
                 violations.append("invalid_vwap")
 
+        if self.require_buy_sell_pressure:
+            if snapshot.buy_sell_delta is None or snapshot.buy_ratio is None:
+                violations.append("missing_buy_sell_pressure")
+
+        if self.require_volume and (
+            snapshot.volume_ratio is None or snapshot.volume_spike is None
+        ):
+            violations.append("missing_volume")
+
+        if self.require_volatility and (
+            snapshot.realized_volatility is None or snapshot.average_true_range is None
+        ):
+            violations.append("missing_volatility")
+
+        if self.require_regime:
+            if not snapshot.regime:
+                violations.append("missing_regime")
+
         if snapshot.buy_sell_delta is not None and not math.isfinite(snapshot.buy_sell_delta):
             violations.append("invalid_buy_sell_delta")
 
         if snapshot.buy_ratio is not None and (
-            not math.isfinite(snapshot.buy_ratio)
-            or not 0 <= snapshot.buy_ratio <= 1
+            not math.isfinite(snapshot.buy_ratio) or not 0 <= snapshot.buy_ratio <= 1
         ):
             violations.append("invalid_buy_ratio")
 

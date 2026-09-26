@@ -40,6 +40,34 @@ class FeatureQualityTests(unittest.TestCase):
         )
         self.assertTrue(result.passed)
 
+
+    def test_required_intelligence_features_must_be_present(self):
+        result = FeatureQualityGate(
+            require_buy_sell_pressure=True,
+            require_volume=True,
+            require_volatility=True,
+            require_regime=True,
+        ).evaluate(self._snapshot(
+            buy_sell_delta=None, buy_ratio=None,
+            volume_ratio=None, volume_spike=None,
+            realized_volatility=None, average_true_range=None,
+            regime=None,
+        ))
+        self.assertFalse(result.passed)
+        self.assertIn("missing_buy_sell_pressure", result.violations)
+        self.assertIn("missing_volume", result.violations)
+        self.assertIn("missing_volatility", result.violations)
+        self.assertIn("missing_regime", result.violations)
+
+    def test_optional_intelligence_can_remain_absent(self):
+        result = FeatureQualityGate().evaluate(self._snapshot(
+            buy_sell_delta=None, buy_ratio=None,
+            volume_ratio=None, volume_spike=None,
+            realized_volatility=None, average_true_range=None,
+            regime=None,
+        ))
+        self.assertTrue(result.passed)
+
     def test_rejects_non_finite_and_non_positive_numeric_features(self):
         for value in (float("nan"), float("inf"), float("-inf"), 0.0, -1.0):
             result = FeatureQualityGate().evaluate(self._snapshot(close=value))
