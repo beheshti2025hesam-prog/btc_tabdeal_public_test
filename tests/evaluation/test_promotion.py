@@ -5,6 +5,7 @@ import unittest
 from core.evaluation.evidence import EvidenceSnapshot
 from core.evaluation.schema import EvidenceGate, EvidenceGateSchema
 from core.evaluation.promotion import PromotionGate
+from core.evaluation.registry import EvidenceRegistry
 
 
 class PromotionGateTests(unittest.TestCase):
@@ -33,6 +34,21 @@ class PromotionGateTests(unittest.TestCase):
         result = PromotionGate().evaluate(self.snapshot(), "commit-1", schema)
         self.assertTrue(result.eligible)
         self.assertEqual(result.reasons, ())
+
+    def test_registry_latest_snapshot_is_evaluated(self):
+        registry = EvidenceRegistry().append(self.snapshot())
+        result = PromotionGate().evaluate_registry(
+            registry, "commit-1", ("oos", "robustness")
+        )
+        self.assertTrue(result.eligible)
+        self.assertEqual(result.reasons, ())
+
+    def test_empty_registry_fails_closed(self):
+        result = PromotionGate().evaluate_registry(
+            EvidenceRegistry(), "commit-1", ("oos",)
+        )
+        self.assertFalse(result.eligible)
+        self.assertEqual(result.reasons, ("empty_evidence_registry",))
 
     def test_stale_evidence_blocks_eligibility(self):
         result = PromotionGate().evaluate(self.snapshot(), "commit-2", ("oos",))
