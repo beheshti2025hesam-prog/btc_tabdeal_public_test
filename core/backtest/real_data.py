@@ -16,8 +16,8 @@ from core.data_engine.normalizer import RawDataNormalizer
 from core.data_engine.reader import RawDataReader
 from core.data_engine.validator import RawDataValidator
 from core.feature_engine.ema import EMACalculator
-from core.feature_engine.quality import FeatureSnapshot
-from core.feature_engine.temporal import FeatureTemporalAlignment, FeatureTemporalInput
+from core.feature_engine.adapter import IntelligenceFeatureInput
+from core.feature_engine.boundary import FeatureBoundaryGate
 from core.data_engine.vwap import VWAPCalculator
 from core.models.trade import CanonicalTrade
 from core.risk.boundary import RiskDecision, RiskInput, RiskPolicy
@@ -127,34 +127,21 @@ class RealDataBacktest:
             if ema_value is None or vwap_value is None or buy_ratio is None:
                 continue
 
-            temporal_violations = FeatureTemporalAlignment().validate(
-                FeatureTemporalInput(
-                    symbol=candle.symbol,
-                    timeframe_seconds=candle.timeframe_seconds,
-                    window_start=candle.start,
-                    window_end=candle.end,
-                    feature_timestamp=candle.end,
-                    source="real_data_candle",
-                    source_timestamp=candle.end,
+            boundary = FeatureBoundaryGate().evaluate(
+                IntelligenceFeatureInput(
+                    candle=candle,
+                    ema=next(item for item in ema if item.symbol == candle.symbol and item.timestamp == candle.end),
+                    vwap=next(item for item in vwap if item.symbol == candle.symbol and item.end == candle.end),
+                    buy_sell_delta=delta,
+                    buy_ratio=buy_ratio,
                 )
             )
-            if temporal_violations:
-                raise ValueError(
-                    "feature temporal alignment failed: "
-                    + ", ".join(temporal_violations)
-                )
+            if not boundary.passed or boundary.snapshot is None:
+                continue
 
-            features = FeatureSnapshot(
-                symbol=candle.symbol,
-                timeframe_seconds=candle.timeframe_seconds,
-                close=candle.close,
-                ema=ema_value,
-                vwap=vwap_value,
-                buy_sell_delta=delta,
-                buy_ratio=buy_ratio,
-                timestamp=candle.end,
+            decision = strategy.evaluate(
+                BaselineStrategyInput(features=boundary.snapshot)
             )
-            decision = strategy.evaluate(BaselineStrategyInput(features=features))
             risk_decision = risk.evaluate(
                 RiskInput(decision=decision, equity=self.equity)
             )
