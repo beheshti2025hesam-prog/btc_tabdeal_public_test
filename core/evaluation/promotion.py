@@ -33,21 +33,31 @@ class PromotionGate:
     ) -> PromotionGateResult:
         reasons: list[str] = []
 
-        if not required_evidence:
-            return PromotionGateResult(False, ("no_required_gates",))
+        if not isinstance(current_source_commit, str) or not current_source_commit.strip():
+            reasons.append("invalid_current_source_commit")
 
-        normalized = tuple(dict.fromkeys(required_evidence))
-        if any(not name.strip() for name in normalized):
-            reasons.append("invalid_required_gate_name")
+        if not required_evidence:
+            return PromotionGateResult(
+                False,
+                tuple(reasons) + ("no_required_gates",),
+            )
+
+        normalized: list[str] = []
+        for name in required_evidence:
+            if not isinstance(name, str) or not name.strip():
+                reasons.append("invalid_required_gate_name")
+                continue
+            if name not in normalized:
+                normalized.append(name)
 
         freshness = self._validator.validate(snapshot, current_source_commit)
         reasons.extend(freshness.reasons)
 
         evidence = dict(snapshot.evidence)
         for name in normalized:
-            if name.strip() and name not in evidence:
+            if name not in evidence:
                 reasons.append(f"missing_evidence:{name}")
-            elif name.strip() and evidence.get(name) is not True:
+            elif evidence.get(name) is not True:
                 reasons.append(f"failed_evidence:{name}")
 
         return PromotionGateResult(eligible=not reasons, reasons=tuple(reasons))
