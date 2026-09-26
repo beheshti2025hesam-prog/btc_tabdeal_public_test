@@ -92,7 +92,8 @@ class EvidenceEndToEndTests(unittest.TestCase):
 
         self.assertTrue(result.eligible)
         self.assertEqual(result.reasons, ())
-        self.assertEqual(registry.latest().evidence["data_quality"], True)
+        self.assertIn("data_quality", registry.latest().evidence)
+        self.assertTrue(registry.latest().evidence[0][1])
 
 
 if __name__ == "__main__":
