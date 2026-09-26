@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from core.evaluation.evidence import EvidenceSnapshot
 from core.evaluation.registry import EvidenceRegistryValidator
+from core.evaluation.schema import EvidenceGateSchema
 
 
 @dataclass(frozen=True)
@@ -29,21 +30,26 @@ class PromotionGate:
         self,
         snapshot: EvidenceSnapshot,
         current_source_commit: str,
-        required_evidence: tuple[str, ...],
+        required_evidence: tuple[str, ...] | EvidenceGateSchema,
     ) -> PromotionGateResult:
         reasons: list[str] = []
 
         if not isinstance(current_source_commit, str) or not current_source_commit.strip():
             reasons.append("invalid_current_source_commit")
 
-        if not required_evidence:
+        if isinstance(required_evidence, EvidenceGateSchema):
+            required_names = required_evidence.as_required_evidence()
+        else:
+            required_names = required_evidence
+
+        if not required_names:
             return PromotionGateResult(
                 False,
                 tuple(reasons) + ("no_required_gates",),
             )
 
         normalized: list[str] = []
-        for name in required_evidence:
+        for name in required_names:
             if not isinstance(name, str) or not name.strip():
                 reasons.append("invalid_required_gate_name")
                 continue
