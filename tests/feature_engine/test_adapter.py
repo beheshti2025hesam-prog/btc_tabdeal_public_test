@@ -15,6 +15,7 @@ from core.feature_engine.adapter import (
 )
 from core.feature_engine.ema import EMASnapshot
 from core.feature_engine.boundary import FeatureBoundaryGate
+from core.feature_engine.coverage import CoverageGap
 
 
 class DataIntelligenceFeatureAdapterTests(unittest.TestCase):
@@ -30,6 +31,23 @@ class DataIntelligenceFeatureAdapterTests(unittest.TestCase):
         values.update(overrides)
         return IntelligenceFeatureInput(**values)
 
+
+
+    def test_feature_boundary_no_go_on_explicit_coverage_gap(self):
+        pressure, volume, volatility, regime = self._windowed()
+        gap = CoverageGap("BTC_USDT", self.start + timedelta(seconds=30), self.end + timedelta(seconds=30), "confirmed_coverage_gap")
+        result = FeatureBoundaryGate().evaluate(
+            self.item(pressure=pressure, volume=volume, volatility=volatility, market_regime=regime),
+            coverage_gaps=[gap],
+        )
+        self.assertFalse(result.passed)
+        self.assertIsNone(result.snapshot)
+        self.assertIn("coverage_gap:confirmed_coverage_gap", result.quality.violations)
+
+    def test_feature_boundary_ignores_other_symbol_coverage_gap(self):
+        gap = CoverageGap("ETH_USDT", self.start, self.end, "other_symbol_gap")
+        result = FeatureBoundaryGate().evaluate(self.item(), coverage_gaps=[gap])
+        self.assertTrue(result.passed)
 
     def test_feature_boundary_go_with_complete_window(self):
         pressure, volume, volatility, regime = self._windowed()
