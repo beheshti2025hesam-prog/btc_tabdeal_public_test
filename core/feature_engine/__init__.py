@@ -8,7 +8,6 @@ from core.feature_engine.temporal import FeatureTemporalInput, FeatureTemporalAl
 from core.feature_engine.adapter import IntelligenceFeatureInput, DataIntelligenceFeatureAdapter
 from core.feature_engine.coverage import CoverageGap
 from core.feature_engine.boundary import FeatureBoundaryResult, FeatureBoundaryGate
-from core.feature_engine.boundary import FeatureBoundaryResult, FeatureBoundaryGate
 
 __all__ = [
     "EMASnapshot", "EMACalculator",
