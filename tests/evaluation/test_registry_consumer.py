@@ -5,6 +5,7 @@ import unittest
 from core.evaluation.evidence import EvidenceSnapshot
 from core.evaluation.producer import EvidenceResult
 from core.evaluation.registry import EvidenceRegistry
+from core.evaluation.schema import EvidenceGate, EvidenceGateSchema
 
 
 class EvidenceRegistryResultTests(unittest.TestCase):
@@ -35,6 +36,24 @@ class EvidenceRegistryResultTests(unittest.TestCase):
         self.assertEqual(latest.owner, original.owner)
         self.assertEqual(latest.source_commit, original.source_commit)
         self.assertTrue(latest.verify())
+
+    def test_schema_allows_declared_gate(self):
+        schema = EvidenceGateSchema(
+            (EvidenceGate("robustness", "Fold stability evidence."),)
+        )
+        latest = EvidenceRegistry().append_result(
+            self.snapshot(), EvidenceResult("robustness", True), schema
+        ).latest()
+        self.assertEqual(dict(latest.evidence), {"oos": True, "robustness": True})
+
+    def test_schema_rejects_undeclared_gate(self):
+        schema = EvidenceGateSchema(
+            (EvidenceGate("oos", "Out-of-sample evidence."),)
+        )
+        with self.assertRaises(ValueError):
+            EvidenceRegistry().append_result(
+                self.snapshot(), EvidenceResult("robustness", True), schema
+            )
 
     def test_duplicate_gate_fails_closed(self):
         with self.assertRaises(ValueError):

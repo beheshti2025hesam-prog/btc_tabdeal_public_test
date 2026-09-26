@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from core.evaluation.evidence import EvidenceSnapshot
 from core.evaluation.producer import EvidenceResult
+from core.evaluation.schema import EvidenceGateSchema
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class EvidenceRegistry:
         self,
         snapshot: EvidenceSnapshot,
         result: EvidenceResult,
+        schema: EvidenceGateSchema | None = None,
     ) -> "EvidenceRegistry":
         """Return a registry containing result evidence merged into a snapshot.
 
@@ -35,6 +37,8 @@ class EvidenceRegistry:
         """
         if not result.gate_name.strip():
             raise ValueError("cannot register evidence with an empty gate name")
+        if schema is not None and result.gate_name not in schema.names:
+            raise ValueError("evidence gate is not declared by schema")
         evidence = dict(snapshot.evidence)
         if result.gate_name in evidence:
             raise ValueError("duplicate evidence gate")
