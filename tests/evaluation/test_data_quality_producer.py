@@ -71,7 +71,8 @@ class DataQualityEvidenceProducerTests(unittest.TestCase):
         trades = engine.load()
         report = engine.last_quality_report
         self.assertIsNotNone(report)
-        self.assertGreaterEqual(report.total_trades, report.metadata["deduplicated_trades"])\n        self.assertEqual(report.metadata["deduplicated_trades"], len(trades))
+        self.assertGreaterEqual(report.total_trades, report.metadata["deduplicated_trades"])
+        self.assertEqual(report.metadata["deduplicated_trades"], len(trades))
 
         result = DataQualityEvidenceProducer().produce(report)
         self.assertEqual(result.gate_name, "data_quality")
