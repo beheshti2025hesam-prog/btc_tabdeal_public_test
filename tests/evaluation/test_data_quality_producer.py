@@ -2,6 +2,7 @@
 
 import unittest
 
+from core.data_engine.engine import DataEngine
 from core.data_engine.quality import DataQualityReport
 from core.evaluation.data_quality_producer import DataQualityEvidenceProducer
 
@@ -41,6 +42,22 @@ class DataQualityEvidenceProducerTests(unittest.TestCase):
     def test_invalid_context_fails_closed(self):
         with self.assertRaises(TypeError):
             DataQualityEvidenceProducer().produce(object())
+
+
+    def test_producer_consumes_real_data_engine_quality_report(self):
+        class StubReader:
+            def read_all(self):
+                return []
+
+        report_engine = DataEngine(reader=StubReader())
+        loaded = report_engine.load()
+        self.assertEqual(loaded, [])
+        report = report_engine.last_quality_report
+        self.assertIsNotNone(report)
+
+        result = DataQualityEvidenceProducer().produce(report)
+        self.assertTrue(result.passed)
+        self.assertIn("invalid_rows=0", result.details)
 
 
 if __name__ == "__main__":
