@@ -8,6 +8,7 @@ execute orders, size positions, set leverage, or connect to a venue.
 from dataclasses import dataclass
 
 from core.evaluation.evidence import EvidenceSnapshot
+from core.evaluation.registry import EvidenceRegistry
 from core.evaluation.registry import EvidenceRegistryValidator
 from core.evaluation.schema import EvidenceGateSchema
 
@@ -25,6 +26,18 @@ class PromotionGate:
 
     def __init__(self, validator: EvidenceRegistryValidator | None = None) -> None:
         self._validator = validator or EvidenceRegistryValidator()
+
+    def evaluate_registry(
+        self,
+        registry: EvidenceRegistry,
+        current_source_commit: str,
+        required_evidence: tuple[str, ...] | EvidenceGateSchema,
+    ) -> PromotionGateResult:
+        """Evaluate the latest registered snapshot without mutating the registry."""
+        snapshot = registry.latest()
+        if snapshot is None:
+            return PromotionGateResult(False, ("empty_evidence_registry",))
+        return self.evaluate(snapshot, current_source_commit, required_evidence)
 
     def evaluate(
         self,
