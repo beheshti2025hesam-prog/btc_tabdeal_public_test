@@ -60,5 +60,24 @@ class DataQualityEvidenceProducerTests(unittest.TestCase):
         self.assertIn("invalid_rows=0", result.details)
 
 
+    def test_default_reader_produces_evidence_from_repository_raw_data(self):
+        from core.data_engine.reader import RawDataReader
+
+        reader = RawDataReader()
+        discovered = reader.discover_files()
+        self.assertTrue(discovered, "repository raw-data files must be present")
+
+        engine = DataEngine(reader=reader)
+        trades = engine.load()
+        report = engine.last_quality_report
+        self.assertIsNotNone(report)
+        self.assertGreaterEqual(report.total_trades, report.metadata["deduplicated_trades"])\n        self.assertEqual(report.metadata["deduplicated_trades"], len(trades))
+
+        result = DataQualityEvidenceProducer().produce(report)
+        self.assertEqual(result.gate_name, "data_quality")
+        self.assertIn("invalid_rows=", result.details)
+        self.assertIn("integrity_issues=", result.details)
+
+
 if __name__ == "__main__":
     unittest.main()
