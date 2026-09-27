@@ -35,6 +35,18 @@ class BaselineStrategyTests(unittest.TestCase):
         data = BaselineStrategyInput(features)
         self.assertEqual(BaselineStrategy().evaluate(data), BaselineDecision.NO_TRADE)
 
+    def test_future_feature_availability_forces_no_trade(self):
+        from datetime import datetime, timezone, timedelta
+        decision_time = datetime(2026, 1, 1, 0, 15, tzinfo=timezone.utc)
+        features = self._features(
+            timestamp=decision_time,
+            available_at=decision_time + timedelta(seconds=1),
+        )
+        self.assertEqual(
+            BaselineStrategy().evaluate(BaselineStrategyInput(features, trend="long")),
+            BaselineDecision.NO_TRADE,
+        )
+
     def test_invalid_features_force_no_trade(self):
         features = self._features(close=float("nan"))
         self.assertEqual(
