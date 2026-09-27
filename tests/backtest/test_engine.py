@@ -3,6 +3,7 @@ import unittest
 from datetime import datetime, timezone
 
 from core.backtest.engine import BacktestEngine, BacktestSample
+from core.backtest.execution_realism import ExecutionCostConfig, ExecutionCostModel
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
 
@@ -22,6 +23,30 @@ class BacktestEngineTests(unittest.TestCase):
         self.assertEqual(result.losses, 0)
         self.assertAlmostEqual(result.total_return, 0.20)
         self.assertEqual(result.win_rate, 1.0)
+
+    def test_explicit_execution_costs_can_change_trade_outcome(self):
+        engine = BacktestEngine(
+            execution_cost_model=ExecutionCostModel(
+                ExecutionCostConfig(
+                    fee_bps_per_side=20,
+                    spread_bps=40,
+                    slippage_bps_per_side=20,
+                )
+            )
+        )
+        result = engine.run([
+            BacktestSample(
+                self.ts,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100,
+                100.02,
+            )
+        ])
+        self.assertEqual(result.evaluated, 1)
+        self.assertEqual(result.wins, 0)
+        self.assertEqual(result.losses, 1)
+        self.assertLess(result.total_return, 0.0)
 
     def test_veto_and_no_trade_do_not_count_as_evaluated(self):
         result = self.engine.run([
