@@ -179,3 +179,51 @@ def test_replay_rejects_changed_gate_inputs():
         current_source_commit="abc123",
         diagnostics=diagnostics,
     )
+
+
+def test_audit_binding_covers_all_promotion_and_safety_fields():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
+    record = PromotionAuditRecord.create(
+        snapshot, registry, pe, safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+    assert record.decision_input_digest
+    assert record.replay_matches(
+        snapshot, registry, pe, safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+    for field in (
+        "data_quality_verified",
+        "historical_validation_verified",
+        "oos_walk_forward_verified",
+        "oos_stability_verified",
+        "paper_validation_verified",
+        "paper_performance_verified",
+        "paper_robustness_verified",
+        "risk_boundary_verified",
+        "live_safety_verified",
+    ):
+        changed = evidence(**{field: False})
+        assert not record.replay_matches(
+            snapshot, registry, changed, safety,
+            current_source_commit="abc123",
+            diagnostics=diagnostics,
+        )
+    for field in (
+        "execution_disabled",
+        "venue_connection_disabled",
+        "capital_mutation_disabled",
+        "leverage_controlled",
+        "risk_veto_enforced",
+        "raw_data_immutable",
+        "audit_trail_available",
+    ):
+        changed = ops(**{field: False})
+        assert not record.replay_matches(
+            snapshot, registry, pe, changed,
+            current_source_commit="abc123",
+            diagnostics=diagnostics,
+        )
