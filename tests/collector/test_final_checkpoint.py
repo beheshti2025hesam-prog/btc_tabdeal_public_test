@@ -175,6 +175,33 @@ def test_push_checkpoint_does_not_reset_and_restage_after_remote_advance(monkeyp
     assert not any(command[:2] == ["git", "add"] for command in commands)
 
 
+def test_remote_advance_rejection_preserves_prepared_checkpoint_state(monkeypatch):
+    commands = []
+    checkpoint_state = {
+        "dataset": "collector-A-new-rows",
+        "staged": True,
+        "remote": "collector-B-new-rows",
+    }
+
+    def fake_run_git(command):
+        commands.append(command)
+        if command[:2] == ["git", "push"]:
+            raise RuntimeError("non-fast-forward: remote advanced")
+
+    monkeypatch.setattr(collector, "run_git", fake_run_git)
+
+    assert collector.push_checkpoint(max_retries=5) is False
+    assert checkpoint_state == {
+        "dataset": "collector-A-new-rows",
+        "staged": True,
+        "remote": "collector-B-new-rows",
+    }
+    assert commands == [
+        ["git", "push", "origin", "HEAD:main"],
+        ["git", "fetch", "origin", "main"],
+    ]
+
+
 def test_prepare_checkpoint_does_not_mixed_reset_after_startup_alignment(monkeypatch):
     commands = []
 
