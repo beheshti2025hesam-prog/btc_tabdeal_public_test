@@ -1,7 +1,8 @@
 """Execution-free Data Integrity evidence producer.
 
 Converts the existing DataQualityReport integrity section into one immutable
-evidence result. It does not mutate raw data or make promotion decisions.
+evidence result. Sequence gaps are reported as observed anomalies, not treated
+as confirmed coverage loss unless separate evidence establishes that loss.
 """
 
 from core.data_engine.quality import DataQualityReport
@@ -35,13 +36,23 @@ class IntegrityEvidenceProducer:
             totals["backward_sequences"] += int(report.get("backward_sequence_count", 0))
             totals["timestamp_backward"] += int(report.get("timestamp_backward_count", 0))
 
-        passed = all(value == 0 for value in totals.values())
+        # A sequence gap is an observed anomaly. It is not, by itself, proof
+        # that market data was lost. CoverageEvidenceProducer owns the
+        # confirmed-coverage-loss classification.
+        confirmed_integrity_failures = (
+            totals["duplicate_event_ids"]
+            + totals["duplicate_sequences"]
+            + totals["backward_sequences"]
+            + totals["timestamp_backward"]
+        )
+        passed = confirmed_integrity_failures == 0
         details = (
             f"duplicate_event_ids={totals['duplicate_event_ids']};"
             f"duplicate_sequences={totals['duplicate_sequences']};"
             f"sequence_gaps={totals['sequence_gaps']};"
             f"backward_sequences={totals['backward_sequences']};"
             f"timestamp_backward={totals['timestamp_backward']};"
+            "sequence_gaps_are_anomalies_not_confirmed_loss=true;"
             f"total_trades={context.total_trades}"
         )
         return EvidenceResult(self.GATE_NAME, passed, details)
