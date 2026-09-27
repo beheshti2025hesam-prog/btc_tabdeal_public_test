@@ -158,20 +158,15 @@ def test_startup_sync_refuses_dirty_archive(monkeypatch):
 
 def test_push_checkpoint_does_not_reset_and_restage_after_remote_advance(monkeypatch):
     commands = []
+    attempts = {"push": 0}
 
     def fake_run_git(command):
         commands.append(command)
-
-    attempts = {"push": 0}
-
-    def fake_run(command, **kwargs):
         if command[:2] == ["git", "push"]:
             attempts["push"] += 1
             raise RuntimeError("non-fast-forward")
-        raise AssertionError(command)
 
     monkeypatch.setattr(collector, "run_git", fake_run_git)
-    monkeypatch.setattr(collector.subprocess, "run", fake_run)
 
     assert collector.push_checkpoint(max_retries=3) is False
     assert attempts["push"] == 1
