@@ -23,7 +23,21 @@ class IntegrityEvidenceProducerTests(unittest.TestCase):
         self.assertTrue(result.passed)
         self.assertIn("sequence_gaps=0", result.details)
 
-    def test_any_integrity_issue_fails_closed(self):
+    def test_sequence_gap_is_reported_but_does_not_fail_integrity(self):
+        report = DataQualityReport(
+            total_trades=100,
+            integrity={
+                ("tabdeal", "BTC_USDT"): {
+                    "sequence_gap_count": 2,
+                }
+            },
+        )
+        result = IntegrityEvidenceProducer().produce(report)
+        self.assertTrue(result.passed)
+        self.assertIn("sequence_gaps=2", result.details)
+        self.assertIn("sequence_gaps_are_anomalies_not_confirmed_loss=true", result.details)
+
+    def test_confirmed_integrity_issue_fails_closed(self):
         report = DataQualityReport(
             total_trades=100,
             integrity={
