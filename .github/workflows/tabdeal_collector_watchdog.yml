@@ -1,0 +1,58 @@
+name: Hes Trade Agent — Tabdeal Collector Watchdog
+
+on:
+  schedule:
+    - cron: "02,17,32,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tabdeal-btc-usdt-collector-watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check collector chain and recover if needed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          WORKFLOW_FILE: run.yml
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPO/actions/workflows/$WORKFLOW_FILE/runs?per_page=20"
+
+          runs="$(curl --fail-with-body --silent --show-error             --header "Accept: application/vnd.github+json"             --header "Authorization: Bearer $GH_TOKEN"             --header "X-GitHub-Api-Version: 2026-03-10"             "$api")"
+
+          active_count="$(printf '%s' "$runs" | jq '[.workflow_runs[] | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')"
+
+          if [ "$active_count" -gt 0 ]; then
+            echo "Collector chain is active/queued; no recovery dispatch required."
+            exit 0
+          fi
+
+          latest_completed="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.status == "completed") | .updated_at] | sort | last // empty')"
+          now_epoch="$(date -u +%s)"
+
+          if [ -n "$latest_completed" ]; then
+            latest_epoch="$(date -u -d "$latest_completed" +%s)"
+            age_seconds="$((now_epoch - latest_epoch))"
+          else
+            age_seconds=999999999
+          fi
+
+          if [ "$age_seconds" -lt 1200 ]; then
+            echo "Latest collector completed $age_seconds seconds ago; waiting for normal hand-off."
+            exit 0
+          fi
+
+          echo "Collector chain appears stale/missing ($age_seconds seconds since last completion)."
+          echo "Dispatching one recovery collector run."
+
+          curl --fail-with-body --silent --show-error             --request POST             --url "https://api.github.com/repos/$REPO/actions/workflows/$WORKFLOW_FILE/dispatches"             --header "Accept: application/vnd.github+json"             --header "Authorization: Bearer $GH_TOKEN"             --header "X-GitHub-Api-Version: 2026-03-10"             --data '{"ref":"main"}'
