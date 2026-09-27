@@ -812,13 +812,28 @@ def push_checkpoint(max_retries=3):
 
                 return False
 
+            # A rejected push means origin/main advanced after the
+            # local checkpoint commit was based on it. Do NOT reset mixed
+            # and re-stage the same working-tree CSV: mixed reset leaves the
+            # CSV untouched and could turn a stale local dataset into a
+            # fast-forward commit that drops remote rows.
+            #
+            # Fetch only for evidence/diagnostics, then fail safely. The
+            # caller can terminate the run and a fresh startup can recover
+            # from the latest origin/main state.
             try:
-                prepare_git_checkpoint()
+                run_git([
+                    "git",
+                    "fetch",
+                    "origin",
+                    "main"
+                ])
 
-                committed = commit_if_needed()
-
-                if not committed:
-                    return True
+                print(
+                    "Remote main advanced during checkpoint; refusing "
+                    "stale-data retry.",
+                    flush=True
+                )
 
             except Exception as refresh_error:
 
@@ -826,6 +841,8 @@ def push_checkpoint(max_retries=3):
                     f"GIT REFRESH ERROR: {refresh_error}",
                     flush=True
                 )
+
+            return False
 
     return False
 
