@@ -3,6 +3,7 @@ import csv
 import tempfile
 import unittest
 from pathlib import Path
+from datetime import timedelta
 
 from core.backtest.real_data import RealDataBacktest
 
@@ -137,7 +138,7 @@ class RealDataBacktestTests(unittest.TestCase):
         self.assertTrue(observations)
         for observation in observations:
             self.assertEqual(observation.sample.timestamp, observation.timestamp)
-            self.assertEqual(observation.sample.outcome_timestamp, observation.timestamp + __import__("datetime").timedelta(minutes=1))
+            self.assertEqual(observation.sample.outcome_timestamp, observation.timestamp + timedelta(minutes=1))
             self.assertGreater(observation.sample.outcome_timestamp, observation.timestamp)
 
     def test_invalid_rows_are_quarantined_from_derivation(self):
