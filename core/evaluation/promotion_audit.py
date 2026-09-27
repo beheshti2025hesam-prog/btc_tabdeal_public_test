@@ -13,6 +13,14 @@ from core.evaluation.promotion_gate import PromotionEvidence
 from core.evaluation.registry import EvidenceRegistry
 
 
+def _registry_digest(registry: EvidenceRegistry) -> str:
+    payload = json.dumps(
+        tuple(snapshot.digest for snapshot in registry.snapshots),
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _decision_input_digest(
     promotion_evidence: PromotionEvidence,
     operational_safety: OperationalSafetyEvidence,
@@ -54,6 +62,7 @@ def _decision_input_digest(
 @dataclass(frozen=True)
 class PromotionAuditRecord:
     snapshot_digest: str
+    registry_digest: str
     source_commit: str
     decision_input_digest: str
     eligible: bool
@@ -81,6 +90,7 @@ class PromotionAuditRecord:
         )
         return cls(
             snapshot_digest=snapshot.digest,
+            registry_digest=_registry_digest(registry),
             source_commit=current_source_commit,
             decision_input_digest=_decision_input_digest(
                 promotion_evidence, operational_safety, diagnostics
@@ -94,6 +104,7 @@ class PromotionAuditRecord:
         snapshot: EvidenceSnapshot,
         *,
         current_source_commit: str,
+        registry: EvidenceRegistry | None = None,
         promotion_evidence: PromotionEvidence | None = None,
         operational_safety: OperationalSafetyEvidence | None = None,
         diagnostics: tuple[tuple[str, str], ...] | None = None,
@@ -103,6 +114,8 @@ class PromotionAuditRecord:
             and snapshot.digest == self.snapshot_digest
             and self.source_commit == current_source_commit
         ):
+            return False
+        if registry is not None and _registry_digest(registry) != self.registry_digest:
             return False
         if promotion_evidence is None or operational_safety is None or diagnostics is None:
             return True
