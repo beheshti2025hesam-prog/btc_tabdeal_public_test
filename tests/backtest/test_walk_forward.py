@@ -24,6 +24,7 @@ class WalkForwardValidationTests(unittest.TestCase):
                         RiskDecision.ALLOW_SIGNAL,
                         100.0,
                         101.0,
+                        ts + timedelta(minutes=1),
                     ),
                 )
             )
