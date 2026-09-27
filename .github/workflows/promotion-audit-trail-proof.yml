@@ -13,6 +13,7 @@ on:
       - "core/evaluation/final_promotion_gate.py"
       - "core/evaluation/operational_safety.py"
       - "tests/evaluation/test_promotion_audit.py"
+      - "tests/evaluation/test_final_promotion_gate_fail_closed.py"
       - ".github/workflows/promotion-audit-trail-proof.yml"
 
 jobs:
@@ -25,4 +26,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip pytest
-      - run: PYTHONPATH=. pytest -q tests/evaluation/test_promotion_audit.py
+      - run: PYTHONPATH=. pytest -q tests/evaluation/test_promotion_audit.py tests/evaluation/test_final_promotion_gate_fail_closed.py
