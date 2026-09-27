@@ -62,7 +62,17 @@ class PaperOOSTests(unittest.TestCase):
             self.assertEqual(before.performance, after.performance)
 
     def test_fold_with_unclosed_position_is_rejected_by_robustness(self):
-        observations = self.rows(5)
+        observations = self.rows(4)
+        observations[3] = HistoricalObservation(
+            observations[3].timestamp,
+            BacktestSample(
+                observations[3].timestamp,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                105,
+                105,
+            ),
+        )
         validator = WalkForwardValidation(train_size=2, test_size=2, step_size=2)
         with self.assertRaises(ValueError):
             PaperOOS().run(observations, validator)
