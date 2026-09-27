@@ -39,6 +39,28 @@ class ExecutionCostModelTests(unittest.TestCase):
 
         self.assertLessEqual(result.net_return, 0.0)
 
+    def test_costs_reduce_short_trade_too(self):
+        model = ExecutionCostModel(
+            ExecutionCostConfig(
+                fee_bps_per_side=10,
+                spread_bps=20,
+                slippage_bps_per_side=5,
+            )
+        )
+        result = model.apply(direction=-1, entry_mid_price=100, exit_mid_price=90)
+
+        self.assertGreater(result.gross_return, result.net_return)
+        self.assertGreater(result.cost_fraction, 0.0)
+        self.assertGreater(result.net_return, 0.0)
+
+    def test_zero_cost_has_zero_cost_fraction_and_identity_prices(self):
+        result = ExecutionCostModel().apply(
+            direction=1, entry_mid_price=100, exit_mid_price=110
+        )
+        self.assertEqual(result.cost_fraction, 0.0)
+        self.assertEqual(result.entry_execution_price, 100)
+        self.assertEqual(result.exit_execution_price, 110)
+
     def test_invalid_parameters_are_rejected(self):
         with self.assertRaises(ValueError):
             ExecutionCostConfig(fee_bps_per_side=-1)
