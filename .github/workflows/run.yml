@@ -3,36 +3,10 @@ name: Hes Trade Agent — Tabdeal BTC Futures Collector
 on:
   workflow_dispatch:
 
-  schedule:
-    # 24/7 collector cadence:
-    # - A collector run is configured for 4h30m.
-    # - A new scheduled run is created every 4h.
-    # - Therefore, under normal scheduling, the next run enters the
-    #   concurrency queue about 30 minutes before the current run ends.
-    # - The queued run starts immediately after the current run releases
-    #   the collector lock, preserving continuous collector execution.
-    #
-    # Schedule times are UTC.
-    - cron: "00 00 * * *"
-    - cron: "00 04 * * *"
-    - cron: "00 08 * * *"
-    - cron: "00 12 * * *"
-    - cron: "00 16 * * *"
-    - cron: "00 20 * * *"
-
 permissions:
+  actions: write
   contents: write
 
-# Collector safety boundary:
-# - Exactly one collector run may execute at a time.
-# - A running collector must NEVER be canceled by a newer run.
-# - Multiple pending runs must NOT replace/cancel each other.
-#   GitHub's default queue mode is "single", which cancels an older pending
-#   run when a newer one enters the same concurrency group. That behavior is
-#   unsafe for a continuous data collector, so use queue: max.
-#
-# Manual dispatch intentionally uses the same lock so it cannot run beside
-# a scheduled/pending collector and corrupt the shared CSV/archive state.
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
@@ -41,13 +15,8 @@ concurrency:
 jobs:
   collector:
     timeout-minutes: 350
-
     runs-on: ubuntu-latest
-
     env:
-      # Collector duration: 4h30m.
-      # With a 4h schedule cadence, the next scheduled run normally waits
-      # in Pending/Queued state for approximately 30 minutes.
       COLLECTOR_RUN_SECONDS: "16200"
 
     steps:
@@ -76,3 +45,10 @@ jobs:
             data/trades.csv
             data/archive
           if-no-files-found: warn
+
+      - name: Schedule next collector run
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error             --request POST             --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches"             --header "Accept: application/vnd.github+json"             --header "Authorization: Bearer $GH_TOKEN"             --header "X-GitHub-Api-Version: 2026-03-10"             --data '{"ref":"main"}'
