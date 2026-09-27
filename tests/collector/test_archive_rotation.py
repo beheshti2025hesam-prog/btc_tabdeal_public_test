@@ -4,8 +4,6 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import tabdeal_futures_ws_test as collector
 
@@ -49,7 +47,7 @@ def test_archive_rotation_recovery_after_archive_replace_failure(monkeypatch, tm
 
     def fail_on_active_replace(src, dst):
         replace_calls["count"] += 1
-        if replace_calls["count"] == 2:
+        if replace_calls["count"] == 3:
             raise OSError("simulated crash at active replacement")
         return real_replace(src, dst)
 
