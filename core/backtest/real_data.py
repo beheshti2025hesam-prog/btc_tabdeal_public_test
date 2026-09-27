@@ -147,6 +147,7 @@ class RealDataBacktest:
                     risk=risk_decision,
                     entry_price=candle.close,
                     exit_price=next_candle.close,
+                    outcome_timestamp=next_candle.end,
                 )
             )
 
