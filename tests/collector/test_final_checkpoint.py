@@ -173,3 +173,21 @@ def test_push_checkpoint_does_not_reset_and_restage_after_remote_advance(monkeyp
     assert ["git", "fetch", "origin", "main"] in commands
     assert not any(command[:3] == ["git", "reset", "--mixed"] for command in commands)
     assert not any(command[:2] == ["git", "add"] for command in commands)
+
+
+def test_prepare_checkpoint_does_not_mixed_reset_after_startup_alignment(monkeypatch):
+    commands = []
+
+    monkeypatch.setattr(collector, "flush_csv", lambda: None)
+
+    def fake_run_git(command):
+        commands.append(command)
+
+    monkeypatch.setattr(collector, "run_git", fake_run_git)
+    monkeypatch.setattr(collector, "subprocess", collector.subprocess)
+
+    collector.prepare_git_checkpoint()
+
+    assert ["git", "fetch", "origin", "main"] in commands
+    assert ["git", "add", collector.OUTPUT_FILE, collector.ARCHIVE_DIR] in commands
+    assert not any(command[:3] == ["git", "reset", "--mixed"] for command in commands)
