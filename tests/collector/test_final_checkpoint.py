@@ -96,3 +96,61 @@ def test_main_completes_when_final_checkpoint_succeeds(monkeypatch):
     collector.main()
 
     assert closed["value"] is True
+
+
+def test_main_syncs_before_sequence_recovery_and_csv_open(monkeypatch):
+    order = []
+
+    monkeypatch.setattr(
+        collector,
+        "synchronize_startup_data_state",
+        lambda: order.append("sync"),
+    )
+    monkeypatch.setattr(
+        collector,
+        "load_global_last_sequence",
+        lambda: order.append("sequence") or None,
+    )
+    monkeypatch.setattr(
+        collector,
+        "open_csv",
+        lambda: order.append("open"),
+    )
+    monkeypatch.setattr(
+        collector,
+        "collect",
+        lambda: order.append("collect"),
+    )
+    monkeypatch.setattr(
+        collector,
+        "git_checkpoint",
+        lambda: order.append("checkpoint") or True,
+    )
+    monkeypatch.setattr(
+        collector,
+        "close_csv",
+        lambda: order.append("close"),
+    )
+
+    collector.main()
+
+    assert order[:3] == ["sync", "sequence", "open"]
+
+
+def test_startup_sync_refuses_dirty_archive(monkeypatch):
+    commands = []
+
+    def fake_run_git(command):
+        commands.append(command)
+
+    class Result:
+        stdout = " M data/archive/trades_20260927.csv\\n"
+        returncode = 0
+
+    monkeypatch.setattr(collector, "run_git", fake_run_git)
+    monkeypatch.setattr(collector.subprocess, "run", lambda *args, **kwargs: Result())
+
+    with pytest.raises(RuntimeError, match="local collector data modifications"):
+        collector.synchronize_startup_data_state()
+
+    assert not any(command[:2] == ["git", "restore"] for command in commands)
