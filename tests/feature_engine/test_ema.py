@@ -31,7 +31,6 @@ class EMACalculatorTests(unittest.TestCase):
     def test_future_candles_do_not_change_historical_ema_snapshots(self):
         candles = self._candles([1.0, 2.0, 3.0, 6.0])
         baseline = EMACalculator(period=3).calculate(candles)
-        extended = EMACalculator(period=3).calculate(candles + self._candles([9.0, 10.0])[0:0])
         # Rebuild the extension with timestamps continuing after the original window.
         start = candles[-1].end
         future = [
