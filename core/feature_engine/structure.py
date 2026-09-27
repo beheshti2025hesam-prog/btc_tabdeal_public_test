@@ -61,6 +61,7 @@ class StructureCalculator:
                     last_low = center.low
                     low_ts = center.end.astimezone(timezone.utc)
                 if high_ts is not None or low_ts is not None:
-                    results.append(StructureSnapshot(symbol, timeframe, center.end.astimezone(timezone.utc),
+                    results.append(StructureSnapshot(symbol, timeframe,
+                                                      ordered[index + self.right].end.astimezone(timezone.utc),
                                                       last_high, last_low, high_ts, low_ts))
         return sorted(results, key=lambda item: (item.symbol, item.timeframe_seconds, item.timestamp))
