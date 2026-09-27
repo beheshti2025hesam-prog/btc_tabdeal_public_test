@@ -94,7 +94,7 @@ class PaperPerformance:
                 entry_price = sample.entry_price
                 entry_state = event.state
 
-        wins = sum(t.return_fraction > 0 for t in completed)
+        # A fold boundary is a hard measurement boundary. If a virtual position\n        # remains open at the last observed timestamp, neutralize it at that\n        # same timestamp/price. This uses no future observation and prevents\n        # position state from leaking into the next OOS fold.\n        if entry_price is not None:\n            final = sample\n            if entry_state not in (PaperState.LONG, PaperState.SHORT):\n                raise ValueError("paper position state missing at fold boundary")\n            direction = 1.0 if entry_state is PaperState.LONG else -1.0\n            result = direction * (final.entry_price - entry_price) / entry_price\n            completed.append(PaperTrade(\n                entry_timestamp, final_timestamp, entry_state,\n                entry_price, final.entry_price, result\n            ))\n            equity *= 1.0 + result\n            peak = max(peak, equity)\n            max_drawdown = max(max_drawdown, (peak - equity) / peak)\n            entry_timestamp = entry_price = entry_state = None\n\n        wins = sum(t.return_fraction > 0 for t in completed)
         losses = sum(t.return_fraction < 0 for t in completed)
         flat = len(completed) - wins - losses
         total_return = sum(t.return_fraction for t in completed)
