@@ -24,7 +24,7 @@ class WalkForwardValidationTests(unittest.TestCase):
                         RiskDecision.ALLOW_SIGNAL,
                         100.0,
                         101.0,
-                        ts + timedelta(minutes=1),
+                        ts + timedelta(seconds=30),
                     ),
                 )
             )
@@ -57,6 +57,23 @@ class WalkForwardValidationTests(unittest.TestCase):
 
         first = result.folds[0]
         self.assertEqual(first.train_end + timedelta(minutes=2), first.test_start)
+
+    def test_rejects_training_outcome_crossing_oos_boundary(self):
+        rows = self.observations(8)
+        ts = rows[3].timestamp
+        rows[3] = HistoricalObservation(
+            ts,
+            BacktestSample(
+                ts,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[4].timestamp,
+            ),
+        )
+        with self.assertRaises(ValueError):
+            WalkForwardValidation(train_size=4, test_size=2, step_size=2).run(rows)
 
     def test_rejects_insufficient_history(self):
         with self.assertRaises(ValueError):
