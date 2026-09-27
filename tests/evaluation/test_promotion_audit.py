@@ -47,7 +47,7 @@ def setup():
     return snapshot, registry, diagnostics
 
 
-def test_audit_binds_snapshot_commit_and_decision_inputs():
+def test_audit_binds_snapshot_commit_registry_and_decision_inputs():
     snapshot, registry, diagnostics = setup()
     pe, safety = evidence(), ops()
     record = PromotionAuditRecord.create(
@@ -59,6 +59,32 @@ def test_audit_binds_snapshot_commit_and_decision_inputs():
     assert record.verify_binding(
         snapshot,
         current_source_commit="abc123",
+        registry=registry,
+        promotion_evidence=pe,
+        operational_safety=safety,
+        diagnostics=diagnostics,
+    )
+
+
+def test_changed_registry_fails_binding():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
+    record = PromotionAuditRecord.create(
+        snapshot, registry, pe, safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+    extra = EvidenceSnapshot.create(
+        "HES Trade Agent",
+        "Seyed Hesameddin Beheshti Shirazi",
+        "abc123",
+        {"extra": True},
+    )
+    changed_registry = registry.append(extra)
+    assert not record.verify_binding(
+        snapshot,
+        current_source_commit="abc123",
+        registry=changed_registry,
         promotion_evidence=pe,
         operational_safety=safety,
         diagnostics=diagnostics,
@@ -76,6 +102,7 @@ def test_changed_promotion_input_fails_binding():
     assert not record.verify_binding(
         snapshot,
         current_source_commit="abc123",
+        registry=registry,
         promotion_evidence=evidence(paper_robustness_verified=False),
         operational_safety=safety,
         diagnostics=diagnostics,
@@ -93,6 +120,7 @@ def test_changed_operational_safety_fails_binding():
     assert not record.verify_binding(
         snapshot,
         current_source_commit="abc123",
+        registry=registry,
         promotion_evidence=pe,
         operational_safety=ops(risk_veto_enforced=False),
         diagnostics=diagnostics,
@@ -110,6 +138,7 @@ def test_changed_diagnostics_fails_binding():
     assert not record.verify_binding(
         snapshot,
         current_source_commit="abc123",
+        registry=registry,
         promotion_evidence=pe,
         operational_safety=safety,
         diagnostics=(("quality", "tampered"), ("coverage", "complete")),
