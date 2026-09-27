@@ -3,6 +3,7 @@ import unittest
 from core.evaluation.canonicalization import canonicalize
 from core.evaluation.final_promotion_gate import FinalPromotionGate
 from core.evaluation.operational_safety import OperationalSafetyEvidence
+from core.evaluation.producer import EvidenceResult
 from core.evaluation.promotion_gate import PromotionEvidence
 from core.evaluation.registry import EvidenceRegistry
 
@@ -42,21 +43,9 @@ class EvidencePromotionCompatibilityTests(unittest.TestCase):
     def test_full_producer_to_final_gate_path_is_eligible(self):
         canonical = canonicalize(
             [
-                # These are producer outputs, not promotion decisions.
-                # FinalPromotionGate separately requires the complete promotion
-                # and operational-safety contracts.
-                __import__(
-                    "core.evaluation.producer",
-                    fromlist=["EvidenceResult"],
-                ).EvidenceResult("data_quality", True, "invalid_rows=0"),
-                __import__(
-                    "core.evaluation.producer",
-                    fromlist=["EvidenceResult"],
-                ).EvidenceResult("data_integrity", True, "clean"),
-                __import__(
-                    "core.evaluation.producer",
-                    fromlist=["EvidenceResult"],
-                ).EvidenceResult("coverage", True, "confirmed_coverage_gaps=0"),
+                EvidenceResult("data_quality", True, "invalid_rows=0"),
+                EvidenceResult("data_integrity", True, "clean"),
+                EvidenceResult("coverage", True, "confirmed_coverage_gaps=0"),
             ],
             project_name=PROJECT,
             owner=OWNER,
