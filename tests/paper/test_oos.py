@@ -46,5 +46,27 @@ class PaperOOSTests(unittest.TestCase):
             PaperOOS().run([], validator)
 
 
+    def test_future_extension_does_not_change_existing_fold_measurement(self):
+        observations = self.rows(8)
+        extended = self.rows(12)
+        validator = WalkForwardValidation(train_size=4, test_size=2, step_size=2)
+
+        base = PaperOOS().run(observations, validator)
+        future = PaperOOS().run(extended, validator)
+
+        self.assertEqual(len(base.folds), 2)
+        self.assertGreaterEqual(len(future.folds), 2)
+
+        for before, after in zip(base.folds, future.folds):
+            self.assertEqual(before.test, after.test)
+            self.assertEqual(before.performance, after.performance)
+
+    def test_fold_with_unclosed_position_is_rejected_by_robustness(self):
+        observations = self.rows(5)
+        validator = WalkForwardValidation(train_size=2, test_size=2, step_size=2)
+        with self.assertRaises(ValueError):
+            PaperOOS().run(observations, validator)
+
+
 if __name__ == "__main__":
     unittest.main()
