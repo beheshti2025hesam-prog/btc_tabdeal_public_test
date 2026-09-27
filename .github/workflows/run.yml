@@ -5,20 +5,20 @@ on:
 
   schedule:
     # 24/7 collector cadence:
-    # - A collector run is configured for 4h30m.
+    # - Collector runtime: 5h20m (original proven collection window).
     # - A new scheduled run is created every 4h.
-    # - Therefore, under normal scheduling, the next run enters the
-    #   concurrency queue about 30 minutes before the current run ends.
-    # - The queued run starts immediately after the current run releases
-    #   the collector lock, preserving continuous collector execution.
+    # - This creates ~80m overlap, so scheduler delays are absorbed by the
+    #   concurrency queue instead of becoming raw-data gaps.
+    # - Schedule is intentionally offset from the top of the hour because
+    #   GitHub documents higher schedule delay risk at :00.
     #
     # Schedule times are UTC.
-    - cron: "00 00 * * *"
-    - cron: "00 04 * * *"
-    - cron: "00 08 * * *"
-    - cron: "00 12 * * *"
-    - cron: "00 16 * * *"
-    - cron: "00 20 * * *"
+    - cron: "15 00 * * *"
+    - cron: "15 04 * * *"
+    - cron: "15 08 * * *"
+    - cron: "15 12 * * *"
+    - cron: "15 16 * * *"
+    - cron: "15 20 * * *"
 
 permissions:
   contents: write
@@ -27,9 +27,7 @@ permissions:
 # - Exactly one collector run may execute at a time.
 # - A running collector must NEVER be canceled by a newer run.
 # - Multiple pending runs must NOT replace/cancel each other.
-#   GitHub's default queue mode is "single", which cancels an older pending
-#   run when a newer one enters the same concurrency group. That behavior is
-#   unsafe for a continuous data collector, so use queue: max.
+#   queue: max preserves queued scheduled collectors.
 #
 # Manual dispatch intentionally uses the same lock so it cannot run beside
 # a scheduled/pending collector and corrupt the shared CSV/archive state.
@@ -45,10 +43,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Collector duration: 4h30m.
-      # With a 4h schedule cadence, the next scheduled run normally waits
-      # in Pending/Queued state for approximately 30 minutes.
-      COLLECTOR_RUN_SECONDS: "16200"
+      # Restore original 5h20m collection window.
+      # 4h cadence => approximately 80m overlap/queue protection.
+      COLLECTOR_RUN_SECONDS: "19200"
 
     steps:
       - name: Checkout
