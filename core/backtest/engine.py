@@ -8,6 +8,7 @@ from datetime import datetime
 import math
 from typing import Iterable
 
+from core.backtest.execution_realism import ExecutionCostModel
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
 
@@ -36,6 +37,9 @@ class BacktestResult:
 
 class BacktestEngine:
     """Replay deterministic historical observations without execution."""
+
+    def __init__(self, execution_cost_model: ExecutionCostModel | None = None) -> None:
+        self.execution_cost_model = execution_cost_model or ExecutionCostModel()
 
     def run(self, samples: Iterable[BacktestSample]) -> BacktestResult:
         rows = sorted(list(samples), key=lambda item: item.timestamp)
@@ -66,8 +70,12 @@ class BacktestEngine:
             if row.risk is not RiskDecision.ALLOW_SIGNAL:
                 raise ValueError("unknown risk decision")
 
-            direction = 1.0 if row.decision is BaselineDecision.LONG else -1.0
-            outcome = direction * (row.exit_price - row.entry_price) / row.entry_price
+            direction = 1 if row.decision is BaselineDecision.LONG else -1
+            outcome = self.execution_cost_model.apply(
+                direction=direction,
+                entry_mid_price=row.entry_price,
+                exit_mid_price=row.exit_price,
+            ).net_return
             total_return += outcome
             evaluated += 1
             if outcome > 0:
