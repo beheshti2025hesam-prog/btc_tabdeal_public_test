@@ -143,3 +143,39 @@ def test_changed_diagnostics_fails_binding():
         operational_safety=safety,
         diagnostics=(("quality", "tampered"), ("coverage", "complete")),
     )
+
+
+def test_replay_matches_exact_final_gate_result():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
+    record = PromotionAuditRecord.create(
+        snapshot, registry, pe, safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+    assert record.replay_matches(
+        snapshot,
+        registry,
+        pe,
+        safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+
+
+def test_replay_rejects_changed_gate_inputs():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
+    record = PromotionAuditRecord.create(
+        snapshot, registry, pe, safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+    assert not record.replay_matches(
+        snapshot,
+        registry,
+        evidence(paper_performance_verified=False),
+        safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
