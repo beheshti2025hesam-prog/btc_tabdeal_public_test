@@ -135,6 +135,7 @@ class RealDataBacktest:
                 buy_sell_delta=delta,
                 buy_ratio=buy_ratio,
                 timestamp=candle.end,
+                available_at=candle.end,
             )
             decision = strategy.evaluate(BaselineStrategyInput(features=features))
             risk_decision = risk.evaluate(
