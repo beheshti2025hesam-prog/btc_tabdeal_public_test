@@ -1,0 +1,25 @@
+name: Coverage Evidence Validation
+
+on:
+  push:
+    branches:
+      - main
+      - evidence-real-data-quality-v1
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  coverage-evidence:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: pytest -q tests/evaluation/test_data_coverage_producer.py tests/evaluation/test_data_integrity_producer.py tests/evaluation/test_data_quality_producer.py tests/evaluation/test_e2e_flow.py tests/evaluation/test_registry_consumer.py tests/evaluation/test_aggregator.py tests/evaluation/test_producer.py tests/evaluation/test_schema.py tests/evaluation/test_promotion.py tests/evaluation/test_registry.py tests/evaluation/test_boundary.py
+        env:
+          PYTHONPATH: .
