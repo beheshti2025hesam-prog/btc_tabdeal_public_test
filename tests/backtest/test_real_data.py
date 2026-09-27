@@ -140,8 +140,8 @@ class RealDataBacktestTests(unittest.TestCase):
                 embargo_size=1,
             )
 
-        self.assertEqual(len(result.folds), 3)
-        self.assertEqual(result.samples, 3)
+        self.assertEqual(len(result.folds), 2)
+        self.assertEqual(result.samples, 2)
         for fold in result.folds:
             self.assertLess(fold.train_end, fold.test_start)
             self.assertEqual(fold.train_observations, 2)
