@@ -197,7 +197,7 @@ def test_remote_advance_rejection_preserves_prepared_checkpoint_state(monkeypatc
         "remote": "collector-B-new-rows",
     }
     assert commands == [
-        ["git", "push", "origin", "HEAD:main"],
+        ["git", "push", "origin", "main"],
         ["git", "fetch", "origin", "main"],
     ]
 
