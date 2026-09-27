@@ -1,4 +1,3 @@
-import pytest
 from core.evaluation.evidence import EvidenceSnapshot
 from core.evaluation.operational_safety import OperationalSafetyEvidence
 from core.evaluation.promotion_audit import PromotionAuditRecord
@@ -6,8 +5,8 @@ from core.evaluation.promotion_gate import PromotionEvidence
 from core.evaluation.registry import EvidenceRegistry
 
 
-def all_promotion_evidence():
-    return PromotionEvidence(
+def evidence(**overrides):
+    values = dict(
         data_quality_verified=True,
         historical_validation_verified=True,
         oos_walk_forward_verified=True,
@@ -18,13 +17,25 @@ def all_promotion_evidence():
         risk_boundary_verified=True,
         live_safety_verified=True,
     )
+    values.update(overrides)
+    return PromotionEvidence(**values)
 
 
-def safe_ops():
-    return OperationalSafetyEvidence(True, True, True, True, True, True, True)
+def ops(**overrides):
+    values = dict(
+        execution_disabled=True,
+        venue_connection_disabled=True,
+        capital_mutation_disabled=True,
+        leverage_controlled=True,
+        risk_veto_enforced=True,
+        raw_data_immutable=True,
+        audit_trail_available=True,
+    )
+    values.update(overrides)
+    return OperationalSafetyEvidence(**values)
 
 
-def test_audit_record_binds_to_snapshot_and_commit():
+def setup():
     snapshot = EvidenceSnapshot.create(
         "HES Trade Agent",
         "Seyed Hesameddin Beheshti Shirazi",
@@ -32,45 +43,74 @@ def test_audit_record_binds_to_snapshot_and_commit():
         {"data_quality_verified": True},
     )
     registry = EvidenceRegistry().append(snapshot)
+    diagnostics = (("quality", "verified"), ("coverage", "complete"))
+    return snapshot, registry, diagnostics
+
+
+def test_audit_binds_snapshot_commit_and_decision_inputs():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
     record = PromotionAuditRecord.create(
-        snapshot, registry, all_promotion_evidence(), safe_ops(),
+        snapshot, registry, pe, safety,
         current_source_commit="abc123",
+        diagnostics=diagnostics,
     )
     assert record.eligible is True
-    assert record.verify_binding(snapshot, current_source_commit="abc123")
-
-
-def test_tampered_snapshot_fails_audit_binding():
-    snapshot = EvidenceSnapshot.create(
-        "HES Trade Agent",
-        "Seyed Hesameddin Beheshti Shirazi",
-        "abc123",
-        {"data_quality_verified": True},
-    )
-    registry = EvidenceRegistry().append(snapshot)
-    record = PromotionAuditRecord.create(
-        snapshot, registry, all_promotion_evidence(), safe_ops(),
+    assert record.verify_binding(
+        snapshot,
         current_source_commit="abc123",
+        promotion_evidence=pe,
+        operational_safety=safety,
+        diagnostics=diagnostics,
     )
-    tampered = EvidenceSnapshot.create(
-        "HES Trade Agent",
-        "Seyed Hesameddin Beheshti Shirazi",
-        "abc123",
-        {"data_quality_verified": False},
-    )
-    assert not record.verify_binding(tampered, current_source_commit="abc123")
 
 
-def test_stale_commit_fails_audit_binding():
-    snapshot = EvidenceSnapshot.create(
-        "HES Trade Agent",
-        "Seyed Hesameddin Beheshti Shirazi",
-        "abc123",
-        {"data_quality_verified": True},
-    )
-    registry = EvidenceRegistry().append(snapshot)
+def test_changed_promotion_input_fails_binding():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
     record = PromotionAuditRecord.create(
-        snapshot, registry, all_promotion_evidence(), safe_ops(),
+        snapshot, registry, pe, safety,
         current_source_commit="abc123",
+        diagnostics=diagnostics,
     )
-    assert not record.verify_binding(snapshot, current_source_commit="def456")
+    assert not record.verify_binding(
+        snapshot,
+        current_source_commit="abc123",
+        promotion_evidence=evidence(paper_robustness_verified=False),
+        operational_safety=safety,
+        diagnostics=diagnostics,
+    )
+
+
+def test_changed_operational_safety_fails_binding():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
+    record = PromotionAuditRecord.create(
+        snapshot, registry, pe, safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+    assert not record.verify_binding(
+        snapshot,
+        current_source_commit="abc123",
+        promotion_evidence=pe,
+        operational_safety=ops(risk_veto_enforced=False),
+        diagnostics=diagnostics,
+    )
+
+
+def test_changed_diagnostics_fails_binding():
+    snapshot, registry, diagnostics = setup()
+    pe, safety = evidence(), ops()
+    record = PromotionAuditRecord.create(
+        snapshot, registry, pe, safety,
+        current_source_commit="abc123",
+        diagnostics=diagnostics,
+    )
+    assert not record.verify_binding(
+        snapshot,
+        current_source_commit="abc123",
+        promotion_evidence=pe,
+        operational_safety=safety,
+        diagnostics=(("quality", "tampered"), ("coverage", "complete")),
+    )
