@@ -19,6 +19,7 @@ class BacktestSample:
     risk: RiskDecision
     entry_price: float
     exit_price: float
+    outcome_timestamp: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -37,16 +38,18 @@ class BacktestEngine:
     """Replay deterministic historical observations without execution."""
 
     def run(self, samples: Iterable[BacktestSample]) -> BacktestResult:
-        rows = sorted(
-            list(samples),
-            key=lambda item: item.timestamp,
-        )
+        rows = sorted(list(samples), key=lambda item: item.timestamp)
         wins = losses = evaluated = vetoed = no_trade = 0
         total_return = 0.0
 
         for row in rows:
             if row.timestamp.tzinfo is None or row.timestamp.utcoffset() is None:
                 raise ValueError("sample timestamp must be timezone-aware")
+            if row.outcome_timestamp is not None:
+                if row.outcome_timestamp.tzinfo is None or row.outcome_timestamp.utcoffset() is None:
+                    raise ValueError("outcome timestamp must be timezone-aware")
+                if row.outcome_timestamp <= row.timestamp:
+                    raise ValueError("outcome timestamp must be after decision timestamp")
             if not all(math.isfinite(value) for value in (row.entry_price, row.exit_price)):
                 raise ValueError("prices must be finite")
             if row.entry_price <= 0 or row.exit_price <= 0:
