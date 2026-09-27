@@ -137,6 +137,7 @@ class RealDataBacktestTests(unittest.TestCase):
                 train_size=2,
                 test_size=1,
                 step_size=1,
+                embargo_size=1,
             )
 
         self.assertEqual(len(result.folds), 3)
