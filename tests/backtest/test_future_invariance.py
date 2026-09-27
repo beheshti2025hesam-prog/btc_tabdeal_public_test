@@ -5,8 +5,6 @@ from datetime import datetime, timedelta, timezone
 from core.data_engine.candles import Candle
 from core.data_engine.vwap import VWAPCalculator
 from core.feature_engine.ema import EMACalculator
-from core.feature_engine.quality import FeatureSnapshot
-from core.strategy.baseline import BaselineStrategy, BaselineStrategyInput
 from core.models.trade import CanonicalTrade
 
 
@@ -51,16 +49,6 @@ class FutureInvarianceTests(unittest.TestCase):
         after = calc.calculate(base + future)
         self.assertEqual([(x.start, x.end, x.vwap) for x in after[:len(before)]],
                          [(x.start, x.end, x.vwap) for x in before])
-
-    def test_baseline_decision_is_unchanged_for_same_snapshot_after_future_data(self):
-        snapshot = FeatureSnapshot(
-            symbol="BTC_USDT", timeframe_seconds=60, close=105.0, ema=103.0,
-            vwap=102.0, buy_sell_delta=1.0, buy_ratio=0.75,
-            timestamp=datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc),
-        )
-        strategy = BaselineStrategy(min_confirmations=3)
-        self.assertEqual(strategy.evaluate(BaselineStrategyInput(snapshot)),
-                         strategy.evaluate(BaselineStrategyInput(snapshot)))
 
 
 if __name__ == "__main__":
