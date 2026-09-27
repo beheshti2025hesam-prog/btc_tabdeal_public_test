@@ -122,3 +122,35 @@ class PromotionAuditRecord:
         return self.decision_input_digest == _decision_input_digest(
             promotion_evidence, operational_safety, diagnostics
         )
+
+    def replay_matches(
+        self,
+        snapshot: EvidenceSnapshot,
+        registry: EvidenceRegistry,
+        promotion_evidence: PromotionEvidence,
+        operational_safety: OperationalSafetyEvidence,
+        *,
+        current_source_commit: str,
+        diagnostics: tuple[tuple[str, str], ...] = (),
+    ) -> bool:
+        """Re-evaluate the gate and require exact audit/result equivalence."""
+        if not self.verify_binding(
+            snapshot,
+            current_source_commit=current_source_commit,
+            registry=registry,
+            promotion_evidence=promotion_evidence,
+            operational_safety=operational_safety,
+            diagnostics=diagnostics,
+        ):
+            return False
+
+        from core.evaluation.final_promotion_gate import FinalPromotionGate
+
+        result = FinalPromotionGate().evaluate(
+            promotion_evidence,
+            snapshot,
+            registry,
+            operational_safety,
+            current_source_commit=current_source_commit,
+        )
+        return result.eligible == self.eligible and result.missing == self.missing
