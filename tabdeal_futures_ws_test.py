@@ -264,6 +264,17 @@ def synchronize_startup_data_state():
             "do not match origin/main."
         )
 
+    # Align HEAD/index with the same remote snapshot after the data paths
+    # have been safely refreshed. Mixed reset is safe here because the data
+    # working tree has just been verified against origin/main, and it prevents
+    # the checkpoint phase from needing a destructive mixed-reset retry.
+    run_git([
+        "git",
+        "reset",
+        "--mixed",
+        "origin/main"
+    ])
+
     print(
         "=== STARTUP DATA STATE SYNC COMPLETE ===",
         flush=True
@@ -834,13 +845,10 @@ def prepare_git_checkpoint():
         "main"
     ])
 
-    run_git([
-        "git",
-        "reset",
-        "--mixed",
-        "origin/main"
-    ])
-
+    # Do not mixed-reset here. The startup synchronization already aligned
+    # HEAD/index to a verified origin/main snapshot. A second reset at
+    # checkpoint time can race with another collector and leave a stale
+    # working-tree dataset attached to a newer HEAD.
     run_git([
         "git",
         "add",
