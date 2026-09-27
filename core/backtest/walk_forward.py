@@ -26,6 +26,8 @@ class WalkForwardFold:
     test_end: datetime
     train_observations: int
     test_observations: int
+    train: tuple[HistoricalObservation, ...]
+    test: tuple[HistoricalObservation, ...]
     result: BacktestResult
 
 
@@ -80,8 +82,8 @@ class WalkForwardValidation:
             if test_end > len(rows):
                 break
 
-            train = rows[start:train_end]
-            test = rows[test_start:test_end]
+            train = tuple(rows[start:train_end])
+            test = tuple(rows[test_start:test_end])
 
             if train[-1].timestamp >= test[0].timestamp:
                 raise ValueError("train/test windows overlap or are not chronological")
@@ -98,6 +100,8 @@ class WalkForwardValidation:
                     test_end=test[-1].timestamp,
                     train_observations=len(train),
                     test_observations=len(test),
+                    train=train,
+                    test=test,
                     result=result,
                 )
             )
