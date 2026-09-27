@@ -117,3 +117,70 @@ def test_main_recovers_archive_rotation_before_startup_sync(monkeypatch):
     collector.main()
 
     assert order[:3] == ["recover", "sync", "sequence"]
+
+
+def test_archive_rotation_preserves_sequence_boundary(monkeypatch, tmp_path):
+    data_dir = tmp_path / "data"
+    archive_dir = data_dir / "archive"
+    output = data_dir / "trades.csv"
+
+    monkeypatch.setattr(collector, "OUTPUT_FILE", str(output))
+    monkeypatch.setattr(collector, "ARCHIVE_DIR", str(archive_dir))
+    monkeypatch.setattr(
+        collector,
+        "ROTATION_MARKER",
+        str(archive_dir / ".archive_rotation.json"),
+    )
+    monkeypatch.setattr(collector, "MAX_ACTIVE_ROWS", 5)
+    monkeypatch.setattr(collector, "ARCHIVE_BATCH_ROWS", 2)
+    monkeypatch.setattr(collector, "active_rows", 5)
+    monkeypatch.setattr(collector, "csv_file", None)
+    monkeypatch.setattr(collector, "csv_writer", None)
+
+    rows = [
+        ["BTC_USDT", "100", "1", "buy", f"2026-09-27T00:00:0{seq}Z", str(seq)]
+        for seq in range(1, 6)
+    ]
+    _write_rows(output, rows)
+
+    assert collector.archive_old_rows() is True
+
+    archives = list(archive_dir.glob("trades_archive_*.csv"))
+    assert len(archives) == 1
+    assert _read_sequences(archives[0]) == [1, 2]
+    assert _read_sequences(output) == [3, 4, 5]
+    assert _read_sequences(archives[0])[-1] < _read_sequences(output)[0]
+    assert collector.active_rows == 3
+
+
+def test_archive_rotation_refuses_existing_archive_target(monkeypatch, tmp_path):
+    data_dir = tmp_path / "data"
+    archive_dir = data_dir / "archive"
+    output = data_dir / "trades.csv"
+
+    monkeypatch.setattr(collector, "OUTPUT_FILE", str(output))
+    monkeypatch.setattr(collector, "ARCHIVE_DIR", str(archive_dir))
+    monkeypatch.setattr(
+        collector,
+        "ROTATION_MARKER",
+        str(archive_dir / ".archive_rotation.json"),
+    )
+    monkeypatch.setattr(collector, "MAX_ACTIVE_ROWS", 5)
+    monkeypatch.setattr(collector, "ARCHIVE_BATCH_ROWS", 2)
+    monkeypatch.setattr(collector, "active_rows", 5)
+    monkeypatch.setattr(collector, "csv_file", None)
+    monkeypatch.setattr(collector, "csv_writer", None)
+
+    rows = [
+        ["BTC_USDT", "100", "1", "buy", "2026-09-27T00:00:00Z", str(seq)]
+        for seq in range(1, 6)
+    ]
+    _write_rows(output, rows)
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(collector.time, "strftime", lambda *args, **kwargs: "20260927_000000")
+    existing = archive_dir / "trades_archive_20260927_000000.csv"
+    _write_rows(existing, [["BTC_USDT", "99", "1", "buy", "2026-09-26T23:59:59Z", "0"]])
+
+    assert collector.archive_old_rows() is False
+    assert _read_sequences(output) == [1, 2, 3, 4, 5]
+    assert _read_sequences(existing) == [0]
