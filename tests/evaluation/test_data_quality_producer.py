@@ -28,7 +28,7 @@ class DataQualityEvidenceProducerTests(unittest.TestCase):
         result = DataQualityEvidenceProducer().produce(report)
         self.assertFalse(result.passed)
 
-    def test_integrity_issues_fail_evidence(self):
+    def test_sequence_gap_is_reported_but_does_not_fail_data_quality(self):
         report = DataQualityReport(
             total_trades=10,
             validation={"invalid_rows": 0},
@@ -37,12 +37,26 @@ class DataQualityEvidenceProducerTests(unittest.TestCase):
             },
         )
         result = DataQualityEvidenceProducer().produce(report)
+        self.assertTrue(result.passed)
+        self.assertIn("sequence_gaps=1", result.details)
+        self.assertIn("sequence_gaps_are_anomalies_not_confirmed_loss=true", result.details)
+
+    def test_confirmed_integrity_issue_fails_evidence(self):
+        report = DataQualityReport(
+            total_trades=10,
+            validation={"invalid_rows": 0},
+            integrity={
+                ("tabdeal", "BTC_USDT"): {
+                    "duplicate_sequence_count": 1
+                }
+            },
+        )
+        result = DataQualityEvidenceProducer().produce(report)
         self.assertFalse(result.passed)
 
     def test_invalid_context_fails_closed(self):
         with self.assertRaises(TypeError):
             DataQualityEvidenceProducer().produce(object())
-
 
     def test_producer_consumes_real_data_engine_quality_report(self):
         class StubReader:
@@ -58,7 +72,6 @@ class DataQualityEvidenceProducerTests(unittest.TestCase):
         result = DataQualityEvidenceProducer().produce(report)
         self.assertTrue(result.passed)
         self.assertIn("invalid_rows=0", result.details)
-
 
     def test_default_reader_produces_evidence_from_repository_raw_data(self):
         from core.data_engine.reader import RawDataReader
