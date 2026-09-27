@@ -1,6 +1,9 @@
 name: Evidence Canonicalization Compatibility Validation
 
 on:
+  push:
+    branches:
+      - "compat/evidence-pr67-pr71-integration-proof"
   pull_request:
     paths:
       - "core/evaluation/producer.py"
