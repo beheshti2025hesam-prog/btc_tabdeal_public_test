@@ -28,6 +28,8 @@ class HistoricalValidation:
                 raise ValueError("observation timestamp must be timezone-aware")
             if row.sample.timestamp != ts:
                 raise ValueError("sample timestamp must match observation timestamp")
+            if row.sample.outcome_timestamp is not None and row.sample.outcome_timestamp <= ts:
+                raise ValueError("outcome timestamp must be after observation timestamp")
             if previous is not None and ts < previous:
                 raise ValueError("historical observations must be chronological")
             previous = ts
