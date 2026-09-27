@@ -61,6 +61,30 @@ class PaperOOSTests(unittest.TestCase):
             self.assertEqual(before.test, after.test)
             self.assertEqual(before.performance, after.performance)
 
+    def test_paper_measurement_uses_signal_stream_not_backtest_exit_price(self):
+        base = datetime(2026, 9, 25, tzinfo=timezone.utc)
+        rows = [
+            HistoricalObservation(
+                base,
+                BacktestSample(
+                    base, BaselineDecision.LONG, RiskDecision.ALLOW_SIGNAL,
+                    100, 999, base + timedelta(minutes=1),
+                ),
+            ),
+            HistoricalObservation(
+                base + timedelta(minutes=1),
+                BacktestSample(
+                    base + timedelta(minutes=1), BaselineDecision.NO_TRADE,
+                    RiskDecision.ALLOW_SIGNAL, 101, 999,
+                    base + timedelta(minutes=2),
+                ),
+            ),
+        ]
+        performance = __import__("core.paper.performance", fromlist=["PaperPerformance"]).PaperPerformance().run(rows)
+        self.assertEqual(performance.completed_trades, 1)
+        self.assertEqual(performance.folds if hasattr(performance, "folds") else 1, 1)
+        self.assertAlmostEqual(performance.total_return, 0.01)
+
     def test_fold_end_open_position_is_neutralized_without_future_data(self):
         observations = self.rows(4)
         observations[3] = HistoricalObservation(
