@@ -23,12 +23,24 @@ class DataQualityEvidenceProducer:
             raise TypeError("DataQualityEvidenceProducer requires DataQualityReport")
 
         invalid_rows = context.invalid_row_count
-        integrity_issues = context.has_integrity_issues
-        passed = invalid_rows == 0 and not integrity_issues
+        integrity_issue_count = 0
+        sequence_gap_count = 0
+        for report in context.integrity.values():
+            integrity_issue_count += int(report.get("duplicate_event_id_count", 0))
+            integrity_issue_count += int(report.get("duplicate_sequence_count", 0))
+            integrity_issue_count += int(report.get("backward_sequence_count", 0))
+            integrity_issue_count += int(report.get("timestamp_backward_count", 0))
+            sequence_gap_count += int(report.get("sequence_gap_count", 0))
+
+        # Sequence gaps remain observable evidence, not confirmed data loss.
+        # Confirmed coverage loss is evaluated by CoverageEvidenceProducer.
+        passed = invalid_rows == 0 and integrity_issue_count == 0
 
         details = (
             f"invalid_rows={invalid_rows};"
-            f"integrity_issues={integrity_issues};"
+            f"integrity_issues={integrity_issue_count > 0};"
+            f"sequence_gaps={sequence_gap_count};"
+            "sequence_gaps_are_anomalies_not_confirmed_loss=true;"
             f"total_trades={context.total_trades}"
         )
         return EvidenceResult(self.GATE_NAME, passed, details)
