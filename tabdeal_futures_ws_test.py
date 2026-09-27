@@ -183,6 +183,93 @@ def get_last_physical_sequence(file_path):
     return None
 
 
+def synchronize_startup_data_state():
+    """
+    Synchronize collector data files to the latest origin/main state
+    before sequence recovery or CSV opening.
+
+    GitHub Actions can start a queued workflow from the SHA captured when
+    it was scheduled. That checkout may therefore be stale by the time the
+    collector starts. A mixed reset at checkpoint time is not sufficient:
+    it moves HEAD/index but leaves the stale working-tree CSV untouched.
+
+    Safety rule:
+    - fetch the latest main first;
+    - refuse to overwrite any pre-existing local data modifications;
+    - restore only the collector data paths from origin/main;
+    - verify the working tree data now matches origin/main.
+
+    This is a startup-only synchronization step. It runs before the
+    collector opens or writes the CSV, so it cannot erase trades collected
+    by the current process.
+    """
+
+    print(
+        "=== STARTUP DATA STATE SYNC START ===",
+        flush=True
+    )
+
+    run_git([
+        "git",
+        "fetch",
+        "origin",
+        "main"
+    ])
+
+    status = subprocess.run(
+        [
+            "git",
+            "status",
+            "--porcelain",
+            "--",
+            OUTPUT_FILE,
+            ARCHIVE_DIR
+        ],
+        check=True,
+        capture_output=True,
+        text=True
+    )
+
+    if status.stdout.strip():
+        raise RuntimeError(
+            "Refusing startup data sync: local collector data modifications "
+            "are present. Reconcile/persist local data before synchronization."
+        )
+
+    run_git([
+        "git",
+        "restore",
+        "--source=origin/main",
+        "--worktree",
+        "--",
+        OUTPUT_FILE,
+        ARCHIVE_DIR
+    ])
+
+    verify = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--quiet",
+            "origin/main",
+            "--",
+            OUTPUT_FILE,
+            ARCHIVE_DIR
+        ]
+    )
+
+    if verify.returncode != 0:
+        raise RuntimeError(
+            "Startup data sync verification failed: collector data paths "
+            "do not match origin/main."
+        )
+
+    print(
+        "=== STARTUP DATA STATE SYNC COMPLETE ===",
+        flush=True
+    )
+
+
 def load_global_last_sequence():
     print(
         "=== SEQUENCE RECOVERY START ===",
@@ -1193,6 +1280,8 @@ def collect():
 
 def main():
     global last_sequence
+
+    synchronize_startup_data_state()
 
     last_sequence = (
         load_global_last_sequence()
