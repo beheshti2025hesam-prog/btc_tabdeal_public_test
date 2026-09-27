@@ -103,6 +103,11 @@ class PaperPerformance:
         if entry_price is not None:
             if final_timestamp is None or entry_state not in (PaperState.LONG, PaperState.SHORT):
                 raise ValueError("paper position state missing at fold boundary")
+            exit_kind = PaperExit.CLOSE_LONG if entry_state is PaperState.LONG else PaperExit.CLOSE_SHORT
+            session.process(PaperObservation(
+                final_timestamp, BaselineDecision.NO_TRADE, RiskDecision.VETO,
+                sample.entry_price, exit_kind
+            ))
             direction = 1.0 if entry_state is PaperState.LONG else -1.0
             result = direction * (sample.entry_price - entry_price) / entry_price
             completed.append(PaperTrade(
@@ -113,7 +118,6 @@ class PaperPerformance:
             peak = max(peak, equity)
             max_drawdown = max(max_drawdown, (peak - equity) / peak)
             entry_timestamp = entry_price = entry_state = None
-            session = PaperSession()
 
         wins = sum(t.return_fraction > 0 for t in completed)
         losses = sum(t.return_fraction < 0 for t in completed)
