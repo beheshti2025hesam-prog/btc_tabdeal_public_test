@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from core.backtest.engine import BacktestSample
 from core.backtest.validation import HistoricalObservation
-from core.backtest.walk_forward import WalkForwardConfig
+from core.backtest.walk_forward import WalkForwardValidation
 from core.paper.oos import PaperOOS
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
@@ -30,8 +30,8 @@ class PaperOOSTests(unittest.TestCase):
 
     def test_uses_only_oos_test_for_paper_measurement(self):
         observations = self.rows()
-        config = WalkForwardConfig(train_size=4, test_size=2, step_size=2)
-        result = PaperOOS().run(observations, config)
+        validator = WalkForwardValidation(train_size=4, test_size=2, step_size=2)
+        result = PaperOOS().run(observations, validator)
 
         self.assertEqual(len(result.folds), 2)
         self.assertEqual(len(result.folds[0].train), 4)
@@ -41,9 +41,9 @@ class PaperOOSTests(unittest.TestCase):
         self.assertEqual(result.folds[1].test[0].timestamp, observations[6].timestamp)
 
     def test_rejects_empty_input(self):
-        config = WalkForwardConfig(train_size=2, test_size=1, step_size=1)
+        validator = WalkForwardValidation(train_size=2, test_size=1, step_size=1)
         with self.assertRaises(ValueError):
-            PaperOOS().run([], config)
+            PaperOOS().run([], validator)
 
 
 if __name__ == "__main__":
