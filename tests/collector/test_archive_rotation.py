@@ -184,3 +184,39 @@ def test_archive_rotation_refuses_existing_archive_target(monkeypatch, tmp_path)
     assert collector.archive_old_rows() is False
     assert _read_sequences(output) == [1, 2, 3, 4, 5]
     assert _read_sequences(existing) == [0]
+
+
+def test_archive_rotation_preserves_timestamp_sequence_order(monkeypatch, tmp_path):
+    data_dir = tmp_path / "data"
+    archive_dir = data_dir / "archive"
+    output = data_dir / "trades.csv"
+
+    monkeypatch.setattr(collector, "OUTPUT_FILE", str(output))
+    monkeypatch.setattr(collector, "ARCHIVE_DIR", str(archive_dir))
+    monkeypatch.setattr(
+        collector, "ROTATION_MARKER", str(archive_dir / ".archive_rotation.json")
+    )
+    monkeypatch.setattr(collector, "MAX_ACTIVE_ROWS", 5)
+    monkeypatch.setattr(collector, "ARCHIVE_BATCH_ROWS", 2)
+    monkeypatch.setattr(collector, "active_rows", 5)
+    monkeypatch.setattr(collector, "csv_file", None)
+    monkeypatch.setattr(collector, "csv_writer", None)
+
+    rows = [
+        ["BTC_USDT", "100", "1", "buy", "2026-09-27T00:00:01Z", "10"],
+        ["BTC_USDT", "101", "1", "buy", "2026-09-27T00:00:02Z", "11"],
+        ["BTC_USDT", "102", "1", "buy", "2026-09-27T00:00:03Z", "12"],
+        ["BTC_USDT", "103", "1", "buy", "2026-09-27T00:00:04Z", "13"],
+        ["BTC_USDT", "104", "1", "buy", "2026-09-27T00:00:05Z", "14"],
+    ]
+    _write_rows(output, rows)
+
+    assert collector.archive_old_rows() is True
+    archives = list(archive_dir.glob("trades_archive_*.csv"))
+    assert len(archives) == 1
+
+    archived = _read_sequences(archives[0])
+    active = _read_sequences(output)
+    assert archived == [10, 11]
+    assert active == [12, 13, 14]
+    assert max(archived) < min(active)
