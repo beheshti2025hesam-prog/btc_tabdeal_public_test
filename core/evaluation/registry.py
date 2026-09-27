@@ -25,6 +25,10 @@ class EvidenceRegistry:
     def latest(self) -> EvidenceSnapshot | None:
         return self.snapshots[-1] if self.snapshots else None
 
+    def contains(self, snapshot: EvidenceSnapshot) -> bool:
+        """Return whether the exact evidence snapshot is registered."""
+        return any(existing.digest == snapshot.digest for existing in self.snapshots)
+
 
 @dataclass(frozen=True)
 class EvidenceFreshness:
@@ -33,7 +37,7 @@ class EvidenceFreshness:
 
 
 class EvidenceRegistryValidator:
-    """Validate evidence integrity, identity, and source-commit freshness."""
+    """Validate evidence integrity, identity, freshness, and registry membership."""
 
     PROJECT_NAME = "HES Trade Agent"
     OWNER = "Seyed Hesameddin Beheshti Shirazi"
@@ -41,6 +45,7 @@ class EvidenceRegistryValidator:
     def validate(
         self,
         snapshot: EvidenceSnapshot,
+        registry: EvidenceRegistry,
         current_source_commit: str,
     ) -> EvidenceFreshness:
         reasons: list[str] = []
@@ -53,5 +58,7 @@ class EvidenceRegistryValidator:
             reasons.append("owner_identity_mismatch")
         if snapshot.source_commit != current_source_commit:
             reasons.append("stale_source_commit")
+        if not registry.contains(snapshot):
+            reasons.append("snapshot_not_registered")
 
         return EvidenceFreshness(fresh=not reasons, reasons=tuple(reasons))
