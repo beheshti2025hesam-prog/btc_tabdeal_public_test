@@ -87,6 +87,11 @@ class WalkForwardValidation:
 
             if train[-1].timestamp >= test[0].timestamp:
                 raise ValueError("train/test windows overlap or are not chronological")
+            outcome_timestamp = train[-1].sample.outcome_timestamp
+            if outcome_timestamp is not None and outcome_timestamp >= test[0].timestamp:
+                raise ValueError(
+                    "training outcome crosses into OOS test window; increase embargo"
+                )
             if folds and folds[-1].test_end >= test[0].timestamp:
                 raise ValueError("OOS test windows overlap")
 
