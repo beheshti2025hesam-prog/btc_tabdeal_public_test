@@ -100,6 +100,20 @@ class WalkForwardValidation:
             if folds and folds[-1].test_end >= test[0].timestamp:
                 raise ValueError("OOS test windows overlap")
 
+            next_start = start + self.step_size
+            next_test_start = next_start + self.train_size + self.embargo_size
+            if next_test_start + self.test_size <= len(rows):
+                crossing_test_outcomes = [
+                    row.sample.outcome_timestamp
+                    for row in test
+                    if row.sample.outcome_timestamp is not None
+                    and row.sample.outcome_timestamp >= rows[next_test_start].timestamp
+                ]
+                if crossing_test_outcomes:
+                    raise ValueError(
+                        "OOS outcome crosses into the next OOS test window"
+                    )
+
             result = HistoricalValidation().run(test)
             folds.append(
                 WalkForwardFold(
