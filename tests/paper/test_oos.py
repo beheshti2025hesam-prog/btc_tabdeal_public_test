@@ -6,6 +6,7 @@ from core.backtest.engine import BacktestSample
 from core.backtest.validation import HistoricalObservation
 from core.backtest.walk_forward import WalkForwardValidation
 from core.paper.oos import PaperOOS
+from core.paper.performance import PaperPerformance
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
 
@@ -80,9 +81,8 @@ class PaperOOSTests(unittest.TestCase):
                 ),
             ),
         ]
-        performance = __import__("core.paper.performance", fromlist=["PaperPerformance"]).PaperPerformance().run(rows)
+        performance = PaperPerformance().run(rows)
         self.assertEqual(performance.completed_trades, 1)
-        self.assertEqual(performance.folds if hasattr(performance, "folds") else 1, 1)
         self.assertAlmostEqual(performance.total_return, 0.01)
 
     def test_fold_end_open_position_is_neutralized_without_future_data(self):
