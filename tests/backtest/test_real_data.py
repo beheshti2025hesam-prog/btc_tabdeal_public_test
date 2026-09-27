@@ -147,7 +147,7 @@ class RealDataBacktestTests(unittest.TestCase):
     def test_runs_oos_walk_forward_on_same_real_data_observations(self):
         rows = []
         base_sequence = 3000
-        for minute in range(25):
+        for minute in range(27):
             for trade_index in range(2):
                 second = trade_index * 20
                 rows.append(
@@ -171,7 +171,7 @@ class RealDataBacktestTests(unittest.TestCase):
             result = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=20).run_walk_forward(
                 train_size=2,
                 test_size=1,
-                step_size=1,
+                step_size=2,
                 embargo_size=1,
             )
 
