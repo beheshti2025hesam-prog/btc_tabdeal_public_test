@@ -61,7 +61,7 @@ class PaperOOSTests(unittest.TestCase):
             self.assertEqual(before.test, after.test)
             self.assertEqual(before.performance, after.performance)
 
-    def test_fold_with_unclosed_position_is_rejected_by_robustness(self):
+    def test_fold_end_open_position_is_neutralized_without_future_data(self):
         observations = self.rows(4)
         observations[3] = HistoricalObservation(
             observations[3].timestamp,
