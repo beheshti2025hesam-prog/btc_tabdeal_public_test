@@ -111,6 +111,35 @@ class RealDataBacktestTests(unittest.TestCase):
             self.assertEqual(left.sample.exit_price, right.sample.exit_price)
             self.assertEqual(left.sample.outcome_timestamp, right.sample.outcome_timestamp)
 
+    def test_decision_and_outcome_boundaries_are_forward_only(self):
+        rows = []
+        for minute in range(22):
+            for trade_index in range(2):
+                second = trade_index * 20
+                rows.append({
+                    "symbol": "BTC_USDT",
+                    "price": str(100 + minute + trade_index * 0.1),
+                    "amount": "1",
+                    "side": "Buy" if trade_index == 0 else "Sell",
+                    "updated": f"2026-09-25T00:{minute:02d}:{second:02d}+00:00",
+                    "sequence": str(8000 + minute * 2 + trade_index),
+                })
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "trades.csv"
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            backtest = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=20)
+            backtest.run()
+            observations = backtest._last_observations
+
+        self.assertTrue(observations)
+        for observation in observations:
+            self.assertEqual(observation.sample.timestamp, observation.timestamp)
+            self.assertEqual(observation.sample.outcome_timestamp, observation.timestamp + __import__("datetime").timedelta(minutes=1))
+            self.assertGreater(observation.sample.outcome_timestamp, observation.timestamp)
+
     def test_invalid_rows_are_quarantined_from_derivation(self):
         rows = [
             {
