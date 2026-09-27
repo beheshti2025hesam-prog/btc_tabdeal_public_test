@@ -5,7 +5,6 @@ to a venue, mutates capital, sets leverage, or enables live execution.
 """
 
 from dataclasses import dataclass
-from typing import Iterable
 
 from core.evaluation.evidence import EvidenceSnapshot
 from core.evaluation.operational_safety import OperationalSafetyEvidence
@@ -33,17 +32,18 @@ class FinalPromotionGate:
     ) -> FinalPromotionResult:
         missing: list[str] = []
 
-        if not PromotionGate().evaluate(promotion_evidence).eligible:
-            missing.extend(PromotionGate().evaluate(promotion_evidence).missing)
+        promotion_result = PromotionGate().evaluate(promotion_evidence)
+        if not promotion_result.eligible:
+            missing.extend(promotion_result.missing)
 
-        registry_result = EvidenceRegistryValidator(
-            current_source_commit=current_source_commit,
-            canonical_project_name="HES Trade Agent",
-            canonical_owner="Seyed Hesameddin Beheshti Shirazi",
-        ).validate(snapshot, registry)
+        registry_result = EvidenceRegistryValidator().validate(
+            snapshot,
+            registry,
+            current_source_commit,
+        )
 
-        if not registry_result.valid:
-            missing.append(registry_result.reason)
+        if not registry_result.fresh:
+            missing.extend(registry_result.reasons)
 
         if not operational_safety.verify():
             missing.append("operational_safety_unverified")
