@@ -75,6 +75,36 @@ class WalkForwardValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             WalkForwardValidation(train_size=4, test_size=2, step_size=2).run(rows)
 
+    def test_rejects_any_training_outcome_crossing_oos_boundary(self):
+        rows = self.observations(8)
+        ts = rows[2].timestamp
+        rows[2] = HistoricalObservation(
+            ts,
+            BacktestSample(
+                ts,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[4].timestamp,
+            ),
+        )
+        # The final training row has a safe outcome; an earlier training row
+        # must still be prevented from leaking information into OOS.
+        rows[3] = HistoricalObservation(
+            rows[3].timestamp,
+            BacktestSample(
+                rows[3].timestamp,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[3].timestamp + timedelta(seconds=30),
+            ),
+        )
+        with self.assertRaises(ValueError):
+            WalkForwardValidation(train_size=4, test_size=2, step_size=2).run(rows)
+
     def test_rejects_insufficient_history(self):
         with self.assertRaises(ValueError):
             WalkForwardValidation(train_size=5, test_size=2).run(self.observations(6))
