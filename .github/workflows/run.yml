@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 350
     runs-on: ubuntu-latest
     env:
-      COLLECTOR_RUN_SECONDS: "16200"
+      COLLECTOR_RUN_SECONDS: "19200"
 
     steps:
       - name: Checkout
@@ -51,4 +51,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl --fail-with-body --silent --show-error             --request POST             --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches"             --header "Accept: application/vnd.github+json"             --header "Authorization: Bearer $GH_TOKEN"             --header "X-GitHub-Api-Version: 2026-03-10"             --data '{"ref":"main"}'
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data '{"ref":"main"}'
