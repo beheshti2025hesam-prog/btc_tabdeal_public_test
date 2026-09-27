@@ -657,6 +657,10 @@ def archive_old_rows():
             raise RuntimeError("Archive rotation marker already exists; refusing concurrent rotation")
         if os.path.exists(backup_active):
             raise RuntimeError("Archive rotation backup already exists; refusing destructive overwrite")
+        if os.path.exists(archive_file):
+            raise RuntimeError(
+                "Archive target already exists; refusing destructive overwrite"
+            )
 
         archived_count = 0
         remaining_count = 0
