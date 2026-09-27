@@ -116,7 +116,12 @@ class FinalPromotionGateTests(unittest.TestCase):
     def test_unregistered_snapshot_blocks_eligibility(self):
         source_commit = "e" * 40
         registered = self.snapshot(source_commit)
-        unregistered = self.snapshot(source_commit)
+        unregistered = EvidenceSnapshot.create(
+            project_name="HES Trade Agent",
+            owner="Seyed Hesameddin Beheshti Shirazi",
+            source_commit=source_commit,
+            evidence={"different_evidence": True},
+        )
         registry = EvidenceRegistry((registered,))
 
         result = FinalPromotionGate().evaluate(
@@ -127,8 +132,8 @@ class FinalPromotionGateTests(unittest.TestCase):
             current_source_commit=source_commit,
         )
 
-        self.assertTrue(result.eligible)
-        self.assertEqual(result.missing, ())
+        self.assertFalse(result.eligible)
+        self.assertIn("snapshot_not_registered", result.missing)
 
     def test_unverified_safety_blocks_eligibility(self):
         source_commit = "f" * 40
