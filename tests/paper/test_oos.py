@@ -74,8 +74,10 @@ class PaperOOSTests(unittest.TestCase):
             ),
         )
         validator = WalkForwardValidation(train_size=2, test_size=2, step_size=2)
-        with self.assertRaises(ValueError):
-            PaperOOS().run(observations, validator)
+        result = PaperOOS().run(observations, validator)
+        self.assertEqual(result.robustness.fold_count, 1)
+        self.assertEqual(result.folds[0].performance.open_state.value, "FLAT")
+        self.assertEqual(result.folds[0].performance.completed_trades, 1)
 
 
 if __name__ == "__main__":
