@@ -190,3 +190,76 @@ def test_checkpoint_updates_base_after_successful_push(monkeypatch, tmp_path):
         )
     )
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
+
+
+def test_archive_rotation_preserves_all_rows(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "test")
+    write_csv(repo / "data/trades.csv", 100, 3)
+
+    ns = load_namespace(monkeypatch, tmp_path)
+    ns["OUTPUT_FILE"] = "data/trades.csv"
+    ns["ARCHIVE_DIR"] = "data/archive"
+    ns["MAX_ACTIVE_ROWS"] = 3
+    ns["ARCHIVE_BATCH_ROWS"] = 2
+    ns["active_rows"] = 3
+    ns["csv_file"] = None
+    ns["csv_writer"] = None
+    monkeypatch.chdir(repo)
+
+    assert ns["archive_old_rows"]() is True
+
+    active = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    archives = list((repo / "data/archive").glob("*.csv"))
+    assert len(archives) == 1
+    archived = list(csv.DictReader(archives[0].open(encoding="utf-8")))
+
+    all_sequences = [int(r["sequence"]) for r in archived + active]
+    assert all_sequences == [100, 101, 102]
+    assert [int(r["sequence"]) for r in archived] == [100, 101]
+    assert [int(r["sequence"]) for r in active] == [102]
+
+
+def test_plain_push_rejects_remote_advance_without_overwrite(monkeypatch, tmp_path):
+    origin = tmp_path / "origin.git"
+    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True)
+
+    first = tmp_path / "first"
+    first.mkdir()
+    git(first, "init", "-b", "main")
+    git(first, "config", "user.email", "test@example.com")
+    git(first, "config", "user.name", "test")
+    write_csv(first / "data/trades.csv", 100, 3)
+    git(first, "add", ".")
+    git(first, "commit", "-m", "base")
+    git(first, "remote", "add", "origin", str(origin))
+    git(first, "push", "-u", "origin", "main")
+
+    second = tmp_path / "second"
+    subprocess.run(["git", "clone", str(origin), str(second)], check=True, capture_output=True)
+    git(second, "config", "user.email", "second@example.com")
+    git(second, "config", "user.name", "second")
+    write_csv(second / "data/trades.csv", 100, 4)
+    git(second, "add", "data/trades.csv")
+    git(second, "commit", "-m", "newer checkpoint")
+    git(second, "push", "origin", "main")
+
+    # The stale first collector has no force-push path; normal git push must fail.
+    write_csv(first / "data/trades.csv", 100, 3)
+    git(first, "add", "data/trades.csv")
+    git(first, "commit", "-m", "stale checkpoint")
+    result = subprocess.run(
+        ["git", "push", "origin", "main"],
+        cwd=first,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+
+    verifier = tmp_path / "verifier"
+    subprocess.run(["git", "clone", str(origin), str(verifier)], check=True, capture_output=True)
+    rows = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
+    assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
