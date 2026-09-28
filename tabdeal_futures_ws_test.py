@@ -625,10 +625,24 @@ def archive_old_rows():
             archive_file
         )
 
-        os.replace(
-            temp_active,
-            OUTPUT_FILE
-        )
+        try:
+            os.replace(
+                temp_active,
+                OUTPUT_FILE
+            )
+        except Exception:
+            # Treat archive + active replacement as one logical transaction.
+            # If the active swap fails after the archive became visible,
+            # remove that newly-created archive so a retry cannot duplicate
+            # the same rows or leave a split-brain data state.
+            try:
+                if os.path.exists(archive_file):
+                    os.remove(archive_file)
+            except Exception as rollback_error:
+                raise RuntimeError(
+                    "Archive rotation rollback failed; manual recovery required."
+                ) from rollback_error
+            raise
 
         active_rows = remaining_count
 
