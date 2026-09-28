@@ -521,8 +521,17 @@ def archive_old_rows():
 
     archive_file = os.path.join(
         ARCHIVE_DIR,
-        f"trades_archive_{timestamp}.csv"
+        f"trades_archive_{timestamp}_{time.time_ns()}.csv"
     )
+
+    # Archive names must be collision-safe. A collector can complete two
+    # rotations within the same UTC second; reusing a second-resolution name
+    # would replace an older archive and silently destroy raw data.
+    while os.path.exists(archive_file):
+        archive_file = os.path.join(
+            ARCHIVE_DIR,
+            f"trades_archive_{timestamp}_{time.time_ns()}.csv"
+        )
 
     temp_archive = (
         archive_file + ".tmp"
