@@ -36,9 +36,12 @@ def write_state(event: str, **extra: object) -> None:
     os.replace(tmp, STATE_FILE)
 
 
-def stop_child(grace_seconds: float = STOP_GRACE_SECONDS) -> None:
+def stop_child(grace_seconds: float | None = None) -> None:
     if child is None or child.poll() is not None:
         return
+
+    if grace_seconds is None:
+        grace_seconds = STOP_GRACE_SECONDS
 
     child.terminate()
     try:
