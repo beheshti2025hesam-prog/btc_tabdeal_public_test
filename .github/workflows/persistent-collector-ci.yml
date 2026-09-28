@@ -1,0 +1,39 @@
+name: HES Trade Agent — Persistent Collector CI
+
+on:
+  pull_request:
+    paths:
+      - "tabdeal_futures_ws_test.py"
+      - "scripts/**"
+      - "tests/collector/**"
+      - "deploy/systemd/**"
+      - "requirements.txt"
+      - ".github/workflows/persistent-collector-ci.yml"
+  push:
+    branches:
+      - collector-persistent-service-v1
+
+permissions:
+  contents: read
+
+jobs:
+  test-persistent-collector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Compile Python sources
+        run: python -m compileall -q tabdeal_futures_ws_test.py scripts
+
+      - name: Run persistent collector tests
+        run: pytest -q tests/collector
