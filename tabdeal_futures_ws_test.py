@@ -33,6 +33,10 @@ RECONNECT_DELAY = 5
 # GitHub Actions / VPS / future runtimes can override this
 # without changing the collector source code.
 DEFAULT_RUN_SECONDS = 5 * 60 * 60 + 20 * 60
+PERSISTENT_MODE = os.getenv(
+    "HES_COLLECTOR_MODE",
+    ""
+).strip().lower() == "persistent-vps"
 
 
 def get_run_seconds():
@@ -66,14 +70,23 @@ def get_run_seconds():
     return run_seconds
 
 
-RUN_SECONDS = get_run_seconds()
+RUN_SECONDS = None if PERSISTENT_MODE else get_run_seconds()
 
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
 
+# Persistent VPS mode can disable Git checkpoint pushes while the local
+# filesystem remains the acquisition source of truth. GitHub Actions keeps
+# its existing behavior unless this switch is explicitly disabled.
+GIT_CHECKPOINT_ENABLED = os.getenv(
+    "HES_COLLECTOR_GIT_CHECKPOINT",
+    "1"
+).strip().lower() not in {"0", "false", "no", "off"}
+
 # Active CSV size management
 MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
+ARCHIVE_TXN_FILE = os.path.join(ARCHIVE_DIR, ".archive_transaction.json")
 
 
 # ============================================================
@@ -337,6 +350,61 @@ def count_active_rows():
         return 0
 
 
+def recover_archive_transaction():
+    """Recover an interrupted archive rotation before opening trades.csv."""
+    if not os.path.exists(ARCHIVE_TXN_FILE):
+        return
+
+    print(
+        "=== ARCHIVE TRANSACTION RECOVERY START ===",
+        flush=True
+    )
+
+    try:
+        with open(
+            ARCHIVE_TXN_FILE,
+            "r",
+            encoding="utf-8"
+        ) as marker_file:
+            transaction = json.load(marker_file)
+
+        archive_file = transaction["archive_file"]
+        temp_archive = transaction["temp_archive"]
+        temp_active = transaction["temp_active"]
+
+        # If archive was committed but active replacement did not happen,
+        # finish the active replacement. Otherwise discard only temporary
+        # files; the original active file remains the source of truth.
+        if (
+            os.path.exists(archive_file)
+            and os.path.exists(temp_active)
+        ):
+            os.replace(temp_active, OUTPUT_FILE)
+        elif (
+            not os.path.exists(archive_file)
+            and os.path.exists(temp_archive)
+        ):
+            os.replace(temp_archive, archive_file)
+
+        for path in (temp_archive, temp_active):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+        os.remove(ARCHIVE_TXN_FILE)
+
+        print(
+            "=== ARCHIVE TRANSACTION RECOVERY COMPLETE ===",
+            flush=True
+        )
+
+    except Exception as exc:
+        raise RuntimeError(
+            f"Archive transaction recovery failed: {exc}"
+        ) from exc
+
+
 def open_csv():
     global csv_file
     global csv_writer
@@ -458,6 +526,20 @@ def archive_old_rows():
         f"trades_archive_{timestamp}.csv"
     )
 
+    if os.path.exists(archive_file):
+        suffix = 1
+        while os.path.exists(
+            os.path.join(
+                ARCHIVE_DIR,
+                f"trades_archive_{timestamp}_{suffix}.csv"
+            )
+        ):
+            suffix += 1
+        archive_file = os.path.join(
+            ARCHIVE_DIR,
+            f"trades_archive_{timestamp}_{suffix}.csv"
+        )
+
     temp_archive = (
         archive_file + ".tmp"
     )
@@ -545,6 +627,27 @@ def archive_old_rows():
                 "Archive row count mismatch"
             )
 
+        transaction = {
+            "archive_file": archive_file,
+            "temp_archive": temp_archive,
+            "temp_active": temp_active,
+            "archived_count": archived_count,
+            "remaining_count": remaining_count,
+            "created_utc": time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ",
+                time.gmtime()
+            ),
+        }
+
+        with open(
+            ARCHIVE_TXN_FILE,
+            "w",
+            encoding="utf-8"
+        ) as marker:
+            json.dump(transaction, marker, indent=2)
+            marker.flush()
+            os.fsync(marker.fileno())
+
         os.replace(
             temp_archive,
             archive_file
@@ -554,6 +657,11 @@ def archive_old_rows():
             temp_active,
             OUTPUT_FILE
         )
+
+        try:
+            os.remove(ARCHIVE_TXN_FILE)
+        except FileNotFoundError:
+            pass
 
         active_rows = remaining_count
 
@@ -799,6 +907,9 @@ def git_checkpoint():
 
 
 def maybe_checkpoint():
+
+    if not GIT_CHECKPOINT_ENABLED:
+        return
 
     if (
         time.time()
@@ -1067,11 +1178,17 @@ def collect():
         flush=True
     )
 
-    print(
-        f"Duration: {RUN_SECONDS // 3600}h "
-        f"{(RUN_SECONDS % 3600) // 60}m",
-        flush=True
-    )
+    if RUN_SECONDS is None:
+        print(
+            "Duration: persistent (no scheduled collection timeout)",
+            flush=True
+        )
+    else:
+        print(
+            f"Duration: {RUN_SECONDS // 3600}h "
+            f"{(RUN_SECONDS % 3600) // 60}m",
+            flush=True
+        )
 
     print(
         "Checkpoint: every 20 minutes",
@@ -1085,7 +1202,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS is not None and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
@@ -1095,8 +1212,9 @@ def collect():
             break
 
         remaining = (
-            RUN_SECONDS
-            - elapsed
+            None
+            if RUN_SECONDS is None
+            else RUN_SECONDS - elapsed
         )
 
         try:
@@ -1116,14 +1234,15 @@ def collect():
 
             current_ws = ws
 
-            timer = threading.Timer(
-                remaining,
-                close_websocket,
-                args=(ws,)
-            )
-
-            timer.daemon = True
-            timer.start()
+            timer = None
+            if remaining is not None:
+                timer = threading.Timer(
+                    remaining,
+                    close_websocket,
+                    args=(ws,)
+                )
+                timer.daemon = True
+                timer.start()
 
             try:
 
@@ -1134,7 +1253,8 @@ def collect():
 
             finally:
 
-                timer.cancel()
+                if timer is not None:
+                    timer.cancel()
 
                 if current_ws is ws:
                     current_ws = None
@@ -1151,7 +1271,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS is not None and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
@@ -1168,9 +1288,13 @@ def collect():
                 flush=True
             )
 
-            sleep_time = min(
-                RECONNECT_DELAY,
-                RUN_SECONDS - elapsed
+            sleep_time = (
+                RECONNECT_DELAY
+                if RUN_SECONDS is None
+                else min(
+                    RECONNECT_DELAY,
+                    RUN_SECONDS - elapsed
+                )
             )
 
             if sleep_time > 0:
@@ -1212,6 +1336,8 @@ def main():
             flush=True
         )
 
+    recover_archive_transaction()
+
     open_csv()
 
     try:
@@ -1223,12 +1349,20 @@ def main():
         if csv_file:
             flush_csv()
 
-        print(
-            "=== FINAL GIT CHECKPOINT ===",
-            flush=True
-        )
+        if GIT_CHECKPOINT_ENABLED:
+            print(
+                "=== FINAL GIT CHECKPOINT ===",
+                flush=True
+            )
 
-        checkpoint_ok = git_checkpoint()
+            checkpoint_ok = git_checkpoint()
+        else:
+            print(
+                "=== GIT CHECKPOINT DISABLED (PERSISTENT MODE) ===",
+                flush=True
+            )
+
+            checkpoint_ok = True
 
         close_csv()
 

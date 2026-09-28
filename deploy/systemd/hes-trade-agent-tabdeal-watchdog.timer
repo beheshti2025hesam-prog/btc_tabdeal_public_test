@@ -1,0 +1,11 @@
+[Unit]
+Description=Run HES Trade Agent Tabdeal data watchdog
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Unit=hes-trade-agent-tabdeal-watchdog.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=HES Trade Agent - Tabdeal BTC_USDT Persistent Collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/hes-trade-agent
+ExecStart=/usr/bin/python3 /opt/hes-trade-agent/scripts/collector_supervisor.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+Environment=COLLECTOR_RUN_SECONDS=19200
+Environment=HES_COLLECTOR_MODE=persistent-vps
+Environment=HES_COLLECTOR_GIT_CHECKPOINT=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
