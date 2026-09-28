@@ -502,11 +502,19 @@ def recover_archive_rotation():
     new_active_sha256 = marker["new_active_sha256"]
     archive_sha256 = marker["archive_sha256"]
     if phase == "prepared":
-        for path in (temp_archive, temp_active):
-            if os.path.exists(path):
-                os.remove(path)
-        _remove_archive_transaction_marker()
-        return
+        # A crash can occur after archive replacement but before the marker
+        # advances to archive_replaced. If the archive is present, validate
+        # it and continue recovery using the same deterministic state machine.
+        if os.path.exists(archive_file):
+            if _sha256_file(archive_file) != archive_sha256:
+                raise RuntimeError("Prepared archive transaction checksum mismatch.")
+            phase = "archive_replaced"
+        else:
+            for path in (temp_archive, temp_active):
+                if os.path.exists(path):
+                    os.remove(path)
+            _remove_archive_transaction_marker()
+            return
     if phase != "archive_replaced":
         raise RuntimeError(f"Unknown archive transaction phase: {phase!r}")
     if not os.path.exists(archive_file):
