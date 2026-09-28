@@ -301,7 +301,8 @@ def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_pa
     subprocess.run(["git", "clone", str(origin), str(verifier)], check=True, capture_output=True)
     persisted = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in persisted] == [100, 101, 102, 103, 104]
-\n
+
+
 def test_archive_rotation_never_reuses_existing_filename(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
