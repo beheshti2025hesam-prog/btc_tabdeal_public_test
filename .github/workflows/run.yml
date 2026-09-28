@@ -2,6 +2,20 @@ name: Hes Trade Agent — Tabdeal BTC Futures Collector
 
 on:
   workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "Collector mode"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - smoke
+      smoke_depth:
+        description: "Internal smoke-chain depth"
+        required: false
+        default: "0"
+        type: string
 
 permissions:
   actions: write
@@ -32,8 +46,24 @@ jobs:
           pip install -r requirements.txt
       - name: Collect BTC_USDT Futures Trades
         id: collect
+        if: ${{ inputs.run_mode == 'production' }}
         run: |
           python -u tabdeal_futures_ws_test.py
+
+      - name: Smoke-chain step
+        id: smoke
+        if: ${{ inputs.run_mode == 'smoke' }}
+        run: |
+          set -euo pipefail
+          depth="${{ inputs.smoke_depth }}"
+          if ! [[ "$depth" =~ ^[0-9]+$ ]]; then
+            echo "Invalid smoke_depth: $depth"
+            exit 1
+          fi
+          echo "Smoke chain depth=$depth"
+          if [ "$depth" -ge 2 ]; then
+            echo "Smoke-chain terminal reached."
+          fi
       - name: Upload collected trades
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,7 +74,7 @@ jobs:
             data/archive
           if-no-files-found: warn
       - name: Dispatch next collector
-        if: ${{ steps.collect.outcome == 'success' }}
+        if: ${{ steps.collect.outcome == 'success' || steps.smoke.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -55,4 +85,4 @@ jobs:
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data '{"ref":"${{ github.ref_name }}"}'
+            --data '{"ref":"${{ github.ref_name }}","inputs":{"run_mode":"${{ inputs.run_mode }}","smoke_depth":"${{ fromJSON(inputs.smoke_depth) + 1 }}"}}'
