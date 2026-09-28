@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import json
 import os
 import signal
@@ -74,6 +75,7 @@ CHECKPOINT_SECONDS = 20 * 60
 # Active CSV size management
 MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
+ARCHIVE_TXN_MARKER = os.path.join("data", ".archive_rotation.json")
 
 
 # ============================================================
@@ -192,6 +194,8 @@ def synchronize_startup_data_state():
     global startup_base_sha
 
     print("=== STARTUP DATA STATE SYNC START ===", flush=True)
+
+    recover_archive_rotation()
 
     run_git(["git", "fetch", "origin", "main"])
 
@@ -461,6 +465,71 @@ def open_csv():
     )
 
 
+def _sha256_file(file_path):
+    digest = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_archive_transaction(marker):
+    temp_marker = ARCHIVE_TXN_MARKER + ".tmp"
+    with open(temp_marker, "w", encoding="utf-8") as f:
+        json.dump(marker, f, sort_keys=True)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_marker, ARCHIVE_TXN_MARKER)
+
+
+def _remove_archive_transaction_marker():
+    for path in (ARCHIVE_TXN_MARKER, ARCHIVE_TXN_MARKER + ".tmp"):
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def recover_archive_rotation():
+    """Recover an interrupted archive rotation deterministically after a crash."""
+    if not os.path.exists(ARCHIVE_TXN_MARKER):
+        return
+    with open(ARCHIVE_TXN_MARKER, "r", encoding="utf-8") as f:
+        marker = json.load(f)
+    phase = marker.get("phase")
+    archive_file = marker["archive_file"]
+    temp_archive = marker["temp_archive"]
+    temp_active = marker["temp_active"]
+    old_active_sha256 = marker["old_active_sha256"]
+    new_active_sha256 = marker["new_active_sha256"]
+    archive_sha256 = marker["archive_sha256"]
+    if phase == "prepared":
+        for path in (temp_archive, temp_active):
+            if os.path.exists(path):
+                os.remove(path)
+        _remove_archive_transaction_marker()
+        return
+    if phase != "archive_replaced":
+        raise RuntimeError(f"Unknown archive transaction phase: {phase!r}")
+    if not os.path.exists(archive_file):
+        raise RuntimeError("Archive transaction marker exists but archive is missing.")
+    if _sha256_file(archive_file) != archive_sha256:
+        raise RuntimeError("Archive transaction recovery checksum mismatch.")
+    if not os.path.exists(OUTPUT_FILE):
+        raise RuntimeError("Archive transaction recovery: active file is missing.")
+    active_sha256 = _sha256_file(OUTPUT_FILE)
+    if active_sha256 == old_active_sha256:
+        os.remove(archive_file)
+        if os.path.exists(temp_active):
+            os.remove(temp_active)
+        _remove_archive_transaction_marker()
+        return
+    if active_sha256 == new_active_sha256:
+        if os.path.exists(temp_active):
+            os.remove(temp_active)
+        _remove_archive_transaction_marker()
+        return
+    raise RuntimeError("Archive transaction recovery found an unknown active-file state; manual recovery required.")
+
+
 def close_csv():
     global csv_file
     global csv_writer
@@ -620,10 +689,24 @@ def archive_old_rows():
                 "Archive row count mismatch"
             )
 
+        marker = {
+            "phase": "prepared",
+            "archive_file": archive_file,
+            "temp_archive": temp_archive,
+            "temp_active": temp_active,
+            "old_active_sha256": _sha256_file(OUTPUT_FILE),
+            "new_active_sha256": _sha256_file(temp_active),
+            "archive_sha256": _sha256_file(temp_archive),
+        }
+        _write_archive_transaction(marker)
+
         os.replace(
             temp_archive,
             archive_file
         )
+
+        marker["phase"] = "archive_replaced"
+        _write_archive_transaction(marker)
 
         try:
             os.replace(
@@ -643,6 +726,10 @@ def archive_old_rows():
                     "Archive rotation rollback failed; manual recovery required."
                 ) from rollback_error
             raise
+
+        marker["phase"] = "committed"
+        _write_archive_transaction(marker)
+        _remove_archive_transaction_marker()
 
         active_rows = remaining_count
 
