@@ -183,6 +183,59 @@ def get_last_physical_sequence(file_path):
     return None
 
 
+def synchronize_startup_data_state():
+    """Synchronize collector data files to a verified origin/main snapshot."""
+    print("=== STARTUP DATA STATE SYNC START ===", flush=True)
+
+    run_git(["git", "fetch", "origin", "main"])
+
+    remote_sha = subprocess.run(
+        ["git", "rev-parse", "origin/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "--", OUTPUT_FILE, ARCHIVE_DIR],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    if status.stdout.strip():
+        raise RuntimeError(
+            "Refusing startup data sync: local collector data modifications exist."
+        )
+
+    run_git([
+        "git", "restore", "--source=origin/main", "--worktree",
+        "--", OUTPUT_FILE, ARCHIVE_DIR
+    ])
+
+    verify = subprocess.run(
+        ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
+    )
+    if verify.returncode != 0:
+        raise RuntimeError("Startup data sync verification failed.")
+
+    run_git(["git", "fetch", "origin", "main"])
+    latest_remote_sha = subprocess.run(
+        ["git", "rev-parse", "origin/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    if latest_remote_sha != remote_sha:
+        raise RuntimeError(
+            "Refusing startup data sync: origin/main advanced during synchronization."
+        )
+
+    run_git(["git", "reset", "--mixed", remote_sha])
+    print("=== STARTUP DATA STATE SYNC COMPLETE ===", flush=True)
+
+
 def load_global_last_sequence():
     print(
         "=== SEQUENCE RECOVERY START ===",
@@ -631,20 +684,10 @@ def prepare_git_checkpoint():
 
     flush_csv()
 
-    run_git([
-        "git",
-        "fetch",
-        "origin",
-        "main"
-    ])
-
-    run_git([
-        "git",
-        "reset",
-        "--mixed",
-        "origin/main"
-    ])
-
+    # Checkpoint preparation MUST NOT reset the working tree.
+    # A mixed reset can move HEAD/index to a newer origin/main while
+    # leaving a stale data/trades.csv in place. Staging that stale file
+    # could overwrite newer persisted trades.
     run_git([
         "git",
         "add",
@@ -1193,6 +1236,8 @@ def collect():
 
 def main():
     global last_sequence
+
+    synchronize_startup_data_state()
 
     last_sequence = (
         load_global_last_sequence()
