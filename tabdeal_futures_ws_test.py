@@ -216,6 +216,18 @@ def synchronize_startup_data_state():
         "main"
     ])
 
+    remote_sha_result = subprocess.run(
+        [
+            "git",
+            "rev-parse",
+            "origin/main"
+        ],
+        check=True,
+        capture_output=True,
+        text=True
+    )
+    remote_sha = remote_sha_result.stdout.strip()
+
     status = subprocess.run(
         [
             "git",
@@ -264,15 +276,44 @@ def synchronize_startup_data_state():
             "do not match origin/main."
         )
 
-    # Align HEAD/index with the same remote snapshot after the data paths
-    # have been safely refreshed. Mixed reset is safe here because the data
-    # working tree has just been verified against origin/main, and it prevents
-    # the checkpoint phase from needing a destructive mixed-reset retry.
+    # Re-fetch after restoring the data paths. If another collector advanced
+    # origin/main during this synchronization window, the checkout is no
+    # longer a coherent snapshot. Fail closed before sequence recovery or
+    # collection rather than starting from a possibly stale remote dataset.
+    run_git([
+        "git",
+        "fetch",
+        "origin",
+        "main"
+    ])
+
+    latest_remote_sha_result = subprocess.run(
+        [
+            "git",
+            "rev-parse",
+            "origin/main"
+        ],
+        check=True,
+        capture_output=True,
+        text=True
+    )
+    latest_remote_sha = latest_remote_sha_result.stdout.strip()
+
+    if latest_remote_sha != remote_sha:
+        raise RuntimeError(
+            "Refusing startup data sync: origin/main advanced during "
+            "data synchronization. A fresh run must restart from the new "
+            "remote snapshot."
+        )
+
+    # Align HEAD/index with the exact remote snapshot whose data paths were
+    # verified above. The explicit SHA avoids silently switching to a newer
+    # ref between verification and reset.
     run_git([
         "git",
         "reset",
         "--mixed",
-        "origin/main"
+        remote_sha
     ])
 
     print(
