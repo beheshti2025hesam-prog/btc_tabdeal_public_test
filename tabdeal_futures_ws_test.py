@@ -33,6 +33,10 @@ RECONNECT_DELAY = 5
 # GitHub Actions / VPS / future runtimes can override this
 # without changing the collector source code.
 DEFAULT_RUN_SECONDS = 5 * 60 * 60 + 20 * 60
+PERSISTENT_MODE = os.getenv(
+    "HES_COLLECTOR_MODE",
+    ""
+).strip().lower() == "persistent-vps"
 
 
 def get_run_seconds():
@@ -66,7 +70,7 @@ def get_run_seconds():
     return run_seconds
 
 
-RUN_SECONDS = get_run_seconds()
+RUN_SECONDS = None if PERSISTENT_MODE else get_run_seconds()
 
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
@@ -1078,11 +1082,17 @@ def collect():
         flush=True
     )
 
-    print(
-        f"Duration: {RUN_SECONDS // 3600}h "
-        f"{(RUN_SECONDS % 3600) // 60}m",
-        flush=True
-    )
+    if RUN_SECONDS is None:
+        print(
+            "Duration: persistent (no scheduled collection timeout)",
+            flush=True
+        )
+    else:
+        print(
+            f"Duration: {RUN_SECONDS // 3600}h "
+            f"{(RUN_SECONDS % 3600) // 60}m",
+            flush=True
+        )
 
     print(
         "Checkpoint: every 20 minutes",
@@ -1096,7 +1106,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS is not None and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
@@ -1106,8 +1116,9 @@ def collect():
             break
 
         remaining = (
-            RUN_SECONDS
-            - elapsed
+            None
+            if RUN_SECONDS is None
+            else RUN_SECONDS - elapsed
         )
 
         try:
@@ -1127,14 +1138,15 @@ def collect():
 
             current_ws = ws
 
-            timer = threading.Timer(
-                remaining,
-                close_websocket,
-                args=(ws,)
-            )
-
-            timer.daemon = True
-            timer.start()
+            timer = None
+            if remaining is not None:
+                timer = threading.Timer(
+                    remaining,
+                    close_websocket,
+                    args=(ws,)
+                )
+                timer.daemon = True
+                timer.start()
 
             try:
 
@@ -1145,7 +1157,8 @@ def collect():
 
             finally:
 
-                timer.cancel()
+                if timer is not None:
+                    timer.cancel()
 
                 if current_ws is ws:
                     current_ws = None
@@ -1162,7 +1175,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS is not None and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
