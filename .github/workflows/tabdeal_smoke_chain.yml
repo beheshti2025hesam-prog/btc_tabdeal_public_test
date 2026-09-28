@@ -1,10 +1,6 @@
 name: HES Trade Agent — Tabdeal Collector Smoke Chain
 
 on:
-  push:
-    branches:
-      - collector-continuity-v3-pr88-safe
-
   workflow_dispatch:
     inputs:
       smoke_depth:
