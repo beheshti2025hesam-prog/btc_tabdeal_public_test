@@ -820,6 +820,7 @@ def push_checkpoint(max_retries=3):
 
 def git_checkpoint():
     global last_checkpoint_time
+    global startup_base_sha
 
     try:
 
