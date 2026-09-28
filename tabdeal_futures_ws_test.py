@@ -84,6 +84,10 @@ running = True
 last_sequence = None
 trade_count = 0
 
+# Immutable collector-session base. A checkpoint may only publish data
+# derived from the exact main snapshot used at startup.
+startup_base_sha = None
+
 active_rows = 0
 
 csv_file = None
@@ -185,6 +189,8 @@ def get_last_physical_sequence(file_path):
 
 def synchronize_startup_data_state():
     """Synchronize collector data files to a verified origin/main snapshot."""
+    global startup_base_sha
+
     print("=== STARTUP DATA STATE SYNC START ===", flush=True)
 
     run_git(["git", "fetch", "origin", "main"])
@@ -233,6 +239,13 @@ def synchronize_startup_data_state():
         )
 
     run_git(["git", "reset", "--mixed", remote_sha])
+
+    startup_base_sha = remote_sha
+
+    print(
+        f"=== STARTUP BASE SHA: {startup_base_sha} ===",
+        flush=True
+    )
     print("=== STARTUP DATA STATE SYNC COMPLETE ===", flush=True)
 
 
@@ -696,6 +709,38 @@ def prepare_git_checkpoint():
     ])
 
 
+def assert_remote_main_unchanged():
+    """Fail closed if origin/main moved since this collector started."""
+    if startup_base_sha is None:
+        raise RuntimeError("Collector startup base SHA is not initialized.")
+
+    run_git([
+        "git",
+        "fetch",
+        "origin",
+        "main"
+    ])
+
+    current_remote_sha = subprocess.run(
+        [
+            "git",
+            "rev-parse",
+            "origin/main"
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    if current_remote_sha != startup_base_sha:
+        raise RuntimeError(
+            "Refusing checkpoint: origin/main advanced since collector startup "
+            f"(base={startup_base_sha}, current={current_remote_sha})."
+        )
+
+    return current_remote_sha
+
+
 def commit_if_needed():
     result = subprocess.run(
         [
@@ -726,64 +771,51 @@ def commit_if_needed():
 
 
 def push_checkpoint(max_retries=3):
+    """
+    Push exactly one collector commit.
 
-    for attempt in range(
-        1,
-        max_retries + 1
-    ):
+    A failed push is fail-closed. We deliberately do NOT fetch/reset/re-stage
+    against a newer main because that could mix a stale collector snapshot
+    with newer persisted data.
+    """
+    if max_retries != 1:
+        print(
+            "Checkpoint push retries are disabled for data safety.",
+            flush=True
+        )
 
-        try:
+    try:
+        print(
+            "=== GIT PUSH ATTEMPT 1/1 ===",
+            flush=True
+        )
 
-            print(
-                f"=== GIT PUSH ATTEMPT {attempt}/{max_retries} ===",
-                flush=True
-            )
+        assert_remote_main_unchanged()
 
-            run_git([
-                "git",
-                "push",
-                "origin",
-                "main"
-            ])
+        run_git([
+            "git",
+            "push",
+            "origin",
+            "main"
+        ])
 
-            print(
-                "=== GIT PUSH SUCCESS ===",
-                flush=True
-            )
+        print(
+            "=== GIT PUSH SUCCESS ===",
+            flush=True
+        )
 
-            return True
+        return True
 
-        except Exception as e:
-
-            print(
-                f"GIT PUSH ERROR: {e}",
-                flush=True
-            )
-
-            if attempt >= max_retries:
-                print(
-                    "=== GIT PUSH FAILED AFTER RETRIES ===",
-                    flush=True
-                )
-
-                return False
-
-            try:
-                prepare_git_checkpoint()
-
-                committed = commit_if_needed()
-
-                if not committed:
-                    return True
-
-            except Exception as refresh_error:
-
-                print(
-                    f"GIT REFRESH ERROR: {refresh_error}",
-                    flush=True
-                )
-
-    return False
+    except Exception as e:
+        print(
+            f"GIT PUSH ERROR: {e}",
+            flush=True
+        )
+        print(
+            "=== GIT PUSH FAILED CLOSED: NO RETRY / NO RESET / NO OVERWRITE ===",
+            flush=True
+        )
+        return False
 
 
 def git_checkpoint():
@@ -813,6 +845,8 @@ def git_checkpoint():
             "41898282+github-actions[bot]@users.noreply.github.com"
         ])
 
+        assert_remote_main_unchanged()
+
         prepare_git_checkpoint()
 
         committed = commit_if_needed()
@@ -822,10 +856,20 @@ def git_checkpoint():
             return True
 
         success = push_checkpoint(
-            max_retries=3
+            max_retries=1
         )
 
         if success:
+            startup_base_sha = subprocess.run(
+                [
+                    "git",
+                    "rev-parse",
+                    "HEAD"
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
             last_checkpoint_time = time.time()
             return True
 
