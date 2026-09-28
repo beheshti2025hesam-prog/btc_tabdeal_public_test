@@ -3,34 +3,11 @@ name: Hes Trade Agent — Tabdeal BTC Futures Collector
 on:
   workflow_dispatch:
 
-  schedule:
-    # 24/7 collector cadence:
-    # - Collector runtime: 5h20m (original proven collection window).
-    # - A new scheduled run is created every 4h.
-    # - This creates ~80m overlap, so scheduler delays are absorbed by the
-    #   concurrency queue instead of becoming raw-data gaps.
-    # - Schedule is intentionally offset from the top of the hour because
-    #   GitHub documents higher schedule delay risk at :00.
-    #
-    # Schedule times are UTC.
-    - cron: "15 00 * * *"
-    - cron: "15 04 * * *"
-    - cron: "15 08 * * *"
-    - cron: "15 12 * * *"
-    - cron: "15 16 * * *"
-    - cron: "15 20 * * *"
-
 permissions:
+  actions: write
   contents: write
 
-# Collector safety boundary:
-# - Exactly one collector run may execute at a time.
-# - A running collector must NEVER be canceled by a newer run.
-# - Multiple pending runs must NOT replace/cancel each other.
-#   queue: max preserves queued scheduled collectors.
-#
-# Manual dispatch intentionally uses the same lock so it cannot run beside
-# a scheduled/pending collector and corrupt the shared CSV/archive state.
+# Completion-based collector chain:
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
@@ -39,31 +16,23 @@ concurrency:
 jobs:
   collector:
     timeout-minutes: 350
-
     runs-on: ubuntu-latest
-
     env:
-      # Restore original 5h20m collection window.
-      # 4h cadence => approximately 80m overlap/queue protection.
       COLLECTOR_RUN_SECONDS: "19200"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-
       - name: Collect BTC_USDT Futures Trades
+        id: collect
         run: |
           python -u tabdeal_futures_ws_test.py
-
       - name: Upload collected trades
         if: always()
         uses: actions/upload-artifact@v4
@@ -73,3 +42,16 @@ jobs:
             data/trades.csv
             data/archive
           if-no-files-found: warn
+      - name: Dispatch next collector
+        if: ${{ steps.collect.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data '{"ref":"main"}'
