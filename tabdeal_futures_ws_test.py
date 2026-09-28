@@ -1192,9 +1192,13 @@ def collect():
                 flush=True
             )
 
-            sleep_time = min(
-                RECONNECT_DELAY,
-                RUN_SECONDS - elapsed
+            sleep_time = (
+                RECONNECT_DELAY
+                if RUN_SECONDS is None
+                else min(
+                    RECONNECT_DELAY,
+                    RUN_SECONDS - elapsed
+                )
             )
 
             if sleep_time > 0:
