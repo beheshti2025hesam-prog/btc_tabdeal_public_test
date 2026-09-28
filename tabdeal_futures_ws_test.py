@@ -183,6 +183,146 @@ def get_last_physical_sequence(file_path):
     return None
 
 
+def synchronize_startup_data_state():
+    """
+    Synchronize collector data files to the latest origin/main state
+    before sequence recovery or CSV opening.
+
+    GitHub Actions can start a queued workflow from the SHA captured when
+    it was scheduled. That checkout may therefore be stale by the time the
+    collector starts. A mixed reset at checkpoint time is not sufficient:
+    it moves HEAD/index but leaves the stale working-tree CSV untouched.
+
+    Safety rule:
+    - fetch the latest main first;
+    - refuse to overwrite any pre-existing local data modifications;
+    - restore only the collector data paths from origin/main;
+    - verify the working tree data now matches origin/main.
+
+    This is a startup-only synchronization step. It runs before the
+    collector opens or writes the CSV, so it cannot erase trades collected
+    by the current process.
+    """
+
+    print(
+        "=== STARTUP DATA STATE SYNC START ===",
+        flush=True
+    )
+
+    run_git([
+        "git",
+        "fetch",
+        "origin",
+        "main"
+    ])
+
+    remote_sha_result = subprocess.run(
+        [
+            "git",
+            "rev-parse",
+            "origin/main"
+        ],
+        check=True,
+        capture_output=True,
+        text=True
+    )
+    remote_sha = remote_sha_result.stdout.strip()
+
+    status = subprocess.run(
+        [
+            "git",
+            "status",
+            "--porcelain",
+            "--",
+            OUTPUT_FILE,
+            ARCHIVE_DIR
+        ],
+        check=True,
+        capture_output=True,
+        text=True
+    )
+
+    if status.stdout.strip():
+        raise RuntimeError(
+            "Refusing startup data sync: local collector data modifications "
+            "are present. Reconcile/persist local data before synchronization."
+        )
+
+    run_git([
+        "git",
+        "restore",
+        "--source=origin/main",
+        "--worktree",
+        "--",
+        OUTPUT_FILE,
+        ARCHIVE_DIR
+    ])
+
+    verify = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--quiet",
+            "origin/main",
+            "--",
+            OUTPUT_FILE,
+            ARCHIVE_DIR
+        ]
+    )
+
+    if verify.returncode != 0:
+        raise RuntimeError(
+            "Startup data sync verification failed: collector data paths "
+            "do not match origin/main."
+        )
+
+    # Re-fetch after restoring the data paths. If another collector advanced
+    # origin/main during this synchronization window, the checkout is no
+    # longer a coherent snapshot. Fail closed before sequence recovery or
+    # collection rather than starting from a possibly stale remote dataset.
+    run_git([
+        "git",
+        "fetch",
+        "origin",
+        "main"
+    ])
+
+    latest_remote_sha_result = subprocess.run(
+        [
+            "git",
+            "rev-parse",
+            "origin/main"
+        ],
+        check=True,
+        capture_output=True,
+        text=True
+    )
+    latest_remote_sha = latest_remote_sha_result.stdout.strip()
+
+    if latest_remote_sha != remote_sha:
+        raise RuntimeError(
+            "Refusing startup data sync: origin/main advanced during "
+            "data synchronization. A fresh run must restart from the new "
+            "remote snapshot."
+        )
+
+    # Align HEAD/index with the exact remote snapshot whose data paths were
+    # verified above. The explicit SHA avoids silently switching to a newer
+    # ref between verification and reset.
+    run_git([
+        "git",
+        "reset",
+        "--mixed",
+        remote_sha
+    ])
+
+    print(
+        "=== STARTUP DATA STATE SYNC COMPLETE ===",
+        flush=True
+    )
+
+
+
 def load_global_last_sequence():
     print(
         "=== SEQUENCE RECOVERY START ===",
@@ -414,6 +554,95 @@ def close_csv():
 # ARCHIVE MANAGEMENT
 # ============================================================
 
+ROTATION_MARKER = os.path.join(ARCHIVE_DIR, ".archive_rotation.json")
+
+
+
+def _fsync_directory(path):
+    """Best-effort directory fsync after atomic rename operations."""
+    try:
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except (OSError, ValueError):
+        pass
+
+
+
+def recover_archive_rotation():
+    """Recover an interrupted multi-file archive rotation."""
+    if not os.path.exists(ROTATION_MARKER):
+        return
+
+    print("=== ARCHIVE ROTATION RECOVERY START ===", flush=True)
+
+    with open(ROTATION_MARKER, "r", encoding="utf-8") as marker_file:
+        marker = json.load(marker_file)
+
+    archive_file = marker["archive_file"]
+    temp_archive = marker["temp_archive"]
+    temp_active = marker["temp_active"]
+    backup_active = marker["backup_active"]
+
+    archive_exists = os.path.exists(archive_file)
+    active_exists = os.path.exists(OUTPUT_FILE)
+    backup_exists = os.path.exists(backup_active)
+
+    if active_exists and not backup_exists:
+        if not archive_exists:
+            raise RuntimeError("Archive rotation marker is inconsistent: active exists but archive is missing")
+        os.remove(ROTATION_MARKER)
+        _fsync_directory(ARCHIVE_DIR)
+        print("Archive rotation recovery: transaction already complete.", flush=True)
+        return
+
+    if backup_exists and archive_exists:
+        with open(backup_active, "r", newline="", encoding="utf-8") as source:
+            reader = csv.reader(source)
+            header = next(reader)
+            with open(temp_active, "w", newline="", encoding="utf-8") as active_out:
+                writer = csv.writer(active_out)
+                writer.writerow(header)
+                skipped = 0
+                kept = 0
+                for row in reader:
+                    if skipped < ARCHIVE_BATCH_ROWS:
+                        skipped += 1
+                    else:
+                        writer.writerow(row)
+                        kept += 1
+                if skipped != ARCHIVE_BATCH_ROWS:
+                    raise RuntimeError("Interrupted archive recovery found fewer rows than archive batch")
+                active_out.flush()
+                os.fsync(active_out.fileno())
+
+        os.replace(temp_active, OUTPUT_FILE)
+        os.remove(backup_active)
+        os.remove(ROTATION_MARKER)
+        _fsync_directory(ARCHIVE_DIR)
+        _fsync_directory(os.path.dirname(OUTPUT_FILE) or ".")
+        print(f"Archive rotation recovery: completed active side; kept {kept} rows.", flush=True)
+        return
+
+    if backup_exists:
+        if active_exists:
+            os.remove(OUTPUT_FILE)
+        os.replace(backup_active, OUTPUT_FILE)
+    elif not active_exists:
+        raise RuntimeError("Interrupted archive recovery has neither active nor backup data")
+
+    for path in (temp_archive, temp_active):
+        if os.path.exists(path):
+            os.remove(path)
+    os.remove(ROTATION_MARKER)
+    _fsync_directory(ARCHIVE_DIR)
+    _fsync_directory(os.path.dirname(OUTPUT_FILE) or ".")
+    print("Archive rotation recovery: rolled back before archive commit.", flush=True)
+
+
+
 def archive_old_rows():
     global active_rows
     global csv_file
@@ -466,7 +695,18 @@ def archive_old_rows():
         OUTPUT_FILE + ".tmp"
     )
 
+    backup_active = OUTPUT_FILE + ".rotation-backup"
+
     try:
+        if os.path.exists(ROTATION_MARKER):
+            raise RuntimeError("Archive rotation marker already exists; refusing concurrent rotation")
+        if os.path.exists(backup_active):
+            raise RuntimeError("Archive rotation backup already exists; refusing destructive overwrite")
+        if os.path.exists(archive_file):
+            raise RuntimeError(
+                "Archive target already exists; refusing destructive overwrite"
+            )
+
         archived_count = 0
         remaining_count = 0
 
@@ -545,15 +785,31 @@ def archive_old_rows():
                 "Archive row count mismatch"
             )
 
-        os.replace(
-            temp_archive,
-            archive_file
-        )
+        marker_payload = {
+            "archive_file": archive_file,
+            "temp_archive": temp_archive,
+            "temp_active": temp_active,
+            "backup_active": backup_active,
+            "archived_count": archived_count,
+            "remaining_count": remaining_count,
+        }
+        with open(ROTATION_MARKER, "w", encoding="utf-8") as marker_out:
+            json.dump(marker_payload, marker_out, sort_keys=True)
+            marker_out.flush()
+            os.fsync(marker_out.fileno())
+        _fsync_directory(ARCHIVE_DIR)
 
-        os.replace(
-            temp_active,
-            OUTPUT_FILE
-        )
+        os.replace(OUTPUT_FILE, backup_active)
+        _fsync_directory(os.path.dirname(OUTPUT_FILE) or ".")
+        os.replace(temp_archive, archive_file)
+        _fsync_directory(ARCHIVE_DIR)
+        os.replace(temp_active, OUTPUT_FILE)
+        _fsync_directory(os.path.dirname(OUTPUT_FILE) or ".")
+
+        os.remove(backup_active)
+        os.remove(ROTATION_MARKER)
+        _fsync_directory(ARCHIVE_DIR)
+        _fsync_directory(os.path.dirname(OUTPUT_FILE) or ".")
 
         active_rows = remaining_count
 
@@ -638,13 +894,10 @@ def prepare_git_checkpoint():
         "main"
     ])
 
-    run_git([
-        "git",
-        "reset",
-        "--mixed",
-        "origin/main"
-    ])
-
+    # Do not mixed-reset here. The startup synchronization already aligned
+    # HEAD/index to a verified origin/main snapshot. A second reset at
+    # checkpoint time can race with another collector and leave a stale
+    # working-tree dataset attached to a newer HEAD.
     run_git([
         "git",
         "add",
@@ -725,13 +978,28 @@ def push_checkpoint(max_retries=3):
 
                 return False
 
+            # A rejected push means origin/main advanced after the
+            # local checkpoint commit was based on it. Do NOT reset mixed
+            # and re-stage the same working-tree CSV: mixed reset leaves the
+            # CSV untouched and could turn a stale local dataset into a
+            # fast-forward commit that drops remote rows.
+            #
+            # Fetch only for evidence/diagnostics, then fail safely. The
+            # caller can terminate the run and a fresh startup can recover
+            # from the latest origin/main state.
             try:
-                prepare_git_checkpoint()
+                run_git([
+                    "git",
+                    "fetch",
+                    "origin",
+                    "main"
+                ])
 
-                committed = commit_if_needed()
-
-                if not committed:
-                    return True
+                print(
+                    "Remote main advanced during checkpoint; refusing "
+                    "stale-data retry.",
+                    flush=True
+                )
 
             except Exception as refresh_error:
 
@@ -739,6 +1007,8 @@ def push_checkpoint(max_retries=3):
                     f"GIT REFRESH ERROR: {refresh_error}",
                     flush=True
                 )
+
+            return False
 
     return False
 
@@ -1193,6 +1463,9 @@ def collect():
 
 def main():
     global last_sequence
+
+    recover_archive_rotation()
+    synchronize_startup_data_state()
 
     last_sequence = (
         load_global_last_sequence()
