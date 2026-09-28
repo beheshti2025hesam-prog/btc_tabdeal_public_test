@@ -5,7 +5,13 @@ does not tune parameters, fit models, mutate capital, or execute orders.
 """
 import argparse
 import json
+import sys
 from pathlib import Path
+
+# Make the repository root importable when this file is executed directly.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from core.backtest.costs import CostScenario
 from core.backtest.oos_cost_matrix import evaluate_oos_cost_matrix
@@ -102,7 +108,7 @@ def main() -> None:
         },
         "input": str(path),
         "walk_forward": {
-            "fold_count": walk_forward.folds.__len__(),
+            "fold_count": len(walk_forward.folds),
             "samples": walk_forward.samples,
             "evaluated": walk_forward.evaluated,
             "wins": walk_forward.wins,
