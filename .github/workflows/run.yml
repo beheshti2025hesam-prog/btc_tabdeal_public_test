@@ -1,5 +1,7 @@
 name: Hes Trade Agent — Tabdeal BTC Futures Collector
 
+run-name: "HES Trade Agent — Tabdeal Collector — ${{ inputs.run_mode || 'production' }}"
+
 on:
   workflow_dispatch:
     inputs:
