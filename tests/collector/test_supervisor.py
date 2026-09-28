@@ -31,6 +31,8 @@ class HungChild(FakeChild):
         super().__init__(stop_on_wait=False)
 
     def wait(self, timeout=None):
+        if self.killed:
+            return self.return_code
         if timeout is not None:
             raise subprocess.TimeoutExpired(cmd="collector", timeout=timeout)
         return self.return_code
