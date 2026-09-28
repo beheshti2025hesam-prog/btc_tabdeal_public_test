@@ -62,7 +62,11 @@ jobs:
 
       - name: Collect BTC_USDT Futures Trades
         run: |
-          python -u tabdeal_futures_ws_test.py
+          # Safety fuse: the collector has an internal timer, but a stuck
+          # websocket must never hold the concurrency lock indefinitely.
+          # Keep the proven 5h20m runtime; only enforce a hard upper bound.
+          timeout --signal=TERM --kill-after=60s "${COLLECTOR_RUN_SECONDS}s" \
+            python -u tabdeal_futures_ws_test.py
 
       - name: Upload collected trades
         if: always()
