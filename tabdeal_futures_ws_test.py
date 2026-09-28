@@ -86,6 +86,7 @@ GIT_CHECKPOINT_ENABLED = os.getenv(
 # Active CSV size management
 MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
+ARCHIVE_TXN_FILE = os.path.join(ARCHIVE_DIR, ".archive_transaction.json")
 
 
 # ============================================================
@@ -571,6 +572,27 @@ def archive_old_rows():
                 "Archive row count mismatch"
             )
 
+        transaction = {
+            "archive_file": archive_file,
+            "temp_archive": temp_archive,
+            "temp_active": temp_active,
+            "archived_count": archived_count,
+            "remaining_count": remaining_count,
+            "created_utc": time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ",
+                time.gmtime()
+            ),
+        }
+
+        with open(
+            ARCHIVE_TXN_FILE,
+            "w",
+            encoding="utf-8"
+        ) as marker:
+            json.dump(transaction, marker, indent=2)
+            marker.flush()
+            os.fsync(marker.fileno())
+
         os.replace(
             temp_archive,
             archive_file
@@ -580,6 +602,11 @@ def archive_old_rows():
             temp_active,
             OUTPUT_FILE
         )
+
+        try:
+            os.remove(ARCHIVE_TXN_FILE)
+        except FileNotFoundError:
+            pass
 
         active_rows = remaining_count
 
