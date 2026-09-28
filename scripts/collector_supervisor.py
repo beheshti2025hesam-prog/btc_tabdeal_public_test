@@ -53,7 +53,9 @@ def main() -> int:
 
         env = os.environ.copy()
         env.setdefault("PYTHONUNBUFFERED", "1")
-        env.setdefault("COLLECTOR_RUN_SECONDS", "19200")
+        env["HES_COLLECTOR_MODE"] = "persistent-vps"
+        env["HES_COLLECTOR_GIT_CHECKPOINT"] = "0"
+        env.pop("COLLECTOR_RUN_SECONDS", None)
 
         child = subprocess.Popen(
             [os.environ.get("PYTHON", "python3"), str(COLLECTOR)],
