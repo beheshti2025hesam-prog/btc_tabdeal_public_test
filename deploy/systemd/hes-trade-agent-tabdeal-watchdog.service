@@ -1,0 +1,10 @@
+[Unit]
+Description=HES Trade Agent - Tabdeal Collector Data Watchdog
+After=network-online.target hes-trade-agent-tabdeal.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/hes-trade-agent
+ExecStart=/usr/bin/python3 /opt/hes-trade-agent/scripts/collector_watchdog.py
+Environment=HES_MAX_TRADE_AGE_SECONDS=180
