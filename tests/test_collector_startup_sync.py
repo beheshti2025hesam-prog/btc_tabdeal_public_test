@@ -419,7 +419,7 @@ def test_archive_rotation_recovers_after_archive_replace_crash(monkeypatch, tmp_
     assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [100, 101, 102]
 
 
-def test_archive_rotation_recovers_after_active_replace_before_commit_marker(monkeypatch, tmp_path):
+def test_archive_rotation_recovers_after_active_replace_before_cleanup(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     write_csv(repo / "data/trades.csv", 100, 3)
@@ -435,16 +435,14 @@ def test_archive_rotation_recovers_after_active_replace_before_commit_marker(mon
     ns["csv_writer"] = None
     monkeypatch.chdir(repo)
 
-    real_replace = ns["os"].replace
-    calls = {"count": 0}
+    def crash_before_marker_cleanup():
+        raise SystemExit("simulated process crash")
 
-    def crash_before_commit_marker(src, dst):
-        calls["count"] += 1
-        if calls["count"] == 5:
-            raise SystemExit("simulated process crash")
-        return real_replace(src, dst)
-
-    monkeypatch.setattr(ns["os"], "replace", crash_before_commit_marker)
+    monkeypatch.setattr(
+        ns,
+        "_remove_archive_transaction_marker",
+        crash_before_marker_cleanup,
+    )
 
     with pytest.raises(SystemExit):
         ns["archive_old_rows"]()
@@ -453,7 +451,11 @@ def test_archive_rotation_recovers_after_active_replace_before_commit_marker(mon
     assert len(list((repo / "data/archive").glob("*.csv"))) == 1
     assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [102]
 
-    monkeypatch.setattr(ns["os"], "replace", real_replace)
+    monkeypatch.setattr(
+        ns,
+        "_remove_archive_transaction_marker",
+        lambda: None,
+    )
     ns["recover_archive_rotation"]()
 
     assert not (repo / "data/.archive_rotation.json").exists()
@@ -463,3 +465,6 @@ def test_archive_rotation_recovers_after_active_replace_before_commit_marker(mon
     archived = list(csv.DictReader(archives[0].open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in archived] == [100, 101]
     assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [102]
+
+    # Recovery is idempotent after the marker has been cleaned up.
+    ns["recover_archive_rotation"]()
