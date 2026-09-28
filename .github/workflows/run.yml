@@ -74,7 +74,7 @@ jobs:
             data/archive
           if-no-files-found: warn
       - name: Dispatch next collector
-        if: ${{ steps.collect.outcome == 'success' || steps.smoke.outcome == 'success' }}
+        if: ${{ steps.collect.outcome == 'success' || (steps.smoke.outcome == 'success' && fromJSON(inputs.smoke_depth) < 2) }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
