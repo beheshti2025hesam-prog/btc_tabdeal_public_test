@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Audit global sequence ordering across active CSV and archived CSV files."""
+"""Audit global sequence ordering across archived and active CSV files.
+
+This verifies monotonicity and duplicate/overlap safety. It intentionally does
+not require contiguous sequence numbers because exchange-wide sequence values
+may advance for events outside the selected symbol stream.
+"""
 
 from __future__ import annotations
 
 import csv
-import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,8 +27,6 @@ def sequences(path: Path):
 
 def main() -> int:
     files = []
-    if ACTIVE.exists():
-        files.append(ACTIVE)
     if ARCHIVE.exists():
         files.extend(
             sorted(
@@ -32,6 +34,8 @@ def main() -> int:
                 if p.suffix.lower() == ".csv"
             )
         )
+    if ACTIVE.exists():
+        files.append(ACTIVE)
 
     previous = None
     count = 0
