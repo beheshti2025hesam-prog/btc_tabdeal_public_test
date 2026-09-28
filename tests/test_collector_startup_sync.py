@@ -263,3 +263,42 @@ def test_plain_push_rejects_remote_advance_without_overwrite(monkeypatch, tmp_pa
     subprocess.run(["git", "clone", str(origin), str(verifier)], check=True, capture_output=True)
     rows = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
+
+def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "test")
+    write_csv(repo / "data/trades.csv", 100, 3)
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "N")
+    origin = tmp_path / "origin.git"
+    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True)
+    git(repo, "remote", "add", "origin", str(origin))
+    git(repo, "push", "-u", "origin", "main")
+
+    ns = load_namespace(monkeypatch, tmp_path)
+    ns["OUTPUT_FILE"] = "data/trades.csv"
+    ns["ARCHIVE_DIR"] = "data/archive"
+    ns["run_git"] = lambda command: subprocess.run(command, cwd=repo, check=True)
+
+    # N -> N+1: append one valid trade and publish.
+    ns["synchronize_startup_data_state"]()
+    write_csv(repo / "data/trades.csv", 100, 4)
+    assert ns["git_checkpoint"]() is True
+
+    # N+1 -> N+2: a fresh collector session must start from persisted N+1,
+    # then append another trade without losing predecessor rows.
+    ns["synchronize_startup_data_state"]()
+    rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
+
+    write_csv(repo / "data/trades.csv", 100, 5)
+    assert ns["git_checkpoint"]() is True
+
+    verifier = tmp_path / "verifier"
+    subprocess.run(["git", "clone", str(origin), str(verifier)], check=True, capture_output=True)
+    persisted = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
+    assert [int(r["sequence"]) for r in persisted] == [100, 101, 102, 103, 104]
+\n
