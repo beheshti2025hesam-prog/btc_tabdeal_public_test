@@ -2,7 +2,7 @@
 import unittest
 from datetime import datetime, timezone
 
-from core.backtest.costs import BacktestCostModel
+from core.backtest.costs import BacktestCostModel, CostScenario, evaluate_samples
 from core.backtest.engine import BacktestSample
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
@@ -42,10 +42,37 @@ class BacktestCostModelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             BacktestCostModel(slippage_bps_per_side=float("nan"))
 
+    def test_cost_scenario_also_rejects_invalid_assumptions(self):
+        with self.assertRaises(ValueError):
+            CostScenario(transaction_cost_bps_per_side=-1, slippage_bps_per_side=0)
+        with self.assertRaises(ValueError):
+            CostScenario(transaction_cost_bps_per_side=0, slippage_bps_per_side=float("inf"))
+
+    def test_non_finite_prices_fail_closed(self):
+        model = BacktestCostModel()
+        with self.assertRaises(ValueError):
+            model.net_return(self.sample(BaselineDecision.LONG, entry=float("nan")))
+        with self.assertRaises(ValueError):
+            model.gross_return(self.sample(BaselineDecision.SHORT, exit=float("inf")))
+
     def test_non_trade_cannot_be_costed(self):
         model = BacktestCostModel()
         with self.assertRaises(ValueError):
             model.net_return(self.sample(BaselineDecision.NO_TRADE))
+
+    def test_generator_is_evaluated_for_every_scenario(self):
+        samples = (sample for sample in (self.sample(BaselineDecision.LONG),))
+        results = evaluate_samples(
+            samples,
+            (CostScenario(0.0, 0.0), CostScenario(5.0, 2.0)),
+        )
+        self.assertEqual([row[2] for row in results], [1, 1])
+        self.assertAlmostEqual(results[0][1], 0.01)
+        self.assertAlmostEqual(results[1][1], 0.0086)
+
+    def test_empty_scenarios_fail_closed(self):
+        with self.assertRaises(ValueError):
+            evaluate_samples((self.sample(BaselineDecision.LONG),), ())
 
 
 if __name__ == "__main__":
