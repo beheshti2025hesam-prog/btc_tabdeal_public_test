@@ -74,10 +74,21 @@ def main() -> int:
         except Exception:
             state = None
 
-    if state is not None and state.get("event") == "collector_exited":
-        return fail(
-            f"collector exited with return_code={state.get('return_code')}"
-        )
+    if state is not None:
+        event = state.get("event")
+        if event == "collector_exited":
+            return fail(
+                f"collector exited with return_code={state.get('return_code')}"
+            )
+
+        supervisor_pid = state.get("pid")
+        if event in {"starting", "collector_started"} and supervisor_pid:
+            try:
+                os.kill(int(supervisor_pid), 0)
+            except (OSError, TypeError, ValueError) as exc:
+                return fail(
+                    f"supervisor pid={supervisor_pid} is not alive: {exc}"
+                )
 
     print(
         f"WATCHDOG OK: trade_age={age:.1f}s sequence={sequence} "
