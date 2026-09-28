@@ -36,3 +36,11 @@ def test_watchdog_rejects_stale_trade(monkeypatch, tmp_path):
     monkeypatch.setattr(watchdog, "MAX_TRADE_AGE", 180)
 
     assert watchdog.main() == 1
+
+
+def test_watchdog_parses_epoch_milliseconds():
+    assert watchdog.parse_timestamp("1779700000000") == 1779700000.0
+
+
+def test_watchdog_parses_iso_timestamp():
+    assert watchdog.parse_timestamp("2026-09-28T05:00:00Z") == 1780098000.0
