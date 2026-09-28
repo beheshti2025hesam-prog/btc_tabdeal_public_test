@@ -18,7 +18,7 @@ print(collector.GIT_CHECKPOINT_ENABLED)
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
-        cwd=tmp_path.parent.parent,
+        cwd=Path(__file__).resolve().parents[2],
         env=env,
         check=True,
     )
