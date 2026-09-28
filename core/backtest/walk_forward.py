@@ -52,6 +52,7 @@ class WalkForwardValidation:
         test_size: int,
         step_size: int | None = None,
         embargo_size: int = 0,
+        max_folds: int | None = None,
     ) -> None:
         if train_size <= 0:
             raise ValueError("train_size must be positive")
@@ -61,10 +62,13 @@ class WalkForwardValidation:
             raise ValueError("step_size must be at least test_size")
         if embargo_size < 0:
             raise ValueError("embargo_size must not be negative")
+        if max_folds is not None and max_folds <= 0:
+            raise ValueError("max_folds must be positive when provided")
         self.train_size = train_size
         self.test_size = test_size
         self.step_size = step_size or test_size
         self.embargo_size = embargo_size
+        self.max_folds = max_folds
 
     def run(self, observations: Iterable[HistoricalObservation]) -> WalkForwardResult:
         rows = list(observations)
@@ -75,6 +79,9 @@ class WalkForwardValidation:
         fold_index = 0
 
         while True:
+            if self.max_folds is not None and len(folds) >= self.max_folds:
+                break
+
             train_end = start + self.train_size
             test_start = train_end + self.embargo_size
             test_end = test_start + self.test_size
