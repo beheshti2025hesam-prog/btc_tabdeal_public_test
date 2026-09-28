@@ -58,3 +58,34 @@ class BacktestCostModel:
             raise ValueError("prices must be positive")
         direction = 1.0 if sample.decision is BaselineDecision.LONG else -1.0
         return direction * (sample.exit_price - sample.entry_price) / sample.entry_price
+
+
+@dataclass(frozen=True)
+class CostScenario:
+    """Explicit measurement assumption; not an exchange-fee claim."""
+
+    transaction_cost_bps_per_side: float
+    slippage_bps_per_side: float
+
+
+def evaluate_samples(samples, scenarios: tuple[CostScenario, ...]):
+    """Return net-return measurements for each scenario over supplied samples."""
+    model_results = []
+    for scenario in scenarios:
+        model = BacktestCostModel(
+            transaction_cost_bps_per_side=scenario.transaction_cost_bps_per_side,
+            slippage_bps_per_side=scenario.slippage_bps_per_side,
+        )
+        total = 0.0
+        evaluated = 0
+        wins = losses = 0
+        for sample in samples:
+            if sample.decision is BaselineDecision.NO_TRADE or sample.risk is RiskDecision.VETO:
+                continue
+            value = model.net_return(sample)
+            total += value
+            evaluated += 1
+            wins += value > 0
+            losses += value < 0
+        model_results.append((scenario, total, evaluated, wins, losses))
+    return tuple(model_results)
