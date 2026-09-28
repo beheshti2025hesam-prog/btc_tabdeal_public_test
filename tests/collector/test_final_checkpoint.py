@@ -23,6 +23,8 @@ def test_startup_sync_refreshes_clean_stale_checkout(monkeypatch):
             return Result(stdout="")
         if command[:2] == ["git", "diff"]:
             return Result(returncode=0)
+        if command[:2] == ["git", "rev-parse"]:
+            return Result(stdout="remote-sha\n")
         raise AssertionError(command)
 
     monkeypatch.setattr(collector, "run_git", fake_run_git)
@@ -35,6 +37,40 @@ def test_startup_sync_refreshes_clean_stale_checkout(monkeypatch):
         "git", "restore", "--source=origin/main", "--worktree",
         "--", collector.OUTPUT_FILE, collector.ARCHIVE_DIR
     ] in commands
+
+
+def test_startup_sync_fails_closed_if_remote_advances_during_sync(monkeypatch):
+    commands = []
+    fetch_count = {"value": 0}
+
+    def fake_run_git(command):
+        commands.append(command)
+        if command[:2] == ["git", "fetch"]:
+            fetch_count["value"] += 1
+
+    class Result:
+        def __init__(self, stdout="", returncode=0):
+            self.stdout = stdout
+            self.returncode = returncode
+
+    def fake_subprocess_run(command, **kwargs):
+        if command[:2] == ["git", "status"]:
+            return Result(stdout="")
+        if command[:2] == ["git", "diff"]:
+            return Result(returncode=0)
+        if command[:2] == ["git", "rev-parse"]:
+            sha = "remote-sha\n" if fetch_count["value"] == 1 else "advanced-sha\n"
+            return Result(stdout=sha)
+        raise AssertionError(command)
+
+    monkeypatch.setattr(collector, "run_git", fake_run_git)
+    monkeypatch.setattr(collector.subprocess, "run", fake_subprocess_run)
+
+    with pytest.raises(RuntimeError, match="origin/main advanced during data synchronization"):
+        collector.synchronize_startup_data_state()
+
+    assert fetch_count["value"] == 2
+    assert not any(command[:3] == ["git", "reset", "--mixed"] for command in commands)
 
 
 def test_startup_sync_refuses_dirty_local_data(monkeypatch):
