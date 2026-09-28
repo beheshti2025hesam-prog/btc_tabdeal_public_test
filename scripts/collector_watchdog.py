@@ -21,6 +21,20 @@ def fail(message: str) -> int:
     return 1
 
 
+def parse_timestamp(value: str) -> float:
+    value = value.strip()
+
+    # Accept epoch seconds or milliseconds from exchange payloads.
+    if value.isdigit():
+        number = int(value)
+        return number / 1000 if number > 10_000_000_000 else float(number)
+
+    timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    return timestamp.timestamp()
+
+
 def main() -> int:
     if not TRADES.exists():
         return fail(f"missing {TRADES}")
@@ -43,14 +57,11 @@ def main() -> int:
         return fail("latest row is missing updated or sequence")
 
     try:
-        timestamp = datetime.fromisoformat(updated.replace("Z", "+00:00"))
-    except ValueError as exc:
+        timestamp_seconds = parse_timestamp(updated)
+    except (TypeError, ValueError) as exc:
         return fail(f"invalid latest trade timestamp {updated!r}: {exc}")
 
-    if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
-
-    age = time.time() - timestamp.timestamp()
+    age = time.time() - timestamp_seconds
     if age > MAX_TRADE_AGE:
         return fail(
             f"latest trade is {age:.1f}s old; threshold={MAX_TRADE_AGE}s; sequence={sequence}"
