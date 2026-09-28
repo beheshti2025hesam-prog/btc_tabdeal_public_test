@@ -5,19 +5,20 @@ on:
 
   schedule:
     # 24/7 collector cadence:
-    # - Collector runtime: 4h30m.
-    # - Five starts per 24h, every 4h48m, gives ~18m intentional overlap.
-    # - This keeps the collector continuously covered without creating a
-    #   permanently growing concurrency backlog (runtime < cadence).
-    # - Schedule is intentionally offset from :00 where possible because
-    #   GitHub documents higher schedule-delay risk around the top of the hour.
+    # - Collector runtime: 5h20m (original proven collection window).
+    # - A new scheduled run is created every 4h.
+    # - This creates ~80m overlap, so scheduler delays are absorbed by the
+    #   concurrency queue instead of becoming raw-data gaps.
+    # - Schedule is intentionally offset from the top of the hour because
+    #   GitHub documents higher schedule delay risk at :00.
     #
     # Schedule times are UTC.
-    - cron: "00 00 * * *"
-    - cron: "48 04 * * *"
-    - cron: "36 09 * * *"
-    - cron: "24 14 * * *"
-    - cron: "12 19 * * *"
+    - cron: "15 00 * * *"
+    - cron: "15 04 * * *"
+    - cron: "15 08 * * *"
+    - cron: "15 12 * * *"
+    - cron: "15 16 * * *"
+    - cron: "15 20 * * *"
 
 permissions:
   contents: write
@@ -37,13 +38,14 @@ concurrency:
 
 jobs:
   collector:
-    timeout-minutes: 300
+    timeout-minutes: 350
 
     runs-on: ubuntu-latest
 
     env:
-      # Stable 24/7 boundary: 4h30m runtime on a 4h48m cadence.
-      COLLECTOR_RUN_SECONDS: "16200"
+      # Restore original 5h20m collection window.
+      # 4h cadence => approximately 80m overlap/queue protection.
+      COLLECTOR_RUN_SECONDS: "19200"
 
     steps:
       - name: Checkout
@@ -60,8 +62,7 @@ jobs:
 
       - name: Collect BTC_USDT Futures Trades
         run: |
-          timeout --signal=TERM --kill-after=60s "${COLLECTOR_RUN_SECONDS}s" \
-            python -u tabdeal_futures_ws_test.py
+          python -u tabdeal_futures_ws_test.py
 
       - name: Upload collected trades
         if: always()
