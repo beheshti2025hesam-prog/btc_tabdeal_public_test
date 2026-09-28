@@ -735,8 +735,9 @@ def archive_old_rows():
                 ) from rollback_error
             raise
 
-        marker["phase"] = "committed"
-        _write_archive_transaction(marker)
+        # Active replacement is the commit point. Keep the marker in
+        # archive_replaced until cleanup completes so a crash before marker
+        # removal remains recoverable and idempotent.
         _remove_archive_transaction_marker()
 
         active_rows = remaining_count
