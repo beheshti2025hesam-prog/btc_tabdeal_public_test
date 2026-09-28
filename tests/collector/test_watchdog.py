@@ -44,3 +44,24 @@ def test_watchdog_parses_epoch_milliseconds():
 
 def test_watchdog_parses_iso_timestamp():
     assert watchdog.parse_timestamp("2026-09-28T05:00:00Z") == 1790571600.0
+
+
+def test_watchdog_rejects_dead_supervisor(monkeypatch, tmp_path):
+    trades = tmp_path / "data" / "trades.csv"
+    updated = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    write_trades(trades, updated)
+
+    monkeypatch.setattr(watchdog, "TRADES", trades)
+    monkeypatch.setattr(watchdog, "STATE", tmp_path / "state.json")
+    monkeypatch.setattr(watchdog, "MAX_TRADE_AGE", 180)
+    monkeypatch.setattr(
+        watchdog.os,
+        "kill",
+        lambda pid, signal: (_ for _ in ()).throw(ProcessLookupError(pid)),
+    )
+    watchdog.STATE.write_text(
+        '{"event":"collector_started","pid":999999}',
+        encoding="utf-8",
+    )
+
+    assert watchdog.main() == 1
