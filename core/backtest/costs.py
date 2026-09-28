@@ -10,6 +10,7 @@ import math
 
 from core.backtest.engine import BacktestSample
 from core.strategy.baseline import BaselineDecision
+from core.risk.boundary import RiskDecision
 
 
 @dataclass(frozen=True)
