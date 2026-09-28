@@ -350,6 +350,61 @@ def count_active_rows():
         return 0
 
 
+def recover_archive_transaction():
+    """Recover an interrupted archive rotation before opening trades.csv."""
+    if not os.path.exists(ARCHIVE_TXN_FILE):
+        return
+
+    print(
+        "=== ARCHIVE TRANSACTION RECOVERY START ===",
+        flush=True
+    )
+
+    try:
+        with open(
+            ARCHIVE_TXN_FILE,
+            "r",
+            encoding="utf-8"
+        ) as marker_file:
+            transaction = json.load(marker_file)
+
+        archive_file = transaction["archive_file"]
+        temp_archive = transaction["temp_archive"]
+        temp_active = transaction["temp_active"]
+
+        # If archive was committed but active replacement did not happen,
+        # finish the active replacement. Otherwise discard only temporary
+        # files; the original active file remains the source of truth.
+        if (
+            os.path.exists(archive_file)
+            and os.path.exists(temp_active)
+        ):
+            os.replace(temp_active, OUTPUT_FILE)
+        elif (
+            not os.path.exists(archive_file)
+            and os.path.exists(temp_archive)
+        ):
+            os.replace(temp_archive, archive_file)
+
+        for path in (temp_archive, temp_active):
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+
+        os.remove(ARCHIVE_TXN_FILE)
+
+        print(
+            "=== ARCHIVE TRANSACTION RECOVERY COMPLETE ===",
+            flush=True
+        )
+
+    except Exception as exc:
+        raise RuntimeError(
+            f"Archive transaction recovery failed: {exc}"
+        ) from exc
+
+
 def open_csv():
     global csv_file
     global csv_writer
@@ -1280,6 +1335,8 @@ def main():
             "No previous sequence found.",
             flush=True
         )
+
+    recover_archive_transaction()
 
     open_csv()
 
