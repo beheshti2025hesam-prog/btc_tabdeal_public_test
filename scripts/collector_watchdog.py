@@ -74,6 +74,11 @@ def main() -> int:
         except Exception:
             state = None
 
+    if state is not None and state.get("event") == "collector_exited":
+        return fail(
+            f"collector exited with return_code={state.get('return_code')}"
+        )
+
     print(
         f"WATCHDOG OK: trade_age={age:.1f}s sequence={sequence} "
         f"supervisor_event={state.get('event') if state else 'unknown'}",
