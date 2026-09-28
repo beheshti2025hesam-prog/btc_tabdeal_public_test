@@ -141,3 +141,52 @@ def test_checkpoint_fails_closed_when_main_advances(monkeypatch, tmp_path):
         )
     )
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
+
+
+def test_checkpoint_updates_base_after_successful_push(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.email", "test@example.com")
+    git(repo, "config", "user.name", "test")
+    write_csv(repo / "data/trades.csv", 100, 3)
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "base")
+
+    origin = tmp_path / "origin.git"
+    subprocess.run(
+        ["git", "init", "--bare", str(origin)],
+        check=True,
+        capture_output=True,
+    )
+    git(repo, "remote", "add", "origin", str(origin))
+    git(repo, "push", "-u", "origin", "main")
+
+    ns = load_namespace(monkeypatch, tmp_path)
+    ns["OUTPUT_FILE"] = "data/trades.csv"
+    ns["ARCHIVE_DIR"] = "data/archive"
+    ns["run_git"] = lambda command: subprocess.run(
+        command, cwd=repo, check=True
+    )
+
+    ns["synchronize_startup_data_state"]()
+    base_sha = ns["startup_base_sha"]
+
+    write_csv(repo / "data/trades.csv", 100, 4)
+    monkeypatch.chdir(repo)
+
+    assert ns["git_checkpoint"]() is True
+    assert ns["startup_base_sha"] != base_sha
+
+    verifier = tmp_path / "verifier"
+    subprocess.run(
+        ["git", "clone", str(origin), str(verifier)],
+        check=True,
+        capture_output=True,
+    )
+    rows = list(
+        csv.DictReader(
+            (verifier / "data/trades.csv").open(encoding="utf-8")
+        )
+    )
+    assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
