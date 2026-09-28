@@ -7,7 +7,7 @@ permissions:
   actions: write
   contents: write
 
-# Completion-based collector chain:
+# Completion-based collector chain.
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       COLLECTOR_RUN_SECONDS: "19200"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -54,4 +55,4 @@ jobs:
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data '{"ref":"main"}'
+            --data '{"ref":"${{ github.ref_name }}"}'
