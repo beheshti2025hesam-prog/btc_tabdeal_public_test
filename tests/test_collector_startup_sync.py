@@ -302,3 +302,39 @@ def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_pa
     persisted = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in persisted] == [100, 101, 102, 103, 104]
 \n
+def test_archive_rotation_never_reuses_existing_filename(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_csv(repo / "data/trades.csv", 100, 3)
+
+    ns = load_namespace(monkeypatch, tmp_path)
+    ns["OUTPUT_FILE"] = "data/trades.csv"
+    ns["ARCHIVE_DIR"] = "data/archive"
+    ns["MAX_ACTIVE_ROWS"] = 3
+    ns["ARCHIVE_BATCH_ROWS"] = 2
+    ns["active_rows"] = 3
+    ns["csv_file"] = None
+    ns["csv_writer"] = None
+    monkeypatch.chdir(repo)
+
+    import os
+    import time
+    os.makedirs(repo / "data/archive", exist_ok=True)
+    fixed_time = 1759017600
+    monkeypatch.setattr(ns["time"], "time", lambda: fixed_time)
+    monkeypatch.setattr(ns["time"], "strftime", lambda *args: "20260928_000000")
+    first = ns["archive_old_rows"]()
+    assert first is True
+
+    # Recreate a full active file and force the same second-resolution timestamp.
+    write_csv(repo / "data/trades.csv", 200, 3)
+    ns["active_rows"] = 3
+    second = ns["archive_old_rows"]()
+    assert second is True
+
+    archives = sorted((repo / "data/archive").glob("*.csv"))
+    assert len(archives) == 2
+    rows = []
+    for archive in archives:
+        rows.extend(csv.DictReader(archive.open(encoding="utf-8")))
+    assert [int(r["sequence"]) for r in rows] == [100, 101, 200, 201]
