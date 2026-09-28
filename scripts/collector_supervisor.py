@@ -2,6 +2,7 @@
 """Continuously supervise the HES Trade Agent Tabdeal collector."""
 
 from __future__ import annotations
+
 import json
 import os
 import signal
@@ -14,9 +15,11 @@ COLLECTOR = ROOT / "tabdeal_futures_ws_test.py"
 STATE_DIR = ROOT / "data" / "runtime"
 STATE_FILE = STATE_DIR / "supervisor_state.json"
 RESTART_DELAY_SECONDS = int(os.getenv("HES_COLLECTOR_RESTART_DELAY", "5"))
+STOP_GRACE_SECONDS = float(os.getenv("HES_COLLECTOR_STOP_GRACE_SECONDS", "20"))
 
 stopping = False
 child: subprocess.Popen[str] | None = None
+
 
 def write_state(event: str, **extra: object) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -32,12 +35,26 @@ def write_state(event: str, **extra: object) -> None:
     tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     os.replace(tmp, STATE_FILE)
 
+
+def stop_child(grace_seconds: float = STOP_GRACE_SECONDS) -> None:
+    if child is None or child.poll() is not None:
+        return
+
+    child.terminate()
+    try:
+        child.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        write_state("collector_kill_after_sigterm_timeout", child_pid=child.pid)
+        child.kill()
+        child.wait(timeout=5)
+
+
 def stop(signum: int, _frame: object) -> None:
     global stopping
     stopping = True
     write_state("stop_requested", signal=signum)
-    if child is not None and child.poll() is None:
-        child.terminate()
+    stop_child()
+
 
 def main() -> int:
     global child
@@ -81,6 +98,7 @@ def main() -> int:
 
     write_state("supervisor_stopped")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
