@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import json
 import os
 import signal
@@ -74,6 +75,7 @@ CHECKPOINT_SECONDS = 20 * 60
 # Active CSV size management
 MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
+ARCHIVE_TXN_MARKER = os.path.join("data", ".archive_rotation.json")
 
 
 # ============================================================
@@ -83,6 +85,10 @@ ARCHIVE_BATCH_ROWS = 50000
 running = True
 last_sequence = None
 trade_count = 0
+
+# Immutable collector-session base. A checkpoint may only publish data
+# derived from the exact main snapshot used at startup.
+startup_base_sha = None
 
 active_rows = 0
 
@@ -181,6 +187,70 @@ def get_last_physical_sequence(file_path):
             return None
 
     return None
+
+
+def synchronize_startup_data_state():
+    """Synchronize collector data files to a verified origin/main snapshot."""
+    global startup_base_sha
+
+    print("=== STARTUP DATA STATE SYNC START ===", flush=True)
+
+    recover_archive_rotation()
+
+    run_git(["git", "fetch", "origin", "main"])
+
+    remote_sha = subprocess.run(
+        ["git", "rev-parse", "origin/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "--", OUTPUT_FILE, ARCHIVE_DIR],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    if status.stdout.strip():
+        raise RuntimeError(
+            "Refusing startup data sync: local collector data modifications exist."
+        )
+
+    run_git([
+        "git", "restore", "--source=origin/main", "--worktree",
+        "--", OUTPUT_FILE, ARCHIVE_DIR
+    ])
+
+    verify = subprocess.run(
+        ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
+    )
+    if verify.returncode != 0:
+        raise RuntimeError("Startup data sync verification failed.")
+
+    run_git(["git", "fetch", "origin", "main"])
+    latest_remote_sha = subprocess.run(
+        ["git", "rev-parse", "origin/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    if latest_remote_sha != remote_sha:
+        raise RuntimeError(
+            "Refusing startup data sync: origin/main advanced during synchronization."
+        )
+
+    run_git(["git", "reset", "--mixed", remote_sha])
+
+    startup_base_sha = remote_sha
+
+    print(
+        f"=== STARTUP BASE SHA: {startup_base_sha} ===",
+        flush=True
+    )
+    print("=== STARTUP DATA STATE SYNC COMPLETE ===", flush=True)
 
 
 def load_global_last_sequence():
@@ -395,6 +465,79 @@ def open_csv():
     )
 
 
+def _sha256_file(file_path):
+    digest = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_archive_transaction(marker):
+    temp_marker = ARCHIVE_TXN_MARKER + ".tmp"
+    with open(temp_marker, "w", encoding="utf-8") as f:
+        json.dump(marker, f, sort_keys=True)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_marker, ARCHIVE_TXN_MARKER)
+
+
+def _remove_archive_transaction_marker():
+    for path in (ARCHIVE_TXN_MARKER, ARCHIVE_TXN_MARKER + ".tmp"):
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def recover_archive_rotation():
+    """Recover an interrupted archive rotation deterministically after a crash."""
+    if not os.path.exists(ARCHIVE_TXN_MARKER):
+        return
+    with open(ARCHIVE_TXN_MARKER, "r", encoding="utf-8") as f:
+        marker = json.load(f)
+    phase = marker.get("phase")
+    archive_file = marker["archive_file"]
+    temp_archive = marker["temp_archive"]
+    temp_active = marker["temp_active"]
+    old_active_sha256 = marker["old_active_sha256"]
+    new_active_sha256 = marker["new_active_sha256"]
+    archive_sha256 = marker["archive_sha256"]
+    if phase == "prepared":
+        # A crash can occur after archive replacement but before the marker
+        # advances to archive_replaced. If the archive is present, validate
+        # it and continue recovery using the same deterministic state machine.
+        if os.path.exists(archive_file):
+            if _sha256_file(archive_file) != archive_sha256:
+                raise RuntimeError("Prepared archive transaction checksum mismatch.")
+            phase = "archive_replaced"
+        else:
+            for path in (temp_archive, temp_active):
+                if os.path.exists(path):
+                    os.remove(path)
+            _remove_archive_transaction_marker()
+            return
+    if phase != "archive_replaced":
+        raise RuntimeError(f"Unknown archive transaction phase: {phase!r}")
+    if not os.path.exists(archive_file):
+        raise RuntimeError("Archive transaction marker exists but archive is missing.")
+    if _sha256_file(archive_file) != archive_sha256:
+        raise RuntimeError("Archive transaction recovery checksum mismatch.")
+    if not os.path.exists(OUTPUT_FILE):
+        raise RuntimeError("Archive transaction recovery: active file is missing.")
+    active_sha256 = _sha256_file(OUTPUT_FILE)
+    if active_sha256 == old_active_sha256:
+        os.remove(archive_file)
+        if os.path.exists(temp_active):
+            os.remove(temp_active)
+        _remove_archive_transaction_marker()
+        return
+    if active_sha256 == new_active_sha256:
+        if os.path.exists(temp_active):
+            os.remove(temp_active)
+        _remove_archive_transaction_marker()
+        return
+    raise RuntimeError("Archive transaction recovery found an unknown active-file state; manual recovery required.")
+
+
 def close_csv():
     global csv_file
     global csv_writer
@@ -455,8 +598,17 @@ def archive_old_rows():
 
     archive_file = os.path.join(
         ARCHIVE_DIR,
-        f"trades_archive_{timestamp}.csv"
+        f"trades_archive_{timestamp}_{time.time_ns()}.csv"
     )
+
+    # Archive names must be collision-safe. A collector can complete two
+    # rotations within the same UTC second; reusing a second-resolution name
+    # would replace an older archive and silently destroy raw data.
+    while os.path.exists(archive_file):
+        archive_file = os.path.join(
+            ARCHIVE_DIR,
+            f"trades_archive_{timestamp}_{time.time_ns()}.csv"
+        )
 
     temp_archive = (
         archive_file + ".tmp"
@@ -545,15 +697,48 @@ def archive_old_rows():
                 "Archive row count mismatch"
             )
 
+        marker = {
+            "phase": "prepared",
+            "archive_file": archive_file,
+            "temp_archive": temp_archive,
+            "temp_active": temp_active,
+            "old_active_sha256": _sha256_file(OUTPUT_FILE),
+            "new_active_sha256": _sha256_file(temp_active),
+            "archive_sha256": _sha256_file(temp_archive),
+        }
+        _write_archive_transaction(marker)
+
         os.replace(
             temp_archive,
             archive_file
         )
 
-        os.replace(
-            temp_active,
-            OUTPUT_FILE
-        )
+        marker["phase"] = "archive_replaced"
+        _write_archive_transaction(marker)
+
+        try:
+            os.replace(
+                temp_active,
+                OUTPUT_FILE
+            )
+        except Exception:
+            # Treat archive + active replacement as one logical transaction.
+            # If the active swap fails after the archive became visible,
+            # remove that newly-created archive so a retry cannot duplicate
+            # the same rows or leave a split-brain data state.
+            try:
+                if os.path.exists(archive_file):
+                    os.remove(archive_file)
+            except Exception as rollback_error:
+                raise RuntimeError(
+                    "Archive rotation rollback failed; manual recovery required."
+                ) from rollback_error
+            raise
+
+        # Active replacement is the commit point. Keep the marker in
+        # archive_replaced until cleanup completes so a crash before marker
+        # removal remains recoverable and idempotent.
+        _remove_archive_transaction_marker()
 
         active_rows = remaining_count
 
@@ -631,6 +816,23 @@ def prepare_git_checkpoint():
 
     flush_csv()
 
+    # Checkpoint preparation MUST NOT reset the working tree.
+    # A mixed reset can move HEAD/index to a newer origin/main while
+    # leaving a stale data/trades.csv in place. Staging that stale file
+    # could overwrite newer persisted trades.
+    run_git([
+        "git",
+        "add",
+        OUTPUT_FILE,
+        ARCHIVE_DIR
+    ])
+
+
+def assert_remote_main_unchanged():
+    """Fail closed if origin/main moved since this collector started."""
+    if startup_base_sha is None:
+        raise RuntimeError("Collector startup base SHA is not initialized.")
+
     run_git([
         "git",
         "fetch",
@@ -638,19 +840,24 @@ def prepare_git_checkpoint():
         "main"
     ])
 
-    run_git([
-        "git",
-        "reset",
-        "--mixed",
-        "origin/main"
-    ])
+    current_remote_sha = subprocess.run(
+        [
+            "git",
+            "rev-parse",
+            "origin/main"
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
-    run_git([
-        "git",
-        "add",
-        OUTPUT_FILE,
-        ARCHIVE_DIR
-    ])
+    if current_remote_sha != startup_base_sha:
+        raise RuntimeError(
+            "Refusing checkpoint: origin/main advanced since collector startup "
+            f"(base={startup_base_sha}, current={current_remote_sha})."
+        )
+
+    return current_remote_sha
 
 
 def commit_if_needed():
@@ -683,68 +890,56 @@ def commit_if_needed():
 
 
 def push_checkpoint(max_retries=3):
+    """
+    Push exactly one collector commit.
 
-    for attempt in range(
-        1,
-        max_retries + 1
-    ):
+    A failed push is fail-closed. We deliberately do NOT fetch/reset/re-stage
+    against a newer main because that could mix a stale collector snapshot
+    with newer persisted data.
+    """
+    if max_retries != 1:
+        print(
+            "Checkpoint push retries are disabled for data safety.",
+            flush=True
+        )
 
-        try:
+    try:
+        print(
+            "=== GIT PUSH ATTEMPT 1/1 ===",
+            flush=True
+        )
 
-            print(
-                f"=== GIT PUSH ATTEMPT {attempt}/{max_retries} ===",
-                flush=True
-            )
+        assert_remote_main_unchanged()
 
-            run_git([
-                "git",
-                "push",
-                "origin",
-                "main"
-            ])
+        run_git([
+            "git",
+            "push",
+            "origin",
+            "main"
+        ])
 
-            print(
-                "=== GIT PUSH SUCCESS ===",
-                flush=True
-            )
+        print(
+            "=== GIT PUSH SUCCESS ===",
+            flush=True
+        )
 
-            return True
+        return True
 
-        except Exception as e:
-
-            print(
-                f"GIT PUSH ERROR: {e}",
-                flush=True
-            )
-
-            if attempt >= max_retries:
-                print(
-                    "=== GIT PUSH FAILED AFTER RETRIES ===",
-                    flush=True
-                )
-
-                return False
-
-            try:
-                prepare_git_checkpoint()
-
-                committed = commit_if_needed()
-
-                if not committed:
-                    return True
-
-            except Exception as refresh_error:
-
-                print(
-                    f"GIT REFRESH ERROR: {refresh_error}",
-                    flush=True
-                )
-
-    return False
+    except Exception as e:
+        print(
+            f"GIT PUSH ERROR: {e}",
+            flush=True
+        )
+        print(
+            "=== GIT PUSH FAILED CLOSED: NO RETRY / NO RESET / NO OVERWRITE ===",
+            flush=True
+        )
+        return False
 
 
 def git_checkpoint():
     global last_checkpoint_time
+    global startup_base_sha
 
     try:
 
@@ -770,6 +965,8 @@ def git_checkpoint():
             "41898282+github-actions[bot]@users.noreply.github.com"
         ])
 
+        assert_remote_main_unchanged()
+
         prepare_git_checkpoint()
 
         committed = commit_if_needed()
@@ -779,10 +976,20 @@ def git_checkpoint():
             return True
 
         success = push_checkpoint(
-            max_retries=3
+            max_retries=1
         )
 
         if success:
+            startup_base_sha = subprocess.run(
+                [
+                    "git",
+                    "rev-parse",
+                    "HEAD"
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
             last_checkpoint_time = time.time()
             return True
 
@@ -1193,6 +1400,8 @@ def collect():
 
 def main():
     global last_sequence
+
+    synchronize_startup_data_state()
 
     last_sequence = (
         load_global_last_sequence()
