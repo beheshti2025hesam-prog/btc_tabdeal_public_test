@@ -71,6 +71,14 @@ RUN_SECONDS = get_run_seconds()
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
 
+# Persistent VPS mode can disable Git checkpoint pushes while the local
+# filesystem remains the acquisition source of truth. GitHub Actions keeps
+# its existing behavior unless this switch is explicitly disabled.
+GIT_CHECKPOINT_ENABLED = os.getenv(
+    "HES_COLLECTOR_GIT_CHECKPOINT",
+    "1"
+).strip().lower() not in {"0", "false", "no", "off"}
+
 # Active CSV size management
 MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
@@ -800,6 +808,9 @@ def git_checkpoint():
 
 def maybe_checkpoint():
 
+    if not GIT_CHECKPOINT_ENABLED:
+        return
+
     if (
         time.time()
         - last_checkpoint_time
@@ -1223,12 +1234,20 @@ def main():
         if csv_file:
             flush_csv()
 
-        print(
-            "=== FINAL GIT CHECKPOINT ===",
-            flush=True
-        )
+        if GIT_CHECKPOINT_ENABLED:
+            print(
+                "=== FINAL GIT CHECKPOINT ===",
+                flush=True
+            )
 
-        checkpoint_ok = git_checkpoint()
+            checkpoint_ok = git_checkpoint()
+        else:
+            print(
+                "=== GIT CHECKPOINT DISABLED (PERSISTENT MODE) ===",
+                flush=True
+            )
+
+            checkpoint_ok = True
 
         close_csv()
 
