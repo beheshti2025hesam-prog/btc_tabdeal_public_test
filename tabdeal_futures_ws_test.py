@@ -470,6 +470,20 @@ def archive_old_rows():
         f"trades_archive_{timestamp}.csv"
     )
 
+    if os.path.exists(archive_file):
+        suffix = 1
+        while os.path.exists(
+            os.path.join(
+                ARCHIVE_DIR,
+                f"trades_archive_{timestamp}_{suffix}.csv"
+            )
+        ):
+            suffix += 1
+        archive_file = os.path.join(
+            ARCHIVE_DIR,
+            f"trades_archive_{timestamp}_{suffix}.csv"
+        )
+
     temp_archive = (
         archive_file + ".tmp"
     )
