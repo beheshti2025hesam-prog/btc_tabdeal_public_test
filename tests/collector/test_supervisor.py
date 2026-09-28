@@ -2,13 +2,15 @@ import scripts.collector_supervisor as supervisor
 
 
 class FakeChild:
-    def __init__(self, return_code=1):
+    def __init__(self, stop_on_wait=True, return_code=1):
         self.pid = 4242
         self.return_code = return_code
+        self.stop_on_wait = stop_on_wait
         self.terminated = False
 
     def wait(self):
-        supervisor.stopping = True
+        if self.stop_on_wait:
+            supervisor.stopping = True
         return self.return_code
 
     def poll(self):
@@ -58,15 +60,8 @@ def test_supervisor_restarts_after_child_exit(monkeypatch, tmp_path):
     children = []
 
     def fake_popen(command, **kwargs):
-        child = FakeChild()
+        child = FakeChild(stop_on_wait=len(children) >= 1)
         children.append(child)
-        if len(children) >= 2:
-            original_wait = child.wait
-            def stop_after_wait():
-                code = original_wait()
-                supervisor.stopping = True
-                return code
-            child.wait = stop_after_wait
         return child
 
     monkeypatch.setattr(supervisor.subprocess, "Popen", fake_popen)
