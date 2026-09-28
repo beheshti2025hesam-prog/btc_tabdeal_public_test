@@ -43,4 +43,4 @@ def test_watchdog_parses_epoch_milliseconds():
 
 
 def test_watchdog_parses_iso_timestamp():
-    assert watchdog.parse_timestamp("2026-09-28T05:00:00Z") == 1780098000.0
+    assert watchdog.parse_timestamp("2026-09-28T05:00:00Z") == 1790571600.0
