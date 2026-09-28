@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable
 
-from core.backtest.engine import BacktestResult
+from core.backtest.engine import BacktestResult, BacktestSample
 from core.backtest.validation import HistoricalObservation, HistoricalValidation
 
 
@@ -27,6 +27,7 @@ class WalkForwardFold:
     train_observations: int
     test_observations: int
     result: BacktestResult
+    test_samples: tuple[BacktestSample, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,7 @@ class WalkForwardValidation:
                     train_observations=len(train),
                     test_observations=len(test),
                     result=result,
+                    test_samples=tuple(item.sample for item in test),
                 )
             )
 
