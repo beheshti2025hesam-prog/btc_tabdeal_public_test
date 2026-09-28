@@ -370,6 +370,4 @@ def test_archive_rotation_failure_does_not_leave_partial_temp_files(monkeypatch,
     rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102]
     archives = list((repo / "data/archive").glob("*.csv"))
-    assert len(archives) == 1
-    archived = list(csv.DictReader(archives[0].open(encoding="utf-8")))
-    assert [int(r["sequence"]) for r in archived] == [100, 101]
+    assert archives == []
