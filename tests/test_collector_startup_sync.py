@@ -338,3 +338,38 @@ def test_archive_rotation_never_reuses_existing_filename(monkeypatch, tmp_path):
     for archive in archives:
         rows.extend(csv.DictReader(archive.open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in rows] == [100, 101, 200, 201]
+def test_archive_rotation_failure_does_not_leave_partial_temp_files(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_csv(repo / "data/trades.csv", 100, 3)
+
+    ns = load_namespace(monkeypatch, tmp_path)
+    ns["OUTPUT_FILE"] = "data/trades.csv"
+    ns["ARCHIVE_DIR"] = "data/archive"
+    ns["MAX_ACTIVE_ROWS"] = 3
+    ns["ARCHIVE_BATCH_ROWS"] = 2
+    ns["active_rows"] = 3
+    ns["csv_file"] = None
+    ns["csv_writer"] = None
+    monkeypatch.chdir(repo)
+
+    real_replace = ns["os"].replace
+    calls = {"count": 0}
+
+    def fail_second_replace(src, dst):
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise OSError("injected active-file replace failure")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(ns["os"], "replace", fail_second_replace)
+
+    assert ns["archive_old_rows"]() is False
+    assert not list((repo / "data/archive").glob("*.tmp"))
+    assert not (repo / "data/trades.csv.tmp").exists()
+    rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    assert [int(r["sequence"]) for r in rows] == [100, 101, 102]
+    archives = list((repo / "data/archive").glob("*.csv"))
+    assert len(archives) == 1
+    archived = list(csv.DictReader(archives[0].open(encoding="utf-8")))
+    assert [int(r["sequence"]) for r in archived] == [100, 101]
