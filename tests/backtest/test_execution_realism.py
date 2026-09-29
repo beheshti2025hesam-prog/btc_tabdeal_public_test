@@ -65,6 +65,20 @@ class ExecutionCostModelTests(unittest.TestCase):
         self.assertEqual(result.entry_execution_price, 100)
         self.assertEqual(result.exit_execution_price, 110)
 
+    def test_five_bps_fee_two_bps_slippage_has_expected_round_trip_drag(self):
+        model = ExecutionCostModel(
+            ExecutionCostConfig(fee_bps_per_side=5, slippage_bps_per_side=2)
+        )
+        long_trade = model.apply(direction=1, entry_mid_price=100, exit_mid_price=100)
+        short_trade = model.apply(direction=-1, entry_mid_price=100, exit_mid_price=100)
+
+        # With zero spread and a flat mid-price, 5 bps fee + 2 bps slippage
+        # on each side should produce approximately 14 bps round-trip drag.
+        self.assertAlmostEqual(long_trade.net_return, -0.0013999600079984, places=12)
+        self.assertAlmostEqual(short_trade.net_return, -0.0013999600079984, places=12)
+        self.assertAlmostEqual(long_trade.cost_fraction, 0.0013999600079984, places=12)
+        self.assertAlmostEqual(short_trade.cost_fraction, 0.0013999600079984, places=12)
+
     def test_backtest_reports_additive_and_compounded_returns(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
         samples = (
