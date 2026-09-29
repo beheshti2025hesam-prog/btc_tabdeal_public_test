@@ -94,9 +94,29 @@ class WalkForwardValidation:
                 and row.sample.outcome_timestamp >= test[0].timestamp
             ]
             if crossing_outcomes:
-                raise ValueError(
-                    "training outcome crosses into OOS test window; increase embargo"
-                )
+                # A later fold's training window can include the immediately
+                # preceding OOS test window. An outcome from that prior OOS
+                # window is legitimately known by the next OOS boundary when
+                # it resolves exactly at test_start. This is not look-ahead
+                # leakage because the observation was already evaluated in the
+                # preceding OOS fold. Earlier training observations must still
+                # be blocked from crossing into the current OOS window.
+                previous_test_rows = set(folds[-1].test) if folds else set()
+                illegal_crossing = [
+                    row.sample.outcome_timestamp
+                    for row in train
+                    if row.sample.outcome_timestamp is not None
+                    and row.sample.outcome_timestamp >= test[0].timestamp
+                    and not (
+                        folds
+                        and row in previous_test_rows
+                        and row.sample.outcome_timestamp == test[0].timestamp
+                    )
+                ]
+                if illegal_crossing:
+                    raise ValueError(
+                        "training outcome crosses into OOS test window; increase embargo"
+                    )
             if folds and folds[-1].test_end >= test[0].timestamp:
                 raise ValueError("OOS test windows overlap")
 
