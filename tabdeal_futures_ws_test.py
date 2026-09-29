@@ -911,11 +911,14 @@ def push_checkpoint(max_retries=3):
 
         assert_remote_main_unchanged()
 
+        # Actions checks out the workflow ref, which may leave the repository
+        # in detached-HEAD state. Push the exact current commit explicitly to
+        # origin/main instead of relying on a local `main` ref existing.
         run_git([
             "git",
             "push",
             "origin",
-            "main"
+            "HEAD:main"
         ])
 
         print(
