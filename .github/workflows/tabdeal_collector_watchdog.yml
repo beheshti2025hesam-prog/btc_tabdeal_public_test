@@ -35,12 +35,12 @@ jobs:
           }
 
           runs="$(get_runs)"
-          active_count="$(printf '%s' "$runs" | jq '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production") | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')"
+          active_count="$(printf '%s' "$runs" | jq '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production" or .run_name == "Hes Trade Agent — Tabdeal BTC Futures Collector") | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')"
           if [ "$active_count" -gt 0 ]; then
             echo "Main collector chain active/queued; no recovery dispatch."
             exit 0
           fi
-          latest="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production") | select(.status == "completed") | {updated_at, conclusion, run_number, head_branch}] | sort_by(.updated_at) | last // empty')"
+          latest="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production" or .run_name == "Hes Trade Agent — Tabdeal BTC Futures Collector") | select(.status == "completed") | {updated_at, conclusion, run_number, head_branch}] | sort_by(.updated_at) | last // empty')"
           if [ -z "$latest" ]; then
             echo "No completed main-branch collector run is visible; fail closed."
             exit 0
@@ -61,18 +61,20 @@ jobs:
             echo "Latest successful main completion is younger than 20 minutes; no recovery needed."
             exit 0
           fi
-          # Authoritative second check immediately before dispatch. If a
-          # production collector appeared or a fresh production success completed
-          # during this watchdog evaluation, do not add another queued run.
+          # Authoritative second check immediately before dispatch. During the
+          # migration window, both the new production run-name and the legacy
+          # scheduled run-name are treated as the same collector chain. This
+          # prevents old Pending scheduled runs from being invisible to recovery
+          # and accidentally causing another queued dispatch.
           echo "Re-checking production collector state immediately before recovery dispatch."
           runs="$(get_runs)"
-          active_count="$(printf '%s' "$runs" | jq '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production") | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')"
+          active_count="$(printf '%s' "$runs" | jq '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production" or .run_name == "Hes Trade Agent — Tabdeal BTC Futures Collector") | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')"
           if [ "$active_count" -gt 0 ]; then
             echo "Production collector became active/queued during watchdog evaluation; no recovery dispatch."
             exit 0
           fi
 
-          latest_success="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production") | select(.status == "completed" and .conclusion == "success") | .updated_at] | sort | last // empty')"
+          latest_success="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.run_name == "HES Trade Agent — Tabdeal Collector — production" or .run_name == "Hes Trade Agent — Tabdeal BTC Futures Collector") | select(.status == "completed" and .conclusion == "success") | .updated_at] | sort | last // empty')"
           if [ -n "$latest_success" ]; then
             latest_success_epoch="$(date -u -d "$latest_success" +%s)"
             now_epoch="$(date -u +%s)"
