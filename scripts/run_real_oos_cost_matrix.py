@@ -73,6 +73,7 @@ def main() -> None:
                 "evaluated": row.evaluated,
                 "wins": row.wins,
                 "losses": row.losses,
+                "compounded_return": row.compounded_return,
             }
             for row in matrix.measurements
         ],
@@ -86,6 +87,7 @@ def main() -> None:
                 "evaluated": row.evaluated,
                 "wins": row.wins,
                 "losses": row.losses,
+                "compounded_return": row.compounded_return,
             }
             for row in matrix.aggregate
         ],
