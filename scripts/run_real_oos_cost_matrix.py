@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from core.backtest.costs import CostScenario
+from core.backtest.costs import BacktestCostModel, CostScenario
 from core.backtest.oos_cost_matrix import evaluate_oos_cost_matrix
 from core.backtest.oos_protocol import REAL_BTC_USDT_OOS_V1
 from core.backtest.real_data import RealDataBacktest
@@ -24,6 +24,126 @@ SCENARIOS = (
     CostScenario(5.0, 2.0),
     CostScenario(10.0, 5.0),
 )
+SURVIVAL_THRESHOLD_BPS = 14.0
+
+
+def _gross_distribution(folds):
+    """Count every evaluated gross return into mutually exclusive bps bands."""
+    distribution = {
+        "negative_below_0bps": 0,
+        "zero_to_14bps_inclusive": 0,
+        "above_14bps": 0,
+        "zero_exact": 0,
+        "positive_up_to_14bps": 0,
+    }
+    fold_rows = []
+
+    model = BacktestCostModel()
+    for fold in folds:
+        row = {
+            "fold_index": fold.index,
+            "evaluated": 0,
+            "negative_below_0bps": 0,
+            "zero_to_14bps_inclusive": 0,
+            "above_14bps": 0,
+            "zero_exact": 0,
+            "positive_up_to_14bps": 0,
+            "gross_wins": 0,
+            "survived_above_14bps": 0,
+            "survival_rate_of_gross_wins": 0.0,
+        }
+        for sample in fold.test_samples:
+            if sample.decision.value == "NO_TRADE" or sample.risk.value == "VETO":
+                continue
+            gross_bps = model.gross_return(sample) * 10_000.0
+            row["evaluated"] += 1
+            if gross_bps < 0:
+                row["negative_below_0bps"] += 1
+            elif gross_bps <= SURVIVAL_THRESHOLD_BPS:
+                row["zero_to_14bps_inclusive"] += 1
+                if gross_bps == 0:
+                    row["zero_exact"] += 1
+                else:
+                    row["positive_up_to_14bps"] += 1
+            else:
+                row["above_14bps"] += 1
+
+        row["gross_wins"] = row["positive_up_to_14bps"] + row["above_14bps"]
+        row["survived_above_14bps"] = row["above_14bps"]
+        if row["gross_wins"]:
+            row["survival_rate_of_gross_wins"] = (
+                row["survived_above_14bps"] / row["gross_wins"]
+            )
+        fold_rows.append(row)
+
+        for key in distribution:
+            distribution[key] += row[key]
+
+    total_evaluated = sum(row["evaluated"] for row in fold_rows)
+    if (
+        distribution["negative_below_0bps"]
+        + distribution["zero_to_14bps_inclusive"]
+        + distribution["above_14bps"]
+        != total_evaluated
+    ):
+        raise AssertionError("gross-return bands do not partition evaluated samples")
+
+    if total_evaluated != 1049:
+        raise AssertionError(
+            f"expected 1049 evaluated gross samples, got {total_evaluated}"
+        )
+
+    if distribution["negative_below_0bps"] != 479:
+        raise AssertionError(
+            f"expected 479 gross losses below 0bps, got "
+            f"{distribution['negative_below_0bps']}"
+        )
+
+    if distribution["above_14bps"] != 14:
+        raise AssertionError(
+            f"expected 14 gross returns above 14bps, got "
+            f"{distribution['above_14bps']}"
+        )
+
+    if distribution["zero_to_14bps_inclusive"] != 556:
+        raise AssertionError(
+            f"expected 556 gross returns in 0-14bps inclusive band, got "
+            f"{distribution['zero_to_14bps_inclusive']}"
+        )
+
+    if distribution["zero_exact"] != 42:
+        raise AssertionError(
+            f"expected 42 exact-zero gross returns, got {distribution['zero_exact']}"
+        )
+
+    return {
+        "threshold_bps": SURVIVAL_THRESHOLD_BPS,
+        "aggregate": distribution,
+        "folds": fold_rows,
+        "reconciliation": {
+            "negative_below_0bps": distribution["negative_below_0bps"],
+            "zero_to_14bps_inclusive": distribution["zero_to_14bps_inclusive"],
+            "above_14bps": distribution["above_14bps"],
+            "sum": (
+                distribution["negative_below_0bps"]
+                + distribution["zero_to_14bps_inclusive"]
+                + distribution["above_14bps"]
+            ),
+            "expected_evaluated": 1049,
+            "matches_1049": total_evaluated == 1049,
+            "gross_wins": (
+                distribution["positive_up_to_14bps"] + distribution["above_14bps"]
+            ),
+            "survived_above_14bps": distribution["above_14bps"],
+            "survival_rate_of_gross_wins": (
+                distribution["above_14bps"]
+                / (
+                    distribution["positive_up_to_14bps"]
+                    + distribution["above_14bps"]
+                )
+            ),
+        },
+    }
 
 
 def main() -> None:
@@ -53,6 +173,8 @@ def main() -> None:
             f"expected {REAL_BTC_USDT_OOS_V1.expected_fold_count} folds, "
             f"got {matrix.fold_count}"
         )
+
+    gross_audit = _gross_distribution(walk_forward.folds)
 
     folds = []
     for fold in walk_forward.folds:
@@ -117,6 +239,7 @@ def main() -> None:
             "total_return": walk_forward.total_return,
             "win_rate": walk_forward.win_rate,
         },
+        "gross_return_audit": gross_audit,
         "folds": folds,
         "cost_matrix": {
             "measurement_count": len(measurements),
