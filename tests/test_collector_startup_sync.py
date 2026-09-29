@@ -468,3 +468,22 @@ def test_archive_rotation_recovers_after_active_replace_before_cleanup(monkeypat
 
     # Recovery is idempotent after the marker has been cleaned up.
     ns["recover_archive_rotation"]()
+
+def test_failed_checkpoint_starts_a_new_retry_interval(monkeypatch, tmp_path):
+    ns = load_namespace(monkeypatch, tmp_path)
+    ns["OUTPUT_FILE"] = "data/trades.csv"
+    ns["ARCHIVE_DIR"] = "data/archive"
+    ns["csv_file"] = None
+    ns["startup_base_sha"] = "base-sha"
+    ns["last_checkpoint_time"] = 0
+
+    fixed_now = 12345.0
+    monkeypatch.setattr(ns["time"], "time", lambda: fixed_now)
+
+    def fail_git(_command):
+        raise RuntimeError("simulated checkpoint failure")
+
+    ns["run_git"] = fail_git
+
+    assert ns["git_checkpoint"]() is False
+    assert ns["last_checkpoint_time"] == fixed_now
