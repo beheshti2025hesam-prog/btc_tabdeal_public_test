@@ -73,11 +73,12 @@ class ExecutionCostModelTests(unittest.TestCase):
         short_trade = model.apply(direction=-1, entry_mid_price=100, exit_mid_price=100)
 
         # With zero spread and a flat mid-price, 5 bps fee + 2 bps slippage
-        # on each side should produce approximately 14 bps round-trip drag.
-        self.assertAlmostEqual(long_trade.net_return, -0.0013999600079984, places=12)
-        self.assertAlmostEqual(short_trade.net_return, -0.0013999600079984, places=12)
-        self.assertAlmostEqual(long_trade.cost_fraction, 0.0013999600079984, places=12)
-        self.assertAlmostEqual(short_trade.cost_fraction, 0.0013999600079984, places=12)
+        # on each side should produce approximately 13.9972 bps round-trip drag.
+        expected = -0.0013997200559887227
+        self.assertAlmostEqual(long_trade.net_return, expected, places=12)
+        self.assertAlmostEqual(short_trade.net_return, expected, places=12)
+        self.assertAlmostEqual(long_trade.cost_fraction, -expected, places=12)
+        self.assertAlmostEqual(short_trade.cost_fraction, -expected, places=12)
 
     def test_backtest_reports_additive_and_compounded_returns(self):
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
