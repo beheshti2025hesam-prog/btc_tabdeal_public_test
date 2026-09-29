@@ -33,6 +33,7 @@ class BacktestResult:
     losses: int
     total_return: float
     win_rate: float
+    compounded_return: float = 0.0
 
 
 class BacktestEngine:
@@ -45,6 +46,7 @@ class BacktestEngine:
         rows = sorted(list(samples), key=lambda item: item.timestamp)
         wins = losses = evaluated = vetoed = no_trade = 0
         total_return = 0.0
+        compounded_return = 1.0
 
         for row in rows:
             if row.timestamp.tzinfo is None or row.timestamp.utcoffset() is None:
@@ -77,6 +79,7 @@ class BacktestEngine:
                 exit_mid_price=row.exit_price,
             ).net_return
             total_return += outcome
+            compounded_return *= 1.0 + outcome
             evaluated += 1
             if outcome > 0:
                 wins += 1
@@ -93,4 +96,5 @@ class BacktestEngine:
             losses=losses,
             total_return=total_return,
             win_rate=wins / resolved if resolved else 0.0,
+            compounded_return=compounded_return - 1.0 if evaluated else 0.0,
         )
