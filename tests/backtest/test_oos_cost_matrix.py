@@ -6,6 +6,7 @@ from core.backtest.engine import BacktestResult, BacktestSample
 from core.backtest.execution_realism import ExecutionCostConfig
 from core.backtest.oos_cost_matrix import OOSCostScenario, evaluate_oos_cost_matrix
 from core.backtest.oos_protocol import REAL_BTC_USDT_OOS_V1
+from core.backtest.validation import HistoricalObservation
 from core.backtest.walk_forward import WalkForwardFold, WalkForwardResult
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
@@ -27,9 +28,8 @@ def make_fold(index: int) -> WalkForwardFold:
         train_observations=800,
         test_observations=400,
         train=( ),
-        test=( ),
+        test=(HistoricalObservation(base, sample),),
         result=result,
-        test_samples=(sample,),
     )
 
 
