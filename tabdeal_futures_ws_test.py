@@ -1005,6 +1005,14 @@ def git_checkpoint():
             flush=True
         )
 
+        # A failed checkpoint must not be retried on every incoming trade.
+        # Otherwise a persistent safety-fence failure (for example, main
+        # advancing during a long collector session) turns into a Git fetch
+        # storm and excessive log/runner overhead. Start a fresh checkpoint
+        # interval after any failure; the final checkpoint still performs a
+        # mandatory persistence attempt before the collector exits.
+        last_checkpoint_time = time.time()
+
         return False
 
 
