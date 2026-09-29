@@ -1,7 +1,11 @@
 """Tests for deterministic, execution-free trade cost modeling."""
 import unittest
 
+from core.backtest.engine import BacktestEngine, BacktestSample
 from core.backtest.execution_realism import ExecutionCostConfig, ExecutionCostModel
+from core.risk.boundary import RiskDecision
+from core.strategy.baseline import BaselineDecision
+from datetime import datetime, timedelta, timezone
 
 
 class ExecutionCostModelTests(unittest.TestCase):
@@ -60,6 +64,16 @@ class ExecutionCostModelTests(unittest.TestCase):
         self.assertEqual(result.cost_fraction, 0.0)
         self.assertEqual(result.entry_execution_price, 100)
         self.assertEqual(result.exit_execution_price, 110)
+
+    def test_backtest_reports_additive_and_compounded_returns(self):
+        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        samples = (
+            BacktestSample(base, BaselineDecision.LONG, RiskDecision.ALLOW_SIGNAL, 100.0, 101.0, base + timedelta(minutes=1)),
+            BacktestSample(base + timedelta(minutes=1), BaselineDecision.LONG, RiskDecision.ALLOW_SIGNAL, 101.0, 102.01, base + timedelta(minutes=2)),
+        )
+        result = BacktestEngine().run(samples)
+        self.assertAlmostEqual(result.total_return, 0.02)
+        self.assertAlmostEqual(result.compounded_return, 0.0201)
 
     def test_invalid_parameters_are_rejected(self):
         with self.assertRaises(ValueError):
