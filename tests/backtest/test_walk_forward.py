@@ -123,6 +123,24 @@ class WalkForwardValidationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             WalkForwardValidation(train_size=4, test_size=2, step_size=2).run(rows)
 
+    def test_allows_oos_outcome_at_next_oos_boundary(self):
+        rows = self.observations(10)
+        rows[5] = HistoricalObservation(
+            rows[5].timestamp,
+            BacktestSample(
+                rows[5].timestamp,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[6].timestamp,
+            ),
+        )
+        result = WalkForwardValidation(
+            train_size=4, test_size=2, step_size=2
+        ).run(rows)
+        self.assertGreaterEqual(len(result.folds), 1)
+
     def test_allows_oos_outcome_before_next_oos_window(self):
         rows = self.observations(10)
         # An outcome realized in the gap/training period before the next OOS
