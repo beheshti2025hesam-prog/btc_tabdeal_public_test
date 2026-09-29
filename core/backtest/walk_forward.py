@@ -101,15 +101,16 @@ class WalkForwardValidation:
                 # leakage because the observation was already evaluated in the
                 # preceding OOS fold. Earlier training observations must still
                 # be blocked from crossing into the current OOS window.
-                previous_test_rows = set(folds[-1].test) if folds else set()
+                previous_test_rows = folds[-1].test if folds else ()
+                previous_test_last = previous_test_rows[-1] if previous_test_rows else None
                 illegal_crossing = [
                     row.sample.outcome_timestamp
                     for row in train
                     if row.sample.outcome_timestamp is not None
                     and row.sample.outcome_timestamp >= test[0].timestamp
                     and not (
-                        folds
-                        and row in previous_test_rows
+                        previous_test_last is not None
+                        and row is previous_test_last
                         and row.sample.outcome_timestamp == test[0].timestamp
                     )
                 ]
