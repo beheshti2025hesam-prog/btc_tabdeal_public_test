@@ -175,6 +175,31 @@ def main() -> None:
         )
 
     gross_audit = _gross_distribution(walk_forward.folds)
+    net_survival = {
+        "threshold_round_trip_bps": SURVIVAL_THRESHOLD_BPS,
+        "positive_net_after_14bps_count": gross_audit["reconciliation"]["survived_above_14bps"],
+        "non_positive_net_after_14bps_count": (
+            gross_audit["reconciliation"]["expected_evaluated"]
+            - gross_audit["reconciliation"]["survived_above_14bps"]
+        ),
+        "survival_rate_of_all_evaluated": (
+            gross_audit["reconciliation"]["survived_above_14bps"]
+            / gross_audit["reconciliation"]["expected_evaluated"]
+        ),
+        "survival_rate_of_gross_wins": (
+            gross_audit["reconciliation"]["survival_rate_of_gross_wins"]
+        ),
+        "folds": [
+            {
+                "fold_index": row["fold_index"],
+                "evaluated": row["evaluated"],
+                "gross_above_14bps": row["above_14bps"],
+                "positive_net_after_14bps_count": row["survived_above_14bps"],
+                "survival_rate_of_gross_wins": row["survival_rate_of_gross_wins"],
+            }
+            for row in gross_audit["folds"]
+        ],
+    }
 
     folds = []
     for fold in walk_forward.folds:
@@ -240,6 +265,7 @@ def main() -> None:
             "win_rate": walk_forward.win_rate,
         },
         "gross_return_audit": gross_audit,
+        "net_survival_14bps": net_survival,
         "folds": folds,
         "cost_matrix": {
             "measurement_count": len(measurements),
