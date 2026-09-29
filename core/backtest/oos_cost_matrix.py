@@ -56,7 +56,8 @@ def evaluate_oos_cost_matrix(
             model = ExecutionCostModel(scenario.config)
             total = 0.0
             evaluated = wins = losses = 0
-            for sample in fold.test_samples:
+            for observation in fold.test:
+                sample = observation.sample
                 if sample.decision is BaselineDecision.NO_TRADE:
                     continue
                 if sample.risk is RiskDecision.VETO:
