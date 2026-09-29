@@ -38,7 +38,6 @@ def main() -> None:
         test_size=REAL_BTC_USDT_OOS_V1.test_size,
         step_size=REAL_BTC_USDT_OOS_V1.step_size,
         embargo_size=REAL_BTC_USDT_OOS_V1.embargo_size,
-        max_folds=REAL_BTC_USDT_OOS_V1.expected_fold_count,
     )
     matrix = evaluate_oos_cost_matrix(
         walk_forward, REAL_BTC_USDT_OOS_V1, SCENARIOS
