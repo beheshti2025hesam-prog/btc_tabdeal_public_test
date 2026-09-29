@@ -51,3 +51,27 @@ def test_main_completes_when_final_checkpoint_succeeds(monkeypatch):
     collector.main()
 
     assert closed["value"] is True
+
+
+def test_push_checkpoint_targets_remote_main_from_detached_head(monkeypatch):
+    commands = []
+
+    monkeypatch.setattr(
+        collector,
+        "assert_remote_main_unchanged",
+        lambda: "remote-main-sha",
+    )
+    monkeypatch.setattr(
+        collector,
+        "run_git",
+        lambda command: commands.append(command),
+    )
+
+    assert collector.push_checkpoint(max_retries=1) is True
+
+    assert commands == [[
+        "git",
+        "push",
+        "origin",
+        "HEAD:main",
+    ]]
