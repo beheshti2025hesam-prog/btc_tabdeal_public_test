@@ -27,6 +27,7 @@ class OOSCostMeasurement:
     evaluated: int
     wins: int
     losses: int
+    compounded_return: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,7 @@ def evaluate_oos_cost_matrix(
         for scenario in scenarios:
             model = ExecutionCostModel(scenario.config)
             total = 0.0
+            compounded = 1.0
             evaluated = wins = losses = 0
             for observation in fold.test:
                 sample = observation.sample
@@ -69,6 +71,7 @@ def evaluate_oos_cost_matrix(
                     exit_mid_price=sample.exit_price,
                 ).net_return
                 total += value
+                compounded *= 1.0 + value
                 evaluated += 1
                 wins += value > 0
                 losses += value < 0
@@ -80,12 +83,16 @@ def evaluate_oos_cost_matrix(
                     evaluated=evaluated,
                     wins=wins,
                     losses=losses,
+                    compounded_return=compounded - 1.0 if evaluated else 0.0,
                 )
             )
 
     aggregate = []
     for scenario in scenarios:
         rows = [row for row in measurements if row.scenario == scenario]
+        compounded = 1.0
+        for row in rows:
+            compounded *= 1.0 + row.compounded_return
         aggregate.append(
             OOSCostMeasurement(
                 fold_index=-1,
@@ -94,6 +101,7 @@ def evaluate_oos_cost_matrix(
                 evaluated=sum(row.evaluated for row in rows),
                 wins=sum(row.wins for row in rows),
                 losses=sum(row.losses for row in rows),
+                compounded_return=compounded - 1.0 if rows else 0.0,
             )
         )
 
