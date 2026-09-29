@@ -107,7 +107,7 @@ class WalkForwardValidation:
                     row.sample.outcome_timestamp
                     for row in test
                     if row.sample.outcome_timestamp is not None
-                    and row.sample.outcome_timestamp >= rows[next_test_start].timestamp
+                    and row.sample.outcome_timestamp > rows[next_test_start].timestamp
                 ]
                 if crossing_test_outcomes:
                     raise ValueError(
