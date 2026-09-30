@@ -61,19 +61,17 @@ jobs:
           # Use the exact same predecessor-scoped claim key as the normal N→N+1 handoff.
           # This closes the watchdog-vs-successor-dispatch race: only one actor may
           # acquire the successor claim for a given predecessor run.
-          claim_key="successor-${latest_run_id}"
-          claim_api="https://api.github.com/repos/$REPO/contents/.github/collector-handoff-claims/$claim_key.json"
-          claim_payload="$(jq -n --arg run_id "$latest_run_id" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim successor dispatch",content:($run_id+" "+$claimed_at|@base64),branch:"main"}')"
+          claim_ref="refs/heads/collector-handoff-claims/successor-${latest_run_id}"
+          claim_api="https://api.github.com/repos/$REPO/git/refs"
+          claim_payload="$(jq -n --arg ref "$claim_ref" --arg sha "${{ github.sha }}" '{ref:$ref,sha:$sha}')"
           response="$(mktemp)"
-          status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request PUT --url "$claim_api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$claim_payload")"
+          status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request POST --url "$claim_api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$claim_payload")"
           case "$status" in
             201)
-              echo "Successor/recovery claim acquired: $claim_key"
+              echo "Successor/recovery claim acquired without mutating main: $claim_ref"
               ;;
-            409|422)
-              echo "Successor claim already exists; duplicate recovery dispatch suppressed."
-              cat "$response"
-              exit 0
+            422)
+              echo "Successor claim already exists; checking whether its dispatch materialized."
               ;;
             *)
               echo "Unexpected recovery claim API status=$status; fail closed."
@@ -81,7 +79,19 @@ jobs:
               exit 1
               ;;
           esac
-          echo "No active/pending main collector and last successful completion is stale."
+          # A pre-existing claim is not treated as proof that dispatch succeeded.
+          # Reconcile the durable claim against visible successor runs before deciding.
+          successor_runs="$(curl --fail-with-body --silent --show-error \
+            --url "https://api.github.com/repos/$REPO/actions/workflows/run.yml/runs?branch=$DEFAULT_BRANCH&per_page=50" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10")"
+          if printf '%s' "$successor_runs" | jq -e --arg predecessor "$latest_run_id" '[.workflow_runs[] | select((.display_title // "") | contains($predecessor))] | length > 0' >/dev/null; then
+            echo "Successor run already materialized for predecessor=$latest_run_id; no recovery dispatch."
+            exit 0
+          fi
+          echo "No active/pending main collector, stale successful predecessor, and no visible successor run."
+          echo "Dispatching one recovery collector run on the default branch."
           echo "Dispatching one recovery collector run on the default branch."
           curl --fail-with-body --silent --show-error \
             --request POST \
