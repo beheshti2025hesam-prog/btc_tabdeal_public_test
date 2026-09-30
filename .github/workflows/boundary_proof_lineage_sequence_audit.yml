@@ -67,6 +67,7 @@ jobs:
           assert first["updated"] > d["frozen_boundary"]["last_timestamp"]
           assert d["integrity"]["overlap_sequence_boundary_count"] == 0
           assert d["integrity"]["overlap_timestamp_boundary_count"] == 0
+          assert d["lineage"]["current_data_git_blob_sha"] == "b296b1c95f075518bea0b56fd11bbf5f0f613a04"
           assert d["claim_boundary"]["signal_created"] is False
           assert d["claim_boundary"]["threshold_tuned"] is False
           assert d["claim_boundary"]["model_fitting"] is False
@@ -77,6 +78,7 @@ jobs:
           print("FIRST_INDEPENDENT_TIMESTAMP", first["updated"])
           print("CURRENT_DATA_GIT_BLOB_SHA", d["lineage"]["current_data_git_blob_sha"])
           print("CURRENT_DATA_SHA256", d["lineage"]["current_data_sha256"])
+          print("CURRENT_DATA_GIT_BLOB_SHA_PIN_VERIFIED", d["lineage"]["current_data_git_blob_sha"])
           PY
 
       - name: Upload boundary-proof evidence
