@@ -142,7 +142,7 @@ jobs:
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data "{\"ref\":\"main\",\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\",\"predecessor_run_id\":\"${{ github.run_id }}\"}}")"
+            --data "{\"ref\":\"main\",\"return_run_details\":true,\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\",\"predecessor_run_id\":\"${{ github.run_id }}\"}}")"
           successor_run_id="$(jq -r '.workflow_run_id // empty' "$dispatch_response")"
           if [ "$dispatch_status" != "200" ] || ! [[ "$successor_run_id" =~ ^[0-9]+$ ]]; then
             echo "Dispatch did not return a concrete workflow_run_id; fail closed."
@@ -152,6 +152,10 @@ jobs:
           fi
           echo "Successor run materialized: id=$successor_run_id predecessor=${{ github.run_id }}."
           echo "SUCCESSOR_RUN_ID=$successor_run_id" >> "$GITHUB_ENV"
+          if [ "${{ inputs.run_mode }}" != "production" ]; then
+            echo "Smoke dispatch accepted: no production claim state to reconcile."
+            exit 0
+          fi
           claim_state_path=".github/collector-handoff-claims/state.json"
           state_response="$(mktemp)"
           state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" \
@@ -186,17 +190,6 @@ jobs:
             cat "$update_response"
             exit 1
           fi
-          if [ -f data/collector_handoff_claim.json ]; then
-            dispatch_at="$(sed -n 's/^DISPATCH_AT=//p' "$GITHUB_ENV" | tail -1)"
-            jq \
-              --arg state "dispatch_accepted" \
-              --arg dispatch_at "$dispatch_at" \
-              --arg successor_run_id "$successor_run_id" \
-              '.state=$state | .dispatch_at=$dispatch_at | .successor_run_id=($successor_run_id|tonumber)' \
-              data/collector_handoff_claim.json > data/collector_handoff_claim.json.tmp
-            mv data/collector_handoff_claim.json.tmp data/collector_handoff_claim.json
-          fi
-
       - name: Finalize handoff evidence
         if: always()
         env:
