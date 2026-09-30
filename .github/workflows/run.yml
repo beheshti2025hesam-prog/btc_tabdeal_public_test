@@ -87,13 +87,26 @@ jobs:
           case "$status" in
             201)
               echo "Successor claim acquired without mutating main: $CLAIM_REF"
-              claim_state_path="data/collector_handoff_claim.json"
-              jq -n \
-                --arg predecessor_run_id "${{ github.run_id }}" \
+              claim_state_path=".github/collector-handoff-claims/state.json"
+              claim_state="$(jq -n \
+                --arg predecessor_run_id "\${{ github.RUN_ID }}" \
                 --arg claim_ref "$CLAIM_REF" \
-                --arg claim_sha "${{ github.sha }}" \
-                '{schema_version:1,state:"claimed",predecessor_run_id:($predecessor_run_id|tonumber),claim_ref:$claim_ref,claim_sha:$claim_sha}' \
-                > "$claim_state_path"
+                --arg claim_sha "\${{ github.SHA }}" \
+                '{schema_version:1,state:"claimed",predecessor_run_id:($predecessor_run_id|tonumber),claim_ref:$claim_ref,claim_sha:$claim_sha}')"
+              encoded_state="$(printf '%s' "$claim_state" | base64 -w0)"
+              state_payload="$(jq -n --arg message "Record collector handoff claim" --arg content "$encoded_state" --arg branch "$CLAIM_REF" '{message:$message,content:$content,branch:$branch}')"
+              state_response="$(mktemp)"
+              state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" \
+                --request PUT --url "https://api.github.com/repos/$REPO/contents/$claim_state_path" \
+                --header "Accept: application/vnd.github+json" \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header "X-GitHub-Api-Version: 2026-03-10" \
+                --data "$state_payload")"
+              if [ "$state_status" != "201" ]; then
+                echo "Could not persist handoff claim state outside main; fail closed."
+                cat "$state_response"
+                exit 1
+              fi
               echo "claimed=true" >> "$GITHUB_OUTPUT"
               ;;
             422)
