@@ -130,7 +130,7 @@ jobs:
             exit 1
           fi
           echo "Successor run materialized: id=$successor_run_id predecessor=${{ github.run_id }}."
-          echo "SUCCESSOR_RUN_ID=$successor_run_id" >> "$GITHUB_ENV"          exit 1
+          echo "SUCCESSOR_RUN_ID=$successor_run_id" >> "$GITHUB_ENV"
 
       - name: Finalize handoff evidence
         if: always()
