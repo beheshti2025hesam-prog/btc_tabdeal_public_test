@@ -6,6 +6,7 @@ on:
       - backtest-cost-slippage-boundary-v1
       - contrast-audit-14-vs-1035-v1
       - independence-adjusted-evidence-v1
+      - loo-fold-regime-independence-evidence-v1
   pull_request:
     branches:
       - main
@@ -23,7 +24,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python -m pip install pytest
-      - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py tests/backtest/test_independence_adjusted_evidence.py
+      - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py tests/backtest/test_independence_adjusted_evidence.py tests/backtest/test_loo_fold_regime_independence_evidence.py
       - name: Run real-data 8-fold OOS cost matrix
         run: python scripts/run_real_oos_cost_matrix.py --csv data/trades.csv --output oos_cost_matrix_evidence.json
       - name: Run 14-vs-1035 contrast audit
@@ -52,9 +53,17 @@ jobs:
           name: 14-vs-1035-reconciled-evidence
           path: 14_vs_1035_evidence.json
           if-no-files-found: error
+      - name: Run leave-one-fold-out and independence-adjusted feature evidence
+        run: python scripts/loo_fold_regime_independence_evidence.py
       - name: Upload independence-adjusted evidence
         uses: actions/upload-artifact@v4
         with:
           name: independence-adjusted-evidence
           path: independence_adjusted_evidence.json
+          if-no-files-found: error
+      - name: Upload LOO fold/regime evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: loo-fold-regime-independence-evidence
+          path: loo_fold_regime_independence_evidence.json
           if-no-files-found: error
