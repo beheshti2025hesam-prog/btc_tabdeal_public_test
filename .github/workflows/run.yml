@@ -1,26 +1,26 @@
 name: Hes Trade Agent — Tabdeal BTC Futures Collector
 
-run-name: "HES Trade Agent — Tabdeal Collector — ${{{ inputs.run_mode || 'production' ${{}"
-
 on:
   workflow_dispatch:
-    inputs:
-      run_mode:
-        description: "Collector mode"
-        required: false
-        default: "production"
-        type: choice
-        options:
-          - production
-          - smoke
-      smoke_depth:
-        description: "Internal smoke-chain depth"
-        required: false
-        default: "0"
-        type: string
+
+  schedule:
+    # 24/7 collector cadence:
+    # - Collector runtime: 5h20m (original proven collection window).
+    # - A new scheduled run is created every 4h.
+    # - This creates ~80m overlap, so scheduler delays are absorbed by the
+    #   concurrency queue instead of becoming raw-data gaps.
+    # - Schedule is intentionally offset from the top of the hour because
+    #   GitHub documents higher schedule delay risk at :00.
+    #
+    # Schedule times are UTC.
+    - cron: "15 00 * * *"
+    - cron: "15 04 * * *"
+    - cron: "15 08 * * *"
+    - cron: "15 12 * * *"
+    - cron: "15 16 * * *"
+    - cron: "15 20 * * *"
 
 permissions:
-  actions: write
   contents: write
 
 # Collector safety boundary:
@@ -61,39 +61,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Collect BTC_USDT Futures Trades
-        id: collect
-        if: ${{{ steps.collect.outcome == 'success' ${{ }
         run: |
+          # Safety fuse: the collector has an internal timer, but a stuck
+          # websocket must never hold the concurrency lock indefinitely.
+          # Keep the proven 5h20m runtime; only enforce a hard upper bound.
           timeout --signal=TERM --kill-after=60s "${COLLECTOR_RUN_SECONDS}s" \
             python -u tabdeal_futures_ws_test.py
-
-      - name: Smoke-chain step
-        id: smoke
-        if: ${{{ inputs.run_mode == 'smoke' ${{ }
-        run: |
-          set -euo pipefail
-          depth="${{{ inputs.smoke_depth ${{ }"
-          [[ "$depth" =~ ^[0-9]+$ ]] || exit 1
-          [ "$depth" -le 2 ] || exit 1
-          echo "Smoke chain depth=$depth"
-
-      - name: Dispatch next collector
-        if: ${{{ steps.collect.outcome == 'success' || (inputs.run_mode == 'smoke' && steps.smoke.outcome == 'success' && fromJSON(inputs.smoke_depth || '0') < 2) ${{ }
-        env:
-          GH_TOKEN: ${{{ secrets.GITHUB_TOKEN ${{ }
-        run: |
-          set -euo pipefail
-          next_depth="0"
-          if [ "${{{ inputs.run_mode ${{ }" = "smoke" ]; then
-            next_depth=$((${{{ fromJSON(inputs.smoke_depth || '0') ${{ } + 1))
-          fi
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --url "https://api.github.com/repos/${{{ github.repository ${{ }/actions/workflows/run.yml/dispatches" \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data "{\"ref\":\"${{{ github.ref_name ${{ }\",\"inputs\":{\"run_mode\":\"${{{ inputs.run_mode ${{ }\",\"smoke_depth\":\"$next_depth\"}}"
 
       - name: Upload collected trades
         if: always()
