@@ -1,4 +1,5 @@
 import csv
+import json
 import hashlib
 import json
 import os
@@ -85,6 +86,10 @@ ARCHIVE_TXN_MARKER = os.path.join("data", ".archive_rotation.json")
 running = True
 last_sequence = None
 trade_count = 0
+first_event_sequence = None
+first_event_timestamp = None
+last_event_timestamp = None
+collector_startup_at = None
 
 # Immutable collector-session base. A checkpoint may only publish data
 # derived from the exact main snapshot used at startup.
@@ -1023,6 +1028,9 @@ def maybe_checkpoint():
 def save_trade(trade):
     global last_sequence
     global trade_count
+    global first_event_sequence
+    global first_event_timestamp
+    global last_event_timestamp
     global active_rows
 
     sequence_raw = trade.get(
@@ -1075,6 +1083,11 @@ def save_trade(trade):
 
     last_sequence = sequence
     trade_count += 1
+    event_timestamp = trade.get("updated")
+    if first_event_sequence is None:
+        first_event_sequence = sequence
+        first_event_timestamp = event_timestamp
+    last_event_timestamp = event_timestamp
     active_rows += 1
 
     print(
@@ -1394,13 +1407,36 @@ def collect():
     )
 
 
+
+def write_handoff_evidence():
+    """Write local, immutable-per-run handoff evidence for CI artifact collection."""
+    evidence = {
+        "run_id": os.getenv("GITHUB_RUN_ID"),
+        "commit_sha": os.getenv("GITHUB_SHA"),
+        "predecessor_run_id": os.getenv("PREDECESSOR_RUN_ID") or None,
+        "collector_startup_at": collector_startup_at,
+        "first_event_sequence": first_event_sequence,
+        "first_event_timestamp": first_event_timestamp,
+        "last_event_sequence": last_sequence,
+        "last_event_timestamp": last_event_timestamp,
+        "trade_count": trade_count,
+    }
+    os.makedirs("data", exist_ok=True)
+    with open("data/collector_run_evidence.json", "w", encoding="utf-8") as handle:
+        json.dump(evidence, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        handle.write("\n")
+    print("=== HANDOFF EVIDENCE WRITTEN ===", flush=True)
+
+
 # ============================================================
 # MAIN
 # ============================================================
 
 def main():
     global last_sequence
+    global collector_startup_at
 
+    collector_startup_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     synchronize_startup_data_state()
 
     last_sequence = (
@@ -1450,6 +1486,7 @@ def main():
             raise RuntimeError(
                 "Final Git checkpoint failed; collected data may not be persisted to origin/main."
             )
+        write_handoff_evidence()
 
 
 if __name__ == "__main__":
