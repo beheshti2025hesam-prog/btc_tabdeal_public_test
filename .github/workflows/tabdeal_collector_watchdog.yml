@@ -58,18 +58,20 @@ jobs:
             exit 0
           fi
           latest_run_id="$(printf '%s' "$latest" | jq -r '.id')"
-          recovery_bucket="$((now_epoch / 1200))"
-          claim_key="recovery-${latest_run_id}-${recovery_bucket}"
+          # Use the exact same predecessor-scoped claim key as the normal N→N+1 handoff.
+          # This closes the watchdog-vs-successor-dispatch race: only one actor may
+          # acquire the successor claim for a given predecessor run.
+          claim_key="successor-${latest_run_id}"
           claim_api="https://api.github.com/repos/$REPO/contents/.github/collector-handoff-claims/$claim_key.json"
-          claim_payload="$(jq -n --arg run_id "$latest_run_id" --arg bucket "$recovery_bucket" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim recovery dispatch",content:($run_id+" "+$bucket+" "+$claimed_at|@base64),branch:"main"}')"
+          claim_payload="$(jq -n --arg run_id "$latest_run_id" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim successor dispatch",content:($run_id+" "+$claimed_at|@base64),branch:"main"}')"
           response="$(mktemp)"
           status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request PUT --url "$claim_api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$claim_payload")"
           case "$status" in
             201)
-              echo "Recovery claim acquired: $claim_key"
+              echo "Successor/recovery claim acquired: $claim_key"
               ;;
             409|422)
-              echo "Recovery claim already exists; duplicate recovery dispatch suppressed."
+              echo "Successor claim already exists; duplicate recovery dispatch suppressed."
               cat "$response"
               exit 0
               ;;
