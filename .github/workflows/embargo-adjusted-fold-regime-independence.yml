@@ -27,6 +27,10 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python -m pip install pytest
+      - name: Materialize frozen OOS snapshot
+        run: |
+          git fetch --no-tags --depth=1 origin b8c4fe4fa054dbfa4fca17d2f307d269c16335e1
+          git show b8c4fe4fa054dbfa4fca17d2f307d269c16335e1:data/trades.csv > data/trades.csv
       - name: Regression tests
         run: python -m pytest -q tests/backtest/test_embargo_adjusted_fold_regime_independence.py
       - name: Run embargo-adjusted audit
