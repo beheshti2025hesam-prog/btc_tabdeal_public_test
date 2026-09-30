@@ -80,7 +80,8 @@ def main():
         fold_meta.append({"fold_index":fold,"observations":len(test),"evaluated":len(ev),"gross_return":total,"regime":regime})
         for r in ev:
             x=dict(r); x["fold_index"]=fold; x["fold_regime"]=regime; rows.append(x)
-    oos_observations=observations[TRAIN:TRAIN+FOLDS*STEP]\n    assert len(oos_observations)==FOLDS*TEST, len(oos_observations); assert len(rows)==1049, len(rows)
+    oos_observations=observations[TRAIN:TRAIN+FOLDS*STEP]
+    assert len(oos_observations)==FOLDS*TEST, len(oos_observations); assert len(rows)==1049, len(rows)
     winners=[r for r in rows if r["gross_return"]>THRESHOLD]; controls=[r for r in rows if r["gross_return"]<=THRESHOLD]
     assert len(winners)==14, len(winners); assert len(controls)==1035, len(controls)
     contrasts={}
