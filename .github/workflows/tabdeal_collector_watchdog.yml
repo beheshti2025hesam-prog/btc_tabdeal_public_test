@@ -36,7 +36,7 @@ jobs:
             echo "Main collector chain active/queued; no recovery dispatch."
             exit 0
           fi
-          latest="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.status == "completed" and .conclusion == "success") | {id, updated_at, conclusion, run_number, head_branch}] | sort_by(.updated_at) | last // empty')"
+          latest="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.status == "completed") | {id, updated_at, conclusion, run_number, head_branch}] | sort_by(.updated_at) | last // empty')"
           if [ -z "$latest" ]; then
             echo "No completed main-branch collector run is visible; fail closed."
             exit 0
@@ -48,6 +48,11 @@ jobs:
           completed_epoch="$(date -u -d "$completed_at" +%s)"
           age_seconds="$((now_epoch - completed_epoch))"
           echo "Latest completed main collector: #$run_number conclusion=$conclusion age=${age_seconds}s"
+          if [ "$conclusion" != "success" ]; then
+            echo "Latest main collector did not complete successfully; fail closed."
+            echo "No automatic recovery is issued because the latest completion may indicate a data-integrity or persistence fault."
+            exit 0
+          fi
           if [ "$age_seconds" -lt 1200 ]; then
             echo "Latest successful main completion is younger than 20 minutes; no recovery needed."
             exit 0
