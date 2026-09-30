@@ -289,3 +289,95 @@ def test_runtime_equivalent_accepted_but_eventually_invisible_successor_waits():
     assert reconcile_durable_state(store.state, successor_visible=False) == "await_visibility"
     assert reconcile_durable_state(store.state, successor_visible=False) == "await_visibility"
     assert store.state.successor_run_id == 54321
+
+
+@dataclass(frozen=True)
+class RaceActorResult:
+    actor: str
+    claim_acquired: bool
+    action: str
+
+
+def simulate_claim_race(order: list[str]) -> list[RaceActorResult]:
+    """Exercise the atomic claim boundary under adversarial actor ordering.
+
+    Actors are intentionally limited to claim/reconcile actions; no GitHub API,
+    workflow dispatch, or production collector is invoked by this harness.
+    """
+    store = DurableClaimStore()
+    results: list[RaceActorResult] = []
+
+    for actor in order:
+        if actor == "normal":
+            acquired = store.create_claim("N")
+            results.append(
+                RaceActorResult(
+                    actor="normal",
+                    claim_acquired=acquired,
+                    action="claim" if acquired else "suppress_duplicate",
+                )
+            )
+        elif actor == "watchdog":
+            acquired = store.create_claim("N")
+            results.append(
+                RaceActorResult(
+                    actor="watchdog",
+                    claim_acquired=acquired,
+                    action="claim" if acquired else "suppress_duplicate",
+                )
+            )
+        else:
+            raise ValueError(f"unknown actor: {actor}")
+
+    return results
+
+
+def test_adversarial_race_only_one_actor_can_claim_same_predecessor():
+    for order in (["normal", "watchdog"], ["watchdog", "normal"]):
+        results = simulate_claim_race(order)
+
+        assert sum(result.claim_acquired for result in results) == 1
+        assert [result.action for result in results].count("suppress_duplicate") == 1
+
+
+def test_claim_race_cannot_create_two_successor_ids():
+    store = DurableClaimStore()
+
+    assert store.create_claim("N") is True
+    assert store.create_claim("N") is False
+    assert store.accept_dispatch(11111) is True
+    assert store.accept_dispatch(22222) is False
+    assert store.state == DurableHandoffState(
+        state="dispatch_accepted",
+        predecessor_run_id="N",
+        successor_run_id=11111,
+    )
+
+
+def test_watchdog_cannot_turn_a_claimed_state_into_a_duplicate_dispatch():
+    store = DurableClaimStore()
+
+    assert store.create_claim("N") is True
+    # A watchdog observing the claim before dispatch acceptance must fail closed.
+    assert reconcile_durable_state(store.state, successor_visible=False) == "fail_closed"
+    assert store.accept_dispatch(11111) is True
+    assert reconcile_durable_state(store.state, successor_visible=False) == "await_visibility"
+
+
+def test_reconciliation_is_stable_after_successor_becomes_visible():
+    store = DurableClaimStore()
+
+    assert store.create_claim("N") is True
+    assert store.accept_dispatch(11111) is True
+
+    observations = [
+        reconcile_durable_state(store.state, successor_visible=False),
+        reconcile_durable_state(store.state, successor_visible=True),
+        reconcile_durable_state(store.state, successor_visible=True),
+    ]
+
+    assert observations == [
+        "await_visibility",
+        "suppress_duplicate",
+        "suppress_duplicate",
+    ]
