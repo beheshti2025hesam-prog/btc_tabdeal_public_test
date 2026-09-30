@@ -160,3 +160,64 @@ def test_missing_claim_is_not_dispatch_authorization():
             dispatch_accepted=False,
         )
     ) == "claim_required"
+
+
+@dataclass(frozen=True)
+class DurableHandoffState:
+    state: str
+    predecessor_run_id: str
+    successor_run_id: int | None = None
+
+
+def reconcile_durable_state(state: DurableHandoffState, successor_visible: bool) -> str:
+    """Model watchdog decisions from the durable claim state only."""
+    if state.state == "dispatch_accepted":
+        if state.successor_run_id is None:
+            return "fail_closed"
+        return "suppress_duplicate" if successor_visible else "await_visibility"
+    if state.state == "claimed":
+        return "fail_closed"
+    return "fail_closed"
+
+
+def test_dispatch_accepted_visible_successor_suppresses_recovery():
+    state = DurableHandoffState(
+        state="dispatch_accepted",
+        predecessor_run_id="N",
+        successor_run_id=12345,
+    )
+    assert reconcile_durable_state(state, successor_visible=True) == "suppress_duplicate"
+
+
+def test_dispatch_accepted_invisible_successor_waits_without_duplicate_dispatch():
+    state = DurableHandoffState(
+        state="dispatch_accepted",
+        predecessor_run_id="N",
+        successor_run_id=12345,
+    )
+    assert reconcile_durable_state(state, successor_visible=False) == "await_visibility"
+
+
+def test_claimed_without_accepted_dispatch_fails_closed():
+    state = DurableHandoffState(
+        state="claimed",
+        predecessor_run_id="N",
+    )
+    assert reconcile_durable_state(state, successor_visible=False) == "fail_closed"
+
+
+def test_accepted_state_without_successor_id_fails_closed():
+    state = DurableHandoffState(
+        state="dispatch_accepted",
+        predecessor_run_id="N",
+    )
+    assert reconcile_durable_state(state, successor_visible=False) == "fail_closed"
+
+
+def test_unknown_durable_state_fails_closed():
+    state = DurableHandoffState(
+        state="unexpected",
+        predecessor_run_id="N",
+        successor_run_id=12345,
+    )
+    assert reconcile_durable_state(state, successor_visible=False) == "fail_closed"
