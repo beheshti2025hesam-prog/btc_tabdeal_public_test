@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Frozen 8-fold OOS 14-vs-1035 feature contrast audit. Execution-free."""
 import csv, json, math, statistics
-from collections import Counter, defaultdict
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from collections import Counter, defaultdict
 from core.data_engine.candles import TradeCandleAggregator
 from core.data_engine.normalizer import RawDataNormalizer
 from core.data_engine.reader import RawDataReader
