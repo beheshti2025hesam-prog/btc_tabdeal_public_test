@@ -17,6 +17,7 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONPATH: .
+      HES_FROZEN_CSV: /tmp/hes_frozen_trades.csv
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,7 +31,8 @@ jobs:
       - name: Materialize frozen OOS snapshot
         run: |
           git fetch --no-tags --depth=1 origin b8c4fe4fa054dbfa4fca17d2f307d269c16335e1
-          git show b8c4fe4fa054dbfa4fca17d2f307d269c16335e1:data/trades.csv > data/trades.csv
+          git show b8c4fe4fa054dbfa4fca17d2f307d269c16335e1:data/trades.csv > /tmp/hes_frozen_trades.csv
+          test -s /tmp/hes_frozen_trades.csv
       - name: Regression tests
         run: python -m pytest -q tests/backtest/test_embargo_adjusted_fold_regime_independence.py
       - name: Run embargo-adjusted audit
