@@ -221,3 +221,71 @@ def test_unknown_durable_state_fails_closed():
         successor_run_id=12345,
     )
     assert reconcile_durable_state(state, successor_visible=False) == "fail_closed"
+
+
+@dataclass
+class DurableClaimStore:
+    """In-memory stand-in for the claim branch + state.json contract."""
+    state: DurableHandoffState | None = None
+
+    def create_claim(self, predecessor_run_id: str) -> bool:
+        if self.state is not None:
+            return False
+        self.state = DurableHandoffState(
+            state="claimed",
+            predecessor_run_id=predecessor_run_id,
+        )
+        return True
+
+    def accept_dispatch(self, successor_run_id: int) -> bool:
+        if self.state is None or self.state.state != "claimed":
+            return False
+        self.state = DurableHandoffState(
+            state="dispatch_accepted",
+            predecessor_run_id=self.state.predecessor_run_id,
+            successor_run_id=successor_run_id,
+        )
+        return True
+
+
+def test_runtime_equivalent_claim_to_accepted_to_visible_flow_is_idempotent():
+    store = DurableClaimStore()
+
+    assert store.create_claim("N") is True
+    assert store.state == DurableHandoffState(state="claimed", predecessor_run_id="N")
+    assert reconcile_durable_state(store.state, successor_visible=False) == "fail_closed"
+
+    assert store.accept_dispatch(12345) is True
+    assert store.state == DurableHandoffState(
+        state="dispatch_accepted",
+        predecessor_run_id="N",
+        successor_run_id=12345,
+    )
+    assert reconcile_durable_state(store.state, successor_visible=False) == "await_visibility"
+    assert reconcile_durable_state(store.state, successor_visible=True) == "suppress_duplicate"
+
+    # A second actor cannot acquire a new claim for the same predecessor.
+    assert store.create_claim("N") is False
+    # A second acceptance cannot rewrite an already accepted claim.
+    assert store.accept_dispatch(67890) is False
+    assert store.state.successor_run_id == 12345
+
+
+def test_runtime_equivalent_dispatch_failure_never_auto_dispatches_from_claimed_state():
+    store = DurableClaimStore()
+
+    assert store.create_claim("N") is True
+    assert store.state is not None
+    assert reconcile_durable_state(store.state, successor_visible=False) == "fail_closed"
+    assert store.state.state == "claimed"
+    assert store.state.successor_run_id is None
+
+
+def test_runtime_equivalent_accepted_but_eventually_invisible_successor_waits():
+    store = DurableClaimStore()
+
+    assert store.create_claim("N") is True
+    assert store.accept_dispatch(54321) is True
+    assert reconcile_durable_state(store.state, successor_visible=False) == "await_visibility"
+    assert reconcile_durable_state(store.state, successor_visible=False) == "await_visibility"
+    assert store.state.successor_run_id == 54321
