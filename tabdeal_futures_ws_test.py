@@ -937,11 +937,12 @@ def push_checkpoint(max_retries=3):
 
         assert_remote_main_unchanged()
 
+        # Actions may run on a detached HEAD. Push the exact collector commit.
         run_git([
             "git",
             "push",
             "origin",
-            "main"
+            "HEAD:main"
         ])
 
         print(
