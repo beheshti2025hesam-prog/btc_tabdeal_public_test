@@ -87,6 +87,13 @@ jobs:
           case "$status" in
             201)
               echo "Successor claim acquired without mutating main: $CLAIM_REF"
+              claim_state_path="data/collector_handoff_claim.json"
+              jq -n \
+                --arg predecessor_run_id "${{ github.run_id }}" \
+                --arg claim_ref "$CLAIM_REF" \
+                --arg claim_sha "${{ github.sha }}" \
+                '{schema_version:1,state:"claimed",predecessor_run_id:($predecessor_run_id|tonumber),claim_ref:$claim_ref,claim_sha:$claim_sha}' \
+                > "$claim_state_path"
               echo "claimed=true" >> "$GITHUB_OUTPUT"
               ;;
             422)
@@ -131,6 +138,16 @@ jobs:
           fi
           echo "Successor run materialized: id=$successor_run_id predecessor=${{ github.run_id }}."
           echo "SUCCESSOR_RUN_ID=$successor_run_id" >> "$GITHUB_ENV"
+          if [ -f data/collector_handoff_claim.json ]; then
+            dispatch_at="$(sed -n 's/^DISPATCH_AT=//p' "$GITHUB_ENV" | tail -1)"
+            jq \
+              --arg state "dispatch_accepted" \
+              --arg dispatch_at "$dispatch_at" \
+              --arg successor_run_id "$successor_run_id" \
+              '.state=$state | .dispatch_at=$dispatch_at | .successor_run_id=($successor_run_id|tonumber)' \
+              data/collector_handoff_claim.json > data/collector_handoff_claim.json.tmp
+            mv data/collector_handoff_claim.json.tmp data/collector_handoff_claim.json
+          fi
 
       - name: Finalize handoff evidence
         if: always()
