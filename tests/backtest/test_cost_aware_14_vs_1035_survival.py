@@ -25,3 +25,9 @@ def test_script_declares_exact_existing_scenarios_and_embargo_boundary():
     assert '"embargo_size": 0' in text
     assert "requires_embargo_or_equivalent_purge" in text
     assert '"control_reconstruction": False' in text
+
+
+def test_net_return_uses_round_trip_cost_exactly():
+    module_path = Path(__file__).resolve().parents[2] / "scripts" / "cost_aware_14_vs_1035_survival.py"
+    source = module_path.read_text(encoding="utf-8")
+    assert "2.0 * (tx + slip) / 10_000.0" in source
