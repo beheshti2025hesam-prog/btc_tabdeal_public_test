@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: tabdeal-btc-usdt-collector
+  group: tabdeal-btc-usdt-collector-watchdog
   cancel-in-progress: true
 
 jobs:
