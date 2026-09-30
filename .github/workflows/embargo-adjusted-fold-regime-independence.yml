@@ -15,6 +15,8 @@ jobs:
   embargo-independence:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
         with:
