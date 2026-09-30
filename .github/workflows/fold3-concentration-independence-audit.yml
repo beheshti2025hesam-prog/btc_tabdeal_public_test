@@ -1,0 +1,57 @@
+name: HES Trade Agent — Fold 3 Concentration Independence Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fold3-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Materialize frozen OOS snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN"             "https://api.github.com/repos/${{ github.repository }}/git/blobs/1a44d52a0588deb765bbbea04bfb5783dcb1050b" > /tmp/hes_blob.json
+          python -c 'import base64,json; d=json.load(open("/tmp/hes_blob.json")); assert d["sha"]=="1a44d52a0588deb765bbbea04bfb5783dcb1050b"; open("/tmp/hes_frozen_trades.csv","wb").write(base64.b64decode(d["content"]))'
+          test -s /tmp/hes_frozen_trades.csv
+      - name: Build frozen E0 contrast
+        env:
+          HES_FROZEN_CSV: /tmp/hes_frozen_trades.csv
+          PYTHONPATH: .
+        run: python scripts/contrast_audit_14_vs_1035.py
+      - name: Build E1 fold independence
+        env:
+          HES_FROZEN_CSV: /tmp/hes_frozen_trades.csv
+          PYTHONPATH: .
+        run: python scripts/embargo_adjusted_fold_regime_independence.py
+      - name: Run Fold 3 concentration audit
+        env:
+          PYTHONPATH: .
+        run: python scripts/fold3_concentration_independence_audit.py
+      - name: Validate gate inputs
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("fold3_concentration_independence_audit.json"))
+          assert d["population"]["fold_3_winners"] == 7
+          assert d["population"]["winners_remaining_without_fold_3"] == 7
+          assert d["population"]["fold_3_winner_share"] == 0.5
+          assert d["decision_gate"]["remaining_winners_across_multiple_folds"] is True
+          assert d["claim_boundary"]["signal_created"] is False
+          print("FOLD3_CONCENTRATION_AUDIT_VALID")
+          PY
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: fold3-concentration-independence-audit
+          path: fold3_concentration_independence_audit.json
+          if-no-files-found: error
