@@ -1,0 +1,51 @@
+name: HES Trade Agent — Tabdeal Collector Smoke Chain
+
+on:
+  workflow_dispatch:
+    inputs:
+      smoke_depth:
+        description: "Smoke-chain depth"
+        required: false
+        default: "0"
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tabdeal-btc-usdt-smoke-chain
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate smoke depth
+        run: |
+          set -euo pipefail
+          depth="${{{ inputs.smoke_depth || '0' ${{ }"
+          [[ "$depth" =~ ^[0-9]+$ ]] || exit 1
+          [ "$depth" -le 2 ] || exit 1
+          echo "Smoke chain depth=$depth"
+          echo "Commit=${{{ github.sha ${{ }"
+          echo "Branch=${{{ github.ref_name ${{ }"
+
+      - name: Dispatch successor
+        if: ${{{ fromJSON(inputs.smoke_depth || '0') < 2 ${{ }
+        env:
+          GH_TOKEN: ${{{ secrets.GITHUB_TOKEN ${{ }
+        run: |
+          set -euo pipefail
+          next_depth=$(($${{{ fromJSON(inputs.smoke_depth || '0') ${{ } + 1))
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.github.com/repos/${{{ github.repository ${{ }/actions/workflows/tabdeal_smoke_chain.yml/dispatches" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data "{\"ref\":\"${{{ github.ref_name ${{ }\",\"inputs\":{\"smoke_depth\":\"$next_depth\"}}"
+
+      - name: Terminal assertion
+        if: ${{{ fromJSON(inputs.smoke_depth || '0') == 2 ${{ }
+        run: echo "SMOKE_CHAIN_TERMINAL_REACHED"
