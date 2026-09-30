@@ -76,7 +76,6 @@ def main() -> None:
         test_size=TEST,
         step_size=STEP,
         embargo_size=EMBARGO,
-        max_folds=FOLDS,
     )
     assert len(wf.folds) == FOLDS, len(wf.folds)
 
