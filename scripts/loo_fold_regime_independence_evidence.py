@@ -94,10 +94,6 @@ def main():
     assert protocol["step"] == 400
 
     winners = data["winners"]
-    controls = [
-        r for r in data.get("all_evaluated_rows", [])
-        if r.get("gross_return", 0.0) <= protocol["gross_threshold"]
-    ]
     # The frozen audit intentionally stores winner rows, while control fold
     # counts are authoritative for population accounting. Feature-level
     # independence evidence therefore uses the existing fold-exclusion SMDs
@@ -126,10 +122,6 @@ def main():
             "feature_smd_without_fold": loo.get("feature_smd_without_fold", {}),
         })
 
-    fold_feature_rows = feature_fold_evidence(winners, controls)
-    # Controls are not materialized in this snapshot, so calculate fold-level
-    # feature evidence from the frozen leave-one-fold-out SMDs. This preserves
-    # the already-computed contrast without fabricating control observations.
     feature_independence = {}
     for feature in FEATURES:
         loo_values = [
@@ -143,9 +135,6 @@ def main():
                 for f in range(EXPECTED_FOLDS)
             },
             "loo_sign_summary": sign_summary(loo_values),
-            "winner_supported_fold_smd": [
-                row[feature] for row in fold_feature_rows if row[feature] is not None
-            ],
             "control_reconstruction": False,
         }
 
