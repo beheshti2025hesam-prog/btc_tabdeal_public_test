@@ -74,8 +74,8 @@ def main():
                 sign(full)==sign(winner_vals[0])
             ),
             "independence_adjusted_context":{
-                "supported_fold_count":independence["fold_survival"]["supported_fold_count"],
-                "support_fraction":independence["fold_survival"]["support_fraction"],
+                "supported_fold_count":independence["fold_independence"]["supported_fold_count"],
+                "support_fraction":independence["fold_independence"]["support_fraction"],
                 "winner_kish_effective_sample_size":independence["frozen_population"]["winner_kish_effective_sample_size"],
             },
         }
@@ -94,7 +94,7 @@ def main():
             "support_fraction":independence["fold_survival"]["support_fraction"],
             "winner_fold_sizes":independence["frozen_population"]["winner_fold_sizes"],
             "winner_kish_effective_sample_size":independence["frozen_population"]["winner_kish_effective_sample_size"],
-            "largest_winner_fold_share":independence["fold_survival"]["winner_concentration"],
+            "largest_winner_fold_share":independence["fold_independence"]["largest_winner_fold_share"],
         },
         "feature_contrast_stability":result_features,
         "fold_winner_counts":{str(k):int(fold_counts.get(str(k),0)) for k in range(8)},
