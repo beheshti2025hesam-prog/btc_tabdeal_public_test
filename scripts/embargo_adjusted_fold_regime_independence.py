@@ -119,8 +119,8 @@ def main() -> None:
             "winner_count": len(winners),
             "control_count": len(controls),
             "first_test_outcome_timestamp": (
-                fold.test_samples[0].timestamp.isoformat()
-                if fold.test_samples else None
+                test_observations[0].timestamp.isoformat()
+                if test_observations else None
             ),
         })
 
