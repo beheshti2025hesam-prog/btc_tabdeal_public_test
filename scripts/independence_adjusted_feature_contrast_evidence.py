@@ -92,7 +92,7 @@ def main():
             "supported_fold_indices":independence["fold_independence"]["supported_fold_indices"],
             "supported_fold_count":independence["fold_independence"]["supported_fold_count"],
             "support_fraction":independence["fold_independence"]["support_fraction"],
-            "winner_fold_sizes":independence["frozen_population"]["winner_fold_sizes"],
+            "winner_fold_sizes":[independence["fold_independence"]["winner_counts_by_fold"][str(f)] for f in independence["fold_independence"]["supported_fold_indices"]],
             "winner_kish_effective_sample_size":independence["frozen_population"]["winner_kish_effective_sample_size"],
             "largest_winner_fold_share":independence["fold_independence"]["largest_winner_fold_share"],
         },
