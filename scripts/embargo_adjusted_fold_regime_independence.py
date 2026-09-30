@@ -43,7 +43,7 @@ E0_FOLD_WINNERS = {0: 2, 1: 3, 2: 2, 3: 7, 4: 0, 5: 0, 6: 0, 7: 0}
 
 def git_blob_sha(path: Path) -> str:
     data = path.read_bytes()
-    return hashlib.sha1(f"blob {len(data)}\\0".encode() + data).hexdigest()
+    return hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
 
 
 def gross_return(sample) -> float | None:
