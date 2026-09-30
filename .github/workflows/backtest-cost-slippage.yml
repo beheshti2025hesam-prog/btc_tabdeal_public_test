@@ -7,6 +7,7 @@ on:
       - contrast-audit-14-vs-1035-v1
       - independence-adjusted-evidence-v1
       - loo-fold-regime-independence-evidence-v1
+      - cost-aware-14-vs-1035-survival-v1
   pull_request:
     branches:
       - main
@@ -24,7 +25,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python -m pip install pytest
-      - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py tests/backtest/test_independence_adjusted_evidence.py tests/backtest/test_loo_fold_regime_independence_evidence.py
+      - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py tests/backtest/test_independence_adjusted_evidence.py tests/backtest/test_loo_fold_regime_independence_evidence.py tests/backtest/test_cost_aware_14_vs_1035_survival.py tests/backtest/test_outcome_timestamp_embargo_boundary_audit.py
       - name: Run real-data 8-fold OOS cost matrix
         run: python scripts/run_real_oos_cost_matrix.py --csv data/trades.csv --output oos_cost_matrix_evidence.json
       - name: Run 14-vs-1035 contrast audit
@@ -66,4 +67,20 @@ jobs:
         with:
           name: loo-fold-regime-independence-evidence
           path: loo_fold_regime_independence_evidence.json
+          if-no-files-found: error
+      - name: Run cost-aware 14-vs-1035 survival audit
+        run: python scripts/cost_aware_14_vs_1035_survival.py
+      - name: Upload cost-aware survival evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cost-aware-14-vs-1035-survival
+          path: cost_aware_14_vs_1035_survival_evidence.json
+          if-no-files-found: error
+      - name: Run sample-level outcome-timestamp / embargo boundary audit
+        run: python scripts/outcome_timestamp_embargo_boundary_audit.py
+      - name: Upload outcome-timestamp / embargo audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: outcome-timestamp-embargo-boundary-audit
+          path: outcome_timestamp_embargo_boundary_audit.json
           if-no-files-found: error
