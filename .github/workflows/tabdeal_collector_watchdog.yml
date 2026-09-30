@@ -136,7 +136,7 @@ jobs:
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data '{"ref":"${{ github.event.repository.default_branch }}","inputs":{"run_mode":"production","smoke_depth":"0","predecessor_run_id":"'"$latest_run_id"'"}}')"
+            --data '{"ref":"${{ github.event.repository.default_branch }}","return_run_details":true,"inputs":{"run_mode":"production","smoke_depth":"0","predecessor_run_id":"'"$latest_run_id"'"}}')"
           successor_run_id="$(jq -r '.workflow_run_id // empty' "$dispatch_response")"
           if [ "$dispatch_status" != "200" ] || ! [[ "$successor_run_id" =~ ^[0-9]+$ ]]; then
             echo "Recovery dispatch did not return a concrete workflow_run_id; fail closed."
