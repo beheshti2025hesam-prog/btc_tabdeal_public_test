@@ -1,0 +1,41 @@
+{
+  "audit": "Boundary-Proof Audit v1",
+  "status": "GREEN",
+  "frozen_snapshot": {
+    "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "data_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "last_sequence": 38586238655,
+    "last_timestamp": "2026-09-28 08:27:38.179000+00:00"
+  },
+  "lineage": {
+    "first_post_frozen_commit": "6fb4e8247da3bea684428240d2fc307aa0cf4fb6",
+    "first_post_frozen_commit_time": "2026-09-28T08:48:04Z",
+    "first_independent_record": {
+      "sequence": 38586323452,
+      "timestamp": "2026-09-28 08:28:06.178000+00:00",
+      "row": "BTC_USDT,82848.1,0.00540,Sell,2026-09-28 08:28:06.178000+00:00,38586323452"
+    },
+    "checks": {
+      "strict_sequence_monotonic_current_main": true,
+      "boundary_sequence_overlap": false,
+      "boundary_timestamp_overlap": false,
+      "first_independent_record_verified_from_raw_lineage": true
+    },
+    "note": "Current main retains the frozen boundary record exactly, then the first independent sequence is 38586323452. The current active file is a trimmed window, so row-count equality with the frozen artifact is not expected."
+  },
+  "fresh_snapshot": {
+    "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+    "data_blob_sha": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+    "last_sequence": 39249923090,
+    "last_timestamp": "2026-09-30 19:02:59.796000+00:00",
+    "rows": 147949,
+    "hash_type": "git_blob_sha1",
+    "content_hash": "b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+  },
+  "gates": {
+    "threshold_tuning": false,
+    "signal_construction": false,
+    "promotion": false,
+    "live_execution": false
+  }
+}
