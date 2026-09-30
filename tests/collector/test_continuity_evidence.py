@@ -381,3 +381,94 @@ def test_reconciliation_is_stable_after_successor_becomes_visible():
         "suppress_duplicate",
         "suppress_duplicate",
     ]
+
+@dataclass
+class FakeActionsApi:
+    """Branch-only API-contract double; never calls GitHub or a real workflow."""
+
+    claim_created: bool = False
+    state: str = "absent"
+    successor_run_id: int | None = None
+    successor_visible: bool = False
+
+    def create_claim(self, predecessor_run_id: str) -> int:
+        if self.claim_created:
+            return 422
+        self.claim_created = True
+        self.state = "claimed"
+        return 201
+
+    def persist_acceptance(self, successor_run_id: int) -> int:
+        if self.state != "claimed":
+            return 409
+        self.successor_run_id = successor_run_id
+        self.state = "dispatch_accepted"
+        return 200
+
+    def dispatch(self) -> tuple[int, int]:
+        if not self.claim_created:
+            return 409, 0
+        self.successor_run_id = 90001
+        return 200, self.successor_run_id
+
+    def get_successor(self) -> int:
+        return 200 if self.successor_visible and self.successor_run_id is not None else 404
+
+
+def test_api_contract_normal_handoff_is_claim_dispatch_accept_visible():
+    api = FakeActionsApi()
+
+    assert api.create_claim("N") == 201
+    assert api.state == "claimed"
+
+    dispatch_status, successor_run_id = api.dispatch()
+    assert dispatch_status == 200
+    assert successor_run_id == 90001
+
+    assert api.persist_acceptance(successor_run_id) == 200
+    assert api.state == "dispatch_accepted"
+
+    assert api.get_successor() == 404
+    api.successor_visible = True
+    assert api.get_successor() == 200
+    assert reconcile_durable_state(
+        DurableHandoffState("dispatch_accepted", "N", successor_run_id),
+        successor_visible=True,
+    ) == "suppress_duplicate"
+
+
+def test_api_contract_duplicate_claim_is_rejected_without_second_successor():
+    api = FakeActionsApi()
+
+    assert api.create_claim("N") == 201
+    assert api.create_claim("N") == 422
+    assert api.successor_run_id is None
+
+
+def test_api_contract_claimed_without_acceptance_fails_closed():
+    api = FakeActionsApi()
+
+    assert api.create_claim("N") == 201
+    assert reconcile_durable_state(
+        DurableHandoffState("claimed", "N"),
+        successor_visible=False,
+    ) == "fail_closed"
+
+
+def test_api_contract_accepted_but_not_visible_never_reissues_dispatch():
+    api = FakeActionsApi()
+
+    assert api.create_claim("N") == 201
+    dispatch_status, successor_run_id = api.dispatch()
+    assert (dispatch_status, successor_run_id) == (200, 90001)
+    assert api.persist_acceptance(successor_run_id) == 200
+
+    assert api.get_successor() == 404
+    assert reconcile_durable_state(
+        DurableHandoffState("dispatch_accepted", "N", successor_run_id),
+        successor_visible=False,
+    ) == "await_visibility"
+
+    # Reconciliation observes the same accepted ID; it does not create a new one.
+    assert api.successor_run_id == 90001
+\n
