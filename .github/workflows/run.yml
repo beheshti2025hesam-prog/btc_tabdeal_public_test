@@ -83,11 +83,11 @@ jobs:
           if [ "${{ inputs.run_mode }}" = "smoke" ]; then
             next_depth=$((${{ fromJSON(inputs.smoke_depth || '0') }} + 1))
           fi
-          echo "Dispatching successor: mode=${{ inputs.run_mode }} depth=$next_depth ref=${{ github.ref_name }}"
+          echo "Dispatching successor: mode=${{ inputs.run_mode }} depth=$next_depth ref=main"
           curl --fail-with-body --silent --show-error \
             --request POST \
             --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches" \
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data "{\"ref\":\"${{ github.ref_name }}\",\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\"}}"
+            --data "{\"ref\":\"main\",\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\"}}"
