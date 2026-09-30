@@ -35,3 +35,5 @@ jobs:
           name: embargo-adjusted-fold-regime-independence
           path: embargo_adjusted_fold_regime_independence.json
           if-no-files-found: error
+
+# Deterministic evidence-only audit; no execution or promotion behavior.
