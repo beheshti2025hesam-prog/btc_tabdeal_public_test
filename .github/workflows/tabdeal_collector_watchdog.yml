@@ -62,6 +62,7 @@ jobs:
           # This closes the watchdog-vs-successor-dispatch race: only one actor may
           # acquire the successor claim for a given predecessor run.
           claim_ref="refs/heads/collector-handoff-claims/successor-${latest_run_id}"
+          claim_branch="collector-handoff-claims/successor-${latest_run_id}"
           claim_api="https://api.github.com/repos/$REPO/git/refs"
           claim_payload="$(jq -n --arg ref "$claim_ref" --arg sha "${{ github.sha }}" '{ref:$ref,sha:$sha}')"
           response="$(mktemp)"
@@ -72,7 +73,7 @@ jobs:
               claim_state_path=".github/collector-handoff-claims/state.json"
               claim_state="$(jq -n --arg predecessor_run_id "$latest_run_id" --arg claim_ref "$claim_ref" '{schema_version:1,state:"claimed",predecessor_run_id:($predecessor_run_id|tonumber),claim_ref:$claim_ref}')"
               encoded_state="$(printf '%s' "$claim_state" | base64 -w0)"
-              state_payload="$(jq -n --arg message "Record watchdog handoff claim" --arg content "$encoded_state" --arg branch "collector-handoff-claims/successor-$latest_run_id" '{message:$message,content:$content,branch:$branch}')"
+              state_payload="$(jq -n --arg message "Record watchdog handoff claim" --arg content "$encoded_state" --arg branch "$claim_branch" '{message:$message,content:$content,branch:$branch}')"
               state_response="$(mktemp)"
               state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" --request PUT --url "https://api.github.com/repos/$REPO/contents/$claim_state_path" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$state_payload")"
               if [ "$state_status" != "201" ]; then
@@ -85,7 +86,7 @@ jobs:
               echo "Successor claim already exists; reconcile only from durable claim state."
               claim_state_path=".github/collector-handoff-claims/state.json"
               state_response="$(mktemp)"
-              state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" --request GET --url "https://api.github.com/repos/$REPO/contents/$claim_state_path?ref=collector-handoff-claims/successor-$latest_run_id" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10")"
+              state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" --request GET --url "https://api.github.com/repos/$REPO/contents/$claim_state_path?ref=$claim_branch" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10")"
               if [ "$state_status" != "200" ]; then
                 echo "Claim exists but durable state is unavailable; fail closed."
                 cat "$state_response"
@@ -156,7 +157,7 @@ jobs:
           current_state="$(jq -r '.content' "$state_response" | tr -d '\n' | base64 -d)"
           updated_state="$(printf '%s' "$current_state" | jq --arg state "dispatch_accepted" --arg dispatch_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg successor_run_id "$successor_run_id" '.state=$state | .dispatch_at=$dispatch_at | .successor_run_id=($successor_run_id|tonumber)')"
           encoded_state="$(printf '%s' "$updated_state" | base64 -w0)"
-          update_payload="$(jq -n --arg message "Record accepted watchdog successor" --arg content "$encoded_state" --arg sha "$file_sha" --arg branch "collector-handoff-claims/successor-$latest_run_id" '{message:$message,content:$content,sha:$sha,branch:$branch}')"
+          update_payload="$(jq -n --arg message "Record accepted watchdog successor" --arg content "$encoded_state" --arg sha "$file_sha" --arg branch "$claim_branch" '{message:$message,content:$content,sha:$sha,branch:$branch}')"
           update_response="$(mktemp)"
           update_status="$(curl --silent --show-error --output "$update_response" --write-out "%{http_code}" --request PUT --url "https://api.github.com/repos/$REPO/contents/$claim_state_path" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$update_payload")"
           if [ "$update_status" != "200" ]; then
