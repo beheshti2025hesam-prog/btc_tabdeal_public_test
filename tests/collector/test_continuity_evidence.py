@@ -102,3 +102,61 @@ def test_duplicate_successor_dispatch_is_idempotent_with_durable_marker():
     assert claim_successor_dispatch(claims, "N") is True
     assert claim_successor_dispatch(claims, "N") is False
     assert claims == {"N"}
+
+
+@dataclass(frozen=True)
+class DispatchReconciliation:
+    claim_exists: bool
+    successor_visible: bool
+    dispatch_accepted: bool
+
+
+def reconcile_dispatch(state: DispatchReconciliation) -> str:
+    """Model the safe branch-level liveness rule without performing a dispatch."""
+    if state.successor_visible:
+        return "already_materialized"
+    if not state.claim_exists:
+        return "claim_required"
+    if not state.dispatch_accepted:
+        return "recoverable_dispatch_failure"
+    return "await_visibility"
+
+
+def test_claim_does_not_prove_dispatch_liveness():
+    assert reconcile_dispatch(
+        DispatchReconciliation(
+            claim_exists=True,
+            successor_visible=False,
+            dispatch_accepted=False,
+        )
+    ) == "recoverable_dispatch_failure"
+
+
+def test_visible_successor_suppresses_duplicate_recovery():
+    assert reconcile_dispatch(
+        DispatchReconciliation(
+            claim_exists=True,
+            successor_visible=True,
+            dispatch_accepted=True,
+        )
+    ) == "already_materialized"
+
+
+def test_claim_without_visible_successor_requires_reconciliation():
+    assert reconcile_dispatch(
+        DispatchReconciliation(
+            claim_exists=True,
+            successor_visible=False,
+            dispatch_accepted=True,
+        )
+    ) == "await_visibility"
+
+
+def test_missing_claim_is_not_dispatch_authorization():
+    assert reconcile_dispatch(
+        DispatchReconciliation(
+            claim_exists=False,
+            successor_visible=False,
+            dispatch_accepted=False,
+        )
+    ) == "claim_required"
