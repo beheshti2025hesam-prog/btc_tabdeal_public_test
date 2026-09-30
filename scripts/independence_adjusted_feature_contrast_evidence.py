@@ -76,7 +76,7 @@ def main():
             "independence_adjusted_context":{
                 "supported_fold_count":independence["fold_independence"]["supported_fold_count"],
                 "support_fraction":independence["fold_independence"]["support_fraction"],
-                "winner_kish_effective_sample_size":independence["frozen_population"]["winner_kish_effective_sample_size"],
+                "winner_kish_effective_sample_size":independence["fold_independence"]["winner_kish_effective_sample_size"],
             },
         }
 
@@ -89,9 +89,9 @@ def main():
         "population":{"winners":14,"controls":1035,"evaluated_oos":1049},
         "independence_adjustment":{
             "independence_unit":independence["claim_boundary"]["independence_unit"],
-            "supported_fold_indices":independence["frozen_population"]["winner_supported_fold_indices"],
-            "supported_fold_count":independence["fold_survival"]["supported_fold_count"],
-            "support_fraction":independence["fold_survival"]["support_fraction"],
+            "supported_fold_indices":independence["fold_independence"]["supported_fold_indices"],
+            "supported_fold_count":independence["fold_independence"]["supported_fold_count"],
+            "support_fraction":independence["fold_independence"]["support_fraction"],
             "winner_fold_sizes":independence["frozen_population"]["winner_fold_sizes"],
             "winner_kish_effective_sample_size":independence["frozen_population"]["winner_kish_effective_sample_size"],
             "largest_winner_fold_share":independence["fold_independence"]["largest_winner_fold_share"],
