@@ -16,6 +16,11 @@ on:
         required: false
         default: "0"
         type: string
+      predecessor_run_id:
+        description: "Run ID of the predecessor that dispatched this run"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: write
@@ -73,8 +78,38 @@ jobs:
             data/trades.csv
             data/archive
           if-no-files-found: warn
+      - name: Claim one successor dispatch
+        id: claim
+        if: ${{ github.ref == 'refs/heads/main' && steps.collect.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          CLAIM_KEY: "successor-${{ github.run_id }}"
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPO/contents/.github/collector-handoff-claims/$CLAIM_KEY.json"
+          payload="$(jq -n --arg run_id "${{ github.run_id }}" --arg sha "${{ github.sha }}" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim successor",content:($run_id+" "+$sha+" "+$claimed_at|@base64),branch:"main"}')"
+          response="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request PUT --url "$api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$payload")"
+          case "$status" in
+            201)
+              echo "Successor claim acquired: $CLAIM_KEY"
+              echo "claimed=true" >> "$GITHUB_OUTPUT"
+              ;;
+            409|422)
+              echo "Successor claim already exists; duplicate dispatch suppressed."
+              cat "$response"
+              echo "claimed=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected claim API status=$status; fail closed."
+              cat "$response"
+              exit 1
+              ;;
+          esac
+
       - name: Dispatch next collector
-        if: ${{ steps.collect.outcome == 'success' || (inputs.run_mode == 'smoke' && steps.smoke.outcome == 'success' && fromJSON(inputs.smoke_depth || '0') < 2) }}
+        if: ${{ steps.collect.outcome == 'success' && steps.claim.outputs.claimed == 'true' || (inputs.run_mode == 'smoke' && steps.smoke.outcome == 'success' && fromJSON(inputs.smoke_depth || '0') < 2) }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -90,4 +125,4 @@ jobs:
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data "{\"ref\":\"main\",\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\"}}"
+            --data "{\"ref\":\"main\",\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\",\"predecessor_run_id\":\"${{ github.run_id }}\"}}"
