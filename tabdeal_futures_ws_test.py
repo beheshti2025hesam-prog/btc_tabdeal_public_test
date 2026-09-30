@@ -1410,9 +1410,16 @@ def collect():
 
 def write_handoff_evidence():
     """Write local, immutable-per-run handoff evidence for CI artifact collection."""
+    checkpoint_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     evidence = {
         "run_id": os.getenv("GITHUB_RUN_ID"),
-        "commit_sha": os.getenv("GITHUB_SHA"),
+        "source_commit_sha": os.getenv("GITHUB_SHA"),
+        "checkpoint_sha": checkpoint_sha,
         "predecessor_run_id": os.getenv("PREDECESSOR_RUN_ID") or None,
         "collector_startup_at": collector_startup_at,
         "first_event_sequence": first_event_sequence,
@@ -1425,7 +1432,7 @@ def write_handoff_evidence():
     with open("data/collector_run_evidence.json", "w", encoding="utf-8") as handle:
         json.dump(evidence, handle, ensure_ascii=False, indent=2, sort_keys=True)
         handle.write("\n")
-    print("=== HANDOFF EVIDENCE WRITTEN ===", flush=True)
+    print(f"=== HANDOFF EVIDENCE WRITTEN | checkpoint={checkpoint_sha} ===", flush=True)
 
 
 # ============================================================
