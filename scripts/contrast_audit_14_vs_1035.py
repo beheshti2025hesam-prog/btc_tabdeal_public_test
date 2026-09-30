@@ -89,7 +89,30 @@ def main():
         a=[r[f] for r in winners]; b=[r[f] for r in controls]
         contrasts[f]={"winners":stats(a),"controls":stats(b),"smd":smd(a,b),"control_values_inside_winner_range":sum(min(a)<=x<=max(a) for x in b),"winner_range":[min(a),max(a)]}
     # Descriptive stability audit only: no threshold fitting or signal selection.
-    stability={"fold_exclusion":{},"leave_one_winner_out":{},"regime_direction":{}}
+    stability={"fold_exclusion":{},"leave_one_winner_out":{},"regime_direction":{},"temporal_concentration":{}}
+
+    # Raw temporal concentration only; no time-gap is used for signal selection.
+    from datetime import datetime
+    ordered_winners=sorted(winners,key=lambda r:r["timestamp"])
+    winner_times=[datetime.fromisoformat(r["timestamp"]) for r in ordered_winners]
+    gaps=[(winner_times[i+1]-winner_times[i]).total_seconds() for i in range(len(winner_times)-1)]
+    stability["temporal_concentration"]={
+        "winner_time_span_seconds":(winner_times[-1]-winner_times[0]).total_seconds(),
+        "winner_gap_seconds":gaps,
+        "adjacent_gap_counts":{
+            "le_60s":sum(g<=60 for g in gaps),
+            "le_120s":sum(g<=120 for g in gaps),
+            "le_300s":sum(g<=300 for g in gaps),
+        },
+        "same_direction_adjacent_pairs":sum(
+            ordered_winners[i]["direction"]==ordered_winners[i+1]["direction"] and gaps[i]<=120
+            for i in range(len(gaps))
+        ),
+        "same_fold_adjacent_pairs":sum(
+            ordered_winners[i]["fold_index"]==ordered_winners[i+1]["fold_index"] and gaps[i]<=120
+            for i in range(len(gaps))
+        ),
+    }
     for fold in sorted(set(r["fold_index"] for r in rows)):
         wf=[r for r in winners if r["fold_index"]!=fold]
         cf=[r for r in controls if r["fold_index"]!=fold]
@@ -113,9 +136,26 @@ def main():
         vals=sorted(set(r[key] for r in rows))
         for val in vals:
             wf=[r for r in winners if r[key]==val]; cf=[r for r in controls if r[key]==val]
-            stability["regime_direction"][key][val]={"winner_count":len(wf),"control_count":len(cf),"winner_gross_sum":sum(r["gross_return"] for r in wf)}
+            total=len(wf)+len(cf)
+            stability["regime_direction"][key][val]={
+                "winner_count":len(wf),
+                "control_count":len(cf),
+                "winner_gross_sum":sum(r["gross_return"] for r in wf),
+                "winner_share_of_population":len(wf)/total if total else 0.0,
+            }
 
-    result={"protocol":{"train":TRAIN,"test":TEST,"step":STEP,"folds":FOLDS,"gross_threshold":THRESHOLD,"snapshot_data_blob_sha":SNAPSHOT_DATA_BLOB_SHA,"snapshot_source_commit":SNAPSHOT_SOURCE_COMMIT,"snapshot_run_id":SNAPSHOT_RUN_ID},"population":{"rows_read":rows_read,"rows_invalid":rows_invalid,"candles":len(candles),"observations":len(observations),"evaluated_oos":len(rows)},"counts":{"winners_gt_14bps":len(winners),"controls_le_14bps":len(controls)},"folds":fold_meta,"categorical":{"direction_winners":dict(Counter(r["direction"] for r in winners)),"direction_controls":dict(Counter(r["direction"] for r in controls)),"fold_winners":dict(Counter(r["fold_index"] for r in winners)),"fold_controls":dict(Counter(r["fold_index"] for r in controls)),"regime_winners":dict(Counter(r["fold_regime"] for r in winners)),"regime_controls":dict(Counter(r["fold_regime"] for r in controls))},"feature_contrast":contrasts,"stability":stability,"winners":winners}
+    fold_rates={}
+    for f in range(FOLDS):
+        wf=[r for r in winners if r["fold_index"]==f]
+        cf=[r for r in controls if r["fold_index"]==f]
+        total=len(wf)+len(cf)
+        fold_rates[str(f)]={
+            "winner_count":len(wf),
+            "control_count":len(cf),
+            "winner_rate":len(wf)/total if total else 0.0,
+        }
+
+    result={"protocol":{"train":TRAIN,"test":TEST,"step":STEP,"folds":FOLDS,"gross_threshold":THRESHOLD,"snapshot_data_blob_sha":SNAPSHOT_DATA_BLOB_SHA,"snapshot_source_commit":SNAPSHOT_SOURCE_COMMIT,"snapshot_run_id":SNAPSHOT_RUN_ID},"population":{"rows_read":rows_read,"rows_invalid":rows_invalid,"candles":len(candles),"observations":len(observations),"evaluated_oos":len(rows)},"counts":{"winners_gt_14bps":len(winners),"controls_le_14bps":len(controls)},"folds":fold_meta,"categorical":{"direction_winners":dict(Counter(r["direction"] for r in winners)),"direction_controls":dict(Counter(r["direction"] for r in controls)),"fold_winners":dict(Counter(r["fold_index"] for r in winners)),"fold_controls":dict(Counter(r["fold_index"] for r in controls)),"regime_winners":dict(Counter(r["fold_regime"] for r in winners)),"regime_controls":dict(Counter(r["fold_regime"] for r in controls))},"feature_contrast":contrasts,"stability":stability,"fold_winner_rates":fold_rates,"winners":winners}
     Path("14_vs_1035_contrast_audit.json").write_text(json.dumps(result,indent=2),encoding="utf-8")
     with open("14_vs_1035_winners.csv","w",newline="",encoding="utf-8") as f:
         w=csv.DictWriter(f,fieldnames=list(winners[0])); w.writeheader(); w.writerows(winners)
