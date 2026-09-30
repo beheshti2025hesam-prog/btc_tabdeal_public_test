@@ -88,7 +88,34 @@ def main():
     for f in FEATURES:
         a=[r[f] for r in winners]; b=[r[f] for r in controls]
         contrasts[f]={"winners":stats(a),"controls":stats(b),"smd":smd(a,b),"control_values_inside_winner_range":sum(min(a)<=x<=max(a) for x in b),"winner_range":[min(a),max(a)]}
-    result={"protocol":{"train":TRAIN,"test":TEST,"step":STEP,"folds":FOLDS,"gross_threshold":THRESHOLD,"snapshot_data_blob_sha":SNAPSHOT_DATA_BLOB_SHA,"snapshot_source_commit":SNAPSHOT_SOURCE_COMMIT,"snapshot_run_id":SNAPSHOT_RUN_ID},"population":{"rows_read":rows_read,"rows_invalid":rows_invalid,"candles":len(candles),"observations":len(observations),"evaluated_oos":len(rows)},"counts":{"winners_gt_14bps":len(winners),"controls_le_14bps":len(controls)},"folds":fold_meta,"categorical":{"direction_winners":dict(Counter(r["direction"] for r in winners)),"direction_controls":dict(Counter(r["direction"] for r in controls)),"fold_winners":dict(Counter(r["fold_index"] for r in winners)),"fold_controls":dict(Counter(r["fold_index"] for r in controls)),"regime_winners":dict(Counter(r["fold_regime"] for r in winners)),"regime_controls":dict(Counter(r["fold_regime"] for r in controls))},"feature_contrast":contrasts,"winners":winners}
+    # Descriptive stability audit only: no threshold fitting or signal selection.
+    stability={"fold_exclusion":{},"leave_one_winner_out":{},"regime_direction":{}}
+    for fold in sorted(set(r["fold_index"] for r in rows)):
+        wf=[r for r in winners if r["fold_index"]!=fold]
+        cf=[r for r in controls if r["fold_index"]!=fold]
+        stability["fold_exclusion"][str(fold)]={
+            "winner_count_remaining":len(wf),
+            "control_count_remaining":len(cf),
+            "winner_gross_sum_remaining":sum(r["gross_return"] for r in wf),
+            "feature_smd_without_fold":{k:smd([r[k] for r in wf],[r[k] for r in cf]) for k in FEATURES} if wf and cf else {}
+        }
+    for w in winners:
+        rest=[r for r in winners if r is not w]
+        stability["leave_one_winner_out"][w["timestamp"]]={
+            "fold_index":w["fold_index"],
+            "removed_gross_return":w["gross_return"],
+            "remaining_winner_count":len(rest),
+            "remaining_winner_gross_sum":sum(r["gross_return"] for r in rest),
+            "feature_smd_without_sample":{k:smd([r[k] for r in rest],[r[k] for r in controls]) for k in FEATURES}
+        }
+    for key in ("direction","fold_regime"):
+        stability["regime_direction"][key]={}
+        vals=sorted(set(r[key] for r in rows))
+        for val in vals:
+            wf=[r for r in winners if r[key]==val]; cf=[r for r in controls if r[key]==val]
+            stability["regime_direction"][key][val]={"winner_count":len(wf),"control_count":len(cf),"winner_gross_sum":sum(r["gross_return"] for r in wf)}
+
+    result={"protocol":{"train":TRAIN,"test":TEST,"step":STEP,"folds":FOLDS,"gross_threshold":THRESHOLD,"snapshot_data_blob_sha":SNAPSHOT_DATA_BLOB_SHA,"snapshot_source_commit":SNAPSHOT_SOURCE_COMMIT,"snapshot_run_id":SNAPSHOT_RUN_ID},"population":{"rows_read":rows_read,"rows_invalid":rows_invalid,"candles":len(candles),"observations":len(observations),"evaluated_oos":len(rows)},"counts":{"winners_gt_14bps":len(winners),"controls_le_14bps":len(controls)},"folds":fold_meta,"categorical":{"direction_winners":dict(Counter(r["direction"] for r in winners)),"direction_controls":dict(Counter(r["direction"] for r in controls)),"fold_winners":dict(Counter(r["fold_index"] for r in winners)),"fold_controls":dict(Counter(r["fold_index"] for r in controls)),"regime_winners":dict(Counter(r["fold_regime"] for r in winners)),"regime_controls":dict(Counter(r["fold_regime"] for r in controls))},"feature_contrast":contrasts,"stability":stability,"winners":winners}
     Path("14_vs_1035_contrast_audit.json").write_text(json.dumps(result,indent=2),encoding="utf-8")
     with open("14_vs_1035_winners.csv","w",newline="",encoding="utf-8") as f:
         w=csv.DictWriter(f,fieldnames=list(winners[0])); w.writeheader(); w.writerows(winners)
