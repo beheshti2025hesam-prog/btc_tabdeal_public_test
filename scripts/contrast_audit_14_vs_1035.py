@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Frozen 8-fold OOS 14-vs-1035 feature contrast audit. Execution-free."""
-import csv, json, math, statistics
+import csv, json, math, statistics, os
 import sys
 from pathlib import Path
 
@@ -18,7 +18,7 @@ from core.feature_engine.quality import FeatureSnapshot
 from core.strategy.baseline import BaselineStrategy, BaselineStrategyInput, BaselineDecision
 from core.risk.boundary import RiskPolicy, RiskInput, RiskDecision
 
-CSV_PATH="data/trades.csv"; EMA_PERIOD=20; TRAIN=800; TEST=400; STEP=400; FOLDS=8; THRESHOLD=0.0014
+CSV_PATH=os.environ.get("HES_FROZEN_CSV", "data/trades.csv"); EMA_PERIOD=20; TRAIN=800; TEST=400; STEP=400; FOLDS=8; THRESHOLD=0.0014
 SNAPSHOT_DATA_BLOB_SHA="1a44d52a0588deb765bbbea04bfb5783dcb1050b"
 SNAPSHOT_SOURCE_COMMIT="b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
 SNAPSHOT_RUN_ID=36489452534
