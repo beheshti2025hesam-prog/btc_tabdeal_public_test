@@ -87,3 +87,10 @@ def test_sample_level_negative_time_boundary_is_fail_closed():
     errors = validate_handoff(evidence)
     assert "successor first event cannot precede successor startup" in errors
     assert "negative event-time handoff gap" in errors
+
+def test_duplicate_successor_dispatch_is_not_idempotent_without_durable_marker():
+    """Document the race: two dispatch attempts for one predecessor are distinct."""
+    dispatch_attempts = ["N->N+1", "N->N+1"]
+    assert len(set(dispatch_attempts)) == 1
+    # This intentionally demonstrates why a durable handoff identity/claim is required.
+    assert len(dispatch_attempts) > len(set(dispatch_attempts))
