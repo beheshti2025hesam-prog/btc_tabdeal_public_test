@@ -71,7 +71,9 @@ jobs:
               echo "Successor/recovery claim acquired without mutating main: $claim_ref"
               ;;
             422)
-              echo "Successor claim already exists; checking whether its dispatch materialized."
+              echo "Successor claim already exists; fail closed without display-title reconciliation."
+              echo "Another actor owns this predecessor-scoped handoff; no duplicate recovery is issued."
+              exit 0
               ;;
             *)
               echo "Unexpected recovery claim API status=$status; fail closed."
@@ -79,19 +81,24 @@ jobs:
               exit 1
               ;;
           esac
-          # A pre-existing claim is not treated as proof that dispatch succeeded.
-          # Reconcile the durable claim against visible successor runs before deciding.
-          successor_runs="$(curl --fail-with-body --silent --show-error \
-            --url "https://api.github.com/repos/$REPO/actions/workflows/run.yml/runs?branch=$DEFAULT_BRANCH&per_page=50" \
+          echo "No active/pending main collector, stale successful predecessor, and recovery claim acquired."
+          echo "Dispatching one recovery collector run on the default branch."
+          dispatch_response="$(mktemp)"
+          dispatch_status="$(curl --silent --show-error --output "$dispatch_response" --write-out "%{http_code}" \
+            --request POST \
+            --url "https://api.github.com/repos/$REPO/actions/workflows/run.yml/dispatches" \
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2026-03-10")"
-          if printf '%s' "$successor_runs" | jq -e --arg predecessor "$latest_run_id" '[.workflow_runs[] | select((.display_title // "") | contains($predecessor))] | length > 0' >/dev/null; then
-            echo "Successor run already materialized for predecessor=$latest_run_id; no recovery dispatch."
-            exit 0
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data '{"ref":"${{ github.event.repository.default_branch }}","inputs":{"run_mode":"production","smoke_depth":"0","predecessor_run_id":"'"$latest_run_id"'"}}')"
+          successor_run_id="$(jq -r '.workflow_run_id // empty' "$dispatch_response")"
+          if [ "$dispatch_status" != "200" ] || ! [[ "$successor_run_id" =~ ^[0-9]+$ ]]; then
+            echo "Recovery dispatch did not return a concrete workflow_run_id; fail closed."
+            echo "HTTP status=$dispatch_status"
+            cat "$dispatch_response"
+            exit 1
           fi
-          echo "No active/pending main collector, stale successful predecessor, and no visible successor run."
-          echo "Dispatching one recovery collector run on the default branch."
+          echo "Recovery successor run materialized: id=$successor_run_id predecessor=$latest_run_id."
           curl --fail-with-body --silent --show-error \
             --request POST \
             --url "https://api.github.com/repos/$REPO/actions/workflows/run.yml/dispatches" \
