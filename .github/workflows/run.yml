@@ -69,60 +69,6 @@ jobs:
           if [ "$depth" -ge 2 ]; then
             echo "Smoke-chain terminal reached."
           fi
-      - name: Upload collected trades
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tabdeal-btc-usdt-trades
-          path: |
-            data/trades.csv
-            data/archive
-          if-no-files-found: warn
-      - name: Finalize handoff evidence
-        if: always()
-        env:
-          PREDECESSOR_RUN_ID: ${{ inputs.predecessor_run_id }}
-          DISPATCH_AT: ${{ env.DISPATCH_AT }}
-          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
-          CLAIM_OUTCOME: ${{ steps.claim.outcome }}
-        run: |
-          set -euo pipefail
-          if [ -f data/collector_run_evidence.json ]; then
-            python - <<'PY'
-          import json
-          import os
-          from datetime import datetime, timezone
-
-          path = "data/collector_run_evidence.json"
-          with open(path, "r", encoding="utf-8") as handle:
-              evidence = json.load(handle)
-
-          now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-          evidence.update({
-              "predecessor_run_id": os.getenv("PREDECESSOR_RUN_ID") or evidence.get("predecessor_run_id"),
-              "dispatch_at": os.getenv("DISPATCH_AT") or None,
-              "dispatch_outcome": os.getenv("DISPATCH_OUTCOME"),
-              "claim_outcome": os.getenv("CLAIM_OUTCOME"),
-              "evidence_finalized_at": now,
-          })
-
-          with open(path, "w", encoding="utf-8") as handle:
-              json.dump(evidence, handle, ensure_ascii=False, indent=2, sort_keys=True)
-              handle.write("\n")
-          PY
-          fi
-
-      - name: Upload collected trades and handoff evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: tabdeal-btc-usdt-trades
-          path: |
-            data/trades.csv
-            data/archive
-            data/collector_run_evidence.json
-          if-no-files-found: warn
-
       - name: Claim one successor dispatch
         id: claim
         if: ${{ github.ref == 'refs/heads/main' && steps.collect.outcome == 'success' }}
@@ -134,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           api="https://api.github.com/repos/$REPO/contents/.github/collector-handoff-claims/$CLAIM_KEY.json"
-          payload="$(jq -n --arg run_id "${{ github.run_id }}" --arg sha "${{ github.sha }}" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim successor",content:($run_id+" "+$sha+" "+$claimed_at|@base64),branch:"main"}')"
+          payload="$(jq -n --arg run_id "${{ github.run_id }}" --arg sha "${{ github.sha }}" --arg predecessor "$PREDECESSOR_RUN_ID" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim successor",content:($run_id+" "+$sha+" predecessor="+$predecessor+" "+$claimed_at|@base64),branch:"main"}')"
           response="$(mktemp)"
           status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request PUT --url "$api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$payload")"
           case "$status" in
@@ -174,3 +120,41 @@ jobs:
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
             --data "{\"ref\":\"main\",\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\",\"predecessor_run_id\":\"${{ github.run_id }}\"}}"
+
+      - name: Finalize handoff evidence
+        if: always()
+        env:
+          PREDECESSOR_RUN_ID: ${{ inputs.predecessor_run_id }}
+          DISPATCH_AT: ${{ env.DISPATCH_AT }}
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
+          CLAIM_OUTCOME: ${{ steps.claim.outcome }}
+        run: |
+          set -euo pipefail
+          if [ -f data/collector_run_evidence.json ]; then
+            python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          path = "data/collector_run_evidence.json"
+          with open(path, encoding="utf-8") as handle: evidence = json.load(handle)
+          evidence.update({
+              "predecessor_run_id": os.getenv("PREDECESSOR_RUN_ID") or evidence.get("predecessor_run_id"),
+              "dispatch_at": os.getenv("DISPATCH_AT") or None,
+              "dispatch_outcome": os.getenv("DISPATCH_OUTCOME"),
+              "claim_outcome": os.getenv("CLAIM_OUTCOME"),
+              "evidence_finalized_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+          })
+          with open(path, "w", encoding="utf-8") as handle:
+              json.dump(evidence, handle, ensure_ascii=False, indent=2, sort_keys=True); handle.write("\n")
+          PY
+          fi
+
+      - name: Upload collected trades and handoff evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tabdeal-btc-usdt-trades
+          path: |
+            data/trades.csv
+            data/archive
+            data/collector_run_evidence.json
+          if-no-files-found: warn
