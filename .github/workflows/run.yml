@@ -89,9 +89,9 @@ jobs:
               echo "Successor claim acquired without mutating main: $CLAIM_REF"
               claim_state_path=".github/collector-handoff-claims/state.json"
               claim_state="$(jq -n \
-                --arg predecessor_run_id "\${{ github.RUN_ID }}" \
+                --arg predecessor_run_id "${{ github.run_id }}" \
                 --arg claim_ref "$CLAIM_REF" \
-                --arg claim_sha "\${{ github.SHA }}" \
+                --arg claim_sha "${{ github.sha }}" \
                 '{schema_version:1,state:"claimed",predecessor_run_id:($predecessor_run_id|tonumber),claim_ref:$claim_ref,claim_sha:$claim_sha}')"
               encoded_state="$(printf '%s' "$claim_state" | base64 -w0)"
               state_payload="$(jq -n --arg message "Record collector handoff claim" --arg content "$encoded_state" --arg branch "$CLAIM_REF" '{message:$message,content:$content,branch:$branch}')"
@@ -151,6 +151,40 @@ jobs:
           fi
           echo "Successor run materialized: id=$successor_run_id predecessor=${{ github.run_id }}."
           echo "SUCCESSOR_RUN_ID=$successor_run_id" >> "$GITHUB_ENV"
+          claim_state_path=".github/collector-handoff-claims/state.json"
+          state_response="$(mktemp)"
+          state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" \
+            --request GET --url "https://api.github.com/repos/${{ github.repository }}/contents/$claim_state_path?ref=collector-handoff-claims/successor-${{ github.run_id }}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10")"
+          if [ "$state_status" != "200" ]; then
+            echo "Cannot read handoff claim state; fail closed."
+            cat "$state_response"
+            exit 1
+          fi
+          file_sha="$(jq -r '.sha' "$state_response")"
+          current_state="$(jq -r '.content' "$state_response" | tr -d '\n' | base64 -d)"
+          dispatch_at="$(sed -n 's/^DISPATCH_AT=//p' "$GITHUB_ENV" | tail -1)"
+          updated_state="$(printf '%s' "$current_state" | jq \
+            --arg state "dispatch_accepted" \
+            --arg dispatch_at "$dispatch_at" \
+            --arg successor_run_id "$successor_run_id" \
+            '.state=$state | .dispatch_at=$dispatch_at | .successor_run_id=($successor_run_id|tonumber)')"
+          encoded_state="$(printf '%s' "$updated_state" | base64 -w0)"
+          update_payload="$(jq -n --arg message "Record accepted collector successor" --arg content "$encoded_state" --arg sha "$file_sha" --arg branch "collector-handoff-claims/successor-${{ github.run_id }}" '{message:$message,content:$content,sha:$sha,branch:$branch}')"
+          update_response="$(mktemp)"
+          update_status="$(curl --silent --show-error --output "$update_response" --write-out "%{http_code}" \
+            --request PUT --url "https://api.github.com/repos/${{ github.repository }}/contents/$claim_state_path" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data "$update_payload")"
+          if [ "$update_status" != "200" ]; then
+            echo "Could not persist accepted successor state; fail closed."
+            cat "$update_response"
+            exit 1
+          fi
           if [ -f data/collector_handoff_claim.json ]; then
             dispatch_at="$(sed -n 's/^DISPATCH_AT=//p' "$GITHUB_ENV" | tail -1)"
             jq \
