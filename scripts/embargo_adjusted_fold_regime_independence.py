@@ -71,12 +71,14 @@ def main() -> None:
     actual_blob = git_blob_sha(CSV)
     assert actual_blob == EXPECTED_BLOB, (actual_blob, EXPECTED_BLOB)
 
-    wf = RealDataBacktest(csv_path=str(CSV)).run_walk_forward(
+    backtest = RealDataBacktest(csv_path=str(CSV))
+    wf = backtest.run_walk_forward(
         train_size=TRAIN,
         test_size=TEST,
         step_size=STEP,
         embargo_size=EMBARGO,
     )
+    observations = backtest._last_observations
     folds_to_audit = wf.folds[:FOLDS]
     assert len(folds_to_audit) == FOLDS, len(folds_to_audit)
 
@@ -84,7 +86,11 @@ def main() -> None:
     folds = []
     for fold in folds_to_audit:
         evaluated = []
-        for sample in fold.test_samples:
+        test_start = TRAIN + EMBARGO + fold.index * STEP
+        test_observations = observations[test_start:test_start + TEST]
+        assert len(test_observations) == TEST, len(test_observations)
+        for observation in test_observations:
+            sample = observation.sample
             g = gross_return(sample)
             if g is None:
                 continue
