@@ -1,4 +1,5 @@
 name: Hes Trade Agent — Tabdeal BTC Futures Collector
+run-name: "Tabdeal Collector ${{ inputs.run_mode || 'production' }} predecessor=${{ inputs.predecessor_run_id || 'none' }}"
 
 on:
   workflow_dispatch:
@@ -76,19 +77,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PREDECESSOR_RUN_ID: ${{ inputs.predecessor_run_id }}
-          CLAIM_KEY: "successor-${{ github.run_id }}"
+          CLAIM_REF: "refs/heads/collector-handoff-claims/successor-${{ github.run_id }}"
         run: |
           set -euo pipefail
-          api="https://api.github.com/repos/$REPO/contents/.github/collector-handoff-claims/$CLAIM_KEY.json"
-          payload="$(jq -n --arg run_id "${{ github.run_id }}" --arg sha "${{ github.sha }}" --arg predecessor "$PREDECESSOR_RUN_ID" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim successor",content:($run_id+" "+$sha+" predecessor="+$predecessor+" "+$claimed_at|@base64),branch:"main"}')"
+          api="https://api.github.com/repos/$REPO/git/refs"
+          payload="$(jq -n --arg ref "$CLAIM_REF" --arg sha "${{ github.sha }}" '{ref:$ref,sha:$sha}')"
           response="$(mktemp)"
-          status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request PUT --url "$api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$payload")"
+          status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request POST --url "$api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$payload")"
           case "$status" in
             201)
-              echo "Successor claim acquired: $CLAIM_KEY"
+              echo "Successor claim acquired without mutating main: $CLAIM_REF"
               echo "claimed=true" >> "$GITHUB_OUTPUT"
               ;;
-            409|422)
+            422)
               echo "Successor claim already exists; duplicate dispatch suppressed."
               cat "$response"
               echo "claimed=false" >> "$GITHUB_OUTPUT"
@@ -112,7 +113,7 @@ jobs:
           if [ "${{ inputs.run_mode }}" = "smoke" ]; then
             next_depth=$((${{ fromJSON(inputs.smoke_depth || '0') }} + 1))
           fi
-          echo "Dispatching successor: mode=${{ inputs.run_mode }} depth=$next_depth ref=main"
+          echo "Dispatching successor: mode=${{ inputs.run_mode }} depth=$next_depth ref=main predecessor=${{ github.run_id }}"
           curl --fail-with-body --silent --show-error \
             --request POST \
             --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches" \
@@ -120,6 +121,16 @@ jobs:
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
             --data "{\"ref\":\"main\",\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\",\"predecessor_run_id\":\"${{ github.run_id }}\"}}"
+          for attempt in 1 2 3 4 5 6; do
+            sleep 10
+            runs="$(curl --fail-with-body --silent --show-error --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/runs?branch=main&per_page=20" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10")"
+            if printf '%s' "$runs" | jq -e --arg predecessor "${{ github.run_id }}" '[.workflow_runs[] | select((.display_title // "") | contains($predecessor))] | length > 0' >/dev/null; then
+              echo "Successor run materialized for predecessor=${{ github.run_id }}."
+              exit 0
+            fi
+          done
+          echo "Dispatch accepted but successor was not observed; fail closed for watchdog reconciliation."
+          exit 1
 
       - name: Finalize handoff evidence
         if: always()
