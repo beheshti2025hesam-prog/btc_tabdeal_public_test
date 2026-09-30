@@ -66,7 +66,10 @@ def main() -> None:
     assert winner_count == 14
     assert control_count == 1035
     assert winner_count + control_count == evaluated
-    assert wins + losses == evaluated
+    # The walk-forward summary counts strictly positive wins and strictly
+    # negative losses; exact-zero observations are intentionally neither.
+    neutral = evaluated - wins - losses
+    assert (wins, losses, neutral) == (528, 479, 42)
 
     # Gross-return population buckets:
     #   < 0      -> losses
@@ -128,9 +131,11 @@ def main() -> None:
         "population": {
             "evaluated_oos": evaluated,
             "negative_gross_count": below_zero,
+            "zero_gross_count": neutral,
             "zero_to_14bps_count": zero_to_14bps,
             "greater_than_14bps_count": above_14bps,
             "reconciles": below_zero + zero_to_14bps + above_14bps == evaluated,
+            "strict_win_loss_neutral_reconciles": wins + losses + neutral == evaluated,
         },
         "cost_boundary": {
             "evaluated": cost["evaluated"],
