@@ -99,10 +99,3 @@ jobs:
             exit 1
           fi
           echo "Recovery successor run materialized: id=$successor_run_id predecessor=$latest_run_id."
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --url "https://api.github.com/repos/$REPO/actions/workflows/run.yml/dispatches" \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data '{"ref":"${{ github.event.repository.default_branch }}","inputs":{"run_mode":"production","smoke_depth":"0","predecessor_run_id":"'"$latest_run_id"'"}}'
