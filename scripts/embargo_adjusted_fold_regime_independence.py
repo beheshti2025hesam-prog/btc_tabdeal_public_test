@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import statistics
 from collections import Counter
 from pathlib import Path
@@ -20,7 +21,7 @@ from core.strategy.baseline import BaselineDecision
 from core.risk.boundary import RiskDecision
 
 ROOT = Path(__file__).resolve().parents[1]
-CSV = ROOT / "data" / "trades.csv"
+CSV = Path(os.environ.get("HES_FROZEN_CSV", str(ROOT / "data" / "trades.csv")))
 OUTPUT = ROOT / "embargo_adjusted_fold_regime_independence.json"
 
 EXPECTED_BLOB = "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
