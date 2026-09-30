@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - backtest-cost-slippage-boundary-v1
+      - contrast-audit-14-vs-1035-v1
   pull_request:
     branches:
       - main
@@ -26,6 +27,8 @@ jobs:
         run: python scripts/run_real_oos_cost_matrix.py --csv data/trades.csv --output oos_cost_matrix_evidence.json
       - name: Run 14-vs-1035 contrast audit
         run: python scripts/contrast_audit_14_vs_1035.py
+      - name: Reconcile 14-vs-1035 evidence
+        run: python scripts/build_14_vs_1035_evidence.py
       - name: Upload contrast audit
         uses: actions/upload-artifact@v4
         with:
@@ -39,4 +42,10 @@ jobs:
         with:
           name: real-btcusdt-oos-cost-matrix-evidence
           path: oos_cost_matrix_evidence.json
+          if-no-files-found: error
+      - name: Upload reconciled evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: 14-vs-1035-reconciled-evidence
+          path: 14_vs_1035_evidence.json
           if-no-files-found: error
