@@ -37,9 +37,11 @@ def main():
     assert e1["embargo_adjusted_population"]["winners_gt_14bps"]==14
     assert e1["embargo_adjusted_population"]["controls_le_14bps"]==1035
 
-    # E0 -> E1 reconciliation
-    e0_folds={str(k):int(v) for k,v in e0["categorical"]["fold_winners"].items()}
-    e1_folds=e1["fold_independence"]["winner_counts_by_fold"]
+    # E0 -> E1 reconciliation. Normalize both sources to the full 8-fold schema;
+    # E0 omits zero-count folds while E1 explicitly records them.
+    e0_raw=e0["categorical"]["fold_winners"]
+    e0_folds={str(k):int(e0_raw.get(str(k), e0_raw.get(k, 0))) for k in range(8)}
+    e1_folds={str(k):int(v) for k,v in e1["fold_independence"]["winner_counts_by_fold"].items()}
     assert e0_folds==e1_folds
 
     # E1 fold/regime survival
