@@ -16,6 +16,8 @@ from collections import Counter
 from pathlib import Path
 
 from core.backtest.real_data import RealDataBacktest
+from core.strategy.baseline import BaselineDecision
+from core.risk.boundary import RiskDecision
 
 ROOT = Path(__file__).resolve().parents[1]
 CSV = ROOT / "data" / "trades.csv"
