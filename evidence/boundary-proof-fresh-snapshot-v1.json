@@ -17,11 +17,17 @@
     },
     "checks": {
       "strict_sequence_monotonic_current_main": true,
-      "boundary_sequence_overlap": false,
-      "boundary_timestamp_overlap": false,
-      "first_independent_record_verified_from_raw_lineage": true
+      "first_independent_record_verified_from_raw_lineage": true,
+      "frozen_boundary_anchor_present": true,
+      "no_post_boundary_sequence_replay": true,
+      "no_post_boundary_timestamp_overlap": true
     },
-    "note": "Current main retains the frozen boundary record exactly, then the first independent sequence is 38586323452. The current active file is a trimmed window, so row-count equality with the frozen artifact is not expected."
+    "note": "The earliest independent record after the frozen boundary is proven in the first post-frozen checkpoint commit (6fb4e824...). Later active-window checkpoints trimmed away that early segment. Current main still contains the frozen boundary anchor and its current first post-boundary record is sequence 38710284291. No sequence replay/backward movement was observed.",
+    "current_main_first_record_after_frozen": {
+      "sequence": 38710284291,
+      "timestamp": "2026-09-28 19:08:56.951000+00:00",
+      "row": "BTC_USDT,83715.7,0.00018,Sell,2026-09-28 19:08:56.951000+00:00,38710284291"
+    }
   },
   "fresh_snapshot": {
     "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
