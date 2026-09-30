@@ -7,7 +7,7 @@ on:
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 concurrency:
   group: tabdeal-btc-usdt-collector-watchdog
@@ -36,7 +36,7 @@ jobs:
             echo "Main collector chain active/queued; no recovery dispatch."
             exit 0
           fi
-          latest="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.status == "completed") | {updated_at, conclusion, run_number, head_branch}] | sort_by(.updated_at) | last // empty')"
+          latest="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.status == "completed" and .conclusion == "success") | {id, updated_at, conclusion, run_number, head_branch}] | sort_by(.updated_at) | last // empty')"
           if [ -z "$latest" ]; then
             echo "No completed main-branch collector run is visible; fail closed."
             exit 0
@@ -48,15 +48,32 @@ jobs:
           completed_epoch="$(date -u -d "$completed_at" +%s)"
           age_seconds="$((now_epoch - completed_epoch))"
           echo "Latest completed main collector: #$run_number conclusion=$conclusion age=${age_seconds}s"
-          if [ "$conclusion" != "success" ]; then
-            echo "Latest main collector did not complete successfully; fail closed."
-            echo "No automatic rerun is issued because a failed collector may indicate a data-integrity or persistence fault."
-            exit 0
-          fi
           if [ "$age_seconds" -lt 1200 ]; then
             echo "Latest successful main completion is younger than 20 minutes; no recovery needed."
             exit 0
           fi
+          latest_run_id="$(printf '%s' "$latest" | jq -r '.id')"
+          recovery_bucket="$((now_epoch / 1200))"
+          claim_key="recovery-${latest_run_id}-${recovery_bucket}"
+          claim_api="https://api.github.com/repos/$REPO/contents/.github/collector-handoff-claims/$claim_key.json"
+          claim_payload="$(jq -n --arg run_id "$latest_run_id" --arg bucket "$recovery_bucket" --arg claimed_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{message:"collector: claim recovery dispatch",content:($run_id+" "+$bucket+" "+$claimed_at|@base64),branch:"main"}')"
+          response="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request PUT --url "$claim_api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$claim_payload")"
+          case "$status" in
+            201)
+              echo "Recovery claim acquired: $claim_key"
+              ;;
+            409|422)
+              echo "Recovery claim already exists; duplicate recovery dispatch suppressed."
+              cat "$response"
+              exit 0
+              ;;
+            *)
+              echo "Unexpected recovery claim API status=$status; fail closed."
+              cat "$response"
+              exit 1
+              ;;
+          esac
           echo "No active/pending main collector and last successful completion is stale."
           echo "Dispatching one recovery collector run on the default branch."
           curl --fail-with-body --silent --show-error \
@@ -65,4 +82,4 @@ jobs:
             --header "Accept: application/vnd.github+json" \
             --header "Authorization: Bearer $GH_TOKEN" \
             --header "X-GitHub-Api-Version: 2026-03-10" \
-            --data '{"ref":"${{ github.event.repository.default_branch }}"}'
+            --data '{"ref":"${{ github.event.repository.default_branch }}","inputs":{"run_mode":"production","smoke_depth":"0","predecessor_run_id":"'"$latest_run_id"'"}}'
