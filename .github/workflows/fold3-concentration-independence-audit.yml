@@ -1,7 +1,7 @@
 name: HES Trade Agent — Fold 3 Concentration Independence Audit
 
 on:
-  workflow_dispatch:
+  pull_request:\n    branches: ["main"]\n  workflow_dispatch:
 
 permissions:
   contents: read
