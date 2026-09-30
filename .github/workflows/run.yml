@@ -139,6 +139,7 @@ jobs:
           DISPATCH_AT: ${{ env.DISPATCH_AT }}
           DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
           CLAIM_OUTCOME: ${{ steps.claim.outcome }}
+          CLAIM_ACQUIRED: ${{ steps.claim.outputs.claimed }}
         run: |
           set -euo pipefail
           if [ -f data/collector_run_evidence.json ]; then
@@ -152,6 +153,7 @@ jobs:
               "dispatch_at": os.getenv("DISPATCH_AT") or None,
               "dispatch_outcome": os.getenv("DISPATCH_OUTCOME"),
               "claim_outcome": os.getenv("CLAIM_OUTCOME"),
+              "claim_acquired": os.getenv("CLAIM_ACQUIRED"),
               "evidence_finalized_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
           })
           with open(path, "w", encoding="utf-8") as handle:
