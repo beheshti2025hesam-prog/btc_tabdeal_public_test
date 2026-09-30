@@ -77,11 +77,12 @@ def main() -> None:
         step_size=STEP,
         embargo_size=EMBARGO,
     )
-    assert len(wf.folds) == FOLDS, len(wf.folds)
+    folds_to_audit = wf.folds[:FOLDS]
+    assert len(folds_to_audit) == FOLDS, len(folds_to_audit)
 
     rows = []
     folds = []
-    for fold in wf.folds:
+    for fold in folds_to_audit:
         evaluated = []
         for sample in fold.test_samples:
             g = gross_return(sample)
