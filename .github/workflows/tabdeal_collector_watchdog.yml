@@ -92,7 +92,6 @@ jobs:
           fi
           echo "No active/pending main collector, stale successful predecessor, and no visible successor run."
           echo "Dispatching one recovery collector run on the default branch."
-          echo "Dispatching one recovery collector run on the default branch."
           curl --fail-with-body --silent --show-error \
             --request POST \
             --url "https://api.github.com/repos/$REPO/actions/workflows/run.yml/dispatches" \
