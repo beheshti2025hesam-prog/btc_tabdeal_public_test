@@ -88,7 +88,7 @@ def main():
                    "snapshot_source_run_id":EXPECTED_RUN_ID},
         "population":{"winners":14,"controls":1035,"evaluated_oos":1049},
         "independence_adjustment":{
-            "independence_unit":independence["claim_boundary"]["independence_unit"],
+            "independence_unit":independence["fold_independence"]["independence_unit"],
             "supported_fold_indices":independence["fold_independence"]["supported_fold_indices"],
             "supported_fold_count":independence["fold_independence"]["supported_fold_count"],
             "support_fraction":independence["fold_independence"]["support_fraction"],
