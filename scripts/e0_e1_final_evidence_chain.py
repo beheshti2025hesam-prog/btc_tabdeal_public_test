@@ -38,7 +38,7 @@ def main():
     assert e1["embargo_adjusted_population"]["controls_le_14bps"]==1035
 
     # E0 -> E1 reconciliation
-    e0_folds={str(k):int(v) for k,v in e0["categorical"]["fold_winners"].items()}
+    e0_folds={str(k):int(e0["categorical"]["fold_winners"].get(str(k),0)) for k in range(8)}
     e1_folds=e1["fold_independence"]["winner_counts_by_fold"]
     assert e0_folds==e1_folds
 
