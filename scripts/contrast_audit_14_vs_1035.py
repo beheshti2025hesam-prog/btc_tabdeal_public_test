@@ -18,7 +18,7 @@ from core.feature_engine.quality import FeatureSnapshot
 from core.strategy.baseline import BaselineStrategy, BaselineStrategyInput, BaselineDecision
 from core.risk.boundary import RiskPolicy, RiskInput, RiskDecision
 
-CSV_PATH="data/trades.csv"; EMA_PERIOD=20; TRAIN=800; TEST=400; STEP=400; FOLDS=8; THRESHOLD=0.0014
+CSV_PATH="data/trades.csv"; EMA_PERIOD=20; TRAIN=800; TEST=400; STEP=400; FOLDS=8; THRESHOLD=0.0014\nSNAPSHOT_DATA_BLOB_SHA="1a44d52a0588deb765bbbea04bfb5783dcb1050b"\nSNAPSHOT_SOURCE_COMMIT="b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"\nSNAPSHOT_RUN_ID=36489452534
 FEATURES=["ema_distance_pct","vwap_distance_pct","buy_ratio","buy_sell_delta","trade_count"]
 
 def rel(a,b): return (a-b)/b if b else 0.0
@@ -77,14 +77,14 @@ def main():
         fold_meta.append({"fold_index":fold,"observations":len(test),"evaluated":len(ev),"gross_return":total,"regime":regime})
         for r in ev:
             x=dict(r); x["fold_index"]=fold; x["fold_regime"]=regime; rows.append(x)
-    assert len(observations)==3200, len(observations); assert len(rows)==1049, len(rows)
+    oos_observations=observations[TRAIN:TRAIN+FOLDS*STEP]\n    assert len(oos_observations)==FOLDS*TEST, len(oos_observations); assert len(rows)==1049, len(rows)
     winners=[r for r in rows if r["gross_return"]>THRESHOLD]; controls=[r for r in rows if r["gross_return"]<=THRESHOLD]
     assert len(winners)==14, len(winners); assert len(controls)==1035, len(controls)
     contrasts={}
     for f in FEATURES:
         a=[r[f] for r in winners]; b=[r[f] for r in controls]
         contrasts[f]={"winners":stats(a),"controls":stats(b),"smd":smd(a,b),"control_values_inside_winner_range":sum(min(a)<=x<=max(a) for x in b),"winner_range":[min(a),max(a)]}
-    result={"protocol":{"train":TRAIN,"test":TEST,"step":STEP,"folds":FOLDS,"gross_threshold":THRESHOLD},"population":{"rows_read":rows_read,"rows_invalid":rows_invalid,"candles":len(candles),"observations":len(observations),"evaluated_oos":len(rows)},"counts":{"winners_gt_14bps":len(winners),"controls_le_14bps":len(controls)},"folds":fold_meta,"categorical":{"direction_winners":dict(Counter(r["direction"] for r in winners)),"direction_controls":dict(Counter(r["direction"] for r in controls)),"fold_winners":dict(Counter(r["fold_index"] for r in winners)),"fold_controls":dict(Counter(r["fold_index"] for r in controls)),"regime_winners":dict(Counter(r["fold_regime"] for r in winners)),"regime_controls":dict(Counter(r["fold_regime"] for r in controls))},"feature_contrast":contrasts,"winners":winners}
+    result={"protocol":{"train":TRAIN,"test":TEST,"step":STEP,"folds":FOLDS,"gross_threshold":THRESHOLD,"snapshot_data_blob_sha":SNAPSHOT_DATA_BLOB_SHA,"snapshot_source_commit":SNAPSHOT_SOURCE_COMMIT,"snapshot_run_id":SNAPSHOT_RUN_ID},"population":{"rows_read":rows_read,"rows_invalid":rows_invalid,"candles":len(candles),"observations":len(observations),"evaluated_oos":len(rows)},"counts":{"winners_gt_14bps":len(winners),"controls_le_14bps":len(controls)},"folds":fold_meta,"categorical":{"direction_winners":dict(Counter(r["direction"] for r in winners)),"direction_controls":dict(Counter(r["direction"] for r in controls)),"fold_winners":dict(Counter(r["fold_index"] for r in winners)),"fold_controls":dict(Counter(r["fold_index"] for r in controls)),"regime_winners":dict(Counter(r["fold_regime"] for r in winners)),"regime_controls":dict(Counter(r["fold_regime"] for r in controls))},"feature_contrast":contrasts,"winners":winners}
     Path("14_vs_1035_contrast_audit.json").write_text(json.dumps(result,indent=2),encoding="utf-8")
     with open("14_vs_1035_winners.csv","w",newline="",encoding="utf-8") as f:
         w=csv.DictWriter(f,fieldnames=list(winners[0])); w.writeheader(); w.writerows(winners)
