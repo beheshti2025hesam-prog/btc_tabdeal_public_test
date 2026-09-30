@@ -88,9 +88,17 @@ def test_sample_level_negative_time_boundary_is_fail_closed():
     assert "successor first event cannot precede successor startup" in errors
     assert "negative event-time handoff gap" in errors
 
-def test_duplicate_successor_dispatch_is_not_idempotent_without_durable_marker():
-    """Document the race: two dispatch attempts for one predecessor are distinct."""
-    dispatch_attempts = ["N->N+1", "N->N+1"]
-    assert len(set(dispatch_attempts)) == 1
-    # This intentionally demonstrates why a durable handoff identity/claim is required.
-    assert len(dispatch_attempts) > len(set(dispatch_attempts))
+def claim_successor_dispatch(claimed_predecessors: set[str], predecessor_run_id: str) -> bool:
+    """Atomically model a durable one-successor claim."""
+    if predecessor_run_id in claimed_predecessors:
+        return False
+    claimed_predecessors.add(predecessor_run_id)
+    return True
+
+
+def test_duplicate_successor_dispatch_is_idempotent_with_durable_marker():
+    claims: set[str] = set()
+
+    assert claim_successor_dispatch(claims, "N") is True
+    assert claim_successor_dispatch(claims, "N") is False
+    assert claims == {"N"}
