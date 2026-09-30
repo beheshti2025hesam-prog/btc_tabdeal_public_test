@@ -5,6 +5,7 @@ on:
     branches:
       - backtest-cost-slippage-boundary-v1
       - contrast-audit-14-vs-1035-v1
+      - independence-adjusted-evidence-v1
   pull_request:
     branches:
       - main
@@ -22,13 +23,15 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python -m pip install pytest
-      - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py
+      - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py tests/backtest/test_independence_adjusted_evidence.py
       - name: Run real-data 8-fold OOS cost matrix
         run: python scripts/run_real_oos_cost_matrix.py --csv data/trades.csv --output oos_cost_matrix_evidence.json
       - name: Run 14-vs-1035 contrast audit
         run: python scripts/contrast_audit_14_vs_1035.py
       - name: Reconcile 14-vs-1035 evidence
         run: python scripts/build_14_vs_1035_evidence.py
+      - name: Run independence-adjusted evidence
+        run: python scripts/independence_adjusted_evidence.py
       - name: Upload contrast audit
         uses: actions/upload-artifact@v4
         with:
@@ -48,4 +51,10 @@ jobs:
         with:
           name: 14-vs-1035-reconciled-evidence
           path: 14_vs_1035_evidence.json
+          if-no-files-found: error
+      - name: Upload independence-adjusted evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: independence-adjusted-evidence
+          path: independence_adjusted_evidence.json
           if-no-files-found: error
