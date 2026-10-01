@@ -20,8 +20,8 @@ def git_blob_sha(raw):
     return hashlib.sha1(header + raw).hexdigest()
 
 def snapshot_raw_bytes(snapshot):
-    commit = snapshot["parent_checkpoint"]
-    out = subprocess.run(["git","show",commit+":data/trades.csv"], cwd=ROOT, check=True, capture_output=True)
+    blob = snapshot["active_blob"]
+    out = subprocess.run(["git","cat-file","blob",blob], cwd=ROOT, check=True, capture_output=True)
     return out.stdout
 
 def true_range(prev_close, high, low):
