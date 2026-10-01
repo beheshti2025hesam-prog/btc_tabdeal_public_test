@@ -48,6 +48,38 @@ def atr(highs,lows,closes,period):
             out[i]=(out[i-1]*(period-1)+trs[i])/period
     return out
 
+def sha256_file(p):
+    h=hashlib.sha256()
+    with p.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024*1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+def aggregate_1m_bytes(raw):
+    """Aggregate immutable snapshot bytes without touching working-tree data."""
+    return aggregate_1m_stream(io.StringIO(raw.decode("utf-8")))
+
+def aggregate_1m_stream(stream):
+    """Aggregate raw trades deterministically from a text stream."""
+    required_sets=[("timestamp","price","quantity"),("time","price","quantity"),("timestamp","price","amount")]
+    reader=csv.DictReader(stream)
+    fields=reader.fieldnames or []
+    chosen=None
+    for ts,p,q in required_sets:
+        if ts in fields and p in fields and q in fields:
+            chosen=(ts,p,q); break
+    if chosen is None:
+        raise RuntimeError("FAIL_CLOSED: raw trades lacks an unambiguous timestamp/price/quantity schema")
+    buckets={}
+    for row in reader:
+        ts_s,price_s,qty_s=(row[x] for x in chosen)
+        try: ts=float(ts_s); price=float(price_s); qty=float(qty_s)
+        except (ValueError,TypeError): continue
+        minute=int(ts//60) if ts>1e11 else int(ts*1000//60000)
+        b=buckets.setdefault(minute,{"t":minute,"o":price,"h":price,"l":price,"c":price,"v":0.0})
+        b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
+    return [buckets[k] for k in sorted(buckets)]
+
 def aggregate_1m(path):
     """Aggregate raw trades deterministically. Column aliases are accepted only
     when unambiguous; missing required fields fail closed."""
