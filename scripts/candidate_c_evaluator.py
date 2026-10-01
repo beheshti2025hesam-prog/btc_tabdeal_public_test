@@ -122,7 +122,8 @@ def main():
     if raw_sha!=s["active_blob"]:
         raise RuntimeError(f"FAIL_CLOSED: snapshot raw blob mismatch: {raw_sha}")
     bars=aggregate_1m_bytes(raw_bytes)
-    if len(bars)<8*(800+400): raise RuntimeError("FAIL_CLOSED: insufficient bars for declared 8 folds")
+    required_bars=800+(8-1)*400+400
+    if len(bars)<required_bars: raise RuntimeError(f"FAIL_CLOSED: insufficient bars for declared 8 folds (need {required_bars}, got {len(bars)})")
     closes=[x["c"] for x in bars]; highs=[x["h"] for x in bars]; lows=[x["l"] for x in bars]
     e20,e50=ema(closes,20),ema(closes,50); a14=atr(highs,lows,closes,14)
     folds=[]
