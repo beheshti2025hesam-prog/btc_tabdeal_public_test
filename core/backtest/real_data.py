@@ -172,6 +172,7 @@ class RealDataBacktest:
         test_size: int,
         step_size: int | None = None,
         embargo_size: int = 0,
+        max_folds: int | None = None,
     ) -> WalkForwardResult:
         """Run strict OOS walk-forward measurement on this real-data pipeline.
 
@@ -185,4 +186,4 @@ class RealDataBacktest:
             test_size=test_size,
             step_size=step_size,
             embargo_size=embargo_size,
-        ).run(self._last_observations)
+        ).run(self._last_observations, max_folds=max_folds)
