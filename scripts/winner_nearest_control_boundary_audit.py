@@ -68,19 +68,23 @@ def build_rows():
         decision=strat.evaluate(BaselineStrategyInput(features=fs))
         rd=risk.evaluate(RiskInput(decision=decision,equity=1000.0))
         evaluated=decision in (BaselineDecision.LONG,BaselineDecision.SHORT) and rd is RiskDecision.ALLOW_SIGNAL
-        if not evaluated: continue
         sign=1 if decision is BaselineDecision.LONG else -1
-        gross=sign*(n.close-c.close)/c.close
+        gross=sign*(n.close-c.close)/c.close if evaluated else None
         obs.append({"timestamp":c.end.isoformat(),"timestamp_dt":c.end,"sequence_first":s0,
                     "sequence_last":s1,"entry_price":c.close,"exit_price":n.close,
                     "gross_return":gross,"direction":decision.value,
-                    "buy_ratio":br,"buy_sell_delta":delta,"trade_count":count,"candle_index":i})
+                    "evaluated":evaluated,"buy_ratio":br,"buy_sell_delta":delta,
+                    "trade_count":count,"candle_index":i})
     rows=[]
+    # Fold boundaries are defined over the complete chronological observation
+    # sequence, not over the filtered evaluated subset. This must match the
+    # fixed 8-fold OOS protocol used by contrast_audit_14_vs_1035.py.
     for fold in range(FOLDS):
         a=fold*STEP+TRAIN; b=a+TEST; test=obs[a:b]
-        total=sum(r["gross_return"] for r in test)
+        ev=[r for r in test if r["evaluated"]]
+        total=sum(r["gross_return"] for r in ev)
         regime="uptrend" if total>=.01 else "downtrend" if total<=-.01 else "range"
-        for r in test:
+        for r in ev:
             x=dict(r); x["fold_index"]=fold; x["fold_regime"]=regime; rows.append(x)
     return rows,invalid,len(trades),len(candles)
 
