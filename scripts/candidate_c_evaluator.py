@@ -4,7 +4,7 @@
 Research-only. The script fails closed unless the frozen definition/snapshot lineage
 is present and matches. No Rule-A evaluator is imported or reused.
 """
-import csv, json, hashlib, math
+import csv, json, hashlib, math, subprocess, io
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -13,12 +13,16 @@ DEF=ROOT/"evidence/candidate_c_definition_v1.json"
 SNAP=ROOT/"evidence/candidate_c_fresh_snapshot_20261001.json"
 RAW=ROOT/"data/trades.csv"
 
-def sha256_file(p):
-    raw=p.read_bytes()
-    header=f"blob {len(raw)}\\0".encode()
-    return hashlib.sha1(header+raw).hexdigest()
-
 def load_json(p): return json.loads(p.read_text())
+
+def git_blob_sha(raw):
+    header = ("blob " + str(len(raw)) + chr(0)).encode()
+    return hashlib.sha1(header + raw).hexdigest()
+
+def snapshot_raw_bytes(snapshot):
+    commit = snapshot["parent_checkpoint_commit"]
+    out = subprocess.run(["git","show",commit+":data/trades.csv"], cwd=ROOT, check=True, capture_output=True)
+    return out.stdout
 
 def true_range(prev_close, high, low):
     if prev_close is None: return high-low
@@ -81,10 +85,11 @@ def validate_definition(d,s):
 def main():
     d,s=load_json(DEF),load_json(SNAP)
     validate_definition(d,s)
-    raw_sha=sha256_file(RAW)
+    raw_bytes=snapshot_raw_bytes(s)
+    raw_sha=git_blob_sha(raw_bytes)
     if raw_sha!=s["active_blob"]:
-        raise RuntimeError(f"FAIL_CLOSED: active blob mismatch: {raw_sha}")
-    bars=aggregate_1m(RAW)
+        raise RuntimeError(f"FAIL_CLOSED: snapshot raw blob mismatch: {raw_sha}")
+    bars=aggregate_1m_bytes(raw_bytes)
     if len(bars)<8*(800+400): raise RuntimeError("FAIL_CLOSED: insufficient bars for declared 8 folds")
     closes=[x["c"] for x in bars]; highs=[x["h"] for x in bars]; lows=[x["l"] for x in bars]
     e20,e50=ema(closes,20),ema(closes,50); a14=atr(highs,lows,closes,14)
