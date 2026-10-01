@@ -1,0 +1,43 @@
+name: HES Trade Agent — Candidate Rule A Research v1
+
+on:
+  push:
+    branches:
+      - signal-construction-research-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-candidate-rule-a-research-v1
+  cancel-in-progress: false
+
+jobs:
+  deterministic-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run Rule A deterministic tests
+        run: pytest -q tests/research/test_candidate_rule_a_research_v1.py
+      - name: Verify research-only boundary
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("docs/research/candidate_rule_registration_v1.md").read_text()
+          for marker in ("research-only", "NO_TRADE", "promotion", "live execution", "wallet"):
+              assert marker in p
+          print("RULE_A_RESEARCH_BOUNDARY_VALID")
+          PY
