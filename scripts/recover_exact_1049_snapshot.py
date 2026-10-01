@@ -21,7 +21,8 @@ from core.risk.boundary import RiskDecision, RiskInput, RiskPolicy
 from core.strategy.baseline import BaselineDecision, BaselineStrategy, BaselineStrategyInput
 
 SOURCE_SHA = "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
-EXPECTED_RAW_ROWS = 127201  # Mechanical recount of immutable source blob 1a44d52...; the prior 129,920 pin is not present in this blob and is therefore rejected.
+EXPECTED_RAW_ROWS = 127201
+EXPECTED_FROZEN_OBSERVATIONS = 4062
 EXPECTED_FOLDS = 8
 EXPECTED_EVALUATED = 1049
 EXPECTED_FOLD_EVALUATED = [120,132,135,137,138,127,126,134]
@@ -145,9 +146,23 @@ def main():
         rd=risk.evaluate(RiskInput(decision=d,equity=1000.0))
         all_rows.append((candle,nxt,d,rd))
 
-    # Sanity contract from the frozen audit.
-    if len(all_rows) != 4062:
-        raise AssertionError(f"chronological observation count mismatch: {len(all_rows)}")
+    # The raw blob contains a later tail beyond the frozen 8-fold OOS
+    # observation universe. The historical evidence contract covers the
+    # deterministic first 4,062 chronological observations; the 8 folds use
+    # the first 4,000 of that frozen universe and leave the final 62 as
+    # post-protocol tail. Do not discard or rewrite the raw tail.
+    if len(all_rows) < EXPECTED_FROZEN_OBSERVATIONS:
+        raise AssertionError(
+            f"chronological observation count below frozen contract: {len(all_rows)} "
+            f"< {EXPECTED_FROZEN_OBSERVATIONS}"
+        )
+    frozen_rows = all_rows[:EXPECTED_FROZEN_OBSERVATIONS]
+    expected_frozen_last = "2026-09-27T17:30:00+00:00"
+    if frozen_rows[-1][0].end.isoformat() != expected_frozen_last:
+        raise AssertionError(
+            "frozen observation prefix boundary mismatch: "
+            f"{frozen_rows[-1][0].end.isoformat()} != {expected_frozen_last}"
+        )
 
     selected=[]
     start=0
@@ -158,7 +173,7 @@ def main():
         if test_end > len(all_rows): break
         fold_eval=0
         for idx in range(test_start,test_end):
-            candle,nxt,d,rd=all_rows[idx]
+            candle,nxt,d,rd=frozen_rows[idx]
             if rd is not RiskDecision.ALLOW_SIGNAL: continue
             gross=((nxt.close-candle.close)/candle.close)*(1.0 if d is BaselineDecision.LONG else -1.0)
             key=(candle.symbol,int(candle.start.timestamp()))
@@ -194,7 +209,8 @@ def main():
         "source_blob_sha":SOURCE_SHA,
         "raw_rows":raw_rows,
         "invalid_rows":invalid,
-        "chronological_observations":len(all_rows),
+        "chronological_observations":EXPECTED_FROZEN_OBSERVATIONS,
+        "available_chronological_observations":len(all_rows),
         "folds":EXPECTED_FOLDS,
         "fold_evaluated":fold_counts,
         "evaluated_oos":len(selected),
