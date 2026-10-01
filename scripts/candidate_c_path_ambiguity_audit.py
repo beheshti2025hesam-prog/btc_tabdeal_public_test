@@ -18,7 +18,7 @@ SNAP = ROOT / "evidence/candidate_c_fresh_snapshot_20261001.json"
 def load(p): return json.loads(p.read_text())
 
 def blob_sha(raw):
-    return hashlib.sha1((f"blob {len(raw)}\\0").encode()+raw).hexdigest()
+    return hashlib.sha1((f"blob {len(raw)}" + chr(0)).encode() + raw).hexdigest()
 
 def raw_from_snapshot(s):
     raw = subprocess.run(["git","cat-file","blob",s["active_blob"]],
@@ -82,25 +82,29 @@ def main():
     e20,e50,a14=ema(c,20),ema(c,50),atr(h,l,c,14)
     ambiguities=[]
     signals=0
+    MAX_HOLD_BARS=int(d.get("max_holding_bars",30))
     for t in range(20,len(b)-1):
         prior_hi=max(h[t-20:t]); prior_lo=min(l[t-20:t])
         long_ok=c[t]>prior_hi and e20[t]>e50[t]
         short_ok=c[t]<prior_lo and e20[t]<e50[t]
         if not (long_ok or short_ok) or not math.isfinite(a14[t]) or a14[t] <= 0: continue
+        entry_idx=t+1
+        if entry_idx >= len(b): continue
         signals += 1
-        entry=b[t+1]["o"]
+        entry=b[entry_idx]["o"]
         if long_ok:
-            sl=entry-1.5*a14[t]; tp=entry+2.0*a14[t]
-            hit_sl=b[t+1]["l"]<=sl; hit_tp=b[t+1]["h"]>=tp
-            side="LONG"
+            sl=entry-1.5*a14[t]; tp=entry+2.0*a14[t]; side="LONG"
         else:
-            sl=entry+1.5*a14[t]; tp=entry-2.0*a14[t]
-            hit_sl=b[t+1]["h"]>=sl; hit_tp=b[t+1]["l"]<=tp
-            side="SHORT"
-        if hit_sl and hit_tp:
-            ambiguities.append({"signal_index":t,"entry_index":t+1,"side":side,
-                                 "signal_time":b[t]["t"],"entry_time":b[t+1]["t"],
-                                 "entry":entry,"stop":sl,"target":tp})
+            sl=entry+1.5*a14[t]; tp=entry-2.0*a14[t]; side="SHORT"
+        end_idx=min(len(b)-1, entry_idx+MAX_HOLD_BARS-1)
+        for j in range(entry_idx,end_idx+1):
+            hit_sl=(b[j]["l"]<=sl) if side=="LONG" else (b[j]["h"]>=sl)
+            hit_tp=(b[j]["h"]>=tp) if side=="LONG" else (b[j]["l"]<=tp)
+            if hit_sl and hit_tp:
+                ambiguities.append({"signal_index":t,"entry_index":entry_idx,"bar_index":j,"side":side,
+                                     "signal_time":b[t]["t"],"entry_time":b[entry_idx]["t"],"ambiguous_bar_time":b[j]["t"],
+                                     "entry":entry,"stop":sl,"target":tp})
+                break
     artifact={
       "artifact_id":"CANDIDATE_C_PRE_OOS_PATH_AMBIGUITY_AUDIT_2026-10-01",
       "status":"BLOCKED_PENDING_EXPLICIT_SAME_BAR_EXIT_POLICY" if ambiguities else "NO_PATH_AMBIGUITY_DETECTED",
