@@ -1,0 +1,103 @@
+name: HES Trade Agent — Candidate Performance Study v1
+
+on:
+  push:
+    branches:
+      - candidate-definition-fresh-snapshot-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-candidate-performance-study
+  cancel-in-progress: false
+
+jobs:
+  candidate-performance-study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+      HES_FROZEN_CSV: /tmp/hes_fresh_trades.csv
+    steps:
+      - name: Checkout pinned candidate branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - run: python -m pip install pytest
+
+      - name: Materialize immutable fresh snapshot
+        env:
+          FRESH_BLOB_SHA: b296b1c95f075518bea0b56fd11bbf5f0f613a04
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${{ github.token }}"             "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/$FRESH_BLOB_SHA"             > /tmp/fresh_blob.json
+          python - <<'PY'
+          import base64, json, os
+          p="/tmp/fresh_blob.json"
+          d=json.load(open(p))
+          expected=os.environ["FRESH_BLOB_SHA"]
+          assert d["sha"] == expected
+          raw=base64.b64decode(d["content"])
+          assert raw
+          open("/tmp/hes_fresh_trades.csv","wb").write(raw)
+          PY
+
+      - name: Verify fresh snapshot contract
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          p=Path("/tmp/hes_fresh_trades.csv")
+          data=p.read_bytes()
+          actual=hashlib.sha1(f"blob {len(data)}\0".encode()+data).hexdigest()
+          assert actual == "b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+          assert p.stat().st_size > 0
+          print("FRESH_SNAPSHOT_LOCK_VALID")
+          PY
+
+      - name: Build fixed-boundary OOS evidence
+        run: python scripts/contrast_audit_14_vs_1035.py
+
+      - name: Run candidate performance study
+        run: python scripts/candidate_performance_study_v1.py
+
+      - name: Validate candidate performance study
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("candidate_performance_study_v1.json"))
+          assert d["status"] == "CANDIDATE_PERFORMANCE_STUDY_REVIEW_ONLY"
+          assert d["candidate_id"] == "CANDIDATE_RESEARCH_V1"
+          assert d["lineage"]["snapshot_data_blob_sha"] == "b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+          assert d["lineage"]["snapshot_source_commit"] == "86631f2522aa74a38cfa21fa28afe8d49fbc5f20"
+          assert d["population"]["evaluated_oos"] == 1049
+          assert d["population"]["winners_gt_14bps"] == 14
+          assert d["population"]["controls_le_14bps"] == 1035
+          assert d["temporal_evidence"]["supported_fold_count"] == 4
+          assert d["claim_boundary"]["threshold_tuned"] is False
+          assert d["claim_boundary"]["model_fitted"] is False
+          assert d["claim_boundary"]["signal_created"] is False
+          assert d["claim_boundary"]["promotion_decision"] is False
+          assert d["claim_boundary"]["live_execution"] is False
+          print("CANDIDATE_PERFORMANCE_STUDY_VALID")
+          PY
+
+      - name: Upload candidate performance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-performance-study-v1
+          path: |
+            candidate_performance_study_v1.json
+            14_vs_1035_contrast_audit.json
+          if-no-files-found: error
