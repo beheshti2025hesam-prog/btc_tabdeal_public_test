@@ -1,0 +1,23 @@
+name: HES Trade Agent - 1049 Snapshot Lineage Recovery
+
+on:
+  push:
+    branches: ["recover-1049-snapshot-lineage-v1"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - name: Run fail-closed 1049 recovery probe
+        run: python scripts/recover_1049_snapshot_lineage.py
