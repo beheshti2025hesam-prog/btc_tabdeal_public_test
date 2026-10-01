@@ -22,29 +22,6 @@ EXPECTED = {
 }
 THRESHOLD = 0.0014
 
-def ranks(values):
-    order = sorted(range(len(values)), key=lambda i: values[i])
-    out = [0.0] * len(values)
-    i = 0
-    while i < len(order):
-        j = i
-        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
-            j += 1
-        rank = (i + j + 2) / 2.0
-        for k in range(i, j + 1):
-            out[order[k]] = rank
-        i = j + 1
-    return out
-
-def auc(winners, controls):
-    if not winners or not controls:
-        return None
-    combined = winners + controls
-    r = ranks(combined)
-    n1, n0 = len(winners), len(controls)
-    u = sum(r[:n1]) - n1 * (n1 + 1) / 2
-    return u / (n1 * n0)
-
 def smd(a, b):
     if len(a) < 2 or len(b) < 2:
         return None
@@ -52,21 +29,28 @@ def smd(a, b):
     pooled = math.sqrt((va + vb) / 2)
     return (statistics.fmean(a) - statistics.fmean(b)) / pooled if pooled else 0.0
 
+def kish_ess(counts):
+    total = sum(counts)
+    denom = sum(n * n for n in counts)
+    return (total * total / denom) if denom else 0.0
+
 def main():
     d = json.loads(SOURCE.read_text(encoding="utf-8"))
     p = d["protocol"]
     assert p["snapshot_data_blob_sha"] == EXPECTED["blob"]
     assert p["snapshot_source_commit"] == EXPECTED["commit"]
     assert p["gross_threshold"] == THRESHOLD
-    winners = d["winners"]
-    assert len(winners) == 14
-    assert d["counts"] == {"winners_gt_14bps": 14, "controls_le_14bps": 1035}
 
-    controls = []
-    # Reconstruct controls from the immutable audit's feature-level counts is not
-    # sufficient for rank association, so this study intentionally uses the
-    # winner/control feature populations emitted by the audit's contrast section
-    # only for fixed, descriptive SMDs and uses winner-only temporal diagnostics.
+    winners = d["winners"]
+    counts = d["counts"]
+    evaluated = d["population"]["evaluated_oos"]
+    winner_n = counts["winners_gt_14bps"]
+    control_n = counts["controls_le_14bps"]
+
+    assert len(winners) == winner_n
+    assert winner_n + control_n == evaluated
+    assert winner_n > 0
+
     feature_results = {}
     for name, key in FEATURES.items():
         c = d["feature_contrast"][key]["controls"]
@@ -83,9 +67,11 @@ def main():
             "interpretation": "descriptive separation only; no predictive threshold inferred",
         }
 
-    fold = d["categorical"]["fold_winners"]
-    supported = [int(k) for k, v in fold.items() if v > 0]
-    fold_share = max(fold.values()) / len(winners)
+    fold = {str(k): v for k, v in d["categorical"]["fold_winners"].items()}
+    supported = sorted(int(k) for k, v in fold.items() if v > 0)
+    fold_counts = [v for v in fold.values() if v > 0]
+    fold_share = max(fold_counts) / winner_n if fold_counts else 0.0
+
     result = {
         "status": "CANDIDATE_PERFORMANCE_STUDY_REVIEW_ONLY",
         "candidate_id": "CANDIDATE_RESEARCH_V1",
@@ -94,9 +80,9 @@ def main():
             "snapshot_source_commit": EXPECTED["commit"],
         },
         "population": {
-            "evaluated_oos": 1049,
-            "winners_gt_14bps": 14,
-            "controls_le_14bps": 1035,
+            "evaluated_oos": evaluated,
+            "winners_gt_14bps": winner_n,
+            "controls_le_14bps": control_n,
             "fixed_cost_boundary": "14bps gross threshold inherited from prior evidence; not tuned",
         },
         "candidate_features": feature_results,
@@ -105,12 +91,12 @@ def main():
             "supported_fold_count": len(supported),
             "total_folds": 8,
             "largest_winner_fold_share": fold_share,
-            "kish_ess_approx": 2.9696969696969697,
+            "kish_ess_approx": kish_ess(fold_counts),
             "winner_counts_by_fold": fold,
         },
         "interpretation": {
             "status": "DESCRIPTIVE_ONLY",
-            "claim": "Candidate features show the previously observed descriptive separation on the fixed winner/control population, but the small and temporally clustered winner population limits independent evidence.",
+            "claim": "Fresh-snapshot candidate performance is descriptive evidence only; winner concentration across temporal folds limits independent evidence.",
             "predictive_performance_established": False,
             "signal_quality_established": False,
             "threshold_optimized": False,
@@ -127,11 +113,12 @@ def main():
     OUT.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps({
         "status": result["status"],
-        "evaluated_oos": 1049,
-        "winners": 14,
-        "controls": 1035,
+        "evaluated_oos": evaluated,
+        "winners": winner_n,
+        "controls": control_n,
         "supported_folds": supported,
         "largest_winner_fold_share": fold_share,
+        "kish_ess_approx": result["temporal_evidence"]["kish_ess_approx"],
     }, indent=2))
 
 if __name__ == "__main__":
