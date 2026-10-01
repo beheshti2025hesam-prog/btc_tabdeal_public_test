@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/candidate_c_evaluator.py'
+      - 'scripts/candidate_c_path_ambiguity_audit.py'
       - 'evidence/candidate_c_definition_v1.json'
       - 'evidence/candidate_c_fresh_snapshot_20261001.json'
   workflow_dispatch:
@@ -19,5 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Execute Candidate C fail-closed gate
+      - name: Execute Candidate C fail-closed contract gate
         run: python scripts/candidate_c_evaluator.py
+      - name: Execute Candidate C pre-OOS path ambiguity audit
+        run: python scripts/candidate_c_path_ambiguity_audit.py
