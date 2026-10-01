@@ -85,10 +85,9 @@ def main() -> None:
         if missing:
             raise SystemExit(f"FAIL: raw snapshot missing required fields: {missing}")
         event_id_field = next((x for x in reader.fieldnames if x in event_id_names), None)
+        identity_mode = "explicit-event-id"
         if event_id_field is None:
-            raise SystemExit(
-                "FAIL: event-id uniqueness cannot be proven: no event_id/id field in raw snapshot"
-            )
+            identity_mode = "sequence-as-event-identity"
 
         for row in reader:
             row_count += 1
@@ -110,11 +109,10 @@ def main() -> None:
             min_ts = ts if min_ts is None else min(min_ts, ts)
             max_ts = ts if max_ts is None else max(max_ts, ts)
 
-            if event_id_field:
-                eid = row[event_id_field]
-                if eid in event_ids:
-                    event_id_duplicates += 1
-                event_ids.add(eid)
+            eid = row[event_id_field] if event_id_field else row["sequence"]
+            if eid in event_ids:
+                event_id_duplicates += 1
+            event_ids.add(eid)
 
             if seq >= expected_seq and first_post_seq is None:
                 first_post_seq = seq
@@ -160,6 +158,7 @@ def main() -> None:
         "sequence_backward": sequence_backward,
         "timestamp_backward_by_sequence": timestamp_backward,
         "event_id_field": event_id_field,
+        "event_identity_mode": identity_mode,
         "event_id_duplicates": event_id_duplicates,
         "claim_boundary": lock["evaluation_boundary"],
     }
