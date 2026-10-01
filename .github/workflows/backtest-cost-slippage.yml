@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - backtest-cost-slippage-boundary-v1
+      - snapshot-integrity-oos-lineage-v1
   pull_request:
     branches:
       - main
