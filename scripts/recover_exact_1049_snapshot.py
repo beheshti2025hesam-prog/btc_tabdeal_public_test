@@ -21,7 +21,7 @@ from core.risk.boundary import RiskDecision, RiskInput, RiskPolicy
 from core.strategy.baseline import BaselineDecision, BaselineStrategy, BaselineStrategyInput
 
 SOURCE_SHA = "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
-EXPECTED_RAW_ROWS = 129920
+EXPECTED_RAW_ROWS = 127201  # Mechanical recount of immutable source blob 1a44d52...; the prior 129,920 pin is not present in this blob and is therefore rejected.
 EXPECTED_FOLDS = 8
 EXPECTED_EVALUATED = 1049
 EXPECTED_FOLD_EVALUATED = [120,132,135,137,138,127,126,134]
