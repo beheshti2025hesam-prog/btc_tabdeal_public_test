@@ -1,0 +1,33 @@
+{
+  "artifact": "HES Trade Agent Fresh Snapshot Lineage Lock v1",
+  "status": "locked-for-controlled-evaluation",
+  "source": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "source_ref": "main",
+    "source_commit": "583dfeb3e7cd09b2cdfdbabcd18604d3d6e608f6",
+    "trades_blob_sha": "b0e6667df6c9bfcbffffd04229702a9c6c694964"
+  },
+  "frozen_boundary": {
+    "first_independent_sequence": 38710284291,
+    "first_independent_timestamp_utc": "2026-09-28T19:08:56.951Z"
+  },
+  "snapshot_head": {
+    "max_sequence": 39334652373,
+    "max_timestamp_utc": "2026-10-01T02:43:19.465Z"
+  },
+  "lineage_rule": {
+    "sequence_monotonicity_required": true,
+    "timestamp_monotonicity_by_sequence_required": true,
+    "event_id_uniqueness_required": true,
+    "frozen_evidence_reuse": false,
+    "construction_data": "fresh out-of-evidence data only"
+  },
+  "evaluation_boundary": {
+    "candidate_evaluation_allowed": true,
+    "signal_creation": false,
+    "signal_validation": false,
+    "promotion_decision": false,
+    "live_execution": false
+  },
+  "note": "This lock records the independently identified post-boundary lineage and snapshot head. Candidate evaluation must validate the raw snapshot integrity before producing any performance claim."
+}
