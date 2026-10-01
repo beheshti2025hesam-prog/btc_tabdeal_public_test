@@ -6,7 +6,6 @@ No signal construction, tuning, model fitting, or live execution is performed.
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import subprocess
 from datetime import datetime
@@ -17,10 +16,16 @@ RESULT = Path("research/snapshot_raw_replay_result_v1.json")
 TRADES = Path("data/trades.csv")
 
 
-def git_blob_sha(path: Path) -> str:
+def locked_snapshot_blob_sha(source_commit: str) -> str:
     return subprocess.check_output(
-        ["git", "hash-object", str(path)], text=True
+        ["git", "rev-parse", f"{source_commit}:data/trades.csv"], text=True
     ).strip()
+
+
+def load_locked_snapshot(source_commit: str) -> bytes:
+    return subprocess.check_output(
+        ["git", "show", f"{source_commit}:data/trades.csv"]
+    )
 
 
 def parse_ts(value: str) -> datetime:
@@ -28,18 +33,26 @@ def parse_ts(value: str) -> datetime:
 
 
 def main() -> None:
-    if not LOCK.exists() or not TRADES.exists():
-        raise SystemExit("FAIL: required lineage lock or raw snapshot missing")
+    if not LOCK.exists():
+        raise SystemExit("FAIL: required lineage lock missing")
 
     lock = json.loads(LOCK.read_text())
     source = lock["source"]
     boundary = lock["frozen_boundary"]
-
-    actual_blob = git_blob_sha(TRADES)
+    source_commit = source["source_commit"]
     expected_blob = source["trades_blob_sha"]
+
+    try:
+        actual_blob = locked_snapshot_blob_sha(source_commit)
+        snapshot_bytes = load_locked_snapshot(source_commit)
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"FAIL: locked snapshot source commit is unavailable: {source_commit}"
+        ) from exc
+
     if actual_blob != expected_blob:
         raise SystemExit(
-            f"FAIL: trades blob mismatch: expected {expected_blob}, got {actual_blob}"
+            f"FAIL: lineage contract drift: source commit {source_commit} resolves to blob {actual_blob}, expected {expected_blob}"
         )
 
     expected_seq = int(boundary["first_independent_sequence"])
@@ -64,7 +77,8 @@ def main() -> None:
     min_ts = None
     max_ts = None
 
-    with TRADES.open(newline="", encoding="utf-8") as fh:
+    import io
+    with io.StringIO(snapshot_bytes.decode("utf-8"), newline="") as fh:
         reader = csv.DictReader(fh)
         fields = set(reader.fieldnames or [])
         missing = sorted(required - fields)
@@ -132,6 +146,8 @@ def main() -> None:
         "source_commit": source["source_commit"],
         "expected_trades_blob_sha": expected_blob,
         "actual_trades_blob_sha": actual_blob,
+        "snapshot_read_mode": "locked-source-commit",
+        "working_tree_snapshot_not_used": True,
         "row_count": row_count,
         "min_sequence": min_seq,
         "max_sequence": max_seq,
