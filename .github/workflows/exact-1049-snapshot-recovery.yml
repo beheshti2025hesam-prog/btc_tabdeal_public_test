@@ -16,6 +16,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify checked-out raw blob lineage
+        run: |
+          set -euo pipefail
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "TREE_BLOB=$(git ls-tree HEAD -- data/trades.csv | awk '{print $3}')"
+          echo "WORKTREE_BLOB=$(git hash-object data/trades.csv)"
+          echo "BYTES=$(wc -c < data/trades.csv)"
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
