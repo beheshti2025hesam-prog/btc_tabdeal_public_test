@@ -6,7 +6,30 @@ source_commit: e920d820bee06f141da355286fa8267516f2ec5b
 source_path: data/trades.csv
 source_blob_sha: 9950615e6001d195bb651ca57708ff11f63ed56b
 snapshot_raw_path: data/snapshots/2026-10-01/raw/trades.csv
+snapshot_commit: c0fa3a79448829e9c6a44a4bb494e78440f3b89d
 lineage_rule: exact_existing_git_blob_reuse
 copy_rule: no_reserialization_no_numeric_recomputation
-integrity_gate: pending
-replay_gate: pending
+
+integrity:
+  status: PASS
+  row_count: 123348
+  malformed_rows: 0
+  duplicate_sequence: 0
+  sequence_backward: 0
+  timestamp_backward: 0
+  first_sequence: 38212993838
+  last_sequence: 39437919274
+  first_timestamp: "2026-09-26 23:20:53.398000+00:00"
+  last_timestamp: "2026-10-01 12:04:57.384000+00:00"
+
+raw_replay:
+  status: PASS
+  method: deterministic_reparse_of_exact_snapshot_blob
+  row_count: 123348
+  first_sequence: 38212993838
+  last_sequence: 39437919274
+  replay_source_blob_sha: 9950615e6001d195bb651ca57708ff11f63ed56b
+
+candidate_performance_study:
+  status: NOT_RUN
+  reason: performance study remains downstream of frozen lineage gates
