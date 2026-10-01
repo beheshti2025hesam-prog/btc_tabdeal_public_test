@@ -1,0 +1,46 @@
+name: HES Trade Agent — Controlled Candidate Performance Study v1
+
+on:
+  push:
+    branches:
+      - controlled-candidate-performance-study-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-controlled-candidate-performance-study-v1
+  cancel-in-progress: false
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate research-only protocol
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path("research/controlled_candidate_performance_study_v1.json").read_text())
+          assert p["status"]=="research-only"
+          assert p["frozen_evidence_reuse"] is False
+          assert p["candidate_definition"]["threshold_tuning"] is False
+          assert p["candidate_definition"]["model_fitting"] is False
+          assert p["candidate_definition"]["selection_from_E0_E1_winners"] is False
+          assert p["claim_boundary"] == {
+              "signal_created": False,
+              "signal_validated": False,
+              "promotion_decision": False,
+              "live_execution": False,
+          }
+          print("CONTROLLED_CANDIDATE_PROTOCOL_VALID")
+          PY
