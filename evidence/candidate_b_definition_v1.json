@@ -1,0 +1,46 @@
+{
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_B",
+  "candidate_version": "B-v1",
+  "status": "DEFINITION_FROZEN_PENDING_FRESH_SNAPSHOT",
+  "research_only": true,
+  "production_signal": false,
+  "promotion": false,
+  "live_execution": false,
+  "wallet_operations": false,
+  "definition_principles": {
+    "independence_from_rule_a": true,
+    "fresh_snapshot_required": true,
+    "oos_results_from_rule_a_reused_for_definition": false,
+    "post_oos_tuning": false,
+    "rescue_optimization": false,
+    "parameter_tuning": false,
+    "model_fitting": false
+  },
+  "evaluation_contract": {
+    "deterministic": true,
+    "walk_forward": true,
+    "oos_required": true,
+    "fold_integrity_required": true,
+    "timestamp_embargo_required": true,
+    "lineage_required": true,
+    "cost_turnover_analysis_required": true,
+    "promotion_gate_required": true
+  },
+  "sequence": [
+    "freeze_definition",
+    "capture_fresh_snapshot",
+    "verify_snapshot_lineage",
+    "run_deterministic_oos_walk_forward",
+    "audit_evidence_and_integrity",
+    "evaluate_cost_and_turnover",
+    "formal_checkpoint"
+  ],
+  "safety_boundary": [
+    "No live execution.",
+    "No wallet operations.",
+    "No production promotion.",
+    "Do not merge, rebase, or sync data-engine-v1 with main.",
+    "Do not modify the established progress-percentage methodology."
+  ],
+  "note": "Candidate B is an independent research candidate. Its definition must be frozen before the fresh snapshot is evaluated; evaluation outcomes must not be used retroactively to alter the definition."
+}
