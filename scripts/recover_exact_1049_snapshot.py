@@ -29,7 +29,7 @@ EXPECTED_FOLD_EVALUATED = [120,132,135,137,138,127,126,134]
 
 def git_blob_sha(path: Path) -> str:
     data = path.read_bytes()
-    header = f"blob {len(data)}\\0".encode()
+    header = f"blob {len(data)}\0".encode()
     return hashlib.sha1(header + data).hexdigest()
 
 
