@@ -71,7 +71,9 @@ def aggregate_1m_stream(stream):
     if chosen is None:
         raise RuntimeError("FAIL_CLOSED: raw trades lacks an unambiguous timestamp/price/quantity schema")
     buckets={}
+    row_count=parsed_count=0
     for row in reader:
+        row_count += 1
         ts_s,price_s,qty_s=(row[x] for x in chosen)
         try:
             price=float((price_s or "").strip()); qty=float((qty_s or "").strip())
@@ -82,10 +84,14 @@ def aggregate_1m_stream(stream):
                 ts=datetime.fromisoformat(raw_ts.replace("Z","+00:00")).timestamp()
             if not math.isfinite(ts) or not math.isfinite(price) or not math.isfinite(qty):
                 continue
-        except (ValueError,TypeError,OverflowError): continue
+            parsed_count += 1
+        except (ValueError,TypeError,OverflowError):
+            continue
         minute=int(ts//60)
         b=buckets.setdefault(minute,{"t":minute,"o":price,"h":price,"l":price,"c":price,"v":0.0})
         b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
+    if row_count and parsed_count == 0:
+        raise RuntimeError(f"FAIL_CLOSED: zero parseable raw trades (rows={row_count}, schema={chosen})")
     return [buckets[k] for k in sorted(buckets)]
 
 def aggregate_1m(path):
