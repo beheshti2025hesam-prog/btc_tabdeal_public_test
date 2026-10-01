@@ -1,0 +1,45 @@
+{
+  "artifact": "CANDIDATE_B_SNAPSHOT_LINEAGE_VERIFICATION_2026-10-01",
+  "status": "LINEAGE_VERIFIED_EXECUTION_GATED",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_B",
+  "candidate_version": "B-v1",
+  "snapshot_id": "CANDIDATE_B_FRESH_SNAPSHOT_2026-10-01",
+  "snapshot_commit": "e7f1a8c5533bbba1441c323de27514e3492cedba",
+  "snapshot_parent_commit": "becf1d655b8bc3ef84fe24446345dfc83967f514",
+  "definition_freeze_commit": "e7f1a8c5533bbba1441c323de27514e3492cedba",
+  "rule_a_source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+  "lineage_checks": {
+    "snapshot_commit_parent_matches_lock": true,
+    "active_blob_matches": true,
+    "archive_blob_matches": true,
+    "archive_files_expected": 12,
+    "archive_files_verified": 12,
+    "raw_blob_matches_total": 13,
+    "raw_blob_matches_passed": 13,
+    "rule_a_results_reused_for_definition": false,
+    "post_oos_definition_change": false,
+    "random_shuffle": false,
+    "cross_fold_leakage": false,
+    "live_execution": false,
+    "wallet_operations": false,
+    "promotion": false
+  },
+  "verified_active_blob": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+  "boundary": {
+    "fresh_snapshot_is_distinct_from_rule_a": true,
+    "rule_a_snapshot_blob": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+    "candidate_b_active_blob": "eef65102d4671a43f11f9dc311e0617aa220eb64"
+  },
+  "execution_gate": {
+    "deterministic_oos_required": true,
+    "current_status": "BLOCKED",
+    "reason": "The frozen Candidate B branch contains a protocol/independence definition but no executable Candidate B rule specification. Existing candidate-performance scripts on other branches are hard-bound to the older Rule-A-era fresh snapshot blob b296b1c95f075518bea0b56fd11bbf5f0f613a04 and therefore must not be reused against Candidate B's new blob.",
+    "prohibited_actions": [
+      "Do not retarget the old evaluator to the new snapshot after seeing results.",
+      "Do not infer or invent Candidate B parameters.",
+      "Do not tune, rescue, or redefine the candidate.",
+      "Do not merge/rebase/sync data-engine-v1 with main."
+    ],
+    "required_next_step": "Attach a pre-declared executable Candidate B specification to this frozen definition, then run the deterministic 8-fold OOS walk-forward against the verified Candidate B snapshot."
+  }
+}
