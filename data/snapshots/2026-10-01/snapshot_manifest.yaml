@@ -1,0 +1,12 @@
+snapshot_type: mechanical_raw_blob_snapshot
+snapshot_id: 2026-10-01-main-trades-9950615e
+source_repo: beheshti2025hesam-prog/btc_tabdeal_public_test
+source_ref: main
+source_commit: e920d820bee06f141da355286fa8267516f2ec5b
+source_path: data/trades.csv
+source_blob_sha: 9950615e6001d195bb651ca57708ff11f63ed56b
+snapshot_raw_path: data/snapshots/2026-10-01/raw/trades.csv
+lineage_rule: exact_existing_git_blob_reuse
+copy_rule: no_reserialization_no_numeric_recomputation
+integrity_gate: pending
+replay_gate: pending
