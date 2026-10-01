@@ -20,6 +20,8 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      PYTHONPATH: .
     steps:
       - name: Checkout pinned audit branch
         uses: actions/checkout@v4
@@ -34,7 +36,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FRESH_BLOB_SHA: b296b1c95f075518bea0b56fd11bbf5f0f613a04
         run: |
-          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/$FRESH_BLOB_SHA" > /tmp/fresh_blob.json
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/$FRESH_BLOB_SHA" > /tmp/fresh_blob.json
           python - <<'PY'
           import base64,json,os
           d=json.load(open("/tmp/fresh_blob.json"))
