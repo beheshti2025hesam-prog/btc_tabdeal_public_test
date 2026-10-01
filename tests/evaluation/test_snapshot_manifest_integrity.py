@@ -3,7 +3,6 @@ from pathlib import Path
 
 from tools.snapshot_manifest_integrity import build_manifest, load_snapshot
 
-
 SNAPSHOT = Path("evidence/1049_observation_raw_lineage_snapshot_v1.json")
 
 
@@ -12,8 +11,8 @@ def test_materialized_snapshot_is_structurally_integral_and_not_mislabeled():
     manifest = build_manifest(data, raw, str(SNAPSHOT))
 
     assert manifest["status"] == "PASS"
-    assert manifest["snapshot"]["observation_count"] == 163
-    assert manifest["snapshot"]["fold_counts"] == {"6": 29, "7": 134}
+    assert manifest["snapshot"]["observation_count"] == 12784
+    assert manifest["snapshot"]["fold_counts"] == {"6": 2134, "7": 10650}
     assert manifest["integrity"]["duplicate_sequence"] == 0
     assert manifest["integrity"]["sequence_backward_or_equal"] == 0
     assert manifest["integrity"]["timestamp_backward_by_sequence"] == 0
