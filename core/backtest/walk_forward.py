@@ -66,7 +66,13 @@ class WalkForwardValidation:
         self.step_size = step_size or test_size
         self.embargo_size = embargo_size
 
-    def run(self, observations: Iterable[HistoricalObservation]) -> WalkForwardResult:
+    def run(
+        self,
+        observations: Iterable[HistoricalObservation],
+        max_folds: int | None = None,
+    ) -> WalkForwardResult:
+        if max_folds is not None and max_folds <= 0:
+            raise ValueError("max_folds must be positive")
         rows = list(observations)
         HistoricalValidation().run(rows)
 
@@ -105,6 +111,8 @@ class WalkForwardValidation:
             )
 
             fold_index += 1
+            if max_folds is not None and len(folds) >= max_folds:
+                break
             start += self.step_size
 
         if not folds:
