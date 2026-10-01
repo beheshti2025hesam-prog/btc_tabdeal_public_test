@@ -3,9 +3,11 @@
 Fail-closed: source blob SHA, raw row count, fold counts and final population
 must match the frozen evidence contract. No rows are synthesized.
 """
-import csv, hashlib, json
+import csv, hashlib, json, sys
 from datetime import timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.data_engine.candles import TradeCandleAggregator
 from core.data_engine.normalizer import RawDataNormalizer
