@@ -23,9 +23,13 @@ jobs:
       - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py tests/backtest/test_oos_snapshot_integrity.py
       - name: Run real-data 8-fold OOS cost matrix
         run: python scripts/run_real_oos_cost_matrix.py --csv data/trades.csv --output oos_cost_matrix_evidence.json
+      - name: Build mechanical OOS snapshot
+        run: python scripts/build_oos_snapshot.py --csv data/trades.csv --output oos_snapshot_integrity_v1.json
       - name: Upload OOS evidence
         uses: actions/upload-artifact@v4
         with:
           name: real-btcusdt-oos-cost-matrix-evidence
-          path: oos_cost_matrix_evidence.json
+          path: |
+            oos_cost_matrix_evidence.json
+            oos_snapshot_integrity_v1.json
           if-no-files-found: error
