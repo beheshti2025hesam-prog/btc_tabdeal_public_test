@@ -1,0 +1,33 @@
+{
+  "artifact": "candidate_b_execution_gate",
+  "version": "v1",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_B",
+  "candidate_version": "B-v1",
+  "status": "BLOCKED_PENDING_FROZEN_EXECUTABLE_SPEC",
+  "snapshot_id": "CANDIDATE_B_FRESH_SNAPSHOT_2026-10-01",
+  "snapshot_blob_sha": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+  "lineage_verification_status": "LINEAGE_VERIFIED_EXECUTION_GATED",
+  "pre_execution_requirements": {
+    "definition_frozen": true,
+    "fresh_snapshot_verified": true,
+    "rule_a_results_reuse": false,
+    "post_result_tuning": false,
+    "executable_spec_frozen": false
+  },
+  "fail_closed": true,
+  "execution_allowed": false,
+  "required_before_oos": [
+    "Attach a pre-declared executable Candidate B rule specification.",
+    "Freeze the executable specification before observing Candidate B OOS results.",
+    "Bind the evaluator to this snapshot and frozen specification.",
+    "Run deterministic 8-fold walk-forward OOS only after all gates pass."
+  ],
+  "prohibited": [
+    "Retargeting Rule A evaluator to Candidate B snapshot.",
+    "Inventing Candidate B parameters from observed data/results.",
+    "Post-OOS tuning or rescue optimization.",
+    "Changing fold, embargo, cost, or evaluation definitions after results.",
+    "Merging, rebasing, or syncing data-engine-v1 with main.",
+    "Live execution, wallet operations, or production promotion."
+  ]
+}
