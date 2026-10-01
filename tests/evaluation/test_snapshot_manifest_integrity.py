@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 from tools.snapshot_manifest_integrity import build_manifest, load_snapshot
@@ -13,11 +12,13 @@ def test_materialized_snapshot_is_structurally_integral_and_not_mislabeled():
     assert manifest["status"] == "PASS"
     assert manifest["snapshot"]["observation_count"] == 12784
     assert manifest["snapshot"]["fold_counts"] == {"6": 2134, "7": 10650}
+    assert manifest["snapshot"]["source_artifact_status"] == "PARTIAL_SOURCE_COVERAGE_FAIL_CLOSED"
     assert manifest["integrity"]["duplicate_sequence"] == 0
     assert manifest["integrity"]["sequence_backward_or_equal"] == 0
     assert manifest["integrity"]["timestamp_backward_by_sequence"] == 0
     assert manifest["integrity"]["source_lineage_ok"] is True
     assert manifest["integrity"]["replacement_rows_created"] == 0
+    assert manifest["source_lineage"]["bounds_available"] is False
 
     # Critical claim boundary: this artifact is not the locked 1,049 population.
     assert manifest["reference_population"]["exact_reference_status"] == "BLOCKED"
