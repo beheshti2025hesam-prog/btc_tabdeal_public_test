@@ -48,3 +48,77 @@ jobs:
           }
           print("CONTROLLED_CANDIDATE_PROTOCOL_VALID")
           PY
+
+  study:
+    needs: protocol
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+      HES_FROZEN_CSV: /tmp/hes_fresh_trades.csv
+      FRESH_BLOB_SHA: b0e6667df6c9bfcbffffd04229702a9c6c694964
+      FRESH_SOURCE_COMMIT: 583dfeb3e7cd09b2cdfdbabcd18604d3d6e608f6
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install research dependencies
+        run: pip install -r requirements.txt
+      - name: Materialize exact locked snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${FRESH_BLOB_SHA}"             > /tmp/fresh_blob.json
+          python - <<'PY'
+          import base64, hashlib, json, os
+          d=json.load(open("/tmp/fresh_blob.json", encoding="utf-8"))
+          expected=os.environ["FRESH_BLOB_SHA"]
+          assert d["sha"] == expected
+          raw=base64.b64decode(d["content"])
+          actual=hashlib.sha1(f"blob {len(raw)}\0".encode()+raw).hexdigest()
+          assert actual == expected
+          open("/tmp/hes_fresh_trades.csv","wb").write(raw)
+          print("FRESH_SNAPSHOT_LOCK_VALID", expected)
+          print("FRESH_SNAPSHOT_SOURCE_COMMIT", os.environ["FRESH_SOURCE_COMMIT"])
+          PY
+      - name: Run fixed-boundary OOS contrast
+        run: python scripts/contrast_audit_14_vs_1035.py
+      - name: Run candidate performance study
+        run: python scripts/candidate_performance_study_v1.py
+      - name: Validate candidate performance artifact
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("candidate_performance_study_v1.json",encoding="utf-8"))
+          assert d["status"]=="CANDIDATE_PERFORMANCE_STUDY_REVIEW_ONLY"
+          assert d["candidate_id"]=="CANDIDATE_RESEARCH_V1"
+          assert d["lineage"]["snapshot_data_blob_sha"]=="b0e6667df6c9bfcbffffd04229702a9c6c694964"
+          assert d["lineage"]["snapshot_source_commit"]=="583dfeb3e7cd09b2cdfdbabcd18604d3d6e608f6"
+          n=d["population"]["evaluated_oos"]; w=d["population"]["winners_gt_14bps"]; c=d["population"]["controls_le_14bps"]
+          assert n == w+c and n>0 and w>0
+          assert d["temporal_evidence"]["supported_fold_count"] == len(d["temporal_evidence"]["supported_folds"])
+          assert d["temporal_evidence"]["total_folds"] == 8
+          assert d["claim_boundary"] == {
+            "threshold_tuned":False,
+            "model_fitted":False,
+            "signal_created":False,
+            "promotion_decision":False,
+            "live_execution":False,
+          }
+          print("CANDIDATE_PERFORMANCE_STUDY_VALID")
+          print(json.dumps({"evaluated_oos":n,"winners":w,"controls":c,"supported_folds":d["temporal_evidence"]["supported_folds"],"kish_ess":d["temporal_evidence"]["kish_ess_approx"]},indent=2))
+          PY
+      - name: Upload candidate performance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-performance-study-v1
+          path: |
+            candidate_performance_study_v1.json
+            14_vs_1035_contrast_audit.json
+            14_vs_1035_winners.csv
+          if-no-files-found: error
