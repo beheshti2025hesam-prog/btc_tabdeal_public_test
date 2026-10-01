@@ -26,6 +26,7 @@ class WalkForwardFold:
     test_end: datetime
     train_observations: int
     test_observations: int
+    test_samples: tuple[object, ...]
     result: BacktestResult
 
 
@@ -98,6 +99,7 @@ class WalkForwardValidation:
                     test_end=test[-1].timestamp,
                     train_observations=len(train),
                     test_observations=len(test),
+                    test_samples=tuple(row.sample for row in test),
                     result=result,
                 )
             )
