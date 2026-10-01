@@ -13,9 +13,17 @@
 - Cost-boundary survival counts: 14 at 5 bps transaction + 2 bps slippage per side; 1 at 10 bps + 5 bps per side.
 
 ## Important boundary
-The cost-matrix artifact is evidence of the evaluated population and cost-boundary results. It is **not** a feature snapshot. It contains no EMA20, Momentum10, VWAP, sequence-level feature rows, or Winner/Control feature vectors.
+The cost-matrix artifact is evidence of the evaluated population and cost-boundary results. It is **not** a feature snapshot. It contains no sequence-level feature rows or Winner/Control feature vectors.
 
 Therefore CSRv1-A evaluation MUST NOT run against this artifact as if it were the feature snapshot.
+
+## Frozen candidate feature contract
+The registered CSRv1 candidate uses exactly these research inputs:
+- Buy Ratio;
+- Delta (Buy-Sell Delta);
+- Trade Count.
+
+EMA and VWAP remain excluded from this candidate because prior independence-adjusted evidence classified them as fold-sensitive. No new feature may be substituted at study time.
 
 ## Required next input
 A separately identified, immutable feature/evaluation snapshot containing for each of the 1049 observations:
@@ -24,10 +32,15 @@ A separately identified, immutable feature/evaluation snapshot containing for ea
 - sequence;
 - feature timestamp;
 - outcome timestamp;
-- EMA20;
-- Momentum10;
-- VWAP;
+- Buy Ratio;
+- Delta (Buy-Sell Delta);
+- Trade Count;
 - outcome / boundary label;
 - provenance/hash tying the rows to the audited 1049 population.
 
-Until that artifact is identified and hash-verified, CSRv1-A remains **specified but unevaluated**.
+The snapshot must be hash-verified before Candidate Performance Study execution.
+
+## Gate status
+Until that exact snapshot is identified and hash-verified, CSRv1-A remains **specified but unevaluated**.
+
+The cost-matrix artifact remains evidence of the audited population and boundary study only; it is not a substitute for the feature/evaluation snapshot.
