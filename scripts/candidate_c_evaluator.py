@@ -73,9 +73,14 @@ def aggregate_1m_stream(stream):
     buckets={}
     for row in reader:
         ts_s,price_s,qty_s=(row[x] for x in chosen)
-        try: ts=float(ts_s); price=float(price_s); qty=float(qty_s)
+        try:
+            price=float(price_s); qty=float(qty_s)
+            try:
+                ts=float(ts_s)
+            except (ValueError,TypeError):
+                ts=datetime.fromisoformat(ts_s.replace("Z","+00:00")).timestamp()
         except (ValueError,TypeError): continue
-        minute=int(ts//60) if ts>1e11 else int(ts*1000//60000)
+        minute=int(ts//60)
         b=buckets.setdefault(minute,{"t":minute,"o":price,"h":price,"l":price,"c":price,"v":0.0})
         b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
     return [buckets[k] for k in sorted(buckets)]
