@@ -1,0 +1,29 @@
+name: Exact 1049 Snapshot Recovery v1
+
+on:
+  push:
+    branches: ["snapshot-1049-recovery-v1"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - name: Reconstruct exact 1049 snapshot
+        run: python scripts/recover_exact_1049_snapshot.py
+      - name: Upload exact snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-1049-feature-evaluation-snapshot-v1
+          path: evidence/exact_1049_feature_evaluation_snapshot_v1.json
+          if-no-files-found: error
