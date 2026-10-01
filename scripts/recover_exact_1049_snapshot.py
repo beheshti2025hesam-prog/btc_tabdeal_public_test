@@ -54,6 +54,8 @@ def main():
 
     if raw_rows != EXPECTED_RAW_ROWS:
         raise AssertionError(f"raw row count mismatch: {raw_rows}")
+    if invalid != 0:
+        raise AssertionError(f"invalid raw rows mismatch: {invalid}")
     trades.sort(key=lambda t: (t.timestamp, t.sequence or -1))
 
     candles = TradeCandleAggregator(60).aggregate(trades)
