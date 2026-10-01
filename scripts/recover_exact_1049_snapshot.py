@@ -157,11 +157,16 @@ def main():
             f"< {EXPECTED_FROZEN_OBSERVATIONS}"
         )
     frozen_rows = all_rows[:EXPECTED_FROZEN_OBSERVATIONS]
-    expected_frozen_last = "2026-09-27T17:30:00+00:00"
-    if frozen_rows[-1][0].end.isoformat() != expected_frozen_last:
+    # The frozen 8-fold OOS protocol consumes 4,000 observations
+    # (800 train + 8*400 test). The historical artifact records the end of
+    # fold 7 at 2026-09-27T17:30:00Z; the remaining 62 observations belong
+    # to the post-protocol tail inside the 4,062-observation frozen universe.
+    expected_oos_last = "2026-09-27T17:30:00+00:00"
+    oos_last_index = 8 * 400 - 1
+    if frozen_rows[oos_last_index][0].end.isoformat() != expected_oos_last:
         raise AssertionError(
-            "frozen observation prefix boundary mismatch: "
-            f"{frozen_rows[-1][0].end.isoformat()} != {expected_frozen_last}"
+            "frozen OOS boundary mismatch: "
+            f"{frozen_rows[oos_last_index][0].end.isoformat()} != {expected_oos_last}"
         )
 
     selected=[]
