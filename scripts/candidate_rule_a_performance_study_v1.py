@@ -37,7 +37,7 @@ SCENARIOS = (
 
 def verify_blob() -> None:
     raw = CSV.read_bytes()
-    actual = hashlib.sha1(f"blob {len(raw)}\\0".encode() + raw).hexdigest()
+    actual = hashlib.sha1(f"blob {len(raw)}\0".encode() + raw).hexdigest()
     assert actual == EXPECTED_BLOB, (actual, EXPECTED_BLOB)
 
 
