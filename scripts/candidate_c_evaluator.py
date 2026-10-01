@@ -61,7 +61,7 @@ def aggregate_1m_bytes(raw):
 
 def aggregate_1m_stream(stream):
     """Aggregate raw trades deterministically from a text stream."""
-    required_sets=[("timestamp","price","quantity"),("time","price","quantity"),("timestamp","price","amount")]
+    required_sets=[("timestamp","price","quantity"),("time","price","quantity"),("timestamp","price","amount"),("updated","price","amount")]
     reader=csv.DictReader(stream)
     fields=reader.fieldnames or []
     chosen=None
