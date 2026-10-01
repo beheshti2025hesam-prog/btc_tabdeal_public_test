@@ -1,11 +1,12 @@
 name: Candidate C Research Evaluator
 on:
-  workflow_dispatch:
-  push:
+  pull_request:
+    branches: [main]
     paths:
       - 'scripts/candidate_c_evaluator.py'
       - 'evidence/candidate_c_definition_v1.json'
       - 'evidence/candidate_c_fresh_snapshot_20261001.json'
+  workflow_dispatch:
 jobs:
   contract:
     runs-on: ubuntu-latest
@@ -16,5 +17,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify evaluator contract only
+      - name: Execute Candidate C fail-closed gate
         run: python scripts/candidate_c_evaluator.py
