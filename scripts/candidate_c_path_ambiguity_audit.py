@@ -82,7 +82,7 @@ def main():
     e20,e50,a14=ema(c,20),ema(c,50),atr(h,l,c,14)
     ambiguities=[]
     signals=0
-    MAX_HOLD_BARS=int(d.get("max_holding_bars",30))
+    MAX_HOLD_BARS=int(d["time_exit"]["max_holding_bars"])
     for t in range(20,len(b)-1):
         prior_hi=max(h[t-20:t]); prior_lo=min(l[t-20:t])
         long_ok=c[t]>prior_hi and e20[t]>e50[t]
