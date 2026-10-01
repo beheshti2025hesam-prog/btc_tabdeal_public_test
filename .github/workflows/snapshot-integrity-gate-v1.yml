@@ -30,3 +30,9 @@ jobs:
           python-version: "3.12"
       - name: Execute lineage lock validation
         run: python research/snapshot_integrity_execution_v1.py
+      - name: Publish integrity result
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-integrity-result-v1
+          path: research/snapshot_integrity_result_v1.json
+          if-no-files-found: error
