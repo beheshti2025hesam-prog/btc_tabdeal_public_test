@@ -1,7 +1,7 @@
 """Fresh Snapshot Integrity Gate v1.
 
-This gate validates the lineage contract without reading or rewriting live data.
-It is intentionally fail-closed: missing evidence is a failure, not an inference.
+Validates the immutable lineage lock only. Raw-row integrity and snapshot-head
+statistics are deliberately delegated to the separate raw replay gate.
 """
 from __future__ import annotations
 import hashlib
@@ -10,11 +10,7 @@ from pathlib import Path
 
 LOCK = Path("research/fresh_snapshot_lineage_v1.json")
 RESULT = Path("research/snapshot_integrity_result_v1.json")
-
-REQUIRED = [
-    "source", "frozen_boundary", "snapshot_head",
-    "lineage_rule", "evaluation_boundary"
-]
+REQUIRED = ["source", "frozen_boundary", "lineage_rule", "evaluation_boundary"]
 
 def main() -> None:
     if not LOCK.exists():
@@ -27,15 +23,12 @@ def main() -> None:
 
     source = lock["source"]
     boundary = lock["frozen_boundary"]
-    head = lock["snapshot_head"]
     rules = lock["lineage_rule"]
 
     assert source["source_ref"] == "main"
     assert len(source["source_commit"]) == 40
     assert len(source["trades_blob_sha"]) == 40
     assert int(boundary["first_independent_sequence"]) > 0
-    assert int(head["max_sequence"]) >= int(boundary["first_independent_sequence"])
-    assert boundary["first_independent_timestamp_utc"] < head["max_timestamp_utc"]
 
     for key in (
         "sequence_monotonicity_required",
@@ -44,8 +37,6 @@ def main() -> None:
     ):
         assert rules[key] is True
 
-    # The repository can prove the lock's internal consistency here.
-    # Raw-row replay remains a separate execution step and cannot be inferred.
     payload = LOCK.read_bytes()
     result = {
         "artifact": "HES Trade Agent Snapshot Integrity Execution v1",
@@ -55,8 +46,6 @@ def main() -> None:
         "trades_blob_sha": source["trades_blob_sha"],
         "first_independent_sequence": boundary["first_independent_sequence"],
         "first_independent_timestamp_utc": boundary["first_independent_timestamp_utc"],
-        "max_sequence": head["max_sequence"],
-        "max_timestamp_utc": head["max_timestamp_utc"],
         "raw_row_replay": "required-before-performance-claims",
         "claim_boundary": lock["evaluation_boundary"],
     }
