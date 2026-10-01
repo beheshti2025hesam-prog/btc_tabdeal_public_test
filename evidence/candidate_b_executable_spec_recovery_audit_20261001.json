@@ -1,0 +1,59 @@
+{
+  "artifact_id": "CANDIDATE_B_EXECUTABLE_SPEC_RECOVERY_AUDIT_2026-10-01",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_B",
+  "candidate_version": "B-v1",
+  "status": "BLOCKED_PENDING_FROZEN_EXECUTABLE_SPEC",
+  "audit_scope": {
+    "purpose": "Formalize the recovery result before any executable Candidate B research run.",
+    "search_result": "No prior frozen executable Candidate B rule specification was recovered.",
+    "missing_items": [
+      "feature set",
+      "entry logic",
+      "exit logic",
+      "thresholds",
+      "holding horizon",
+      "other executable parameters"
+    ]
+  },
+  "integrity": {
+    "fresh_snapshot_lineage_verified": true,
+    "snapshot_blob": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+    "rule_a_results_reused": false,
+    "post_result_tuning": false,
+    "rule_a_evaluator_retargeted": false
+  },
+  "execution_policy": {
+    "executable_spec_frozen": false,
+    "execution_allowed": false,
+    "fail_closed": true,
+    "oos_run_started": false,
+    "live_execution": false,
+    "wallet_operations": false,
+    "promotion": false
+  },
+  "required_next_sequence": [
+    "supply_or_recover_exact_executable_candidate_b_spec",
+    "freeze_spec_before_results",
+    "hash_and_lineage_lock",
+    "bind_candidate_b_specific_evaluator",
+    "inspect_workflow_runs_and_checks",
+    "run_deterministic_8_fold_oos",
+    "audit_evidence_cost_turnover",
+    "formal_checkpoint"
+  ],
+  "prohibited": [
+    "invent_candidate_b_logic",
+    "derive_parameters_from_observed_results",
+    "retarget_rule_a_evaluator",
+    "post_oos_tuning_or_rescue",
+    "merge_rebase_or_sync data-engine-v1",
+    "enable_live_execution",
+    "enable_wallet_operations",
+    "promote_candidate"
+  ],
+  "run_audit": {
+    "checked_commit": "a4e3844242a06313cd04d8509a0f27f25ebc8920",
+    "workflow_runs_found": 0,
+    "action_taken": "none"
+  }
+}
