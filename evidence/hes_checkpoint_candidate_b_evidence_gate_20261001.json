@@ -1,0 +1,30 @@
+{
+  "checkpoint_id": "HES-CHECKPOINT-CANDIDATE-B-EVIDENCE-GATE-2026-10-01",
+  "recorded_at": "2026-10-01",
+  "branch": "independent-candidate-b-20261001",
+  "head_commit": "0786ef53a960e5a00a6c8927ec840f5c9916bc13",
+  "stage": "Candidate B / Evidence Gate",
+  "status": "BLOCKED_PENDING_FROZEN_EXECUTABLE_SPEC",
+  "snapshot_lineage": "VERIFIED",
+  "fresh_snapshot_blob": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+  "rule_a_results_reuse": false,
+  "post_result_tuning": false,
+  "live_execution": false,
+  "wallet_operations": false,
+  "promotion": false,
+  "data_engine_v1_merge_rebase_sync": false,
+  "next_step": "Recover or supply the pre-declared executable Candidate B specification; freeze it before OOS; bind evaluator to the fresh snapshot; run deterministic 8-fold OOS; audit evidence/cost/turnover; formal checkpoint.",
+  "run_audit": {
+    "branch_workflow_runs_checked": true,
+    "workflow_runs_found": 0,
+    "commit_status": "pending_no_status_checks",
+    "action_taken": "none",
+    "reason": "No failing workflow run exists on this Candidate B branch; execution is correctly fail-closed pending executable spec."
+  },
+  "progress_metrics": {
+    "overall_completion_percent": 64,
+    "live_trading_readiness_percent": 16,
+    "research_core_completion_percent": 75,
+    "research_core_note": "Approximate stage metric; not a change to the project's established reporting methodology."
+  }
+}
