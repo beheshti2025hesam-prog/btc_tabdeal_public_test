@@ -32,8 +32,8 @@ FOLDS = 8
 THRESHOLD = 0.0014
 
 # Candidate Performance Study lineage: immutable Boundary-Proof fresh snapshot.
-SNAPSHOT_DATA_BLOB_SHA = "b0e6667df6c9bfcbffffd04229702a9c6c694964"
-SNAPSHOT_SOURCE_COMMIT = "583dfeb3e7cd09b2cdfdbabcd18604d3d6e608f6"
+SNAPSHOT_DATA_BLOB_SHA = os.environ["FRESH_BLOB_SHA"]
+SNAPSHOT_SOURCE_COMMIT = os.environ["FRESH_SOURCE_COMMIT"]
 
 FEATURES = ["ema_distance_pct", "vwap_distance_pct", "buy_ratio", "buy_sell_delta", "trade_count"]
 
