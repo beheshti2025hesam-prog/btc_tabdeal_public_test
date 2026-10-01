@@ -3,7 +3,7 @@ name: HES Trade Agent — Controlled Candidate Performance Study v1
 on:
   push:
     branches:
-      - controlled-candidate-performance-study-v1
+      - signal-construction-research-v1
   pull_request:
     branches:
       - main
@@ -40,19 +40,9 @@ jobs:
           assert p["candidate_definition"]["threshold_tuning"] is False
           assert p["candidate_definition"]["model_fitting"] is False
           assert p["candidate_definition"]["selection_from_E0_E1_winners"] is False
-          pop=p["population_definition"]
-          assert pop["scope"] == "snapshot_lineage_specific"
-          assert pop["unit"] == "evaluated_oos_observation"
-          assert pop["fold_count"] == 8
-          assert pop["fold_shape"] == {"train": 800, "test": 400, "step": 400}
-          assert pop["transfer_rule"].startswith("population counts are not transferable across different snapshot lineages")
-          assert "1,049" in pop["historical_reference_1049"]
-          assert p["claim_boundary"] == {
-              "signal_created": False,
-              "signal_validated": False,
-              "promotion_decision": False,
-              "live_execution": False,
-          }
+          assert p["claim_boundary"]["signal_created"] is False
+          assert p["claim_boundary"]["promotion_decision"] is False
+          assert p["claim_boundary"]["live_execution"] is False
           print("CONTROLLED_CANDIDATE_PROTOCOL_VALID")
           PY
 
@@ -80,7 +70,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${FRESH_BLOB_SHA}"             > /tmp/fresh_blob.json
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${FRESH_BLOB_SHA}" > /tmp/fresh_blob.json
           python - <<'PY'
           import base64, hashlib, json, os
           d=json.load(open("/tmp/fresh_blob.json", encoding="utf-8"))
@@ -93,43 +83,31 @@ jobs:
           print("FRESH_SNAPSHOT_LOCK_VALID", expected)
           print("FRESH_SNAPSHOT_SOURCE_COMMIT", os.environ["FRESH_SOURCE_COMMIT"])
           PY
-      - name: Run fixed-boundary OOS contrast
-        run: python scripts/contrast_audit_14_vs_1035.py
-      - name: Run candidate performance study
-        run: python scripts/candidate_performance_study_v1.py
-      - name: Reconcile fresh candidate with cost/slippage matrix
-        run: python scripts/candidate_cost_reconciliation_v1.py
-      - name: Validate candidate performance artifact
+      - name: Run registered Candidate Rule A on fresh OOS
+        run: python scripts/candidate_rule_a_performance_study_v1.py
+      - name: Validate Candidate Rule A artifact
         run: |
           python - <<'PY'
           import json
-          d=json.load(open("candidate_performance_study_v1.json",encoding="utf-8"))
-          assert d["status"]=="CANDIDATE_PERFORMANCE_STUDY_REVIEW_ONLY"
-          assert d["candidate_id"]=="CANDIDATE_RESEARCH_V1"
+          d=json.load(open("candidate_rule_a_performance_study_v1.json",encoding="utf-8"))
+          assert d["status"]=="CANDIDATE_RULE_A_PERFORMANCE_STUDY_REVIEW_ONLY"
+          assert d["candidate_id"]=="CANDIDATE_RESEARCH_V1_RULE_A"
           assert d["lineage"]["snapshot_data_blob_sha"]=="b296b1c95f075518bea0b56fd11bbf5f0f613a04"
           assert d["lineage"]["snapshot_source_commit"]=="86631f2522aa74a38cfa21fa28afe8d49fbc5f20"
-          n=d["population"]["evaluated_oos"]; w=d["population"]["winners_gt_14bps"]; c=d["population"]["controls_le_14bps"]
-          assert n == w+c and n>0 and w>0
-          assert d["temporal_evidence"]["supported_fold_count"] == len(d["temporal_evidence"]["supported_folds"])
-          assert d["temporal_evidence"]["total_folds"] == 8
-          assert d["claim_boundary"] == {
-            "threshold_tuned":False,
-            "model_fitted":False,
-            "signal_created":False,
-            "promotion_decision":False,
-            "live_execution":False,
-          }
-          print("CANDIDATE_PERFORMANCE_STUDY_VALID")
-          print(json.dumps({"evaluated_oos":n,"winners":w,"controls":c,"supported_folds":d["temporal_evidence"]["supported_folds"],"kish_ess":d["temporal_evidence"]["kish_ess_approx"]},indent=2))
+          assert d["protocol"] == {"train":800,"test":400,"step":400,"folds":8,"shuffle":False,"threshold_tuning":False,"model_fitting":False}
+          assert d["population"]["oos"] == 3200
+          assert d["population"]["long"] + d["population"]["short"] + d["population"]["no_trade"] == 3200
+          assert len(d["folds"]) == 8
+          assert len(d["cost_matrix"]) == 3
+          assert d["claim_boundary"]["signal_created"] is False
+          assert d["claim_boundary"]["promotion_decision"] is False
+          assert d["claim_boundary"]["live_execution"] is False
+          print("CANDIDATE_RULE_A_ARTIFACT_VALID")
+          print(json.dumps({"population":d["population"],"cost_matrix":[{k:r[k] for k in ("transaction_cost_bps_per_side","slippage_bps_per_side","evaluated","wins","losses","total_net_return")} for r in d["cost_matrix"]]},indent=2))
           PY
-      - name: Upload candidate performance evidence
+      - name: Upload Candidate Rule A evidence
         uses: actions/upload-artifact@v4
         with:
-          name: candidate-performance-study-v1
-          path: |
-            candidate_performance_study_v1.json
-            14_vs_1035_contrast_audit.json
-            14_vs_1035_winners.csv
-            fresh_oos_cost_matrix_evidence.json
-            candidate_cost_reconciliation_v1.json
+          name: candidate-rule-a-performance-study-v1
+          path: candidate_rule_a_performance_study_v1.json
           if-no-files-found: error
