@@ -1,0 +1,25 @@
+{
+  "snapshot_id": "btc-usdt-raw-blob-1a44d52a0588-v1",
+  "status": "immutable-reference",
+  "source_path": "data/trades.csv",
+  "source_blob_sha1": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+  "source_branch": "backtest-cost-slippage-boundary-v1",
+  "source_commit_sha": "c0c4aa27e10f9a90f6c5f35b33ff48125dd16178",
+  "lineage_method": "mechanical-git-blob-identity",
+  "raw_snapshot_observed": {
+    "rows": 127201,
+    "bytes": 9592808,
+    "first_timestamp": "2026-09-22T22:26:16.640000+00:00",
+    "first_sequence": "37111333321",
+    "last_timestamp": "2026-09-28T08:27:38.179000+00:00",
+    "last_sequence": "38586238655"
+  },
+  "gate_policy": {
+    "snapshot_integrity": "required",
+    "raw_replay": "required",
+    "candidate_performance_study": "required",
+    "merge": "forbidden",
+    "live_execution": "off"
+  },
+  "note": "This manifest records the exact Git blob as the raw-data identity. It is derived from the fetched blob itself; no prior performance figures are copied into the snapshot."
+}
