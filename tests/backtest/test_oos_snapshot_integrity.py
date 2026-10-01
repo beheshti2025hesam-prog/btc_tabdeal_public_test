@@ -19,10 +19,11 @@ class OOSSnapshotIntegrityTests(unittest.TestCase):
             completed = subprocess.run(
                 [sys.executable, str(script), "--csv", str(raw), "--output", str(output)],
                 cwd=repo_root,
-                check=True,
+                check=False,
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertIn('"evaluated": 1049', completed.stdout)
 
             snapshot = json.loads(output.read_text(encoding="utf-8"))
