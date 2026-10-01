@@ -5,7 +5,7 @@ Consumes the descriptive OOS audit generated from the immutable fresh snapshot.
 No threshold search, fitting, ranking-based selection, promotion, or execution.
 """
 from __future__ import annotations
-import json, math, statistics
+import json, math, os, statistics
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,8 +17,8 @@ FEATURES = {
     "Trade Count": "trade_count",
 }
 EXPECTED = {
-    "blob": "b0e6667df6c9bfcbffffd04229702a9c6c694964",
-    "commit": "583dfeb3e7cd09b2cdfdbabcd18604d3d6e608f6",
+    "blob": os.environ["FRESH_BLOB_SHA"],
+    "commit": os.environ["FRESH_SOURCE_COMMIT"],
 }
 THRESHOLD = 0.0014
 
