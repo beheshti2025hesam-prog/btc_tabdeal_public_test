@@ -1,0 +1,34 @@
+{
+  "artifact": "HES Trade Agent Candidate Evaluation v1",
+  "status": "contract-defined-requires-execution",
+  "snapshot_lock": "research/fresh_snapshot_lineage_v1.json",
+  "evaluation_protocol": {
+    "walk_forward": true,
+    "embargo_required": true,
+    "fold_level_results_required": true,
+    "negative_results_required": true,
+    "cost_slippage_matrix_required": true,
+    "no_threshold_tuning": true,
+    "no_model_fitting": true,
+    "no_selection_from_E0_E1_winners": true
+  },
+  "candidate_family": {
+    "type": "pre-registered descriptive candidate family",
+    "features": ["buy_ratio", "buy_sell_delta", "trade_count"]
+  },
+  "required_integrity_checks": [
+    "snapshot source commit matches lineage lock",
+    "trades blob sha matches lineage lock",
+    "sequence monotonicity",
+    "timestamp monotonicity by sequence",
+    "event-id uniqueness",
+    "first independent sequence is preserved",
+    "evaluation rows remain strictly post-boundary"
+  ],
+  "claim_boundary": {
+    "signal_created": false,
+    "signal_validated": false,
+    "promotion_decision": false,
+    "live_execution": false
+  }
+}
