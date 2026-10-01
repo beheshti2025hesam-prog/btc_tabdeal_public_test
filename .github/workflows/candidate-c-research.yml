@@ -1,0 +1,20 @@
+name: Candidate C Research Evaluator
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/candidate_c_evaluator.py'
+      - 'evidence/candidate_c_definition_v1.json'
+      - 'evidence/candidate_c_fresh_snapshot_20261001.json'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify evaluator contract only
+        run: python scripts/candidate_c_evaluator.py
