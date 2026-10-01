@@ -40,6 +40,13 @@ jobs:
           assert p["candidate_definition"]["threshold_tuning"] is False
           assert p["candidate_definition"]["model_fitting"] is False
           assert p["candidate_definition"]["selection_from_E0_E1_winners"] is False
+          pop=p["population_definition"]
+          assert pop["scope"] == "snapshot_lineage_specific"
+          assert pop["unit"] == "evaluated_oos_observation"
+          assert pop["fold_count"] == 8
+          assert pop["fold_shape"] == {"train": 800, "test": 400, "step": 400}
+          assert pop["transfer_rule"].startswith("population counts are not transferable across different snapshot lineages")
+          assert "1,049" in pop["historical_reference_1049"]
           assert p["claim_boundary"] == {
               "signal_created": False,
               "signal_validated": False,
