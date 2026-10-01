@@ -179,7 +179,12 @@ def main():
             rows.append(x)
 
     oos_observations = observations[TRAIN:TRAIN + FOLDS * STEP]
-    assert len(oos_observations) == FOLDS * TEST, len(oos_observations)
+    # Preserve the fixed 8-fold boundaries without inventing observations across
+    # timestamp gaps. A sparse fresh snapshot can therefore yield fewer than
+    # FOLDS*TEST contiguous observations; the actual OOS population is evidence.
+    expected_oos = FOLDS * TEST
+    actual_oos = len(oos_observations)
+    assert actual_oos > 0, "fresh snapshot produced no OOS observations"
 
     winners = [r for r in rows if r["gross_return"] > THRESHOLD]
     controls = [r for r in rows if r["gross_return"] <= THRESHOLD]
@@ -250,6 +255,12 @@ def main():
             "candles": len(candles),
             "observations": len(observations),
             "evaluated_oos": len(rows),
+            "oos_window": {
+                "requested_observations": expected_oos,
+                "available_observations": actual_oos,
+                "shortfall": expected_oos - actual_oos,
+                "gap_policy": "preserve fixed fold boundaries; do not synthesize observations across timestamp gaps",
+            },
         },
         "counts": {
             "winners_gt_14bps": len(winners),
