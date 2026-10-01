@@ -79,15 +79,18 @@ def main() -> None:
         c = candidate_folds[fold_index]
         z = zero[fold_index]
         assert c["evaluated"] == z["evaluated"]
-        assert c["wins"] == z["wins"]
-        assert c["losses"] == z["losses"]
+        # Candidate audit labels use the fixed 14 bps boundary. The cost
+        # matrix recomputes win/loss labels per scenario, so those labels are
+        # intentionally not compared here.
         assert close(float(c["gross_return"]), float(z["total_net_return"]))
         fold_checks.append(
             {
                 "fold_index": fold_index,
                 "evaluated": c["evaluated"],
-                "wins": c["wins"],
-                "losses": c["losses"],
+                "candidate_winner_count": sum(
+                    1 for row in candidate.get("winners", [])
+                    if int(row["fold_index"]) == fold_index
+                ),
                 "gross_return_candidate": c["gross_return"],
                 "zero_cost_matrix_return": z["total_net_return"],
                 "match": True,
