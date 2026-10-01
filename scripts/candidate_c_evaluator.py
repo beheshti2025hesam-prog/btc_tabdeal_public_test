@@ -14,10 +14,9 @@ SNAP=ROOT/"evidence/candidate_c_fresh_snapshot_20261001.json"
 RAW=ROOT/"data/trades.csv"
 
 def sha256_file(p):
-    h=hashlib.sha1()
-    with p.open("rb") as f:
-        for b in iter(lambda:f.read(1024*1024),b""): h.update(b)
-    return h.hexdigest()
+    raw=p.read_bytes()
+    header=f"blob {len(raw)}\\0".encode()
+    return hashlib.sha1(header+raw).hexdigest()
 
 def load_json(p): return json.loads(p.read_text())
 
