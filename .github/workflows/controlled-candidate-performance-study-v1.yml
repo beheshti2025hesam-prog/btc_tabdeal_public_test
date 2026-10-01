@@ -22,11 +22,15 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Validate research-only protocol
         run: |
+          python -m json.tool research/controlled_candidate_performance_study_v1.json >/dev/null
           python - <<'PY'
           import json
           from pathlib import Path
