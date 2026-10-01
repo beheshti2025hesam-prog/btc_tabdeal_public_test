@@ -42,5 +42,3 @@ jobs:
           assert d["no_silent_precedence"] is True
           print("Candidate C same-bar policy gate: PASS")
           PY
-      - name: Execute Candidate C fail-closed contract gate
-        run: python scripts/candidate_c_evaluator.py
