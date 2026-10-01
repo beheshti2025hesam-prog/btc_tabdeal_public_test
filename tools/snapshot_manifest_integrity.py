@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """Build and verify an immutable Snapshot Manifest from a materialized raw snapshot.
 
-This is deliberately fail-closed:
-- structural corruption, duplicate/backward lineage, or source-lineage mismatch => non-zero
-- a population smaller than the locked 1,049 reference is NOT relabeled as 1,049;
-  it is recorded as exact_reference_status=BLOCKED.
+Fail-closed boundaries:
+- structural corruption or missing source lineage => non-zero
+- a partial materialization is never relabeled as the locked 1,049 reference population
+- optional source sequence bounds are enforced when present, but are not fabricated
 """
-
 from __future__ import annotations
-
 import argparse
 import hashlib
 import json
@@ -18,19 +16,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 EXPECTED_REFERENCE_POPULATION = 1049
 EXPECTED_REFERENCE_FOLD_COUNTS = {
-    "0": 120,
-    "1": 132,
-    "2": 135,
-    "3": 137,
-    "4": 138,
-    "5": 127,
-    "6": 126,
-    "7": 134,
+    "0": 120, "1": 132, "2": 135, "3": 137,
+    "4": 138, "5": 127, "6": 126, "7": 134,
 }
-
 
 def parse_ts(value: str) -> datetime:
     normalized = value.replace("Z", "+00:00")
@@ -39,11 +29,9 @@ def parse_ts(value: str) -> datetime:
         raise ValueError(f"naive timestamp: {value!r}")
     return parsed.astimezone(timezone.utc)
 
-
 def git_blob_sha(raw: bytes) -> str:
     header = f"blob {len(raw)}\0".encode("utf-8")
     return hashlib.sha1(header + raw).hexdigest()
-
 
 def load_snapshot(path: Path) -> tuple[dict[str, Any], bytes]:
     raw = path.read_bytes()
@@ -54,13 +42,12 @@ def load_snapshot(path: Path) -> tuple[dict[str, Any], bytes]:
         raise ValueError("snapshot.observations must be a list")
     return data, raw
 
-
 def build_manifest(data: dict[str, Any], raw: bytes, snapshot_path: str) -> dict[str, Any]:
     observations = data["observations"]
     source = data.get("source") or {}
     reference = data.get("reference_population") or {}
-
     required = {"fold", "symbol", "price", "amount", "side", "updated", "sequence"}
+
     missing_fields: list[str] = []
     for index, row in enumerate(observations):
         if not isinstance(row, dict):
@@ -86,17 +73,24 @@ def build_manifest(data: dict[str, Any], raw: bytes, snapshot_path: str) -> dict
     )
     fold_counts = Counter(str(row["fold"]) for row in observations if isinstance(row, dict))
 
-    source_rows = int(source.get("raw_blob_rows", 0))
-    source_min_sequence = int(source.get("min_sequence", 0) or 0)
-    source_max_sequence = int(source.get("max_sequence", 0) or 0)
+    source_rows = int(source.get("raw_blob_rows", 0) or 0)
+    source_min_raw = source.get("min_sequence")
+    source_max_raw = source.get("max_sequence")
+    source_min_sequence = int(source_min_raw) if source_min_raw is not None else None
+    source_max_sequence = int(source_max_raw) if source_max_raw is not None else None
 
-    source_lineage_ok = (
+    source_identity_ok = (
         isinstance(source.get("source_commit"), str)
+        and bool(source.get("source_commit"))
         and isinstance(source.get("trades_blob_sha"), str)
+        and bool(source.get("trades_blob_sha"))
         and source_rows > 0
-        and (not sequences or min(sequences) >= source_min_sequence)
-        and (not sequences or max(sequences) <= source_max_sequence)
     )
+    source_bounds_ok = (
+        (source_min_sequence is None or not sequences or min(sequences) >= source_min_sequence)
+        and (source_max_sequence is None or not sequences or max(sequences) <= source_max_sequence)
+    )
+    source_lineage_ok = source_identity_ok and source_bounds_ok
 
     structural_integrity_ok = (
         not missing_fields
@@ -125,6 +119,7 @@ def build_manifest(data: dict[str, Any], raw: bytes, snapshot_path: str) -> dict
             "git_blob_sha": git_blob_sha(raw),
             "observation_count": actual_count,
             "fold_counts": dict(sorted(fold_counts.items())),
+            "source_artifact_status": data.get("status"),
         },
         "source_lineage": {
             "repository": source.get("repository"),
@@ -133,6 +128,7 @@ def build_manifest(data: dict[str, Any], raw: bytes, snapshot_path: str) -> dict
             "raw_blob_rows": source_rows,
             "min_sequence": source_min_sequence,
             "max_sequence": source_max_sequence,
+            "bounds_available": source_min_sequence is not None and source_max_sequence is not None,
         },
         "coverage": {
             "first_timestamp_utc": timestamps[0].isoformat().replace("+00:00", "Z") if timestamps else None,
@@ -166,17 +162,14 @@ def build_manifest(data: dict[str, Any], raw: bytes, snapshot_path: str) -> dict
         },
     }
 
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--snapshot", required=True)
     parser.add_argument("--manifest-out", required=True)
     parser.add_argument("--check-git-blob", default=None)
     args = parser.parse_args()
-
     path = Path(args.snapshot)
     manifest_path = Path(args.manifest_out)
-
     try:
         data, raw = load_snapshot(path)
         manifest = build_manifest(data, raw, str(path))
@@ -185,18 +178,13 @@ def main() -> int:
                 f"snapshot Git blob mismatch: computed={manifest['snapshot']['git_blob_sha']} "
                 f"expected={args.check_git_blob}"
             )
-
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(json.dumps(manifest, indent=2, sort_keys=True))
-
-        if manifest["status"] != "PASS":
-            return 1
-        return 0
+        return 0 if manifest["status"] == "PASS" else 1
     except Exception as exc:
         print(f"SNAPSHOT_INTEGRITY_FAIL_CLOSED: {exc}", file=sys.stderr)
         return 2
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
