@@ -74,12 +74,15 @@ def aggregate_1m_stream(stream):
     for row in reader:
         ts_s,price_s,qty_s=(row[x] for x in chosen)
         try:
-            price=float(price_s); qty=float(qty_s)
+            price=float((price_s or "").strip()); qty=float((qty_s or "").strip())
+            raw_ts=(ts_s or "").strip()
             try:
-                ts=float(ts_s)
+                ts=float(raw_ts)
             except (ValueError,TypeError):
-                ts=datetime.fromisoformat(ts_s.replace("Z","+00:00")).timestamp()
-        except (ValueError,TypeError): continue
+                ts=datetime.fromisoformat(raw_ts.replace("Z","+00:00")).timestamp()
+            if not math.isfinite(ts) or not math.isfinite(price) or not math.isfinite(qty):
+                continue
+        except (ValueError,TypeError,OverflowError): continue
         minute=int(ts//60)
         b=buckets.setdefault(minute,{"t":minute,"o":price,"h":price,"l":price,"c":price,"v":0.0})
         b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
