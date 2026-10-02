@@ -1,0 +1,89 @@
+{
+  "artifact": "HES Trade Agent — Cross-Evidence Hash & Reconciliation Audit v1",
+  "status": "CROSS_AUDIT_PASS_WITH_FREEZE_CANDIDATE_SEPARATION",
+  "scope": "Metadata/provenance audit only. The locked 1,049 evidence and downstream audit are not modified.",
+  "locked_scientific_values": {
+    "evaluated_observations": 1049,
+    "fold_evaluated": [
+      120,
+      132,
+      135,
+      137,
+      138,
+      127,
+      126,
+      134
+    ],
+    "fold_sum": 1049,
+    "gap_fold": 7,
+    "gap_duration_seconds": 18814.863,
+    "observation_coverage_loss_pct": 0,
+    "synthetic_fill": false,
+    "causal_reassignment": false
+  },
+  "immutable_raw_artifact": {
+    "workflow_run_id": 36773191085,
+    "workflow_run_number": 181,
+    "artifact_id": 11162212837,
+    "artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "producer_head_sha": "42de09ce97a71e0924975024c0936aa1fb4a8f61",
+    "role": "IMMUTABLE_RAW_ARCHIVE_ARTIFACT"
+  },
+  "verified_git_blobs": [
+    [
+      "evidence/evidence_lock_gate_v1.json",
+      "e0103b0c1953ee7c128db3757d2a728152a4d506"
+    ],
+    [
+      "evidence/evidence_provenance_manifest_v1.json",
+      "20a2343ef69c0228a3dc57974f2615a094e4efdd"
+    ],
+    [
+      "evidence/fold_gap_impact_audit_v1.json",
+      "f8881b455f5e5b909564466ebce646d6a6d4d967"
+    ],
+    [
+      "evidence/formal_evidence_lock_v1.json",
+      "a79209789a6d2e72ad165d4b4f33fb4794492dcb"
+    ],
+    [
+      "evidence/immutable_archive_recovery_v1.json",
+      "b706a7aa6c5a3ee0fd9a40307c579c007e6d72db"
+    ],
+    [
+      "evidence/snapshot_blob_gap_fold_coverage_delta_v1.json",
+      "3fd9375ad612b09be85c573d14e6486749682c52"
+    ],
+    [
+      "evidence/snapshot_gap_forensics_v1.json",
+      "aaa6840065c74ad981865233133ac34c29f0ab1d"
+    ]
+  ],
+  "formal_lock": {
+    "status": "EVIDENCE_LOCKED",
+    "lock_gate_run_id": 36998216883,
+    "lock_gate_conclusion": "success",
+    "gate_test_result": "1 passed"
+  },
+  "reconciliation": {
+    "fold_sum_check": true,
+    "gross_bucket_sum_check": true,
+    "cost_survival_14bps_count": 14,
+    "cost_survival_30bps_count": 1,
+    "downstream_artifact_commit": "7ecc4308bc41e989e8844b8698e767b3a315455a",
+    "downstream_artifact_pr": 130
+  },
+  "separation_boundary": {
+    "freeze_candidate": "NOT_INDEPENDENTLY_VERIFIED_IN_THE_CURRENT_IMMUTABLE_SOURCE_SET",
+    "reason": "The referenced freeze-candidate metadata was not present as a blob in the inspected immutable evidence source commit; therefore no claim of final package freeze is made.",
+    "action": "Keep Evidence Lock intact; do not promote freeze candidate until its exact immutable source/blob is independently identified and hashed."
+  },
+  "safety": {
+    "evidence_1049_modified": false,
+    "main_modified": false,
+    "data_engine_v1_modified": false,
+    "live_execution": false,
+    "promotion": false
+  },
+  "conclusion": "Cross-evidence lineage, lock metadata, fold reconciliation, and downstream cost-survival reconciliation pass the inspected checks. The evidence package is not declared finally frozen in this audit because the separate freeze-candidate artifact lacks independently verified source/blob provenance."
+}
