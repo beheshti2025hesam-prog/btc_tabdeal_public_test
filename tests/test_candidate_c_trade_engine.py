@@ -1,0 +1,45 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from candidate_c_trade_engine import evaluate_signal, open_position, resolve_bar_exit, run_fold
+
+def bar(o,h,l,c,ema20=110,ema50=100,atr14=2):
+    return {"open":o,"high":h,"low":l,"close":c,"ema20":ema20,"ema50":ema50,"atr14":atr14}
+
+def test_signal_uses_prior_20_bars_only():
+    bars=[bar(100,101,99,100,100,100) for _ in range(20)]
+    bars.append(bar(100,105,99,105,110,100))
+    assert evaluate_signal(bars,20) == "long"
+
+def test_long_same_bar_stop_first():
+    p=open_position("long",100,2)
+    r=resolve_bar_exit(p,bar(100,105,95,100),1)
+    assert r["exit_reason"] == "stop_loss"
+    assert r["same_bar_ambiguity"] is True
+
+def test_short_same_bar_stop_first():
+    p=open_position("short",100,2)
+    r=resolve_bar_exit(p,bar(100,105,95,100),1)
+    assert r["exit_reason"] == "stop_loss"
+    assert r["same_bar_ambiguity"] is True
+
+def test_time_exit_after_30_post_entry_bars():
+    p=open_position("long",100,2)
+    r=resolve_bar_exit(p,bar(100,101,99,103),30)
+    assert r["exit_reason"] == "time_exit"
+
+def test_fold_does_not_carry_position():
+    bars=[bar(100,101,99,100,100,100) for _ in range(20)]
+    bars.append(bar(100,105,99,105,110,100))
+    bars.append(bar(105,106,104,105,110,100))
+    # Test range ends immediately after the entry bar; no trade may leak outside it.
+    assert run_fold(bars, 20, 22) == []
+
+def test_invalid_entry_fails_closed():
+    try:
+        open_position("long",100,0)
+    except ValueError as exc:
+        assert "FAIL_CLOSED" in str(exc)
+    else:
+        raise AssertionError("invalid ATR did not fail closed")
