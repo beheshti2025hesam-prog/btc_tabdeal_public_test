@@ -1,7 +1,13 @@
 name: Candidate C Exit Engine Unit Gate
 on:
+  push:
+    branches: [candidate-c-evaluator-wiring-v1-20261002]
+    paths:
+      - 'scripts/candidate_c_exit_engine.py'
+      - 'tests/test_candidate_c_exit_engine.py'
+      - '.github/workflows/candidate-c-exit-engine-gate.yml'
   pull_request:
-    branches: [main]
+    branches: [main, independent-candidate-c-20261001]
     paths:
       - 'scripts/candidate_c_exit_engine.py'
       - 'tests/test_candidate_c_exit_engine.py'
