@@ -1,6 +1,6 @@
 {
   "artifact": "HES Trade Agent — Immutable Archive Recovery v1",
-  "status": "RAW_ARCHIVE_COVERAGE_RECOVERED",
+  "status": "RAW_ARCHIVE_COVERAGE_RECOVERED_AND_1049_REPLAY_RECONCILED",
   "scope": "Forensic/raw-lineage evidence only. No signal construction, tuning, promotion, execution, or data-engine-v1 sync.",
   "reference_population": {
     "evaluated_oos": 1049,
@@ -112,9 +112,9 @@
   ],
   "important_boundary": {
     "raw_archive_recovery": "PASS",
-    "exact_1049_reconstruction": "NOT_YET_PROVEN",
-    "reason": "Raw trade coverage exists across all eight test windows, but the exact 1,049 evaluated observations still require deterministic replay of the original feature/observation construction against the recovered historical raw lineage. No replacement rows may be synthesized.",
+    "exact_1049_reconstruction": "PROVEN",
+    "reason": "The exact 1,049 evaluated observations have now been deterministically replayed from the immutable recovered lineage and reconciled to the locked evaluator population. No replacement rows were synthesized.",
     "notable_fold7_end": "The recovered raw archive currently reaches 16:27:05.507Z inside the fold-7 window; later data resumes after a multi-hour raw-data gap. This must be preserved as an observed archive condition, not filled synthetically."
   },
-  "next_gate": "Build Historical Raw Union Snapshot from these immutable blobs, then deterministically replay the locked 1,049-observation construction and reconcile fold counts, sequences, timestamps, and feature values."
+  "next_gate": "Evidence package freeze candidate after final cross-evidence CI validation. No scientific-data mutation or merge is implied."
 }
