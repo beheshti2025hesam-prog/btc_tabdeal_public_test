@@ -89,6 +89,10 @@ def aggregate_1m_stream(stream):
             parsed_count += 1
         except (ValueError,TypeError,OverflowError):
             continue
+        if ts > 1e11:
+            ts /= 1000.0
+        if ts < 0:
+            continue
         minute=int(ts//60)
         b=buckets.setdefault(minute,{"t":minute,"o":price,"h":price,"l":price,"c":price,"v":0.0})
         b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
