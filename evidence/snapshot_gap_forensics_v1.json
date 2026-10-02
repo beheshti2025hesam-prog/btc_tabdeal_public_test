@@ -1,54 +1,88 @@
 {
   "artifact": "HES Trade Agent — Snapshot Gap Forensics v1",
-  "status": "FORENSIC_CLASSIFICATION_COMPLETE",
-  "scope": "Evidence-only. No Signal construction, tuning, promotion, execution, wallet, or data-engine-v1 sync.",
-  "frozen_boundary": {
-    "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
-    "last_sequence": 38586238655,
-    "last_timestamp": "2026-09-28T08:27:38.179Z"
+  "status": "EXACT_1049_LINEAGE_RECONSTRUCTED_FROM_IMMUTABLE_WORKFLOW_ARTIFACT",
+  "scope": "Evidence-only; no Signal construction, tuning, promotion, execution, wallet, or data-engine-v1 sync.",
+  "archive_recovery": {
+    "workflow_run": 36773191085,
+    "run_number": 181,
+    "artifact_id": 11162212837,
+    "artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "archive_files": 12,
+    "raw_rows_in_locked_window": 88649,
+    "first_locked_window_row": "2026-09-24T02:27:01.901Z",
+    "last_locked_window_row": "2026-09-27T17:29:58.250Z",
+    "internal_max_gap_seconds": 18814.863,
+    "internal_gap": [
+      "2026-09-27T12:03:19.239Z",
+      "2026-09-27T17:16:54.102Z"
+    ]
   },
-  "first_independent_record": {
-    "checkpoint_commit": "6fb4e8247da3bea684428240d2fc307aa0cf4fb6",
-    "commit_time": "2026-09-28T08:48:04Z",
-    "sequence": 38586323452,
-    "timestamp": "2026-09-28T08:28:06.178Z",
-    "delta_from_frozen_timestamp_seconds": 27.999,
-    "sequence_strictly_increasing": true
-  },
-  "current_main_boundary_observation": {
-    "first_record_after_frozen_boundary": {
-      "sequence": 38710284291,
-      "timestamp": "2026-09-28T19:08:56.951Z"
-    },
-    "coverage_gap_from_frozen_boundary_seconds": 38478.772,
-    "coverage_gap_human": "10h41m18.772s"
-  },
-  "forensic_classification": {
-    "confirmed_continuity_break_at_first_post_boundary": false,
-    "confirmed_10h41m18_772s_data_loss": false,
-    "classification": "snapshot-retention/active-window-trimming gap",
-    "basis": [
-      "The first post-frozen checkpoint contains an independent record only 27.999s after the frozen boundary.",
-      "The boundary-proof audit verifies no sequence replay and no timestamp overlap at the frozen boundary.",
-      "The later current-main snapshot begins much later because earlier active-window records were trimmed by subsequent checkpoints.",
-      "Comparing frozen commit b8c4fe4 with first post-frozen checkpoint 6fb4e82 shows data/trades.csv was rewritten with 19,975 additions and 26,409 deletions, consistent with active-window checkpoint replacement."
+  "exact_1049_replay": {
+    "protocol_id": "oos-real-btcusdt-v1-800x400x400-e0",
+    "train_size": 800,
+    "test_size": 400,
+    "step_size": 400,
+    "embargo_size": 0,
+    "fold_count": 8,
+    "reconstructed_evaluated": 1049,
+    "reconstructed_wins": 528,
+    "reconstructed_losses": 479,
+    "reconstructed_total_return": 0.027839866468923342,
+    "exact_match_to_locked_evidence": true,
+    "fold_evaluated": [
+      120,
+      132,
+      135,
+      137,
+      138,
+      127,
+      126,
+      134
     ],
-    "claim_boundary": "The 10h41m18.772s interval must not be labeled as confirmed market/data outage without an independent external source or immutable raw archive covering the interval."
+    "fold_wins": [
+      59,
+      68,
+      66,
+      77,
+      66,
+      71,
+      52,
+      69
+    ],
+    "fold_losses": [
+      59,
+      61,
+      68,
+      60,
+      69,
+      44,
+      59,
+      59
+    ],
+    "fold_returns": [
+      0.003714827698641958,
+      0.0033867421019111647,
+      0.007373195874071503,
+      0.014016310862902571,
+      -0.003365815138776131,
+      0.00576935433688134,
+      -0.000777416903097259,
+      -0.0022773323636118047
+    ]
   },
-  "locked_1049_lineage_implication": {
-    "reference_population": 1049,
-    "reference_windows_start": "2026-09-24T02:27:00Z",
-    "reference_windows_end": "2026-09-27T17:30:00Z",
-    "available_source_start": "2026-09-26T23:20:53.398Z",
-    "source_available_evaluated": 163,
-    "missing_reference_population": 886,
-    "exact_1049_reconstructible_from_that_blob": false,
-    "action": "Do not synthesize replacement rows; preserve the lineage block."
+  "lineage_conclusion": {
+    "exact_1049_reconstructible": true,
+    "reconstruction_source": "immutable GitHub Actions workflow artifact #11162212837",
+    "synthetic_rows_added": false,
+    "evaluator_protocol_reproduced": true,
+    "internal_raw_gap_intersects_locked_test_window": true,
+    "gap_effect": "the replay still reproduces the locked 1049 evaluator population exactly; the missing raw interval contributes no evaluable observation under the deterministic continuity boundary.",
+    "prior_locked_1049_block": "RESOLVED"
   },
-  "next_forensic_gate": [
-    "Preserve this classification as evidence.",
-    "If historical gap reconstruction is required, recover immutable archived/checkpoint blobs spanning the missing interval.",
-    "Reconcile sequence and timestamp continuity from those immutable sources.",
-    "Only after exact lineage recovery, revisit the locked 1,049-row reconstruction."
-  ]
+  "safety": {
+    "main_untouched": true,
+    "data_engine_v1_untouched": true,
+    "live_execution_disabled": true,
+    "pr_129_not_merged": true
+  }
 }
