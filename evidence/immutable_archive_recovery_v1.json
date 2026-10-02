@@ -1,0 +1,120 @@
+{
+  "artifact": "HES Trade Agent — Immutable Archive Recovery v1",
+  "status": "RAW_ARCHIVE_COVERAGE_RECOVERED",
+  "scope": "Forensic/raw-lineage evidence only. No signal construction, tuning, promotion, execution, or data-engine-v1 sync.",
+  "reference_population": {
+    "evaluated_oos": 1049,
+    "folds": 8,
+    "expected_fold_evaluated": [120,132,135,137,138,127,126,134]
+  },
+  "method": {
+    "principle": "Use immutable Git checkpoint blobs only; never synthesize or reserialize missing trades.",
+    "verification": "Each selected historical blob was fetched and parsed directly; first/last timestamps and sequences were checked, and fold-window raw rows were reconciled.",
+    "result": "All eight OOS windows have historical raw-archive coverage in Git history, with two windows requiring adjacent immutable checkpoints to bridge the checkpoint boundary."
+  },
+  "folds": [
+    {
+      "fold": 0,
+      "window": ["2026-09-24T02:27:00Z","2026-09-24T10:45:00Z"],
+      "expected_evaluated": 120,
+      "source_commits": ["d2e2c2ee62a82b4a3edbd57df73e0dc0e3fb343e"],
+      "raw_rows_in_window": 11348,
+      "first_raw": "2026-09-24T02:27:01.901Z",
+      "last_raw": "2026-09-24T10:44:59.066Z",
+      "first_sequence": 37434509350,
+      "last_sequence": 37529331456
+    },
+    {
+      "fold": 1,
+      "window": ["2026-09-24T10:46:00Z","2026-09-24T21:26:00Z"],
+      "expected_evaluated": 132,
+      "source_commits": ["d2e2c2ee62a82b4a3edbd57df73e0dc0e3fb343e"],
+      "raw_rows_in_window": 13171,
+      "first_raw": "2026-09-24T10:46:00.556Z",
+      "last_raw": "2026-09-24T21:25:57.756Z",
+      "first_sequence": 37529523162,
+      "last_sequence": 37652174096
+    },
+    {
+      "fold": 2,
+      "window": ["2026-09-24T21:27:00Z","2026-09-25T07:26:00Z"],
+      "expected_evaluated": 135,
+      "source_commits": ["f28c5d7a96e7a70114d9b1abd3c1e0e8366aeff5"],
+      "raw_rows_in_window": 10070,
+      "first_raw": "2026-09-24T21:27:00.516Z",
+      "last_raw": "2026-09-25T07:25:58.654Z",
+      "first_sequence": 37652358860,
+      "last_sequence": 37764593560
+    },
+    {
+      "fold": 3,
+      "window": ["2026-09-25T07:27:00Z","2026-09-25T16:26:00Z"],
+      "expected_evaluated": 137,
+      "source_commits": ["f28c5d7a96e7a70114d9b1abd3c1e0e8366aeff5"],
+      "raw_rows_in_window": 13430,
+      "first_raw": "2026-09-25T07:27:01.474Z",
+      "last_raw": "2026-09-25T16:25:56.618Z",
+      "first_sequence": 37764790057,
+      "last_sequence": 37867474706
+    },
+    {
+      "fold": 4,
+      "window": ["2026-09-25T16:27:00Z","2026-09-26T02:51:00Z"],
+      "expected_evaluated": 138,
+      "source_commits": ["03a247357ad2689b8947169a8dd56b9dc26a9c95"],
+      "raw_rows_in_window": 10121,
+      "first_raw": "2026-09-25T16:27:02.848Z",
+      "last_raw": "2026-09-26T02:50:55.940Z",
+      "first_sequence": 37867687939,
+      "last_sequence": 37983833875
+    },
+    {
+      "fold": 5,
+      "window": ["2026-09-26T02:52:00Z","2026-09-26T10:04:00Z"],
+      "expected_evaluated": 127,
+      "source_commits": ["03a247357ad2689b8947169a8dd56b9dc26a9c95"],
+      "raw_rows_in_window": 9690,
+      "first_raw": "2026-09-26T02:52:02.984Z",
+      "last_raw": "2026-09-26T10:03:59.497Z",
+      "first_sequence": 37984041616,
+      "last_sequence": 38064398498
+    },
+    {
+      "fold": 6,
+      "window": ["2026-09-26T10:05:00Z","2026-09-27T00:54:00Z"],
+      "expected_evaluated": 126,
+      "source_commits": ["03a247357ad2689b8947169a8dd56b9dc26a9c95","aa015bdf32b6c325192e3bc420df4bac2fe18c26"],
+      "raw_rows_in_window": 9989,
+      "first_raw": "2026-09-26T10:05:02.803Z",
+      "last_raw": "2026-09-27T00:53:58.190Z",
+      "first_sequence": 38064597354,
+      "last_sequence": 38230334099
+    },
+    {
+      "fold": 7,
+      "window": ["2026-09-27T00:55:00Z","2026-09-27T17:30:00Z"],
+      "expected_evaluated": 134,
+      "source_commits": ["a034aef213bc0ab0587da67e2c25fa6589bf232f","06176d5ee187c7bf9c47d9404124bd8211c917f4"],
+      "raw_rows_in_window": 19036,
+      "first_raw": "2026-09-27T00:55:00.036Z",
+      "last_raw": "2026-09-27T16:27:05.507Z",
+      "first_sequence": 38230528110,
+      "last_sequence": 38403786177
+    }
+  ],
+  "archive_blob_inventory": [
+    {"commit":"d2e2c2ee62a82b4a3edbd57df73e0dc0e3fb343e","blob":"8d1b6f66be4d563978427fafe02ec7ca8312a986","rows":102383,"first_timestamp":"2026-09-21T15:36:40.398Z","last_timestamp":"2026-09-24T23:44:52.505Z","last_sequence":37678034139},
+    {"commit":"f28c5d7a96e7a70114d9b1abd3c1e0e8366aeff5","blob":"b1f032d9d247bce056761250f8d1a9c97f19d16f","rows":129012,"first_timestamp":"2026-09-21T15:36:40.398Z","last_timestamp":"2026-09-25T21:16:45.781Z","last_sequence":37921818171},
+    {"commit":"03a247357ad2689b8947169a8dd56b9dc26a9c95","blob":"6537baec7d5ac59d6807898de758099bc18f8e3f","rows":100792,"first_timestamp":"2026-09-22T22:26:16.640Z","last_timestamp":"2026-09-26T23:55:20.315Z","last_sequence":38219363322},
+    {"commit":"aa015bdf32b6c325192e3bc420df4bac2fe18c26","blob":"RETRIEVED_IMMUTABLE_GIT_BLOB","first_timestamp":"2026-09-22T22:26:16.640Z","last_timestamp":"2026-09-27T00:55:31.137Z","last_sequence":38230626396},
+    {"commit":"a034aef213bc0ab0587da67e2c25fa6589bf232f","blob":"RETRIEVED_IMMUTABLE_GIT_BLOB","first_timestamp":"2026-09-22T22:26:16.640Z","last_timestamp":"2026-09-27T03:45:08.210Z","last_sequence":38262321842},
+    {"commit":"06176d5ee187c7bf9c47d9404124bd8211c917f4","blob":"952c4a26933a9bd633a3de3a5ae0d4dea00a8ae8","rows":119181,"first_timestamp":"2026-09-22T22:26:16.640Z","last_timestamp":"2026-09-27T23:47:38.148Z","last_sequence":38485795731}
+  ],
+  "important_boundary": {
+    "raw_archive_recovery": "PASS",
+    "exact_1049_reconstruction": "NOT_YET_PROVEN",
+    "reason": "Raw trade coverage exists across all eight test windows, but the exact 1,049 evaluated observations still require deterministic replay of the original feature/observation construction against the recovered historical raw lineage. No replacement rows may be synthesized.",
+    "notable_fold7_end": "The recovered raw archive currently reaches 16:27:05.507Z inside the fold-7 window; later data resumes after a multi-hour raw-data gap. This must be preserved as an observed archive condition, not filled synthetically."
+  },
+  "next_gate": "Build Historical Raw Union Snapshot from these immutable blobs, then deterministically replay the locked 1,049-observation construction and reconcile fold counts, sequences, timestamps, and feature values."
+}
