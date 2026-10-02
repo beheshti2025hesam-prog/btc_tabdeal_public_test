@@ -82,7 +82,21 @@ def load():
     trades.sort(key=lambda t: (t.timestamp, t.sequence or -1))
     return trades, total, invalid
 
+def validate_frozen_protocol_contract():
+    contract_path = os.environ.get("PROTOCOL_CONTRACT_PATH", "/tmp/protocol_reconciliation_v1_contract.json")
+    d = json.loads(Path(contract_path).read_text(encoding="utf-8"))
+    pc = d["protocol_core"]
+    assert pc["fold_partition"] == {"train": TRAIN, "test": TEST, "step": STEP, "folds": FOLDS}
+    assert pc["winner_rule"]["gross_return_strictly_greater_than"] == THRESHOLD
+    assert pc["control_rule"]["gross_return_less_than_or_equal_to"] == THRESHOLD
+    assert pc["new_raw_application_contract"]["apply_same_protocol_without_change"] is True
+    assert pc["new_raw_application_contract"]["apply_to_entire_evaluated_population_before_any_winner_label"] is True
+    assert pc["new_raw_application_contract"]["threshold_bps_gross"] == 14
+    assert pc["new_raw_application_contract"]["no_manual_two_item_extraction"] is True
+    return d
+
 def main():
+    validate_frozen_protocol_contract()
     trades, rows_read, rows_invalid = load()
     candles = TradeCandleAggregator(60).aggregate(trades)
     ema = EMACalculator(EMA_PERIOD).calculate(candles)
@@ -243,6 +257,8 @@ def main():
             "gross_threshold": THRESHOLD,
             "snapshot_data_blob_sha": SNAPSHOT_DATA_BLOB_SHA,
             "snapshot_source_commit": SNAPSHOT_SOURCE_COMMIT,
+            "protocol_contract_source_commit": os.environ.get("PROTOCOL_CONTRACT_SOURCE_COMMIT", ""),
+            "protocol_contract_blob_sha": os.environ.get("PROTOCOL_CONTRACT_BLOB_SHA", ""),
         },
         "population": {
             "rows_read": rows_read,
