@@ -1,0 +1,113 @@
+name: HES Trade Agent — Independent Immutable Raw Protocol Reconciliation v1
+
+on:
+  push:
+    branches:
+      - protocol-reconciliation-independent-snapshot-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-protocol-reconciliation-independent-snapshot
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOCKED_RAW_BLOB_SHA: 87b7a9b4f4141d6b7adedf197d3dcbb25cd66254
+      LOCKED_RAW_SOURCE_COMMIT: 7d03f010fe331e104c29c0f8290da48fa7e9e264
+      PROTOCOL_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
+      PROTOCOL_SOURCE_SCRIPT_BLOB: 5dfad504e6c699235ad696af67104b5be5176fef
+      HES_FROZEN_CSV: /tmp/hes_independent_trades.csv
+    steps:
+      - name: Checkout exact audit commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Materialize and hash-lock the independent Raw snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${LOCKED_RAW_BLOB_SHA}" \
+            > /tmp/raw_blob.json
+          python - <<'PY'
+          import base64, csv, hashlib, json, os
+          from pathlib import Path
+          d=json.load(open("/tmp/raw_blob.json"))
+          assert d["sha"] == os.environ["LOCKED_RAW_BLOB_SHA"]
+          raw=base64.b64decode(d["content"])
+          assert raw
+          p=Path(os.environ["HES_FROZEN_CSV"])
+          p.write_bytes(raw)
+          rows=list(csv.DictReader(p.open("r",encoding="utf-8",newline="")))
+          assert rows
+          seq=[int(r["sequence"]) for r in rows]
+          ts=[r["updated"] for r in rows]
+          manifest={
+            "status":"IMMUTABLE_NEW_RAW_SNAPSHOT_HASH_LOCKED",
+            "raw_path":"data/trades.csv",
+            "source_commit":os.environ["LOCKED_RAW_SOURCE_COMMIT"],
+            "git_blob_sha":os.environ["LOCKED_RAW_BLOB_SHA"],
+            "sha256":hashlib.sha256(raw).hexdigest(),
+            "bytes":len(raw),
+            "rows":len(rows),
+            "first_timestamp":ts[0],
+            "last_timestamp":ts[-1],
+            "first_sequence":seq[0],
+            "last_sequence":seq[-1],
+            "sequence_nonmonotonic_count":sum(b<=a for a,b in zip(seq,seq[1:])),
+            "timestamp_backward_count":sum(b<a for a,b in zip(ts,ts[1:])),
+            "duplicate_sequence_count":len(seq)-len(set(seq)),
+            "safety":{"execution":False,"threshold_tuning":False,"model_fitting":False,"promotion":False}
+          }
+          assert manifest["sequence_nonmonotonic_count"]==0
+          assert manifest["timestamp_backward_count"]==0
+          assert manifest["duplicate_sequence_count"]==0
+          Path("independent_raw_snapshot_lock.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Run the frozen protocol against the complete population
+        run: python scripts/protocol_reconciliation_independent_snapshot_v1.py
+
+      - name: Fail closed on protocol/source mismatch and verify full-population reconciliation
+        run: |
+          python - <<'PY'
+          import json, os
+          d=json.load(open("protocol_reconciliation_full_population_audit.json"))
+          p=d["protocol"]; c=d["counts"]; pop=d["population"]
+          assert p["train"]==800 and p["test"]==400 and p["step"]==400 and p["folds"]==8
+          assert p["gross_threshold"]==0.0014
+          assert p["snapshot_data_blob_sha"]==os.environ["LOCKED_RAW_BLOB_SHA"]
+          assert p["snapshot_source_commit"]==os.environ["LOCKED_RAW_SOURCE_COMMIT"]
+          assert c["winners_gt_14bps"] + c["controls_le_14bps"] == pop["evaluated_oos"]
+          assert pop["evaluated_oos"] <= 8*400
+          assert pop["evaluated_oos"] > 0
+          # Every protocol-defined winner is retained in the output; no winner-count
+          # precondition or manual subset is permitted here.
+          assert len(d["winners"]) == c["winners_gt_14bps"]
+          print("INDEPENDENT_RAW_PROTOCOL_RECONCILIATION_VALID")
+          print(json.dumps({"evaluated_oos":pop["evaluated_oos"],"winners_gt_14bps":c["winners_gt_14bps"],"controls_le_14bps":c["controls_le_14bps"],"folds":p["folds"]},indent=2))
+          PY
+
+      - name: Upload immutable snapshot lock and complete audit
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: independent-raw-protocol-reconciliation-v1
+          path: |
+            independent_raw_snapshot_lock.json
+            protocol_reconciliation_full_population_audit.json
+            protocol_reconciliation_winners.csv
+          if-no-files-found: error
