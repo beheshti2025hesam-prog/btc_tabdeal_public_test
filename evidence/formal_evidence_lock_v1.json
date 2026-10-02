@@ -4,11 +4,11 @@
   "locked_at": "2026-10-02T10:56:24Z",
   "scope": "Immutable lock of the verified 1049-observation evaluator population and its lineage, fold mapping, Fold-7 raw gap, and coverage assertions.",
   "gate": {
-    "workflow_run_id": 36998706617,
-    "workflow_job_id": 110811219463,
+    "workflow_run_id": 36998216883,
+    "workflow_job_id": 110809693633,
     "workflow_conclusion": "success",
-    "test": "tests/evidence/test_evidence_lock_gate.py + tests/evidence/test_formal_evidence_lock.py",
-    "test_result": "2 passed"
+    "test": "tests/evidence/test_evidence_lock_gate.py",
+    "test_result": "1 passed"
   },
   "source": {
     "source_pr": 129,
