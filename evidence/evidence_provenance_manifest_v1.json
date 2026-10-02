@@ -14,20 +14,20 @@
       "artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
       "role": "IMMUTABLE_RAW_ARCHIVE_ARTIFACT"
     },
+    "snapshot_gap_coverage_audit": {
+      "commit": "4553af53df047674ea030477ff978fd199e7787c",
+      "message": "Evidence: explicit snapshot gap fold coverage delta audit",
+      "role": "DERIVED_SNAPSHOT_GAP_COVERAGE_AUDIT"
+    },
     "evidence_reconstruction": {
       "commit": "d70ba6aa3dac4d53352eccf0a44eae870d51b9b8",
       "message": "Evidence: exact 1049 lineage replay from immutable artifact",
-      "role": "DERIVED_EVIDENCE_RECONSTRUCTION"
+      "role": "DERIVED_EXACT_1049_RECONSTRUCTION"
     },
     "fold_gap_audit": {
       "commit": "a01fa2c9c2a898f7253a52cb52a4ddf4f3720ea7",
       "message": "Evidence: lock 1049 fold-gap impact audit",
-      "role": "DERIVED_AUDIT"
-    },
-    "snapshot_gap_coverage_audit": {
-      "commit": "4553af53df047674ea030477ff978fd199e7787c",
-      "message": "Evidence: explicit snapshot gap fold coverage delta audit",
-      "role": "DERIVED_AUDIT"
+      "role": "DERIVED_FOLD_GAP_IMPACT_AUDIT"
     },
     "formal_lock_verification_commit": {
       "commit": "68bb6283586cb5f5b99df13033095df3cd98c041",
@@ -37,15 +37,17 @@
   },
   "lineage_chain": [
     "immutable collector workflow artifact #11162212837",
-    "exact 1049 replay",
-    "fold/gap impact audit",
     "snapshot gap coverage audit",
+    "exact 1049 reconstruction",
+    "fold/gap impact audit",
     "formal evidence lock"
   ],
   "critical_distinction": {
-    "source_head_commit_4553": "This is an evidence/audit commit on PR #129, not the head SHA of immutable workflow run 36773191085.",
-    "raw_workflow_head_42de": "This is the actual GitHub Actions collector run head that produced immutable artifact #11162212837.",
-    "pr_129_role": "Evidence-analysis and lock construction branch; it is not the producer of immutable collector artifact #11162212837."
+    "workflow_head_42de": "Actual head SHA of immutable collector workflow run 36773191085; this is the raw-artifact producer lineage.",
+    "evidence_commit_4553": "Derived snapshot-gap coverage audit commit; it is not the raw workflow producer.",
+    "evidence_commit_d70": "Derived exact-1049 reconstruction commit; it is not the raw workflow producer.",
+    "evidence_commit_a01": "Derived fold-gap impact audit commit; it is not the raw workflow producer.",
+    "lock_commit_68bb": "Lock metadata/CI verification commit; it does not redefine the underlying scientific source."
   },
   "locked_scientific_values_unchanged": {
     "evaluated_observations": 1049,
