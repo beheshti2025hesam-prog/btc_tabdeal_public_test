@@ -5,13 +5,17 @@ on:
     branches: ["snapshot-gap-forensics-v1"]
     paths:
       - "evidence/evidence_lock_gate_v1.json"
+      - "evidence/formal_evidence_lock_v1.json"
       - "tests/evidence/test_evidence_lock_gate.py"
+      - "tests/evidence/test_formal_evidence_lock.py"
       - ".github/workflows/evidence-lock-gate.yml"
   pull_request:
     branches: ["main"]
     paths:
       - "evidence/evidence_lock_gate_v1.json"
+      - "evidence/formal_evidence_lock_v1.json"
       - "tests/evidence/test_evidence_lock_gate.py"
+      - "tests/evidence/test_formal_evidence_lock.py"
       - ".github/workflows/evidence-lock-gate.yml"
   workflow_dispatch:
 
@@ -27,4 +31,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip pytest
-      - run: pytest -q tests/evidence/test_evidence_lock_gate.py
+      - run: pytest -q tests/evidence/test_evidence_lock_gate.py tests/evidence/test_formal_evidence_lock.py
