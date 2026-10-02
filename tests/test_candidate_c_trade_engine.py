@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from candidate_c_trade_engine import evaluate_signal, open_position, resolve_bar_exit, run_fold
+from candidate_c_trade_engine import evaluate_signal, open_position, resolve_bar_exit, run_fold, run_fold_with_boundary_evidence
 
 def bar(o,h,l,c,ema20=110,ema50=100,atr14=2):
     return {"open":o,"high":h,"low":l,"close":c,"ema20":ema20,"ema50":ema50,"atr14":atr14}
@@ -103,3 +103,13 @@ def test_short_favorable_gap_exits_at_open():
     r=resolve_bar_exit(p,bar(95,96,94,95),1)
     assert r["exit_reason"] == "take_profit_gap"
     assert r["exit_price"] == 95
+
+def test_fold_boundary_open_position_is_censored_and_not_carried():
+    bars=[bar(100,101,99,100,100,100) for _ in range(20)]
+    bars.append(bar(100,105,99,105,110,100))
+    bars.append(bar(105,106,104,105,110,100))
+    trades, boundary = run_fold_with_boundary_evidence(bars, 20, 22)
+    assert trades == []
+    assert boundary["position_open_at_fold_end"] is True
+    assert boundary["censored_position_count"] == 1
+    assert boundary["carried_to_next_fold"] is False
