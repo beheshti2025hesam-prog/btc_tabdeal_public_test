@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from candidate_c_trade_engine import run_fold
+from candidate_c_trade_engine import run_fold_with_boundary_evidence
 DEF=ROOT/"evidence/candidate_c_definition_v1.json"
 SNAP=ROOT/"evidence/candidate_c_fresh_snapshot_20261001.json"
 RAW=ROOT/"data/trades.csv"
@@ -168,8 +168,11 @@ def main():
         folds.append({"fold":i+1,"train":[train_start,train_end],"test":[test_start,test_end],
                       "timestamp_start":bars[test_start]["t"],"timestamp_end":bars[test_end-1]["t"]})
     fold_trades=[]
+    fold_boundary_evidence=[]
     for f in folds:
-        fold_trades.extend(run_fold(engine_bars, f["test"][0], f["test"][1]))
+        trades, boundary = run_fold_with_boundary_evidence(engine_bars, f["test"][0], f["test"][1])
+        fold_trades.extend(trades)
+        fold_boundary_evidence.append({"fold":f["fold"], **boundary})
     artifact={
       "artifact_id":"CANDIDATE_C_OOS_EXECUTION_READY_2026-10-01",
       "status":"EXECUTION_ENGINE_VERIFIED_OOS_REMAINS_BLOCKED",
@@ -183,6 +186,9 @@ def main():
                    "trade_count":len(fold_trades),
                    "same_bar_ambiguities":sum(1 for t in fold_trades if t["same_bar_ambiguity"]),
                    "policy_id":"CONSERVATIVE_WORST_CASE_SL_FIRST"},
+      "fold_boundary_evidence":{"folds":fold_boundary_evidence,
+                                "censored_position_count":sum(x["censored_position_count"] for x in fold_boundary_evidence),
+                                "cross_fold_position_carry":any(x["carried_to_next_fold"] for x in fold_boundary_evidence)},
       "rule":{"long":"close_t > prior_20_bar_high AND ema20_t > ema50_t",
               "short":"close_t < prior_20_bar_low AND ema20_t < ema50_t",
               "entry":"next_bar_open","SL_ATR":1.5,"TP_ATR":2.0,"max_holding_bars":30},
