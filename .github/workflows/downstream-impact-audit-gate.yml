@@ -30,4 +30,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check pytest
       - run: python -m pytest -q tests/evidence/test_downstream_impact_audit_1049.py
