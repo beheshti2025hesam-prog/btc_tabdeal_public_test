@@ -39,7 +39,7 @@ def open_position(side, entry_price, atr_value):
 def resolve_bar_exit(position, bar, holding_bars):
     from candidate_c_exit_engine import resolve_bar_exit as resolve
     result = resolve(position["side"], {
-        "high": bar["high"], "low": bar["low"]
+        "open": bar["open"], "high": bar["high"], "low": bar["low"]
     }, position["stop_price"], position["target_price"])
     if result is not None:
         return result
