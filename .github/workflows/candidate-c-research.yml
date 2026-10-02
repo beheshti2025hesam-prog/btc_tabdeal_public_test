@@ -6,6 +6,10 @@ on:
       - 'scripts/candidate_c_evaluator.py'
       - 'evidence/candidate_c_definition_v1.json'
       - 'evidence/candidate_c_fresh_snapshot_20261001.json'
+      - 'scripts/candidate_c_trade_engine.py'
+      - 'scripts/candidate_c_exit_engine.py'
+      - 'tests/test_candidate_c_trade_engine.py'
+      - '.github/workflows/candidate-c-research.yml'
   workflow_dispatch:
 jobs:
   contract:
