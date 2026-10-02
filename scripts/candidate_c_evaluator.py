@@ -4,11 +4,13 @@
 Research-only. The script fails closed unless the frozen definition/snapshot lineage
 is present and matches. No Rule-A evaluator is imported or reused.
 """
-import csv, json, hashlib, math, subprocess, io
+import csv, json, hashlib, math, subprocess, io, sys
 from pathlib import Path
 from datetime import datetime, timezone
 
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from candidate_c_trade_engine import run_fold
 DEF=ROOT/"evidence/candidate_c_definition_v1.json"
 SNAP=ROOT/"evidence/candidate_c_fresh_snapshot_20261001.json"
 RAW=ROOT/"data/trades.csv"
@@ -140,21 +142,34 @@ def main():
     if len(bars)<required_bars: raise RuntimeError(f"FAIL_CLOSED: insufficient bars for declared 8 folds (need {required_bars}, got {len(bars)})")
     closes=[x["c"] for x in bars]; highs=[x["h"] for x in bars]; lows=[x["l"] for x in bars]
     e20,e50=ema(closes,20),ema(closes,50); a14=atr(highs,lows,closes,14)
+    engine_bars=[]
+    for i,b in enumerate(bars):
+        if i and b["t"] <= bars[i-1]["t"]:
+            raise RuntimeError("FAIL_CLOSED: non-monotonic 1m timestamps")
+        engine_bars.append({"open":b["o"],"high":b["h"],"low":b["l"],"close":b["c"],
+                            "volume":b["v"],"ema20":e20[i],"ema50":e50[i],"atr14":a14[i],"t":b["t"]})
     folds=[]
     for i in range(8):
         train_start=i*400; train_end=train_start+800; test_start=train_end; test_end=test_start+400
         if test_end>len(bars): raise RuntimeError("FAIL_CLOSED: fold exceeds snapshot bar range")
         folds.append({"fold":i+1,"train":[train_start,train_end],"test":[test_start,test_end],
                       "timestamp_start":bars[test_start]["t"],"timestamp_end":bars[test_end-1]["t"]})
+    fold_trades=[]
+    for f in folds:
+        fold_trades.extend(run_fold(engine_bars, f["test"][0], f["test"][1]))
     artifact={
       "artifact_id":"CANDIDATE_C_OOS_EXECUTION_READY_2026-10-01",
-      "status":"READY_FOR_OOS_AFTER_WORKFLOW_GATE",
+      "status":"EXECUTION_ENGINE_VERIFIED_OOS_REMAINS_BLOCKED",
       "definition_sha256":sha256_file(DEF),"snapshot_file_sha256":sha256_file(SNAP),
       "raw_blob_sha256":raw_sha,"bars_1m":len(bars),
       "features":{"ema20_ready":sum(not math.isnan(x) for x in e20),
                   "ema50_ready":sum(not math.isnan(x) for x in e50),
                   "atr14_ready":sum(not math.isnan(x) for x in a14)},
       "folds":folds,
+      "execution":{"oos_started":False,"execution_trace_generated":True,
+                   "trade_count":len(fold_trades),
+                   "same_bar_ambiguities":sum(1 for t in fold_trades if t["same_bar_ambiguity"]),
+                   "policy_id":"CONSERVATIVE_WORST_CASE_SL_FIRST"},
       "rule":{"long":"close_t > prior_20_bar_high AND ema20_t > ema50_t",
               "short":"close_t < prior_20_bar_low AND ema20_t < ema50_t",
               "entry":"next_bar_open","SL_ATR":1.5,"TP_ATR":2.0,"max_holding_bars":30},
