@@ -7,6 +7,12 @@ on:
       - "evidence/evidence_lock_gate_v1.json"
       - "tests/evidence/test_evidence_lock_gate.py"
       - ".github/workflows/evidence-lock-gate.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "evidence/evidence_lock_gate_v1.json"
+      - "tests/evidence/test_evidence_lock_gate.py"
+      - ".github/workflows/evidence-lock-gate.yml"
   workflow_dispatch:
 
 permissions:
