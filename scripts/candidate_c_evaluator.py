@@ -4,11 +4,13 @@
 Research-only. The script fails closed unless the frozen definition/snapshot lineage
 is present and matches. No Rule-A evaluator is imported or reused.
 """
-import csv, json, hashlib, math, subprocess, io
+import csv, json, hashlib, math, subprocess, io, sys
 from pathlib import Path
 from datetime import datetime, timezone
 
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from candidate_c_trade_engine import run_fold_with_boundary_evidence
 DEF=ROOT/"evidence/candidate_c_definition_v1.json"
 SNAP=ROOT/"evidence/candidate_c_fresh_snapshot_20261001.json"
 RAW=ROOT/"data/trades.csv"
@@ -70,9 +72,9 @@ def aggregate_1m_stream(stream):
             chosen=(ts,p,q); break
     if chosen is None:
         raise RuntimeError("FAIL_CLOSED: raw trades lacks an unambiguous timestamp/price/quantity schema")
-    buckets={}
+    parsed=[]
     row_count=parsed_count=0
-    for row in reader:
+    for row_index, row in enumerate(reader):
         row_count += 1
         ts_s,price_s,qty_s=(row[x] for x in chosen)
         try:
@@ -87,6 +89,19 @@ def aggregate_1m_stream(stream):
             parsed_count += 1
         except (ValueError,TypeError,OverflowError):
             continue
+        if ts > 1e11:
+            ts /= 1000.0
+        if ts < 0:
+            continue
+        parsed.append((ts, row_index, price, qty))
+    if row_count and parsed_count == 0:
+        raise RuntimeError(f"FAIL_CLOSED: zero parseable raw trades (rows={row_count}, schema={chosen})")
+    # Event-time order is explicit: timestamp first; original row index only breaks
+    # exact-timestamp ties deterministically. OHLC close is therefore the last event
+    # in deterministic event-time order, not merely the last CSV row encountered.
+    parsed.sort(key=lambda x: (x[0], x[1]))
+    buckets={}
+    for ts, _row_index, price, qty in parsed:
         minute=int(ts//60)
         b=buckets.setdefault(minute,{"t":minute,"o":price,"h":price,"l":price,"c":price,"v":0.0})
         b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
@@ -118,6 +133,40 @@ def aggregate_1m(path):
             b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
         return [buckets[k] for k in sorted(buckets)]
 
+def validate_1m_continuity(bars):
+    for i in range(1, len(bars)):
+        if bars[i]["t"] - bars[i-1]["t"] != 1:
+            raise RuntimeError("FAIL_CLOSED: unresolved 1m timestamp gap at bars %d->%d" % (i-1, i))
+    return True
+
+def build_fold_specs(bars):
+    """Build fixed walk-forward folds and enforce timestamp separation.
+
+    Train features may use causal history, including prior bars before a test
+    signal. No test outcome is allowed to cross the declared fold boundary.
+    """
+    folds=[]
+    for i in range(8):
+        train_start=i*400
+        train_end=train_start+800
+        test_start=train_end
+        test_end=test_start+400
+        if test_end>len(bars):
+            raise RuntimeError("FAIL_CLOSED: fold exceeds snapshot bar range")
+        if bars[train_end-1]["t"] >= bars[test_start]["t"]:
+            raise RuntimeError("FAIL_CLOSED: train/test timestamp boundary is not strictly ordered")
+        folds.append({
+            "fold":i+1,
+            "train":[train_start,train_end],
+            "test":[test_start,test_end],
+            "timestamp_train_end":bars[train_end-1]["t"],
+            "timestamp_test_start":bars[test_start]["t"],
+            "timestamp_test_end":bars[test_end-1]["t"],
+            "timestamp_start":bars[test_start]["t"],
+            "timestamp_end":bars[test_end-1]["t"],
+        })
+    return folds
+
 def validate_definition(d,s):
     assert d["candidate_id"]=="CANDIDATE_RESEARCH_INDEPENDENT_C"
     assert d["candidate_version"]=="C-v1"
@@ -140,21 +189,38 @@ def main():
     if len(bars)<required_bars: raise RuntimeError(f"FAIL_CLOSED: insufficient bars for declared 8 folds (need {required_bars}, got {len(bars)})")
     closes=[x["c"] for x in bars]; highs=[x["h"] for x in bars]; lows=[x["l"] for x in bars]
     e20,e50=ema(closes,20),ema(closes,50); a14=atr(highs,lows,closes,14)
-    folds=[]
-    for i in range(8):
-        train_start=i*400; train_end=train_start+800; test_start=train_end; test_end=test_start+400
-        if test_end>len(bars): raise RuntimeError("FAIL_CLOSED: fold exceeds snapshot bar range")
-        folds.append({"fold":i+1,"train":[train_start,train_end],"test":[test_start,test_end],
-                      "timestamp_start":bars[test_start]["t"],"timestamp_end":bars[test_end-1]["t"]})
+    engine_bars=[]
+    for i,b in enumerate(bars):
+        if i and b["t"] <= bars[i-1]["t"]:
+            raise RuntimeError("FAIL_CLOSED: non-monotonic 1m timestamps")
+        engine_bars.append({"open":b["o"],"high":b["h"],"low":b["l"],"close":b["c"],
+                            "volume":b["v"],"ema20":e20[i],"ema50":e50[i],"atr14":a14[i],"t":b["t"]})
+    # A 1-minute holding bar must represent one real minute. Missing minute buckets
+    # would silently compress elapsed time, so unresolved gaps fail closed.
+    validate_1m_continuity(bars)
+    folds=build_fold_specs(bars)
+    fold_trades=[]
+    fold_boundary_evidence=[]
+    for f in folds:
+        trades, boundary = run_fold_with_boundary_evidence(engine_bars, f["test"][0], f["test"][1])
+        fold_trades.extend(trades)
+        fold_boundary_evidence.append({"fold":f["fold"], **boundary})
     artifact={
       "artifact_id":"CANDIDATE_C_OOS_EXECUTION_READY_2026-10-01",
-      "status":"READY_FOR_OOS_AFTER_WORKFLOW_GATE",
+      "status":"EXECUTION_ENGINE_VERIFIED_OOS_REMAINS_BLOCKED",
       "definition_sha256":sha256_file(DEF),"snapshot_file_sha256":sha256_file(SNAP),
       "raw_blob_sha256":raw_sha,"bars_1m":len(bars),
       "features":{"ema20_ready":sum(not math.isnan(x) for x in e20),
                   "ema50_ready":sum(not math.isnan(x) for x in e50),
                   "atr14_ready":sum(not math.isnan(x) for x in a14)},
       "folds":folds,
+      "execution":{"oos_started":False,"execution_trace_generated":True,
+                   "trade_count":len(fold_trades),
+                   "same_bar_ambiguities":sum(1 for t in fold_trades if t["same_bar_ambiguity"]),
+                   "policy_id":"CONSERVATIVE_WORST_CASE_SL_FIRST"},
+      "fold_boundary_evidence":{"folds":fold_boundary_evidence,
+                                "censored_position_count":sum(x["censored_position_count"] for x in fold_boundary_evidence),
+                                "cross_fold_position_carry":any(x["carried_to_next_fold"] for x in fold_boundary_evidence)},
       "rule":{"long":"close_t > prior_20_bar_high AND ema20_t > ema50_t",
               "short":"close_t < prior_20_bar_low AND ema20_t < ema50_t",
               "entry":"next_bar_open","SL_ATR":1.5,"TP_ATR":2.0,"max_holding_bars":30},

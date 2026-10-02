@@ -1,0 +1,27 @@
+name: Candidate C Exit Engine Unit Gate
+on:
+  push:
+    branches: [candidate-c-evaluator-wiring-v1-20261002]
+    paths:
+      - 'scripts/candidate_c_exit_engine.py'
+      - 'tests/test_candidate_c_exit_engine.py'
+      - '.github/workflows/candidate-c-exit-engine-gate.yml'
+  pull_request:
+    branches: [main, independent-candidate-c-20261001]
+    paths:
+      - 'scripts/candidate_c_exit_engine.py'
+      - 'tests/test_candidate_c_exit_engine.py'
+      - '.github/workflows/candidate-c-exit-engine-gate.yml'
+  workflow_dispatch:
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run deterministic exit policy tests
+        run: python -m unittest tests/test_candidate_c_exit_engine.py -v

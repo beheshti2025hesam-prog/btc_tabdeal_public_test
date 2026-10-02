@@ -1,0 +1,27 @@
+name: Candidate C Snapshot Continuity Forensics Gate
+on:
+  push:
+    branches: [candidate-c-evaluator-wiring-v1-20261002]
+    paths:
+      - 'evidence/candidate_c_snapshot_continuity_forensics_20261002.json'
+      - 'tests/evidence/test_candidate_c_snapshot_continuity_forensics.py'
+      - '.github/workflows/candidate-c-snapshot-continuity-gate.yml'
+  pull_request:
+    branches: [main, independent-candidate-c-20261001]
+    paths:
+      - 'evidence/candidate_c_snapshot_continuity_forensics_20261002.json'
+      - 'tests/evidence/test_candidate_c_snapshot_continuity_forensics.py'
+      - '.github/workflows/candidate-c-snapshot-continuity-gate.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check pytest
+      - run: python -m pytest -q tests/evidence/test_candidate_c_snapshot_continuity_forensics.py

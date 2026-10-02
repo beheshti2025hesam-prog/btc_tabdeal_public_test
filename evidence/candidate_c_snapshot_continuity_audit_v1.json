@@ -1,0 +1,50 @@
+{
+  "artifact": "HES Trade Agent — Candidate C Snapshot Continuity Forensic Audit v1",
+  "status": "SNAPSHOT_CONTINUITY_BLOCKED",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "candidate_version": "C-v1",
+  "source_snapshot_id": "CANDIDATE_C_FRESH_SNAPSHOT_2026-10-01",
+  "snapshot_source_commit": "2c206f4e8724f24c6b4640d4d81995ae6ddea15c",
+  "active_raw_blob": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+  "evaluator_head": "53bac49ad6fb683a10f9d2914951e295d90484b5",
+  "bars_1m": 4977,
+  "declared_folds": 8,
+  "continuity_policy": "FAIL_CLOSED_ON_ANY_UNRESOLVED_1M_TIMESTAMP_GAP",
+  "gap_count": 8,
+  "gaps": [
+    {"after_bar_index":265,"before_bar_index":266,"missing_minutes":270,"from":"2026-09-27T03:45:00Z","to":"2026-09-27T08:16:00Z","region":"Fold1_train"},
+    {"after_bar_index":281,"before_bar_index":282,"missing_minutes":1,"from":"2026-09-27T08:31:00Z","to":"2026-09-27T08:33:00Z","region":"Fold1_train"},
+    {"after_bar_index":462,"before_bar_index":463,"missing_minutes":9,"from":"2026-09-27T11:33:00Z","to":"2026-09-27T11:43:00Z","region":"Fold1_train"},
+    {"after_bar_index":483,"before_bar_index":484,"missing_minutes":312,"from":"2026-09-27T12:03:00Z","to":"2026-09-27T17:16:00Z","region":"Fold1_train"},
+    {"after_bar_index":665,"before_bar_index":666,"missing_minutes":409,"from":"2026-09-27T20:17:00Z","to":"2026-09-28T03:07:00Z","region":"Fold1_train"},
+    {"after_bar_index":986,"before_bar_index":987,"missing_minutes":640,"from":"2026-09-28T08:27:00Z","to":"2026-09-28T19:08:00Z","region":"Fold1_test"},
+    {"after_bar_index":1948,"before_bar_index":1949,"missing_minutes":89,"from":"2026-09-29T11:09:00Z","to":"2026-09-29T12:39:00Z","region":"Fold3_test"},
+    {"after_bar_index":2049,"before_bar_index":2050,"missing_minutes":219,"from":"2026-09-29T14:19:00Z","to":"2026-09-29T17:59:00Z","region":"Fold4_test"}
+  ],
+  "ci_failure_mapping": {
+    "reported_bar_transition": "265->266",
+    "confirmed_source_transition": "2026-09-27T03:45:00Z -> 2026-09-27T08:16:00Z",
+    "missing_minutes": 270,
+    "interpretation": "The CI failure is a genuine raw-snapshot continuity gap, not an exit-resolver defect."
+  },
+  "fold_impact": {
+    "fold1_test_gap": true,
+    "fold3_test_gap": true,
+    "fold4_test_gap": true,
+    "fold7_test_gap": false,
+    "locked_1049_evidence_unchanged": true
+  },
+  "integrity_rules": {
+    "synthetic_fill": false,
+    "interpolation": false,
+    "gap_deletion": false,
+    "timestamp_compression": false,
+    "policy_change": false,
+    "oos_started": false,
+    "promotion": false,
+    "live_execution": false
+  },
+  "decision": "DO_NOT_PROCEED_TO_OOS_WITH_CURRENT_SNAPSHOT",
+  "next_gate": "Acquire_or_reconstruct_a_lineage_clean_raw_snapshot_without_synthetic_fill_then_replay_continuity_and_fold_boundary_audits",
+  "evidence_boundary": "Do not modify the locked 1049 Evidence Package or reinterpret its Fold-7 classification from this Candidate C audit."
+}

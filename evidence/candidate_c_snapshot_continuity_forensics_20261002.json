@@ -1,0 +1,26 @@
+{
+  "artifact_id":"CANDIDATE_C_SNAPSHOT_CONTINUITY_FORENSICS_2026-10-02",
+  "status":"RAW_SNAPSHOT_CONTINUITY_GAP_CONFIRMED_OOS_BLOCKED",
+  "candidate_id":"CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "snapshot_id":"CANDIDATE_C_FRESH_SNAPSHOT_2026-10-01",
+  "snapshot_commit":"2c206f4e8724f24c6b4640d4d81995ae6ddea15c",
+  "active_blob":"eef65102d4671a43f11f9dc311e0617aa220eb64",
+  "bars_1m":4977,
+  "raw_rows":135753,
+  "gap_count":8,
+  "total_missing_full_minutes":1949,
+  "first_ci_failure":{"transition":"265->266","previous":"2026-09-27 03:45:00.312000+00:00","next":"2026-09-27 08:16:13.969000+00:00","bucket_delta_minutes":271,"missing_full_minutes":270,"location":"Fold 1 train"},
+  "gaps":[
+    {"transition":"265->266","missing_full_minutes":270,"location":"Fold 1 train"},
+    {"transition":"281->282","missing_full_minutes":1,"location":"Fold 1 train"},
+    {"transition":"462->463","missing_full_minutes":9,"location":"Fold 1 train; Fold 2 train"},
+    {"transition":"483->484","missing_full_minutes":312,"location":"Fold 1 train; Fold 2 train"},
+    {"transition":"665->666","missing_full_minutes":409,"location":"Fold 1 train; Fold 2 train"},
+    {"transition":"986->987","missing_full_minutes":640,"location":"Fold 1 test; Fold 2 train; Fold 3 train"},
+    {"transition":"1948->1949","missing_full_minutes":89,"location":"Fold 3 test; Fold 4 train; Fold 5 train"},
+    {"transition":"2049->2050","missing_full_minutes":219,"location":"Fold 4 test; Fold 5 train; Fold 6 train"}
+  ],
+  "interpretation":{"evaluator_failure_is_real":true,"failure_source":"raw snapshot continuity","exit_resolver_bug":false,"synthetic_fill_allowed":false,"interpolation_allowed":false,"row_deletion_allowed":false,"policy_change_allowed":false,"oos_started":false,"performance_reporting_allowed":false},
+  "next_gate":"Obtain a new lineage-clean Candidate C snapshot or immutable raw lineage artifact that resolves every required 1m continuity boundary without synthetic rows, then rerun the same deterministic evaluator.",
+  "safety":{"main_untouched":true,"data_engine_v1_untouched":true,"live_execution_disabled":true,"promotion_disabled":true,"locked_1049_unchanged":true}
+}

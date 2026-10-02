@@ -1,0 +1,34 @@
+{
+  "artifact": "HES Trade Agent — Candidate C Snapshot Continuity Forensics v1",
+  "status": "SNAPSHOT_CONTINUITY_BLOCKED",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "snapshot_id": "CANDIDATE_C_FRESH_SNAPSHOT_2026-10-01",
+  "snapshot_file_blob_sha": "93eeb56de7858075b8db12fb31d0da06f0a2de57",
+  "active_raw_blob_sha": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+  "source_commit": "2c206f4e8724f24c6b4640d4d81995ae6ddea15c",
+  "aggregated_1m_bars": 4977,
+  "required_bars_for_8_folds": 4000,
+  "continuity_gap_count": 8,
+  "gaps": [
+    {"bar_before":265,"bar_after":266,"last_trade":"2026-09-27T03:45:08.210Z","next_trade":"2026-09-27T08:16:13.969Z","missing_minute_buckets":270,"gap_seconds":16265.759,"fold_role":"fold_1_train"},
+    {"bar_before":281,"bar_after":282,"last_trade":"2026-09-27T08:31:58.737Z","next_trade":"2026-09-27T08:33:10.522Z","missing_minute_buckets":1,"gap_seconds":71.785,"fold_role":"fold_1_train"},
+    {"bar_before":462,"bar_after":463,"last_trade":"2026-09-27T11:33:27.732Z","next_trade":"2026-09-27T11:43:15.214Z","missing_minute_buckets":9,"gap_seconds":587.482,"fold_role":"fold_1_train"},
+    {"bar_before":483,"bar_after":484,"last_trade":"2026-09-27T12:03:19.239Z","next_trade":"2026-09-27T17:16:54.102Z","missing_minute_buckets":312,"gap_seconds":18814.863,"fold_role":"fold_1_train"},
+    {"bar_before":665,"bar_after":666,"last_trade":"2026-09-27T20:17:31.769Z","next_trade":"2026-09-28T03:07:41.573Z","missing_minute_buckets":409,"gap_seconds":24609.804,"fold_role":"fold_1_train"},
+    {"bar_before":986,"bar_after":987,"last_trade":"2026-09-28T08:27:38.179Z","next_trade":"2026-09-28T19:08:56.951Z","missing_minute_buckets":640,"gap_seconds":38478.772,"fold_role":"fold_1_test"},
+    {"bar_before":1948,"bar_after":1949,"last_trade":"2026-09-29T11:09:43.390Z","next_trade":"2026-09-29T12:39:19.400Z","missing_minute_buckets":89,"gap_seconds":5376.010,"fold_role":"fold_3_test"},
+    {"bar_before":2049,"bar_after":2050,"last_trade":"2026-09-29T14:19:39.185Z","next_trade":"2026-09-29T17:59:49.526Z","missing_minute_buckets":219,"gap_seconds":13210.341,"fold_role":"fold_4_test"}
+  ],
+  "impact": {
+    "first_fail_closed_boundary": "bars 265 -> 266",
+    "test_folds_intersected_by_continuity_gaps": [1,3,4],
+    "training_gaps_present": true,
+    "oos_execution_started": false,
+    "synthetic_fill": false,
+    "interpolation": false,
+    "gap_deletion": false,
+    "policy_change": false
+  },
+  "interpretation": "The fresh Candidate C snapshot is not globally 1-minute continuous. The CI failure is therefore an intended fail-closed integrity result, not an exit-resolver defect. At least three declared OOS test ranges intersect unresolved raw-time gaps, so merely weakening the global continuity check would not establish a clean OOS lineage.",
+  "next_gate": "Obtain or reconstruct a lineage-clean raw snapshot from immutable source artifacts without synthetic rows, then re-run the deterministic continuity and evaluator gates. Do not modify the locked 1049 Evidence package."
+}

@@ -1,0 +1,27 @@
+name: Candidate C Fresh Snapshot Gap Forensics Gate
+on:
+  push:
+    branches: [candidate-c-evaluator-wiring-v1-20261002]
+    paths:
+      - 'evidence/candidate_c_fresh_snapshot_1m_gap_forensics_v1.json'
+      - 'tests/test_candidate_c_snapshot_gap_forensics.py'
+      - '.github/workflows/candidate-c-gap-forensics-gate.yml'
+  pull_request:
+    branches: [main, independent-candidate-c-20261001]
+    paths:
+      - 'evidence/candidate_c_fresh_snapshot_1m_gap_forensics_v1.json'
+      - 'tests/test_candidate_c_snapshot_gap_forensics.py'
+      - '.github/workflows/candidate-c-gap-forensics-gate.yml'
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check pytest
+      - run: python -m pytest -q tests/test_candidate_c_snapshot_gap_forensics.py

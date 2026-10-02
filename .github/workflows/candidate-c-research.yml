@@ -1,11 +1,25 @@
 name: Candidate C Research Evaluator
 on:
-  pull_request:
-    branches: [main]
+  push:
+    branches: [candidate-c-evaluator-wiring-v1-20261002]
     paths:
       - 'scripts/candidate_c_evaluator.py'
       - 'evidence/candidate_c_definition_v1.json'
       - 'evidence/candidate_c_fresh_snapshot_20261001.json'
+      - 'scripts/candidate_c_trade_engine.py'
+      - 'scripts/candidate_c_exit_engine.py'
+      - 'tests/test_candidate_c_trade_engine.py'
+      - '.github/workflows/candidate-c-research.yml'
+  pull_request:
+    branches: [main, candidate-c-evaluator-wiring-v1-20261002, independent-candidate-c-20261001]
+    paths:
+      - 'scripts/candidate_c_evaluator.py'
+      - 'evidence/candidate_c_definition_v1.json'
+      - 'evidence/candidate_c_fresh_snapshot_20261001.json'
+      - 'scripts/candidate_c_trade_engine.py'
+      - 'scripts/candidate_c_exit_engine.py'
+      - 'tests/test_candidate_c_trade_engine.py'
+      - '.github/workflows/candidate-c-research.yml'
   workflow_dispatch:
 jobs:
   contract:
@@ -19,5 +33,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install Candidate C test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Execute Candidate C trade-engine unit gate
+        run: python -m pytest -q tests/test_candidate_c_trade_engine.py
       - name: Execute Candidate C fail-closed gate
         run: python scripts/candidate_c_evaluator.py
