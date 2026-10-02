@@ -118,7 +118,18 @@ def compact(w,wc):
 def main():
     rows,invalid,trade_count,candle_count=build_rows()
     winners=[r for r in rows if r["gross_return"]>THRESHOLD]
-    assert len(winners)==2, len(winners)
+    if len(winners) != 2:
+        precondition={
+            "status":"BOUNDARY_SEQUENCE_OUTCOME_AUDIT_BLOCKED_PROTOCOL_PRECONDITION",
+            "reason":"The frozen audit contract requires exactly two >14bps winners; the new raw snapshot produced a different winner count. No winner subset was selected and no threshold was changed.",
+            "protocol":{"threshold":THRESHOLD,"required_winner_count":2,"actual_winner_count":len(winners),"folds":FOLDS,
+                        "snapshot_blob":EXPECTED_BLOB,"snapshot_source_commit":EXPECTED_COMMIT},
+            "population":{"evaluated_oos":len(rows),"source_trade_rows":trade_count,"candles":candle_count,"invalid_rows":invalid},
+            "safety":{"signal_created":False,"threshold_tuned":False,"model_fitted":False,"promotion_decision":False,"live_execution":False}
+        }
+        (ROOT/"winner_nearest_control_boundary_audit.json").write_text(json.dumps(precondition,indent=2)+"\\n",encoding="utf-8")
+        print(json.dumps(precondition,indent=2))
+        raise SystemExit(2)
     results=[]
     for w in winners:
         controls=nearest_controls(rows,w)
