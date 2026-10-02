@@ -1,0 +1,54 @@
+{
+  "artifact": "HES Trade Agent — Snapshot Gap Forensics v1",
+  "status": "FORENSIC_CLASSIFICATION_COMPLETE",
+  "scope": "Evidence-only. No Signal construction, tuning, promotion, execution, wallet, or data-engine-v1 sync.",
+  "frozen_boundary": {
+    "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "last_sequence": 38586238655,
+    "last_timestamp": "2026-09-28T08:27:38.179Z"
+  },
+  "first_independent_record": {
+    "checkpoint_commit": "6fb4e8247da3bea684428240d2fc307aa0cf4fb6",
+    "commit_time": "2026-09-28T08:48:04Z",
+    "sequence": 38586323452,
+    "timestamp": "2026-09-28T08:28:06.178Z",
+    "delta_from_frozen_timestamp_seconds": 27.999,
+    "sequence_strictly_increasing": true
+  },
+  "current_main_boundary_observation": {
+    "first_record_after_frozen_boundary": {
+      "sequence": 38710284291,
+      "timestamp": "2026-09-28T19:08:56.951Z"
+    },
+    "coverage_gap_from_frozen_boundary_seconds": 38478.772,
+    "coverage_gap_human": "10h41m18.772s"
+  },
+  "forensic_classification": {
+    "confirmed_continuity_break_at_first_post_boundary": false,
+    "confirmed_10h41m18_772s_data_loss": false,
+    "classification": "snapshot-retention/active-window-trimming gap",
+    "basis": [
+      "The first post-frozen checkpoint contains an independent record only 27.999s after the frozen boundary.",
+      "The boundary-proof audit verifies no sequence replay and no timestamp overlap at the frozen boundary.",
+      "The later current-main snapshot begins much later because earlier active-window records were trimmed by subsequent checkpoints.",
+      "Comparing frozen commit b8c4fe4 with first post-frozen checkpoint 6fb4e82 shows data/trades.csv was rewritten with 19,975 additions and 26,409 deletions, consistent with active-window checkpoint replacement."
+    ],
+    "claim_boundary": "The 10h41m18.772s interval must not be labeled as confirmed market/data outage without an independent external source or immutable raw archive covering the interval."
+  },
+  "locked_1049_lineage_implication": {
+    "reference_population": 1049,
+    "reference_windows_start": "2026-09-24T02:27:00Z",
+    "reference_windows_end": "2026-09-27T17:30:00Z",
+    "available_source_start": "2026-09-26T23:20:53.398Z",
+    "source_available_evaluated": 163,
+    "missing_reference_population": 886,
+    "exact_1049_reconstructible_from_that_blob": false,
+    "action": "Do not synthesize replacement rows; preserve the lineage block."
+  },
+  "next_forensic_gate": [
+    "Preserve this classification as evidence.",
+    "If historical gap reconstruction is required, recover immutable archived/checkpoint blobs spanning the missing interval.",
+    "Reconcile sequence and timestamp continuity from those immutable sources.",
+    "Only after exact lineage recovery, revisit the locked 1,049-row reconstruction."
+  ]
+}
