@@ -32,7 +32,7 @@
     "snapshot_gap_forensics_blob_sha": "aaa6840065c74ad981865233133ac34c29f0ab1d",
     "fold_gap_impact_audit_blob_sha": "f8881b455f5e5b909564466ebce646d6a6d4d967",
     "formal_evidence_lock_blob_sha": "a79209789a6d2e72ad165d4b4f33fb4794492dcb",
-    "snapshot_blob_gap_coverage_delta_blob_sha": "VERIFY_FROM_HEAD"
+    "snapshot_blob_gap_coverage_delta_blob_sha": "3fd9375ad612b09be85c573d14e6486749682c52"
   },
   "scientific_lock_summary": {
     "evaluated_observations": 1049,
