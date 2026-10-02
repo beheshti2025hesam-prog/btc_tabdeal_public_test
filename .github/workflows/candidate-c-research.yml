@@ -11,7 +11,7 @@ on:
       - 'tests/test_candidate_c_trade_engine.py'
       - '.github/workflows/candidate-c-research.yml'
   pull_request:
-    branches: [main, candidate-c-evaluator-wiring-v1-20261002]
+    branches: [main, candidate-c-evaluator-wiring-v1-20261002, independent-candidate-c-20261001]
     paths:
       - 'scripts/candidate_c_evaluator.py'
       - 'evidence/candidate_c_definition_v1.json'
