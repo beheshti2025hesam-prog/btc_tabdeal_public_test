@@ -89,10 +89,11 @@ def validate_frozen_protocol_contract():
     assert pc["fold_partition"] == {"train": TRAIN, "test": TEST, "step": STEP, "folds": FOLDS}
     assert pc["winner_rule"]["gross_return_strictly_greater_than"] == THRESHOLD
     assert pc["control_rule"]["gross_return_less_than_or_equal_to"] == THRESHOLD
-    assert pc["new_raw_application_contract"]["apply_same_protocol_without_change"] is True
-    assert pc["new_raw_application_contract"]["apply_to_entire_evaluated_population_before_any_winner_label"] is True
-    assert pc["new_raw_application_contract"]["threshold_bps_gross"] == 14
-    assert pc["new_raw_application_contract"]["no_manual_two_item_extraction"] is True
+    contract = d["new_raw_application_contract"]
+    assert contract["apply_same_protocol_without_change"] is True
+    assert contract["apply_to_entire_evaluated_population_before_any_winner_label"] is True
+    assert contract["threshold_bps_gross"] == 14
+    assert contract["no_manual_two_item_extraction"] is True
     return d
 
 def main():
