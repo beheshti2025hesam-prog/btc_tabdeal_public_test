@@ -22,6 +22,8 @@ jobs:
       LOCKED_RAW_SOURCE_COMMIT: 7d03f010fe331e104c29c0f8290da48fa7e9e264
       PROTOCOL_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
       PROTOCOL_SOURCE_SCRIPT_BLOB: 5dfad504e6c699235ad696af67104b5be5176fef
+      PROTOCOL_CONTRACT_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
+      PROTOCOL_CONTRACT_BLOB_SHA: a84dafbc09c72ac37ebbbb0706b43d23f7681e12
       HES_FROZEN_CSV: /tmp/hes_independent_trades.csv
     steps:
       - name: Checkout exact audit commit
@@ -76,6 +78,23 @@ jobs:
           assert manifest["duplicate_sequence_count"]==0
           Path("independent_raw_snapshot_lock.json").write_text(json.dumps(manifest,indent=2)+"\n")
           print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Hash-lock the frozen protocol contract
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \\
+            "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${PROTOCOL_CONTRACT_BLOB_SHA}" \\
+            > /tmp/protocol_contract.json
+          python - <<'PY'
+          import base64, hashlib, json, os
+          d=json.load(open("/tmp/protocol_contract.json"))
+          assert d["sha"] == os.environ["PROTOCOL_CONTRACT_BLOB_SHA"]
+          raw=base64.b64decode(d["content"])
+          digest=hashlib.sha256(raw).hexdigest()
+          open("/tmp/protocol_reconciliation_v1_contract.json","wb").write(raw)
+          print(json.dumps({"protocol_contract_blob_sha":d["sha"],"protocol_contract_sha256":digest,"source_commit":os.environ["PROTOCOL_CONTRACT_SOURCE_COMMIT"]},indent=2))
           PY
 
       - name: Run the frozen protocol against the complete population
