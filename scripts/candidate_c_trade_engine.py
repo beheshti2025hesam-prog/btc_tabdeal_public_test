@@ -54,8 +54,12 @@ def resolve_bar_exit(position, bar, holding_bars):
         }
     return None
 
-def run_fold(bars, start, end):
-    """Run one isolated test fold. Position state is reset at fold boundaries."""
+def run_fold_with_boundary_evidence(bars, start, end):
+    """Run one isolated fold and explicitly account for an open position at its boundary.
+
+    A boundary-open position is censored, never carried into the next fold, and is
+    reported as evidence rather than silently discarded.
+    """
     if not (0 <= start < end <= len(bars)):
         raise ValueError("FAIL_CLOSED: invalid fold range")
     trades = []
@@ -94,5 +98,15 @@ def run_fold(bars, start, end):
                 })
                 position = None
         i += 1
-    # An open position at the fold boundary is deliberately discarded, never carried.
+    boundary = {
+        "position_open_at_fold_end": position is not None,
+        "censored_position_count": 1 if position is not None else 0,
+        "carried_to_next_fold": False,
+    }
+    return trades, boundary
+
+
+def run_fold(bars, start, end):
+    """Compatibility wrapper returning only completed trades."""
+    trades, _ = run_fold_with_boundary_evidence(bars, start, end)
     return trades
