@@ -1,0 +1,102 @@
+name: HES Trade Agent — Winner Nearest-Control Boundary Audit — Fresh Raw Source v1
+
+on:
+  push:
+    branches:
+      - raw-source-refresh-audit-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-winner-nearest-control-fresh-raw
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+      FRESH_BLOB_SHA: 5d49bbac8b7ac3c9acab3a1de424bfcf5a8e66e1
+      FRESH_SOURCE_COMMIT: 149959a9dbac7f1b0627f65975270ffaa9636c07
+    steps:
+      - name: Checkout exact audit branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Materialize new immutable Raw snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${FRESH_BLOB_SHA}" > /tmp/fresh_blob.json
+          python - <<'PY'
+          import base64, csv, hashlib, json, os
+          from pathlib import Path
+          d=json.load(open("/tmp/fresh_blob.json"))
+          assert d["sha"]==os.environ["FRESH_BLOB_SHA"]
+          raw=base64.b64decode(d["content"])
+          assert raw
+          p=Path("/tmp/hes_fresh_trades.csv")
+          p.write_bytes(raw)
+          rows=list(csv.DictReader(p.open("r",encoding="utf-8",newline="")))
+          assert rows
+          seq=[int(r["sequence"]) for r in rows]
+          ts=[r["updated"] for r in rows]
+          seq_viol=sum(b<=a for a,b in zip(seq,seq[1:]))
+          ts_viol=sum(b<a for a,b in zip(ts,ts[1:]))
+          dup_seq=len(seq)-len(set(seq))
+          sha256=hashlib.sha256(raw).hexdigest()
+          manifest={
+            "status":"FRESH_RAW_SNAPSHOT_MATERIALIZED",
+            "source":{"ref":"main","commit":os.environ["FRESH_SOURCE_COMMIT"],"git_blob_sha":d["sha"],"sha256":sha256},
+            "population":{"rows":len(rows),"first_timestamp":ts[0],"last_timestamp":ts[-1],"first_sequence":seq[0],"last_sequence":seq[-1]},
+            "integrity":{"sequence_nonmonotonic_count":seq_viol,"timestamp_backward_count":ts_viol,"duplicate_sequence_count":dup_seq},
+            "safety":{"execution":False,"parameter_tuning":False,"model_fitting":False,"promotion":False}
+          }
+          assert seq_viol==0 and ts_viol==0 and dup_seq==0
+          Path("fresh_raw_snapshot_manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+          print(json.dumps(manifest,indent=2))
+          PY
+
+      - name: Run exact boundary/sequence/outcome audit from zero
+        run: python scripts/winner_nearest_control_boundary_audit.py
+
+      - name: Validate audit integrity and safety
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("winner_nearest_control_boundary_audit.json"))
+          assert d["status"]=="BOUNDARY_SEQUENCE_OUTCOME_AUDIT_REVIEW_ONLY"
+          assert d["protocol"]["snapshot_blob"]=="5d49bbac8b7ac3c9acab3a1de424bfcf5a8e66e1"
+          assert d["protocol"]["snapshot_source_commit"]=="149959a9dbac7f1b0627f65975270ffaa9636c07"
+          assert d["integrity"]["winner_control_sequence_first_overlap_count"]==0
+          assert d["integrity"]["winner_control_timestamp_overlap_count"]==0
+          assert d["integrity"]["all_control_outcomes_le_threshold"]
+          assert d["integrity"]["all_timestamp_order_valid"]
+          assert d["integrity"]["all_sequence_order_valid"]
+          assert d["interpretation"]["signal_created"] is False
+          assert d["interpretation"]["threshold_tuned"] is False
+          assert d["interpretation"]["model_fitted"] is False
+          assert d["interpretation"]["promotion_decision"] is False
+          assert d["interpretation"]["live_execution"] is False
+          print("FRESH_RAW_BOUNDARY_SEQUENCE_OUTCOME_AUDIT_VALID")
+          PY
+
+      - name: Upload fresh snapshot + audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-raw-boundary-audit-v1
+          path: |
+            fresh_raw_snapshot_manifest.json
+            winner_nearest_control_boundary_audit.json
+          if-no-files-found: error
