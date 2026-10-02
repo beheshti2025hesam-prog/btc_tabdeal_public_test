@@ -1,0 +1,69 @@
+{
+  "status": "PROTOCOL_RECONCILIATION_REVIEW_ONLY",
+  "purpose": "Reconcile the prior 14-winner evidence with the later 2-winner boundary audit before any v2 execution or threshold/candidate tuning.",
+  "decision_boundary": {
+    "v2_executed": false,
+    "threshold_changed": false,
+    "winner_selected_manually": false,
+    "subset_selected_manually": false,
+    "signal_created": false,
+    "promotion_decision": false,
+    "live_execution": false
+  },
+  "protocol_core": {
+    "unit": "temporally ordered OOS evaluated observations",
+    "fold_partition": {"train": 800, "test": 400, "step": 400, "folds": 8},
+    "winner_rule": {"gross_return_strictly_greater_than": 0.0014, "label": ">14bps gross"},
+    "control_rule": {"gross_return_less_than_or_equal_to": 0.0014, "label": "<=14bps gross"},
+    "oos_population_definition": "Complete chronological observation sequence; fixed 8-fold OOS test windows; retain only evaluated observations within those windows. No winner-only prefilter before applying the threshold.",
+    "selection_policy": "No manual winner selection; no threshold search; no ranking-based selection; no model fitting."
+  },
+  "historical_reconciliation": [
+    {
+      "evidence": "PR #109 independence-adjusted feature evidence matrix v1",
+      "evaluated_oos": 1049,
+      "winners": 14,
+      "controls": 1035,
+      "snapshot_blob": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+      "snapshot_source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+      "source_run_id": 36489452534
+    },
+    {
+      "evidence": "PR #113 candidate performance / winner-nearest-control run",
+      "evaluated_oos": 1010,
+      "winners": 2,
+      "controls": 1008,
+      "snapshot_blob": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+      "snapshot_source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+      "source_run_ids": [36818170579, 36818170538]
+    }
+  ],
+  "why_previous_output_reached_two": {
+    "finding": "The 2-winner result is not produced by a documented winner-only subset filter. The current candidate-performance run and the winner-nearest-control audit both use the same 14bps threshold, 8-fold 800/400/400 OOS partition, and the same immutable fresh snapshot blob b296b1...; the candidate-performance artifact independently reports 1010 evaluated OOS and exactly 2 winners.",
+    "contrast_with_older_14": "The earlier 14-winner result belongs to a different immutable snapshot lineage (1a44d52...), with 1049 evaluated OOS. Therefore 14 and 2 are not two readings of the same raw snapshot.",
+    "important_inheritance_issue": "candidate_definition_fresh_snapshot_v1 and candidate_evaluation_gate_v1 inherit the old 14-winner descriptive counts as evidence context, while their locked fresh snapshot is b296b1.... This is evidence inheritance, not proof that the fresh snapshot contains those 14 winners."
+  },
+  "subset_or_snapshot_test": {
+    "predefined_winner_subset_found": false,
+    "manual_filter_found": false,
+    "documented_filter_explaining_two": "none identified",
+    "current_population_reproduces_all_evaluated_observations_before_threshold_split": true,
+    "conclusion": "The defensible reconciliation is snapshot-lineage change, not manual extraction of two winners. Any remaining population difference (1049 vs 1010) must be treated as a protocol/data-lineage reconciliation item, not silently normalized."
+  },
+  "new_raw_application_contract": {
+    "apply_same_protocol_without_change": true,
+    "raw_snapshot_must_be_immutable_and_hash_locked": true,
+    "apply_to_entire_evaluated_population_before_any_winner_label": true,
+    "threshold_bps_gross": 14,
+    "report_all_population_counts": true,
+    "report_all_candidates_and_controls": true,
+    "no_manual_two_item_extraction": true,
+    "required_reconciliation_fields": ["raw_blob_sha","source_commit","rows_read","invalid_rows","candles","chronological_observations","evaluated_oos","winners_gt_14bps","controls_le_14bps","fold_counts","winner_timestamps","winner_sequences"],
+    "28_item_scope": "If the newly supplied Raw produces 28 protocol-defined cases, all 28 must be evaluated under this frozen contract. The artifact does not pre-assert that 28 exists."
+  },
+  "gate": {
+    "status": "READY_FOR_NEW_RAW_ONLY",
+    "next_step": "Materialize one genuinely new immutable Raw snapshot, verify its hash, apply this exact protocol to the complete population, and reconcile the full resulting set before any v2 or candidate tuning.",
+    "v2_allowed_now": false
+  }
+}
