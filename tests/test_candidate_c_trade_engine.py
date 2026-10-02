@@ -72,3 +72,34 @@ def test_short_adverse_gap_exits_at_open():
     r=resolve_bar_exit(p,bar(104,105,99,103),1)
     assert r["exit_reason"] == "stop_loss_gap"
     assert r["exit_price"] == 104
+
+
+def test_time_exit_does_not_fire_on_29th_post_entry_bar():
+    p=open_position("long",100,2)
+    assert resolve_bar_exit(p,bar(100,101,99,103),29) is None
+
+
+def test_1m_continuity_accepts_consecutive_minutes():
+    from candidate_c_evaluator import validate_1m_continuity
+    assert validate_1m_continuity([{"t":100},{"t":101},{"t":102}]) is True
+
+
+def test_1m_continuity_fails_closed_on_gap():
+    from candidate_c_evaluator import validate_1m_continuity
+    import pytest
+    with pytest.raises(RuntimeError, match="FAIL_CLOSED: unresolved 1m timestamp gap"):
+        validate_1m_continuity([{"t":100},{"t":102}])
+
+
+def test_long_favorable_gap_exits_at_open():
+    p=open_position("long",100,2)
+    r=resolve_bar_exit(p,bar(105,106,104,105),1)
+    assert r["exit_reason"] == "take_profit_gap"
+    assert r["exit_price"] == 105
+
+
+def test_short_favorable_gap_exits_at_open():
+    p=open_position("short",100,2)
+    r=resolve_bar_exit(p,bar(95,96,94,95),1)
+    assert r["exit_reason"] == "take_profit_gap"
+    assert r["exit_price"] == 95
