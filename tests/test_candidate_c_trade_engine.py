@@ -113,3 +113,12 @@ def test_fold_boundary_open_position_is_censored_and_not_carried():
     assert boundary["position_open_at_fold_end"] is True
     assert boundary["censored_position_count"] == 1
     assert boundary["carried_to_next_fold"] is False
+
+def test_aggregate_1m_stream_orders_events_by_timestamp():
+    from candidate_c_evaluator import aggregate_1m_stream
+    import io
+    raw = "timestamp,price,quantity\n120,102,1\n60,100,1\n119,101,1\n"
+    bars = aggregate_1m_stream(io.StringIO(raw))
+    assert bars[0]["t"] == 1
+    assert bars[0]["o"] == 100
+    assert bars[0]["c"] == 102
