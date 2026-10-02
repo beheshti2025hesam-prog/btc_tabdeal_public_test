@@ -121,4 +121,16 @@ def test_aggregate_1m_stream_orders_events_by_timestamp():
     bars = aggregate_1m_stream(io.StringIO(raw))
     assert bars[0]["t"] == 1
     assert bars[0]["o"] == 100
-    assert bars[0]["c"] == 102
+    assert bars[0]["c"] == 101
+    assert bars[1]["t"] == 2
+    assert bars[1]["o"] == 102
+    assert bars[1]["c"] == 102
+
+def test_walk_forward_fold_timestamp_boundaries_are_strict():
+    from candidate_c_evaluator import build_fold_specs
+    bars = [{"t": i} for i in range(4400)]
+    folds = build_fold_specs(bars)
+    assert len(folds) == 8
+    for f in folds:
+        assert f["timestamp_train_end"] < f["timestamp_test_start"]
+        assert f["timestamp_test_start"] <= f["timestamp_test_end"]
