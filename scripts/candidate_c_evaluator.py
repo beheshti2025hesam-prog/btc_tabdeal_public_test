@@ -161,6 +161,7 @@ def build_fold_specs(bars):
             "test":[test_start,test_end],
             "timestamp_train_end":bars[train_end-1]["t"],
             "timestamp_test_start":bars[test_start]["t"],
+            "timestamp_test_end":bars[test_end-1]["t"],
             "timestamp_start":bars[test_start]["t"],
             "timestamp_end":bars[test_end-1]["t"],
         })
