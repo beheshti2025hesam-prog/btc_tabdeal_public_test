@@ -148,6 +148,11 @@ def main():
             raise RuntimeError("FAIL_CLOSED: non-monotonic 1m timestamps")
         engine_bars.append({"open":b["o"],"high":b["h"],"low":b["l"],"close":b["c"],
                             "volume":b["v"],"ema20":e20[i],"ema50":e50[i],"atr14":a14[i],"t":b["t"]})
+    # A 1-minute holding bar must represent one real minute. Missing minute buckets
+    # would silently compress elapsed time, so unresolved gaps fail closed.
+    for i in range(1, len(bars)):
+        if bars[i]["t"] - bars[i-1]["t"] != 1:
+            raise RuntimeError(f"FAIL_CLOSED: unresolved 1m timestamp gap at bars {i-1}->{i}")
     folds=[]
     for i in range(8):
         train_start=i*400; train_end=train_start+800; test_start=train_end; test_end=test_start+400
