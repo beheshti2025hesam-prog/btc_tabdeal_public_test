@@ -1,0 +1,28 @@
+{
+  "artifact_id": "CANDIDATE_C_SAME_BAR_EXIT_POLICY_FROZEN_2026-10-02",
+  "status": "POLICY_FROZEN_OOS_REMAINS_BLOCKED_PENDING_CI",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "candidate_version": "C-v1",
+  "policy_id": "CONSERVATIVE_WORST_CASE_SL_FIRST",
+  "policy_definition": "When a single OHLC bar can touch both the stop-loss and take-profit levels and the touch order cannot be established from the available evidence, deterministically account for the stop-loss as occurring first.",
+  "evidence_boundary": {
+    "bars_1m": 4977,
+    "candidate_signals_scanned": 552,
+    "ambiguous_same_bar_sl_tp_count": 7,
+    "holding_window_bars": 30,
+    "raw_trade_path_verified": false
+  },
+  "frozen_before_oos": true,
+  "candidate_definition_changed": false,
+  "oos_started": false,
+  "research_only": true,
+  "production_signal": false,
+  "promotion": false,
+  "live_execution": false,
+  "wallet_operations": false,
+  "rule_a_reuse": false,
+  "candidate_b_reuse": false,
+  "data_engine_v1_sync": false,
+  "no_performance_based_selection": true,
+  "no_silent_precedence": true
+}
