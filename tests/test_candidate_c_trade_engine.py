@@ -59,3 +59,16 @@ def test_fold_timestamp_gap_is_not_silently_compressed():
     bars[0]["t"] = 100
     bars[1]["t"] = 102
     assert bars[1]["t"] - bars[0]["t"] != 1
+
+
+def test_long_adverse_gap_exits_at_open():
+    p=open_position("long",100,2)
+    r=resolve_bar_exit(p,bar(96,100,95,97),1)
+    assert r["exit_reason"] == "stop_loss_gap"
+    assert r["exit_price"] == 96
+
+def test_short_adverse_gap_exits_at_open():
+    p=open_position("short",100,2)
+    r=resolve_bar_exit(p,bar(104,105,99,103),1)
+    assert r["exit_reason"] == "stop_loss_gap"
+    assert r["exit_price"] == 104
