@@ -1,7 +1,7 @@
 name: Candidate C Research Evaluator
 on:
   pull_request:
-    branches: [main]
+    branches: [main, candidate-c-evaluator-wiring-v1-20261002]
     paths:
       - 'scripts/candidate_c_evaluator.py'
       - 'evidence/candidate_c_definition_v1.json'
