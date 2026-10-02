@@ -4,9 +4,12 @@ on:
   push:
     branches:
       - downstream-impact-audit-1049-v1
+      - provenance-exception-audit-1049-v1
     paths:
       - evidence/downstream_impact_audit_1049_v1.json
       - tests/evidence/test_downstream_impact_audit_1049.py
+      - evidence/producer_failure_semantics_audit_v1.json
+      - tests/evidence/test_producer_failure_semantics_audit.py
       - .github/workflows/downstream-impact-audit-gate.yml
   pull_request:
     branches:
@@ -31,4 +34,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --disable-pip-version-check pytest
-      - run: python -m pytest -q tests/evidence/test_downstream_impact_audit_1049.py
+      - run: python -m pytest -q tests/evidence/test_downstream_impact_audit_1049.py tests/evidence/test_producer_failure_semantics_audit.py
