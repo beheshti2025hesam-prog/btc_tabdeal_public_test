@@ -124,6 +124,12 @@ def aggregate_1m(path):
             b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
         return [buckets[k] for k in sorted(buckets)]
 
+def validate_1m_continuity(bars):
+    for i in range(1, len(bars)):
+        if bars[i]["t"] - bars[i-1]["t"] != 1:
+            raise RuntimeError("FAIL_CLOSED: unresolved 1m timestamp gap at bars %d->%d" % (i-1, i))
+    return True
+
 def validate_definition(d,s):
     assert d["candidate_id"]=="CANDIDATE_RESEARCH_INDEPENDENT_C"
     assert d["candidate_version"]=="C-v1"
@@ -154,9 +160,7 @@ def main():
                             "volume":b["v"],"ema20":e20[i],"ema50":e50[i],"atr14":a14[i],"t":b["t"]})
     # A 1-minute holding bar must represent one real minute. Missing minute buckets
     # would silently compress elapsed time, so unresolved gaps fail closed.
-    for i in range(1, len(bars)):
-        if bars[i]["t"] - bars[i-1]["t"] != 1:
-            raise RuntimeError(f"FAIL_CLOSED: unresolved 1m timestamp gap at bars {i-1}->{i}")
+    validate_1m_continuity(bars)
     folds=[]
     for i in range(8):
         train_start=i*400; train_end=train_start+800; test_start=train_end; test_end=test_start+400
