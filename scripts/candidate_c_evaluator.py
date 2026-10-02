@@ -139,6 +139,33 @@ def validate_1m_continuity(bars):
             raise RuntimeError("FAIL_CLOSED: unresolved 1m timestamp gap at bars %d->%d" % (i-1, i))
     return True
 
+def build_fold_specs(bars):
+    """Build fixed walk-forward folds and enforce timestamp separation.
+
+    Train features may use causal history, including prior bars before a test
+    signal. No test outcome is allowed to cross the declared fold boundary.
+    """
+    folds=[]
+    for i in range(8):
+        train_start=i*400
+        train_end=train_start+800
+        test_start=train_end
+        test_end=test_start+400
+        if test_end>len(bars):
+            raise RuntimeError("FAIL_CLOSED: fold exceeds snapshot bar range")
+        if bars[train_end-1]["t"] >= bars[test_start]["t"]:
+            raise RuntimeError("FAIL_CLOSED: train/test timestamp boundary is not strictly ordered")
+        folds.append({
+            "fold":i+1,
+            "train":[train_start,train_end],
+            "test":[test_start,test_end],
+            "timestamp_train_end":bars[train_end-1]["t"],
+            "timestamp_test_start":bars[test_start]["t"],
+            "timestamp_start":bars[test_start]["t"],
+            "timestamp_end":bars[test_end-1]["t"],
+        })
+    return folds
+
 def validate_definition(d,s):
     assert d["candidate_id"]=="CANDIDATE_RESEARCH_INDEPENDENT_C"
     assert d["candidate_version"]=="C-v1"
@@ -170,12 +197,7 @@ def main():
     # A 1-minute holding bar must represent one real minute. Missing minute buckets
     # would silently compress elapsed time, so unresolved gaps fail closed.
     validate_1m_continuity(bars)
-    folds=[]
-    for i in range(8):
-        train_start=i*400; train_end=train_start+800; test_start=train_end; test_end=test_start+400
-        if test_end>len(bars): raise RuntimeError("FAIL_CLOSED: fold exceeds snapshot bar range")
-        folds.append({"fold":i+1,"train":[train_start,train_end],"test":[test_start,test_end],
-                      "timestamp_start":bars[test_start]["t"],"timestamp_end":bars[test_end-1]["t"]})
+    folds=build_fold_specs(bars)
     fold_trades=[]
     fold_boundary_evidence=[]
     for f in folds:
