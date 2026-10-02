@@ -17,15 +17,28 @@ def resolve_bar_exit(side, bar, stop_price, target_price):
     if side not in ("long", "short"):
         raise ValueError("FAIL_CLOSED: side must be long or short")
     try:
+        open_price = float(bar["open"])
         high, low = float(bar["high"]), float(bar["low"])
         stop, target = float(stop_price), float(target_price)
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError("FAIL_CLOSED: malformed OHLC or exit levels") from exc
-    if not all(map(math.isfinite, (high, low, stop, target))) or high < low:
+    if not all(map(math.isfinite, (open_price, high, low, stop, target))) or high < low or not (low <= open_price <= high):
         raise ValueError("FAIL_CLOSED: invalid OHLC or non-finite exit level")
     if side == "long":
+        if open_price <= stop:
+            return {"exit_reason": "stop_loss_gap", "exit_price": open_price,
+                    "policy_id": POLICY_ID, "same_bar_ambiguity": False}
+        if open_price >= target:
+            return {"exit_reason": "take_profit_gap", "exit_price": open_price,
+                    "policy_id": POLICY_ID, "same_bar_ambiguity": False}
         stop_hit, target_hit = low <= stop, high >= target
     else:
+        if open_price >= stop:
+            return {"exit_reason": "stop_loss_gap", "exit_price": open_price,
+                    "policy_id": POLICY_ID, "same_bar_ambiguity": False}
+        if open_price <= target:
+            return {"exit_reason": "take_profit_gap", "exit_price": open_price,
+                    "policy_id": POLICY_ID, "same_bar_ambiguity": False}
         stop_hit, target_hit = high >= stop, low <= target
     if stop_hit:
         return {"exit_reason": "stop_loss", "exit_price": stop,
