@@ -13,6 +13,8 @@ def _finite(*xs):
 def evaluate_signal(bars, i):
     if i < 20:
         return None
+    if not _finite(bars[i]["close"], bars[i]["ema20"], bars[i]["ema50"], bars[i]["atr14"]):
+        return None
     prior_high = max(float(b["high"]) for b in bars[i-20:i])
     prior_low = min(float(b["low"]) for b in bars[i-20:i])
     close = float(bars[i]["close"])
