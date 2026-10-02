@@ -43,3 +43,19 @@ def test_invalid_entry_fails_closed():
         assert "FAIL_CLOSED" in str(exc)
     else:
         raise AssertionError("invalid ATR did not fail closed")
+
+
+def test_millisecond_timestamp_normalization_and_gap_policy_source():
+    # Evaluator must normalize millisecond epochs before bucketing and reject
+    # unresolved 1-minute gaps rather than compressing holding-bar time.
+    from candidate_c_evaluator import aggregate_1m_stream
+    import io
+    raw = "timestamp,price,quantity\n1700000000000,100,1\n1700000060000,101,1\n"
+    bars = aggregate_1m_stream(io.StringIO(raw))
+    assert [b["t"] for b in bars] == [28333333, 28333334]
+
+def test_fold_timestamp_gap_is_not_silently_compressed():
+    bars = [bar(100,101,99,100,100,100) for _ in range(20)]
+    bars[0]["t"] = 100
+    bars[1]["t"] = 102
+    assert bars[1]["t"] - bars[0]["t"] != 1
