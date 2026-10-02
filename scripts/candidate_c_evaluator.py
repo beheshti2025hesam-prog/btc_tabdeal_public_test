@@ -72,9 +72,9 @@ def aggregate_1m_stream(stream):
             chosen=(ts,p,q); break
     if chosen is None:
         raise RuntimeError("FAIL_CLOSED: raw trades lacks an unambiguous timestamp/price/quantity schema")
-    buckets={}
+    parsed=[]
     row_count=parsed_count=0
-    for row in reader:
+    for row_index, row in enumerate(reader):
         row_count += 1
         ts_s,price_s,qty_s=(row[x] for x in chosen)
         try:
@@ -93,6 +93,15 @@ def aggregate_1m_stream(stream):
             ts /= 1000.0
         if ts < 0:
             continue
+        parsed.append((ts, row_index, price, qty))
+    if row_count and parsed_count == 0:
+        raise RuntimeError(f"FAIL_CLOSED: zero parseable raw trades (rows={row_count}, schema={chosen})")
+    # Event-time order is explicit: timestamp first; original row index only breaks
+    # exact-timestamp ties deterministically. OHLC close is therefore the last event
+    # in deterministic event-time order, not merely the last CSV row encountered.
+    parsed.sort(key=lambda x: (x[0], x[1]))
+    buckets={}
+    for ts, _row_index, price, qty in parsed:
         minute=int(ts//60)
         b=buckets.setdefault(minute,{"t":minute,"o":price,"h":price,"l":price,"c":price,"v":0.0})
         b["h"]=max(b["h"],price); b["l"]=min(b["l"],price); b["c"]=price; b["v"]+=qty
