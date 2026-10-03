@@ -1,0 +1,88 @@
+name: HES Trade Agent — Prior 14 Lineage Reconstruction and 28↔14 Reconciliation
+
+on:
+  push:
+    branches:
+      - research/reconstruct-14-lineage-reconciliation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OLD_RAW_BLOB_SHA: 1a44d52a0588deb765bbbea04bfb5783dcb1050b
+      OLD_RAW_COMMIT: b8c4fe4fa054dbfa4fca17d2f307d269c16335e1
+      CURRENT_RAW_BLOB_SHA: 58d21825e052dbaa42e7eb0695455c19997bff43
+      CURRENT_RAW_COMMIT: b9ebecf061dfe9a084797d77b48a2c7846d269e3
+    steps:
+      - name: Checkout reconstruction branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Checkout exact old source lineage
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.OLD_RAW_COMMIT }}
+          path: /tmp/old_repo
+          fetch-depth: 1
+
+      - name: Checkout exact current source lineage
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CURRENT_RAW_COMMIT }}
+          path: /tmp/current_repo
+          fetch-depth: 1
+
+      - name: Verify Raw blob identities
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          checks = [
+            (Path("/tmp/old_repo/data/trades.csv"), "${{ env.OLD_RAW_BLOB_SHA }}"),
+            (Path("/tmp/current_repo/data/trades.csv"), "${{ env.CURRENT_RAW_BLOB_SHA }}"),
+          ]
+          for path, expected in checks:
+              root = path.parents[1]
+              blob = subprocess.check_output(
+                  ["git","-C",str(root),"rev-parse",f"HEAD:{path.relative_to(root)}"]
+              ).decode().strip()
+              assert blob == expected, (path, blob, expected)
+              print(path, blob)
+          PY
+
+      - name: Run record-level reconstruction
+        run: python scripts/reconstruct_14_and_reconcile_v1.py
+
+      - name: Fail closed on cardinality and no-aggregate rules
+        run: |
+          python - <<'PY'
+          import json
+          old=json.load(open("prior_1049_reconstructed.json"))
+          cur=json.load(open("current_1027_population_reconstructed.json"))
+          rec=json.load(open("reconciliation_28_to_14_record_level.json"))
+          assert old["counts"] == {"evaluated":1049,"winners_gt_14bps":14,"controls_le_14bps":1035}
+          assert cur["counts"] == {"evaluated":1027,"winners_gt_14bps":28,"controls_le_14bps":999}
+          assert rec["protocol"]["no_aggregate_matching"] is True
+          assert rec["counts"]["current_winners"] == 28
+          assert rec["counts"]["prior_14_survivors"] == 14
+          print("RECORD_LEVEL_28_TO_14_RECONCILIATION_VALID")
+          print(json.dumps(rec["counts"],indent=2))
+          PY
+
+      - name: Upload surgical reconciliation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prior-14-lineage-reconstruction-28-to-14-reconciliation-v1
+          path: |
+            prior_1049_reconstructed.json
+            current_1027_population_reconstructed.json
+            reconciliation_28_to_14_record_level.json
+            reconciliation_28_to_14_matrix.csv
+          if-no-files-found: error
