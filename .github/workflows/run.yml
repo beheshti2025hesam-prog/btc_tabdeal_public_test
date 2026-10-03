@@ -62,11 +62,12 @@ jobs:
 
       - name: Collect BTC_USDT Futures Trades
         run: |
-          # Safety fuse: the collector has an internal timer, but a stuck
-          # websocket must never hold the concurrency lock indefinitely.
-          # Keep the proven 5h20m runtime; only enforce a hard upper bound.
-          timeout --signal=TERM --kill-after=60s "${COLLECTOR_RUN_SECONDS}s" \
-            python -u tabdeal_futures_ws_test.py
+          # The collector owns the normal 5h20m shutdown and performs the
+          # final persistence checkpoint in Python. Do not wrap it in the
+          # GNU timeout command: timeout returns exit 124 even when the
+          # collector handles SIGTERM, closes the websocket, checkpoints,
+          # and exits cleanly. The job-level timeout remains the hard fuse.
+          python -u tabdeal_futures_ws_test.py
 
       - name: Upload collected trades
         if: always()
