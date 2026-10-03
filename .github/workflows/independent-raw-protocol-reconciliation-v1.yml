@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      LOCKED_RAW_BLOB_SHA: 87b7a9b4f4141d6b7adedf197d3dcbb25cd66254
-      LOCKED_RAW_SOURCE_COMMIT: 7d03f010fe331e104c29c0f8290da48fa7e9e264
+      LOCKED_RAW_BLOB_SHA: 58d21825e052dbaa42e7eb0695455c19997bff43
+      LOCKED_RAW_SOURCE_COMMIT: b9ebecf061dfe9a084797d77b48a2c7846d269e3
       PROTOCOL_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
       PROTOCOL_SOURCE_SCRIPT_BLOB: 5dfad504e6c699235ad696af67104b5be5176fef
       PROTOCOL_CONTRACT_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
@@ -122,8 +122,6 @@ jobs:
           assert c["winners_gt_14bps"] + c["controls_le_14bps"] == pop["evaluated_oos"]
           assert pop["evaluated_oos"] <= 8*400
           assert pop["evaluated_oos"] > 0
-          # Every protocol-defined winner is retained in the output; no winner-count
-          # precondition or manual subset is permitted here.
           assert len(d["winners"]) == c["winners_gt_14bps"]
           print("INDEPENDENT_RAW_PROTOCOL_RECONCILIATION_VALID")
           print(json.dumps({"evaluated_oos":pop["evaluated_oos"],"winners_gt_14bps":c["winners_gt_14bps"],"controls_le_14bps":c["controls_le_14bps"],"folds":p["folds"]},indent=2))
