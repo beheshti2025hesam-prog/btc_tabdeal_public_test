@@ -1,0 +1,88 @@
+{
+  "artifact": "HES Trade Agent — Snapshot Gap Forensics v1",
+  "status": "EXACT_1049_LINEAGE_RECONSTRUCTED_FROM_IMMUTABLE_WORKFLOW_ARTIFACT",
+  "scope": "Evidence-only; no Signal construction, tuning, promotion, execution, wallet, or data-engine-v1 sync.",
+  "archive_recovery": {
+    "workflow_run": 36773191085,
+    "run_number": 181,
+    "artifact_id": 11162212837,
+    "artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "archive_files": 12,
+    "raw_rows_in_locked_window": 88649,
+    "first_locked_window_row": "2026-09-24T02:27:01.901Z",
+    "last_locked_window_row": "2026-09-27T17:29:58.250Z",
+    "internal_max_gap_seconds": 18814.863,
+    "internal_gap": [
+      "2026-09-27T12:03:19.239Z",
+      "2026-09-27T17:16:54.102Z"
+    ]
+  },
+  "exact_1049_replay": {
+    "protocol_id": "oos-real-btcusdt-v1-800x400x400-e0",
+    "train_size": 800,
+    "test_size": 400,
+    "step_size": 400,
+    "embargo_size": 0,
+    "fold_count": 8,
+    "reconstructed_evaluated": 1049,
+    "reconstructed_wins": 528,
+    "reconstructed_losses": 479,
+    "reconstructed_total_return": 0.027839866468923342,
+    "exact_match_to_locked_evidence": true,
+    "fold_evaluated": [
+      120,
+      132,
+      135,
+      137,
+      138,
+      127,
+      126,
+      134
+    ],
+    "fold_wins": [
+      59,
+      68,
+      66,
+      77,
+      66,
+      71,
+      52,
+      69
+    ],
+    "fold_losses": [
+      59,
+      61,
+      68,
+      60,
+      69,
+      44,
+      59,
+      59
+    ],
+    "fold_returns": [
+      0.003714827698641958,
+      0.0033867421019111647,
+      0.007373195874071503,
+      0.014016310862902571,
+      -0.003365815138776131,
+      0.00576935433688134,
+      -0.000777416903097259,
+      -0.0022773323636118047
+    ]
+  },
+  "lineage_conclusion": {
+    "exact_1049_reconstructible": true,
+    "reconstruction_source": "immutable GitHub Actions workflow artifact #11162212837",
+    "synthetic_rows_added": false,
+    "evaluator_protocol_reproduced": true,
+    "internal_raw_gap_intersects_locked_test_window": true,
+    "gap_effect": "the replay still reproduces the locked 1049 evaluator population exactly; the missing raw interval contributes no evaluable observation under the deterministic continuity boundary.",
+    "prior_locked_1049_block": "RESOLVED"
+  },
+  "safety": {
+    "main_untouched": true,
+    "data_engine_v1_untouched": true,
+    "live_execution_disabled": true,
+    "pr_129_not_merged": true
+  }
+}

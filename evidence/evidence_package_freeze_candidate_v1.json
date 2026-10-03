@@ -1,0 +1,68 @@
+{
+  "artifact": "HES Trade Agent — Evidence Package Freeze Candidate v1",
+  "status": "FREEZE_CANDIDATE_READY",
+  "created_from_commit": "5f657faf6b2f231129b71d3f4f46d48447a18792",
+  "scope": "Evidence-package metadata freeze candidate only. No merge, deployment, live execution, promotion, or scientific-data mutation.",
+  "raw_artifact_provenance": {
+    "workflow_run": 36773191085,
+    "workflow_run_number": 181,
+    "workflow_head_sha": "42de09ce97a71e0924975024c0936aa1fb4a8f61",
+    "workflow_head_ref": "main",
+    "artifact_id": 11162212837,
+    "artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "role": "IMMUTABLE_RAW_ARCHIVE_ARTIFACT"
+  },
+  "derived_evidence_provenance": {
+    "snapshot_gap_coverage_audit": "4553af53df047674ea030477ff978fd199e7787c",
+    "exact_1049_reconstruction": "d70ba6aa3dac4d53352eccf0a44eae870d51b9b8",
+    "fold_gap_impact_audit": "a01fa2c9c2a898f7253a52cb52a4ddf4f3720ea7",
+    "snapshot_blob_gap_coverage_delta": "a01fa2c9c2a898f7253a52cb52a4ddf4f3720ea7"
+  },
+  "formal_lock_provenance": {
+    "lock_metadata_verification_commit": "68bb6283586cb5f5b99df13033095df3cd98c041",
+    "formal_lock_status": "EVIDENCE_LOCKED",
+    "formal_lock_gate_run_id": 36998216883,
+    "formal_lock_gate_conclusion": "success"
+  },
+  "hash_cross_checks": {
+    "immutable_artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "evidence_lock_gate_blob_sha": "e0103b0c1953ee7c128db3757d2a728152a4d506",
+    "provenance_manifest_blob_sha": "20a2343ef69c0228a3dc57974f2615a094e4efdd",
+    "immutable_archive_recovery_blob_sha": "b706a7aa6c5a3ee0fd9a40307c579c007e6d72db",
+    "snapshot_gap_forensics_blob_sha": "aaa6840065c74ad981865233133ac34c29f0ab1d",
+    "fold_gap_impact_audit_blob_sha": "f8881b455f5e5b909564466ebce646d6a6d4d967",
+    "formal_evidence_lock_blob_sha": "a79209789a6d2e72ad165d4b4f33fb4794492dcb",
+    "snapshot_blob_gap_coverage_delta_blob_sha": "3fd9375ad612b09be85c573d14e6486749682c52"
+  },
+  "scientific_lock_summary": {
+    "evaluated_observations": 1049,
+    "fold_count": 8,
+    "fold_evaluated": [120,132,135,137,138,127,126,134],
+    "wins": 528,
+    "losses": 479,
+    "unlabeled": 42,
+    "gap_affected_fold": 7,
+    "gap_start": "2026-09-27T12:03:19.239Z",
+    "gap_end": "2026-09-27T17:16:54.102Z",
+    "gap_duration_seconds": 18814.863,
+    "gap_share_of_fold7_time_pct": 31.52166365140704,
+    "gap_share_of_locked_window_time_pct": 8.290832673989,
+    "evaluated_observations_removed_by_gap": 0,
+    "observation_coverage_loss_pct": 0.0,
+    "raw_time_coverage_delta_hours": -5.226350833333333,
+    "synthetic_fill": false,
+    "replacement_rows": false,
+    "causal_reassignment": false,
+    "exact_1049_replay": true
+  },
+  "safety_gates": {
+    "main_untouched": true,
+    "data_engine_v1_untouched": true,
+    "live_execution_disabled": true,
+    "promotion_disabled": true,
+    "pr_129_unmerged": true
+  },
+  "freeze_rule": "Freeze only the evidence package and its provenance roles. Treat 42de09ce97a71e0924975024c0936aa1fb4a8f61 as raw-artifact producer provenance; treat 4553af53, d70ba6aa, a01fa2c9 and related evidence commits as derived analytical provenance; treat 68bb6283 as lock/verification provenance. Never substitute one role for another. Do not alter, fill, delete, reinterpret, or causally attribute the locked population or Fold-7 gap without new immutable evidence and a new lock revision.",
+  "final_gate_condition": "All current-HEAD evidence workflows must be successful and the final cross-evidence hash audit must confirm every listed artifact/blob SHA before this candidate is promoted from READY to a final evidence package freeze.",
+  "merge_or_execution_implication": "NONE"
+}

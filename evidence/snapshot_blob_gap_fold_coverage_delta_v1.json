@@ -1,0 +1,75 @@
+{
+  "artifact": "HES Trade Agent — Snapshot Blob → Gap Boundary → Excluded Observation IDs → Fold Mapping → Coverage Delta v1",
+  "status": "AUDIT_READY_FOR_EVIDENCE_LOCK",
+  "scope": "Forensic evidence only. No signal construction, tuning, promotion, execution, wallet operation, or data-engine-v1 sync.",
+  "lineage": {
+    "source_pr": 129,
+    "source_head_commit": "a01fa2c9c2a898f7253a52cb52a4ddf4f3720ea7",
+    "immutable_workflow_run": 36773191085,
+    "workflow_run_number": 181,
+    "immutable_artifact_id": 11162212837,
+    "immutable_artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f"
+  },
+  "snapshot_blob": {
+    "locked_evaluated_observations": 1049,
+    "fold_count": 8,
+    "protocol_id": "oos-real-btcusdt-v1-800x400x400-e0",
+    "raw_rows_in_locked_window": 88649,
+    "window_start": "2026-09-24T02:27:00Z",
+    "window_end": "2026-09-27T17:30:00Z",
+    "synthetic_rows_added": false
+  },
+  "gap_boundary": {
+    "fold_affected": [7],
+    "start": "2026-09-27T12:03:19.239Z",
+    "end": "2026-09-27T17:16:54.102Z",
+    "duration_seconds": 18814.863,
+    "duration_hours": 5.226350833333333,
+    "fold7_window_hours": 16.583333333333334,
+    "gap_share_of_fold7_time_pct": 31.52166365140704,
+    "gap_share_of_locked_window_time_pct": 8.290832673989
+  },
+  "excluded_observation_ids": {
+    "ids": [],
+    "count": 0,
+    "evaluated_observations_removed_by_gap": 0,
+    "basis": "Exact 1,049 deterministic replay reproduced the locked evaluator population; the raw gap intersects Fold 7 but contributes no evaluable observation under the locked continuity boundary.",
+    "no_causal_reassignment": true
+  },
+  "fold_mapping": [
+    {"fold":0,"evaluated":120,"gap_intersects":false,"excluded_observations":0,"coverage_delta_pct":0.0},
+    {"fold":1,"evaluated":132,"gap_intersects":false,"excluded_observations":0,"coverage_delta_pct":0.0},
+    {"fold":2,"evaluated":135,"gap_intersects":false,"excluded_observations":0,"coverage_delta_pct":0.0},
+    {"fold":3,"evaluated":137,"gap_intersects":false,"excluded_observations":0,"coverage_delta_pct":0.0},
+    {"fold":4,"evaluated":138,"gap_intersects":false,"excluded_observations":0,"coverage_delta_pct":0.0},
+    {"fold":5,"evaluated":127,"gap_intersects":false,"excluded_observations":0,"coverage_delta_pct":0.0},
+    {"fold":6,"evaluated":126,"gap_intersects":false,"excluded_observations":0,"coverage_delta_pct":0.0},
+    {"fold":7,"evaluated":134,"gap_intersects":true,"excluded_observations":0,"coverage_delta_pct":0.0}
+  ],
+  "coverage_delta": {
+    "locked_population_before": 1049,
+    "locked_population_after_gap_exclusion": 1049,
+    "observation_delta": 0,
+    "observation_coverage_loss_pct": 0.0,
+    "time_coverage_delta_hours": -5.226350833333333,
+    "time_coverage_loss_pct_of_locked_window": 8.290832673989,
+    "interpretation": "The gap is a real raw-lineage time-coverage condition inside Fold 7, but it does not remove any member of the locked 1,049 evaluator population. Therefore observation coverage delta is 0 while raw time coverage delta is 5.226350833 hours.",
+    "do_not_interpret_as": "proof that no raw market data was lost; only the locked evaluator population impact is established."
+  },
+  "reconciliation": {
+    "fold_counts": [120,132,135,137,138,127,126,134],
+    "fold_sum": 1049,
+    "exact_match_to_locked_evidence": true,
+    "exact_1049_replay": true,
+    "gap_preserved": true,
+    "synthetic_fill": false
+  },
+  "safety": {
+    "main_untouched": true,
+    "data_engine_v1_untouched": true,
+    "live_execution_disabled": true,
+    "promotion_disabled": true,
+    "pr_129_unmerged": true
+  },
+  "next_gate": "CI validation of this explicit lineage/coverage artifact, then Evidence Lock. No merge until evidence review."
+}
