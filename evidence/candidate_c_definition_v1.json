@@ -1,0 +1,72 @@
+{
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "candidate_version": "C-v1",
+  "status": "DEFINITION_FROZEN_PENDING_FRESH_SNAPSHOT",
+  "research_only": true,
+  "production_signal": false,
+  "promotion": false,
+  "live_execution": false,
+  "wallet_operations": false,
+  "independence_from_rule_a": true,
+  "independence_from_candidate_b": true,
+  "fresh_snapshot_required": true,
+  "no_post_oos_tuning": true,
+  "hypothesis": "A fixed trend-breakout rule using only information available before entry may exhibit different OOS behavior from Rule A.",
+  "market": "BTC_USDT",
+  "bar_definition": {
+    "source": "raw trades",
+    "timeframe": "1m",
+    "aggregation": "deterministic OHLCV"
+  },
+  "features": {
+    "ema_fast_period": 20,
+    "ema_slow_period": 50,
+    "atr_period": 14,
+    "breakout_lookback_bars": 20
+  },
+  "long_entry": {
+    "condition": "close_t > prior_20_bar_high AND ema20_t > ema50_t",
+    "execution_price": "next_bar_open"
+  },
+  "short_entry": {
+    "condition": "close_t < prior_20_bar_low AND ema20_t < ema50_t",
+    "execution_price": "next_bar_open"
+  },
+  "risk_exit": {
+    "stop_loss_atr_multiple": 1.5,
+    "take_profit_atr_multiple": 2.0,
+    "reference_atr": "ATR14 at signal bar t",
+    "long_stop": "entry_price - 1.5*ATR14_t",
+    "long_target": "entry_price + 2.0*ATR14_t",
+    "short_stop": "entry_price + 1.5*ATR14_t",
+    "short_target": "entry_price - 2.0*ATR14_t"
+  },
+  "time_exit": {
+    "max_holding_bars": 30,
+    "execution": "close_of_30th_bar_after_entry"
+  },
+  "position_policy": {
+    "max_concurrent_positions": 1,
+    "same_direction_reentry": false,
+    "opposite_signal_while_open": "ignored",
+    "lookahead": false
+  },
+  "evaluation": {
+    "method": "deterministic_walk_forward_oos",
+    "folds": 8,
+    "train_bars": 800,
+    "test_bars": 400,
+    "step_bars": 400,
+    "timestamp_embargo": true,
+    "cost_turnover_audit_required": true,
+    "no_parameter_tuning": true,
+    "no_rescue": true
+  },
+  "safety": {
+    "fail_closed": true,
+    "live_execution": false,
+    "wallet_operations": false,
+    "promotion": false,
+    "data_engine_v1_merge_rebase_sync": false
+  }
+}
