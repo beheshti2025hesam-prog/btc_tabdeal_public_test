@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - protocol-reconciliation-independent-snapshot-v1
+      - cost-matrix-full-population-1027-v1
   workflow_dispatch:
 
 permissions:
