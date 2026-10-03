@@ -1,0 +1,36 @@
+{
+  "artifact_id": "CANDIDATE_C_RAW_TRADE_PATH_RESOLUTION_CHECKPOINT_2026-10-02",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "candidate_version": "C-v1",
+  "status": "RAW_TRADE_PATH_EVIDENCE_NOT_YET_EXTRACTABLE",
+  "purpose": "Record the resolution boundary after attempting to inspect the frozen raw trade lineage for the seven same-bar SL/TP ambiguities.",
+  "source": {
+    "snapshot_id": "CANDIDATE_C_FRESH_SNAPSHOT_2026-10-01",
+    "active_blob": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+    "active_size_bytes": 10238447,
+    "archive_count": 12,
+    "ambiguity_audit": "CANDIDATE_C_PRE_OOS_PATH_AMBIGUITY_AUDIT_2026-10-01",
+    "ambiguity_count": 7,
+    "signals_scanned": 552,
+    "holding_window_bars": 30
+  },
+  "checks": {
+    "raw_trade_file_present_in_frozen_tree": true,
+    "raw_blob_lineage_identified": true,
+    "direct_large_blob_content_extraction_available": false,
+    "trade_level_touch_order_verified": false
+  },
+  "conclusion": "The repository lineage proves that the raw trade source exists, but the currently available GitHub retrieval path cannot extract the large active blob content required to reconstruct the seven ambiguous windows. Therefore no SL/TP ordering is claimed.",
+  "next_gate": "Obtain bounded raw-trade excerpts for the seven ambiguous windows through an approved repository/data access path, then deterministically test touch ordering. If bounded extraction is not possible, freeze an explicit same-bar exit policy before OOS.",
+  "safety": {
+    "research_only": true,
+    "oos_started": false,
+    "live_execution": false,
+    "wallet_operations": false,
+    "promotion": false,
+    "candidate_definition_changed": false,
+    "rule_a_reuse": false,
+    "candidate_b_reuse": false,
+    "data_engine_v1_sync": false
+  }
+}
