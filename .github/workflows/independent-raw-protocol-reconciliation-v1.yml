@@ -127,6 +127,22 @@ jobs:
           print(json.dumps({"evaluated_oos":pop["evaluated_oos"],"winners_gt_14bps":c["winners_gt_14bps"],"controls_le_14bps":c["controls_le_14bps"],"folds":p["folds"]},indent=2))
           PY
 
+      - name: Assert full-population cost matrix
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("protocol_reconciliation_full_population_audit.json"))
+          assert d["population"]["evaluated_oos"] == 1027
+          assert d["counts"]["winners_gt_14bps"] == 28
+          assert d["counts"]["controls_le_14bps"] == 999
+          cm=d["cost_matrix"]["scenarios"]
+          assert set(cm) == {"0bps_fee_0bps_slippage","5bps_fee_2bps_slippage_per_side","10bps_fee_5bps_slippage_per_side"}
+          for x in cm.values():
+              assert x["evaluated"] == 1027
+              assert x["wins"] + x["losses"] == 1027
+          print(json.dumps(cm,indent=2))
+          PY
+
       - name: Upload immutable snapshot lock and complete audit
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
