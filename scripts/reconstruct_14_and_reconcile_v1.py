@@ -47,7 +47,7 @@ def run_lineage(source_root, csv_path, raw_blob_sha, lineage_name):
         for j, sample in enumerate(fold.test_samples):
             gross=model.gross_return(sample) if sample.decision.value in ("LONG","SHORT") else None
             net14=(gross-0.0014) if gross is not None else None
-            epoch=int(sample.timestamp.timestamp())
+            epoch=int(sample.timestamp.timestamp())-60
             seqs=seq_by_minute.get(("BTC_USDT",epoch-(epoch%60)),[])
             # Deterministic identity: lineage + exact record fields.
             identity_payload={
