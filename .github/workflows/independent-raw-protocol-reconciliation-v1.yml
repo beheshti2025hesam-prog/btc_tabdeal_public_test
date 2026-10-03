@@ -20,8 +20,9 @@ jobs:
     env:
       LOCKED_RAW_BLOB_SHA: 58d21825e052dbaa42e7eb0695455c19997bff43
       LOCKED_RAW_SOURCE_COMMIT: b9ebecf061dfe9a084797d77b48a2c7846d269e3
-      PROTOCOL_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
-      PROTOCOL_SOURCE_SCRIPT_BLOB: 5dfad504e6c699235ad696af67104b5be5176fef
+      PROTOCOL_SOURCE_COMMIT: bb308905d75ec5cbff80572c0746c7521ddab9a0
+      PROTOCOL_SOURCE_SCRIPT_BLOB: 406319c52cc36d9d549d6f29b170d184fac90859
+      PROTOCOL_SOURCE_SCRIPT_PATH: scripts/protocol_reconciliation_independent_snapshot_v1.py
       PROTOCOL_CONTRACT_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
       PROTOCOL_CONTRACT_BLOB_SHA: a84dafbc09c72ac37ebbbb0706b43d23f7681e12
       HES_FROZEN_CSV: /tmp/hes_independent_trades.csv
@@ -35,6 +36,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Verify immutable lineage bindings before execution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+          repo = "beheshti2025hesam-prog/btc_tabdeal_public_test"
+          headers = {"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+          def get_json(url):
+              req = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(req) as resp:
+                  return json.load(resp)
+          def assert_path_blob(commit, path, expected):
+              d = get_json(f"https://api.github.com/repos/{repo}/contents/{path}?ref={commit}")
+              assert d["sha"] == expected, (path, d["sha"], expected)
+          assert_path_blob(os.environ["LOCKED_RAW_SOURCE_COMMIT"], "data/trades.csv", os.environ["LOCKED_RAW_BLOB_SHA"])
+          assert_path_blob(os.environ["PROTOCOL_CONTRACT_SOURCE_COMMIT"], "evidence/protocol_reconciliation_v1.json", os.environ["PROTOCOL_CONTRACT_BLOB_SHA"])
+          assert_path_blob(os.environ["PROTOCOL_SOURCE_COMMIT"], os.environ["PROTOCOL_SOURCE_SCRIPT_PATH"], os.environ["PROTOCOL_SOURCE_SCRIPT_BLOB"])
+          print("IMMUTABLE_LINEAGE_BINDINGS_VALID")
+          PY
 
       - name: Materialize and hash-lock the independent Raw snapshot
         env:
