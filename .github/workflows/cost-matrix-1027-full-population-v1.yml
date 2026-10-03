@@ -1,0 +1,109 @@
+name: HES Trade Agent — 1,027 Full-Population Cost Matrix Evidence v1
+
+on:
+  push:
+    branches:
+      - evidence-cost-matrix-1027-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOCKED_RAW_BLOB_SHA: 58d21825e052dbaa42e7eb0695455c19997bff43
+      LOCKED_RAW_SOURCE_COMMIT: b9ebecf061dfe9a084797d77b48a2c7846d269e3
+      HES_FROZEN_CSV: /tmp/hes_1027.csv
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Materialize exact locked Raw blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${LOCKED_RAW_BLOB_SHA}" > /tmp/raw.json
+          python - <<'PY'
+          import base64,json,os
+          d=json.load(open("/tmp/raw.json")); assert d["sha"]==os.environ["LOCKED_RAW_BLOB_SHA"]
+          open(os.environ["HES_FROZEN_CSV"],"wb").write(base64.b64decode(d["content"]))
+          PY
+      - name: Reconstruct all 1,027 evaluated OOS observations and apply frozen Cost Matrix
+        run: |
+          cat > /tmp/run_1027.py <<'PY'
+          import csv,json,sys
+          from pathlib import Path
+          from collections import defaultdict
+          sys.path.insert(0,".")
+          from core.data_engine.candles import TradeCandleAggregator
+          from core.data_engine.normalizer import RawDataNormalizer
+          from core.data_engine.reader import RawDataReader
+          from core.data_engine.validator import RawDataValidator
+          from core.data_engine.vwap import VWAPCalculator
+          from core.feature_engine.ema import EMACalculator
+          from core.feature_engine.quality import FeatureSnapshot
+          from core.strategy.baseline import BaselineStrategy,BaselineStrategyInput,BaselineDecision
+          from core.risk.boundary import RiskPolicy,RiskInput,RiskDecision
+          CSV_PATH="/tmp/hes_1027.csv"; TRAIN=800; TEST=400; STEP=400; FOLDS=8; THRESHOLD=.0014
+          reader=RawDataReader(active_file=CSV_PATH,archive_dir="__no_archive__"); val=RawDataValidator(); norm=RawDataNormalizer()
+          trades=[]; total=invalid=0
+          for row in reader.read_all():
+              total+=1
+              if val.validate_row(row): invalid+=1
+              else: trades.append(norm.normalize_row(row))
+          trades.sort(key=lambda t:(t.timestamp,t.sequence or -1))
+          candles=TradeCandleAggregator(60).aggregate(trades); ema=EMACalculator(20).calculate(candles); vwap=VWAPCalculator(60).calculate(trades)
+          grouped=defaultdict(list)
+          for t in trades:
+              e=int(t.timestamp.timestamp()); grouped[(t.symbol,e-e%60)].append(t)
+          pressure={}
+          for k,g in grouped.items():
+              buy=sum(t.quantity for t in g if t.side=="buy"); sell=sum(t.quantity for t in g if t.side=="sell"); tot=buy+sell
+              seq=[t.sequence for t in g if t.sequence is not None]
+              pressure[k]=(buy/tot if tot else 0.0,buy-sell,len(g),min(seq) if seq else None,max(seq) if seq else None)
+          em={(x.symbol,x.timestamp):x.value for x in ema}; vw={(x.symbol,x.end):x.vwap for x in vwap}
+          strat=BaselineStrategy(min_confirmations=3); risk=RiskPolicy(); observations=[]
+          for i in range(19,len(candles)-1):
+              c,n=candles[i],candles[i+1]
+              if c.symbol!=n.symbol or n.start!=c.end: continue
+              p=pressure.get((c.symbol,int(c.start.timestamp()))); ev=em.get((c.symbol,c.end)); vv=vw.get((c.symbol,c.end))
+              if p is None or ev is None or vv is None: continue
+              br,delta,count,s0,s1=p
+              fs=FeatureSnapshot(symbol=c.symbol,timeframe_seconds=60,close=c.close,ema=ev,vwap=vv,buy_sell_delta=delta,buy_ratio=br,timestamp=c.end)
+              decision=strat.evaluate(BaselineStrategyInput(features=fs)); rd=risk.evaluate(RiskInput(decision=decision,equity=1000.0))
+              evaluated=(decision in (BaselineDecision.LONG,BaselineDecision.SHORT) and rd is RiskDecision.ALLOW_SIGNAL)
+              gross=((1 if decision is BaselineDecision.LONG else -1)*(n.close-c.close)/c.close) if evaluated else None
+              observations.append({"timestamp":c.end.isoformat(),"sequence_first":s0,"sequence_last":s1,"entry_price":c.close,"exit_price":n.close,"gross_return":gross,"direction":decision.value,"evaluated":evaluated,"candle_index":i})
+          rows=[]; folds=[]
+          for fold in range(FOLDS):
+              a=fold*STEP+TRAIN; b=a+TEST; test=observations[a:b]; ev=[r for r in test if r["evaluated"]]; total_gross=sum(r["gross_return"] for r in ev)
+              regime="uptrend" if total_gross>=.01 else "downtrend" if total_gross<=-.01 else "range"; folds.append({"fold":fold,"evaluated":len(ev),"gross_sum":total_gross})
+              for r in ev:
+                  x=dict(r); x["fold_index"]=fold; x["fold_regime"]=regime; x["winner"]=x["gross_return"]>THRESHOLD; rows.append(x)
+          assert len(rows)==1027; assert sum(r["winner"] for r in rows)==28; assert sum(not r["winner"] for r in rows)==999
+          results=[]
+          for name,roundtrip in (("0/0",0.0),("5/2",.0014),("10/5",.0030)):
+              vals=[r["gross_return"]-roundtrip for r in rows]
+              results.append({"scenario":name,"round_trip_cost":roundtrip,"evaluated":len(vals),"net_return_sum":sum(vals),"wins":sum(v>0 for v in vals),"losses":sum(v<0 for v in vals),"zero":sum(v==0 for v in vals)})
+          out={"lineage":{"raw_blob_sha":"58d21825e052dbaa42e7eb0695455c19997bff43","source_commit":"b9ebecf061dfe9a084797d77b48a2c7846d269e3","protocol":{"train":800,"test":400,"step":400,"folds":8,"threshold_bps":14}},"population":{"raw_rows":total,"invalid_rows":invalid,"candles":len(candles),"observations":len(observations),"evaluated_oos":len(rows),"winners_gt_14bps":sum(r["winner"] for r in rows),"controls_le_14bps":sum(not r["winner"] for r in rows)},"folds":folds,"cost_matrix":results,"rows":rows}
+          Path("cost_matrix_1027_full_population.json").write_text(json.dumps(out,indent=2))
+          with open("cost_matrix_1027_full_population.csv","w",newline="") as f:
+              w=csv.DictWriter(f,fieldnames=list(rows[0])); w.writeheader(); w.writerows(rows)
+          print(json.dumps({"population":out["population"],"folds":folds,"cost_matrix":results},indent=2))
+          PY
+          python /tmp/run_1027.py
+      - name: Upload full-population evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cost-matrix-1027-full-population-v1
+          path: |
+            cost_matrix_1027_full_population.json
+            cost_matrix_1027_full_population.csv
+          if-no-files-found: error
