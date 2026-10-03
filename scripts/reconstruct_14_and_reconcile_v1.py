@@ -132,7 +132,7 @@ def reconcile(old, cur):
             "current_exit_price":c["exit_price"],
             "current_gross_outcome":c["gross_outcome"],
             "current_14bps_classification":c["classification_14bps"],
-            "current_Winner_or_Control":"Winner",
+            "current_Winner_or_Control":c["classification_14bps"],
             "prior_14_survivor": bool(matches),
             "prior_observation_ids":[m["observation_id"] for m in matches],
             "exact_match": bool(matches),
