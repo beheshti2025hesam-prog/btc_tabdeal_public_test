@@ -112,13 +112,14 @@ def exact_key(r):
 
 def reconcile(old, cur):
     old_survivors=old["survivors_14bps"]
-    cur_winners=[r for r in cur["rows"] if r["classification_14bps"]=="Winner"]
+    cur_evaluated=[r for r in cur["rows"] if r["classification_14bps"] in ("Winner","Control")]
+    cur_winners=[r for r in cur_evaluated if r["classification_14bps"]=="Winner"]
     old_map=defaultdict(list)
     for r in old_survivors:
         old_map[exact_key(r)].append(r)
     matrix=[]
     matched_old=set()
-    for c in cur_winners:
+    for c in cur_evaluated:
         matches=old_map.get(exact_key(c),[])
         for m in matches: matched_old.add(m["observation_id"])
         matrix.append({
@@ -142,7 +143,7 @@ def reconcile(old, cur):
     return {
         "protocol":{"exact_record_match_key":["timestamp","sequence_first","sequence_last","entry_price","exit_price","direction","gross_outcome"],
                     "threshold_bps":14,"no_aggregate_matching":True},
-        "counts":{"current_winners":len(cur_winners),"prior_14_survivors":len(old_survivors),
+        "counts":{"current_evaluated":len(cur_evaluated),"current_winners":len(cur_winners),"current_controls":len(cur_evaluated)-len(cur_winners),"prior_14_survivors":len(old_survivors),
                   "exact_current_to_prior_matches":sum(x["exact_match"] for x in matrix),
                   "current_winners_without_match":sum(not x["exact_match"] for x in matrix),
                   "prior_survivors_without_match":len(unmatched_old)},
