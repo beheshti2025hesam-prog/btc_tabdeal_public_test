@@ -88,3 +88,5 @@ jobs:
             reconciliation_28_to_14_record_level.json
             reconciliation_28_to_14_matrix.csv
           if-no-files-found: error
+
+# Manual trigger checkpoint: rerun exact immutable reconciliation after semantic hardening.
