@@ -3,6 +3,7 @@ import csv
 import tempfile
 import unittest
 from pathlib import Path
+from datetime import timedelta
 
 from core.backtest.real_data import RealDataBacktest
 
@@ -76,6 +77,70 @@ class RealDataBacktestTests(unittest.TestCase):
         self.assertGreaterEqual(result.continuity_excluded, 1)
         self.assertEqual(result.backtest.samples, result.observations)
 
+
+    def test_historical_observations_are_invariant_when_future_trades_are_appended(self):
+        def make_rows(minutes, base_sequence=5000):
+            rows = []
+            for minute in range(minutes):
+                for trade_index in range(2):
+                    second = trade_index * 20
+                    rows.append({
+                        "symbol": "BTC_USDT", "price": str(100 + minute + trade_index * 0.1),
+                        "amount": "1", "side": "Buy" if trade_index == 0 else "Sell",
+                        "updated": f"2026-09-25T00:{minute:02d}:{second:02d}+00:00",
+                        "sequence": str(base_sequence + minute * 2 + trade_index),
+                    })
+            return rows
+
+        def run(rows):
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "trades.csv"
+                with path.open("w", newline="", encoding="utf-8") as handle:
+                    writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                    writer.writeheader(); writer.writerows(rows)
+                backtest = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=20)
+                backtest.run()
+                return tuple(backtest._last_observations)
+
+        before = run(make_rows(25))
+        after = run(make_rows(27))
+        for left, right in zip(before, after[:len(before)]):
+            self.assertEqual(left.timestamp, right.timestamp)
+            self.assertEqual(left.sample.decision, right.sample.decision)
+            self.assertEqual(left.sample.risk, right.sample.risk)
+            self.assertEqual(left.sample.entry_price, right.sample.entry_price)
+            self.assertEqual(left.sample.exit_price, right.sample.exit_price)
+            self.assertEqual(left.sample.outcome_timestamp, right.sample.outcome_timestamp)
+
+    def test_decision_and_outcome_boundaries_are_forward_only(self):
+        rows = []
+        for minute in range(22):
+            for trade_index in range(2):
+                second = trade_index * 20
+                rows.append({
+                    "symbol": "BTC_USDT",
+                    "price": str(100 + minute + trade_index * 0.1),
+                    "amount": "1",
+                    "side": "Buy" if trade_index == 0 else "Sell",
+                    "updated": f"2026-09-25T00:{minute:02d}:{second:02d}+00:00",
+                    "sequence": str(8000 + minute * 2 + trade_index),
+                })
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "trades.csv"
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            backtest = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=20)
+            backtest.run()
+            observations = backtest._last_observations
+
+        self.assertTrue(observations)
+        for observation in observations:
+            self.assertEqual(observation.sample.timestamp, observation.timestamp)
+            self.assertEqual(observation.sample.outcome_timestamp, observation.timestamp + timedelta(minutes=1))
+            self.assertGreater(observation.sample.outcome_timestamp, observation.timestamp)
+
     def test_invalid_rows_are_quarantined_from_derivation(self):
         rows = [
             {
@@ -112,7 +177,7 @@ class RealDataBacktestTests(unittest.TestCase):
     def test_runs_oos_walk_forward_on_same_real_data_observations(self):
         rows = []
         base_sequence = 3000
-        for minute in range(25):
+        for minute in range(27):
             for trade_index in range(2):
                 second = trade_index * 20
                 rows.append(
@@ -136,11 +201,12 @@ class RealDataBacktestTests(unittest.TestCase):
             result = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=20).run_walk_forward(
                 train_size=2,
                 test_size=1,
-                step_size=1,
+                step_size=2,
+                embargo_size=1,
             )
 
-        self.assertEqual(len(result.folds), 3)
-        self.assertEqual(result.samples, 3)
+        self.assertEqual(len(result.folds), 2)
+        self.assertEqual(result.samples, 2)
         for fold in result.folds:
             self.assertLess(fold.train_end, fold.test_start)
             self.assertEqual(fold.train_observations, 2)

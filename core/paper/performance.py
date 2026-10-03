@@ -43,9 +43,11 @@ class PaperPerformance:
         equity = 1.0
         peak = 1.0
         max_drawdown = 0.0
+        final_timestamp = None
 
         for row in observations:
             sample = row.sample
+            final_timestamp = row.timestamp
             if row.timestamp != sample.timestamp:
                 raise ValueError("observation timestamp must match sample timestamp")
             if not math.isfinite(sample.entry_price) or sample.entry_price <= 0:
@@ -93,6 +95,29 @@ class PaperPerformance:
                 entry_timestamp = row.timestamp
                 entry_price = sample.entry_price
                 entry_state = event.state
+
+        # A fold boundary is a hard measurement boundary. If a virtual position
+        # remains open at the last observed timestamp, neutralize it at that
+        # same timestamp/price. This uses no future observation and prevents
+        # position state from leaking into the next OOS fold.
+        if entry_price is not None:
+            if final_timestamp is None or entry_state not in (PaperState.LONG, PaperState.SHORT):
+                raise ValueError("paper position state missing at fold boundary")
+            exit_kind = PaperExit.CLOSE_LONG if entry_state is PaperState.LONG else PaperExit.CLOSE_SHORT
+            session.process(PaperObservation(
+                final_timestamp, BaselineDecision.NO_TRADE, RiskDecision.VETO,
+                sample.entry_price, exit_kind
+            ))
+            direction = 1.0 if entry_state is PaperState.LONG else -1.0
+            result = direction * (sample.entry_price - entry_price) / entry_price
+            completed.append(PaperTrade(
+                entry_timestamp, final_timestamp, entry_state,
+                entry_price, sample.entry_price, result
+            ))
+            equity *= 1.0 + result
+            peak = max(peak, equity)
+            max_drawdown = max(max_drawdown, (peak - equity) / peak)
+            entry_timestamp = entry_price = entry_state = None
 
         wins = sum(t.return_fraction > 0 for t in completed)
         losses = sum(t.return_fraction < 0 for t in completed)

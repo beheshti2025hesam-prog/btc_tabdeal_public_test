@@ -66,6 +66,26 @@ class FeatureQualityTests(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertIn("invalid_timestamp", result.violations)
 
+    def test_accepts_feature_availability_at_decision_timestamp(self):
+        ts = datetime(2026, 9, 25, 10, 0, tzinfo=timezone.utc)
+        result = FeatureQualityGate().evaluate(self._snapshot(available_at=ts))
+        self.assertTrue(result.passed)
+
+    def test_rejects_feature_available_after_decision_timestamp(self):
+        ts = datetime(2026, 9, 25, 10, 0, tzinfo=timezone.utc)
+        result = FeatureQualityGate().evaluate(
+            self._snapshot(available_at=datetime(2026, 9, 25, 10, 1, tzinfo=timezone.utc))
+        )
+        self.assertFalse(result.passed)
+        self.assertIn("future_feature_availability", result.violations)
+
+    def test_rejects_naive_available_at(self):
+        result = FeatureQualityGate().evaluate(
+            self._snapshot(available_at=datetime(2026, 9, 25, 10, 0))
+        )
+        self.assertFalse(result.passed)
+        self.assertIn("invalid_available_at", result.violations)
+
     def test_accepts_timezone_aware_timestamp(self):
         result = FeatureQualityGate().evaluate(self._snapshot())
         self.assertTrue(result.passed)

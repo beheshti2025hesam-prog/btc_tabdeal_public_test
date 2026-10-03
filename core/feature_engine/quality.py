@@ -23,6 +23,9 @@ class FeatureSnapshot:
     volume_spike: bool | None = None
     regime: str | None = None
     timestamp: datetime | None = None
+    # Earliest timestamp at which the complete feature snapshot is knowable.
+    # If present, it must not be later than the snapshot decision timestamp.
+    available_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,12 @@ class FeatureQualityGate:
         if snapshot.timestamp is not None:
             if snapshot.timestamp.tzinfo is None or snapshot.timestamp.utcoffset() is None:
                 violations.append("invalid_timestamp")
+        if snapshot.available_at is not None:
+            if snapshot.available_at.tzinfo is None or snapshot.available_at.utcoffset() is None:
+                violations.append("invalid_available_at")
+            elif snapshot.timestamp is not None and snapshot.timestamp.tzinfo is not None and snapshot.timestamp.utcoffset() is not None:
+                if snapshot.available_at > snapshot.timestamp:
+                    violations.append("future_feature_availability")
 
         if not self._positive_finite(snapshot.close):
             violations.append("invalid_close")

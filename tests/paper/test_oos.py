@@ -4,8 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 from core.backtest.engine import BacktestSample
 from core.backtest.validation import HistoricalObservation
-from core.backtest.walk_forward import WalkForwardConfig
+from core.backtest.walk_forward import WalkForwardValidation
 from core.paper.oos import PaperOOS
+from core.paper.performance import PaperPerformance
 from core.risk.boundary import RiskDecision
 from core.strategy.baseline import BaselineDecision
 
@@ -30,8 +31,8 @@ class PaperOOSTests(unittest.TestCase):
 
     def test_uses_only_oos_test_for_paper_measurement(self):
         observations = self.rows()
-        config = WalkForwardConfig(train_size=4, test_size=2, step_size=2)
-        result = PaperOOS().run(observations, config)
+        validator = WalkForwardValidation(train_size=4, test_size=2, step_size=2)
+        result = PaperOOS().run(observations, validator)
 
         self.assertEqual(len(result.folds), 2)
         self.assertEqual(len(result.folds[0].train), 4)
@@ -41,9 +42,66 @@ class PaperOOSTests(unittest.TestCase):
         self.assertEqual(result.folds[1].test[0].timestamp, observations[6].timestamp)
 
     def test_rejects_empty_input(self):
-        config = WalkForwardConfig(train_size=2, test_size=1, step_size=1)
+        validator = WalkForwardValidation(train_size=2, test_size=1, step_size=1)
         with self.assertRaises(ValueError):
-            PaperOOS().run([], config)
+            PaperOOS().run([], validator)
+
+
+    def test_future_extension_does_not_change_existing_fold_measurement(self):
+        observations = self.rows(8)
+        extended = self.rows(12)
+        validator = WalkForwardValidation(train_size=4, test_size=2, step_size=2)
+
+        base = PaperOOS().run(observations, validator)
+        future = PaperOOS().run(extended, validator)
+
+        self.assertEqual(len(base.folds), 2)
+        self.assertGreaterEqual(len(future.folds), 2)
+
+        for before, after in zip(base.folds, future.folds):
+            self.assertEqual(before.test, after.test)
+            self.assertEqual(before.performance, after.performance)
+
+    def test_paper_measurement_uses_signal_stream_not_backtest_exit_price(self):
+        base = datetime(2026, 9, 25, tzinfo=timezone.utc)
+        rows = [
+            HistoricalObservation(
+                base,
+                BacktestSample(
+                    base, BaselineDecision.LONG, RiskDecision.ALLOW_SIGNAL,
+                    100, 999, base + timedelta(minutes=1),
+                ),
+            ),
+            HistoricalObservation(
+                base + timedelta(minutes=1),
+                BacktestSample(
+                    base + timedelta(minutes=1), BaselineDecision.NO_TRADE,
+                    RiskDecision.ALLOW_SIGNAL, 101, 999,
+                    base + timedelta(minutes=2),
+                ),
+            ),
+        ]
+        performance = PaperPerformance().run(rows)
+        self.assertEqual(performance.completed_trades, 1)
+        self.assertAlmostEqual(performance.total_return, 0.01)
+
+    def test_fold_end_open_position_is_neutralized_without_future_data(self):
+        observations = self.rows(4)
+        observations[3] = HistoricalObservation(
+            observations[3].timestamp,
+            BacktestSample(
+                observations[3].timestamp,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                105,
+                105,
+            ),
+        )
+        validator = WalkForwardValidation(train_size=2, test_size=2, step_size=2)
+        result = PaperOOS().run(observations, validator)
+        self.assertEqual(result.robustness.fold_count, 1)
+        self.assertEqual(result.folds[0].performance.open_state.value, "FLAT")
+        self.assertEqual(result.folds[0].performance.completed_trades, 1)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,7 @@ class WalkForwardValidationTests(unittest.TestCase):
                         RiskDecision.ALLOW_SIGNAL,
                         100.0,
                         101.0,
+                        ts + timedelta(seconds=30),
                     ),
                 )
             )
@@ -56,6 +57,91 @@ class WalkForwardValidationTests(unittest.TestCase):
 
         first = result.folds[0]
         self.assertEqual(first.train_end + timedelta(minutes=2), first.test_start)
+
+    def test_rejects_training_outcome_crossing_oos_boundary(self):
+        rows = self.observations(8)
+        ts = rows[3].timestamp
+        rows[3] = HistoricalObservation(
+            ts,
+            BacktestSample(
+                ts,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[4].timestamp,
+            ),
+        )
+        with self.assertRaises(ValueError):
+            WalkForwardValidation(train_size=4, test_size=2, step_size=2).run(rows)
+
+    def test_rejects_any_training_outcome_crossing_oos_boundary(self):
+        rows = self.observations(8)
+        ts = rows[2].timestamp
+        rows[2] = HistoricalObservation(
+            ts,
+            BacktestSample(
+                ts,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[4].timestamp,
+            ),
+        )
+        # The final training row has a safe outcome; an earlier training row
+        # must still be prevented from leaking information into OOS.
+        rows[3] = HistoricalObservation(
+            rows[3].timestamp,
+            BacktestSample(
+                rows[3].timestamp,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[3].timestamp + timedelta(seconds=30),
+            ),
+        )
+        with self.assertRaises(ValueError):
+            WalkForwardValidation(train_size=4, test_size=2, step_size=2).run(rows)
+
+    def test_rejects_cross_fold_oos_outcome_leakage(self):
+        rows = self.observations(10)
+        # Fold 0 tests rows 4-5; its first test outcome must not reach fold 1's
+        # OOS window, which starts at row 6.
+        rows[4] = HistoricalObservation(
+            rows[4].timestamp,
+            BacktestSample(
+                rows[4].timestamp,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[6].timestamp,
+            ),
+        )
+        with self.assertRaises(ValueError):
+            WalkForwardValidation(train_size=4, test_size=2, step_size=2).run(rows)
+
+    def test_allows_oos_outcome_before_next_oos_window(self):
+        rows = self.observations(10)
+        # An outcome realized in the gap/training period before the next OOS
+        # window is known before that next evaluation and is not cross-fold leakage.
+        rows[4] = HistoricalObservation(
+            rows[4].timestamp,
+            BacktestSample(
+                rows[4].timestamp,
+                BaselineDecision.LONG,
+                RiskDecision.ALLOW_SIGNAL,
+                100.0,
+                101.0,
+                rows[5].timestamp,
+            ),
+        )
+        result = WalkForwardValidation(
+            train_size=4, test_size=2, step_size=2, embargo_size=1
+        ).run(rows)
+        self.assertGreaterEqual(len(result.folds), 1)
 
     def test_rejects_insufficient_history(self):
         with self.assertRaises(ValueError):

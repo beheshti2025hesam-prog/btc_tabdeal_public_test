@@ -26,6 +26,8 @@ class WalkForwardFold:
     test_end: datetime
     train_observations: int
     test_observations: int
+    train: tuple[HistoricalObservation, ...]
+    test: tuple[HistoricalObservation, ...]
     result: BacktestResult
 
 
@@ -80,13 +82,37 @@ class WalkForwardValidation:
             if test_end > len(rows):
                 break
 
-            train = rows[start:train_end]
-            test = rows[test_start:test_end]
+            train = tuple(rows[start:train_end])
+            test = tuple(rows[test_start:test_end])
 
             if train[-1].timestamp >= test[0].timestamp:
                 raise ValueError("train/test windows overlap or are not chronological")
+            crossing_outcomes = [
+                row.sample.outcome_timestamp
+                for row in train
+                if row.sample.outcome_timestamp is not None
+                and row.sample.outcome_timestamp >= test[0].timestamp
+            ]
+            if crossing_outcomes:
+                raise ValueError(
+                    "training outcome crosses into OOS test window; increase embargo"
+                )
             if folds and folds[-1].test_end >= test[0].timestamp:
                 raise ValueError("OOS test windows overlap")
+
+            next_start = start + self.step_size
+            next_test_start = next_start + self.train_size + self.embargo_size
+            if next_test_start + self.test_size <= len(rows):
+                crossing_test_outcomes = [
+                    row.sample.outcome_timestamp
+                    for row in test
+                    if row.sample.outcome_timestamp is not None
+                    and row.sample.outcome_timestamp >= rows[next_test_start].timestamp
+                ]
+                if crossing_test_outcomes:
+                    raise ValueError(
+                        "OOS outcome crosses into the next OOS test window"
+                    )
 
             result = HistoricalValidation().run(test)
             folds.append(
@@ -98,6 +124,8 @@ class WalkForwardValidation:
                     test_end=test[-1].timestamp,
                     train_observations=len(train),
                     test_observations=len(test),
+                    train=train,
+                    test=test,
                     result=result,
                 )
             )
