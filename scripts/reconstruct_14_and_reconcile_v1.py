@@ -140,12 +140,20 @@ def reconcile(old, cur):
             "lineage":"current_1027 vs prior_1049",
         })
     unmatched_old=[r for r in old_survivors if r["observation_id"] not in matched_old]
+    assert all(x["current_Winner_or_Control"] == x["current_14bps_classification"] for x in matrix)
+    assert all(x["match_count"] <= 1 for x in matrix)
+    current_winners_without_match=sum(x["current_14bps_classification"]=="Winner" and not x["exact_match"] for x in matrix)
+    current_controls_with_match=sum(x["current_14bps_classification"]=="Control" and x["exact_match"] for x in matrix)
+    current_controls_without_match=sum(x["current_14bps_classification"]=="Control" and not x["exact_match"] for x in matrix)
     return {
         "protocol":{"exact_record_match_key":["timestamp","sequence_first","sequence_last","entry_price","exit_price","direction","gross_outcome"],
                     "threshold_bps":14,"no_aggregate_matching":True},
         "counts":{"current_evaluated":len(cur_evaluated),"current_winners":len(cur_winners),"current_controls":len(cur_evaluated)-len(cur_winners),"prior_14_survivors":len(old_survivors),
                   "exact_current_to_prior_matches":sum(x["exact_match"] for x in matrix),
-                  "current_winners_without_match":sum(not x["exact_match"] for x in matrix),
+                  "current_winners_without_match":current_winners_without_match,
+                  "current_winners_with_match":len(cur_winners)-current_winners_without_match,
+                  "current_controls_with_match":current_controls_with_match,
+                  "current_controls_without_match":current_controls_without_match,
                   "prior_survivors_without_match":len(unmatched_old)},
         "matrix":matrix,
         "unmatched_prior_14":[
