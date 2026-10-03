@@ -29,14 +29,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.OLD_RAW_COMMIT }}
-          path: /tmp/old_repo
+          path: old_repo
           fetch-depth: 1
 
       - name: Checkout exact current source lineage
         uses: actions/checkout@v4
         with:
           ref: ${{ env.CURRENT_RAW_COMMIT }}
-          path: /tmp/current_repo
+          path: current_repo
           fetch-depth: 1
 
       - name: Verify Raw blob identities
@@ -45,8 +45,8 @@ jobs:
           from pathlib import Path
           import subprocess
           checks = [
-            (Path("/tmp/old_repo/data/trades.csv"), "${{ env.OLD_RAW_BLOB_SHA }}"),
-            (Path("/tmp/current_repo/data/trades.csv"), "${{ env.CURRENT_RAW_BLOB_SHA }}"),
+            (Path("old_repo/data/trades.csv"), "${{ env.OLD_RAW_BLOB_SHA }}"),
+            (Path("current_repo/data/trades.csv"), "${{ env.CURRENT_RAW_BLOB_SHA }}"),
           ]
           for path, expected in checks:
               root = path.parents[1]
@@ -58,7 +58,9 @@ jobs:
           PY
 
       - name: Run record-level reconstruction
-        run: python scripts/reconstruct_14_and_reconcile_v1.py
+        run: |
+          sed -i 's#/tmp/old_repo#old_repo#g; s#/tmp/current_repo#current_repo#g; s#/tmp/old_trades.csv#old_repo/data/trades.csv#g; s#/tmp/current_trades.csv#current_repo/data/trades.csv#g' scripts/reconstruct_14_and_reconcile_v1.py
+          python scripts/reconstruct_14_and_reconcile_v1.py
 
       - name: Fail closed on cardinality and no-aggregate rules
         run: |
