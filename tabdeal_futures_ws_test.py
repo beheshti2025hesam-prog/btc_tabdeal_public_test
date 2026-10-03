@@ -35,6 +35,8 @@ RECONNECT_DELAY = 5
 # without changing the collector source code.
 DEFAULT_RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 
+PERSISTENT_MODE = os.getenv("HES_COLLECTOR_MODE", "").strip().lower() == "persistent-vps"
+
 
 def get_run_seconds():
     """
@@ -67,10 +69,13 @@ def get_run_seconds():
     return run_seconds
 
 
-RUN_SECONDS = get_run_seconds()
+RUN_SECONDS = None if PERSISTENT_MODE else get_run_seconds()
 
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
+
+# Git checkpoint every 20 minutes; persistent VPS mode keeps acquisition local.
+GIT_CHECKPOINT_ENABLED = os.getenv("HES_COLLECTOR_GIT_CHECKPOINT", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 # Active CSV size management
 MAX_ACTIVE_ROWS = 150000
@@ -1032,6 +1037,9 @@ def git_checkpoint():
 
 
 def maybe_checkpoint():
+
+    if not GIT_CHECKPOINT_ENABLED:
+        return
 
     if (
         time.time()
