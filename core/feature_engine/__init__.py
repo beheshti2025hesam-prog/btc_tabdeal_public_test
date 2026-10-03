@@ -4,6 +4,7 @@ from core.feature_engine.momentum import MomentumSnapshot, MomentumCalculator
 from core.feature_engine.price_vwap import PriceVWAPRelationship, PriceVWAPRelationshipCalculator
 from core.feature_engine.structure import StructureSnapshot, StructureCalculator
 from core.feature_engine.quality import FeatureSnapshot, FeatureQualityResult, FeatureQualityGate
+from core.feature_engine.temporal import FeatureTemporalInput, FeatureTemporalAlignment
 
 __all__ = [
     "EMASnapshot", "EMACalculator",
@@ -11,4 +12,5 @@ __all__ = [
     "PriceVWAPRelationship", "PriceVWAPRelationshipCalculator",
     "StructureSnapshot", "StructureCalculator",
     "FeatureSnapshot", "FeatureQualityResult", "FeatureQualityGate",
+    "FeatureTemporalInput", "FeatureTemporalAlignment",
 ]

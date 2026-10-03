@@ -17,6 +17,7 @@ from core.data_engine.reader import RawDataReader
 from core.data_engine.validator import RawDataValidator
 from core.feature_engine.ema import EMACalculator
 from core.feature_engine.quality import FeatureSnapshot
+from core.feature_engine.temporal import FeatureTemporalAlignment, FeatureTemporalInput
 from core.data_engine.vwap import VWAPCalculator
 from core.models.trade import CanonicalTrade
 from core.risk.boundary import RiskDecision, RiskInput, RiskPolicy
@@ -125,6 +126,23 @@ class RealDataBacktest:
             vwap_value = vwap_by_end.get((candle.symbol, candle.end))
             if ema_value is None or vwap_value is None or buy_ratio is None:
                 continue
+
+            temporal_violations = FeatureTemporalAlignment().validate(
+                FeatureTemporalInput(
+                    symbol=candle.symbol,
+                    timeframe_seconds=candle.timeframe_seconds,
+                    window_start=candle.start,
+                    window_end=candle.end,
+                    feature_timestamp=candle.end,
+                    source="real_data_candle",
+                    source_timestamp=candle.end,
+                )
+            )
+            if temporal_violations:
+                raise ValueError(
+                    "feature temporal alignment failed: "
+                    + ", ".join(temporal_violations)
+                )
 
             features = FeatureSnapshot(
                 symbol=candle.symbol,
