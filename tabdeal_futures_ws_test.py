@@ -27,12 +27,9 @@ RECONNECT_DELAY = 5
 
 # Default collection window.
 #
-# IMPORTANT:
-# If COLLECTOR_RUN_SECONDS is not provided by the runtime,
-# the collector keeps the original 5h 20m behavior.
-#
-# GitHub Actions / VPS / future runtimes can override this
-# without changing the collector source code.
+# Backward compatibility:
+# - GitHub Actions keeps the historical 5h 20m default.
+# - VPS systemd sets COLLECTOR_RUN_SECONDS=0 for true continuous mode.
 DEFAULT_RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 
 
@@ -41,10 +38,12 @@ def get_run_seconds():
     Return the validated collection window from the runtime
     environment.
 
-    Example:
-        COLLECTOR_RUN_SECONDS=16200
+    Values:
+        > 0  = finite collection window in seconds
+        0    = continuous mode (no collection timer)
 
-    16200 seconds = 4h 30m
+    Example:
+        COLLECTOR_RUN_SECONDS=0
     """
 
     raw_value = os.getenv("COLLECTOR_RUN_SECONDS")
@@ -59,9 +58,9 @@ def get_run_seconds():
             "COLLECTOR_RUN_SECONDS must be a positive integer"
         ) from exc
 
-    if run_seconds <= 0:
+    if run_seconds < 0:
         raise ValueError(
-            "COLLECTOR_RUN_SECONDS must be a positive integer"
+            "COLLECTOR_RUN_SECONDS must be a non-negative integer"
         )
 
     return run_seconds
@@ -1300,11 +1299,17 @@ def collect():
         flush=True
     )
 
-    print(
-        f"Duration: {RUN_SECONDS // 3600}h "
-        f"{(RUN_SECONDS % 3600) // 60}m",
-        flush=True
-    )
+    if RUN_SECONDS == 0:
+        print(
+            "Duration: CONTINUOUS (24/7)",
+            flush=True
+        )
+    else:
+        print(
+            f"Duration: {RUN_SECONDS // 3600}h "
+            f"{(RUN_SECONDS % 3600) // 60}m",
+            flush=True
+        )
 
     print(
         "Checkpoint: every 20 minutes",
@@ -1318,7 +1323,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS > 0 and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
@@ -1328,8 +1333,9 @@ def collect():
             break
 
         remaining = (
-            RUN_SECONDS
-            - elapsed
+            RUN_SECONDS - elapsed
+            if RUN_SECONDS > 0
+            else None
         )
 
         try:
@@ -1349,14 +1355,17 @@ def collect():
 
             current_ws = ws
 
-            timer = threading.Timer(
-                remaining,
-                close_websocket,
-                args=(ws,)
-            )
+            timer = None
 
-            timer.daemon = True
-            timer.start()
+            if remaining is not None:
+                timer = threading.Timer(
+                    remaining,
+                    close_websocket,
+                    args=(ws,)
+                )
+
+                timer.daemon = True
+                timer.start()
 
             try:
 
@@ -1367,7 +1376,8 @@ def collect():
 
             finally:
 
-                timer.cancel()
+                if timer is not None:
+                    timer.cancel()
 
                 if current_ws is ws:
                     current_ws = None
@@ -1384,7 +1394,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS > 0 and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
@@ -1401,10 +1411,13 @@ def collect():
                 flush=True
             )
 
-            sleep_time = min(
-                RECONNECT_DELAY,
-                RUN_SECONDS - elapsed
-            )
+            if RUN_SECONDS == 0:
+                sleep_time = RECONNECT_DELAY
+            else:
+                sleep_time = min(
+                    RECONNECT_DELAY,
+                    RUN_SECONDS - elapsed
+                )
 
             if sleep_time > 0:
                 time.sleep(
