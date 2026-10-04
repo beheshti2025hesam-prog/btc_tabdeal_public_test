@@ -90,6 +90,11 @@ trade_count = 0
 # derived from the exact main snapshot used at startup.
 startup_base_sha = None
 
+# Immutable data anchors captured from the verified startup snapshot. A checkpoint
+# must preserve these rows in active data or a valid archive; otherwise fail closed.
+STARTUP_ANCHOR_COUNT = 128
+startup_anchor_sequences = []
+
 active_rows = 0
 
 csv_file = None
@@ -189,6 +194,92 @@ def get_last_physical_sequence(file_path):
     return None
 
 
+def get_last_physical_sequences(file_path, count):
+    """Return up to count physical sequence values from the end of a CSV."""
+    sequences = []
+
+    if not os.path.exists(file_path):
+        return sequences
+
+    try:
+        with open(file_path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                raw = row.get("sequence")
+                if raw is None:
+                    continue
+                try:
+                    sequence = int(raw)
+                except (ValueError, TypeError):
+                    continue
+                sequences.append(sequence)
+                if len(sequences) > count:
+                    sequences.pop(0)
+    except Exception as e:
+        print(f"Error reading startup anchor sequences: {e}", flush=True)
+
+    return sequences
+
+
+def sequence_exists_in_persisted_data(sequence):
+    """Check active data first, then archives, for one immutable startup anchor."""
+    targets = {str(sequence)}
+
+    for file_path in [OUTPUT_FILE]:
+        if not os.path.exists(file_path):
+            continue
+        with open(file_path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("sequence") in targets:
+                    return True
+
+    if os.path.isdir(ARCHIVE_DIR):
+        for filename in os.listdir(ARCHIVE_DIR):
+            if not filename.lower().endswith(".csv"):
+                continue
+            file_path = os.path.join(ARCHIVE_DIR, filename)
+            with open(file_path, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get("sequence") in targets:
+                        return True
+
+    return False
+
+
+def capture_startup_data_anchors():
+    global startup_anchor_sequences
+    startup_anchor_sequences = get_last_physical_sequences(
+        OUTPUT_FILE,
+        STARTUP_ANCHOR_COUNT,
+    )
+    if not startup_anchor_sequences:
+        raise RuntimeError("Collector startup data anchors could not be initialized.")
+    print(
+        f"=== STARTUP DATA ANCHORS: {len(startup_anchor_sequences)} rows ===",
+        flush=True,
+    )
+
+
+def assert_startup_data_anchors_preserved():
+    if not startup_anchor_sequences:
+        raise RuntimeError("Collector startup data anchors are not initialized.")
+
+    missing = [
+        sequence
+        for sequence in startup_anchor_sequences
+        if not sequence_exists_in_persisted_data(sequence)
+    ]
+
+    if missing:
+        raise RuntimeError(
+            "Refusing checkpoint: startup-persisted data anchors disappeared "
+            f"without a valid archive transition (missing={missing[:5]}, "
+            f"count={len(missing)})."
+        )
+
+
 def synchronize_startup_data_state():
     """Synchronize collector data files to a verified origin/main snapshot."""
     global startup_base_sha
@@ -271,6 +362,7 @@ def synchronize_startup_data_state():
     run_git(["git", "reset", "--mixed", remote_sha])
 
     startup_base_sha = remote_sha
+    capture_startup_data_anchors()
 
     print(
         f"=== STARTUP BASE SHA: {startup_base_sha} ===",
@@ -992,6 +1084,7 @@ def git_checkpoint():
         ])
 
         assert_remote_main_unchanged()
+        assert_startup_data_anchors_preserved()
 
         prepare_git_checkpoint()
 
