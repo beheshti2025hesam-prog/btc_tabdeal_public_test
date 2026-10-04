@@ -1,0 +1,68 @@
+name: Hes Trade Agent — Tabdeal Collector Watchdog
+
+on:
+  schedule:
+    - cron: "02,17,32,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: tabdeal-btc-usdt-collector-watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check main collector chain
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPO/actions/workflows/run.yml/runs?branch=$DEFAULT_BRANCH&per_page=50"
+          runs="$(curl --fail-with-body --silent --show-error \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "$api")"
+          active_count="$(printf '%s' "$runs" | jq '[.workflow_runs[] | select(.status == "in_progress" or .status == "queued" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')"
+          if [ "$active_count" -gt 0 ]; then
+            echo "Main collector chain active/queued; no recovery dispatch."
+            exit 0
+          fi
+          latest="$(printf '%s' "$runs" | jq -r '[.workflow_runs[] | select(.status == "completed") | {updated_at, conclusion, run_number, head_branch}] | sort_by(.updated_at) | last // empty')"
+          if [ -z "$latest" ]; then
+            echo "No completed main-branch collector run is visible; fail closed."
+            exit 0
+          fi
+          conclusion="$(printf '%s' "$latest" | jq -r '.conclusion')"
+          completed_at="$(printf '%s' "$latest" | jq -r '.updated_at')"
+          run_number="$(printf '%s' "$latest" | jq -r '.run_number')"
+          now_epoch="$(date -u +%s)"
+          completed_epoch="$(date -u -d "$completed_at" +%s)"
+          age_seconds="$((now_epoch - completed_epoch))"
+          echo "Latest completed main collector: #$run_number conclusion=$conclusion age=${age_seconds}s"
+          if [ "$conclusion" != "success" ]; then
+            echo "Latest main collector did not complete successfully; fail closed."
+            echo "No automatic rerun is issued because a failed collector may indicate a data-integrity or persistence fault."
+            exit 0
+          fi
+          if [ "$age_seconds" -lt 1200 ]; then
+            echo "Latest successful main completion is younger than 20 minutes; no recovery needed."
+            exit 0
+          fi
+          echo "No active/pending main collector and last successful completion is stale."
+          echo "Dispatching one recovery collector run on the default branch."
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "https://api.github.com/repos/$REPO/actions/workflows/run.yml/dispatches" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data '{"ref":"${{ github.event.repository.default_branch }}","inputs":{"run_mode":"production","smoke_depth":"0"}}'
