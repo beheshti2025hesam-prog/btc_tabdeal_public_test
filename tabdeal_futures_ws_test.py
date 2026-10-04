@@ -1032,13 +1032,21 @@ def git_checkpoint():
 
 def maybe_checkpoint():
 
+    global last_checkpoint_time
+
     if (
         time.time()
         - last_checkpoint_time
         >= CHECKPOINT_SECONDS
     ):
 
-        git_checkpoint()
+        success = git_checkpoint()
+
+        # A failed checkpoint must not turn the trade stream into a
+        # checkpoint loop. Keep the collector live, but back off to the
+        # normal 20-minute cadence and retry on the next interval.
+        if not success:
+            last_checkpoint_time = time.time()
 
 
 # ============================================================
