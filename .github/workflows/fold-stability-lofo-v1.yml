@@ -2,6 +2,8 @@ name: HES Trade Agent — Fold Stability Leave-One-Fold-Out v1
 on:
   push:
     branches: [fold-stability-lofo-v1-20261004]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
