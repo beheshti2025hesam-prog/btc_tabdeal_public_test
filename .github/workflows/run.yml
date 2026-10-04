@@ -7,8 +7,8 @@ on:
     # 24/7 collector cadence:
     # - Collector runtime: 5h20m (original proven collection window).
     # - A new scheduled run is created every 4h.
-    # - This creates ~80m overlap, so scheduler delays are absorbed by the
-    #   concurrency queue instead of becoming raw-data gaps.
+    # - The 80m overlap guarantees that, once the first run is active,
+    #   there is normally a successor request waiting for a natural handoff.
     # - Schedule is intentionally offset from the top of the hour because
     #   GitHub documents higher schedule delay risk at :00.
     #
@@ -26,15 +26,15 @@ permissions:
 # Collector safety boundary:
 # - Exactly one collector run may execute at a time.
 # - A running collector must NEVER be canceled by a newer run.
-# - Multiple pending runs must NOT replace/cancel each other.
-#   queue: max preserves queued scheduled collectors.
+# - At most ONE pending successor is allowed.
+#   This preserves 24/7 handoff without accumulating stale scheduled runs.
 #
 # Manual dispatch intentionally uses the same lock so it cannot run beside
 # a scheduled/pending collector and corrupt the shared CSV/archive state.
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
-  queue: max
+  queue: single
 
 jobs:
   collector:
@@ -44,7 +44,7 @@ jobs:
 
     env:
       # Restore original 5h20m collection window.
-      # 4h cadence => approximately 80m overlap/queue protection.
+      # 4h cadence => approximately 80m overlap; one successor can wait.
       COLLECTOR_RUN_SECONDS: "19200"
 
     steps:
