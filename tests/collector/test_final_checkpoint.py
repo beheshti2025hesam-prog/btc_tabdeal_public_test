@@ -7,9 +7,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import tabdeal_futures_ws_test as collector
 
 
+def _stub_startup(monkeypatch):
+    # This test targets the final-checkpoint contract. Startup synchronization
+    # is a separate safety boundary and must not race origin/main during this
+    # unit test.
+    monkeypatch.setattr(collector, "synchronize_startup_data_state", lambda: None)
+
+
 def test_main_raises_when_final_checkpoint_fails(monkeypatch):
     closed = {"value": False}
 
+    _stub_startup(monkeypatch)
     monkeypatch.setattr(collector, "load_global_last_sequence", lambda: None)
     monkeypatch.setattr(collector, "open_csv", lambda: None)
     monkeypatch.setattr(collector, "collect", lambda: None)
@@ -29,6 +37,7 @@ def test_main_raises_when_final_checkpoint_fails(monkeypatch):
 def test_main_completes_when_final_checkpoint_succeeds(monkeypatch):
     closed = {"value": False}
 
+    _stub_startup(monkeypatch)
     monkeypatch.setattr(collector, "load_global_last_sequence", lambda: None)
     monkeypatch.setattr(collector, "open_csv", lambda: None)
     monkeypatch.setattr(collector, "collect", lambda: None)
