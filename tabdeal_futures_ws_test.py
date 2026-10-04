@@ -27,12 +27,9 @@ RECONNECT_DELAY = 5
 
 # Default collection window.
 #
-# IMPORTANT:
-# If COLLECTOR_RUN_SECONDS is not provided by the runtime,
-# the collector keeps the original 5h 20m behavior.
-#
-# GitHub Actions / VPS / future runtimes can override this
-# without changing the collector source code.
+# Backward compatibility:
+# - GitHub Actions keeps the historical 5h 20m default.
+# - VPS systemd sets COLLECTOR_RUN_SECONDS=0 for true continuous mode.
 DEFAULT_RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 
 
@@ -41,10 +38,12 @@ def get_run_seconds():
     Return the validated collection window from the runtime
     environment.
 
-    Example:
-        COLLECTOR_RUN_SECONDS=16200
+    Values:
+        > 0  = finite collection window in seconds
+        0    = continuous mode (no collection timer)
 
-    16200 seconds = 4h 30m
+    Example:
+        COLLECTOR_RUN_SECONDS=0
     """
 
     raw_value = os.getenv("COLLECTOR_RUN_SECONDS")
@@ -59,9 +58,9 @@ def get_run_seconds():
             "COLLECTOR_RUN_SECONDS must be a positive integer"
         ) from exc
 
-    if run_seconds <= 0:
+    if run_seconds < 0:
         raise ValueError(
-            "COLLECTOR_RUN_SECONDS must be a positive integer"
+            "COLLECTOR_RUN_SECONDS must be a non-negative integer"
         )
 
     return run_seconds
@@ -213,47 +212,53 @@ def synchronize_startup_data_state():
         text=True,
     )
 
-    if status.stdout.strip():
-        raise RuntimeError(
-            "Refusing startup data sync: local collector data modifications exist."
-        )
+    local_data_modified = bool(status.stdout.strip())
 
-    run_git([
-        "git", "restore", "--source=origin/main", "--worktree",
-        "--", OUTPUT_FILE, ARCHIVE_DIR
-    ])
-
-    verify = subprocess.run(
-        ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
-    )
-    if verify.returncode != 0:
-        # The restore above is authoritative, but a runner can retain a
-        # transient worktree/index mismatch after a checkpoint commit.
-        # Re-apply the exact remote snapshot once before failing closed.
+    if local_data_modified:
+        # Handoff-safe mode: never restore an older origin/main snapshot
+        # over newer append-only data already persisted on the VPS.
         print(
-            "Startup data sync verification mismatch; re-applying remote snapshot.",
+            "=== LOCAL HANDOFF DATA DETECTED: PRESERVING VPS DATA ===",
             flush=True,
         )
+        print(
+            status.stdout.strip(),
+            flush=True,
+        )
+    else:
         run_git([
-            "git", "restore", "--source=origin/main", "--staged", "--worktree",
+            "git", "restore", "--source=origin/main", "--worktree",
             "--", OUTPUT_FILE, ARCHIVE_DIR
         ])
-        verify_retry = subprocess.run(
+
+        verify = subprocess.run(
             ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
         )
-        if verify_retry.returncode != 0:
-            diagnostic = subprocess.run(
-                ["git", "diff", "--stat", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
+        if verify.returncode != 0:
             print(
-                "Startup data sync verification mismatch after retry:\\n"
-                + (diagnostic.stdout or diagnostic.stderr),
+                "Startup data sync verification mismatch; re-applying remote snapshot.",
                 flush=True,
             )
-            raise RuntimeError("Startup data sync verification failed after retry.")
+            run_git([
+                "git", "restore", "--source=origin/main", "--staged", "--worktree",
+                "--", OUTPUT_FILE, ARCHIVE_DIR
+            ])
+            verify_retry = subprocess.run(
+                ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
+            )
+            if verify_retry.returncode != 0:
+                diagnostic = subprocess.run(
+                    ["git", "diff", "--stat", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                print(
+                    "Startup data sync verification mismatch after retry:\\n"
+                    + (diagnostic.stdout or diagnostic.stderr),
+                    flush=True,
+                )
+                raise RuntimeError("Startup data sync verification failed after retry.")
 
     run_git(["git", "fetch", "origin", "main"])
     latest_remote_sha = subprocess.run(
@@ -1033,13 +1038,21 @@ def git_checkpoint():
 
 def maybe_checkpoint():
 
+    global last_checkpoint_time
+
     if (
         time.time()
         - last_checkpoint_time
         >= CHECKPOINT_SECONDS
     ):
 
-        git_checkpoint()
+        success = git_checkpoint()
+
+        # A failed checkpoint must not turn the trade stream into a
+        # checkpoint loop. Keep the collector live, but back off to the
+        # normal 20-minute cadence and retry on the next interval.
+        if not success:
+            last_checkpoint_time = time.time()
 
 
 # ============================================================
@@ -1300,11 +1313,17 @@ def collect():
         flush=True
     )
 
-    print(
-        f"Duration: {RUN_SECONDS // 3600}h "
-        f"{(RUN_SECONDS % 3600) // 60}m",
-        flush=True
-    )
+    if RUN_SECONDS == 0:
+        print(
+            "Duration: CONTINUOUS (24/7)",
+            flush=True
+        )
+    else:
+        print(
+            f"Duration: {RUN_SECONDS // 3600}h "
+            f"{(RUN_SECONDS % 3600) // 60}m",
+            flush=True
+        )
 
     print(
         "Checkpoint: every 20 minutes",
@@ -1318,7 +1337,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS > 0 and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
@@ -1328,8 +1347,9 @@ def collect():
             break
 
         remaining = (
-            RUN_SECONDS
-            - elapsed
+            RUN_SECONDS - elapsed
+            if RUN_SECONDS > 0
+            else None
         )
 
         try:
@@ -1349,14 +1369,17 @@ def collect():
 
             current_ws = ws
 
-            timer = threading.Timer(
-                remaining,
-                close_websocket,
-                args=(ws,)
-            )
+            timer = None
 
-            timer.daemon = True
-            timer.start()
+            if remaining is not None:
+                timer = threading.Timer(
+                    remaining,
+                    close_websocket,
+                    args=(ws,)
+                )
+
+                timer.daemon = True
+                timer.start()
 
             try:
 
@@ -1367,7 +1390,8 @@ def collect():
 
             finally:
 
-                timer.cancel()
+                if timer is not None:
+                    timer.cancel()
 
                 if current_ws is ws:
                     current_ws = None
@@ -1384,7 +1408,7 @@ def collect():
             - start_time
         )
 
-        if elapsed >= RUN_SECONDS:
+        if RUN_SECONDS > 0 and elapsed >= RUN_SECONDS:
 
             print(
                 "=== COLLECTION TIME COMPLETE ===",
@@ -1401,10 +1425,13 @@ def collect():
                 flush=True
             )
 
-            sleep_time = min(
-                RECONNECT_DELAY,
-                RUN_SECONDS - elapsed
-            )
+            if RUN_SECONDS == 0:
+                sleep_time = RECONNECT_DELAY
+            else:
+                sleep_time = min(
+                    RECONNECT_DELAY,
+                    RUN_SECONDS - elapsed
+                )
 
             if sleep_time > 0:
                 time.sleep(
