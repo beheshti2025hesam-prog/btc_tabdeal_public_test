@@ -1,36 +1,33 @@
 name: Hes Trade Agent — Tabdeal BTC Futures Collector
+run-name: "Tabdeal Collector ${{ inputs.run_mode || 'production' }} predecessor=${{ inputs.predecessor_run_id || 'none' }}"
 
 on:
   workflow_dispatch:
-
-  schedule:
-    # 24/7 collector cadence:
-    # - Collector runtime: 5h20m (original proven collection window).
-    # - A new scheduled run is created every 4h.
-    # - This creates ~80m overlap, so scheduler delays are absorbed by the
-    #   concurrency queue instead of becoming raw-data gaps.
-    # - Schedule is intentionally offset from the top of the hour because
-    #   GitHub documents higher schedule delay risk at :00.
-    #
-    # Schedule times are UTC.
-    - cron: "15 00 * * *"
-    - cron: "15 04 * * *"
-    - cron: "15 08 * * *"
-    - cron: "15 12 * * *"
-    - cron: "15 16 * * *"
-    - cron: "15 20 * * *"
+    inputs:
+      run_mode:
+        description: "Collector mode"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - smoke
+      smoke_depth:
+        description: "Internal smoke-chain depth"
+        required: false
+        default: "0"
+        type: string
+      predecessor_run_id:
+        description: "Run ID of the predecessor that dispatched this run"
+        required: false
+        default: ""
+        type: string
 
 permissions:
+  actions: write
   contents: write
 
-# Collector safety boundary:
-# - Exactly one collector run may execute at a time.
-# - A running collector must NEVER be canceled by a newer run.
-# - Multiple pending runs must NOT replace/cancel each other.
-#   queue: max preserves queued scheduled collectors.
-#
-# Manual dispatch intentionally uses the same lock so it cannot run beside
-# a scheduled/pending collector and corrupt the shared CSV/archive state.
+# Completion-based collector chain.
 concurrency:
   group: tabdeal-btc-usdt-collector
   cancel-in-progress: false
@@ -39,28 +36,23 @@ concurrency:
 jobs:
   collector:
     timeout-minutes: 350
-
     runs-on: ubuntu-latest
-
     env:
-      # Restore original 5h20m collection window.
-      # 4h cadence => approximately 80m overlap/queue protection.
       COLLECTOR_RUN_SECONDS: "19200"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-
       - name: Collect BTC_USDT Futures Trades
+        id: collect
+        if: ${{ inputs.run_mode == 'production' }}
         run: |
           # Safety fuse: the collector has an internal timer, but a stuck
           # websocket must never hold the concurrency lock indefinitely.
@@ -68,7 +60,172 @@ jobs:
           timeout --signal=TERM --kill-after=60s "${COLLECTOR_RUN_SECONDS}s" \
             python -u tabdeal_futures_ws_test.py
 
-      - name: Upload collected trades
+      - name: Smoke-chain step
+        id: smoke
+        if: ${{ inputs.run_mode == 'smoke' }}
+        run: |
+          set -euo pipefail
+          depth="${{ inputs.smoke_depth }}"
+          if ! [[ "$depth" =~ ^[0-9]+$ ]]; then
+            echo "Invalid smoke_depth: $depth"
+            exit 1
+          fi
+          echo "Smoke chain depth=$depth"
+          if [ "$depth" -ge 2 ]; then
+            echo "Smoke-chain terminal reached."
+          fi
+      - name: Claim one successor dispatch
+        id: claim
+        if: ${{ github.ref == 'refs/heads/main' && steps.collect.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PREDECESSOR_RUN_ID: ${{ inputs.predecessor_run_id }}
+          CLAIM_REF: "refs/heads/collector-handoff-claims/successor-${{ github.run_id }}"
+          CLAIM_BRANCH: "collector-handoff-claims/successor-${{ github.run_id }}"
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPO/git/refs"
+          payload="$(jq -n --arg ref "$CLAIM_REF" --arg sha "${{ github.sha }}" '{ref:$ref,sha:$sha}')"
+          response="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" --request POST --url "$api" --header "Accept: application/vnd.github+json" --header "Authorization: Bearer $GH_TOKEN" --header "X-GitHub-Api-Version: 2026-03-10" --data "$payload")"
+          case "$status" in
+            201)
+              echo "Successor claim acquired without mutating main: $CLAIM_REF"
+              claim_state_path=".github/collector-handoff-claims/state.json"
+              claim_state="$(jq -n \
+                --arg predecessor_run_id "${{ github.run_id }}" \
+                --arg claim_ref "$CLAIM_REF" \
+                --arg claim_sha "${{ github.sha }}" \
+                '{schema_version:1,state:"claimed",predecessor_run_id:($predecessor_run_id|tonumber),claim_ref:$claim_ref,claim_sha:$claim_sha}')"
+              encoded_state="$(printf '%s' "$claim_state" | base64 -w0)"
+              state_payload="$(jq -n --arg message "Record collector handoff claim" --arg content "$encoded_state" --arg branch "$CLAIM_BRANCH" '{message:$message,content:$content,branch:$branch}')"
+              state_response="$(mktemp)"
+              state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" \
+                --request PUT --url "https://api.github.com/repos/$REPO/contents/$claim_state_path" \
+                --header "Accept: application/vnd.github+json" \
+                --header "Authorization: Bearer $GH_TOKEN" \
+                --header "X-GitHub-Api-Version: 2026-03-10" \
+                --data "$state_payload")"
+              if [ "$state_status" != "201" ]; then
+                echo "Could not persist handoff claim state outside main; fail closed."
+                cat "$state_response"
+                exit 1
+              fi
+              echo "claimed=true" >> "$GITHUB_OUTPUT"
+              ;;
+            422)
+              echo "Successor claim already exists; duplicate dispatch suppressed."
+              cat "$response"
+              echo "claimed=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected claim API status=$status; fail closed."
+              cat "$response"
+              exit 1
+              ;;
+          esac
+
+      - name: Dispatch next collector
+        id: dispatch
+        if: ${{ steps.collect.outcome == 'success' && steps.claim.outputs.claimed == 'true' || (inputs.run_mode == 'smoke' && steps.smoke.outcome == 'success' && fromJSON(inputs.smoke_depth || '0') < 2) }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "DISPATCH_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          next_depth="0"
+          if [ "${{ inputs.run_mode }}" = "smoke" ]; then
+            next_depth=$((${{ fromJSON(inputs.smoke_depth || '0') }} + 1))
+          fi
+          echo "Dispatching successor: mode=${{ inputs.run_mode }} depth=$next_depth ref=main predecessor=${{ github.run_id }}"
+          dispatch_response="$(mktemp)"
+          dispatch_status="$(curl --silent --show-error --output "$dispatch_response" --write-out "%{http_code}" \
+            --request POST \
+            --url "https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data "{\"ref\":\"main\",\"return_run_details\":true,\"inputs\":{\"run_mode\":\"${{ inputs.run_mode }}\",\"smoke_depth\":\"$next_depth\",\"predecessor_run_id\":\"${{ github.run_id }}\"}}")"
+          successor_run_id="$(jq -r '.workflow_run_id // empty' "$dispatch_response")"
+          if [ "$dispatch_status" != "200" ] || ! [[ "$successor_run_id" =~ ^[0-9]+$ ]]; then
+            echo "Dispatch did not return a concrete workflow_run_id; fail closed."
+            echo "HTTP status=$dispatch_status"
+            cat "$dispatch_response"
+            exit 1
+          fi
+          echo "Successor run materialized: id=$successor_run_id predecessor=${{ github.run_id }}."
+          echo "SUCCESSOR_RUN_ID=$successor_run_id" >> "$GITHUB_ENV"
+          if [ "${{ inputs.run_mode }}" != "production" ]; then
+            echo "Smoke dispatch accepted: no production claim state to reconcile."
+            exit 0
+          fi
+          claim_state_path=".github/collector-handoff-claims/state.json"
+          state_response="$(mktemp)"
+          state_status="$(curl --silent --show-error --output "$state_response" --write-out "%{http_code}" \
+            --request GET --url "https://api.github.com/repos/${{ github.repository }}/contents/$claim_state_path?ref=collector-handoff-claims/successor-${{ github.run_id }}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10")"
+          if [ "$state_status" != "200" ]; then
+            echo "Cannot read handoff claim state; fail closed."
+            cat "$state_response"
+            exit 1
+          fi
+          file_sha="$(jq -r '.sha' "$state_response")"
+          current_state="$(jq -r '.content' "$state_response" | tr -d '\n' | base64 -d)"
+          dispatch_at="$(sed -n 's/^DISPATCH_AT=//p' "$GITHUB_ENV" | tail -1)"
+          updated_state="$(printf '%s' "$current_state" | jq \
+            --arg state "dispatch_accepted" \
+            --arg dispatch_at "$dispatch_at" \
+            --arg successor_run_id "$successor_run_id" \
+            '.state=$state | .dispatch_at=$dispatch_at | .successor_run_id=($successor_run_id|tonumber)')"
+          encoded_state="$(printf '%s' "$updated_state" | base64 -w0)"
+          update_payload="$(jq -n --arg message "Record accepted collector successor" --arg content "$encoded_state" --arg sha "$file_sha" --arg branch "collector-handoff-claims/successor-${{ github.run_id }}" '{message:$message,content:$content,sha:$sha,branch:$branch}')"
+          update_response="$(mktemp)"
+          update_status="$(curl --silent --show-error --output "$update_response" --write-out "%{http_code}" \
+            --request PUT --url "https://api.github.com/repos/${{ github.repository }}/contents/$claim_state_path" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            --data "$update_payload")"
+          if [ "$update_status" != "200" ]; then
+            echo "Could not persist accepted successor state; fail closed."
+            cat "$update_response"
+            exit 1
+          fi
+      - name: Finalize handoff evidence
+        if: always()
+        env:
+          PREDECESSOR_RUN_ID: ${{ inputs.predecessor_run_id }}
+          DISPATCH_AT: ${{ env.DISPATCH_AT }}
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
+          CLAIM_OUTCOME: ${{ steps.claim.outcome }}
+          CLAIM_ACQUIRED: ${{ steps.claim.outputs.claimed }}
+          SUCCESSOR_RUN_ID: ${{ env.SUCCESSOR_RUN_ID }}
+        run: |
+          set -euo pipefail
+          if [ -f data/collector_run_evidence.json ]; then
+            python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          path = "data/collector_run_evidence.json"
+          with open(path, encoding="utf-8") as handle: evidence = json.load(handle)
+          evidence.update({
+              "predecessor_run_id": os.getenv("PREDECESSOR_RUN_ID") or evidence.get("predecessor_run_id"),
+              "dispatch_at": os.getenv("DISPATCH_AT") or None,
+              "dispatch_outcome": os.getenv("DISPATCH_OUTCOME"),
+              "claim_outcome": os.getenv("CLAIM_OUTCOME"),
+              "claim_acquired": os.getenv("CLAIM_ACQUIRED"),
+              "successor_run_id": int(os.getenv("SUCCESSOR_RUN_ID")) if os.getenv("SUCCESSOR_RUN_ID") else None,
+              "evidence_finalized_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+          })
+          with open(path, "w", encoding="utf-8") as handle:
+              json.dump(evidence, handle, ensure_ascii=False, indent=2, sort_keys=True); handle.write("\n")
+          PY
+          fi
+
+      - name: Upload collected trades and handoff evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -76,4 +233,5 @@ jobs:
           path: |
             data/trades.csv
             data/archive
+            data/collector_run_evidence.json
           if-no-files-found: warn
