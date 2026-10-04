@@ -212,47 +212,53 @@ def synchronize_startup_data_state():
         text=True,
     )
 
-    if status.stdout.strip():
-        raise RuntimeError(
-            "Refusing startup data sync: local collector data modifications exist."
-        )
+    local_data_modified = bool(status.stdout.strip())
 
-    run_git([
-        "git", "restore", "--source=origin/main", "--worktree",
-        "--", OUTPUT_FILE, ARCHIVE_DIR
-    ])
-
-    verify = subprocess.run(
-        ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
-    )
-    if verify.returncode != 0:
-        # The restore above is authoritative, but a runner can retain a
-        # transient worktree/index mismatch after a checkpoint commit.
-        # Re-apply the exact remote snapshot once before failing closed.
+    if local_data_modified:
+        # Handoff-safe mode: never restore an older origin/main snapshot
+        # over newer append-only data already persisted on the VPS.
         print(
-            "Startup data sync verification mismatch; re-applying remote snapshot.",
+            "=== LOCAL HANDOFF DATA DETECTED: PRESERVING VPS DATA ===",
             flush=True,
         )
+        print(
+            status.stdout.strip(),
+            flush=True,
+        )
+    else:
         run_git([
-            "git", "restore", "--source=origin/main", "--staged", "--worktree",
+            "git", "restore", "--source=origin/main", "--worktree",
             "--", OUTPUT_FILE, ARCHIVE_DIR
         ])
-        verify_retry = subprocess.run(
+
+        verify = subprocess.run(
             ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
         )
-        if verify_retry.returncode != 0:
-            diagnostic = subprocess.run(
-                ["git", "diff", "--stat", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
+        if verify.returncode != 0:
             print(
-                "Startup data sync verification mismatch after retry:\\n"
-                + (diagnostic.stdout or diagnostic.stderr),
+                "Startup data sync verification mismatch; re-applying remote snapshot.",
                 flush=True,
             )
-            raise RuntimeError("Startup data sync verification failed after retry.")
+            run_git([
+                "git", "restore", "--source=origin/main", "--staged", "--worktree",
+                "--", OUTPUT_FILE, ARCHIVE_DIR
+            ])
+            verify_retry = subprocess.run(
+                ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
+            )
+            if verify_retry.returncode != 0:
+                diagnostic = subprocess.run(
+                    ["git", "diff", "--stat", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                print(
+                    "Startup data sync verification mismatch after retry:\\n"
+                    + (diagnostic.stdout or diagnostic.stderr),
+                    flush=True,
+                )
+                raise RuntimeError("Startup data sync verification failed after retry.")
 
     run_git(["git", "fetch", "origin", "main"])
     latest_remote_sha = subprocess.run(
