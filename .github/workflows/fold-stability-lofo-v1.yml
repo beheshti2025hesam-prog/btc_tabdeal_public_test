@@ -21,6 +21,7 @@ jobs:
       PROTOCOL_SOURCE_SCRIPT_BLOB: 406319c52cc36d9d549d6f29b170d184fac90859
       PROTOCOL_SOURCE_SCRIPT_PATH: scripts/protocol_reconciliation_independent_snapshot_v1.py
       HES_FROZEN_CSV: /tmp/hes_independent_trades.csv
+      PROTOCOL_CONTRACT_PATH: /tmp/protocol_reconciliation_v1_contract.json
     steps:
       - uses: actions/checkout@v4
         with: {ref: ${{ github.sha }}, fetch-depth: 1}
@@ -30,21 +31,26 @@ jobs:
         env: {GH_TOKEN: ${{ github.token }}}
         run: |
           python - <<'PY'
-          import os,json,urllib.request
+          import os,json,urllib.request,base64
+          from pathlib import Path
           repo="beheshti2025hesam-prog/btc_tabdeal_public_test"
           h={"Authorization":f"Bearer {os.environ['GH_TOKEN']}","Accept":"application/vnd.github+json"}
           def get(path):
             r=urllib.request.Request(f"https://api.github.com/repos/{repo}/contents/{path}",headers=h)
             with urllib.request.urlopen(r) as x:return json.load(x)
-          assert get(f"data/trades.csv?ref={os.environ['LOCKED_RAW_SOURCE_COMMIT']}")["sha"]==os.environ["LOCKED_RAW_BLOB_SHA"]
-          assert get(f"evidence/protocol_reconciliation_v1.json?ref={os.environ['PROTOCOL_CONTRACT_SOURCE_COMMIT']}")["sha"]==os.environ["PROTOCOL_CONTRACT_BLOB_SHA"]
-          assert get(f"{os.environ['PROTOCOL_SOURCE_SCRIPT_PATH']}?ref={os.environ['PROTOCOL_SOURCE_COMMIT']}")["sha"]==os.environ["PROTOCOL_SOURCE_SCRIPT_BLOB"]
+          raw=get(f"data/trades.csv?ref={os.environ['LOCKED_RAW_SOURCE_COMMIT']}")
+          contract=get(f"evidence/protocol_reconciliation_v1.json?ref={os.environ['PROTOCOL_CONTRACT_SOURCE_COMMIT']}")
+          script=get(f"{os.environ['PROTOCOL_SOURCE_SCRIPT_PATH']}?ref={os.environ['PROTOCOL_SOURCE_COMMIT']}")
+          assert raw["sha"]==os.environ["LOCKED_RAW_BLOB_SHA"]
+          assert contract["sha"]==os.environ["PROTOCOL_CONTRACT_BLOB_SHA"]
+          assert script["sha"]==os.environ["PROTOCOL_SOURCE_SCRIPT_BLOB"]
+          Path(os.environ["PROTOCOL_CONTRACT_PATH"]).write_bytes(base64.b64decode(contract["content"]))
           print("IMMUTABLE_LINEAGE_BINDINGS_VALID")
           PY
       - name: Materialize exact locked Raw snapshot
         env: {GH_TOKEN: ${{ github.token }}}
         run: |
-          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${LOCKED_RAW_BLOB_SHA}" > /tmp/raw.json
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/git/blobs/${LOCKED_RAW_BLOB_SHA}" > /tmp/raw.json
           python - <<'PY'
           import base64,json,os
           from pathlib import Path
