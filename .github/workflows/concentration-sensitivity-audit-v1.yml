@@ -1,0 +1,68 @@
+name: HES Trade Agent — Concentration Sensitivity Audit v1
+on:
+  push:
+    branches:
+      - research/concentration-sensitivity-20261005
+      - main
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OLD_RAW_BLOB_SHA: "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+      OLD_RAW_SOURCE_COMMIT: "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
+      CURRENT_RAW_BLOB_SHA: "58d21825e052dbaa42e7eb0695455c19997bff43"
+      CURRENT_RAW_SOURCE_COMMIT: "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
+      PROTOCOL_CONTRACT_BLOB_SHA: "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
+      PROTOCOL_CONTRACT_SOURCE_COMMIT: "e5f85f06b19b8427f761b95ab56ad15ccd7053c0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Materialize locked snapshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64,json,os,urllib.request
+          from pathlib import Path
+          repo=os.environ["GITHUB_REPOSITORY"]; h={"Authorization":f"Bearer {os.environ['GH_TOKEN']}","Accept":"application/vnd.github+json"}
+          def blob(sha):
+            req=urllib.request.Request(f"https://api.github.com/repos/{repo}/git/blobs/{sha}",headers=h)
+            with urllib.request.urlopen(req) as r: d=json.load(r)
+            assert d["sha"]==sha
+            return base64.b64decode(d["content"])
+          Path("/tmp/prior.csv").write_bytes(blob(os.environ["OLD_RAW_BLOB_SHA"]))
+          Path("/tmp/current.csv").write_bytes(blob(os.environ["CURRENT_RAW_BLOB_SHA"]))
+          Path("/tmp/contract.json").write_bytes(blob(os.environ["PROTOCOL_CONTRACT_BLOB_SHA"]))
+          PY
+      - name: Recompute locked populations
+        env:
+          PROTOCOL_CONTRACT_PATH: /tmp/contract.json
+        run: |
+          HES_FROZEN_CSV=/tmp/prior.csv LOCKED_RAW_BLOB_SHA=$OLD_RAW_BLOB_SHA LOCKED_RAW_SOURCE_COMMIT=$OLD_RAW_SOURCE_COMMIT PROTOCOL_CONTRACT_SOURCE_COMMIT=$PROTOCOL_CONTRACT_SOURCE_COMMIT PROTOCOL_CONTRACT_BLOB_SHA=$PROTOCOL_CONTRACT_BLOB_SHA python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json prior_1049_protocol.json
+          HES_FROZEN_CSV=/tmp/current.csv LOCKED_RAW_BLOB_SHA=$CURRENT_RAW_BLOB_SHA LOCKED_RAW_SOURCE_COMMIT=$CURRENT_RAW_SOURCE_COMMIT PROTOCOL_CONTRACT_SOURCE_COMMIT=$PROTOCOL_CONTRACT_SOURCE_COMMIT PROTOCOL_CONTRACT_BLOB_SHA=$PROTOCOL_CONTRACT_BLOB_SHA python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json current_1027_protocol.json
+      - run: python scripts/concentration_sensitivity_audit_v1.py
+      - name: Fail-closed validation
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("concentration_sensitivity_audit_v1.json"))
+          assert d["locked_thresholds"]==[0.5,1.0,1.5,2.0]
+          assert d["claim_boundary"]["dependence_diagnostic_only"] is True
+          assert d["claim_boundary"]["independence_proven"] is False
+          assert d["claim_boundary"]["promotion"]=="BLOCKED"
+          assert d["final_verdict"]=="EVIDENCE_INSUFFICIENT_FOR_PROMOTION"
+          print("CONCENTRATION_SENSITIVITY_AUDIT_VALID")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: concentration-sensitivity-audit-v1
+          path: concentration_sensitivity_audit_v1.json
