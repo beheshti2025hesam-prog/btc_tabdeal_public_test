@@ -1,0 +1,14 @@
+name: HES Trade Agent — Actions Execution Canary
+on:
+  push:
+    branches: [main, research/actions-execution-canary-20261005]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "HES_ACTIONS_EXECUTION_CANARY_OK"
