@@ -1,0 +1,50 @@
+{
+  "status": "BOUNDARY_PROOF_GREEN",
+  "audit_scope": "lineage_sequence_timestamp_boundary_only",
+  "frozen_snapshot": {
+    "data_git_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "source_run_id": 36489452534,
+    "max_sequence": 38586238655,
+    "last_timestamp": "2026-09-28T08:27:38.179Z"
+  },
+  "fresh_snapshot_lock": {
+    "source_ref": "main",
+    "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+    "data_git_blob_sha": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+    "first_independent_record": {
+      "symbol": "BTC_USDT",
+      "price": 83715.7,
+      "amount": 0.00018,
+      "side": "Sell",
+      "sequence": 38710284291,
+      "timestamp": "2026-09-28T19:08:56.951Z",
+      "sequence_delta_from_frozen_max": 124045636,
+      "seconds_after_frozen_last_timestamp": 38478.772
+    },
+    "boundary_relation": {
+      "records_between_frozen_and_first_independent": 0,
+      "hidden_overlap_sequence_boundary": 0,
+      "hidden_overlap_timestamp_boundary": 0,
+      "sequence_monotonicity_violations": 0,
+      "timestamp_backward_violations": 0,
+      "note": "The boundary is exact, but there is a 10h41m18.772s data-coverage gap between the frozen snapshot tail and the first independent record. This gap is recorded explicitly and is not treated as continuity."
+    }
+  },
+  "integrity": {
+    "frozen_duplicate_sequences": 0,
+    "current_duplicate_sequences": 0,
+    "frozen_backward_sequences": 0,
+    "current_backward_sequences": 0,
+    "frozen_backward_timestamps": 0,
+    "current_backward_timestamps": 0
+  },
+  "gate_boundary": {
+    "signal_created": false,
+    "threshold_tuned": false,
+    "model_fitting": false,
+    "promotion_decision": false,
+    "live_execution": false
+  },
+  "next_gate": "candidate_definition may use this fresh snapshot only after this boundary evidence is human-reviewed; no Signal construction is included in this lock."
+}
