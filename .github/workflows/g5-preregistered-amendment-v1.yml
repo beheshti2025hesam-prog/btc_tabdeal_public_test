@@ -32,3 +32,5 @@ jobs:
           assert d["claim_boundary"]["live_execution"] is False
           print("G5_PREREGISTERED_AMENDMENT_VALID")
           PY
+
+# validation-only touch: no methodological content changed
