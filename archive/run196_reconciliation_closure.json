@@ -1,0 +1,90 @@
+{
+  "artifact": "RUN-196-RECONCILIATION-CLOSURE",
+  "version": 1,
+  "status": "CLOSED",
+  "run_id": 196,
+  "closed_at": "2026-10-05T02:31:00Z",
+  "scope": "Legacy GitHub handoff -> Natural Completion -> Final Checkpoint Lock -> N/N+1 boundary reconciliation -> durable writer attribution -> closure",
+  "legacy_github_handoff": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "legacy_workflow": ".github/workflows/run.yml",
+    "retirement_commit": "c3c362e5de420e55a911f6a63845395165b895d7",
+    "live_legacy_workflow_present_on_main": false,
+    "archived_copy": "archive/legacy_collector_workflow_run196.yml",
+    "decision": "PASS"
+  },
+  "natural_completion": {
+    "service": "hes-trade-agent-collector.service",
+    "run_pid": 59572,
+    "start_utc": "2026-10-04T22:07:35Z",
+    "stop_signal_utc": "2026-10-05T01:35:55Z",
+    "final_row_utc": "2026-10-05T01:35:53.626Z",
+    "final_sequence": 40373844351,
+    "final_checkpoint": "f396de84cb7f4c6b16e81effc91b653e26049ab4",
+    "final_push_success_utc": "2026-10-05T01:36:13Z",
+    "exit_status": 0,
+    "trades_collected": 5806,
+    "decision": "PASS"
+  },
+  "final_checkpoint_lock": {
+    "artifact": "archive/run_196_final_checkpoint_lock.json",
+    "lock_commit": "69978acba59bac77550c046761825677056233e8",
+    "status": "LOCKED",
+    "decision": "PASS"
+  },
+  "n_to_n_plus_1": {
+    "n_final": {
+      "timestamp_utc": "2026-10-05T01:35:53.626Z",
+      "sequence": 40373844351
+    },
+    "n_plus_1_first": {
+      "timestamp_utc": "2026-10-05T02:27:15.009Z",
+      "sequence": 40383335831,
+      "service_pid_recorded_at_start": 69645
+    },
+    "timestamp_delta_seconds": 3081.383,
+    "sequence_delta": 9491480,
+    "sequence_boundary": "PASS",
+    "timestamp_boundary": "PASS",
+    "duplicate_identity": "PASS",
+    "single_writer_at_start": "PASS",
+    "interpretation": "Exchange sequence identifiers are ordered identities and are not required to be arithmetically contiguous; the positive sequence delta is therefore not, by itself, evidence of missing observations.",
+    "decision": "PASS"
+  },
+  "writer_attribution": {
+    "run196_writer": "VPS systemd collector process hes-trade-agent-collector.service, PID 59572",
+    "durable_support": [
+      "archive/run_196_final_checkpoint_lock.json",
+      "final checkpoint f396de84cb7f4c6b16e81effc91b653e26049ab4",
+      "retirement commit c3c362e5de420e55a911f6a63845395165b895d7",
+      "GitHub main commit ancestry"
+    ],
+    "journal_dependency_for_future_reconstruction": false,
+    "journal_note": "The original PID-level execution evidence was captured in VPS systemd Journal. The locked artifact freezes that attribution so future Journal expiry does not reopen the reconciliation.",
+    "checkpoint_commit_author": "github-actions[bot]",
+    "checkpoint_author_role": "GitHub commit actor, not the data-producing collector process",
+    "decision": "CLOSED"
+  },
+  "current_vps_state_at_closure": {
+    "host": "vps-second-261930",
+    "collector_service": "hes-trade-agent-collector.service",
+    "state": "active",
+    "main_pid": 69717,
+    "role": "N+1 production collector",
+    "legacy_github_collector": "retired",
+    "interpretation": "The active service is the post-handoff N+1 collector; it is not a resurrection of the retired GitHub collector."
+  },
+  "audit_integrity": {
+    "no_evidence_tuning": true,
+    "no_observation_deletion": true,
+    "no_threshold_change": true,
+    "no_legacy_github_execution_authorized": true,
+    "closure_basis": "durable GitHub lineage plus VPS service/process evidence; current Journal retention is not a required future dependency",
+    "decision": "PASS"
+  },
+  "artifact_note": {
+    "preflight_v2_generated_at_field": "2026-10-05T11:00:00Z",
+    "note": "This generated_at value is later than the recorded N+1 startup evidence and is therefore treated as artifact-publication metadata only, not as event time. The operational event timestamps and boundary values remain those recorded in the predecessor/final-checkpoint and N+1 startup evidence artifacts."
+  },
+  "final_decision": "RECONCILIATION_CLOSED"
+}
