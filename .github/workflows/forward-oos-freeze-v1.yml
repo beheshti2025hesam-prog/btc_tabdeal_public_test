@@ -1,0 +1,16 @@
+name: HES Trade Agent — Forward OOS Freeze v1
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  freeze-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and validate freeze manifest
+        run: python scripts/forward_oos_freeze_v1.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forward-oos-source-freeze-v1
+          path: forward_oos_source_freeze_manifest.json
