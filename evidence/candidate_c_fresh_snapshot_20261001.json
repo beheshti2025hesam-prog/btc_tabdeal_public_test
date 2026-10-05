@@ -1,0 +1,42 @@
+{
+  "snapshot_id": "CANDIDATE_C_FRESH_SNAPSHOT_2026-10-01",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "captured_from_branch": "independent-candidate-c-20261001",
+  "source_commit": "2c206f4e8724f24c6b4640d4d81995ae6ddea15c",
+  "parent_checkpoint": "becf1d655b8bc3ef84fe24446345dfc83967f514",
+  "rule_a_source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+  "active_blob": "eef65102d4671a43f11f9dc311e0617aa220eb64",
+  "active_size_bytes": 10238447,
+  "archive_blobs": {
+    "trades_archive_20260916_193957.csv": "a54dfeaee9306cf7802a0fe5748ae2f0b1d7c5c3",
+    "trades_archive_20260916_193958.csv": "a9542128295440aed5f76b90fb64fc5253309ed3",
+    "trades_archive_20260916_194002.csv": "c33e0abaf844b5ea5f5c08b8c67b108d755edc23",
+    "trades_archive_20260916_194005.csv": "6ffbe78ecf93fc2abc6e6d0ad04a9fcb55159aa0",
+    "trades_archive_20260917_015404.csv": "fc09fbd34260509e907fbe683fb1bd657a023fd8",
+    "trades_archive_20260919_085645.csv": "a377083c548137a6b3621fa7a1e105192d4f0390",
+    "trades_archive_20260921_153641.csv": "8b9482ec20fb73b7ad6d6944e581e116c5bb2f40",
+    "trades_archive_20260922_222616.csv": "b8aab33272c5a24cb80f5388e905cbcd8472b583",
+    "trades_archive_20260924_221243.csv": "86886521b8c2a9e6af61f4223cb6a98bfc67e60a",
+    "trades_archive_20260926_232053.csv": "3bb519709a46b481df393a80268929f3e2410f57",
+    "trades_archive_20260929_101347_1790676827094717788.csv": "07c99bfcc6071cf7d915e0e64a7bf085e223c70b",
+    "trades_archive_20260930_201351_1790799231862883291.csv": "3d021b1348608a4534c76a39f5673a690401af1f"
+  },
+  "integrity": {
+    "immutable_after_capture": true,
+    "verify_blob_lineage_before_evaluation": true,
+    "expected_archive_count": 12,
+    "verified_archive_count": 12,
+    "raw_blob_count": 13,
+    "rule_a_oos_reuse": false,
+    "post_oos_definition_change": false,
+    "timestamp_embargo_required": true,
+    "fold_integrity_required": true
+  },
+  "safety": {
+    "research_only": true,
+    "live_execution": false,
+    "wallet_operations": false,
+    "promotion": false,
+    "data_engine_v1_merge_rebase_sync": false
+  }
+}

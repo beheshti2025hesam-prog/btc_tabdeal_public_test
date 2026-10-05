@@ -1,0 +1,33 @@
+{
+  "checkpoint": "RULE_A_EVIDENCE_GATE_FORMAL_2026-10-01",
+  "candidate": "CANDIDATE_RESEARCH_V1_RULE_A",
+  "study_run": 72,
+  "study_status": "SUCCESS",
+  "study_artifact_blob": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+  "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+  "oos_folds": 8,
+  "oos_observations": 3200,
+  "signal_counts": {
+    "LONG": 1513,
+    "SHORT": 1686,
+    "NO_TRADE": 1
+  },
+  "predictive_performance": false,
+  "production_signal": false,
+  "promotion": false,
+  "live_execution": false,
+  "cost_matrix": {
+    "zero_cost_net": 0.01324,
+    "5bps_per_side_plus_2bps_extra_net": -4.4654,
+    "10bps_per_side_plus_5bps_extra_net": -9.5838
+  },
+  "gate_result": "CLOSED_NO_PROMOTION",
+  "interpretation": "Rule A is a research baseline only. Cost sensitivity materially invalidates promotion under the tested cost assumptions.",
+  "integrity": [
+    "No tuning or rescue optimization after observing OOS results.",
+    "No leakage-based reuse of OOS outcomes.",
+    "Live trading, wallet operations, and production promotion remain OFF.",
+    "Candidate B must be independently defined and evaluated from a fresh snapshot."
+  ],
+  "next_sequence_step": "INDEPENDENT_CANDIDATE_B"
+}
