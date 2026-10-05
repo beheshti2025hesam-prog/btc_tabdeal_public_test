@@ -6,13 +6,16 @@ already locked 800/400/400, 8-fold, >14bps protocol. No tuning, reselection,
 deletion, protocol mutation, or live execution.
 """
 from __future__ import annotations
-import csv, hashlib, json, subprocess, tempfile
+import csv, hashlib, json, subprocess, tempfile, sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Ensure repository-root imports work when invoked directly by GitHub Actions.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from core.backtest.real_data import RealDataBacktest
-from core.backtest.validation import HistoricalValidation
-from core.backtest.walk_forward import WalkForwardValidation
 
 SOURCE_COMMIT="f396de84cb7f4c6b16e81effc91b653e26049ab4"
 SOURCE_PATH="data/trades.csv"
