@@ -1,0 +1,30 @@
+{
+  "artifact": "run196_n_plus_1_startup_evidence.json",
+  "run_predecessor": 196,
+  "startup_commit": "6ee3f65d70477c7ddb7b6875437938a985969d5b",
+  "startup_code_commit": "f93672134d855d6d9333d9068b247544ea79ac97",
+  "predecessor_boundary": {
+    "sequence": 40373844351,
+    "timestamp": "2026-10-05T01:35:53.626000+00:00"
+  },
+  "n_plus_1": {
+    "service_main_pid": 69645,
+    "first_observation": {
+      "sequence": 40383335831,
+      "timestamp": "2026-10-05T02:27:15.009000+00:00",
+      "symbol": "BTC_USDT",
+      "side": "Buy",
+      "price": "86472.8",
+      "amount": "0.00457"
+    },
+    "sequence_boundary": "PASS",
+    "timestamp_boundary": "PASS",
+    "duplicate_identity": "PASS",
+    "single_writer": "PASS",
+    "service_active": "PASS"
+  },
+  "ancestry": "Run 196 code commit is ancestor of N+1 startup commit",
+  "production_data_mutated_after_start": true,
+  "decision": "N_PLUS_1_STARTED_AND_FIRST_OBSERVATION_VERIFIED",
+  "next_gate": "checkpoint lineage + gap/duplicate/single-writer audit"
+}
