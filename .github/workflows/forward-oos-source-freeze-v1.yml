@@ -1,0 +1,20 @@
+name: Forward OOS Source Freeze v1
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout immutable source checkpoint
+        uses: actions/checkout@v6
+        with:
+          ref: f396de84cb7f4c6b16e81effc91b653e26049ab4
+          fetch-depth: 1
+      - name: Freeze and validate source
+        run: python scripts/forward_oos_source_freeze_v1.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forward-oos-source-freeze-v1
+          path: forward_oos_source_freeze_v1.json
