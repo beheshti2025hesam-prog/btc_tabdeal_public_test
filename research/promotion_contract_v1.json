@@ -1,0 +1,83 @@
+{
+  "document": "HES Trade Agent Promotion Contract v1",
+  "status": "RESEARCH_ONLY__PROMOTION_BLOCKED",
+  "purpose": "Define pre-registered evidence gates for any future Promotion Candidate decision. This contract does not promote, tune, delete, or reselection winners.",
+  "frozen_protocol": {
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "gross_threshold_bps": 14
+  },
+  "locked_populations": {
+    "prior_survivors": 14,
+    "current_winners": 28,
+    "exact_identity_overlap": 0
+  },
+  "gates": [
+    {
+      "id": "G1_LINEAGE_INTEGRITY",
+      "requirement": "Exact lineage/reconciliation must remain reproducible from immutable raw blobs and frozen protocol.",
+      "current_state": "PASS",
+      "promotion_blocking": false
+    },
+    {
+      "id": "G2_INDEPENDENCE_EFFECTIVE_EVIDENCE",
+      "requirement": "Evidence must survive dependence/concentration stress; the current conservative proxy (~3.97) is descriptive only and is not sufficient by itself.",
+      "current_state": "NOT_PROVEN",
+      "promotion_blocking": true
+    },
+    {
+      "id": "G3_DIRECTION_STABILITY",
+      "requirement": "LONG and SHORT evidence must remain positive/sign-consistent across locked lineages without post-hoc selection.",
+      "current_state": "PASS_WITH_LIMITS",
+      "promotion_blocking": false
+    },
+    {
+      "id": "G4_REGIME_STABILITY",
+      "requirement": "Range and Uptrend evidence currently sign-consistent; Downtrend evidence must be established before any broad up/down-trend robustness claim.",
+      "current_state": "INCOMPLETE",
+      "promotion_blocking": true
+    },
+    {
+      "id": "G5_FOLD_LOFO_STABILITY",
+      "requirement": "Performance must not depend materially on a single fold; fixed LOFO and top-fold exclusion stress must remain acceptable under a pre-registered criterion.",
+      "current_state": "INCOMPLETE",
+      "promotion_blocking": true
+    },
+    {
+      "id": "G6_OUT_OF_SAMPLE_FORWARD_EVIDENCE",
+      "requirement": "A genuinely forward, untouched evaluation period must be defined before inspection and then evaluated without threshold/winner changes.",
+      "current_state": "NOT_STARTED",
+      "promotion_blocking": true
+    },
+    {
+      "id": "G7_ROBUSTNESS_ACROSS_DIRECTION_REGIME",
+      "requirement": "No promotion claim may generalize beyond observed direction/regime coverage; missing cells must be explicitly resolved by future data.",
+      "current_state": "INCOMPLETE",
+      "promotion_blocking": true
+    },
+    {
+      "id": "G8_OPERATIONAL_INTEGRITY",
+      "requirement": "Collector/data pipeline, single-writer/checkpoint lineage, and artifact integrity must remain healthy during the evaluation period.",
+      "current_state": "REQUIRED",
+      "promotion_blocking": true
+    }
+  ],
+  "non_negotiable_invariants": [
+    "No threshold tuning after seeing evaluation outcomes.",
+    "No winner reselection.",
+    "No deletion of inconvenient observations.",
+    "No protocol mutation.",
+    "No promotion based on nominal n alone.",
+    "No causal or predictive-validity claim from retrospective evidence alone.",
+    "No live execution authorization from this contract.",
+    "Secrets remain outside source, artifacts, logs, and datasets."
+  ],
+  "promotion_rule": {
+    "logic": "ALL blocking gates must PASS.",
+    "current_decision": "BLOCKED",
+    "earliest_possible_status": "PROMOTION_CANDIDATE_ONLY",
+    "live_execution": "NOT_AUTHORIZED"
+  }
+}
