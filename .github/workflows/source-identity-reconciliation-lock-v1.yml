@@ -1,0 +1,84 @@
+name: HES Trade Agent — Source Identity Reconciliation Lock v1
+
+on:
+  push:
+    branches:
+      - reconciliation/source-identity-lock-20261005
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact reconciliation branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Validate record-level identity artifact
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          p = Path("evidence/source_identity_reconciliation_v1.json")
+          raw = p.read_bytes()
+          d = json.loads(raw)
+
+          assert d["status"] == "SOURCE_IDENTITY_LOCKED"
+          assert d["protocol"] == {"train":800,"test":400,"step":400,"folds":8,"gross_threshold_bps":14}
+          assert d["sources"]["prior"]["raw_blob_sha"] == "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+          assert d["sources"]["prior"]["source_commit"] == "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
+          assert d["sources"]["current"]["raw_blob_sha"] == "58d21825e052dbaa42e7eb0695455c19997bff43"
+          assert d["sources"]["current"]["source_commit"] == "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
+          assert d["sources"]["protocol_contract"]["blob_sha"] == "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
+          assert d["counts"] == {"prior_survivor_records":14,"current_winner_records":28,"exact_record_key_matches":0}
+
+          records = d["records"]
+          assert len(records) == 42
+          assert sum(r["lineage"] == "prior_14_survivor" for r in records) == 14
+          assert sum(r["lineage"] == "current_28_winner" for r in records) == 28
+
+          keys = []
+          for r in records:
+              k = tuple(r[x] for x in d["record_key"])
+              keys.append((r["lineage"], k))
+              assert r["evaluated"] is True
+              assert r["gross_return"] > 0.0014
+
+          assert len(keys) == len(set(keys))
+          prior_keys = {k for lineage,k in keys if lineage == "prior_14_survivor"}
+          current_keys = {k for lineage,k in keys if lineage == "current_28_winner"}
+          assert prior_keys.isdisjoint(current_keys)
+
+          lock = {
+              "status":"SOURCE_IDENTITY_RECONCILIATION_HASH_LOCKED",
+              "artifact_path":str(p),
+              "artifact_sha256":hashlib.sha256(raw).hexdigest(),
+              "artifact_bytes":len(raw),
+              "record_count":len(records),
+              "prior_record_count":14,
+              "current_record_count":28,
+              "exact_record_key_matches":0,
+              "source_refs":d["sources"],
+              "safety":d["claim_boundary"],
+          }
+          Path("evidence/source_identity_reconciliation_v1.lock.json").write_text(
+              json.dumps(lock, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(lock, indent=2))
+          PY
+
+      - name: Upload immutable reconciliation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-identity-reconciliation-v1
+          path: |
+            evidence/source_identity_reconciliation_v1.json
+            evidence/source_identity_reconciliation_v1.lock.json
+          if-no-files-found: error
