@@ -1,0 +1,59 @@
+name: HES Trade Agent — G2 Deep Cluster Independence Audit v1
+on:
+  push:
+    branches:
+      - research/g2-independence-deep-audit-20261005
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate immutable source identity
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("evidence/source_identity_reconciliation_v1.json"))
+          assert d["status"]=="SOURCE_IDENTITY_LOCKED"
+          assert d["protocol"]=={"train":800,"test":400,"step":400,"folds":8,"gross_threshold_bps":14}
+          assert d["counts"]=={"prior_survivor_records":14,"current_winner_records":28,"exact_record_key_matches":0}
+          assert len(d["records"])==42
+          assert sum(x["lineage"]=="prior_14_survivor" for x in d["records"])==14
+          assert sum(x["lineage"]=="current_28_winner" for x in d["records"])==28
+          print("SOURCE_IDENTITY_LOCK_VALID")
+          PY
+      - name: Re-run G2 deep audit from locked artifact
+        run: |
+          python scripts/g2_cluster_independence_deep_audit_v1.py
+      - name: Fail-closed verification
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("evidence/g2_cluster_independence_deep_audit_v1.json"))
+          c=d["claim_boundary"]
+          assert d["final_verdict"]=="G2_DEEP_AUDIT_COMPLETED_PROMOTION_STILL_BLOCKED"
+          assert c["records_deleted"] is False
+          assert c["winner_reselected"] is False
+          assert c["gross_threshold_changed"] is False
+          assert c["protocol_changed"] is False
+          assert c["audit_sensitivity_threshold_selected_as_winner"] is False
+          assert c["statistical_independence_proven"] is False
+          assert c["promotion"]=="BLOCKED"
+          assert d["lineage_separation"]["nearest_timestamp_gap_hours"]["time_gap_hours"] > 100
+          assert d["lineage_separation"]["nearest_sequence_gap"]["sequence_gap"] > 1_000_000_000
+          assert d["within_lineage_overlap"]["same_lineage_sequence_interval_overlaps"] == 0
+          print("G2_DEEP_AUDIT_VALID_FAIL_CLOSED")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g2-cluster-independence-deep-audit-v1
+          path: evidence/g2_cluster_independence_deep_audit_v1.json
+          if-no-files-found: error
