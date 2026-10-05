@@ -1,0 +1,28 @@
+name: HES Trade Agent — Effective Evidence Audit v1
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python scripts/effective_evidence_audit_v1.py
+      - name: Validate fail-closed boundary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("effective_evidence_audit_v1.json"))
+          assert d["raw_population"]["combined"]==42
+          assert d["claim_boundary"]["independence_proven"] is False
+          assert d["claim_boundary"]["promotion"]=="BLOCKED"
+          assert d["final_verdict"]=="EVIDENCE_INSUFFICIENT_FOR_PROMOTION"
+          print("EFFECTIVE_EVIDENCE_AUDIT_VALID")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: effective-evidence-audit-v1
+          path: effective_evidence_audit_v1.json
