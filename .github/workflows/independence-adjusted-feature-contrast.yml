@@ -1,0 +1,41 @@
+name: HES Trade Agent — Independence-Adjusted Feature Contrast
+
+on:
+  push:
+    branches:
+      - embargo-adjusted-fold-regime-independence-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independence-feature-contrast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout frozen audit branch
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m pip install pytest
+      - name: Build frozen 14-vs-1035 contrast
+        run: python scripts/contrast_audit_14_vs_1035.py
+      - name: Build embargo-adjusted independence evidence
+        run: python scripts/embargo_adjusted_fold_regime_independence.py
+      - name: Build independence-adjusted feature contrast
+        run: python scripts/independence_adjusted_feature_contrast_evidence.py
+      - name: Upload integrated evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: independence-adjusted-feature-contrast
+          path: |
+            14_vs_1035_contrast_audit.json
+            embargo_adjusted_fold_regime_independence.json
+            independence_adjusted_feature_contrast_evidence.json
+          if-no-files-found: error
