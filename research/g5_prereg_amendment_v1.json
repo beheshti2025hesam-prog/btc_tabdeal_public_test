@@ -1,0 +1,63 @@
+{
+  "document": "HES Trade Agent Promotion Contract v1 — G5 Pre-Registration Amendment v1",
+  "status": "RESEARCH_ONLY__PROSPECTIVE_ONLY__PROMOTION_BLOCKED",
+  "purpose": "Define an executable G5 Fold/LOFO acceptance rule prospectively, without changing the frozen 800/400/400 eight-fold evaluation protocol. This amendment must not be used to reclassify already-observed G5 evidence.",
+  "effective_scope": {
+    "prospective_only": true,
+    "applies_to": "A newly frozen G5 evaluation performed after this amendment is merged and validated.",
+    "does_not_retroactively_close_current_g5": true,
+    "current_promotion_decision": "BLOCKED"
+  },
+  "locked_protocol": {
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "gross_threshold_bps": 14
+  },
+  "pre_registered_g5_criterion": {
+    "principle": "A single fold must not be able to dominate the evidence such that removing that fold reverses the direction of the aggregate result.",
+    "checks": [
+      {
+        "id": "G5_FULL_AGGREGATE_SIGN",
+        "rule": "The full locked evaluation population must have positive aggregate gross return."
+      },
+      {
+        "id": "G5_LOFO_SIGN_STABILITY",
+        "rule": "For every eligible fold, removing that entire fold must leave the aggregate gross return positive."
+      },
+      {
+        "id": "G5_TOP_FOLD_DOMINANCE",
+        "rule": "The fold contributing the largest absolute share of aggregate gross return must contribute less than 50% of total absolute gross-return magnitude."
+      }
+    ],
+    "decision_rule": "G5 PASS requires all three checks to PASS. Otherwise G5 remains BLOCKED.",
+    "fold_eligibility": "All eight protocol folds are in scope; a fold with zero observations is a protocol/data-integrity failure and cannot be silently skipped.",
+    "no_statistical_claim": "Passing G5 does not prove independence, predictive validity, causality, or market generalization."
+  },
+  "invariants": [
+    "No threshold tuning after observing outcomes.",
+    "No winner reselection.",
+    "No deletion of inconvenient observations.",
+    "No protocol mutation.",
+    "No retroactive reclassification of current G5 evidence.",
+    "No live execution authorization."
+  ],
+  "claim_boundary": {
+    "threshold_tuned": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "protocol_mutation": false,
+    "independence_proven": false,
+    "predictive_validity": false,
+    "causality": false,
+    "market_generalization": false,
+    "promotion": false,
+    "live_execution": false
+  },
+  "verdict": {
+    "status": "G5_CRITERION_PREREGISTERED_FOR_FUTURE_EVALUATION",
+    "current_g5": "BLOCKED",
+    "current_evidence_reused_for_decision": false
+  }
+}
