@@ -1,0 +1,31 @@
+name: HES Trade Agent — Feature Fold Regime Interaction Audit
+
+on:
+  push:
+    branches:
+      - embargo-adjusted-fold-regime-independence-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feature-fold-regime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          pip install -r requirements.txt
+          python scripts/contrast_audit_14_vs_1035.py
+          python scripts/feature_fold_regime_interaction_audit.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feature-fold-regime-interaction-audit
+          path: |
+            14_vs_1035_contrast_audit.json
+            feature_fold_regime_interaction_audit.json
+          if-no-files-found: error
