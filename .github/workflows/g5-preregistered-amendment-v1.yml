@@ -33,4 +33,4 @@ jobs:
           print("G5_PREREGISTERED_AMENDMENT_VALID")
           PY
 
-# validation-only touch: no methodological content changed
+# validation-only touch: CI harness is also present on main; methodology unchanged
