@@ -2,6 +2,8 @@ name: HES Trade Agent — Cross-Lineage Effective Evidence v1
 on:
   push:
     branches: [research/cross-lineage-effective-evidence-20261005]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
