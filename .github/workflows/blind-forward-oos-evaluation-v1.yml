@@ -1,0 +1,35 @@
+name: Blind Forward OOS Evaluation v1
+on:
+  pull_request:
+    paths:
+      - "scripts/blind_forward_evaluation_v1.py"
+      - ".github/workflows/blind-forward-oos-evaluation-v1.yml"
+      - "core/backtest/**"
+      - "core/data_engine/**"
+      - "core/feature_engine/**"
+      - "core/risk/**"
+      - "core/strategy/**"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  blind-evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout evaluation code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify immutable source object
+        run: git cat-file -e f396de84cb7f4c6b16e81effc91b653e26049ab4:data/trades.csv
+      - name: Verify Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Run blind forward evaluator
+        run: python scripts/blind_forward_evaluation_v1.py
+      - name: Upload blind evaluation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blind-forward-evaluation-v1
+          path: blind_forward_evaluation_v1.json
