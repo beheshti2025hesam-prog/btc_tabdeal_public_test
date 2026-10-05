@@ -1,0 +1,46 @@
+{
+  "status": "CANDIDATE_EVALUATION_REVIEW_ONLY",
+  "candidate_id": "CANDIDATE_RESEARCH_V1",
+  "evaluation_scope": "Evidence inheritance and boundary validation only; no Signal construction.",
+  "snapshot_lock": {
+    "source_ref": "main",
+    "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+    "data_git_blob_sha": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+    "first_independent_sequence": 38710284291,
+    "first_independent_timestamp": "2026-09-28T19:08:56.951Z",
+    "coverage_gap_seconds": 38478.772
+  },
+  "inherited_evidence": {
+    "source": "PR #109 independence-adjusted feature stability matrix v1",
+    "evaluated_oos": 1049,
+    "nominal_winners": 14,
+    "controls": 1035,
+    "supported_temporal_folds": "4/8",
+    "kish_ess_approx": 2.97,
+    "candidate_features": {
+      "Buy Ratio": "temporally sign-stable",
+      "Delta": "temporally sign-stable",
+      "Trade Count": "temporally sign-stable"
+    },
+    "excluded_features": {
+      "EMA": "fold-sensitive",
+      "VWAP": "fold-sensitive"
+    },
+    "independence_rule": "Temporal fold is the independence unit; nominal winners are not treated as independent confirmations."
+  },
+  "controls": {
+    "future_outcome_leakage": false,
+    "random_shuffle": false,
+    "cross_fold_leakage": false,
+    "threshold_tuning": false,
+    "model_fitting": false,
+    "reinvestment": false,
+    "promotion_decision": false,
+    "live_execution": false
+  },
+  "decision_boundary": {
+    "status": "REVIEW_REQUIRED",
+    "interpretation": "The three candidate inputs inherit descriptive temporal stability evidence, but this artifact does not establish predictive performance or authorize Signal construction.",
+    "next_gate": "Human evidence review followed by a dedicated candidate-performance study only if the evidence review permits it."
+  }
+}
