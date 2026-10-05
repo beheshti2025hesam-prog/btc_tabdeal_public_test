@@ -1,0 +1,685 @@
+{
+  "schema": "hes.g2_cluster_independence_deep_audit.v1",
+  "status": "RESEARCH_ONLY_FAIL_CLOSED",
+  "input": {
+    "artifact": "evidence/source_identity_reconciliation_v1.json",
+    "protocol": {
+      "train": 800,
+      "test": 400,
+      "step": 400,
+      "folds": 8,
+      "gross_threshold_bps": 14
+    },
+    "prior_records": 14,
+    "current_records": 28,
+    "exact_record_key_matches": 0
+  },
+  "lineage_separation": {
+    "cross_lineage_pair_count": 392,
+    "nearest_timestamp_gap_hours": {
+      "time_gap_hours": 113.88333333333334,
+      "sequence_gap": 1285244400,
+      "prior_timestamp": "2026-09-25T15:39:00+00:00",
+      "current_timestamp": "2026-09-30T09:32:00+00:00"
+    },
+    "nearest_sequence_gap": {
+      "time_gap_hours": 113.88333333333334,
+      "sequence_gap": 1285244400,
+      "prior_timestamp": "2026-09-25T15:39:00+00:00",
+      "current_timestamp": "2026-09-30T09:32:00+00:00"
+    }
+  },
+  "within_lineage_overlap": {
+    "nearest_start_timestamp_gap": {
+      "time_gap_minutes": 1,
+      "sequence_gap": 24406,
+      "a": "2026-10-02T04:19:00+00:00",
+      "b": "2026-10-02T04:20:00+00:00"
+    },
+    "same_lineage_sequence_interval_overlaps": 0
+  },
+  "temporal_sensitivity": {
+    "prior_14": [
+      {
+        "threshold": 1,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 5,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 15,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 30,
+        "clusters": 9,
+        "largest_cluster": 3,
+        "effective_cluster_count": 7.5385,
+        "cluster_sizes": [
+          3,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 60,
+        "clusters": 9,
+        "largest_cluster": 3,
+        "effective_cluster_count": 7.5385,
+        "cluster_sizes": [
+          3,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 120,
+        "clusters": 5,
+        "largest_cluster": 7,
+        "effective_cluster_count": 3.0625,
+        "cluster_sizes": [
+          7,
+          3,
+          2,
+          1,
+          1
+        ]
+      }
+    ],
+    "current_28": [
+      {
+        "threshold": 1,
+        "clusters": 23,
+        "largest_cluster": 3,
+        "effective_cluster_count": 19.6,
+        "cluster_sizes": [
+          3,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 5,
+        "clusters": 20,
+        "largest_cluster": 3,
+        "effective_cluster_count": 15.68,
+        "cluster_sizes": [
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 15,
+        "clusters": 17,
+        "largest_cluster": 5,
+        "effective_cluster_count": 10.5946,
+        "cluster_sizes": [
+          5,
+          4,
+          4,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 30,
+        "clusters": 15,
+        "largest_cluster": 5,
+        "effective_cluster_count": 10.0513,
+        "cluster_sizes": [
+          5,
+          4,
+          4,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 60,
+        "clusters": 12,
+        "largest_cluster": 13,
+        "effective_cluster_count": 4.0833,
+        "cluster_sizes": [
+          13,
+          2,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 120,
+        "clusters": 8,
+        "largest_cluster": 13,
+        "effective_cluster_count": 3.5963,
+        "cluster_sizes": [
+          13,
+          5,
+          4,
+          2,
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    ]
+  },
+  "sequence_sensitivity": {
+    "prior_14": [
+      {
+        "threshold": 0,
+        "clusters": 14,
+        "largest_cluster": 1,
+        "effective_cluster_count": 14,
+        "cluster_sizes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 10000,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 50000,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 100000,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 250000,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 500000,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 1000000,
+        "clusters": 12,
+        "largest_cluster": 2,
+        "effective_cluster_count": 10.8889,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "current_28": [
+      {
+        "threshold": 0,
+        "clusters": 28,
+        "largest_cluster": 1,
+        "effective_cluster_count": 28,
+        "cluster_sizes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 10000,
+        "clusters": 26,
+        "largest_cluster": 2,
+        "effective_cluster_count": 24.5,
+        "cluster_sizes": [
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 50000,
+        "clusters": 23,
+        "largest_cluster": 3,
+        "effective_cluster_count": 19.6,
+        "cluster_sizes": [
+          3,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 100000,
+        "clusters": 23,
+        "largest_cluster": 3,
+        "effective_cluster_count": 19.6,
+        "cluster_sizes": [
+          3,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 250000,
+        "clusters": 23,
+        "largest_cluster": 3,
+        "effective_cluster_count": 19.6,
+        "cluster_sizes": [
+          3,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 500000,
+        "clusters": 22,
+        "largest_cluster": 3,
+        "effective_cluster_count": 18.6667,
+        "cluster_sizes": [
+          3,
+          2,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "threshold": 1000000,
+        "clusters": 20,
+        "largest_cluster": 3,
+        "effective_cluster_count": 15.68,
+        "cluster_sizes": [
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    ]
+  },
+  "interpretation": {
+    "fold_is_not_independence_unit": true,
+    "current_28_contains_temporal_concentration": true,
+    "current_28_60min_largest_cluster": 13,
+    "current_28_60min_effective_cluster_count": 4.0833,
+    "current_28_60min_cluster_is_chain_connected": true,
+    "no_cross_lineage_temporal_or_sequence_near_overlap_observed": true
+  },
+  "claim_boundary": {
+    "records_deleted": false,
+    "winner_reselected": false,
+    "gross_threshold_changed": false,
+    "protocol_changed": false,
+    "audit_sensitivity_threshold_selected_as_winner": false,
+    "statistical_independence_proven": false,
+    "predictive_validity_proven": false,
+    "promotion": "BLOCKED"
+  },
+  "final_verdict": "G2_DEEP_AUDIT_COMPLETED_PROMOTION_STILL_BLOCKED"
+}
