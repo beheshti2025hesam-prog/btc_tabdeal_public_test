@@ -72,3 +72,5 @@ jobs:
           name: cluster-independence-audit-v1
           path: cluster_independence_audit_v1.json
           if-no-files-found: error
+
+# Execution-recovery probe: intentionally no-op; preserves the locked audit protocol.
