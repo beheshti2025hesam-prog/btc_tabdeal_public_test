@@ -1,0 +1,23 @@
+{
+  "artifact": "N+1-PREFLIGHT-AUDIT-RUN196",
+  "status": "BLOCKED_PENDING_GUARD_REMEDIATION",
+  "predecessor_final_sequence": 40373844351,
+  "predecessor_final_timestamp": "2026-10-05T01:35:53.626Z",
+  "collector_code_findings": {
+    "global_sequence_recovery": "PASS: scans active CSV plus all CSV archives and uses GLOBAL MAX",
+    "sequence_gate": "PASS: save_trade rejects sequence <= recovered last_sequence",
+    "timestamp_gate": "MISSING: save_trade does not enforce timestamp > Run #196 final timestamp",
+    "duplicate_identity_gate": "PARTIAL: sequence monotonicity blocks same/lower sequence, but no explicit composite identity check",
+    "single_writer_guard": "MISSING_IN_COLLECTOR: no explicit flock/mutex/PID lock found in audited source; current operational guard is disabled systemd service plus retired GitHub workflow",
+    "remote_lineage_guard": "PASS: startup captures origin/main SHA and checkpoint refuses if origin/main advanced",
+    "checkpoint_safety": "PASS: failed push is fail-closed without reset/retry overwrite"
+  },
+  "decision": "DO NOT START N+1",
+  "required_before_start": [
+    "Add or otherwise verify an explicit timestamp boundary guard",
+    "Add or otherwise verify an independent single-writer guard",
+    "Commit the guard changes to GitHub",
+    "Run a no-write preflight again",
+    "Only then enable/start the collector"
+  ]
+}
