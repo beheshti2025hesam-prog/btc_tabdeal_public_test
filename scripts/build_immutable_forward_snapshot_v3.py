@@ -20,6 +20,7 @@ SOURCE_PATH="data/trades.csv"
 BOUNDARY=datetime.fromisoformat("2026-10-05T00:00:00+00:00")
 REQUIRED=3600
 WRITER_PROVENANCE_PATH="archive/run196_reconciliation_closure.json"
+N_PLUS_1_WRITER_OBSERVATION_PATH="archive/n_plus_1_writer_attribution_observation_v1.json"
 
 def main():
     commit=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
@@ -66,6 +67,11 @@ def main():
     ts=[o.timestamp for o in forward]
     strict_obs=all(a<b for a,b in zip(ts,ts[1:]))
     obs_unique=len(set(ts))==len(ts)
+    n1_writer_observation_exists = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}:{N_PLUS_1_WRITER_OBSERVATION_PATH}"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    ).returncode == 0
+
     # The real pipeline reports continuity exclusions, but the historical
     # lock requires an explicit gap/continuity check and durable single-writer
     # lineage before an immutable forward lock. Presence of the Run #196
@@ -96,6 +102,8 @@ def main():
       "continuity_check_passed":continuity_ok,
       "writer_provenance_artifact":WRITER_PROVENANCE_PATH,
       "writer_provenance_artifact_present":provenance_exists,
+      "n_plus_1_writer_observation_artifact":N_PLUS_1_WRITER_OBSERVATION_PATH,
+      "n_plus_1_writer_observation_artifact_present":n1_writer_observation_exists,
       "single_writer_lineage_verified":single_writer_lineage_verified,
       "single_writer_lineage_status":"BLOCKED_PENDING_DURABLE_N_PLUS_1_ATTRIBUTION",
       "outcomes_inspected":False,"threshold_tuned":False,"winner_reselected":False,
