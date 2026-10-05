@@ -1,0 +1,47 @@
+{
+  "artifact": "HES Trade Agent Controlled Candidate Performance Study v1",
+  "status": "research-only",
+  "protocol_version": "controlled-signal-research-v1",
+  "base_commit": "5c608e6b21f394a023e9c17a4d8aa8ce0fd97edf",
+  "construction_data": "fresh out-of-evidence data only",
+  "frozen_evidence_reuse": false,
+  "allowed_features": [
+    "buy_ratio",
+    "buy_sell_delta",
+    "trade_count"
+  ],
+  "candidate_definition": {
+    "status": "pre-registered descriptive candidate family only",
+    "threshold_tuning": false,
+    "model_fitting": false,
+    "selection_from_E0_E1_winners": false
+  },
+  "evaluation": {
+    "walk_forward": true,
+    "embargo_required": true,
+    "cost_slippage_matrix_required": true,
+    "fold_level_results_required": true,
+    "negative_results_required": true
+  },
+  "claim_boundary": {
+    "signal_created": false,
+    "signal_validated": false,
+    "promotion_decision": false,
+    "live_execution": false
+  },
+  "population_definition": {
+    "scope": "snapshot_lineage_specific",
+    "unit": "evaluated_oos_observation",
+    "source": "scripts/contrast_audit_14_vs_1035.py",
+    "definition": "Count of evaluated observations produced from the locked fresh snapshot after fixed 8-fold walk-forward construction and continuity-preserving next-candle evaluation.",
+    "fold_count": 8,
+    "fold_shape": {
+      "train": 800,
+      "test": 400,
+      "step": 400
+    },
+    "gap_policy": "preserve fixed fold boundaries; do not synthesize observations across timestamp gaps",
+    "transfer_rule": "population counts are not transferable across different snapshot lineages and must be recomputed from the exact locked snapshot",
+    "historical_reference_1049": "The 1,049 population from the prior frozen evidence snapshot is not an expected count for this fresh-snapshot candidate study."
+  }
+}

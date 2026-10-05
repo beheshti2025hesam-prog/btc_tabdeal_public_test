@@ -1,0 +1,38 @@
+name: HES Trade Agent — Fresh Snapshot Raw Replay Gate v1
+
+on:
+  push:
+    branches:
+      - controlled-candidate-performance-study-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-fresh-snapshot-raw-replay-gate-v1
+  cancel-in-progress: false
+
+jobs:
+  raw-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Execute exact-snapshot raw replay
+        run: python research/snapshot_raw_replay_execution_v1.py
+      - name: Publish raw replay result
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-raw-replay-result-v1
+          path: research/snapshot_raw_replay_result_v1.json
+          if-no-files-found: error
