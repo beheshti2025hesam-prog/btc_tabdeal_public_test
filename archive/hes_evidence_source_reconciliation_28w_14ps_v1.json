@@ -1,0 +1,437 @@
+{
+  "artifact": "HES-EVIDENCE-SOURCE-RECONCILIATION-28W-14PS",
+  "version": 1,
+  "status": "LOCKED_SOURCE_SNAPSHOT",
+  "purpose": "Record-level source and lineage lock for the current 28 Winner observations and prior 14 Survivor observations. No feature extraction, stability analysis, tuning, promotion, or verdict is contained here.",
+  "created_from": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "branch": "research/immutable-source-28w-14s-20261005",
+    "protocol_contract_source_commit": "e5f85f06b19b8427f761b95ab56ad15ccd7053c0",
+    "protocol_contract_blob_sha": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12",
+    "protocol": {
+      "train": 800,
+      "test": 400,
+      "step": 400,
+      "folds": 8,
+      "gross_threshold_bps": 14,
+      "winner_rule": "gross_return > 0.0014",
+      "control_rule": "gross_return <= 0.0014"
+    }
+  },
+  "source_snapshots": {
+    "prior": {
+      "path": "data/trades.csv",
+      "blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+      "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
+    },
+    "current": {
+      "path": "data/trades.csv",
+      "blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+      "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
+    }
+  },
+  "exact_lineage_key": [
+    "timestamp",
+    "sequence_first",
+    "sequence_last",
+    "entry_price",
+    "exit_price",
+    "direction",
+    "gross_return"
+  ],
+  "populations": {
+    "prior_survivor_records": [
+      {
+        "timestamp": "2026-09-28T05:23:00.000Z",
+        "sequence_first": 38550666660,
+        "sequence_last": 38550840888,
+        "entry_price": 83151.9,
+        "exit_price": 83001.6,
+        "direction": "SHORT",
+        "gross_return": 0.0018075353659987128,
+        "fold_index": 1,
+        "fold_regime": "range",
+        "record_id": "PS-01",
+        "lineage": {
+          "source_dataset": "prior_survivor",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+          "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+          "survivor_identity_basis": "frozen prior protocol winner record; no manual two-item extraction"
+        }
+      }
+    ],
+    "current_winner_records": [
+      {
+        "timestamp": "2026-10-01T15:31:00.000Z",
+        "sequence_first": 39476367801,
+        "sequence_last": 39476544818,
+        "entry_price": 83931.4,
+        "exit_price": 83811,
+        "direction": "SHORT",
+        "gross_return": 0.001434504845623857,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-01",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-01T15:48:00.000Z",
+        "sequence_first": 39479570413,
+        "sequence_last": 39479729594,
+        "entry_price": 84027.2,
+        "exit_price": 84151.7,
+        "direction": "LONG",
+        "gross_return": 0.001481663080526306,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-02",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-01T17:02:00.000Z",
+        "sequence_first": 39493303253,
+        "sequence_last": 39493479701,
+        "entry_price": 84175.5,
+        "exit_price": 84369.5,
+        "direction": "LONG",
+        "gross_return": 0.0023047086147394433,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-03",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-01T17:30:00.000Z",
+        "sequence_first": 39498490805,
+        "sequence_last": 39498670269,
+        "entry_price": 84845.1,
+        "exit_price": 84966.9,
+        "direction": "LONG",
+        "gross_return": 0.0014355572684808947,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-04",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-01T18:35:00.000Z",
+        "sequence_first": 39510516926,
+        "sequence_last": 39510698158,
+        "entry_price": 84868.5,
+        "exit_price": 85000,
+        "direction": "LONG",
+        "gross_return": 0.0015494559229867384,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-05",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T01:51:00.000Z",
+        "sequence_first": 39590127838,
+        "sequence_last": 39590304980,
+        "entry_price": 84701.4,
+        "exit_price": 84839.7,
+        "direction": "LONG",
+        "gross_return": 0.0016327947353881153,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-06",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T03:01:00.000Z",
+        "sequence_first": 39603082298,
+        "sequence_last": 39603250430,
+        "entry_price": 85181.5,
+        "exit_price": 85391.8,
+        "direction": "LONG",
+        "gross_return": 0.0024688459348567813,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-07",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T04:19:00.000Z",
+        "sequence_first": 39617476628,
+        "sequence_last": 39617652639,
+        "entry_price": 85562.2,
+        "exit_price": 85877.7,
+        "direction": "LONG",
+        "gross_return": 0.0036873759674248678,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-08",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T04:20:00.000Z",
+        "sequence_first": 39617677045,
+        "sequence_last": 39617843310,
+        "entry_price": 85877.7,
+        "exit_price": 86348.3,
+        "direction": "LONG",
+        "gross_return": 0.0054798859308063195,
+        "fold_index": 0,
+        "fold_regime": "uptrend",
+        "record_id": "CW-09",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T09:31:00.000Z",
+        "sequence_first": 39674898963,
+        "sequence_last": 39675065759,
+        "entry_price": 86202.8,
+        "exit_price": 86325.9,
+        "direction": "LONG",
+        "gross_return": 0.0014280278598838003,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-10",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T12:30:00.000Z",
+        "sequence_first": 39707328649,
+        "sequence_last": 39707504192,
+        "entry_price": 86566.6,
+        "exit_price": 86880.7,
+        "direction": "LONG",
+        "gross_return": 0.0036284201990142992,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-11",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T12:36:00.000Z",
+        "sequence_first": 39708554553,
+        "sequence_last": 39708741331,
+        "entry_price": 86747.1,
+        "exit_price": 86978.6,
+        "direction": "LONG",
+        "gross_return": 0.0026686771085142904,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-12",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T14:11:00.000Z",
+        "sequence_first": 39726202867,
+        "sequence_last": 39726382153,
+        "entry_price": 86433.6,
+        "exit_price": 86250,
+        "direction": "SHORT",
+        "gross_return": 0.002124173932359705,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-13",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T14:27:00.000Z",
+        "sequence_first": 39729168145,
+        "sequence_last": 39729353352,
+        "entry_price": 86317.6,
+        "exit_price": 86129.4,
+        "direction": "SHORT",
+        "gross_return": 0.0021803201201146885,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-14",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T14:34:00.000Z",
+        "sequence_first": 39730524167,
+        "sequence_last": 39730689653,
+        "entry_price": 85972,
+        "exit_price": 85770.3,
+        "direction": "SHORT",
+        "gross_return": 0.002346112687851825,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-15",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T14:54:00.000Z",
+        "sequence_first": 39734277446,
+        "sequence_last": 39734454266,
+        "entry_price": 85720.5,
+        "exit_price": 85516.1,
+        "direction": "SHORT",
+        "gross_return": 0.002384493790866761,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-16",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T17:15:00.000Z",
+        "sequence_first": 39760489988,
+        "sequence_last": 39760661387,
+        "entry_price": 84912.7,
+        "exit_price": 84755,
+        "direction": "SHORT",
+        "gross_return": 0.0018572015729095542,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-17",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T17:24:00.000Z",
+        "sequence_first": 39762169068,
+        "sequence_last": 39762341434,
+        "entry_price": 84867.4,
+        "exit_price": 84716.5,
+        "direction": "SHORT",
+        "gross_return": 0.0017780679035765698,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-18",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      },
+      {
+        "timestamp": "2026-10-02T18:39:00.000Z",
+        "sequence_first": 39776020143,
+        "sequence_last": 39776207895,
+        "entry_price": 84389.3,
+        "exit_price": 84119.9,
+        "direction": "SHORT",
+        "gross_return": 0.0031923478450468093,
+        "fold_index": 1,
+        "fold_regime": "uptrend",
+        "record_id": "CW-19",
+        "lineage": {
+          "source_dataset": "current",
+          "source_path": "data/trades.csv",
+          "source_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+          "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+          "exact_match_in_prior_survivor": false
+        }
+      }
+    ]
+  },
+  "lineage_rule": "A current winner is linked to a prior survivor only when every field in exact_lineage_key matches exactly. No fuzzy timestamp, sequence proximity, price tolerance, or manual identity inference is allowed.",
+  "feature_boundary": "Features must be recomputed later from the locked source snapshots and the exact record locators above; no feature value is stored or used to construct this artifact.",
+  "integrity_lock": {
+    "no_threshold_change": true,
+    "no_manual_extraction": true,
+    "no_observation_deletion": true,
+    "no_feature_tuning": true,
+    "no_promotion": true
+  }
+}
