@@ -24,32 +24,58 @@ def components(rows,threshold,mu,sd):
     for i in range(n): g.setdefault(find(i),[]).append(i)
     return list(g.values())
 
-def eff(sizes):
+def effective_cluster_count(sizes):
     n=sum(sizes)
     return (n*n/sum(x*x for x in sizes)) if sizes else 0.0
 
-def audit(rows,label,mu,sd):
-    winners=[r for r in rows if r.get("class")=="Winner"]
-    results={}
+def pooled_moments(snapshot):
+    # Reconstruct frozen Winner+Control population moments from locked summary statistics.
+    mu={}; sd={}
+    for f in FEATURES:
+        w=snapshot["feature_contrast"][f]["winners"]
+        c=snapshot["feature_contrast"][f]["controls"]
+        n=w["n"]+c["n"]
+        mean=(w["n"]*w["mean"]+c["n"]*c["mean"])/n
+        # population second central moment from group sample variances
+        ss=(w["n"]*(w["std"]**2*(w["n"]-1)/w["n"] + (w["mean"]-mean)**2)
+            +c["n"]*(c["std"]**2*(c["n"]-1)/c["n"] + (c["mean"]-mean)**2))
+        mu[f]=mean
+        sd[f]=math.sqrt(ss/n) or 1.0
+    return mu,sd
+
+def audit(snapshot,label,mu,sd):
+    winners=snapshot["winners"]
+    out={}
     for t in THRESHOLDS:
         cs=components(winners,t,mu,sd)
         sizes=sorted([len(c) for c in cs],reverse=True)
-        results[str(t)]={"winner_clusters":len(cs),"largest_winner_cluster":sizes[0] if sizes else 0,
-                         "effective_cluster_count":eff(sizes),"cluster_sizes":sizes}
-    return {"label":label,"winners":len(winners),"thresholds":results}
+        out[str(t)]={"winner_clusters":len(cs),
+                     "largest_winner_cluster":sizes[0] if sizes else 0,
+                     "effective_winner_cluster_count":effective_cluster_count(sizes),
+                     "cluster_sizes":sizes}
+    return {"label":label,"winners":len(winners),"thresholds":out}
 
-def load(path): return json.loads(Path(path).read_text()).get("winners",[])
+def load(path): return json.loads(Path(path).read_text())
 
 def main():
-    prior=load("prior_1049_protocol.json"); current=load("current_1027_protocol.json")
-    # Frozen combined population is used only to standardize locked numeric features.
-    allr=prior+current
-    numeric={f:[float(r[f]) for r in allr if r.get(f) not in (None,"")] for f in FEATURES}
-    mu={f:statistics.fmean(v) for f,v in numeric.items()}
-    sd={f:(statistics.pstdev(v) or 1.0) for f,v in numeric.items()}
-    out={"protocol":"cluster-independence-protocol-v1","prior_14":audit(prior,"prior_14",mu,sd),
+    prior=load("prior_1049_protocol.json")
+    current=load("current_1027_protocol.json")
+    combined_for_scale=prior["feature_contrast"]
+    # Reconstruct pooled moments using both frozen snapshots, weighted by their locked counts.
+    mu={}; sd={}
+    for f in FEATURES:
+        p=prior["feature_contrast"][f]; q=current["feature_contrast"][f]
+        groups=[]
+        for g in (p,q):
+            groups.extend([g["winners"],g["controls"]])
+        n=sum(g["n"] for g in groups)
+        mean=sum(g["n"]*g["mean"] for g in groups)/n
+        ss=sum(g["n"]*(g["std"]**2*(g["n"]-1)/g["n"]+(g["mean"]-mean)**2) for g in groups)
+        mu[f]=mean; sd[f]=math.sqrt(ss/n) or 1.0
+    out={"protocol":"cluster-independence-protocol-v1",
+         "prior_14":audit(prior,"prior_14",mu,sd),
          "current_28":audit(current,"current_28",mu,sd),
-         "standardization":"combined frozen population",
+         "standardization":"pooled frozen Winner+Control summary moments across prior and current snapshots",
          "claim_boundary":{"threshold_selection":"fixed pre-registered sensitivity set",
            "independence_proven":False,"predictive_validity":False,"causality":False,
            "market_generalization":False,"promotion":"BLOCKED"},
