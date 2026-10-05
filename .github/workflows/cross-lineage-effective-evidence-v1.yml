@@ -1,0 +1,84 @@
+name: HES Trade Agent — Cross-Lineage Effective Evidence v1
+on:
+  push:
+    branches: [research/cross-lineage-effective-evidence-20261005]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hes-cross-lineage-effective-evidence-v1
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OLD_RAW_BLOB_SHA: 1a44d52a0588deb765bbbea04bfb5783dcb1050b
+      OLD_RAW_SOURCE_COMMIT: b8c4fe4fa054dbfa4fca17d2f307d269c16335e1
+      CURRENT_RAW_BLOB_SHA: 58d21825e052dbaa42e7eb0695455c19997bff43
+      CURRENT_RAW_SOURCE_COMMIT: b9ebecf061dfe9a084797d77b48a2c7846d269e3
+      PROTOCOL_CONTRACT_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
+      PROTOCOL_CONTRACT_BLOB_SHA: a84dafbc09c72ac37ebbbb0706b43d23f7681e12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Materialize locked snapshots and contract
+        env: {GH_TOKEN: ${{ github.token }}}
+        run: |
+          python - <<'PY'
+          import base64,json,os,urllib.request
+          from pathlib import Path
+          repo=os.environ["GITHUB_REPOSITORY"]
+          h={"Authorization":f"Bearer {os.environ['GH_TOKEN']}","Accept":"application/vnd.github+json"}
+          def blob(sha):
+            q=urllib.request.Request(f"https://api.github.com/repos/{repo}/git/blobs/{sha}",headers=h)
+            with urllib.request.urlopen(q) as r:d=json.load(r)
+            assert d["sha"]==sha
+            return base64.b64decode(d["content"])
+          Path("/tmp/prior_trades.csv").write_bytes(blob(os.environ["OLD_RAW_BLOB_SHA"]))
+          Path("/tmp/current_trades.csv").write_bytes(blob(os.environ["CURRENT_RAW_BLOB_SHA"]))
+          Path("/tmp/protocol_reconciliation_v1_contract.json").write_bytes(blob(os.environ["PROTOCOL_CONTRACT_BLOB_SHA"]))
+          print("LOCKED_SNAPSHOTS_AND_CONTRACT_MATERIALIZED")
+          PY
+      - name: Recompute prior 1049 with frozen protocol
+        env:
+          HES_FROZEN_CSV: /tmp/prior_trades.csv
+          LOCKED_RAW_BLOB_SHA: 1a44d52a0588deb765bbbea04bfb5783dcb1050b
+          LOCKED_RAW_SOURCE_COMMIT: b8c4fe4fa054dbfa4fca17d2f307d269c16335e1
+          PROTOCOL_CONTRACT_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
+          PROTOCOL_CONTRACT_BLOB_SHA: a84dafbc09c72ac37ebbbb0706b43d23f7681e12
+          PROTOCOL_CONTRACT_PATH: /tmp/protocol_reconciliation_v1_contract.json
+        run: |
+          python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json prior_1049_protocol.json
+      - name: Recompute current 1027 with frozen protocol
+        env:
+          HES_FROZEN_CSV: /tmp/current_trades.csv
+          LOCKED_RAW_BLOB_SHA: 58d21825e052dbaa42e7eb0695455c19997bff43
+          LOCKED_RAW_SOURCE_COMMIT: b9ebecf061dfe9a084797d77b48a2c7846d269e3
+          PROTOCOL_CONTRACT_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
+          PROTOCOL_CONTRACT_BLOB_SHA: a84dafbc09c72ac37ebbbb0706b43d23f7681e12
+          PROTOCOL_CONTRACT_PATH: /tmp/protocol_reconciliation_v1_contract.json
+        run: |
+          python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json current_1027_protocol.json
+      - name: Run cross-lineage stability and effective evidence audit
+        run: python scripts/cross_lineage_effective_evidence_v1.py
+      - name: Validate fail-closed verdict
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("cross_lineage_effective_evidence_v1.json"))
+          assert d["cross_lineage"]["exact_current_winner_to_prior_survivor_matches"]==0
+          assert d["lineage_summary"]["prior_14"]["winners"]==14
+          assert d["lineage_summary"]["current_28"]["winners"]==28
+          assert d["claim_boundary"]["threshold_tuned"] is False
+          assert d["final_evidence_verdict"]["final_evidence_verdict"]=="EVIDENCE_INSUFFICIENT_FOR_PROMOTION"
+          print("CROSS_LINEAGE_EFFECTIVE_EVIDENCE_VALID")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-lineage-effective-evidence-v1
+          path: cross_lineage_effective_evidence_v1.json
+          if-no-files-found: error
