@@ -1,0 +1,38 @@
+name: HES Trade Agent — Forward OOS Lock v1
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lock-forward-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('research/forward_oos_lock_v1.md').read_text()
+          assert '2026-10-05T00:00:00+00:00' in s
+          assert 'strictly greater' in s
+          assert 'no threshold changes' in s
+          assert 'Promotion remains blocked' in s
+          print('FORWARD_OOS_BOUNDARY_LOCK_VALID')
+          PY
+      - name: Record lock metadata
+        run: |
+          cat > forward_oos_lock_receipt.json <<'JSON'
+          {
+            "status": "LOCKED",
+            "boundary_timestamp": "2026-10-05T00:00:00+00:00",
+            "eligibility": "event_timestamp strictly greater than boundary",
+            "results_inspected": false,
+            "protocol_mutation": false,
+            "promotion": "BLOCKED",
+            "live_execution": false
+          }
+          JSON
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forward-oos-lock-v1
+          path: forward_oos_lock_receipt.json
