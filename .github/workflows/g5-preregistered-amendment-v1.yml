@@ -1,0 +1,36 @@
+name: HES Trade Agent — G5 Pre-Registered Amendment Validation v1
+
+on:
+  push:
+    branches:
+      - research/g5-prereg-amendment-20261005
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Validate amendment fail-closed
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("research/g5_prereg_amendment_v1.json")
+          d = json.loads(p.read_text())
+          assert d["effective_scope"]["prospective_only"] is True
+          assert d["effective_scope"]["does_not_retroactively_close_current_g5"] is True
+          assert d["locked_protocol"] == {"train": 800, "test": 400, "step": 400, "folds": 8, "gross_threshold_bps": 14}
+          checks = d["pre_registered_g5_criterion"]["checks"]
+          assert len(checks) == 3
+          assert d["pre_registered_g5_criterion"]["decision_rule"].startswith("G5 PASS")
+          assert d["verdict"]["current_g5"] == "BLOCKED"
+          assert d["claim_boundary"]["promotion"] is False
+          assert d["claim_boundary"]["live_execution"] is False
+          print("G5_PREREGISTERED_AMENDMENT_VALID")
+          PY
+
+# validation-only touch: CI harness is also present on main; methodology unchanged
