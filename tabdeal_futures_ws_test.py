@@ -1572,39 +1572,32 @@ def main():
     try:
         synchronize_startup_data_state()
 
-    last_sequence = (
-        load_global_last_sequence()
-    )
+        last_sequence = load_global_last_sequence()
 
-    if last_sequence is not None:
+        if last_sequence is not None:
+            print(
+                f"Last saved sequence: {last_sequence}",
+                flush=True
+            )
+        else:
+            print(
+                "No previous sequence found.",
+                flush=True
+            )
 
-        print(
-            f"Last saved sequence: {last_sequence}",
-            flush=True
-        )
+        open_csv()
 
-    else:
+        try:
+            collect()
 
-        print(
-            "No previous sequence found.",
-            flush=True
-        )
+        finally:
+            if csv_file:
+                flush_csv()
 
-    open_csv()
-
-    try:
-
-        collect()
-
-    finally:
-
-        if csv_file:
-            flush_csv()
-
-        print(
-            "=== FINAL GIT CHECKPOINT ===",
-            flush=True
-        )
+            print(
+                "=== FINAL GIT CHECKPOINT ===",
+                flush=True
+            )
 
             checkpoint_ok = git_checkpoint()
 
@@ -1619,6 +1612,7 @@ def main():
                 raise RuntimeError(
                     "Final Git checkpoint failed; collected data may not be persisted to origin/main."
                 )
+
     finally:
         release_single_writer_lock()
 
