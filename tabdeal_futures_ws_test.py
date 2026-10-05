@@ -2,6 +2,7 @@ import csv
 import hashlib
 import json
 import os
+import fcntl
 import signal
 import subprocess
 import threading
@@ -75,6 +76,7 @@ CHECKPOINT_SECONDS = 20 * 60
 MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
 ARCHIVE_TXN_MARKER = os.path.join("data", ".archive_rotation.json")
+SINGLE_WRITER_LOCK_FILE = os.path.join("data", ".collector.lock")
 
 
 # ============================================================
@@ -83,7 +85,9 @@ ARCHIVE_TXN_MARKER = os.path.join("data", ".archive_rotation.json")
 
 running = True
 last_sequence = None
+last_timestamp = None
 trade_count = 0
+writer_lock_file = None
 
 # Immutable collector-session base. A checkpoint may only publish data
 # derived from the exact main snapshot used at startup.
@@ -284,7 +288,80 @@ def synchronize_startup_data_state():
     print("=== STARTUP DATA STATE SYNC COMPLETE ===", flush=True)
 
 
+def _parse_trade_timestamp(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def get_max_observation_from_file(file_path):
+    max_observation = None
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                sequence_raw = row.get("sequence")
+                if not sequence_raw:
+                    continue
+                try:
+                    sequence = int(sequence_raw)
+                except (ValueError, TypeError):
+                    continue
+                timestamp = _parse_trade_timestamp(row.get("updated"))
+                if timestamp is None:
+                    raise RuntimeError(
+                        f"Invalid observation timestamp in {file_path} for sequence {sequence}."
+                    )
+                if max_observation is None or sequence > max_observation["sequence"]:
+                    max_observation = {"sequence": sequence, "timestamp": timestamp}
+    except Exception as e:
+        raise RuntimeError(f"Error reading observation state from {file_path}: {e}") from e
+    return max_observation
+
+
+def acquire_single_writer_lock():
+    global writer_lock_file
+    os.makedirs(os.path.dirname(SINGLE_WRITER_LOCK_FILE), exist_ok=True)
+    writer_lock_file = open(SINGLE_WRITER_LOCK_FILE, "a+", encoding="utf-8")
+    try:
+        fcntl.flock(writer_lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        writer_lock_file.close()
+        writer_lock_file = None
+        raise RuntimeError(
+            "Refusing startup: another collector process already holds the single-writer lock."
+        ) from exc
+    writer_lock_file.seek(0)
+    writer_lock_file.truncate()
+    writer_lock_file.write(f"pid={os.getpid()}\n")
+    writer_lock_file.flush()
+    os.fsync(writer_lock_file.fileno())
+    print(f"=== SINGLE-WRITER LOCK ACQUIRED: {SINGLE_WRITER_LOCK_FILE} ===", flush=True)
+
+
+def release_single_writer_lock():
+    global writer_lock_file
+    if writer_lock_file is None:
+        return
+    try:
+        fcntl.flock(writer_lock_file.fileno(), fcntl.LOCK_UN)
+    finally:
+        writer_lock_file.close()
+        writer_lock_file = None
+    print("=== SINGLE-WRITER LOCK RELEASED ===", flush=True)
+
+
 def load_global_last_sequence():
+    global last_timestamp
     print(
         "=== SEQUENCE RECOVERY START ===",
         flush=True
@@ -309,6 +386,7 @@ def load_global_last_sequence():
     )
 
     archive_max = None
+    global_max_observation = None
 
     if os.path.isdir(ARCHIVE_DIR):
         for filename in os.listdir(ARCHIVE_DIR):
@@ -323,12 +401,19 @@ def load_global_last_sequence():
             file_max = get_max_sequence_from_file(
                 file_path
             )
+            file_observation = get_max_observation_from_file(file_path)
 
             if file_max is None:
                 continue
 
             if archive_max is None or file_max > archive_max:
                 archive_max = file_max
+
+            if file_observation is not None and (
+                global_max_observation is None
+                or file_observation["sequence"] > global_max_observation["sequence"]
+            ):
+                global_max_observation = file_observation
 
     print(
         f"Archive MAX sequence: {archive_max}",
@@ -344,6 +429,19 @@ def load_global_last_sequence():
         sequences.append(archive_max)
 
     global_max = max(sequences) if sequences else None
+
+    active_observation = get_max_observation_from_file(OUTPUT_FILE)
+    if active_observation is not None and (
+        global_max_observation is None
+        or active_observation["sequence"] > global_max_observation["sequence"]
+    ):
+        global_max_observation = active_observation
+
+    if global_max is not None:
+        if global_max_observation is None or global_max_observation["sequence"] != global_max:
+            raise RuntimeError("Global maximum sequence has no verified timestamp boundary.")
+        last_timestamp = global_max_observation["timestamp"]
+        print(f"GLOBAL MAX timestamp: {last_timestamp.isoformat()}", flush=True)
 
     print(
         f"GLOBAL MAX sequence: {global_max}",
@@ -1061,6 +1159,7 @@ def maybe_checkpoint():
 
 def save_trade(trade):
     global last_sequence
+    global last_timestamp
     global trade_count
     global active_rows
 
@@ -1088,6 +1187,19 @@ def save_trade(trade):
     ):
         return
 
+    timestamp = _parse_trade_timestamp(trade.get("updated"))
+    if timestamp is None:
+        print("REJECTED TRADE: invalid or missing updated timestamp", flush=True)
+        return
+
+    if last_timestamp is not None and timestamp <= last_timestamp:
+        print(
+            "REJECTED TRADE: timestamp boundary violation "
+            f"(incoming={timestamp.isoformat()}, last={last_timestamp.isoformat()})",
+            flush=True,
+        )
+        return
+
     # Keep active CSV below the maximum.
     if active_rows >= MAX_ACTIVE_ROWS:
 
@@ -1113,6 +1225,7 @@ def save_trade(trade):
     flush_csv()
 
     last_sequence = sequence
+    last_timestamp = timestamp
     trade_count += 1
     active_rows += 1
 
@@ -1454,7 +1567,10 @@ def collect():
 def main():
     global last_sequence
 
-    synchronize_startup_data_state()
+    acquire_single_writer_lock()
+
+    try:
+        synchronize_startup_data_state()
 
     last_sequence = (
         load_global_last_sequence()
@@ -1490,19 +1606,21 @@ def main():
             flush=True
         )
 
-        checkpoint_ok = git_checkpoint()
+            checkpoint_ok = git_checkpoint()
 
-        close_csv()
+            close_csv()
 
-        print(
-            "=== CSV CLOSED SAFELY ===",
-            flush=True
-        )
-
-        if not checkpoint_ok:
-            raise RuntimeError(
-                "Final Git checkpoint failed; collected data may not be persisted to origin/main."
+            print(
+                "=== CSV CLOSED SAFELY ===",
+                flush=True
             )
+
+            if not checkpoint_ok:
+                raise RuntimeError(
+                    "Final Git checkpoint failed; collected data may not be persisted to origin/main."
+                )
+    finally:
+        release_single_writer_lock()
 
 
 if __name__ == "__main__":
