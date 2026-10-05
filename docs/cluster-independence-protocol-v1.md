@@ -1,32 +1,33 @@
 # Cluster / Independence Protocol v1 — PRE-REGISTERED
 Status: research-only, fail-closed.
-Purpose: estimate dependence without outcome-driven tuning.
+
+## Purpose
+Estimate dependence/concentration among the locked Winner observations without outcome-driven tuning.
 
 ## Locked metric
-Use standardized Euclidean distance across the five locked numeric features:
+Standardized Euclidean distance across the five locked numeric features:
 ema_distance_pct, vwap_distance_pct, buy_ratio, buy_sell_delta, trade_count.
 
-Standardization parameters MUST be computed from the frozen combined Winner+Control population before any cluster labels are inspected.
+Standardization parameters are reconstructed from the frozen Winner+Control summary statistics already emitted by the locked protocol snapshot. Individual Control rows are not present in that snapshot artifact, so v1 does not claim Winner/Control cluster overlap.
 
 ## Locked thresholds
-Do not choose thresholds from observed cluster sizes. Report sensitivity at exactly:
-0.5, 1.0, 1.5, 2.0 standardized-distance units.
+Sensitivity is reported at exactly: 0.5, 1.0, 1.5, 2.0 standardized-distance units.
+No threshold is selected as the winner.
 
 ## Cluster rule
-Two observations are connected when distance <= threshold. Clusters are connected components of this graph.
+Two Winner observations are connected when distance <= threshold. Clusters are connected components of this graph.
 
 ## Independence reporting
 For each threshold report:
 - number of Winner clusters
 - largest Winner cluster
-- effective cluster count = sum(cluster sizes^2)^-1 scaled by N^2 (inverse concentration)
-- Winner/Control cluster overlap descriptive only
-- fold concentration inside clusters
-- direction and regime concentration inside clusters
+- effective Winner cluster count = N^2 / sum(cluster_size^2)
+- cluster size distribution
+- descriptive concentration only
 
-No threshold may be promoted as "the" threshold.
+Direction, regime, and fold concentration remain separate audits; v1 does not combine them into a post-hoc clustering threshold.
 
 ## Claim boundary
-This is a dependence diagnostic, NOT proof of statistical independence, predictive validity, causality, or market generalization.
+This is a dependence/concentration diagnostic, NOT proof of statistical independence, predictive validity, causality, or market generalization.
 No data deletion, selection, tuning, or promotion is permitted.
 Final promotion remains blocked.
