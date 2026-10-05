@@ -1,0 +1,38 @@
+{
+  "artifact": "N+1-STARTUP-CONTRACT",
+  "version": 1,
+  "status": "READY_BUT_NOT_STARTED",
+  "predecessor_run": 196,
+  "predecessor_final_checkpoint": "f396de84cb7f4c6b16e81effc91b653e26049ab4",
+  "predecessor_final_sequence": 40373844351,
+  "predecessor_final_timestamp": "2026-10-05T01:35:53.626Z",
+  "predecessor_data_blob_sha1": "40cb5c00d073e9fb4805b823c59a309a23c8da43",
+  "preflight": {
+    "data_worktree": "clean for tracked data/trades.csv and data/archive",
+    "local_data_blob_matches_HEAD": true,
+    "collector_service": "disabled/inactive/dead",
+    "main_pid": 0,
+    "legacy_github_workflow": "absent from main",
+    "active_collector_process": "not authorized to start before this contract passes"
+  },
+  "start_requirements": [
+    "Exactly one authorized collector writer",
+    "No active legacy GitHub collector",
+    "service must be intentionally enabled/started as the sole writer",
+    "startup must recover GLOBAL MAX sequence from active+archive",
+    "first N+1 sequence must be strictly greater than 40373844351",
+    "first N+1 timestamp must be strictly greater than 2026-10-05T01:35:53.626Z",
+    "first N+1 observation must not equal any N observation",
+    "checkpoint must preserve parent lineage to the N+1 startup state",
+    "no concurrent writer or duplicate startup may exist"
+  ],
+  "failure_conditions": [
+    "sequence <= 40373844351",
+    "timestamp <= 2026-10-05T01:35:53.626Z",
+    "duplicate observation identity",
+    "more than one writer",
+    "legacy GitHub workflow execution",
+    "startup lineage not traceable to f396de8"
+  ],
+  "decision": "DO NOT START N+1 until every requirement is explicitly verified."
+}
