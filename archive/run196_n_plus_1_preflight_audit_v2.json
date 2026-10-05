@@ -1,0 +1,35 @@
+{
+  "artifact": "run196_n_plus_1_preflight_audit_v2.json",
+  "generated_at": "2026-10-05T11:00:00Z",
+  "predecessor_run": 196,
+  "predecessor_final": {
+    "sequence": 40373844351,
+    "timestamp": "2026-10-05T01:35:53.626000+00:00"
+  },
+  "code_commit": "f93672134d855d6d9333d9068b247544ea79ac97",
+  "guards": {
+    "global_sequence_recovery": "PASS",
+    "strict_timestamp_boundary": "PASS",
+    "single_writer_os_lock": "PASS",
+    "remote_main_lineage_guard": "PASS",
+    "checkpoint_fail_closed": "PASS"
+  },
+  "live_vps_preflight": {
+    "global_max_sequence": 40373844351,
+    "global_max_timestamp": "2026-10-05T01:35:53.626000+00:00",
+    "archive_count": 15,
+    "timestamp_parse": "PASS",
+    "boundary_match": "PASS",
+    "collector_service_enabled": false,
+    "collector_service_active": false,
+    "production_data_modified": false
+  },
+  "no_write_tests": {
+    "equal_timestamp_rejected": true,
+    "higher_sequence_and_timestamp_accepted": true,
+    "second_writer_rejected": true,
+    "result": "PASS"
+  },
+  "decision": "GUARDS_HARDENED_PRESTART_READY",
+  "next_gate": "enable/start N+1 only after explicit startup authorization"
+}
