@@ -1,0 +1,51 @@
+name: HES Trade Agent — Backtest Cost & Slippage Boundary
+
+on:
+  push:
+    branches:
+      - backtest-cost-slippage-boundary-v1
+      - contrast-audit-14-vs-1035-v1
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  cost-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - run: python -m pytest -q tests/backtest/test_costs.py tests/backtest/test_cost_matrix.py tests/backtest/test_oos_protocol.py tests/backtest/test_oos_cost_matrix.py tests/backtest/test_engine.py
+      - name: Run real-data 8-fold OOS cost matrix
+        run: python scripts/run_real_oos_cost_matrix.py --csv data/trades.csv --output oos_cost_matrix_evidence.json
+      - name: Run 14-vs-1035 contrast audit
+        run: python scripts/contrast_audit_14_vs_1035.py
+      - name: Reconcile 14-vs-1035 evidence
+        run: python scripts/build_14_vs_1035_evidence.py
+      - name: Upload contrast audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: 14-vs-1035-contrast-audit
+          path: |
+            14_vs_1035_contrast_audit.json
+            14_vs_1035_winners.csv
+          if-no-files-found: error
+      - name: Upload OOS evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-btcusdt-oos-cost-matrix-evidence
+          path: oos_cost_matrix_evidence.json
+          if-no-files-found: error
+      - name: Upload reconciled evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: 14-vs-1035-reconciled-evidence
+          path: 14_vs_1035_evidence.json
+          if-no-files-found: error
