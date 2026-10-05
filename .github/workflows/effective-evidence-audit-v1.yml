@@ -1,24 +1,36 @@
 name: HES Trade Agent — Effective Evidence Audit v1
 on:
-  push:
-    branches: [main, research/effective-evidence-execution-integration-20261005]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - HES Trade Agent — Concentration Sensitivity Audit v1
+    types: [completed]
 permissions:
   contents: read
+  actions: read
 jobs:
   audit:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Verify prerequisite artifact source
+      - name: Download locked prerequisite artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: concentration-sensitivity-audit-v1
+          path: ${{ runner.temp }}/concentration-artifact
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Materialize prerequisite artifact
         run: |
-          test -f concentration_sensitivity_audit_v1.json && echo "PREREQUISITE_ARTIFACT_PRESENT" || echo "PREREQUISITE_ARTIFACT_ABSENT"
-      - run: python scripts/effective_evidence_audit_v1.py
+          test -f "${{ runner.temp }}/concentration-artifact/concentration_sensitivity_audit_v1.json"
+          cp "${{ runner.temp }}/concentration-artifact/concentration_sensitivity_audit_v1.json" .
+      - name: Run Effective Evidence audit
+        run: python scripts/effective_evidence_audit_v1.py
       - name: Validate fail-closed boundary
         run: |
           python - <<'PY'
