@@ -1,0 +1,34 @@
+{
+  "status": "G6_BLOCKED_FAIL_CLOSED",
+  "source_commit": "f396de84cb7f4c6b16e81effc91b653e26049ab4",
+  "source_path": "data/trades.csv",
+  "source_sha256": "c5dbd78fe8aade258c28f1254f0a399051ab32d3b026e246ff36285dd020de87",
+  "boundary_timestamp": "2026-10-05T00:00:00+00:00",
+  "first_forward_trade_timestamp": "2026-10-05T00:00:01.305Z",
+  "last_forward_trade_timestamp": "2026-10-05T01:35:53.626Z",
+  "forward_trade_rows": 2474,
+  "locked_protocol": {
+    "train_observations": 800,
+    "test_observations": 400,
+    "step_observations": 400,
+    "folds": 8,
+    "gross_threshold_bps": 14,
+    "required_observations_for_8_folds": 3600
+  },
+  "forward_pipeline_timeframe_seconds": 60,
+  "maximum_possible_one_minute_observations_in_forward_window": 96,
+  "capacity_check": {
+    "required": 3600,
+    "upper_bound": 96,
+    "sufficient": false
+  },
+  "outcomes_inspected": false,
+  "threshold_tuned": false,
+  "winner_reselected": false,
+  "records_deleted": false,
+  "protocol_mutation": false,
+  "live_execution": false,
+  "promotion": "BLOCKED",
+  "verdict": "The frozen forward window is less than 96 minutes and the locked real-data pipeline produces at most one observation per minute. Therefore the 8-fold 800/400/400 protocol cannot be instantiated on this forward window. The evaluator must fail closed; no outcome-based forward verdict may be claimed.",
+  "next_required_condition": "A future immutable forward source window must contain at least 3600 valid chronological one-minute observations before the same locked protocol can be evaluated."
+}
