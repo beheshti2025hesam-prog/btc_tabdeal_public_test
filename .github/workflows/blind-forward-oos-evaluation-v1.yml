@@ -1,5 +1,8 @@
 name: Blind Forward OOS Evaluation v1
 on:
+  push:
+    branches:
+      - main
   pull_request:
     paths:
       - "scripts/blind_forward_evaluation_v1.py"
