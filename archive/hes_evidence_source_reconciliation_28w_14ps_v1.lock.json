@@ -1,0 +1,21 @@
+{
+  "artifact": "HES-EVIDENCE-SOURCE-RECONCILIATION-28W-14PS",
+  "artifact_path": "archive/hes_evidence_source_reconciliation_28w_14ps_v1.json",
+  "artifact_blob_sha": "1e69af8f57abe4b32fe04e72ffc4f5712876ce4b",
+  "artifact_commit": "75690df1b4835db6ea9c9e084b3ff9e394ea4001",
+  "branch": "research/immutable-source-28w-14s-20261005",
+  "source_blobs": {
+    "prior": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "current": "58d21825e052dbaa42e7eb0695455c19997bff43"
+  },
+  "source_commits": {
+    "prior": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "current": "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
+  },
+  "protocol_contract": {
+    "source_commit": "e5f85f06b19b8427f761b95ab56ad15ccd7053c0",
+    "blob_sha": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
+  },
+  "lock_policy": "Do not edit, regenerate, relabel, or replace the artifact content. Any later analysis must consume this exact blob SHA and source snapshot SHAs. Feature extraction is downstream and must not modify this artifact.",
+  "status": "LOCKED_FOR_DOWNSTREAM_FEATURE_EXTRACTION"
+}
