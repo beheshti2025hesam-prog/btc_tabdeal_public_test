@@ -114,14 +114,21 @@ def main():
       }
     }
     Path("direction_regime_fold_stability_v1.json").write_text(json.dumps(result,indent=2)+"\n")
+    def compact(x):
+        return {
+          "fold_counts":{k:v["n"] for k,v in x["fold"].items()},
+          "fold_gross":{k:v["gross_sum"] for k,v in x["fold"].items()},
+          "direction_counts":{k:v["n"] for k,v in x["direction"].items()},
+          "direction_gross":{k:v["gross_sum"] for k,v in x["direction"].items()},
+          "regime_counts":{k:v["n"] for k,v in x["regime"].items()},
+          "regime_gross":{k:v["gross_sum"] for k,v in x["regime"].items()},
+          "lofo_remaining_gross":{k:v["remaining_gross_sum"] for k,v in x["lofo_fold"].items()}
+        }
     print(json.dumps({
       "prior_winners":14,"current_winners":28,
-      "prior_folds_with_winners":pa["coverage"]["folds_with_winners"],
-      "current_folds_with_winners":ca["coverage"]["folds_with_winners"],
-      "prior_directions":pa["coverage"]["directions_present"],
-      "current_directions":ca["coverage"]["directions_present"],
-      "prior_regimes":pa["coverage"]["regimes_present"],
-      "current_regimes":ca["coverage"]["regimes_present"],
+      "prior":compact(pa),"current":compact(ca),
+      "cross_lineage_direction":result["cross_lineage_stability"]["direction"],
+      "cross_lineage_regime":result["cross_lineage_stability"]["regime"],
       "promotion":"BLOCKED"
     },indent=2))
 
