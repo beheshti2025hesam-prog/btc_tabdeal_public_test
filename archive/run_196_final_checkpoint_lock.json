@@ -37,9 +37,15 @@
     "first_saved_sequence": 40335229818,
     "active_rows_at_start": 104760,
     "archive_max_at_start": 39619945895,
-    "data_state": "local handoff data preserved; no restore over newer VPS data"
+    "data_state": "local handoff data preserved; no restore over newer VPS data",
+    "first_checkpoint_parent": "c6979a91bdbef998a1b09693b34f61c39b5bba95"
   },
   "checkpoint_chain": [
+    {
+      "commit": "c3c668d7e65421b29c27064bb590e15d1a67de96",
+      "end_utc": "2026-10-04T22:27:36.021Z",
+      "end_sequence": 40338933104
+    },
     {
       "commit": "7fa588c3ebe88d6fa8f79fd4b9f1ed749aa8f07d",
       "end_utc": "2026-10-04T22:47:47.456Z",
@@ -95,6 +101,11 @@
     "rule": "N final row must precede N+1 first row by timestamp and physical sequence identity; equality/overlap is a failure.",
     "verified_pairs": [
       [
+        "c3c668d7",
+        "7fa588c3",
+        1.083
+      ],
+      [
         "7fa588c3",
         "cddf8d8e",
         2.079
@@ -140,7 +151,7 @@
         4.397
       ]
     ],
-    "note": "Sequence IDs are exchange identities, not required to be numerically contiguous; reconciliation uses ordered identity plus timestamp, not arithmetic contiguity."
+    "note": "Sequence IDs are exchange identities, not required to be numerically contiguous; reconciliation uses ordered identity plus timestamp, not arithmetic contiguity. c3c668d7→7fa588c3 was additionally reconstructed from the immutable Git tree (tail of data/trades.csv), yielding 1.083s boundary separation."
   },
   "writer_attribution": {
     "durable_sources": [
