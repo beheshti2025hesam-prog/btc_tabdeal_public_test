@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - research/cluster-independence-audit-20261005
+      - main
   pull_request:
     branches: [main]
   workflow_dispatch:
