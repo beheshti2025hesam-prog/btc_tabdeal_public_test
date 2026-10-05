@@ -23,10 +23,7 @@ jobs:
           d = json.loads(p.read_text())
           assert d["effective_scope"]["prospective_only"] is True
           assert d["effective_scope"]["does_not_retroactively_close_current_g5"] is True
-          assert d["locked_protocol"] == {
-              "train": 800, "test": 400, "step": 400,
-              "folds": 8, "gross_threshold_bps": 14
-          }
+          assert d["locked_protocol"] == {"train": 800, "test": 400, "step": 400, "folds": 8, "gross_threshold_bps": 14}
           checks = d["pre_registered_g5_criterion"]["checks"]
           assert len(checks) == 3
           assert d["pre_registered_g5_criterion"]["decision_rule"].startswith("G5 PASS")
