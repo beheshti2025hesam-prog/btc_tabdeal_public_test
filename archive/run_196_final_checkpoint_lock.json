@@ -1,0 +1,160 @@
+{
+  "artifact": "RUN-196-FINAL-CHECKPOINT-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "run_id": 196,
+  "market": "Tabdeal BTC_USDT Futures",
+  "role": "Legacy GitHub -> VPS handoff",
+  "generated_at": "2026-10-05T05:43:00+03:30",
+  "github": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "branch": "main",
+    "collector_workflow": "retired",
+    "workflow_retirement_commit": "c3c362e5de420e55a911f6a63845395165b895d7",
+    "final_data_commit": "f396de84cb7f4c6b16e81effc91b653e26049ab4",
+    "final_data_parent": "791d9baa8355021eb6b78cf2163f00420c248d3d",
+    "final_data_commit_message": "Checkpoint Tabdeal BTC_USDT trades"
+  },
+  "natural_completion": {
+    "service": "hes-trade-agent-collector.service",
+    "pid": 59572,
+    "start_utc": "2026-10-04T22:07:35Z",
+    "first_saved_trade_utc": "2026-10-04T22:07:47.022Z",
+    "stop_signal_utc": "2026-10-05T01:35:55Z",
+    "final_checkpoint_start_utc": "2026-10-05T01:36:04Z",
+    "final_push_success_utc": "2026-10-05T01:36:13Z",
+    "csv_closed_utc": "2026-10-05T01:36:13Z",
+    "exit_status": 0,
+    "total_trades_collected": 5806,
+    "final_row": {
+      "updated_utc": "2026-10-05T01:35:53.626Z",
+      "sequence": 40373844351
+    }
+  },
+  "startup_lineage": {
+    "startup_base_sha": "c6979a91bdbef998a1b09693b34f61c39b5bba95",
+    "active_max_before_run": 40329260383,
+    "first_saved_sequence": 40335229818,
+    "active_rows_at_start": 104760,
+    "archive_max_at_start": 39619945895,
+    "data_state": "local handoff data preserved; no restore over newer VPS data"
+  },
+  "checkpoint_chain": [
+    {
+      "commit": "7fa588c3ebe88d6fa8f79fd4b9f1ed749aa8f07d",
+      "end_utc": "2026-10-04T22:47:47.456Z",
+      "end_sequence": 40342680531
+    },
+    {
+      "commit": "cddf8d8e8a7921de76ead658b6e4b860d5d7ad2d",
+      "end_utc": "2026-10-04T23:07:58.379Z",
+      "end_sequence": 40346411112
+    },
+    {
+      "commit": "061ef8cd6266780be572ccdd473c0d11b2637fab",
+      "end_utc": "2026-10-04T23:28:07.894Z",
+      "end_sequence": 40350124041
+    },
+    {
+      "commit": "0aa1f94ba6acfed5eb111bf4149d4d543280d4df",
+      "end_utc": "2026-10-04T23:48:17.266Z",
+      "end_sequence": 40353857792
+    },
+    {
+      "commit": "277377da8e34228c8eeb9bb00bc458b8b949ab08",
+      "end_utc": "2026-10-05T00:08:31.299Z",
+      "end_sequence": 40357608437
+    },
+    {
+      "commit": "618b06224f23d85a830606e480370c014d0e4a95",
+      "end_utc": "2026-10-05T00:28:42.302Z",
+      "end_sequence": 40361359097
+    },
+    {
+      "commit": "a35fc9d765add4ad0ce71677f2a971b7b04fb6a6",
+      "end_utc": "2026-10-05T00:48:58.915Z",
+      "end_sequence": 40365129270
+    },
+    {
+      "commit": "aeee8d787883b56f17838470e33c8568ac9d8af9",
+      "end_utc": "2026-10-05T01:09:08.986Z",
+      "end_sequence": 40368884190
+    },
+    {
+      "commit": "791d9baa8355021eb6b78cf2163f00420c248d3d",
+      "end_utc": "2026-10-05T01:29:19.017Z",
+      "end_sequence": 40372610597
+    },
+    {
+      "commit": "f396de84cb7f4c6b16e81effc91b653e26049ab4",
+      "end_utc": "2026-10-05T01:35:53.626Z",
+      "end_sequence": 40373844351
+    }
+  ],
+  "n_n1_reconciliation": {
+    "rule": "N final row must precede N+1 first row by timestamp and physical sequence identity; equality/overlap is a failure.",
+    "verified_pairs": [
+      [
+        "7fa588c3",
+        "cddf8d8e",
+        2.079
+      ],
+      [
+        "cddf8d8e",
+        "061ef8cd",
+        5.683
+      ],
+      [
+        "061ef8cd",
+        "0aa1f94b",
+        2.178
+      ],
+      [
+        "0aa1f94b",
+        "277377da",
+        3.864
+      ],
+      [
+        "277377da",
+        "618b0622",
+        2.05
+      ],
+      [
+        "618b0622",
+        "a35fc9d7",
+        1
+      ],
+      [
+        "a35fc9d7",
+        "aeee8d78",
+        1.945
+      ],
+      [
+        "aeee8d78",
+        "791d9baa",
+        2.065
+      ],
+      [
+        "791d9baa",
+        "f396de84",
+        4.397
+      ]
+    ],
+    "note": "Sequence IDs are exchange identities, not required to be numerically contiguous; reconciliation uses ordered identity plus timestamp, not arithmetic contiguity."
+  },
+  "writer_attribution": {
+    "durable_sources": [
+      "GitHub commit DAG and commit metadata",
+      "GitHub repository main ref",
+      "Final checkpoint commit f396de84",
+      "VPS systemd service state captured at handoff"
+    ],
+    "journal_dependency": "not required for the durable artifact after this lock",
+    "attribution": "Run #196 data writer was the VPS systemd collector process (PID 59572); checkpoint objects were created by that process and pushed to GitHub. GitHub records the resulting checkpoint commits independently of current Journal retention."
+  },
+  "safety_lock": {
+    "github_collector_execution": "disabled by retirement of .github/workflows/run.yml",
+    "vps_collector_service": "disabled and inactive after Run #196",
+    "no_new_collector_run_authorized_by_this_lock": true
+  }
+}
