@@ -42,13 +42,13 @@
     {
       "id": "G5_FOLD_LOFO_STABILITY",
       "requirement": "Performance must not depend materially on a single fold; fixed LOFO and top-fold exclusion stress must remain acceptable under a pre-registered criterion.",
-      "current_state": "INCOMPLETE",
+      "current_state": "PREREGISTERED_EVALUATION_PENDING",
       "promotion_blocking": true
     },
     {
       "id": "G6_OUT_OF_SAMPLE_FORWARD_EVIDENCE",
-      "requirement": "A genuinely forward, untouched evaluation period must be defined before inspection and then evaluated without threshold/winner changes.",
-      "current_state": "NOT_STARTED",
+      "requirement": "A genuinely forward, untouched evaluation period must be defined before inspection and then evaluated without threshold/winner changes; the locked evaluator has executed, but the current frozen source contains insufficient forward observations for the 8-fold protocol.",
+      "current_state": "BLOCKED_INSUFFICIENT_FORWARD_OBSERVATIONS",
       "promotion_blocking": true
     },
     {
