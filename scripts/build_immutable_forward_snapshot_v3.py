@@ -19,11 +19,21 @@ from core.data_engine.normalizer import RawDataNormalizer
 SOURCE_PATH="data/trades.csv"
 BOUNDARY=datetime.fromisoformat("2026-10-05T00:00:00+00:00")
 REQUIRED=3600
+WRITER_PROVENANCE_PATH="archive/run196_reconciliation_closure.json"
 
 def main():
     commit=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
     raw=subprocess.check_output(["git","show",f"{commit}:{SOURCE_PATH}"])
     sha=hashlib.sha256(raw).hexdigest()
+
+    # Provenance guard: the historical closure artifact is the durable source
+    # for the retired-writer handoff. It does NOT prove that the current/future
+    # forward rows have one writer, so this builder remains fail-closed until
+    # a durable N+1 writer-attribution artifact exists for the snapshot source.
+    provenance_exists = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}:{WRITER_PROVENANCE_PATH}"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    ).returncode == 0
 
     with tempfile.NamedTemporaryFile(suffix=".csv",delete=False) as f:
         f.write(raw); path=f.name
@@ -56,8 +66,17 @@ def main():
     ts=[o.timestamp for o in forward]
     strict_obs=all(a<b for a,b in zip(ts,ts[1:]))
     obs_unique=len(set(ts))==len(ts)
+    # The real pipeline reports continuity exclusions, but the historical
+    # lock requires an explicit gap/continuity check and durable single-writer
+    # lineage before an immutable forward lock. Presence of the Run #196
+    # closure is only a predecessor/handoff proof, never a substitute for
+    # current N+1 writer attribution.
+    continuity_ok = full.continuity_excluded == 0
+    single_writer_lineage_verified = False
     ready=(len(forward)>=REQUIRED and source_ts_order and source_seq_order
-           and ts_unique and seq_unique and strict_obs and obs_unique and invalid==0)
+           and ts_unique and seq_unique and strict_obs and obs_unique
+           and invalid==0 and continuity_ok and provenance_exists
+           and single_writer_lineage_verified)
 
     result={
       "artifact":"immutable_forward_snapshot_candidate_v3",
@@ -73,10 +92,16 @@ def main():
       "forward_observation_timestamp_strictly_increasing":strict_obs,
       "forward_observation_timestamp_unique":obs_unique,
       "continuity_excluded":full.continuity_excluded,
+      "continuity_policy":"FAIL_CLOSED_REQUIRES_ZERO_EXCLUDED_BOUNDARIES",
+      "continuity_check_passed":continuity_ok,
+      "writer_provenance_artifact":WRITER_PROVENANCE_PATH,
+      "writer_provenance_artifact_present":provenance_exists,
+      "single_writer_lineage_verified":single_writer_lineage_verified,
+      "single_writer_lineage_status":"BLOCKED_PENDING_DURABLE_N_PLUS_1_ATTRIBUTION",
       "outcomes_inspected":False,"threshold_tuned":False,"winner_reselected":False,
       "records_deleted":False,"protocol_mutation":False,"live_execution":False,
       "promotion":"BLOCKED",
-      "verdict":"CAPACITY_REACHED_PENDING_INDEPENDENT_VALIDATION" if ready else "ACCUMULATING_OR_INTEGRITY_BLOCKED"
+      "verdict":"CAPACITY_REACHED_PENDING_INDEPENDENT_VALIDATION" if ready else "ACCUMULATING_OR_INTEGRITY_OR_PROVENANCE_BLOCKED"
     }
     Path("immutable_forward_snapshot_candidate_v3.json").write_text(json.dumps(result,indent=2)+"\n",encoding="utf-8")
     print(json.dumps(result,indent=2))
