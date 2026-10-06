@@ -1,0 +1,19 @@
+{
+  "lock_id": "VPS-GITHUB-ARCHIVE-IDENTITY-RECONCILIATION-V1-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "artifact_path": "archive/vps_github_archive_identity_reconciliation_v1.json",
+  "artifact_commit": "6beb42d60ee51541aa6e4890697cd4c95d9de41c",
+  "artifact_git_blob_sha1": "3909270fa563907a67fd36ff390bacdc28cfdf2a",
+  "artifact_sha256": "70769072e959e19e3a6e71f93f0667cc6800145ea61733034bbef3ab3447352b",
+  "locked_at": "2026-10-06T07:52:41.027Z",
+  "lock_basis": [
+    "VPS raw-byte Git blob SHA-1 equality for all 16 archives",
+    "GitHub main commit tree inclusion",
+    "VPS SHA-256 recorded per archive",
+    "0 duplicate rows",
+    "0 sequence regressions",
+    "0 adjacent sequence intersections"
+  ],
+  "mutation_scope": "No source data, winners, thresholds, tuning, or records were modified."
+}
