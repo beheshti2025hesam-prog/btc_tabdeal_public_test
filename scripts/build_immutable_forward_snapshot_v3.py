@@ -90,7 +90,7 @@ def main():
     # lineage before an immutable forward lock. Presence of the Run #196
     # closure is only a predecessor/handoff proof, never a substitute for
     # current N+1 writer attribution.
-    continuity_ok = full.continuity_excluded == 0
+    continuity_ok = continuity_excluded == 0
     single_writer_lineage_verified = False
     ready=(len(forward)>=REQUIRED and source_ts_order and source_seq_order
            and ts_unique and seq_unique and strict_obs and obs_unique
