@@ -1,0 +1,9 @@
+{
+  "lock_id": "HES-CLUSTER-INDEPENDENCE-AUDIT-V1-LOCK",
+  "status": "LOCKED",
+  "artifact_path": "evidence/cluster_independence_audit_v1_immutable.json",
+  "artifact_commit": "aa31402c4acdb7b3dd207d9690dea45c62f77f9b",
+  "artifact_sha256": "5e2f57ee2aa4bcf026f95a2db2cfe9db225a4ded727492169eccab925eb5cc7e",
+  "lock_basis": "Raw-byte SHA-256 of the immutable cluster audit artifact; artifact is present in GitHub main.",
+  "mutation_scope": "No Winner reselection, threshold change, tuning, deletion, promotion, or live execution."
+}
