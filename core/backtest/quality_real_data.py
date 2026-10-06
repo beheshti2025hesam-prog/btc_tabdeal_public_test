@@ -54,7 +54,8 @@ class QualityRealDataBacktest:
         valid, total, invalid = [], 0, 0
         for row in reader.read_all():
             total += 1
-            if validator.validate_row(row):
+            errors = validator.validate_row(row)
+            if errors:
                 invalid += 1
                 continue
             valid.append(normalizer.normalize_row(row))
