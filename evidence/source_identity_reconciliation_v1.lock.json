@@ -1,0 +1,33 @@
+{
+  "status": "SOURCE_IDENTITY_RECONCILIATION_HASH_LOCKED",
+  "artifact_path": "evidence/source_identity_reconciliation_v1.json",
+  "artifact_sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
+  "artifact_bytes": 17937,
+  "record_count": 42,
+  "prior_record_count": 14,
+  "current_record_count": 28,
+  "exact_record_key_matches": 0,
+  "source_refs": {
+    "prior": {
+      "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+      "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+    },
+    "current": {
+      "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+      "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43"
+    },
+    "protocol_contract": {
+      "source_commit": "e5f85f06b19b8427f761b95ab56ad15ccd7053c0",
+      "blob_sha": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
+    }
+  },
+  "safety": {
+    "feature_extraction_performed": false,
+    "effective_evidence_performed": false,
+    "threshold_changed": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "promotion": false,
+    "live_execution": false
+  }
+}
