@@ -1,0 +1,10 @@
+{
+  "lock_id": "HES-RECORD-IDENTITY-LINEAGE-CLOSURE-V1-LOCK",
+  "status": "LOCKED",
+  "artifact_path": "evidence/record_identity_lineage_closure_v1.json",
+  "artifact_commit": "01ce021b9545ace1ea32dd3a71ac37ea7787bc93",
+  "artifact_sha256": "3b76f2d477166b59a8c4f09274ad0427731955a51efcee727d4eca2fa7d409f8",
+  "artifact_bytes": 3016,
+  "lock_basis": "Raw-byte SHA-256 of the immutable closure artifact; artifact is present in GitHub main tree.",
+  "mutation_scope": "No source data, Winner selection, thresholds, tuning, records, or downstream evidence metrics modified."
+}
