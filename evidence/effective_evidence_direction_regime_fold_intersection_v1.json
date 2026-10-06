@@ -1,0 +1,123 @@
+{
+  "artifact_id": "HES-EFFECTIVE-EVIDENCE-DIRECTION-REGIME-FOLD-INTERSECTION-V1",
+  "version": 1,
+  "status": "CLOSED_FOR_EVIDENCE_GATE",
+  "generated_at": "2026-10-06T18:25:00Z",
+  "inputs": {
+    "record_identity_lineage_closure": "evidence/record_identity_lineage_closure_v1.json",
+    "cluster_fold_direction_regime_closure": "evidence/cluster_fold_direction_regime_closure_v1.json",
+    "cluster_closure_status": "LOCKED",
+    "populations": {
+      "prior_survivor": 14,
+      "current_winner": 28,
+      "nominal_total": 42
+    },
+    "thresholds": [
+      0.5,
+      1,
+      1.5,
+      2
+    ]
+  },
+  "effective_evidence": {
+    "protocol": "N² / sum(cluster_size²) using fixed pre-registered cluster thresholds",
+    "prior_14": {
+      "0.5": 14,
+      "1.0": 12.25,
+      "1.5": 6.533333333333333,
+      "2.0": 2.227272727272727
+    },
+    "current_28": {
+      "0.5": 28,
+      "1.0": 10.88888888888889,
+      "1.5": 3.6296296296296298,
+      "2.0": 1.7422222222222221
+    },
+    "conservative_minimum": {
+      "prior_14": 2.227272727272727,
+      "current_28": 1.7422222222222221,
+      "combined_proxy": 3.9694949494949494
+    },
+    "interpretation": "Dependence-adjusted effective-cluster evidence proxy; not a statistical ESS estimator."
+  },
+  "direction_regime_fold_intersection": {
+    "source_threshold": "2.0 (same locked assignment closure; fold/direction/regime membership is invariant across clustering thresholds)",
+    "nonzero_cells": 12,
+    "cells": {
+      "fold=0|direction=SHORT|regime=range": 2,
+      "fold=1|direction=LONG|regime=range": 3,
+      "fold=2|direction=SHORT|regime=range": 4,
+      "fold=3|direction=LONG|regime=uptrend": 2,
+      "fold=3|direction=SHORT|regime=uptrend": 6,
+      "fold=0|direction=LONG|regime=range": 1,
+      "fold=1|direction=LONG|regime=uptrend": 5,
+      "fold=1|direction=SHORT|regime=uptrend": 9,
+      "fold=5|direction=LONG|regime=range": 4,
+      "fold=5|direction=SHORT|regime=range": 1,
+      "fold=6|direction=LONG|regime=range": 2,
+      "fold=7|direction=LONG|regime=range": 3
+    },
+    "fold_coverage": {
+      "0": 3,
+      "1": 17,
+      "2": 4,
+      "3": 8,
+      "5": 5,
+      "6": 2,
+      "7": 3
+    },
+    "folds_with_records": [
+      0,
+      1,
+      2,
+      3,
+      5,
+      6,
+      7
+    ],
+    "fold_coverage_count": 7,
+    "fold_coverage_of_8": 0.875,
+    "missing_folds": [
+      4
+    ],
+    "direction_totals": {
+      "SHORT": 22,
+      "LONG": 20
+    },
+    "regime_totals": {
+      "range": 20,
+      "uptrend": 22
+    },
+    "all_direction_regime_quadrants_present": true
+  },
+  "sensitivity_conclusion": {
+    "max_direction_regime_fold_cell": 9,
+    "max_cell_share": 0.21428571428571427,
+    "concentration_warning": true,
+    "interpretation": "The intersection is descriptively covered but materially concentrated: one locked cell contains 9/42 records, and fold 4 has no Winner/Survivor record."
+  },
+  "evidence_gate": {
+    "lineage_closed": true,
+    "cluster_closure_locked": true,
+    "effective_evidence_computed": true,
+    "nominal_n": 42,
+    "conservative_effective_evidence_proxy": 3.9694949494949494,
+    "direction_regime_fold_intersection_present": true,
+    "all_8_folds_covered": false,
+    "independence_proven": false,
+    "predictive_validity_proven": false,
+    "causality_proven": false,
+    "promotion": "BLOCKED",
+    "verdict": "EVIDENCE_GATE_FAIL"
+  },
+  "invariants": {
+    "winner_selection_changed": false,
+    "threshold_changed": false,
+    "tuning_performed": false,
+    "records_deleted": false,
+    "feature_extraction_performed": false,
+    "promotion_performed": false,
+    "live_execution": false
+  },
+  "claim_boundary": "This artifact is evidence-only. It does not establish statistical independence, predictive validity, causality, market generalization, or promotion eligibility."
+}
