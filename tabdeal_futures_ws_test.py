@@ -77,6 +77,7 @@ MAX_ACTIVE_ROWS = 150000
 ARCHIVE_BATCH_ROWS = 50000
 ARCHIVE_TXN_MARKER = os.path.join("data", ".archive_rotation.json")
 SINGLE_WRITER_LOCK_FILE = os.path.join("data", ".collector.lock")
+CHECKPOINT_PROVENANCE_FILE = os.path.join("archive", "collector_checkpoint_provenance_v1.json")
 
 
 # ============================================================
@@ -937,6 +938,50 @@ def run_git(command):
     )
 
 
+def _git_output(command):
+    return subprocess.run(command, check=True, capture_output=True, text=True).stdout.strip()
+
+def _self_start_ticks():
+    with open("/proc/self/stat", "r", encoding="utf-8") as f:
+        return int(f.read().split()[21])
+
+def write_checkpoint_provenance():
+    """Capture the exact CSV blob and active writer identity before commit."""
+    flush_csv()
+    observation = get_max_observation_from_file(OUTPUT_FILE)
+    if observation is None:
+        raise RuntimeError("Cannot create checkpoint provenance without a CSV boundary.")
+    payload = {
+        "artifact": "collector_checkpoint_provenance_v1",
+        "status": "OBSERVED_FAIL_CLOSED",
+        "source_path": OUTPUT_FILE,
+        "source_git_blob_sha": _git_output(["git", "hash-object", OUTPUT_FILE]),
+        "source_sha256": _sha256_file(OUTPUT_FILE),
+        "last_sequence": observation["sequence"],
+        "last_timestamp": observation["timestamp"].isoformat(),
+        "writer_pid": os.getpid(),
+        "writer_process_start_ticks": _self_start_ticks(),
+        "systemd_unit": os.getenv("SYSTEMD_UNIT"),
+        "systemd_invocation_id": os.getenv("INVOCATION_ID"),
+        "single_writer_lock_file": SINGLE_WRITER_LOCK_FILE,
+        "single_writer_lock_held": writer_lock_file is not None,
+        "parent_commit": _git_output(["git", "rev-parse", "HEAD"]),
+        "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "binding_rule": "Provenance and CSV are staged into the same collector checkpoint commit.",
+        "limitations": [
+            "Final commit SHA is not embedded because that would require a second commit.",
+            "PID identity is scoped to this process lifetime; independent validation must verify artifact and CSV blob share the same commit tree.",
+        ],
+    }
+    temp_path = CHECKPOINT_PROVENANCE_FILE + ".tmp"
+    os.makedirs(os.path.dirname(CHECKPOINT_PROVENANCE_FILE), exist_ok=True)
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+        f.write("\\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_path, CHECKPOINT_PROVENANCE_FILE)
+
 def prepare_git_checkpoint():
     print(
         "=== PREPARING GIT CHECKPOINT ===",
@@ -955,6 +1000,10 @@ def prepare_git_checkpoint():
         OUTPUT_FILE,
         ARCHIVE_DIR
     ])
+
+    if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode != 0:
+        write_checkpoint_provenance()
+        run_git(["git", "add", CHECKPOINT_PROVENANCE_FILE])
 
 
 def assert_remote_main_unchanged():
