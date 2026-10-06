@@ -1,0 +1,43 @@
+{
+  "status": "HASH_LOCKED",
+  "artifact": "FULL_CANDIDATE_BASE_RECONCILIATION_V1.json",
+  "artifact_sha256": "b38c946f1ca9f7618ef4029c50c9287fc0b987d81e0acc6b7b2481c61e958ca6",
+  "artifact_bytes": 382581,
+  "artifact_git_blob_sha": "4a5844eb4676d58a702f536362b64f08fa7b0a67",
+  "source": {
+    "raw_source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+    "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+    "raw_sha256": "c6c20f30fc6cbf6934c81e7b5e0495f952b7bab5fe2978baca6fdd78c68b90e6",
+    "raw_bytes": 10501596,
+    "raw_rows": 139250
+  },
+  "protocol": {
+    "contract_source_commit": "e5f85f06b19b8427f761b95ab56ad15ccd7053c0",
+    "contract_blob_sha": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12",
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "gross_threshold_bps": 14
+  },
+  "producer": {
+    "producer_source_commit": "30e6842243786ac5b556b8182241d79331e5fcd3",
+    "producer_script_blob_sha": "406319c52cc36d9d549d6f29b170d184fac90859"
+  },
+  "population": {
+    "evaluated_oos": 1027,
+    "winners_gt_14bps": 28,
+    "controls_le_14bps": 999,
+    "folds_present": [0,1,2,3,4,5,6,7]
+  },
+  "safety_invariants": {
+    "winner_selection_changed": false,
+    "threshold_changed": false,
+    "tuning": false,
+    "records_deleted": false,
+    "feature_extraction": false,
+    "effective_evidence": false,
+    "promotion": false,
+    "live_execution": false
+  }
+}
