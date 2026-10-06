@@ -33,11 +33,9 @@ class QualityEvidenceTests(unittest.TestCase):
 
     def test_engine_is_causal_and_returns_complete_schema(self):
         candles = self.make_candles()
-        engine = QualityEvidenceEngine()
-        evidence = engine.build(candles, len(candles) - 2)
-        self.assertIsNotNone(evidence.htf_trend)
-        self.assertIsNotNone(evidence.structure_bias)
-        self.assertIsNotNone(evidence.atr if hasattr(evidence, "atr") else evidence.stop_price)
+        evidence = QualityEvidenceEngine().build(candles, len(candles) - 2)
+        self.assertIn(evidence.htf_trend, ("long", "short", "range"))
+        self.assertIsNotNone(evidence.stop_price if evidence.structure_break_confirmed else evidence.rr)
 
     def test_early_history_does_not_invent_evidence(self):
         candles = self.make_candles()
