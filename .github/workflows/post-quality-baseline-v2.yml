@@ -1,0 +1,23 @@
+name: POST-QUALITY-BASELINE v2 Tests
+
+on:
+  push:
+    branches: ["main", "post-quality-baseline-v2"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  strategy-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: pytest -q tests/strategy/test_quality_signal.py
+        env:
+          PYTHONPATH: .
