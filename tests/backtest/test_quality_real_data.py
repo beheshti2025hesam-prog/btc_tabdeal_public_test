@@ -2,6 +2,7 @@
 import csv
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from core.backtest.quality_real_data import QualityRealDataBacktest
@@ -15,15 +16,13 @@ class QualityRealDataBacktestTests(unittest.TestCase):
         for i in range(candles):
             # One trade per 15m candle; enough history to exercise the 1h HTF path.
             price = base + (i % 80) * 0.05 + (i // 80) * 0.2
-            minute = i * 15
-            hour, rem = divmod(minute, 60)
-            day, hour = divmod(hour, 24)
+            timestamp = datetime(2026, 9, 25, tzinfo=timezone.utc) + timedelta(minutes=i * 15)
             rows.append({
                 "symbol": "BTC_USDT",
                 "price": f"{price:.6f}",
                 "amount": "1",
                 "side": "Buy" if i % 2 == 0 else "Sell",
-                "updated": f"2026-09-{25 + day:02d}T{hour:02d}:{rem:02d}:00+00:00",
+                "updated": timestamp.isoformat(),
                 "sequence": str(100000 + i),
             })
         with path.open("w", newline="", encoding="utf-8") as handle:
