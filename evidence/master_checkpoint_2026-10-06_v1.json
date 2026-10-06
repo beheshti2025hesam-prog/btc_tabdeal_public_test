@@ -1,0 +1,111 @@
+{
+  "checkpoint": {
+    "artifact_id": "HES-MASTER-CHECKPOINT-2026-10-06-EVIDENCE-GATE-DIAGNOSTIC",
+    "version": 1,
+    "status": "LOCKED",
+    "generated_at": "2026-10-06T18:05:00Z",
+    "principles": [
+      "Memory=map/plan",
+      "GitHub=technical truth",
+      "Chat=conversation log",
+      "Master checkpoint"
+    ],
+    "current_phase": "Evidence Gate diagnostic after immutable lineage and cluster closure",
+    "locked_state": {
+      "record_identity_lineage": "CLOSED",
+      "cluster_fold_direction_regime_closure": "CLOSED",
+      "effective_evidence": "COMPUTED",
+      "effective_evidence_proxy": 3.9694949494949494,
+      "direction_regime_fold_intersection": "PRESENT",
+      "fold_coverage": "7/8",
+      "missing_fold": [
+        4
+      ],
+      "largest_joint_cell": "fold=1|direction=SHORT|regime=uptrend",
+      "largest_joint_cell_records": 9,
+      "largest_joint_cell_share": 0.21428571428571427,
+      "evidence_gate": "EVIDENCE_GATE_FAIL",
+      "promotion": "BLOCKED"
+    },
+    "invariants": {
+      "winner_selection_changed": false,
+      "threshold_changed": false,
+      "tuning": false,
+      "records_deleted": false,
+      "feature_extraction": false,
+      "promotion": false,
+      "live_execution": false
+    },
+    "latest_artifacts": [
+      "evidence/record_identity_lineage_closure_v1.json",
+      "evidence/cluster_fold_direction_regime_closure_v1.json",
+      "evidence/effective_evidence_direction_regime_fold_intersection_v1.json",
+      "evidence/effective_evidence_direction_regime_fold_intersection_v1.lock.json",
+      "evidence/evidence_gate_failure_diagnostic_v1.json"
+    ],
+    "latest_diagnostic_commit": "5be4f3582b2a3fa72693026d6e2a2ecebf48330f",
+    "run_audit": {
+      "latest_checked": "2026-10-06T17:59:56Z",
+      "active_runs": 0,
+      "recent_failures": 0,
+      "recent_relevant_runs_all_success": true
+    },
+    "next_authorized_step": "Classify Fold-4 absence and concentration causes from source lineage/protocol construction only; no repair or mutation of locked 42."
+  },
+  "progress": {
+    "artifact_id": "HES-PROJECT-PROGRESS-2026-10-06",
+    "methodology": "Operational milestone coverage index; 12 equal-weight workstreams. Scores are status indicators, not statistical probabilities or completion guarantees.",
+    "overall_percent": 61.25,
+    "workstreams": [
+      {
+        "name": "Data Foundation",
+        "percent": 75
+      },
+      {
+        "name": "Identity/Archive Lineage",
+        "percent": 100
+      },
+      {
+        "name": "Evidence & Research Closure",
+        "percent": 75
+      },
+      {
+        "name": "CI/Test Infrastructure",
+        "percent": 100
+      },
+      {
+        "name": "Backtest/OOS Validation",
+        "percent": 75
+      },
+      {
+        "name": "Risk Boundary",
+        "percent": 100
+      },
+      {
+        "name": "VPS/Collector Operations",
+        "percent": 75
+      },
+      {
+        "name": "Strategy/Feature Intelligence",
+        "percent": 50
+      },
+      {
+        "name": "Execution Layer",
+        "percent": 25
+      },
+      {
+        "name": "Mother Orchestrator",
+        "percent": 25
+      },
+      {
+        "name": "UI/Command Center",
+        "percent": 10
+      },
+      {
+        "name": "Multi-Market/News/SMC Expansion",
+        "percent": 25
+      }
+    ],
+    "caveat": "Overall index is a transparent engineering-progress proxy. It must not be interpreted as probability of project completion."
+  }
+}
