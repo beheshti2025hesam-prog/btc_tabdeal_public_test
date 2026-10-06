@@ -38,7 +38,7 @@ jobs:
           artifact = Path("evidence/FULL_CANDIDATE_BASE_RECONCILIATION_V1.json")
           lock = json.loads(Path("evidence/FULL_CANDIDATE_BASE_RECONCILIATION_V1.lock.json").read_text())
           actual = hashlib.sha256(artifact.read_bytes()).hexdigest()
-          assert actual == lock["artifact_sha256"] == "${FULL_CANDIDATE_BASE_SHA256}"
+          assert actual == lock["artifact_sha256"] == "b38c946f1ca9f7618ef4029c50c9287fc0b987d81e0acc6b7b2481c61e958ca6"
           assert lock["status"] == "HASH_LOCKED"
           assert lock["population"] == {
               "evaluated_oos": 1027,
