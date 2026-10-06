@@ -1,0 +1,93 @@
+name: HES Trade Agent — Cluster Record Lineage Lock v1
+on:
+  push:
+    branches:
+      - research/cluster-record-lineage-lock-20261006
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lineage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OLD_RAW_BLOB_SHA: "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+      OLD_RAW_SOURCE_COMMIT: "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
+      CURRENT_RAW_BLOB_SHA: "58d21825e052dbaa42e7eb0695455c19997bff43"
+      CURRENT_RAW_SOURCE_COMMIT: "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
+      PROTOCOL_CONTRACT_BLOB_SHA: "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
+      PROTOCOL_CONTRACT_SOURCE_COMMIT: "e5f85f06b19b8427f761b95ab56ad15ccd7053c0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Materialize locked raw inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64,json,os,urllib.request
+          from pathlib import Path
+          repo=os.environ["GITHUB_REPOSITORY"]
+          h={"Authorization":f"Bearer {os.environ['GH_TOKEN']}","Accept":"application/vnd.github+json"}
+          def blob(sha):
+              req=urllib.request.Request(f"https://api.github.com/repos/{repo}/git/blobs/{sha}",headers=h)
+              with urllib.request.urlopen(req) as r: d=json.load(r)
+              assert d["sha"]==sha
+              return base64.b64decode(d["content"])
+          Path("/tmp/prior_trades.csv").write_bytes(blob(os.environ["OLD_RAW_BLOB_SHA"]))
+          Path("/tmp/current_trades.csv").write_bytes(blob(os.environ["CURRENT_RAW_BLOB_SHA"]))
+          Path("/tmp/protocol_reconciliation_v1_contract.json").write_bytes(blob(os.environ["PROTOCOL_CONTRACT_BLOB_SHA"]))
+          PY
+      - name: Recompute exact frozen populations
+        env:
+          PROTOCOL_CONTRACT_PATH: /tmp/protocol_reconciliation_v1_contract.json
+        run: |
+          HES_FROZEN_CSV=/tmp/prior_trades.csv LOCKED_RAW_BLOB_SHA=$OLD_RAW_BLOB_SHA LOCKED_RAW_SOURCE_COMMIT=$OLD_RAW_SOURCE_COMMIT PROTOCOL_CONTRACT_SOURCE_COMMIT=$PROTOCOL_CONTRACT_SOURCE_COMMIT PROTOCOL_CONTRACT_BLOB_SHA=$PROTOCOL_CONTRACT_BLOB_SHA python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json prior_1049_protocol.json
+          HES_FROZEN_CSV=/tmp/current_trades.csv LOCKED_RAW_BLOB_SHA=$CURRENT_RAW_BLOB_SHA LOCKED_RAW_SOURCE_COMMIT=$CURRENT_RAW_SOURCE_COMMIT PROTOCOL_CONTRACT_SOURCE_COMMIT=$PROTOCOL_CONTRACT_SOURCE_COMMIT PROTOCOL_CONTRACT_BLOB_SHA=$PROTOCOL_CONTRACT_BLOB_SHA python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json current_1027_protocol.json
+      - name: Generate deterministic record-level assignments
+        env:
+          PRIOR_SNAPSHOT: prior_1049_protocol.json
+          CURRENT_SNAPSHOT: current_1027_protocol.json
+          GENERATOR_COMMIT: ${{ github.sha }}
+        run: python scripts/cluster_record_lineage_v1.py
+      - name: Validate lineage-only boundary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("cluster_record_lineage_v1.json"))
+          assert d["status"]=="RECORD_LEVEL_ASSIGNMENT_LOCK_CANDIDATE"
+          assert d["populations"]["prior_14"]["count"]==14
+          assert d["populations"]["current_28"]["count"]==28
+          cb=d["claim_boundary"]
+          assert cb["new_feature_engineering"] is False
+          assert cb["winner_reselection"] is False
+          assert cb["threshold_search"] is False
+          assert cb["evidence_calculation"] is False
+          assert cb["effective_evidence"] is False
+          assert cb["ess"] is False
+          assert cb["promotion"] is False
+          for label,n in [("prior_14",14),("current_28",28)]:
+            for t in ["0.5","1.0","1.5","2.0"]:
+              clusters=d["assignments"][label][t]["clusters"]
+              members=sum(len(c["members"]) for c in clusters)
+              assert members==n, (label,t,members,n)
+              seen=[m["record_key_sha256"] for c in clusters for m in c["members"]]
+              assert len(seen)==len(set(seen))==n, (label,t)
+          print("CLUSTER_RECORD_LINEAGE_VALID")
+          PY
+      - name: Hash-lock artifact
+        run: |
+          sha256sum cluster_record_lineage_v1.json | tee cluster_record_lineage_v1.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cluster-record-lineage-lock-v1
+          path: |
+            cluster_record_lineage_v1.json
+            cluster_record_lineage_v1.sha256
+          if-no-files-found: error
