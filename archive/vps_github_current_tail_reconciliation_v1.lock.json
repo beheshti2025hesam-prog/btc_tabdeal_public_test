@@ -1,0 +1,11 @@
+{
+  "lock_id": "VPS-GITHUB-CURRENT-TAIL-RECONCILIATION-V1-LOCK",
+  "status": "LOCKED",
+  "artifact_path": "archive/vps_github_current_tail_reconciliation_v1.json",
+  "artifact_commit": "4b6518ec3ac6f09dace7eb78e7b12486e23a8a8f",
+  "artifact_git_blob_sha1": "6d9000213c564e16c797c4e70a50ab50f77d0062",
+  "artifact_sha256": "9ea54e7e7c52e6977aadee112e21ee1b5c584f6e023d5700f4b98e61c3476f3d",
+  "locked_at": "2026-10-06T17:32:39.198513Z",
+  "lock_basis": "Raw-byte Git blob SHA-1 and SHA-256 equality; artifact is included in GitHub main.",
+  "mutation_scope": "No source-data selection or tuning changes. Downstream evidence calculations remain blocked."
+}
