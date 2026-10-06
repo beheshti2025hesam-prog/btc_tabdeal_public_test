@@ -1,0 +1,53 @@
+name: POST-QUALITY Real BTC Replay
+
+on:
+  push:
+    branches: ["post-quality-baseline-v2"]
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip
+          pytest -q tests/backtest/test_quality_real_data.py
+      - name: Run real BTC/USDT 15m POST-QUALITY replay
+        run: |
+          python - <<'PY'
+          import json
+          from core.backtest.quality_real_data import QualityRealDataBacktest
+          result = QualityRealDataBacktest("data/trades.csv", timeframe_seconds=900).run()
+          report = {
+              "baseline": "POST-QUALITY-BASELINE-v2",
+              "source": "data/trades.csv",
+              "timeframe_seconds": 900,
+              "rows_read": result.rows_read,
+              "rows_valid": result.rows_valid,
+              "rows_invalid": result.rows_invalid,
+              "candles": result.candles,
+              "observations": result.observations,
+              "continuity_excluded": result.continuity_excluded,
+              "samples": result.backtest.samples,
+              "evaluated": result.backtest.evaluated,
+              "vetoed": result.backtest.vetoed,
+              "no_trade": result.backtest.no_trade,
+              "wins": result.backtest.wins,
+              "losses": result.backtest.losses,
+              "win_rate": result.backtest.win_rate,
+              "total_return": result.backtest.total_return,
+          }
+          print(json.dumps(report, indent=2, sort_keys=True))
+          with open("post_quality_replay_report.json", "w", encoding="utf-8") as f:
+              json.dump(report, f, indent=2, sort_keys=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: post-quality-real-btc-replay
+          path: post_quality_replay_report.json
