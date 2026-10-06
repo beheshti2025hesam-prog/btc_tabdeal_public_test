@@ -1,0 +1,117 @@
+name: HES Trade Agent — Gate-by-Gate Attribution + Self-Improvement v1
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/gate-by-gate-attribution-self-improvement-20261006
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-gate-attribution-self-improvement-v1
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CURRENT_RAW_BLOB_SHA: "58d21825e052dbaa42e7eb0695455c19997bff43"
+      CURRENT_RAW_SOURCE_COMMIT: "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
+      PROTOCOL_CONTRACT_BLOB_SHA: "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
+      FULL_CANDIDATE_BASE_SHA256: "b38c946f1ca9f7618ef4029c50c9287fc0b987d81e0acc6b7b2481c61e958ca6"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify immutable candidate-base lock
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          artifact = Path("evidence/FULL_CANDIDATE_BASE_RECONCILIATION_V1.json")
+          lock = json.loads(Path("evidence/FULL_CANDIDATE_BASE_RECONCILIATION_V1.lock.json").read_text())
+          actual = hashlib.sha256(artifact.read_bytes()).hexdigest()
+          assert actual == lock["artifact_sha256"] == "${FULL_CANDIDATE_BASE_SHA256}"
+          assert lock["status"] == "HASH_LOCKED"
+          assert lock["population"] == {
+              "evaluated_oos": 1027,
+              "winners_gt_14bps": 28,
+              "controls_le_14bps": 999,
+              "folds_present": [0,1,2,3,4,5,6,7],
+          }
+          print("FULL_CANDIDATE_BASE_HASH_LOCK_VALID")
+          PY
+
+      - name: Materialize locked raw snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import base64, json, os, urllib.request
+          from pathlib import Path
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = os.environ["CURRENT_RAW_BLOB_SHA"]
+          req = urllib.request.Request(
+              f"https://api.github.com/repos/{repo}/git/blobs/{sha}",
+              headers={
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "Accept": "application/vnd.github+json",
+              },
+          )
+          with urllib.request.urlopen(req) as r:
+              d = json.load(r)
+          assert d["sha"] == sha
+          Path("/tmp/current_trades.csv").write_bytes(base64.b64decode(d["content"]))
+          print("LOCKED_RAW_SNAPSHOT_MATERIALIZED")
+          PY
+
+      - name: Run gate attribution + self-improvement diagnostic
+        env:
+          HES_FROZEN_CSV: /tmp/current_trades.csv
+          LOCKED_RAW_BLOB_SHA: ${{ env.CURRENT_RAW_BLOB_SHA }}
+          LOCKED_RAW_SOURCE_COMMIT: ${{ env.CURRENT_RAW_SOURCE_COMMIT }}
+          PROTOCOL_CONTRACT_BLOB_SHA: ${{ env.PROTOCOL_CONTRACT_BLOB_SHA }}
+          FULL_CANDIDATE_BASE_SHA256: ${{ env.FULL_CANDIDATE_BASE_SHA256 }}
+        run: python scripts/gate_by_gate_attribution_self_improvement_v1.py
+
+      - name: Fail-closed validation
+        run: |
+          python - <<'PY'
+          import json
+          d = json.load(open("gate_by_gate_attribution_self_improvement_v1.json"))
+          assert d["protocol"] == {
+              "train": 800, "test": 400, "step": 400, "folds": 8,
+              "gross_threshold": 0.0014
+          }
+          assert d["population"]["oos_evaluated"] == 1027
+          assert d["population"]["winner_gt_14bps"] == 28
+          assert d["population"]["oos_rejected"] > 0
+          assert d["loss_self_improvement"]["candidate_action"] == "NO_CHANGE"
+          assert d["invariants"]["threshold_changed"] is False
+          assert d["invariants"]["winner_reselected"] is False
+          assert d["invariants"]["records_deleted"] is False
+          assert d["invariants"]["tuning"] is False
+          assert d["invariants"]["promotion"] is False
+          assert d["invariants"]["live_execution"] is False
+          assert d["invariants"]["causal_claims"] is False
+          print("GATE_ATTRIBUTION_SELF_IMPROVEMENT_FAIL_CLOSED_VALID")
+          print(json.dumps({
+              "population": d["population"],
+              "primary_rejection_counts": d["gate_attribution"]["primary_rejection_counts"],
+              "reason_counts": d["gate_attribution"]["reason_counts"],
+              "loss_patterns": d["loss_self_improvement"]["pattern_diagnostics"]
+          }, indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gate-by-gate-attribution-self-improvement-v1
+          path: gate_by_gate_attribution_self_improvement_v1.json
+          if-no-files-found: error
