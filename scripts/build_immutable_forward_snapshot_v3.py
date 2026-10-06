@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
-from core.backtest.real_data import RealDataBacktest
+from core.data_engine.candles import TradeCandleAggregator
 from core.data_engine.reader import RawDataReader
 from core.data_engine.validator import RawDataValidator
 from core.data_engine.normalizer import RawDataNormalizer
@@ -57,14 +57,27 @@ def main():
         ts_unique=len(set(source_ts))==len(source_ts)
         seq_unique=len(set(source_seq))==len(source_seq)
 
-        bt=RealDataBacktest(csv_path=path)
-        full=bt.run()
-        observations=list(bt._last_observations)
+        # Identity-only one-minute observation extraction. Deliberately does
+        # not invoke RealDataBacktest, strategy, risk, features, or realized
+        # next-candle outcomes. An observation is the end of an eligible
+        # continuous one-minute candle after the locked EMA warm-up boundary.
+        candles=TradeCandleAggregator(60).aggregate(valid_trades)
+        observations=[]
+        continuity_excluded=0
+        for index in range(20 - 1, len(candles) - 1):
+            candle=candles[index]
+            next_candle=candles[index + 1]
+            if candle.symbol != next_candle.symbol:
+                continue
+            if next_candle.start != candle.end:
+                continuity_excluded += 1
+                continue
+            observations.append(candle.end)
     finally:
         Path(path).unlink(missing_ok=True)
 
-    forward=[o for o in observations if o.timestamp>BOUNDARY]
-    ts=[o.timestamp for o in forward]
+    forward=[t for t in observations if t>BOUNDARY]
+    ts=forward
     strict_obs=all(a<b for a,b in zip(ts,ts[1:]))
     obs_unique=len(set(ts))==len(ts)
     n1_writer_observation_exists = subprocess.run(
@@ -90,14 +103,14 @@ def main():
       "source_commit":commit,"source_path":SOURCE_PATH,"source_sha256":sha,
       "boundary_timestamp":BOUNDARY.isoformat(),
       "source_rows_total":len(raw_rows),"source_valid_rows":len(valid_trades),"source_invalid_rows":invalid,
-      "full_observations":full.observations,"forward_observations":len(forward),
+      "full_observations":len(observations),"forward_observations":len(forward),
       "required_one_minute_observations":REQUIRED,
       "source_timestamp_strictly_increasing":source_ts_order,
       "source_sequence_strictly_increasing":source_seq_order,
       "source_timestamp_unique":ts_unique,"source_sequence_unique":seq_unique,
       "forward_observation_timestamp_strictly_increasing":strict_obs,
       "forward_observation_timestamp_unique":obs_unique,
-      "continuity_excluded":full.continuity_excluded,
+      "continuity_excluded":continuity_excluded,
       "continuity_policy":"FAIL_CLOSED_REQUIRES_ZERO_EXCLUDED_BOUNDARIES",
       "continuity_check_passed":continuity_ok,
       "writer_provenance_artifact":WRITER_PROVENANCE_PATH,
@@ -106,7 +119,7 @@ def main():
       "n_plus_1_writer_observation_artifact_present":n1_writer_observation_exists,
       "single_writer_lineage_verified":single_writer_lineage_verified,
       "single_writer_lineage_status":"BLOCKED_PENDING_DURABLE_N_PLUS_1_ATTRIBUTION",
-      "outcomes_inspected":False,"threshold_tuned":False,"winner_reselected":False,
+      "outcomes_inspected":False,"outcome_pipeline_invoked":False,"strategy_evaluated":False,"risk_evaluated":False,"threshold_tuned":False,"winner_reselected":False,
       "records_deleted":False,"protocol_mutation":False,"live_execution":False,
       "promotion":"BLOCKED",
       "verdict":"CAPACITY_REACHED_PENDING_INDEPENDENT_VALIDATION" if ready else "ACCUMULATING_OR_INTEGRITY_OR_PROVENANCE_BLOCKED"
