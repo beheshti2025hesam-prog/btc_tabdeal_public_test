@@ -1,0 +1,225 @@
+{
+  "artifact_id": "HES-CLUSTER-INDEPENDENCE-AUDIT-V1-IMMUTABLE",
+  "version": 1,
+  "status": "LOCK_PENDING",
+  "generated_at": "2026-10-06T17:48:00Z",
+  "scope": "Fixed pre-registered cluster sensitivity audit on locked prior_14 and current_28 Winner populations",
+  "source_identity_lock": {
+    "artifact": "evidence/source_identity_reconciliation_v1.json",
+    "sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd"
+  },
+  "protocol_sources": {
+    "prior_raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "prior_source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "current_raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+    "current_source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+    "protocol_contract_blob_sha": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12",
+    "protocol_contract_source_commit": "e5f85f06b19b8427f761b95ab56ad15ccd7053c0"
+  },
+  "execution": {
+    "audit_script_blob_sha": "8f087f639a5c42756a8de53bb34e16a977801686",
+    "reconstruction_script_blob_sha": "406319c52cc36d9d549d6f29b170d184fac90859",
+    "execution_repo_commit": "c571a528f8d5dc19e1f502ac29f503a14f6dac0e",
+    "reconstructed_prior_winners": 14,
+    "reconstructed_current_winners": 28,
+    "cluster_audit_sha256": "b355c42a6fc528c0507785184c219086449bdee1e979b60dc38124541ab4c9b2",
+    "claim_boundary": "No independence/predictive validity/causality/generalization/promotion claim."
+  },
+  "protocol": {
+    "features": [
+      "ema_distance_pct",
+      "vwap_distance_pct",
+      "buy_ratio",
+      "buy_sell_delta",
+      "trade_count"
+    ],
+    "thresholds": [
+      0.5,
+      1,
+      1.5,
+      2
+    ],
+    "standardization": "pooled frozen Winner+Control summary moments across prior and current snapshots",
+    "clustering": "Euclidean standardized distance; connected components"
+  },
+  "results": {
+    "prior_14": {
+      "0.5": {
+        "winner_clusters": 14,
+        "largest_winner_cluster": 1,
+        "effective_winner_cluster_count": 14,
+        "cluster_sizes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "1.0": {
+        "winner_clusters": 13,
+        "largest_winner_cluster": 2,
+        "effective_winner_cluster_count": 12.25,
+        "cluster_sizes": [
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "1.5": {
+        "winner_clusters": 9,
+        "largest_winner_cluster": 4,
+        "effective_winner_cluster_count": 6.533333333333333,
+        "cluster_sizes": [
+          4,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "2.0": {
+        "winner_clusters": 5,
+        "largest_winner_cluster": 9,
+        "effective_winner_cluster_count": 2.227272727272727,
+        "cluster_sizes": [
+          9,
+          2,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "current_28": {
+      "0.5": {
+        "winner_clusters": 28,
+        "largest_winner_cluster": 1,
+        "effective_winner_cluster_count": 28,
+        "cluster_sizes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "1.0": {
+        "winner_clusters": 19,
+        "largest_winner_cluster": 6,
+        "effective_winner_cluster_count": 10.88888888888889,
+        "cluster_sizes": [
+          6,
+          4,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "1.5": {
+        "winner_clusters": 13,
+        "largest_winner_cluster": 14,
+        "effective_winner_cluster_count": 3.6296296296296298,
+        "cluster_sizes": [
+          14,
+          3,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "2.0": {
+        "winner_clusters": 7,
+        "largest_winner_cluster": 21,
+        "effective_winner_cluster_count": 1.7422222222222221,
+        "cluster_sizes": [
+          21,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    }
+  },
+  "invariants": {
+    "winner_selection_changed": false,
+    "threshold_changed": false,
+    "tuning_performed": false,
+    "records_deleted": false,
+    "promotion": false,
+    "live_execution": false,
+    "effective_evidence_promotion": false
+  },
+  "final_verdict": "EVIDENCE_INSUFFICIENT_FOR_PROMOTION"
+}
