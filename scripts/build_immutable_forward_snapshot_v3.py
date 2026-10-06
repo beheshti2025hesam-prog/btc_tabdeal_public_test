@@ -27,7 +27,7 @@ def main():
     if not commit:
         raise RuntimeError("SOURCE_COMMIT is required; moving HEAD is not an immutable source pin.")
     try:
-        subprocess.check_call(["git","cat-file","-e",f"{commit}^{commit}"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        subprocess.check_call(["git","cat-file","-e",f"{commit}^{{commit}}"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         subprocess.check_call(["git","cat-file","-e",f"{commit}:{SOURCE_PATH}"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(f"Immutable source commit/path unavailable: {commit}:{SOURCE_PATH}") from exc
