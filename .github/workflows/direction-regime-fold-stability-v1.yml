@@ -53,6 +53,7 @@ jobs:
         run: |
           python scripts/protocol_reconciliation_independent_snapshot_v1.py
           mv protocol_reconciliation_full_population_audit.json prior_1049_protocol.json
+          mv protocol_reconciliation_winners.csv prior_1049_winners.csv
       - name: Recompute current 1027 with frozen protocol
         env:
           HES_FROZEN_CSV: /tmp/current_trades.csv
@@ -64,6 +65,7 @@ jobs:
         run: |
           python scripts/protocol_reconciliation_independent_snapshot_v1.py
           mv protocol_reconciliation_full_population_audit.json current_1027_protocol.json
+          mv protocol_reconciliation_winners.csv current_1027_winners.csv
       - name: Run stability audit
         run: python scripts/direction_regime_fold_stability_v1.py
       - name: Validate fail-closed contract
@@ -80,6 +82,11 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: direction-regime-fold-stability-v1
-          path: direction_regime_fold_stability_v1.json
+          name: direction-regime-fold-stability-v1-reconciliable
+          path: |
+            direction_regime_fold_stability_v1.json
+            prior_1049_protocol.json
+            current_1027_protocol.json
+            prior_1049_winners.csv
+            current_1027_winners.csv
           if-no-files-found: error
