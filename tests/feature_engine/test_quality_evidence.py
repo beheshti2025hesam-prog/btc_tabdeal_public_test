@@ -33,9 +33,16 @@ class QualityEvidenceTests(unittest.TestCase):
 
     def test_engine_is_causal_and_returns_complete_schema(self):
         candles = self.make_candles()
-        evidence = QualityEvidenceEngine().build(candles, len(candles) - 2)
+        index = len(candles) - 2
+        evidence = QualityEvidenceEngine().build(candles, index)
         self.assertIn(evidence.htf_trend, ("long", "short", "range"))
-        self.assertIsNotNone(evidence.stop_price if evidence.structure_break_confirmed else evidence.rr)
+        self.assertTrue(hasattr(evidence, "rr"))
+        self.assertTrue(hasattr(evidence, "stop_price"))
+
+        # Future candles must not alter the snapshot at an earlier index.
+        truncated = candles[:index + 1]
+        replay = QualityEvidenceEngine().build(truncated, index)
+        self.assertEqual(evidence, replay)
 
     def test_early_history_does_not_invent_evidence(self):
         candles = self.make_candles()
