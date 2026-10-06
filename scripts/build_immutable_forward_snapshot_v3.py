@@ -5,7 +5,7 @@ This artifact performs identity/integrity/capacity checks only. It never
 evaluates outcomes and never mutates the locked historical protocol.
 """
 from __future__ import annotations
-import hashlib, json, subprocess, sys, tempfile
+import hashlib, json, os, subprocess, sys, tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,7 +23,14 @@ WRITER_PROVENANCE_PATH="archive/run196_reconciliation_closure.json"
 N_PLUS_1_WRITER_OBSERVATION_PATH="archive/n_plus_1_writer_attribution_observation_v1.json"
 
 def main():
-    commit=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()
+    commit=os.environ.get("SOURCE_COMMIT","").strip()
+    if not commit:
+        raise RuntimeError("SOURCE_COMMIT is required; moving HEAD is not an immutable source pin.")
+    try:
+        subprocess.check_call(["git","cat-file","-e",f"{commit}^{commit}"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        subprocess.check_call(["git","cat-file","-e",f"{commit}:{SOURCE_PATH}"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"Immutable source commit/path unavailable: {commit}:{SOURCE_PATH}") from exc
     raw=subprocess.check_output(["git","show",f"{commit}:{SOURCE_PATH}"])
     sha=hashlib.sha256(raw).hexdigest()
 
