@@ -1,0 +1,12 @@
+{
+  "artifact_id": "HES-FOLD4-ABSENCE-CONCENTRATION-ATTRIBUTION-V1",
+  "lock_version": 1,
+  "status": "HASH_LOCKED",
+  "artifact_path": "evidence/fold4_absence_concentration_attribution_v1.json",
+  "artifact_sha256": "b30785b396d8bf740ffe623c503ada05ae95b1a57a807de8ce25806b93bc071f",
+  "source_artifact_digest": "sha256:95a49f8b8ab61038d8f1ba3c4f739126c5a5959b5f9ca329eca94b44c4b379af",
+  "locked_population": 42,
+  "mutation_allowed": false,
+  "evidence_generation_allowed": false,
+  "promotion_allowed": false
+}
