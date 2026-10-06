@@ -171,8 +171,6 @@ def main():
             gross = sign * (n.close - c.close) / c.close
 
         fold = None
-        if TRAIN <= i < TRAIN + FOLDS * STEP:
-            fold = (i - TRAIN) // STEP
 
         row = {
             "timestamp": c.end.isoformat(), "candle_index": i,
@@ -196,9 +194,15 @@ def main():
             }
         }
         all_obs.append(row)
-        if fold is not None:
-            row["fold_regime"] = None
-            oos.append(row)
+        all_obs.append(row)
+
+    # Exact producer indexing: OOS is a slice of the observation sequence,
+    # not a raw candle-index slice.
+    oos = all_obs[TRAIN:TRAIN + FOLDS * STEP]
+    assert len(oos) == FOLDS * TEST
+    for pos, row in enumerate(oos, start=TRAIN):
+        row["fold_index"] = (pos - TRAIN) // STEP
+        row["fold_regime"] = None
 
     # Frozen regime labeling: same aggregate fold gross-return rule as producer.
     for f in range(FOLDS):
