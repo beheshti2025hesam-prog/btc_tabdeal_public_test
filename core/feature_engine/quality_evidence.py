@@ -120,7 +120,12 @@ class QualityEvidenceEngine:
             return QualityEvidence(None, None, None, None, None, None, None, None,
                                    None, None, None, None, None, None, None, None, None)
 
-        htf_trend, _ = self._htf(history)
+        # Only completed higher-timeframe bars may influence the current
+        # decision. The final partial 1h group is excluded unless the current
+        # 15m candle closes that 1h bar.
+        completed_count = (len(history) // 4) * 4
+        htf_history = history[:completed_count]
+        htf_trend, _ = self._htf(htf_history)
         htf_alignment = htf_trend in ("long", "short")
         piv_highs, piv_lows = self._pivots(history[:-self.right] if len(history) > self.right else [])
         last_high = piv_highs[-1] if piv_highs else None
