@@ -1,0 +1,14 @@
+{
+  "lock_id": "HES-CLUSTER-FOLD-DIRECTION-REGIME-CLOSURE-V1-LOCK",
+  "status": "LOCKED",
+  "artifact_path": "evidence/cluster_fold_direction_regime_closure_v1.json",
+  "artifact_commit": "4e25420e268659a5c6dd9c200191da0b5cc81be0",
+  "artifact_blob_sha": "5ae0f78056bfc4f86f4d4cb9df49d99e9611cdcc",
+  "artifact_sha256": "957e8196ceaab77c15780c7875751efaf7406e14c970660058b588b0538bcc66",
+  "lock_basis": {
+    "assignment_closure": "All prior_14/current_28 records assigned exactly once at every pre-registered threshold 0.5/1.0/1.5/2.0",
+    "winner_counts": "prior=14,current=28 preserved",
+    "invariants": "No winner reselection, threshold change, tuning, deletion, feature extraction, effective evidence, or promotion"
+  },
+  "final_verdict": "EVIDENCE_INSUFFICIENT_FOR_PROMOTION"
+}
