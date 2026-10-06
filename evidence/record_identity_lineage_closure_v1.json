@@ -1,0 +1,68 @@
+{
+  "artifact_id": "HES-RECORD-IDENTITY-LINEAGE-CLOSURE-V1",
+  "version": 1,
+  "status": "CLOSED",
+  "generated_at": "2026-10-06T17:45:00Z",
+  "scope": "42-record Source Identity → VPS archive lineage → Single-Writer attribution closure",
+  "record_set": {
+    "current_winner": 28,
+    "prior_survivor": 14,
+    "total": 42
+  },
+  "source_identity": {
+    "artifact": "evidence/source_identity_reconciliation_v1.json",
+    "sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
+    "lock": "evidence/source_identity_reconciliation_v1.lock.json",
+    "status": "LOCKED"
+  },
+  "archive_lineage": {
+    "archive_identity_artifact": "archive/vps_github_archive_identity_reconciliation_v1.json",
+    "archive_identity_lock": "archive/vps_github_archive_identity_reconciliation_v1.lock.json",
+    "archive_count": 16,
+    "archive_rows": 800000,
+    "github_byte_identity": true,
+    "duplicate_rows": 0,
+    "sequence_regressions": 0,
+    "adjacent_sequence_intersections": 0,
+    "endpoint_identity_records": 42,
+    "endpoint_identity_pass": true,
+    "candle_lineage_records": 42,
+    "candle_lineage_pass": true,
+    "semantics": "For each canonical record, sequence_first/last identify the entry candle span; entry_price equals the close of the minute immediately preceding the record timestamp, and exit_price equals the close of the timestamp minute."
+  },
+  "current_tail_checkpoint": {
+    "artifact": "archive/vps_github_current_tail_reconciliation_v1.json",
+    "lock": "archive/vps_github_current_tail_reconciliation_v1.lock.json",
+    "checkpoint_last_sequence": 40780604187,
+    "append_only_delta_rows": 12514,
+    "source_sha256": "ad80644bf22a89d0dc5abda1d45f2202de1c1fd56f29eaad8156a91dd495f735",
+    "source_git_blob_sha": "b6e8c7aa6baa6eae64c76959d6cb08c3fdbeb2b6",
+    "status": "LOCKED"
+  },
+  "single_writer_proof": {
+    "run196_closure": "archive/run196_reconciliation_closure.json",
+    "run196_writer": "VPS systemd collector PID 59572",
+    "run196_single_writer_at_start": true,
+    "run196_writer_attribution_closed": true,
+    "current_checkpoint_provenance": "archive/collector_checkpoint_provenance_v1.json",
+    "current_writer_pid": 85871,
+    "current_writer_process_running": false,
+    "collector_service": "hes-trade-agent-collector.service",
+    "collector_service_enabled": false,
+    "collector_service_active": false,
+    "stale_lock_not_interpreted_as_active_writer": true,
+    "conclusion": "No concurrent writer was present during the controlled checkpoint verification; the checkpoint CSV/provenance binding was verified against the same Git tree."
+  },
+  "invariants": {
+    "winner_selection_changed": false,
+    "threshold_changed": false,
+    "tuning_performed": false,
+    "records_deleted": false,
+    "feature_extraction_performed": false,
+    "effective_evidence_performed": false,
+    "ess_calculated": false,
+    "promotion_performed": false,
+    "live_execution": false
+  },
+  "final_decision": "RECORD_IDENTITY_AND_LINEAGE_CLOSED"
+}
