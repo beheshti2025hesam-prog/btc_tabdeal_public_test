@@ -1,0 +1,94 @@
+{
+  "artifact_id": "HES-EVIDENCE-GATE-FAILURE-DIAGNOSTIC-V1",
+  "status": "CLOSED_DIAGNOSTIC",
+  "inputs": {
+    "nominal_n": 42,
+    "prior_survivor": 14,
+    "current_winner": 28,
+    "cluster_source": "locked threshold 2.0"
+  },
+  "findings": {
+    "fold_gap": {
+      "missing_folds": [
+        4
+      ],
+      "covered_folds": [
+        0,
+        1,
+        2,
+        3,
+        5,
+        6,
+        7
+      ],
+      "coverage": "7/8",
+      "coverage_ratio": 0.875,
+      "interpretation": "Fold 4 is structurally absent from the locked Winner/Survivor evidence set; this cannot be repaired by imputation or rebalancing."
+    },
+    "concentration": {
+      "max_intersection_cell": 9,
+      "max_cell_share": 0.21428571428571427,
+      "cell": "fold=1|direction=SHORT|regime=uptrend",
+      "top_cells": [
+        [
+          "fold=1|direction=SHORT|regime=uptrend",
+          9
+        ],
+        [
+          "fold=3|direction=SHORT|regime=uptrend",
+          6
+        ],
+        [
+          "fold=1|direction=LONG|regime=uptrend",
+          5
+        ],
+        [
+          "fold=2|direction=SHORT|regime=range",
+          4
+        ],
+        [
+          "fold=5|direction=LONG|regime=range",
+          4
+        ]
+      ],
+      "interpretation": "The largest joint cell is 9/42 and is therefore a material concentration point."
+    },
+    "direction": {
+      "totals": {
+        "SHORT": 22,
+        "LONG": 20
+      },
+      "imbalance_ratio": 0.047619047619047616,
+      "all_present": true
+    },
+    "regime": {
+      "totals": {
+        "range": 20,
+        "uptrend": 22
+      },
+      "imbalance_ratio": 0.047619047619047616,
+      "all_present": true
+    },
+    "lineage": {
+      "record_identity_closed": true,
+      "cluster_closure_closed": true,
+      "exact_identity_overlap": 0
+    },
+    "gate": {
+      "effective_evidence_proxy": 3.9694949494949494,
+      "independence_proven": false,
+      "predictive_validity_proven": false,
+      "causality_proven": false,
+      "promotion": "BLOCKED"
+    }
+  },
+  "next_action": "Do not repair the evidence set. Preserve the locked populations and classify the missing-fold/concentration causes from source lineage and protocol construction only; any new records must be a separate immutable evidence artifact and cannot alter the locked 42.",
+  "invariants": {
+    "winner_selection_changed": false,
+    "threshold_changed": false,
+    "tuning": false,
+    "deletion": false,
+    "feature_extraction": false,
+    "promotion": false
+  }
+}
