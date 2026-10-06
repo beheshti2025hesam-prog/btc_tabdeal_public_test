@@ -1,0 +1,11 @@
+{
+  "lock_id": "HES-EFFECTIVE-EVIDENCE-DIRECTION-REGIME-FOLD-INTERSECTION-V1-LOCK",
+  "status": "LOCKED",
+  "artifact_path": "evidence/effective_evidence_direction_regime_fold_intersection_v1.json",
+  "artifact_commit": "34e89faef1eb587744f126bb78c265a3f1c308e1",
+  "artifact_blob_sha": "932071bcb0735a695c897639d899dc0410e32e13",
+  "artifact_sha256": "ca062a4d7c57b921b2b0d8476105c37f2a317140aa249c9d4ce1dd6108e8b991",
+  "artifact_bytes": 3842,
+  "lock_basis": "Raw-byte SHA-256 of the immutable evidence-gate artifact derived only from the locked lineage and cluster-closure artifacts.",
+  "claim_boundary": "Evidence-only; promotion remains blocked."
+}
