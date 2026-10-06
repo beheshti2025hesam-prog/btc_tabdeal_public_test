@@ -194,7 +194,6 @@ def main():
             }
         }
         all_obs.append(row)
-        all_obs.append(row)
 
     # Exact producer indexing: OOS is a slice of the observation sequence,
     # not a raw candle-index slice.
