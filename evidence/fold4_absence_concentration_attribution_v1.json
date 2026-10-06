@@ -1,0 +1,75 @@
+{
+  "artifact_id": "HES-FOLD4-ABSENCE-CONCENTRATION-ATTRIBUTION-V1",
+  "version": 1,
+  "status": "CLOSED_DIAGNOSTIC",
+  "purpose": "Provenance-first attribution of Fold 4 zero Winner output and the observed Winner concentration, without modifying the locked 42 records.",
+  "scope": {"locked_population": 42, "prior_survivor": 14, "current_winner": 28, "records_changed": false, "winner_reselection": false, "threshold_change": false, "tuning": false, "deletion": false, "feature_extraction": false, "promotion": false},
+  "source_chain": {
+    "github_repo": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "protocol_reconciliation_workflow_run": 37125436806,
+    "protocol_reconciliation_artifact_id": 11275181041,
+    "protocol_reconciliation_artifact_digest": "sha256:95a49f8b8ab61038d8f1ba3c4f739126c5a5959b5f9ca329eca94b44c4b379af",
+    "raw_source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+    "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+    "raw_snapshot_sha256": "c6c20f30fc6cbf6934c81e7b5e0495f952b7bab5fe2978baca6fdd78c68b90e6",
+    "protocol_contract_source_commit": "e5f85f06b19b8427f761b95ab56ad15ccd7053c0",
+    "protocol_contract_blob_sha": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12",
+    "protocol_engine_source_commit": "cc82b6ac4aca7a25c38951d95d0cc0352f303799",
+    "protocol_engine_path": "scripts/protocol_reconciliation_independent_snapshot_v1.py"
+  },
+  "frozen_protocol": {
+    "train": 800, "test": 400, "step": 400, "folds": 8,
+    "winner_rule": "gross_return > 0.0014",
+    "control_rule": "gross_return <= 0.0014",
+    "fold_construction": "observations[TRAIN + fold*STEP : TRAIN + fold*STEP + TEST]",
+    "candidate_eligibility_rule": "decision is LONG or SHORT AND risk decision is ALLOW_SIGNAL",
+    "winner_selection_rule": "direct threshold split of eligible/evaluated rows; no ranking or second-stage winner filter"
+  },
+  "fold4_attribution": {
+    "fold_index": 4,
+    "fold_window_observations": 400,
+    "eligible_evaluated_records": 121,
+    "winner_records": 0,
+    "control_records": 121,
+    "fold_regime": "range",
+    "fold_gross_return": -0.003680242385765502,
+    "candidate_existence": "CONFIRMED",
+    "candidate_to_winner_stage": "DIRECT_THRESHOLD_SPLIT",
+    "threshold_pass_count": 0,
+    "post_candidate_secondary_elimination": false,
+    "construction_explanation": "NOT THE CAUSE: Fold 4 contains its full 400-observation test slice and 121 eligible/evaluated records.",
+    "threshold_explanation": "CONFIRMED: all 121 eligible/evaluated records were controls (gross_return <= 0.0014), so none entered the Winner population.",
+    "final_classification": "FOLD4_ZERO_OUTPUT_IS_THRESHOLD_OUTCOME_ON_A_NONEMPTY_ELIGIBLE_FOLD"
+  },
+  "winner_concentration_attribution": {
+    "winner_fold_counts": {"0": 1, "1": 14, "2": 2, "3": 1, "4": 0, "5": 5, "6": 2, "7": 3},
+    "largest_locked_intersection_cell": "fold=1|direction=SHORT|regime=uptrend",
+    "largest_cell_records": 9,
+    "largest_cell_share_of_locked_42": 0.21428571428571427,
+    "fold1_eligible_evaluated_records": 137,
+    "fold1_winner_records": 14,
+    "fold1_control_records": 123,
+    "attribution_level_1": "CONSTRUCTION_NOT_PRIMARY_CAUSE: every fold has a fixed 400-observation slice; Fold 1 has 137 eligible/evaluated records, not a special fold size.",
+    "attribution_level_2": "THRESHOLD_SELECTION_IS_THE_DIRECT_DOWNSTREAM_GATE: the 28 Winner records are produced by gross_return > 0.0014 from the eligible/evaluated rows.",
+    "attribution_level_3": "UPSTREAM_CAUSE_OF_THE_9_RECORD_CELL_REMAINS_UNRESOLVED: the locked full-population artifact does not expose a fold x direction x regime cross-tab for all 999 controls, so it cannot prove whether the 9/14 Fold-1 winners reflect candidate-base composition, strategy signal composition, or outcome concentration.",
+    "concentration_classification": "DOWNSTREAM_WINNER_SUBSET_CONCENTRATION_WITH_UPSTREAM_BASE-RATE_ATTRIBUTION_OPEN"
+  },
+  "provenance_evidence": {
+    "independent_raw_snapshot_rows": 139250,
+    "raw_invalid_rows": 0,
+    "candles": 5047,
+    "observations": 5024,
+    "evaluated_oos": 1027,
+    "winners_gt_14bps": 28,
+    "controls_le_14bps": 999,
+    "fold4_control_count": 121,
+    "winner_csv_sha256": "27c23fc5b6725f86bf6621408d91edac2489b0a457781e788f9a176b8e91ae59"
+  },
+  "evidence_boundary": {
+    "this_artifact_is_diagnostic_only": true,
+    "new_evidence_metric_generated": false,
+    "locked_42_modified": false,
+    "promotion": "BLOCKED",
+    "next_authorized_scope": "Only source-level reconstruction of the Fold-4 eligible/control distribution and the full candidate-base direction/regime cross-tab may reduce the remaining attribution uncertainty."
+  }
+}
