@@ -1,0 +1,33 @@
+{
+  "schema": "hes.cluster_independence_artifact_hash_lock.v1",
+  "status": "CLUSTER_INDEPENDENCE_ARTIFACT_HASH_LOCKED",
+  "purpose": "Immutable provenance lock for the verified GitHub Actions cluster-independence audit artifact. No feature extraction, evidence synthesis, threshold tuning, winner reselection, record deletion, or promotion is authorized by this lock.",
+  "workflow": {
+    "name": "HES Trade Agent — Cluster Independence Audit v1",
+    "run_id": 37313723419,
+    "run_number": 4,
+    "head_branch": "research/cluster-independence-audit-20261005",
+    "head_sha": "1f31a8bbf9e7fb10b5f390bd384922a81fb72104",
+    "conclusion": "success"
+  },
+  "artifact": {
+    "id": 11347350180,
+    "name": "cluster-independence-audit-v1",
+    "digest": "sha256:17a42637134a4f82aa1725c7dab0d05e9bef7fa184a9ca996ee8b177ce709533",
+    "file": "cluster_independence_audit_v1.json",
+    "file_sha256": "b355c42a6fc528c0507785184c219086449bdee1e979b60dc38124541ab4c9b2"
+  },
+  "claim_boundary": {
+    "threshold_selection": "fixed pre-registered sensitivity set",
+    "independence_proven": false,
+    "predictive_validity": false,
+    "causality": false,
+    "market_generalization": false,
+    "promotion": "BLOCKED"
+  },
+  "populations": {
+    "prior_14": 14,
+    "current_28": 28
+  },
+  "lock_rule": "Any downstream consumer must verify both artifact digest and file SHA-256 against this lock before use."
+}
