@@ -1,0 +1,27 @@
+{
+  "schema": "hes.cluster_record_assignment_lock.v1",
+  "status": "CLUSTER_ASSIGNMENT_HASH_LOCKED",
+  "artifact_path": "evidence/cluster_record_assignment_v1.json",
+  "artifact_sha256": "f7021db8f22077fb2bee6b704d5714e017b035bc5a1fcca53251b0bfe801fb2a",
+  "artifact_bytes": 41988,
+  "artifact_git_blob_sha": "c806827a3728482ee5203937a0cae99948440334",
+  "artifact_commit_sha": "deaf4f913f347d05e04da22ff707fef8b831dfce",
+  "source_refs": {
+    "prior_raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "prior_source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "source_identity_artifact": "evidence/source_identity_reconciliation_v1.json"
+  },
+  "invariant": {
+    "canonical_prior_records": 14,
+    "unique_matches": 14,
+    "missing": 0,
+    "duplicate": 0,
+    "field_mismatch": 0
+  },
+  "safety": {
+    "feature_engineering": false,
+    "threshold_tuning": false,
+    "record_deletion": false,
+    "promotion": false
+  }
+}
