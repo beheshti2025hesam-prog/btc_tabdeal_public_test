@@ -24,6 +24,11 @@ def decision_to_journal_record_v1(
     observed_at = getattr(decision, "observed_at", None)
     if observed_at is None:
         raise ValueError("observed_at is required")
+    future_outcome = getattr(decision, "outcome", None)
+    if future_outcome is not None:
+        raise ValueError("DECISION_CONTAINS_FUTURE_OUTCOME")
+    if getattr(decision, "closed_at", None) is not None:
+        raise ValueError("DECISION_CONTAINS_FUTURE_CLOSED_AT")
 
     market_input = market_input or {}
     reasons = tuple(getattr(decision, "reason_codes", ()) or ())
