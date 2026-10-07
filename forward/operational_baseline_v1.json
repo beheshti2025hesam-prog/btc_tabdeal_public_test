@@ -1,0 +1,22 @@
+{
+  "schema":"hes_forward_operational_baseline_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "historical_policy":"FREEZE_HISTORICAL_GAPS_NO_RETROACTIVE_REPAIR",
+  "forward_policy":[
+    "Fix newly observed gaps at the point of detection.",
+    "Never mutate historical Winner/Survivor records under this baseline.",
+    "Never change historical thresholds to improve a future result.",
+    "Decision journal uses a single-writer critical section for duplicate-check plus append.",
+    "Malformed existing journal content causes fail-closed refusal to append.",
+    "Decision append is fsync-backed before returning success.",
+    "Outcome is immutable relative to the decision record and must use a separate artifact.",
+    "No live execution is enabled by this baseline."
+  ],
+  "quality_gate":[
+    "pytest",
+    "immutable source references",
+    "no future outcome leakage",
+    "no historical evidence mutation",
+    "collector execution remains disabled until separately authorized"
+  ]
+}
