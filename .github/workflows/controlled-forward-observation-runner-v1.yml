@@ -1,0 +1,32 @@
+name: Controlled Forward Observation Runner v1
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controlled-forward-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run runner boundary tests
+        run: |
+          python -m pytest -q             tests/test_controlled_forward_observation_runner_v1.py             tests/test_forward_observation_path_v1.py             tests/test_observation_journal_integration_v1.py
+      - name: Assert hard boundaries
+        run: |
+          grep -q '"execution_enabled": false' forward/clean_evidence_contract_v1.json
+          grep -q '"historical_inputs_allowed": false' forward/clean_evidence_contract_v1.json
+          grep -q '"future_outcomes_allowed": false' forward/clean_evidence_contract_v1.json
+          ! grep -R -nE 'create_order|api/v1/order' forward/controlled_forward_observation_runner_v1.py
+          echo "CONTROLLED_FORWARD_RUNNER=PASS"
+          echo "EXECUTION=OFF"
+          echo "HISTORICAL_INPUTS=OFF"
+          echo "FUTURE_OUTCOMES=OFF"
