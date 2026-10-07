@@ -17,10 +17,9 @@ def test_sequence_is_nonnegative():
     assert G.validate_sequence("12")==12
     with pytest.raises(ValueError): G.validate_sequence("-1")
 
-def test_duplicate_is_fail_closed():
+def test_identical_duplicate_is_idempotent_noop():
     row={"sequence":1,"price":"100"}
-    with pytest.raises(ValueError, match="duplicate"):
-        G.validate_duplicate(row,row)
+    assert G.validate_duplicate(row,row) is None
 
 def test_conflicting_duplicate_is_fail_closed():
     with pytest.raises(ValueError, match="conflicting"):
