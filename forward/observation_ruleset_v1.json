@@ -1,0 +1,17 @@
+{
+  "policy_id":"HES_FORWARD_OBSERVATION_RULESET_V1",
+  "version":"1.0.0",
+  "status":"ACTIVE",
+  "mode":"OBSERVATION_ONLY",
+  "historical_inputs_allowed":false,
+  "future_outcome_leakage_allowed":false,
+  "rules":{
+    "data_quality":{"required":true,"gap_action":"NO_TRADE"},
+    "market_structure":{"required":true,"unknown_action":"NO_TRADE"},
+    "opportunity":{"required":false,"mode":"OBSERVE_ONLY"},
+    "confirmation":{"required":false,"mode":"OBSERVE_ONLY","unknown_is_not_pass":true},
+    "risk":{"required":false,"mode":"OBSERVE_ONLY","unknown_cannot_approve":true},
+    "decision":{"default":"NO_TRADE","allowed":["NO_TRADE"],"fail_closed":true}
+  },
+  "execution_enabled":false
+}
