@@ -23,6 +23,7 @@ class ControlledObservationRunnerResult:
     journal_path: str
     reason: str
     snapshot_id: str | None
+    diagnostics: tuple[dict[str, Any], ...] = ()
 
 
 class ControlledForwardObservationRunnerV1:
@@ -119,4 +120,5 @@ class ControlledForwardObservationRunnerV1:
             journal_path=str(self.journal_path),
             reason=result.reason,
             snapshot_id=result.snapshot_id,
+            diagnostics=result.diagnostics,
         )

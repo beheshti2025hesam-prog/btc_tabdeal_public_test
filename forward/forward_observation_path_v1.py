@@ -35,6 +35,7 @@ class ForwardObservationPathResult:
     gate_safe: bool
     snapshot_id: str | None
     reason: str
+    diagnostics: tuple[dict[str, Any], ...] = ()
 
 class ForwardObservationPathV1:
     def __init__(self, journal_path: str | Path):
@@ -62,7 +63,9 @@ class ForwardObservationPathV1:
         result = SequenceAwareCandleIngestionV1().ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
-                                                None, None, None, False, None, "SEQUENCE_UNSAFE")
+                                                None, None, None, False, None, "SEQUENCE_UNSAFE",
+                                                tuple({"sequence": e.sequence, "status": e.status, "reason": e.reason}
+                                                      for e in result.events))
         if result.gaps:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed),
                                                 len(result.candles), len(result.gaps),

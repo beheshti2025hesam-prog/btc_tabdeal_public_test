@@ -31,6 +31,10 @@ def test_sequence_gap_blocks_before_structure(tmp_path):
         frames,as_of=as_of,forward_run_id="OBS-E2E-GAP")
     assert result.status=="BLOCKED"
     assert result.reason=="SEQUENCE_UNSAFE"
+    assert result.diagnostics == (
+        {"sequence": 1, "status": "ACCEPTED", "reason": None},
+        {"sequence": 3, "status": "ANOMALY", "reason": "SEQUENCE_GAP"},
+    )
     assert not (tmp_path/"observations.jsonl").exists()
 
 def test_open_candle_is_not_observed(tmp_path):
