@@ -39,12 +39,6 @@ class SequenceIntegrityV1:
         if self.last_sequence is not None:
             if seq < self.last_sequence:
                 return SequenceEvent(seq, "ANOMALY", "OUT_OF_ORDER_SEQUENCE")
-            if seq > self.last_sequence + 1:
-                event = SequenceEvent(seq, "ANOMALY", "SEQUENCE_GAP")
-                self._records[seq] = dict(record)
-                self.last_sequence = seq
-                return event
-
         self._records[seq] = dict(record)
         self.last_sequence = seq
         return SequenceEvent(seq, "ACCEPTED")
