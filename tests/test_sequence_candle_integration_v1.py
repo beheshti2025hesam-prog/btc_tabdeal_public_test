@@ -59,7 +59,7 @@ def test_gap_stops_candle_formation_without_repair():
 
 def test_out_of_order_stops_candle_formation_without_reorder():
     s = SequenceAwareCandleIngestionV1()
-    result = s.ingest([rec(1), rec(3), rec(2)], as_of=ASOF)
+    result = s.ingest([rec(1), rec(2), rec(3), rec(2)], as_of=ASOF)
     assert result.safe_for_decision is False
     assert result.candles == ()
     assert result.events[-1].reason == "OUT_OF_ORDER_SEQUENCE"
