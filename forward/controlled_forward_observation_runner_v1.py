@@ -83,8 +83,8 @@ class ControlledForwardObservationRunnerV1:
             raise ValueError("ws_factory must be supplied explicitly for a live run")
         kwargs["ws_factory"] = self.ws_factory
 
-        transport = self.transport_factory(**kwargs)
         try:
+            transport = self.transport_factory(**kwargs)
             transport.run_once()
         except Exception as exc:
             return ControlledObservationRunnerResult(
