@@ -24,8 +24,8 @@ def test_controlled_run_writes_closed_candle_and_gap(tmp_path: Path):
     assert len(digests)==3
     lines=(tmp_path/"obs.jsonl").read_text().splitlines()
     assert "CANDLE_CLOSED_OBSERVED" in lines[0]
-    assert "NO_TRADE_DATA_GAP" in lines[1]
-    assert "CANDLE_CLOSED_OBSERVED" in lines[2]
+    assert "CANDLE_CLOSED_OBSERVED" in lines[1]
+    assert "NO_TRADE_DATA_GAP" in lines[2]
     assert '"outcome"' not in lines[0]
     assert '"outcome"' not in lines[1]
     assert '"outcome"' not in lines[2]
