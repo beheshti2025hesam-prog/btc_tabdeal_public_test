@@ -1,0 +1,36 @@
+{
+  "schema": "hes_forward_reliability_contract_v1",
+  "version": "1.0",
+  "status": "ACTIVE",
+  "principles": {
+    "fail_closed": true,
+    "historical_inputs_allowed": false,
+    "future_outcomes_allowed": false,
+    "execution_enabled": false,
+    "silent_recovery": false,
+    "silent_data_repair": false
+  },
+  "invariants": {
+    "timezone_aware_timestamps": true,
+    "source_time_not_future": true,
+    "sequence_nonnegative": true,
+    "duplicate_sequence_policy": "IDENTICAL_ONLY",
+    "conflicting_duplicate_policy": "REJECT_STREAM",
+    "append_only_artifacts": true,
+    "fsync_required": true,
+    "single_writer_required": true
+  },
+  "health": {
+    "every_rejection_has_reason": true,
+    "every_transport_error_has_reason": true,
+    "reconnect_backoff_required": true,
+    "bounded_session_required": true,
+    "heartbeat_or_liveness_required": true
+  },
+  "recovery": {
+    "restart_safe": true,
+    "idempotent": true,
+    "checkpointable": true,
+    "no_historical_replay_into_forward_path": true
+  }
+}
