@@ -1,0 +1,16 @@
+{
+  "schema":"hes_forward_market_structure_contract_v1",
+  "status":"CONTRACT_ONLY",
+  "purpose":"Derive deterministic, contemporaneous market-structure state from normalized 15m candles without strategy optimization.",
+  "inputs":["forward/market_data_contract_v1.json"],
+  "outputs":["SWING_HIGH","SWING_LOW","HH","HL","LH","LL","BOS","CHOCH","REGIME"],
+  "regime_values":["UPTREND","DOWNTREND","RANGE","UNKNOWN"],
+  "invariants":[
+    "No future outcome is an input.",
+    "No historical Winner/Survivor data is an input.",
+    "Structure labels are derived only from candles available at the observation point.",
+    "A structure event must reference source candle times.",
+    "Unconfirmed structure remains UNKNOWN rather than being guessed.",
+    "This layer defines structure measurement, not entry rules, thresholds, or profitability targets."
+  ]
+}
