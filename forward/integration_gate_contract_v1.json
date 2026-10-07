@@ -1,0 +1,1 @@
+{"schema":"hes_forward_integration_gate_v1","status":"ACTIVE_FROM_2026-10-07","purpose":"end_to_end_safety_composition","default_decision":"NO_TRADE","fail_closed":true,"bypass_allowed":false,"execution_enabled":false,"historical_inputs_allowed":false,"future_outcomes_allowed":false,"safe_observation_result":"NO_TRADE","multiple_failures":"FAIL_CLOSED"}
