@@ -17,8 +17,8 @@
     "low": "higher low => HL; otherwise lower low => LL"
   },
   "events": {
-    "bos": "BOS is recorded when a newly confirmed swing breaks the most recent opposite structural reference in its direction.",
-    "choch": "CHOCH is recorded when the first confirmed break is opposite the current inferred directional regime.",
+    "bos": "BOS is recorded when a newly confirmed swing strictly breaks the most recent confirmed same-kind structural reference in its direction, and a directional regime is already known.",
+    "choch": "CHOCH is recorded when a newly confirmed strict structural break is opposite the current inferred directional regime. If regime is UNKNOWN or RANGE, emit no BOS/CHOCH.",
     "ambiguous": "If the structural direction is unknown or the reference is unavailable, emit no BOS/CHOCH."
   },
   "regime": {
