@@ -1,0 +1,15 @@
+{
+  "schema":"hes_forward_observation_session_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "purpose":"unique chain-of-custody for controlled forward observation sessions",
+  "mode":"OBSERVATION_ONLY",
+  "decision_mode":"NO_TRADE_ONLY",
+  "execution_enabled":false,
+  "historical_inputs_allowed":false,
+  "network_enabled":false,
+  "scope":{"symbol":"BTC_USDT","timeframe":"15m","source":"tabdeal_ws_forward_v1"},
+  "identity":"timestamp_plus_random_nonce",
+  "session_digest":"sha256_canonical_record",
+  "write_policy":"write_once",
+  "fail_closed":true
+}
