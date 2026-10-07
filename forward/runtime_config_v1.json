@@ -1,0 +1,18 @@
+{
+  "schema":"hes_forward_runtime_config_v1",
+  "status":"SAFE_DEFAULTS_ONLY",
+  "forward_run_id":"FORWARD_RUN_PENDING",
+  "symbol":"BTC_USDT",
+  "timeframe":"15m",
+  "decision_policy":"NOT_CONFIGURED",
+  "confirmation_policy":"NOT_CONFIGURED",
+  "risk_policy":"NOT_CONFIGURED",
+  "journal_path":"data/forward/journal.jsonl",
+  "outcome_dir":"data/forward/outcomes",
+  "historical_inputs_allowed":false,
+  "future_outcome_inputs_allowed":false,
+  "live_execution_enabled":false,
+  "git_push_enabled":false,
+  "main_branch_write_enabled":false,
+  "fail_closed":true
+}

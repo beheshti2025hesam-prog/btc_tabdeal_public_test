@@ -1,0 +1,36 @@
+{
+  "policy_id": "HES_FORWARD_POLICY_V1",
+  "version": "1.0.0",
+  "status": "NOT_CONFIGURED",
+  "effective_from": null,
+  "market_scope": {
+    "symbol": "BTC_USDT",
+    "timeframe": "15m"
+  },
+  "market_structure": {"status": "NOT_CONFIGURED"},
+  "opportunity": {"status": "NOT_CONFIGURED"},
+  "confirmation": {"status": "NOT_CONFIGURED"},
+  "risk": {"status": "NOT_CONFIGURED"},
+  "decision": {
+    "status": "EXPLICIT_FAIL_CLOSED",
+    "allowed": ["LONG", "SHORT", "NO_TRADE"],
+    "default": "NO_TRADE"
+  },
+  "quality_policy": {
+    "status": "EXPLICIT",
+    "unknown_is_acceptable": false,
+    "future_outcomes_allowed_for_decision": false
+  },
+  "no_trade_policy": {
+    "status": "EXPLICIT",
+    "default_on_missing_policy": true,
+    "default_on_unknown": true
+  },
+  "historical_inputs_allowed": false,
+  "historical_performance_tuning_allowed": false,
+  "future_outcome_leakage_allowed": false,
+  "long_short_symmetry_required": true,
+  "fail_closed": true,
+  "execution_enabled": false,
+  "source_basis": "NEW_FORWARD_SPECIFICATION_ONLY"
+}

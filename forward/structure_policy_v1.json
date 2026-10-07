@@ -1,0 +1,35 @@
+{
+  "policy_id": "HES_FORWARD_STRUCTURE_POLICY_V1",
+  "version": "1.0.0",
+  "status": "ACTIVE_OBSERVATION_ONLY",
+  "purpose": "Explicit causal definition of confirmed swings and basic market-structure labels for forward observation.",
+  "scope": {"symbol": "BTC_USDT", "timeframe": "15m"},
+  "swing_confirmation": {
+    "method": "symmetric_local_extremum",
+    "left_candles": 2,
+    "right_candles": 2,
+    "confirmation_rule": "A candle is confirmed as SWING_HIGH only when its high is strictly greater than the highs of the two preceding and two following closed candles. SWING_LOW is the analogous strict-low rule.",
+    "observation_timing": "The pivot candle is labeled only when the right-side confirmation candles are already closed and included in the current observation.",
+    "equal_extreme_action": "NO_SWING"
+  },
+  "labels": {
+    "high": "higher high => HH; otherwise lower high => LH",
+    "low": "higher low => HL; otherwise lower low => LL"
+  },
+  "events": {
+    "bos": "BOS is recorded when a newly confirmed swing strictly breaks the most recent confirmed same-kind structural reference in its direction, and a directional regime is already known.",
+    "choch": "CHOCH is recorded when a newly confirmed strict structural break is opposite the current inferred directional regime. If regime is UNKNOWN or RANGE, emit no BOS/CHOCH.",
+    "ambiguous": "If the structural direction is unknown or the reference is unavailable, emit no BOS/CHOCH."
+  },
+  "regime": {
+    "source": "confirmed_structure_labels",
+    "unknown_action": "UNKNOWN"
+  },
+  "safety": {
+    "historical_inputs_allowed": false,
+    "future_outcomes_allowed": false,
+    "performance_tuning_allowed": false,
+    "execution_enabled": false,
+    "fail_closed": true
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "policy_id":"HES_FORWARD_OPPORTUNITY_POLICY_V1",
+  "version":"1.0.0",
+  "status":"ACTIVE_OBSERVATION_ONLY",
+  "mode":"STRUCTURE_CANDIDATE_OBSERVATION",
+  "scope":{"symbol":"BTC_USDT","timeframe":"15m"},
+  "candidate_rule":{
+    "long":"A confirmed bullish BOS or CHOCH event with UPTREND regime may produce CANDIDATE_LONG.",
+    "short":"A confirmed bearish BOS or CHOCH event with DOWNTREND regime may produce CANDIDATE_SHORT.",
+    "otherwise":"NO_CANDIDATE",
+    "latest_event_only":true
+  },
+  "safety":{"historical_inputs_allowed":false,"future_outcomes_allowed":false,"performance_tuning_allowed":false,"execution_enabled":false,"fail_closed":true}
+}

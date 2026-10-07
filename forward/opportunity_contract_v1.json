@@ -1,0 +1,17 @@
+{
+  "schema":"hes_forward_opportunity_contract_v1",
+  "status":"CONTRACT_ONLY",
+  "purpose":"Represent auditable opportunity candidates after market-structure measurement, without turning candidates into trades.",
+  "inputs":["forward/market_structure_contract_v1.json","forward/market_structure_v1.py"],
+  "outputs":["CANDIDATE_LONG","CANDIDATE_SHORT","NO_CANDIDATE"],
+  "invariants":[
+    "Candidate generation is separate from confirmation and risk.",
+    "No historical Winner/Survivor data is an input.",
+    "No future outcome is an input.",
+    "Candidate state must be explainable with contemporaneous structure evidence.",
+    "Unknown or insufficient structure must fail closed to NO_CANDIDATE.",
+    "This layer defines candidate representation, not profitability, entry thresholds, or execution."
+  ],
+  "states":["CANDIDATE_LONG","CANDIDATE_SHORT","NO_CANDIDATE"],
+  "required_evidence":["observed_at","symbol","timeframe","regime","structure_labels","structure_events","reason_codes"]
+}

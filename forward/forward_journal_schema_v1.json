@@ -1,0 +1,36 @@
+{
+  "schema": "hes_forward_journal_v1",
+  "status": "CONTRACT_ONLY",
+  "purpose": "Record every forward opportunity and decision without changing strategy logic.",
+  "historical_data_allowed": false,
+  "strategy_tuning_allowed": false,
+  "required_fields": [
+    "event_id",
+    "observed_at",
+    "symbol",
+    "timeframe",
+    "market_regime",
+    "direction",
+    "signal_state",
+    "confirmation_state",
+    "risk_state",
+    "decision",
+    "entry",
+    "stop_loss",
+    "take_profit",
+    "rr",
+    "quality_score",
+    "no_trade_reason",
+    "outcome",
+    "closed_at",
+    "evidence_source"
+  ],
+  "decision_values": [
+    "LONG",
+    "SHORT",
+    "NO_TRADE"
+  ],
+  "rule": "NO_TRADE must be journaled when an evaluated opportunity does not pass the active decision process.",
+  "integrity_rule": "Do not backfill or alter forward decisions using future outcomes.",
+  "scope": "This is a forward-observation contract only; it does not define thresholds, entry rules, or strategy parameters."
+}

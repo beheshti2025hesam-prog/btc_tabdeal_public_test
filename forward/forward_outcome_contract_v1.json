@@ -1,0 +1,7 @@
+{
+  "schema":"hes_forward_outcome_contract_v1",
+  "purpose":"Immutable later outcome artifact linked to an existing forward decision.",
+  "required":["event_id","observed_at","closed_at","outcome"],
+  "outcomes":["WIN","LOSS","BREAKEVEN","CANCELLED"],
+  "invariants":["event_id must match an existing forward decision","outcome is recorded only after the observation window closes","decision records are never rewritten","historical Winner/Survivor records are forbidden","one final outcome per event_id"]
+}

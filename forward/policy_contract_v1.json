@@ -1,0 +1,14 @@
+{
+  "schema":"hes_forward_policy_contract_v1",
+  "status":"CONTRACT_ONLY",
+  "purpose":"Explicit, versioned policy boundary for forward evaluation",
+  "required_sections":["market_structure","opportunity","confirmation","risk"],
+  "policy_values_must_be_explicit":true,
+  "hidden_thresholds_allowed":false,
+  "historical_winner_survivor_inputs_allowed":false,
+  "historical_performance_tuning_allowed":false,
+  "future_outcome_leakage_allowed":false,
+  "long_short_symmetry_required":true,
+  "unknown_must_fail_closed":true,
+  "execution_enabled":false
+}

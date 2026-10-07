@@ -1,0 +1,16 @@
+{
+  "schema":"hes_forward_evaluation_contract_v1",
+  "status":"CONTRACT_ONLY",
+  "purpose":"Evaluate only forward journal decisions against separately recorded outcomes.",
+  "inputs":["forward/journal_contract_v1.json"],
+  "metrics":["decision_count","long_count","short_count","no_trade_count","closed_trade_count","win_count","loss_count","breakeven_count","win_rate","expectancy","realized_rr"],
+  "invariants":[
+    "Only forward records are eligible.",
+    "NO_TRADE is reported separately and is not silently excluded from decision counts.",
+    "Unclosed outcomes are excluded from closed-trade outcome metrics.",
+    "No historical Winner/Survivor records are eligible inputs.",
+    "No parameter tuning or threshold optimization is performed.",
+    "Metrics are descriptive evidence, not a target or guarantee.",
+    "No future outcome is used to alter the original decision."
+  ]
+}
