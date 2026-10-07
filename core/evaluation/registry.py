@@ -27,7 +27,7 @@ class EvidenceRegistry:
 
     def contains(self, snapshot: EvidenceSnapshot) -> bool:
         """Return whether the exact evidence snapshot is registered."""
-        return any(existing.digest == snapshot.digest for existing in self.snapshots)
+        return any(existing == snapshot for existing in self.snapshots)
 
 
 @dataclass(frozen=True)
