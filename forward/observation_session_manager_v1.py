@@ -56,9 +56,30 @@ class ObservationSessionManagerV1:
             symbol=self.symbol,timeframe=self.timeframe,source=self.source)
 
     def write_once(self, session: ObservationSessionV1, path: str|Path) -> str:
+        """Append one immutable session record, rejecting duplicate run IDs.
+
+        Repeated bounded observation runs can share one durable append-only
+        session log without overwriting older sessions.
+        """
         target=Path(path); target.parent.mkdir(parents=True,exist_ok=True)
         payload=session.record(); payload["session_digest"]=session.digest()
-        line=json.dumps(payload,sort_keys=True,separators=(",",":"))+"\n"
-        with target.open("x",encoding="utf-8") as handle:
-            handle.write(line); handle.flush()
+        line=json.dumps(payload,sort_keys=True,separators=(",",":"))+"\\n"
+        lock_path=target.with_name(target.name+".lock")
+        with lock_path.open("a+",encoding="utf-8") as lock_handle:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+            try:
+                if target.exists():
+                    with target.open("r",encoding="utf-8") as handle:
+                        for raw in handle:
+                            if not raw.strip():
+                                continue
+                            existing=json.loads(raw)
+                            if existing.get("run_id") == session.run_id:
+                                raise ValueError("duplicate observation session")
+                with target.open("a",encoding="utf-8") as handle:
+                    handle.write(line)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            finally:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
         return payload["session_digest"]
