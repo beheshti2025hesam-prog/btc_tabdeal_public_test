@@ -28,8 +28,12 @@ def _validate_decision_record(record: Mapping[str, Any]) -> None:
         raise ValueError("event_id is required")
     if not isinstance(record["evidence_source"], (str, list, tuple)):
         raise ValueError("evidence_source is required")
-    if "outcome" in record and record["outcome"] not in OUTCOMES:
-        raise ValueError("invalid outcome")
+    # A decision journal entry is contemporaneous. Any non-null future outcome
+    # presented at decision-journal time is forbidden.
+    if "outcome" in record and record["outcome"] is not None:
+        raise ValueError("future outcome leakage: decision record must have outcome=None")
+    if "closed_at" in record and record["closed_at"] is not None:
+        raise ValueError("future outcome leakage: decision record must have closed_at=None")
 
 
 class ForwardJournalV1:
