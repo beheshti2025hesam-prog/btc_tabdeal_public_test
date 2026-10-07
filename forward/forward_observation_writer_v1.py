@@ -5,6 +5,7 @@ mutates historical Winner/Survivor populations and never stores outcomes.
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -25,6 +26,7 @@ def observation_digest(record: Mapping[str, Any]) -> str:
 class ForwardObservationWriterV1:
     def __init__(self, path: str | Path):
         self.path = Path(path)
+        self.lock_path = self.path.with_name(self.path.name + ".lock")
 
     def append(self, record: Mapping[str, Any], *, context: RuntimeContext) -> str:
         validate_context(context)
@@ -37,7 +39,7 @@ class ForwardObservationWriterV1:
             raise ValueError("future outcome leakage is forbidden")
         if payload.get("source") in {"winner", "survivor", "historical", "legacy"}:
             raise ValueError("historical source is forbidden")
-        if payload.get("event_id") != context.forward_run_id + ":" + payload["event_id"]:
+        if payload.get("event_id") != context.forward_run_id + ":" + payload["event_id"].split(":", 1)[-1]:
             raise ValueError("event_id must be scoped to forward_run_id")
 
         payload["artifact_type"] = "FORWARD_OBSERVATION"
@@ -45,18 +47,22 @@ class ForwardObservationWriterV1:
         payload["digest"] = observation_digest(payload)
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a+", encoding="utf-8") as handle:
-            handle.seek(0)
-            ids = set()
-            for line in handle:
-                if line.strip():
-                    item = json.loads(line)
-                    ids.add(item.get("event_id"))
-            if payload["event_id"] in ids:
-                raise ValueError("duplicate observation event_id")
-            handle.seek(0, 2)
-            line = canonical_json(payload) + "\n"
-            handle.write(line)
-            handle.flush()
-            os.fsync(handle.fileno())
+        with self.lock_path.open("a+", encoding="utf-8") as lock_handle:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+            try:
+                with self.path.open("a+", encoding="utf-8") as handle:
+                    handle.seek(0)
+                    ids = set()
+                    for line in handle:
+                        if line.strip():
+                            item = json.loads(line)
+                            ids.add(item.get("event_id"))
+                    if payload["event_id"] in ids:
+                        raise ValueError("duplicate observation event_id")
+                    handle.seek(0, 2)
+                    handle.write(canonical_json(payload) + "\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            finally:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
         return payload["digest"]
