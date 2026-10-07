@@ -258,6 +258,53 @@ def main():
                     "diagnostic_status": "HYPOTHESIS_ONLY"
                 })
 
+    # Gate × Direction × Regime × Fold matrix.
+    # Descriptive attribution only: no ranking, threshold search, tuning, or causal claim.
+    matrix = {}
+    for r in oos:
+        direction = str(r.get("direction", "UNKNOWN"))
+        regime = str(r.get("fold_regime", "UNKNOWN"))
+        fold = str(r.get("fold_index", "UNKNOWN"))
+        key = f"{fold}|{regime}|{direction}"
+        cell = matrix.setdefault(key, {
+            "fold_index": r.get("fold_index"),
+            "fold_regime": regime,
+            "direction": direction,
+            "opportunities": 0,
+            "evaluated": 0,
+            "rejected": 0,
+            "winners_gt_14bps": 0,
+            "losses_le_0": 0,
+            "gross_sum_evaluated": 0.0,
+            "primary_rejection_counts": Counter()
+        })
+        cell["opportunities"] += 1
+        if r["evaluated"]:
+            cell["evaluated"] += 1
+            cell["gross_sum_evaluated"] += r["gross_return"]
+            if r["gross_return"] > THRESHOLD:
+                cell["winners_gt_14bps"] += 1
+            if r["gross_return"] <= 0:
+                cell["losses_le_0"] += 1
+        else:
+            cell["rejected"] += 1
+            g = r["gates"]
+            if g["data_quality"]["status"] == "FAIL":
+                pg = "DATA_QUALITY"
+            elif g["confirmation"]["status"] == "FAIL":
+                pg = "CONFIRMATION"
+            elif g["risk"]["status"] == "FAIL":
+                pg = "RISK"
+            else:
+                pg = "DECISION"
+            cell["primary_rejection_counts"][pg] += 1
+
+    for cell in matrix.values():
+        cell["rejection_rate"] = (
+            cell["rejected"] / cell["opportunities"] if cell["opportunities"] else None
+        )
+        cell["primary_rejection_counts"] = dict(cell["primary_rejection_counts"])
+
     result = {
         "artifact_type": "GATE_BY_GATE_ATTRIBUTION_SELF_IMPROVEMENT_V1",
         "status": "RESEARCH_ONLY__NO_MUTATION",
@@ -281,6 +328,13 @@ def main():
             "primary_rejection_counts": dict(rejection_counts),
             "reason_counts": dict(rejection_reasons),
             "rejection_rate": (len(oos)-len(executed))/len(oos) if oos else None
+        },
+        "gate_direction_regime_fold_matrix": {
+            "status": "DESCRIPTIVE_ONLY",
+            "cell_count": len(matrix),
+            "dimensions": ["fold_index", "fold_regime", "direction"],
+            "cells": matrix,
+            "causal_claims": False
         },
         "loss_self_improvement": {
             "losses_analyzed": len(losses),
