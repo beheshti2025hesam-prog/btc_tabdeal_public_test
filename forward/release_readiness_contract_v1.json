@@ -1,0 +1,1 @@
+{"schema":"hes_forward_release_readiness_gate_v1","status":"ACTIVE_FROM_2026-10-07","promotion_policy":"FAIL_CLOSED","required_checks":["tests_pass","contracts_present","safety_invariants_pass","historical_firewall_pass","execution_locked","collector_disabled","git_integrity_pass"],"missing_check_policy":"BLOCK","silent_bypass":false,"execution_enabled":false}
