@@ -1,0 +1,9 @@
+{
+  "policy_id":"HES_FORWARD_RISK_POLICY_V1",
+  "version":"1.0.0",
+  "status":"ACTIVE_OBSERVATION_ONLY",
+  "scope":{"symbol":"BTC_USDT","timeframe":"15m"},
+  "required_checks":["confirmation_valid","risk_context_available","execution_disabled"],
+  "rule":"All required contemporaneous risk checks must PASS. UNKNOWN, FAIL, or missing evidence yields RISK_REJECTED.",
+  "safety":{"historical_inputs_allowed":false,"future_outcomes_allowed":false,"performance_tuning_allowed":false,"execution_enabled":false,"fail_closed":true}
+}
