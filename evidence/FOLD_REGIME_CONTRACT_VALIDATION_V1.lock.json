@@ -1,6 +1,6 @@
 {
   "artifact": "evidence/FOLD_REGIME_CONTRACT_VALIDATION_V1.json",
-  "artifact_sha256": "b8f0f0c1b3f5b10c3ddfbf6e1c02a6e6d7a3c1d3a6d1e6c6c5f2d4e2f8b9c0a1",
+  "artifact_sha256": "6a0e9131be93c3913a4327b67c256c4e9e7ff9f5f080bd529fee1f4be6076fb1",
   "status": "HASH_LOCKED",
   "producer_commit": "5f32ab330cb9a43cb1b5321e56411a406c899103",
   "verdict": "FOLD_REGIME_ATTRIBUTION_IS_CONTRACT_ALIGNED;_NO_TUNING"
