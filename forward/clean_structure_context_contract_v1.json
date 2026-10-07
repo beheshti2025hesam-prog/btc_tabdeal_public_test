@@ -1,0 +1,14 @@
+{
+  "schema":"hes_forward_clean_structure_context_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "mode":"OBSERVATION_ONLY",
+  "minimum_closed_candles":2,
+  "historical_inputs_allowed":false,
+  "candidate_generation":false,
+  "signal_generation":false,
+  "trade_decision":false,
+  "execution_enabled":false,
+  "future_outcomes_allowed":false,
+  "bias_values":["UP_CONTEXT","DOWN_CONTEXT","MIXED_CONTEXT"],
+  "fail_closed":true
+}
