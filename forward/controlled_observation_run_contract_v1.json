@@ -1,0 +1,14 @@
+{
+  "schema":"hes_forward_controlled_observation_run_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "mode":"OBSERVATION_ONLY",
+  "decision_mode":"NO_TRADE_ONLY",
+  "execution_enabled":false,
+  "historical_inputs_allowed":false,
+  "future_outcomes_allowed":false,
+  "network_enabled":false,
+  "writes_only":"FORWARD_OBSERVATION_ARTIFACT",
+  "gap_policy":"NO_TRADE_DATA_GAP",
+  "closed_candle_status":"CANDLE_CLOSED_OBSERVED",
+  "fail_closed":true
+}
