@@ -12,7 +12,12 @@ class SequenceEvent:
 
 
 class SequenceIntegrityV1:
-    """Tracks sequence continuity without repairing or reordering source data."""
+    """Tracks monotonic source sequence identifiers without repairing or reordering data.
+
+Tabdeal sequence values are treated as ordered identifiers, not contiguous counters.
+Continuity is enforced by rejecting regressions and conflicting duplicates; a numeric
+jump is observable but is not, by itself, evidence of a missing market event.
+"""
 
     def __init__(self) -> None:
         self.last_sequence: int | None = None
