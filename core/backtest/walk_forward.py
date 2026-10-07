@@ -17,6 +17,48 @@ from core.backtest.engine import BacktestResult
 from core.backtest.validation import HistoricalObservation, HistoricalValidation
 
 
+
+@dataclass(frozen=True)
+class WalkForwardConfig:
+    """Backward-compatible configuration for the execution-free paper OOS API."""
+    train_size: int
+    test_size: int
+    step_size: int | None = None
+    embargo_size: int = 0
+
+    def __post_init__(self) -> None:
+        if self.train_size <= 0: raise ValueError("train_size must be positive")
+        if self.test_size <= 0: raise ValueError("test_size must be positive")
+        if self.step_size is not None and self.step_size < self.test_size: raise ValueError("step_size must be at least test_size")
+        if self.embargo_size < 0: raise ValueError("embargo_size must not be negative")
+
+@dataclass(frozen=True)
+class WalkForwardWindow:
+    train: tuple[HistoricalObservation, ...]
+    test: tuple[HistoricalObservation, ...]
+
+def walk_forward(observations: Iterable[HistoricalObservation], config: WalkForwardConfig) -> tuple[WalkForwardWindow, ...]:
+    """Create strict chronological train/test windows without fitting or tuning."""
+    rows = list(observations)
+    HistoricalValidation().run(rows)
+    step = config.step_size or config.test_size
+    windows: list[WalkForwardWindow] = []
+    start = 0
+    while True:
+        train_end = start + config.train_size
+        test_start = train_end + config.embargo_size
+        test_end = test_start + config.test_size
+        if test_end > len(rows): break
+        train = tuple(rows[start:train_end])
+        test = tuple(rows[test_start:test_end])
+        if train[-1].timestamp >= test[0].timestamp: raise ValueError("train/test windows overlap or are not chronological")
+        if windows and windows[-1].test[-1].timestamp >= test[0].timestamp: raise ValueError("OOS test windows overlap")
+        windows.append(WalkForwardWindow(train=train, test=test))
+        start += step
+    if not windows:
+        required = config.train_size + config.embargo_size + config.test_size
+        raise ValueError(f"insufficient observations for walk-forward validation: need at least {required}, got {len(rows)}")
+    return tuple(windows)
 @dataclass(frozen=True)
 class WalkForwardFold:
     index: int
