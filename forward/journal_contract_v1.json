@@ -9,10 +9,12 @@
     "Records are append-only; an observed decision is never rewritten using future outcome.",
     "NO_TRADE is a first-class recorded decision.",
     "Outcome is populated only after the observation window closes.",
+    "A decision-journal write must reject any non-null future outcome or closed_at value.",
     "Historical Winner/Survivor records cannot be imported as forward records.",
     "Every decision references contemporaneous evidence_source.",
     "Duplicate event_id is rejected.",
     "A journal writer must use a single-writer/atomic append policy.",
-    "No live order execution is performed by this journal."
+    "No live order execution is performed by this journal.",
+    "Every Risk Reject must resolve to a valid NO_TRADE decision before journal append."
   ]
 }
