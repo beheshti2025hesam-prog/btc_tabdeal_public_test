@@ -1,0 +1,14 @@
+{
+  "schema":"hes_forward_observation_journal_integration_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "pipeline":["QUALITY_REPORT","SNAPSHOT_IDENTITY","APPEND_ONLY_JOURNAL"],
+  "mode":"OBSERVATION_ONLY",
+  "historical_inputs_allowed":false,
+  "future_outcomes_allowed":false,
+  "signal_generation":false,
+  "trade_decision":false,
+  "execution_enabled":false,
+  "promotion_to_trade":false,
+  "duplicate_snapshot_policy":"REJECT",
+  "fail_closed":true
+}
