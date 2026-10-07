@@ -1,0 +1,24 @@
+{
+  "schema": "hes_forward_decision_contract_v1",
+  "status": "CONTRACT_ONLY",
+  "purpose": "Define the boundary between normalized market/feature state and a forward decision.",
+  "allowed_decisions": ["LONG", "SHORT", "NO_TRADE"],
+  "fail_closed": true,
+  "layers": [
+    "market_input",
+    "market_structure",
+    "opportunity_candidate",
+    "confirmation",
+    "risk_gate",
+    "decision"
+  ],
+  "invariants": [
+    "No future outcome may influence a decision.",
+    "NO_TRADE is a first-class decision.",
+    "LONG and SHORT use the same contract.",
+    "Risk may veto an otherwise valid candidate.",
+    "Quality must use contemporaneous information only.",
+    "This contract defines no thresholds, indicators, entry rules, or optimization targets.",
+    "Historical Winner/Survivor data is not an input to this forward contract."
+  ]
+}
