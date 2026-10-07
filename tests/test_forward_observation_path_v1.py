@@ -23,18 +23,15 @@ def test_full_forward_observation_path(tmp_path):
     assert result.snapshot_id
     assert len(ForwardObservationPathV1(tmp_path/"observations.jsonl").journal.read())==1
 
-def test_sequence_gap_blocks_before_structure(tmp_path):
+def test_non_contiguous_sequence_reaches_candle_boundary(tmp_path):
     as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
     frames=[frame(1,as_of-timedelta(minutes=30),100),
             frame(3,as_of-timedelta(minutes=25),101)]
     result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
-        frames,as_of=as_of,forward_run_id="OBS-E2E-GAP")
-    assert result.status=="BLOCKED"
-    assert result.reason=="SEQUENCE_UNSAFE"
-    assert result.diagnostics == (
-        {"sequence": 1, "status": "ACCEPTED", "reason": None},
-        {"sequence": 3, "status": "ANOMALY", "reason": "SEQUENCE_GAP"},
-    )
+        frames,as_of=as_of,forward_run_id="OBS-E2E-MONOTONIC")
+    assert result.status=="WAITING"
+    assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
+    assert result.snapshot_id is None
     assert not (tmp_path/"observations.jsonl").exists()
 
 def test_open_candle_is_not_observed(tmp_path):
