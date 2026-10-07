@@ -1,0 +1,10 @@
+{
+  "policy_id":"HES_FORWARD_CONFIRMATION_POLICY_V1",
+  "version":"1.0.0",
+  "status":"ACTIVE_OBSERVATION_ONLY",
+  "scope":{"symbol":"BTC_USDT","timeframe":"15m"},
+  "required_checks":["candidate_valid","direction_regime_alignment","structural_event_present"],
+  "rule":"All required contemporaneous checks must PASS. UNKNOWN, FAIL, or missing evidence yields UNCONFIRMED.",
+  "direction":"Candidate direction is preserved; LONG and SHORT use the same confirmation contract.",
+  "safety":{"historical_inputs_allowed":false,"future_outcomes_allowed":false,"performance_tuning_allowed":false,"execution_enabled":false,"fail_closed":true}
+}
