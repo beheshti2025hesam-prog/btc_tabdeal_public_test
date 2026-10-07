@@ -84,7 +84,17 @@ class ControlledForwardObservationRunnerV1:
         kwargs["ws_factory"] = self.ws_factory
 
         transport = self.transport_factory(**kwargs)
-        transport.run_once()
+        try:
+            transport.run_once()
+        except Exception as exc:
+            return ControlledObservationRunnerResult(
+                run_id=session.run_id,
+                status="BLOCKED",
+                records_received=len(records),
+                journal_path=str(self.journal_path),
+                reason=f"TRANSPORT_ERROR:{type(exc).__name__}",
+                snapshot_id=None,
+            )
 
         if not records:
             return ControlledObservationRunnerResult(
