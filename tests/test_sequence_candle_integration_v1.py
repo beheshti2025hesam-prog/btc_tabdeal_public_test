@@ -49,12 +49,12 @@ def test_conflicting_duplicate_stops_candle_formation():
     assert result.events[-1].reason == "CONFLICTING_DUPLICATE_SEQUENCE"
 
 
-def test_gap_stops_candle_formation_without_repair():
+def test_non_contiguous_sequence_is_accepted_as_monotonic_progress():
     s = SequenceAwareCandleIngestionV1()
     result = s.ingest([rec(1), rec(3)], as_of=ASOF)
-    assert result.safe_for_decision is False
-    assert result.candles == ()
-    assert result.events[-1].reason == "SEQUENCE_GAP"
+    assert result.safe_for_decision is True
+    assert result.events[-1].status == "ACCEPTED"
+
 
 
 def test_reconnect_requires_explicit_reset_before_new_continuity():
