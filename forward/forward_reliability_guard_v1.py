@@ -36,7 +36,7 @@ class ReliabilityGuardV1:
             return
         if previous != current:
             raise ValueError("conflicting duplicate sequence")
-        raise ValueError("duplicate sequence")
+        return
 
     def require_reason(self, reason: str) -> str:
         reason = str(reason).strip()
