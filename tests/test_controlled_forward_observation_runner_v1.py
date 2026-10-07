@@ -61,3 +61,30 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
     assert result.status == "WAITING"
     assert result.reason == "NO_FRESH_RECORDS"
     assert not journal.exists()
+
+
+def test_runner_fails_closed_on_transport_error(tmp_path: Path):
+    class BrokenTransport:
+        def __init__(self, **kwargs):
+            pass
+
+        def run_once(self):
+            raise RuntimeError("simulated transport failure")
+
+    journal = tmp_path / "journal.jsonl"
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=BrokenTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+    )
+    result = runner.run(
+        started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
+    )
+    assert result.status == "BLOCKED"
+    assert result.reason == "TRANSPORT_ERROR:RuntimeError"
+    assert result.records_received == 0
+    assert session.exists()
+    assert not journal.exists()
