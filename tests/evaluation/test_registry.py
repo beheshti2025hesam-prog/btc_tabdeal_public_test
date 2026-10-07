@@ -45,14 +45,14 @@ class EvidenceRegistryTests(unittest.TestCase):
 
     def test_current_commit_is_fresh(self):
         snapshot = self.snapshot("commit-1")
-        result = EvidenceRegistryValidator().validate(snapshot, "commit-1")
+        result = EvidenceRegistryValidator().validate(snapshot, EvidenceRegistry((snapshot,)), "commit-1")
 
         self.assertTrue(result.fresh)
         self.assertEqual(result.reasons, ())
 
     def test_changed_commit_makes_evidence_stale(self):
         snapshot = self.snapshot("commit-1")
-        result = EvidenceRegistryValidator().validate(snapshot, "commit-2")
+        result = EvidenceRegistryValidator().validate(snapshot, EvidenceRegistry((snapshot,)), "commit-2")
 
         self.assertFalse(result.fresh)
         self.assertIn("stale_source_commit", result.reasons)
@@ -64,7 +64,7 @@ class EvidenceRegistryTests(unittest.TestCase):
             "commit-1",
             {"oos": True},
         )
-        result = EvidenceRegistryValidator().validate(snapshot, "commit-1")
+        result = EvidenceRegistryValidator().validate(snapshot, EvidenceRegistry((snapshot,)), "commit-1")
 
         self.assertFalse(result.fresh)
         self.assertIn("project_identity_mismatch", result.reasons)
