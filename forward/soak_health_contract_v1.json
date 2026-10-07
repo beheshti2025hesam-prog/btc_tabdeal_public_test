@@ -1,0 +1,1 @@
+{"schema":"hes_forward_soak_health_v1","status":"ACTIVE_FROM_2026-10-07","mode":"FORWARD_ONLY","network_enabled":false,"execution_enabled":false,"historical_inputs_allowed":false,"empty_run_policy":"UNSAFE","any_failure_policy":"FAIL_CLOSED","silent_recovery":false,"fail_closed":true}
