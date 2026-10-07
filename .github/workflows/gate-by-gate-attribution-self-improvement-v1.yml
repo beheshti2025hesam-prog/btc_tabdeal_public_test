@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      PYTHONPATH: ${{ github.workspace }}
       CURRENT_RAW_BLOB_SHA: "58d21825e052dbaa42e7eb0695455c19997bff43"
       CURRENT_RAW_SOURCE_COMMIT: "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
       PROTOCOL_CONTRACT_BLOB_SHA: "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
