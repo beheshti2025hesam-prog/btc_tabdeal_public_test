@@ -1,26 +1,7 @@
-# Opportunity Detection Layer v1
+# Opportunity Detection V1
 
-Forward-only boundary between Market Structure and Confirmation.
+Structure-only, observation-only candidate generation.
 
-## Purpose
-Represent a possible trading opportunity without declaring it tradable.
+This layer identifies a structural event worth passing to later Confirmation/Risk gates. It is not an entry rule and makes no profitability claim.
 
-Pipeline:
-Market Data → Market Structure → Opportunity Candidate → Confirmation → Risk → Decision
-
-States:
-- CANDIDATE_LONG
-- CANDIDATE_SHORT
-- NO_CANDIDATE
-
-The reference detector fails closed when no versioned policy is supplied.
-
-## Explicitly excluded
-- Historical Winner/Survivor optimization
-- Future outcome leakage
-- Hidden thresholds
-- Entry execution
-- Profitability claims
-- Automatic tuning toward a target win rate
-
-A candidate is only an opportunity hypothesis. Confirmation and Risk Gate remain mandatory.
+No historical populations, outcomes, thresholds, leverage, RR, sizing, or execution are used. Unknown or non-directional structure fails closed to NO_CANDIDATE.
