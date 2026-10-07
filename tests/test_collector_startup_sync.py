@@ -44,7 +44,7 @@ def test_startup_sync_replaces_stale_checkout(monkeypatch, tmp_path):
     ns = load_namespace(monkeypatch, tmp_path)
     ns["OUTPUT_FILE"] = "data/trades.csv"
     ns["ARCHIVE_DIR"] = "data/archive"
-    ns["run_git"] = lambda command: subprocess.run(command, cwd=repo, check=True)
+    ns["run_git"] = lambda command, **kwargs: subprocess.run(command, cwd=repo, **kwargs)
 
     # A dirty data tree must fail closed rather than overwrite persisted data.
     with pytest.raises(RuntimeError):
@@ -76,7 +76,8 @@ def test_checkpoint_never_resets_worktree(monkeypatch, tmp_path):
     ns["OUTPUT_FILE"] = "data/trades.csv"
     ns["ARCHIVE_DIR"] = "data/archive"
     ns["csv_file"] = None
-    ns["run_git"] = lambda command: subprocess.run(command, cwd=repo, check=True)
+    ns["run_git"] = lambda command, **kwargs: subprocess.run(command, cwd=repo, **kwargs)
+    monkeypatch.chdir(repo)
     ns["prepare_git_checkpoint"]()
     rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
@@ -104,8 +105,8 @@ def test_checkpoint_fails_closed_when_main_advances(monkeypatch, tmp_path):
     ns = load_namespace(monkeypatch, tmp_path)
     ns["OUTPUT_FILE"] = "data/trades.csv"
     ns["ARCHIVE_DIR"] = "data/archive"
-    ns["run_git"] = lambda command: subprocess.run(
-        command, cwd=repo, check=True
+    ns["run_git"] = lambda command, **kwargs: subprocess.run(
+        command, cwd=repo, **kwargs
     )
 
     ns["synchronize_startup_data_state"]()
@@ -113,7 +114,7 @@ def test_checkpoint_fails_closed_when_main_advances(monkeypatch, tmp_path):
     # A second collector advances main after this collector's startup snapshot.
     other = tmp_path / "other"
     subprocess.run(
-        ["git", "clone", str(origin), str(other)],
+        ["git", "clone", "--branch", "main", str(origin), str(other)],
         check=True,
         capture_output=True,
     )
@@ -131,7 +132,7 @@ def test_checkpoint_fails_closed_when_main_advances(monkeypatch, tmp_path):
     # Verify the concurrent collector's newer persisted data remains intact.
     verifier = tmp_path / "verifier"
     subprocess.run(
-        ["git", "clone", str(origin), str(verifier)],
+        ["git", "clone", "--branch", "main", str(origin), str(verifier)],
         check=True,
         capture_output=True,
     )
@@ -165,8 +166,8 @@ def test_checkpoint_updates_base_after_successful_push(monkeypatch, tmp_path):
     ns = load_namespace(monkeypatch, tmp_path)
     ns["OUTPUT_FILE"] = "data/trades.csv"
     ns["ARCHIVE_DIR"] = "data/archive"
-    ns["run_git"] = lambda command: subprocess.run(
-        command, cwd=repo, check=True
+    ns["run_git"] = lambda command, **kwargs: subprocess.run(
+        command, cwd=repo, **kwargs
     )
 
     ns["synchronize_startup_data_state"]()
@@ -180,7 +181,7 @@ def test_checkpoint_updates_base_after_successful_push(monkeypatch, tmp_path):
 
     verifier = tmp_path / "verifier"
     subprocess.run(
-        ["git", "clone", str(origin), str(verifier)],
+        ["git", "clone", "--branch", "main", str(origin), str(verifier)],
         check=True,
         capture_output=True,
     )
@@ -239,7 +240,7 @@ def test_plain_push_rejects_remote_advance_without_overwrite(monkeypatch, tmp_pa
     git(first, "push", "-u", "origin", "main")
 
     second = tmp_path / "second"
-    subprocess.run(["git", "clone", str(origin), str(second)], check=True, capture_output=True)
+    subprocess.run(["git", "clone", "--branch", "main", str(origin), str(second)], check=True, capture_output=True)
     git(second, "config", "user.email", "second@example.com")
     git(second, "config", "user.name", "second")
     write_csv(second / "data/trades.csv", 100, 4)
@@ -248,7 +249,7 @@ def test_plain_push_rejects_remote_advance_without_overwrite(monkeypatch, tmp_pa
     git(second, "push", "origin", "main")
 
     # The stale first collector has no force-push path; normal git push must fail.
-    write_csv(first / "data/trades.csv", 100, 3)
+    write_csv(first / "data/trades.csv", 100, 5)
     git(first, "add", "data/trades.csv")
     git(first, "commit", "-m", "stale checkpoint")
     result = subprocess.run(
@@ -260,7 +261,7 @@ def test_plain_push_rejects_remote_advance_without_overwrite(monkeypatch, tmp_pa
     assert result.returncode != 0
 
     verifier = tmp_path / "verifier"
-    subprocess.run(["git", "clone", str(origin), str(verifier)], check=True, capture_output=True)
+    subprocess.run(["git", "clone", "--branch", "main", str(origin), str(verifier)], check=True, capture_output=True)
     rows = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
 
@@ -281,9 +282,10 @@ def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_pa
     ns = load_namespace(monkeypatch, tmp_path)
     ns["OUTPUT_FILE"] = "data/trades.csv"
     ns["ARCHIVE_DIR"] = "data/archive"
-    ns["run_git"] = lambda command: subprocess.run(command, cwd=repo, check=True)
+    ns["run_git"] = lambda command, **kwargs: subprocess.run(command, cwd=repo, **kwargs)
 
     # N -> N+1: append one valid trade and publish.
+    monkeypatch.chdir(repo)
     ns["synchronize_startup_data_state"]()
     write_csv(repo / "data/trades.csv", 100, 4)
     assert ns["git_checkpoint"]() is True
@@ -298,7 +300,7 @@ def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_pa
     assert ns["git_checkpoint"]() is True
 
     verifier = tmp_path / "verifier"
-    subprocess.run(["git", "clone", str(origin), str(verifier)], check=True, capture_output=True)
+    subprocess.run(["git", "clone", "--branch", "main", str(origin), str(verifier)], check=True, capture_output=True)
     persisted = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
     assert [int(r["sequence"]) for r in persisted] == [100, 101, 102, 103, 104]
 
@@ -438,11 +440,7 @@ def test_archive_rotation_recovers_after_active_replace_before_cleanup(monkeypat
     def crash_before_marker_cleanup():
         raise SystemExit("simulated process crash")
 
-    monkeypatch.setattr(
-        ns,
-        "_remove_archive_transaction_marker",
-        crash_before_marker_cleanup,
-    )
+    ns["_remove_archive_transaction_marker"] = crash_before_marker_cleanup
 
     with pytest.raises(SystemExit):
         ns["archive_old_rows"]()
@@ -451,11 +449,7 @@ def test_archive_rotation_recovers_after_active_replace_before_cleanup(monkeypat
     assert len(list((repo / "data/archive").glob("*.csv"))) == 1
     assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [102]
 
-    monkeypatch.setattr(
-        ns,
-        "_remove_archive_transaction_marker",
-        lambda: None,
-    )
+    ns["_remove_archive_transaction_marker"] = lambda: None
     ns["recover_archive_rotation"]()
 
     assert not (repo / "data/.archive_rotation.json").exists()

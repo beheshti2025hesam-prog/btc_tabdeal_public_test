@@ -1,0 +1,13 @@
+{
+  "schema": "hes_forward_sequence_integrity_v1",
+  "status": "ACTIVE_FROM_2026-10-07",
+  "mode": "FORWARD_ONLY",
+  "duplicate_policy": "IDENTICAL_ONLY",
+  "conflicting_duplicate_policy": "REJECT_STREAM",
+  "gap_policy": "ANOMALY_NO_REPAIR",
+  "out_of_order_policy": "ANOMALY_NO_REORDER",
+  "reconnect_policy": "RESET_CONTINUITY",
+  "restart_safe": true,
+  "fail_closed": true,
+  "silent_repair": false
+}

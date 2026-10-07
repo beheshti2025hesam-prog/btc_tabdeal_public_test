@@ -203,16 +203,10 @@ def synchronize_startup_data_state():
 
     run_git(["git", "fetch", "origin", "main"])
 
-    remote_sha = subprocess.run(
-        ["git", "rev-parse", "origin/main"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    remote_sha = _git_output(["git", "rev-parse", "origin/main"])
 
-    status = subprocess.run(
+    status = run_git(
         ["git", "status", "--porcelain", "--", OUTPUT_FILE, ARCHIVE_DIR],
-        check=True,
         capture_output=True,
         text=True,
     )
@@ -230,14 +224,26 @@ def synchronize_startup_data_state():
             status.stdout.strip(),
             flush=True,
         )
+        raise RuntimeError(
+            "Refusing startup data sync: local handoff data is modified."
+        )
     else:
+        data_paths = [OUTPUT_FILE]
+        archive_listing = run_git(
+            ["git", "ls-tree", "-r", "--name-only", remote_sha, "--", ARCHIVE_DIR],
+            capture_output=True,
+            text=True,
+        )
+        if archive_listing.stdout.strip():
+            data_paths.append(ARCHIVE_DIR)
         run_git([
             "git", "restore", "--source=origin/main", "--worktree",
-            "--", OUTPUT_FILE, ARCHIVE_DIR
+            "--", *data_paths
         ])
 
-        verify = subprocess.run(
-            ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
+        verify = run_git(
+            ["git", "diff", "--quiet", remote_sha, "--", *data_paths],
+            check=False,
         )
         if verify.returncode != 0:
             print(
@@ -246,14 +252,15 @@ def synchronize_startup_data_state():
             )
             run_git([
                 "git", "restore", "--source=origin/main", "--staged", "--worktree",
-                "--", OUTPUT_FILE, ARCHIVE_DIR
+                "--", *data_paths
             ])
-            verify_retry = subprocess.run(
-                ["git", "diff", "--quiet", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR]
+            verify_retry = run_git(
+                ["git", "diff", "--quiet", remote_sha, "--", *data_paths],
+                check=False,
             )
             if verify_retry.returncode != 0:
-                diagnostic = subprocess.run(
-                    ["git", "diff", "--stat", remote_sha, "--", OUTPUT_FILE, ARCHIVE_DIR],
+                diagnostic = run_git(
+                    ["git", "diff", "--stat", remote_sha, "--", *data_paths],
                     check=False,
                     capture_output=True,
                     text=True,
@@ -266,12 +273,7 @@ def synchronize_startup_data_state():
                 raise RuntimeError("Startup data sync verification failed after retry.")
 
     run_git(["git", "fetch", "origin", "main"])
-    latest_remote_sha = subprocess.run(
-        ["git", "rev-parse", "origin/main"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    latest_remote_sha = _git_output(["git", "rev-parse", "origin/main"])
 
     if latest_remote_sha != remote_sha:
         raise RuntimeError(
@@ -658,12 +660,16 @@ def recover_archive_rotation():
         os.remove(archive_file)
         if os.path.exists(temp_active):
             os.remove(temp_active)
-        _remove_archive_transaction_marker()
+        for path in (ARCHIVE_TXN_MARKER, ARCHIVE_TXN_MARKER + ".tmp"):
+            if os.path.exists(path):
+                os.remove(path)
         return
     if active_sha256 == new_active_sha256:
         if os.path.exists(temp_active):
             os.remove(temp_active)
-        _remove_archive_transaction_marker()
+        for path in (ARCHIVE_TXN_MARKER, ARCHIVE_TXN_MARKER + ".tmp"):
+            if os.path.exists(path):
+                os.remove(path)
         return
     raise RuntimeError("Archive transaction recovery found an unknown active-file state; manual recovery required.")
 
@@ -931,15 +937,17 @@ def ensure_archive_capacity():
 # GIT
 # ============================================================
 
-def run_git(command):
+def run_git(command, *, check=True, capture_output=False, text=False):
     return subprocess.run(
         command,
-        check=True
+        check=check,
+        capture_output=capture_output,
+        text=text,
     )
 
 
 def _git_output(command):
-    return subprocess.run(command, check=True, capture_output=True, text=True).stdout.strip()
+    return run_git(command, capture_output=True, text=True).stdout.strip()
 
 def _self_start_ticks():
     with open("/proc/self/stat", "r", encoding="utf-8") as f:
@@ -994,14 +1002,13 @@ def prepare_git_checkpoint():
     # A mixed reset can move HEAD/index to a newer origin/main while
     # leaving a stale data/trades.csv in place. Staging that stale file
     # could overwrite newer persisted trades.
-    run_git([
-        "git",
-        "add",
-        OUTPUT_FILE,
-        ARCHIVE_DIR
-    ])
+    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    run_git(["git", "add", "--", OUTPUT_FILE])
+    archive_entries = os.listdir(ARCHIVE_DIR)
+    if archive_entries:
+        run_git(["git", "add", "-A", "--", ARCHIVE_DIR])
 
-    if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode != 0:
+    if run_git(["git", "diff", "--cached", "--quiet"], check=False).returncode != 0:
         write_checkpoint_provenance()
         run_git(["git", "add", CHECKPOINT_PROVENANCE_FILE])
 
@@ -1018,16 +1025,7 @@ def assert_remote_main_unchanged():
         "main"
     ])
 
-    current_remote_sha = subprocess.run(
-        [
-            "git",
-            "rev-parse",
-            "origin/main"
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    current_remote_sha = _git_output(["git", "rev-parse", "origin/main"])
 
     if current_remote_sha != startup_base_sha:
         raise RuntimeError(
@@ -1039,14 +1037,7 @@ def assert_remote_main_unchanged():
 
 
 def commit_if_needed():
-    result = subprocess.run(
-        [
-            "git",
-            "diff",
-            "--cached",
-            "--quiet"
-        ]
-    )
+    result = run_git(["git", "diff", "--cached", "--quiet"], check=False)
 
     if result.returncode == 0:
 
@@ -1158,16 +1149,7 @@ def git_checkpoint():
         )
 
         if success:
-            startup_base_sha = subprocess.run(
-                [
-                    "git",
-                    "rev-parse",
-                    "HEAD"
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
+            startup_base_sha = _git_output(["git", "rev-parse", "HEAD"])
             last_checkpoint_time = time.time()
             return True
 

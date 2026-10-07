@@ -1,0 +1,17 @@
+{
+  "schema": "hes_forward_clean_evidence_collection_v1",
+  "status": "ACTIVE_FROM_2026-10-07",
+  "mode": "OBSERVATION_ONLY",
+  "source_policy": "FORWARD_ONLY",
+  "historical_inputs_allowed": false,
+  "future_outcomes_allowed": false,
+  "execution_enabled": false,
+  "collector_auto_start": false,
+  "winner_survivor_inputs_allowed": false,
+  "threshold_tuning_from_forward_records": false,
+  "outcome_policy": "OUTCOMES_MUST_BE_SEPARATE_ARTIFACTS",
+  "identity": ["forward_run_id","event_id","observed_at","symbol","timeframe"],
+  "append_only": true,
+  "immutable_observation": true,
+  "fail_closed": true
+}

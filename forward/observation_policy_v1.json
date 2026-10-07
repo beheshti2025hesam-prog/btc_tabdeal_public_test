@@ -1,0 +1,22 @@
+{
+  "policy_id": "HES_FORWARD_OBSERVATION_POLICY_V1",
+  "version": "1.0.0",
+  "status": "ACTIVE",
+  "mode": "OBSERVATION_ONLY",
+  "effective_from": "2026-10-07T00:00:00Z",
+  "market_scope": {"symbol":"BTC_USDT","timeframe":"15m"},
+  "market_structure": {"status":"ACTIVE","regime_required":true,"unknown_action":"NO_TRADE"},
+  "opportunity": {"status":"ACTIVE","candidate_generation":"DISABLED_FOR_OBSERVATION_ONLY"},
+  "confirmation": {"status":"ACTIVE","minimum_pass_count":null,"weights":null,"thresholds":null,"unknown_action":"NO_TRADE"},
+  "risk": {"status":"ACTIVE","approval":"DISABLED_FOR_OBSERVATION_ONLY","unknown_action":"NO_TRADE"},
+  "decision": {"status":"ACTIVE","default":"NO_TRADE","allowed":["NO_TRADE"],"execution_enabled":false},
+  "quality_policy":{"status":"EXPLICIT","unknown_is_acceptable":false},
+  "no_trade_policy":{"status":"EXPLICIT","default_on_missing":true,"default_on_unknown":true},
+  "historical_inputs_allowed":false,
+  "historical_performance_tuning_allowed":false,
+  "future_outcome_leakage_allowed":false,
+  "long_short_symmetry_required":true,
+  "fail_closed":true,
+  "execution_enabled":false,
+  "source_basis":"NEW_FORWARD_SPECIFICATION_ONLY"
+}

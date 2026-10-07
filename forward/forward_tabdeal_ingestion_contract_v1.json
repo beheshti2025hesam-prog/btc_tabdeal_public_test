@@ -1,0 +1,17 @@
+{
+  "schema":"hes_forward_tabdeal_ingestion_adapter_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "mode":"READ_ONLY_ADAPTER",
+  "source":"tabdeal_ws_forward_v1",
+  "market_scope":{"symbol":"BTC_USDT","timeframe":"15m"},
+  "invariants":[
+    "No network connection is created by the adapter.",
+    "No files are written by the adapter.",
+    "Only source records with the forward Tabdeal source tag are accepted.",
+    "Future source_updated values relative to as_of are rejected.",
+    "Only closed 15m candles are emitted.",
+    "Existing deterministic candle normalizer remains the single aggregation authority.",
+    "Historical Winner/Survivor data is forbidden.",
+    "No strategy, signal, outcome, or execution logic is present."
+  ]
+}

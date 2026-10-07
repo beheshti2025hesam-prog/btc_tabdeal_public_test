@@ -1,0 +1,15 @@
+{
+  "schema":"hes_forward_observation_artifact_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "purpose":"Contemporaneous forward observation only",
+  "required_fields":["event_id","observed_at","symbol","timeframe","status"],
+  "invariants":[
+    "historical Winner/Survivor/legacy sources are forbidden",
+    "future outcome and closed_at are forbidden",
+    "event_id is scoped to forward_run_id",
+    "duplicate event_id is rejected",
+    "record carries a canonical SHA-256 digest",
+    "append is fsync-backed",
+    "no execution is performed"
+  ]
+}

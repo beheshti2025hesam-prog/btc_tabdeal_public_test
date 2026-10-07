@@ -1,0 +1,15 @@
+{
+  "schema": "hes_forward_sequence_candle_integration_v1",
+  "status": "ACTIVE_FROM_2026-10-07",
+  "mode": "OBSERVATION_ONLY",
+  "sequence_gate_before_candle": true,
+  "anomaly_policy": "NO_CANDLE_AND_NO_DECISION",
+  "conflicting_duplicate_policy": "NO_CANDLE_AND_NO_DECISION",
+  "identical_duplicate_policy": "IDEMPOTENT",
+  "gap_policy": "NO_REPAIR",
+  "out_of_order_policy": "NO_REORDER",
+  "reconnect_requires_explicit_reset": true,
+  "future_outcome_allowed": false,
+  "execution_enabled": false,
+  "fail_closed": true
+}

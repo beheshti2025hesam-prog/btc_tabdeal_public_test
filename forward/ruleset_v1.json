@@ -1,0 +1,54 @@
+{
+  "policy_id": "HES_FORWARD_RULESET_V1",
+  "version": "1.0.0",
+  "status": "DRAFT_NOT_ACTIVE",
+  "source_basis": "NEW_FORWARD_SPECIFICATION_ONLY",
+  "historical_inputs_allowed": false,
+  "future_outcome_leakage_allowed": false,
+  "rules": {
+    "data_quality": {
+      "required": true,
+      "all_required_fields_present": true,
+      "sequence_identity_required": true,
+      "closed_candle_required": true,
+      "gap_action": "NO_TRADE"
+    },
+    "market_structure": {
+      "required": true,
+      "regime_must_be_known": true,
+      "regime_direction_compatibility_required": true,
+      "unknown_action": "NO_TRADE"
+    },
+    "opportunity": {
+      "required": true,
+      "candidate_direction_must_match_structure": true,
+      "candidate_must_be_traceable_to_observed_data": true,
+      "unknown_action": "NO_TRADE"
+    },
+    "confirmation": {
+      "required": true,
+      "every_check_must_have_name_state_evidence_ref_observed_at": true,
+      "unknown_is_not_pass": true,
+      "missing_check_action": "NO_TRADE",
+      "minimum_pass_count": null,
+      "weights": null,
+      "indicator_thresholds": null
+    },
+    "risk": {
+      "required": true,
+      "all_required_risk_checks_must_pass": true,
+      "unknown_cannot_approve": true,
+      "missing_risk_rule_action": "NO_TRADE",
+      "position_size_threshold": null,
+      "stop_distance_threshold": null,
+      "rr_threshold": null
+    },
+    "decision": {
+      "long": "candidate_long AND confirmation_long AND risk_approved",
+      "short": "candidate_short AND confirmation_short AND risk_approved",
+      "otherwise": "NO_TRADE",
+      "fail_closed": true
+    }
+  },
+  "execution_enabled": false
+}

@@ -1,0 +1,19 @@
+{
+  "schema":"hes_forward_risk_gate_contract_v1",
+  "status":"CONTRACT_ONLY",
+  "purpose":"Represent a fail-closed risk decision between confirmation and final trade decision.",
+  "inputs":["forward/confirmation_contract_v1.json"],
+  "outputs":["RISK_APPROVED","RISK_REJECTED"],
+  "required_fields":["observed_at","confirmation_state","checks","state","reason_codes"],
+  "check_shape":{"name":"string","state":"PASS|FAIL|UNKNOWN","evidence_ref":"string","observed_at":"timestamp"},
+  "invariants":[
+    "Risk Gate is downstream of confirmation.",
+    "Risk approval does not mean execution.",
+    "UNKNOWN risk evidence cannot produce approval.",
+    "No future outcome is an input.",
+    "No historical Winner/Survivor data is an input.",
+    "No leverage, position-size, stop-distance, drawdown, or RR threshold is embedded in this contract.",
+    "Every risk check must be traceable to contemporaneous evidence.",
+    "The gate fails closed when no versioned risk policy is supplied."
+  ]
+}

@@ -1,0 +1,1 @@
+{"schema":"hes_forward_health_monitor_v1","status":"ACTIVE_FROM_2026-10-07","mode":"FORWARD_ONLY","reason_code_required":true,"health_statuses":["LIVE","STALE","NO_DATA","REJECT","DRIFT","ANOMALY","ERROR","RECOVERED"],"safe_state":"LIVE_ONLY","unknown_status_policy":"REJECT","missing_reason_policy":"REJECT","silent_degradation":false,"fail_closed":true}

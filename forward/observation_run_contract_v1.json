@@ -1,0 +1,8 @@
+{
+  "schema":"hes_forward_observation_run_v1",
+  "required":["run_id","started_at","policy_id","policy_version","mode","symbol","timeframe","source","execution_enabled","decision_mode"],
+  "allowed_mode":["OBSERVATION_ONLY"],
+  "allowed_decision_mode":["NO_TRADE_ONLY"],
+  "execution_enabled_must_be":false,
+  "historical_inputs_allowed_must_be":false
+}

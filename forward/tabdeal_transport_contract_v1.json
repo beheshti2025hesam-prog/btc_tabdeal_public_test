@@ -1,0 +1,1 @@
+{"schema":"hes_forward_tabdeal_transport_v1","status":"ACTIVE_FROM_2026-10-07","mode":"READ_ONLY","url":"wss://api1.tabdeal.org/special_margin/broadcast/","symbol":"BTC_USDT","network_enabled":true,"persistence_enabled":false,"execution_enabled":false,"git_write_enabled":false,"systemd_control_enabled":false,"strategy_enabled":false,"fail_closed":true}

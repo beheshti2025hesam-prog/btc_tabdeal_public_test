@@ -1,0 +1,1 @@
+{"schema":"hes_forward_crash_safe_checkpoint_v1","status":"ACTIVE_FROM_2026-10-07","mode":"FORWARD_ONLY","write_once":true,"immutable_checkpoint":true,"resume_uses_sequence_as_adjacency_proof":false,"cross_segment_resume":false,"conflict_policy":"REJECT","unknown_checkpoint_policy":"FAIL_CLOSED","silent_repair":false,"execution_enabled":false,"fail_closed":true}

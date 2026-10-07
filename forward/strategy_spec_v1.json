@@ -1,0 +1,54 @@
+{
+  "spec_id": "HES_FORWARD_STRATEGY_SPEC_V1",
+  "version": "1.0.0",
+  "status": "DRAFT_NOT_ACTIVE",
+  "purpose": "Define a transparent, testable forward strategy without importing historical optimization.",
+  "source_basis": "NEW_FORWARD_SPECIFICATION_ONLY",
+  "historical_inputs_allowed": false,
+  "historical_performance_tuning_allowed": false,
+  "future_outcome_leakage_allowed": false,
+  "target_win_rate": null,
+  "optimization_target": null,
+  "scope": {
+    "symbol": "BTC_USDT",
+    "timeframe": "15m",
+    "directions": ["LONG", "SHORT"]
+  },
+  "market_structure": {
+    "required": true,
+    "accepted_regimes": ["UPTREND", "DOWNTREND", "RANGE"],
+    "unknown_action": "NO_TRADE"
+  },
+  "opportunity": {
+    "required": true,
+    "long_candidate_requires": "EXPLICIT_VERSIONED_RULE",
+    "short_candidate_requires": "EXPLICIT_VERSIONED_RULE",
+    "unknown_action": "NO_TRADE"
+  },
+  "confirmation": {
+    "required": true,
+    "checks_must_be_explicit": true,
+    "unknown_counts_as": "UNKNOWN_NOT_PASS",
+    "minimum_pass_count": null,
+    "weights": null,
+    "thresholds": null
+  },
+  "risk": {
+    "required": true,
+    "approval_must_be_explicit": true,
+    "unknown_action": "NO_TRADE",
+    "position_sizing_rule": null,
+    "stop_rule": null,
+    "rr_rule": null
+  },
+  "decision": {
+    "fail_closed": true,
+    "default": "NO_TRADE",
+    "execution_enabled": false
+  },
+  "evaluation": {
+    "forward_only": true,
+    "closed_outcomes_only": true,
+    "descriptive_before_any_tuning": true
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "hes_forward_market_data_contract_v1",
+  "status": "CONTRACT_ONLY",
+  "purpose": "Normalize fresh raw trade observations into deterministic candle inputs without embedding strategy rules.",
+  "input": {
+    "source": "Tabdeal public trade stream",
+    "required_fields": ["symbol", "price", "amount", "side", "updated", "sequence"]
+  },
+  "output_timeframe": "15m",
+  "candle_fields": [
+    "symbol","timeframe","open_time","close_time","open","high","low","close",
+    "volume","trade_count","first_sequence","last_sequence","source_first_observed_at","source_last_observed_at"
+  ],
+  "invariants": [
+    "Only observations available at candle close may be used for a closed candle.",
+    "No future observation may alter a closed candle.",
+    "Sequence identity must be preserved.",
+    "Candle ordering must be monotonic by open_time.",
+    "Duplicate sequence observations must not be double-counted.",
+    "Missing intervals must be represented explicitly, not silently fabricated.",
+    "No indicators, thresholds, signals, outcomes, or strategy decisions belong in this layer.",
+    "Historical Winner/Survivor data is not an input."
+  ],
+  "missing_interval_policy": "EXPLICIT_GAP",
+  "price_precision_policy": "PRESERVE_SOURCE_VALUE",
+  "volume_precision_policy": "PRESERVE_SOURCE_VALUE"
+}
