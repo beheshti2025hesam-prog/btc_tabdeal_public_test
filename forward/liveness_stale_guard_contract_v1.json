@@ -1,0 +1,1 @@
+{"schema":"hes_forward_liveness_stale_guard_v1","status":"ACTIVE_FROM_2026-10-07","mode":"FORWARD_ONLY","default_max_staleness_seconds":30,"heartbeat_required":true,"future_observation_policy":"REJECT","stale_policy":"NO_TRADE","no_data_policy":"NO_TRADE","silent_recovery":false,"fail_closed":true}
