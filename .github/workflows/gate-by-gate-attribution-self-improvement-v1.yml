@@ -94,6 +94,15 @@ jobs:
           assert d["population"]["oos_evaluated"] == 1027
           assert d["population"]["winner_gt_14bps"] == 28
           assert d["population"]["oos_rejected"] > 0
+          m = d["gate_direction_regime_fold_matrix"]
+          assert m["status"] == "DESCRIPTIVE_ONLY"
+          assert m["dimensions"] == ["fold_index", "fold_regime", "direction"]
+          assert sum(x["opportunities"] for x in m["cells"].values()) == d["population"]["oos_opportunities"]
+          assert sum(x["evaluated"] for x in m["cells"].values()) == d["population"]["oos_evaluated"]
+          assert sum(x["rejected"] for x in m["cells"].values()) == d["population"]["oos_rejected"]
+          assert sum(x["winners_gt_14bps"] for x in m["cells"].values()) == d["population"]["winner_gt_14bps"]
+          assert sum(x["losses_le_0"] for x in m["cells"].values()) == d["population"]["losses_le_0"]
+          assert all(x["causal_claims"] is False for x in [m])
           assert d["loss_self_improvement"]["candidate_action"] == "NO_CHANGE"
           assert d["invariants"]["threshold_changed"] is False
           assert d["invariants"]["winner_reselected"] is False
