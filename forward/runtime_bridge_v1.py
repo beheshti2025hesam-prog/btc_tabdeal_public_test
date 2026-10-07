@@ -37,6 +37,8 @@ class ForwardRuntimeBridgeV1:
         run_id: str,
         observed_at: datetime,
         market_input: Any,
+        event_id: str,
+        evidence_source: str,
         **kwargs: Any,
     ):
         status = self.prepare_run(run_id=run_id, observed_at=observed_at)
@@ -46,5 +48,7 @@ class ForwardRuntimeBridgeV1:
         # Pipeline wiring is explicit. The bridge never supplies hidden policy.
         return self.pipeline.run_once(
             market_input=market_input,
+            event_id=event_id,
+            evidence_source=evidence_source,
             **kwargs,
         )
