@@ -29,7 +29,7 @@ def _checks(state="PASS"):
 def _journal_record(result):
     return {
         "event_id": "evt-risk-gate-e2e-001",
-        "observed_at": result.observed_at,
+        "observed_at": result.observed_at.isoformat(),
         "symbol": "BTC_USDT",
         "timeframe": "15m",
         "decision": result.decision,
