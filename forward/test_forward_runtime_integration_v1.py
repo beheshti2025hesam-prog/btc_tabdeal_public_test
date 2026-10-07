@@ -33,6 +33,7 @@ class _Decision:
         self.decision = decision
         self.reason = reason
         self.outcome = outcome
+        self.observed_at = "2026-10-07T05:00:00+00:00"
 
     def as_journal_record(self, event_id, evidence_source):
         return {
