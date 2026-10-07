@@ -42,9 +42,7 @@ def test_duplicate_check_and_append_are_single_writer(tmp_path):
 
 def test_malformed_existing_journal_fails_closed(tmp_path):
     path = tmp_path / "observations.jsonl"
-    path.write_text('{"event_id":"ok"}
-{"broken":
-', encoding="utf-8")
+    path.write_text('{"event_id":"ok"}\n{"broken":\n', encoding="utf-8")
 
     with pytest.raises(ValueError, match="malformed JSON"):
         ForwardJournalV1(path).append_decision(record("new-event"))
