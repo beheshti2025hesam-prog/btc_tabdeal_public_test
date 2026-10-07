@@ -42,6 +42,32 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     assert not journal.exists()
 
 
+def test_runner_exposes_sequence_diagnostics_when_blocked(tmp_path: Path):
+    class GapTransport:
+        def __init__(self, on_record, **kwargs):
+            self.on_record = on_record
+
+        def run_once(self):
+            for seq in (100, 102):
+                self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
+                                "sequence":seq,"updated":"2026-10-07T13:00:00Z"})
+
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        transport_factory=GapTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
+    assert result.diagnostics[0]["status"] == "ACCEPTED"
+    assert result.diagnostics[1]["status"] == "ANOMALY"
+    assert result.diagnostics[1]["reason"] == "SEQUENCE_GAP"
+    assert not (tmp_path / "journal.jsonl").exists()
+
+
 def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
     class EmptyWS(FakeWS):
         def run_forever(self, **kwargs):
