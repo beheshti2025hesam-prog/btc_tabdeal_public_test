@@ -22,3 +22,18 @@ def run_once(*, market_input, structure_engine, opportunity_engine,
     record = decision.as_journal_record()
     journal.append_decision(record)
     return PipelineResult(decision=decision, journal_record=record)
+
+
+class ForwardPipelineV1:
+    """Explicit pipeline adapter used by the runtime bridge.
+
+    The runner is injected by the caller; no policy, strategy, or execution
+    behavior is hidden here. This keeps the runtime boundary branch-safe.
+    """
+    def __init__(self, runner=None):
+        self._runner = runner
+
+    def run_once(self, **kwargs):
+        if self._runner is None:
+            raise RuntimeError("NO_PIPELINE_RUNNER_CONFIGURED")
+        return self._runner(**kwargs)
