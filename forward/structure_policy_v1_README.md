@@ -1,21 +1,11 @@
-# Structure Policy v1
+# Structure Policy Implementation v1
 
-Explicit forward-only structural policy for observation.
+Implements the explicit two-left/two-right confirmed swing rule.
 
-## Pivot confirmation
-A 15m candle becomes a confirmed swing only after two candles on each side
-are closed. The pivot is therefore attributed to the pivot candle but is only
-observable at the close of the second right-side confirmation candle.
+A pivot is never emitted until the two right-side 15m candles have closed.
+Missing 15m intervals prevent confirmation across the gap.
 
-Strict comparison is required; equal extremes are not swings.
+The pivot timestamp remains the pivot candle close; the caller's observed_at
+is the actual availability point.
 
-## Why this is not look-ahead
-The right-side candles are not used before they exist. They delay confirmation
-of the pivot instead of rewriting an earlier observation.
-
-## Boundary
-This policy is structural measurement only. It does not define entry,
-confirmation confluence, risk, position sizing, RR, profitability, or execution.
-Historical Winner/Survivor populations and future outcomes are forbidden.
-
-Status: ACTIVE_OBSERVATION_ONLY.
+This implementation is observation-only and does not generate trades.
