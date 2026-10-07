@@ -39,6 +39,7 @@ class FakeWS:
 def test_transport_only_handoffs_records_and_classifies_frames():
     out = []
     holder = {}
+
     def factory(*args, **kwargs):
         holder["ws"] = FakeWS(*args, **kwargs)
         return holder["ws"]
@@ -55,7 +56,7 @@ def test_transport_only_handoffs_records_and_classifies_frames():
     assert t.records_emitted == 1
     assert t.rejected == 1
     assert t.ignored_non_trade == 1
-    assert t.rejection_reasons == ["symbol mismatch"]
+    assert t.rejection_reasons == ["unsupported symbol"]
     assert t.frames_seen == 3
     assert t.closed is True
     assert t.timed_out is False
@@ -80,6 +81,7 @@ class BlockingWS(FakeWS):
 
 def test_transport_has_bounded_runtime_and_closes_socket():
     holder = {}
+
     def factory(*args, **kwargs):
         holder["ws"] = BlockingWS(*args, **kwargs)
         return holder["ws"]
