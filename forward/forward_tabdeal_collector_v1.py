@@ -83,31 +83,43 @@ class ForwardTabdealCollectorV1:
 
         started = time.monotonic()
 
-        def on_message(_ws: websocket.WebSocketApp, message: str) -> None:
-            try:
-                payload = json.loads(message)
-            except json.JSONDecodeError:
-                return
-
-            record = normalize_trade(payload)
-            if record is None:
-                return
-
-            seq = record["sequence"]
-            if self.last_sequence is not None and seq <= self.last_sequence:
-                return
-
-            self._append(record)
-            self.last_sequence = seq
-
-        ws = websocket.WebSocketApp(
-            WS_URL,
-            on_message=on_message,
-        )
-
-        # The process wrapper owns the finite/continuous lifetime.
         while run_seconds == 0 or time.monotonic() - started < run_seconds:
-            ws.run_forever()
+            ws = None
+            try:
+                ws = websocket.create_connection(WS_URL, timeout=15)
+                ws.send(SYMBOL)
+
+                while run_seconds == 0 or time.monotonic() - started < run_seconds:
+                    message = ws.recv()
+                    if not message:
+                        break
+
+                    try:
+                        payload = json.loads(message)
+                    except json.JSONDecodeError:
+                        continue
+
+                    record = normalize_trade(payload)
+                    if record is None:
+                        continue
+
+                    seq = record["sequence"]
+                    if self.last_sequence is not None and seq <= self.last_sequence:
+                        continue
+
+                    self._append(record)
+                    self.last_sequence = seq
+            except Exception:
+                # Fail closed for the current connection; reconnect without
+                # inventing observations or changing persisted records.
+                pass
+            finally:
+                if ws is not None:
+                    try:
+                        ws.close()
+                    except Exception:
+                        pass
+
             if run_seconds and time.monotonic() - started >= run_seconds:
                 break
-            time.sleep(5)
+            time.sleep(2)
