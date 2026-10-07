@@ -14,7 +14,7 @@ def t(ts, seq, price="100", amount="1", symbol="BTC_USDT"):
 def test_open_bucket_is_not_emitted():
     candles, gaps = normalize_trades(
         [t("2026-10-07T01:47:00", 1)],
-        as_of=datetime(2026, 10, 7, 2, 0, tzinfo=timezone.utc),
+        as_of=datetime(2026, 10, 7, 1, 59, 59, tzinfo=timezone.utc),
         expected_symbol="BTC_USDT",
     )
     assert candles == ()
