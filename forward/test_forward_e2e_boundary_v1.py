@@ -35,6 +35,8 @@ def test_forward_path_rejects_unactivated_policy_before_decision():
         run_id="FORWARD_RUN_E2E_REJECT_001",
         observed_at=datetime.now(timezone.utc),
         market_input=object(),
+        event_id="evt-rejected-policy-001",
+        evidence_source="forward_e2e_test",
     )
 
     assert result.status == "REJECTED"
