@@ -21,12 +21,14 @@ def test_controlled_run_writes_closed_candle_and_gap(tmp_path: Path):
             rec("2026-10-07T01:31:00+00:00",2),
         ],
     )
-    assert len(digests)==2
+    assert len(digests)==3
     lines=(tmp_path/"obs.jsonl").read_text().splitlines()
     assert "CANDLE_CLOSED_OBSERVED" in lines[0]
     assert "NO_TRADE_DATA_GAP" in lines[1]
+    assert "CANDLE_CLOSED_OBSERVED" in lines[2]
     assert '"outcome"' not in lines[0]
     assert '"outcome"' not in lines[1]
+    assert '"outcome"' not in lines[2]
 
 def test_controlled_run_rejects_future_input(tmp_path: Path):
     runner=ControlledObservationRunV1(writer=ForwardObservationWriterV1(tmp_path/"obs.jsonl"))
