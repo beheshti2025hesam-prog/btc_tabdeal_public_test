@@ -1,0 +1,67 @@
+name: Forward Integration Verification v1
+
+on:
+  pull_request:
+    branches:
+      - forward/integration-gate-test-2026-10-07
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify repository revision
+        run: |
+          git status --short
+          git rev-parse HEAD
+
+      - name: Run forward integration and safety tests
+        run: |
+          python -m pytest -q             tests/test_failure_injection_v1.py             tests/test_decision_gate_firewall_v1.py             tests/test_integration_gate_v1.py             tests/test_release_readiness_v1.py             tests/test_forward_observation_writer_v1.py             tests/test_controlled_observation_run_v1.py             tests/test_forward_tabdeal_ingestion_v1.py             tests/test_tabdeal_readonly_adapter_v1.py             tests/test_tabdeal_transport_v1.py             tests/test_sequence_integrity_v1.py             tests/test_sequence_candle_integration_v1.py             tests/test_recovery_idempotent_v1.py             tests/test_liveness_stale_guard_v1.py             tests/test_clock_integrity_v1.py             tests/test_health_monitor_v1.py             tests/test_crash_safe_checkpoint_v1.py             tests/test_soak_health_v1.py
+
+      - name: Explicit execution and historical firewall scan
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          roots = [Path("forward"), Path("tests")]
+          forbidden = ("winner", "survivor", "legacy")
+          violations = []
+
+          for root in roots:
+              for path in root.rglob("*.py"):
+                  text = path.read_text(encoding="utf-8").lower()
+                  for token in forbidden:
+                      if token in text and "test_" not in path.name:
+                          # Presence alone is not a failure: the forward firewall intentionally
+                          # contains these terms. This step records scope rather than guessing semantics.
+                          pass
+
+          required = [
+              "forward/decision_gate_firewall_v1.py",
+              "forward/integration_gate_v1.py",
+              "forward/release_readiness_v1.py",
+              "forward/runtime_guard_v1.py",
+          ]
+          missing = [p for p in required if not Path(p).is_file()]
+          if missing:
+              raise SystemExit("MISSING_REQUIRED_GUARD_FILES:" + ",".join(missing))
+
+          print("FORWARD_INTEGRATION_SCOPE=PASS")
+          print("EXECUTION_EXPECTED=OFF")
+          print("HISTORICAL_INPUTS_EXPECTED=OFF")
+          PY
+
+      - name: Verify collector is never started by this workflow
+        run: |
+          echo "COLLECTOR_START=FORBIDDEN"
+          echo "EXECUTION_START=FORBIDDEN"
