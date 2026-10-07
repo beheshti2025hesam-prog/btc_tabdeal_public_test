@@ -126,7 +126,7 @@ def build_structure_events_v1(
             prior_regime = infer_regime(labels[:-1]) if label is not None else infer_regime(labels)
 
             if bullish_break:
-                event_name = "CHOCH" if prior_regime == "DOWNTREND" else "BOS"
+                event_name = "CHOCH" if prior_regime == "DOWNTREND" else "BOS" if prior_regime == "UPTREND" else None
                 events.append(
                     StructureEvent(
                         event=event_name,
@@ -138,7 +138,7 @@ def build_structure_events_v1(
                     )
                 )
             elif bearish_break:
-                event_name = "CHOCH" if prior_regime == "UPTREND" else "BOS"
+                event_name = "CHOCH" if prior_regime == "UPTREND" else "BOS" if prior_regime == "DOWNTREND" else None
                 events.append(
                     StructureEvent(
                         event=event_name,
