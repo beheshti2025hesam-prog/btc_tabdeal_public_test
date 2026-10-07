@@ -1,0 +1,39 @@
+{
+  "artifact_type": "GATE_CONFIRMATION_REASON_GRANULARITY_V1",
+  "status": "DERIVED_FROM_HASH_VERIFIED_GATE_ARTIFACT",
+  "source": {
+    "workflow_run_id": 37555000351,
+    "workflow_artifact_id": 11454174123,
+    "source_json_sha256": "08ddaaee277c342d01ee8a3363238cf36a5e342d0243a111d0ed5542f9291632",
+    "reconciliation_artifact": "evidence/GATE_BY_GATE_ATTRIBUTION_SELF_IMPROVEMENT_V1_RECONCILIATION.json"
+  },
+  "population": {
+    "oos_opportunities": 3200,
+    "evaluated": 1027,
+    "rejected": 2173,
+    "invalid_raw_rows": 0
+  },
+  "confirmation_primary_reason": {
+    "score_pair_2_to_1": 1111,
+    "score_pair_1_to_2": 1060,
+    "score_pair_0_to_2": 1,
+    "score_pair_1_to_1_tie": 1
+  },
+  "confirmation_component_attribution_nonexclusive": {
+    "LONG_MISSING_OR_OPPOSED_EMA": 324,
+    "LONG_MISSING_OR_OPPOSED_VWAP": 299,
+    "LONG_MISSING_OR_OPPOSED_BUY_RATIO": 488,
+    "SHORT_MISSING_OR_OPPOSED_EMA": 390,
+    "SHORT_MISSING_OR_OPPOSED_VWAP": 276,
+    "SHORT_MISSING_OR_OPPOSED_BUY_RATIO": 394
+  },
+  "interpretation_boundary": {
+    "causal_claims": false,
+    "threshold_change": false,
+    "parameter_tuning": false,
+    "selection_change": false,
+    "promotion": false,
+    "purpose": "diagnostic_reason_granularity_only"
+  },
+  "next_step": "validate_confirmation_component_attribution_against_producer_contract_before_any_self_improvement_hypothesis"
+}
