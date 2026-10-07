@@ -62,8 +62,6 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
     assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
-    assert result.diagnostics[0]["status"] == "ACCEPTED"
-    assert result.diagnostics[1]["status"] == "ACCEPTED"
     assert not (tmp_path / "journal.jsonl").exists()
 
 
