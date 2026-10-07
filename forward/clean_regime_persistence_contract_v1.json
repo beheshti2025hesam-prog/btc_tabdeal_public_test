@@ -1,0 +1,14 @@
+{
+  "schema":"hes_forward_clean_regime_persistence_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "mode":"OBSERVATION_ONLY",
+  "input":"FORWARD_REGIME_OBSERVATIONS_ONLY",
+  "historical_inputs_allowed":false,
+  "future_outcomes_allowed":false,
+  "signal_generation":false,
+  "trade_decision":false,
+  "execution_enabled":false,
+  "stability_requires_single_dominant_regime":true,
+  "transition_uncertain_is_not_stable":true,
+  "fail_closed":true
+}

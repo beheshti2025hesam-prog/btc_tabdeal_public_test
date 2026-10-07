@@ -1,0 +1,13 @@
+{
+  "schema":"hes_forward_clean_regime_transition_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "mode":"OBSERVATION_ONLY",
+  "input":"FORWARD_REGIME_OBSERVATIONS_ONLY",
+  "historical_inputs_allowed":false,
+  "future_outcomes_allowed":false,
+  "signal_generation":false,
+  "trade_decision":false,
+  "execution_enabled":false,
+  "transitions":["NO_CHANGE","UP_TO_DOWN","DOWN_TO_UP","ENTERED_UNCERTAIN","EXITED_UNCERTAIN","REGIME_CHANGE"],
+  "fail_closed":true
+}

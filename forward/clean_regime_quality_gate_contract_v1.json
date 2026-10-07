@@ -1,0 +1,15 @@
+{
+  "schema":"hes_forward_clean_regime_quality_gate_v1",
+  "status":"ACTIVE_FROM_2026-10-07",
+  "mode":"OBSERVATION_ONLY",
+  "input":"REGIME_QUALITY_ONLY",
+  "high_is_observation_safe":true,
+  "medium_promoted":false,
+  "low_promoted":false,
+  "historical_inputs_allowed":false,
+  "future_outcomes_allowed":false,
+  "signal_generation":false,
+  "trade_decision":false,
+  "execution_enabled":false,
+  "fail_closed":true
+}
