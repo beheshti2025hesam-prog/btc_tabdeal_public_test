@@ -22,7 +22,7 @@ def test_confirmed_pivot_is_exposed_only_after_two_right_closed_candles():
     before=vals[4][0]+timedelta(minutes=15)-timedelta(seconds=1)
     result=observe_closed_candles([c for c in candles if c.close_time <= before],observed_at=before)
     assert result.snapshot.last_high is None
-    result=observe_closed_candles(candles,observed_at=vals[4][0]+timedelta(minutes=15))
+    result=observe_closed_candles([c for c in candles if c.close_time <= vals[4][0]+timedelta(minutes=15)],observed_at=vals[4][0]+timedelta(minutes=15))
     assert result.snapshot.last_high is not None
     assert result.snapshot.last_high.price == Decimal('110')
 
