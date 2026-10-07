@@ -62,17 +62,33 @@ def test_risk_veto_cannot_produce_opposite_direction():
         assert result.decision == "NO_TRADE"
 
 
-def test_risk_veto_no_trade_is_journalable():
+def test_risk_reject_to_no_trade_to_journal_is_end_to_end(tmp_path):
+    journal = ForwardJournalV1(tmp_path / "journal.jsonl")
     result = DecisionEngineV1().evaluate(
         observed_at="2026-10-07T09:00:00+03:30",
         candidate=_candidate("CANDIDATE_LONG"),
         confirmation=_confirmation("CONFIRMED_LONG"),
         risk=_risk("RISK_REJECTED"),
     )
+
     assert result.decision == "NO_TRADE"
 
-    # The exact decision produced by the veto is the one that reaches Journal.
-    assert result.decision in {"LONG", "SHORT", "NO_TRADE"}
+    journal.append_decision({
+        "event_id": "evt-risk-veto-e2e-001",
+        "observed_at": result.observed_at,
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "decision": result.decision,
+        "evidence_source": ["live-observation-001"],
+        "reason_codes": list(result.reason_codes),
+    })
+
+    rows = (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 1
+    stored = json.loads(rows[0])
+    assert stored["decision"] == "NO_TRADE"
+    assert stored["outcome"] is None
+    assert stored["closed_at"] is None
 
 
 def test_decision_journal_rejects_future_outcome(tmp_path):
