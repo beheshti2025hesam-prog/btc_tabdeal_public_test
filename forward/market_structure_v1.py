@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal, Sequence
+from datetime import datetime
 from .candle_normalizer_v1 import Candle15m
 
 Regime = Literal["UPTREND","DOWNTREND","RANGE","UNKNOWN"]
@@ -62,12 +63,34 @@ def infer_regime(labels: Sequence[StructureLabel]) -> Regime:
         return "RANGE"
     return "UNKNOWN"
 
+def _assert_not_future(observed_at: datetime, value: object, field: str) -> None:
+    if not isinstance(observed_at, datetime):
+        raise TypeError("observed_at must be a datetime")
+    if not isinstance(value, datetime):
+        raise TypeError(f"{field} must be a datetime")
+    if observed_at.tzinfo is None or value.tzinfo is None:
+        raise ValueError("observed_at and structure timestamps must be timezone-aware")
+    if value > observed_at:
+        raise ValueError(f"{field} is after observed_at")
+
+
 def build_snapshot(
     observed_at,
     swings: Sequence[SwingPoint],
     labels: Sequence[StructureLabel],
     events: Sequence[StructureEvent],
 ) -> StructureSnapshot:
+    if not isinstance(observed_at, datetime):
+        raise TypeError("observed_at must be a datetime")
+    if observed_at.tzinfo is None:
+        raise ValueError("observed_at must be timezone-aware")
+
+    for swing in swings:
+        _assert_not_future(observed_at, swing.candle_time, "swing.candle_time")
+    for event in events:
+        _assert_not_future(observed_at, event.observed_at, "event.observed_at")
+        _assert_not_future(observed_at, event.reference_candle_time, "event.reference_candle_time")
+
     highs = [x for x in swings if x.kind == "SWING_HIGH"]
     lows = [x for x in swings if x.kind == "SWING_LOW"]
     return StructureSnapshot(
