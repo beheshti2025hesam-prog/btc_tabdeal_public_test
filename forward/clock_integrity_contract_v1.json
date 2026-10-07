@@ -1,0 +1,1 @@
+{"schema":"hes_forward_clock_integrity_v1","status":"ACTIVE_FROM_2026-10-07","mode":"FORWARD_ONLY","default_max_clock_skew_seconds":5,"source_time_required":true,"receive_time_required":true,"future_source_time_policy":"REJECT","excessive_skew_policy":"NO_TRADE","silent_clock_correction":false,"fail_closed":true}
