@@ -1,0 +1,33 @@
+name: Forward Observation Path E2E v1
+
+on:
+  pull_request:
+    branches:
+      - forward/integration-gate-test-2026-10-07
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  forward-observation-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run forward observation path tests
+        run: |
+          python -m pytest -q             tests/test_observation_journal_integration_v1.py             tests/test_forward_observation_path_v1.py
+      - name: Assert observation-only boundary
+        run: |
+          grep -q '"execution_enabled":false' forward/clean_evidence_contract_v1.json
+          grep -q '"historical_inputs_allowed":false' forward/clean_evidence_contract_v1.json
+          grep -q '"future_outcomes_allowed":false' forward/clean_evidence_contract_v1.json
+          echo "FORWARD_OBSERVATION_E2E=PASS"
+          echo "EXECUTION=OFF"
+          echo "HISTORICAL_INPUTS=OFF"
+          echo "FUTURE_OUTCOMES=OFF"
