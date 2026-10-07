@@ -32,6 +32,7 @@ class _Decision:
     def __init__(self, decision="NO_TRADE", reason="RISK_NOT_APPROVED", outcome=None):
         self.decision = decision
         self.reason = reason
+        self.reason_codes = (reason,)
         self.outcome = outcome
         self.observed_at = "2026-10-07T05:00:00+00:00"
 
