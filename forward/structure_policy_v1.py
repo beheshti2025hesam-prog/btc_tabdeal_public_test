@@ -44,7 +44,7 @@ def confirm_swings_v1(
         window = ordered[i - RIGHT_CANDLES : i + RIGHT_CANDLES + 1]
         pivot = ordered[i]
 
-        expected = pivot.open_time
+        expected = window[0].open_time
         if any(c.open_time != expected + j * TIMEFRAME_DELTA for j, c in enumerate(window)):
             continue
 
