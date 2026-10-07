@@ -34,7 +34,9 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
     if "order" in event_type:
         return None
 
-    data = payload.get("data", payload)
+    data = payload.get("trade")
+    if data is None:
+        data = payload.get("data", payload)
     if not isinstance(data, dict):
         return None
 
@@ -42,13 +44,17 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
     price = data.get("price") or data.get("p")
     amount = data.get("amount") or data.get("q")
     sequence = data.get("sequence") or data.get("seq")
-    side = data.get("side") or data.get("S")
+    side = data.get("side") or data.get("side_name") or data.get("S")
+    source_updated = data.get("updated")
 
     if symbol != SYMBOL or price is None or amount is None or sequence is None:
+        return None
+    if source_updated is None:
         return None
 
     return {
         "observed_at": _now(),
+        "source_updated": str(source_updated),
         "symbol": SYMBOL,
         "price": float(price),
         "amount": float(amount),
