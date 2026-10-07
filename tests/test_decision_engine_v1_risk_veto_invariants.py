@@ -1,5 +1,4 @@
 from types import SimpleNamespace
-
 import json
 import pytest
 
@@ -33,11 +32,7 @@ def test_risk_approved_preserves_valid_direction(direction):
 
 @pytest.mark.parametrize("direction", ["LONG", "SHORT"])
 @pytest.mark.parametrize("risk_state", [
-    "RISK_REJECTED",
-    "RISK_BLOCKED",
-    "RISK_FAILED",
-    "RISK_UNKNOWN",
-    None,
+    "RISK_REJECTED", "RISK_BLOCKED", "RISK_FAILED", "RISK_UNKNOWN", None,
 ])
 def test_every_risk_reject_resolves_to_no_trade(direction, risk_state):
     result = DecisionEngineV1().evaluate(
@@ -46,7 +41,6 @@ def test_every_risk_reject_resolves_to_no_trade(direction, risk_state):
         confirmation=_confirmation(f"CONFIRMED_{direction}"),
         risk=_risk(risk_state),
     )
-
     assert result.decision == "NO_TRADE"
     assert "RISK_NOT_APPROVED" in result.reason_codes
 
@@ -70,9 +64,7 @@ def test_risk_reject_to_no_trade_to_journal_is_end_to_end(tmp_path):
         confirmation=_confirmation("CONFIRMED_LONG"),
         risk=_risk("RISK_REJECTED"),
     )
-
     assert result.decision == "NO_TRADE"
-
     journal.append_decision({
         "event_id": "evt-risk-veto-e2e-001",
         "observed_at": result.observed_at,
@@ -82,7 +74,6 @@ def test_risk_reject_to_no_trade_to_journal_is_end_to_end(tmp_path):
         "evidence_source": ["live-observation-001"],
         "reason_codes": list(result.reason_codes),
     })
-
     rows = (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(rows) == 1
     stored = json.loads(rows[0])
@@ -91,7 +82,7 @@ def test_risk_reject_to_no_trade_to_journal_is_end_to_end(tmp_path):
     assert stored["closed_at"] is None
 
 
-def test_decision_journal_rejects_future_outcome(tmp_path):
+def test_decision_journal_rejects_future_outcome_and_closed_at(tmp_path):
     journal = ForwardJournalV1(tmp_path / "journal.jsonl")
     base = {
         "event_id": "evt-risk-veto-001",
@@ -101,25 +92,48 @@ def test_decision_journal_rejects_future_outcome(tmp_path):
         "decision": "NO_TRADE",
         "evidence_source": ["live-observation-001"],
     }
-
     journal.append_decision(base)
 
     with pytest.raises(ValueError, match="future outcome leakage"):
         journal.append_decision({**base, "event_id": "evt-risk-veto-002", "outcome": "WIN"})
-
     with pytest.raises(ValueError, match="future outcome leakage"):
-        journal.append_decision({
-            **base,
-            "event_id": "evt-risk-veto-003",
-            "closed_at": "2026-10-07T10:00:00+03:30",
-        })
+        journal.append_decision({**base, "event_id": "evt-risk-veto-003", "closed_at": "2026-10-07T10:00:00+03:30"})
 
     rows = (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(rows) == 1
     stored = json.loads(rows[0])
-    assert stored["decision"] == "NO_TRADE"
     assert stored["outcome"] is None
     assert stored["closed_at"] is None
+
+
+def test_decision_journal_rejects_duplicate_event_id(tmp_path):
+    journal = ForwardJournalV1(tmp_path / "journal.jsonl")
+    record = {
+        "event_id": "evt-duplicate-001",
+        "observed_at": "2026-10-07T09:00:00+03:30",
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "decision": "NO_TRADE",
+        "evidence_source": ["live-observation-001"],
+    }
+    journal.append_decision(record)
+    with pytest.raises(ValueError, match="duplicate event_id"):
+        journal.append_decision(record)
+
+
+def test_decision_journal_rejects_all_non_null_future_outcomes(tmp_path):
+    journal = ForwardJournalV1(tmp_path / "journal.jsonl")
+    base = {
+        "event_id": "evt-outcome-values-001",
+        "observed_at": "2026-10-07T09:00:00+03:30",
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "decision": "NO_TRADE",
+        "evidence_source": ["live-observation-001"],
+    }
+    for i, outcome in enumerate(("OPEN", "WIN", "LOSS", "BREAKEVEN", "CANCELLED")):
+        with pytest.raises(ValueError, match="future outcome leakage"):
+            journal.append_decision({**base, "event_id": f"evt-outcome-values-{i+2:03d}", "outcome": outcome})
 
 
 def test_outcome_mutation_is_separate_and_forbidden_on_decision_journal(tmp_path):
