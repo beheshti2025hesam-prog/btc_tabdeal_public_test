@@ -50,7 +50,7 @@ def test_runner_exposes_sequence_diagnostics_when_blocked(tmp_path: Path):
         def run_once(self):
             for seq in (100, 102):
                 self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
-                                "sequence":seq,"updated":"2026-10-07T13:00:00Z"})
+                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z"})
 
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
