@@ -1,0 +1,18 @@
+{
+  "schema":"hes_forward_confirmation_contract_v1",
+  "status":"CONTRACT_ONLY",
+  "purpose":"Represent contemporaneous multi-layer confirmation for an opportunity candidate without embedding strategy thresholds.",
+  "inputs":["forward/opportunity_contract_v1.json"],
+  "outputs":["CONFIRMED_LONG","CONFIRMED_SHORT","UNCONFIRMED"],
+  "required_fields":["observed_at","candidate_state","checks","passed_count","required_count","state","reason_codes"],
+  "check_shape":{"name":"string","state":"PASS|FAIL|UNKNOWN","evidence_ref":"string","observed_at":"timestamp"},
+  "invariants":[
+    "Confirmation is downstream of opportunity detection.",
+    "No future outcome is an input.",
+    "No historical Winner/Survivor data is an input.",
+    "UNKNOWN never counts as PASS.",
+    "No threshold or indicator policy is embedded in this contract.",
+    "Confirmation does not authorize execution; Risk Gate remains mandatory.",
+    "Every PASS/FAIL/UNKNOWN must be traceable to contemporaneous evidence."
+  ]
+}
