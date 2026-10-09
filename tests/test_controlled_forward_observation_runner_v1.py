@@ -1,9 +1,23 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+import forward.controlled_forward_observation_runner_v1 as runner_module
 from forward.controlled_forward_observation_runner_v1 import (
     ControlledForwardObservationRunnerV1,
 )
+
+
+
+@pytest.fixture(autouse=True)
+def use_test_only_sequence_contract_reference(monkeypatch):
+    # Test fixtures explicitly simulate a reviewed reference. Production remains
+    # blocked because the module-level approved reference is None.
+    monkeypatch.setattr(
+        runner_module,
+        "VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF",
+        "test-fixture:authoritative-contract",
+    )
 
 
 class FakeWS:
@@ -215,3 +229,60 @@ def test_runner_requires_evidence_reference_even_when_verified_flag_is_true(tmp_
     assert result.status == "BLOCKED"
     assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
     assert not (tmp_path / "session.jsonl").exists()
+
+def test_arbitrary_nonempty_reference_cannot_unlock_production_default(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(
+        runner_module,
+        "VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF",
+        None,
+    )
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("arbitrary evidence text must not open a transport")
+
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="https://example.invalid/fake-proof",
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
+
+def test_nonmatching_reference_cannot_unlock_a_different_reviewed_pin(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(
+        runner_module,
+        "VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF",
+        "reviewed-artifact:sha256:approved",
+    )
+
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("a reference that differs from the reviewed pin must not open transport")
+
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="reviewed-artifact:sha256:unapproved",
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
