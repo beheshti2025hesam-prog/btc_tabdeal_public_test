@@ -1,5 +1,5 @@
 import csv
-import os
+import json
 from pathlib import Path
 
 import pytest
@@ -26,8 +26,6 @@ def test_local_durable_mode_skips_git_sync_and_publication(monkeypatch, tmp_path
         collector, "synchronize_startup_data_state",
         lambda: pytest.fail("local durable mode must not fetch or restore Git state"),
     )
-    monkeypatch.setattr(collector, "acquire_single_writer_lock", lambda: None)
-    monkeypatch.setattr(collector, "release_single_writer_lock", lambda: None)
     monkeypatch.setattr(collector, "open_csv", lambda: None)
     monkeypatch.setattr(collector, "collect", lambda: None)
     monkeypatch.setattr(collector, "flush_csv", lambda: None)
@@ -40,6 +38,10 @@ def test_local_durable_mode_skips_git_sync_and_publication(monkeypatch, tmp_path
     collector.main()
 
     assert (tmp_path / "data/trades.csv").exists()
+    heartbeat = tmp_path / "data/forward/collector_heartbeat_v1.json"
+    record = json.loads(heartbeat.read_text(encoding="utf-8"))
+    assert record["status"] == "STOPPED"
+    assert record["writer_lock_held"] is False
 
 
 def test_local_durable_mode_fails_closed_when_file_missing(monkeypatch, tmp_path):
