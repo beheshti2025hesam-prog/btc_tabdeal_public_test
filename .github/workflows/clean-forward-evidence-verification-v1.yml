@@ -21,7 +21,13 @@ jobs:
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run clean evidence boundary tests
-        run: python -m pytest -q tests/test_clean_evidence_collection_v1.py tests/test_forward_observation_writer_v1.py tests/test_controlled_observation_run_v1.py
+        run: |
+          python -m pytest -q \
+            tests/test_clean_evidence_collection_v1.py \
+            tests/test_clean_evidence_candle_gate_v1.py \
+            tests/test_clean_evidence_sequence_gate_v1.py \
+            tests/test_forward_observation_writer_v1.py \
+            tests/test_controlled_observation_run_v1.py
       - name: Verify forward-only contract
         run: |
           test -f forward/clean_evidence_contract_v1.json
