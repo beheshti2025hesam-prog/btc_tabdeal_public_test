@@ -83,6 +83,7 @@ class TabdealReadOnlyTransportV1:
                     "sequence_field_path": "trade.sequence" if "sequence" in trade else None,
                     "sequence_value_type": type(sequence_value).__name__,
                     "sequence_value": safe_sequence_value,
+                    "normalized_sequence": record.get("sequence"),
                 })
             self.on_record(record)
             self.records_emitted += 1
