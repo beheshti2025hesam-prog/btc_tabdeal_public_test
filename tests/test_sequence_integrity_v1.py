@@ -28,12 +28,12 @@ def test_conflicting_duplicate_rejects_stream():
     assert s.last_sequence == 10
 
 
-def test_gap_is_anomaly_without_repair():
+def test_non_contiguous_monotonic_sequence_is_accepted():
     s = SequenceIntegrityV1()
     s.observe(rec(10))
     event = s.observe(rec(12))
-    assert event.status == "ANOMALY"
-    assert event.reason == "SEQUENCE_GAP"
+    assert event.status == "ACCEPTED"
+    assert event.reason is None
     assert s.last_sequence == 12
 
 
