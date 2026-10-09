@@ -35,6 +35,8 @@ jobs:
             tests/test_decision_gate_firewall_v1.py \
             tests/test_integration_gate_v1.py \
             tests/test_release_readiness_v1.py \
+            tests/test_controlled_forward_observation_runner_v1.py \
+            tests/test_controlled_forward_observation_runner_contract_v1.py \
             tests/test_forward_observation_writer_v1.py \
             tests/test_controlled_observation_run_v1.py \
             tests/test_forward_tabdeal_ingestion_v1.py \
