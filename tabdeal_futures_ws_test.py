@@ -387,7 +387,7 @@ def emit_liveness(event, *, force=False, ready=False):
         temp_path = f"{HEARTBEAT_FILE}.{os.getpid()}.tmp"
         with open(temp_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
-            handle.write("\\n")
+            handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp_path, HEARTBEAT_FILE)
@@ -402,7 +402,7 @@ def emit_liveness(event, *, force=False, ready=False):
             fields.append("READY=1")
         if status not in {"STOPPING", "STOPPED"}:
             fields.append("WATCHDOG=1")
-        systemd_notify("\\n".join(fields))
+        systemd_notify("\n".join(fields))
         last_liveness_emit_monotonic = now_mono
         return True
     except Exception as exc:
