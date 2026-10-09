@@ -69,7 +69,7 @@ def test_tampered_payload_fails_digest_check(tmp_path):
 
 def test_partial_or_corrupt_checkpoint_fails_closed(tmp_path):
     store = CrashSafeCheckpointV1(tmp_path)
-    store.root.mkdir(parents=True)
+    store.root.mkdir(parents=True, exist_ok=True)
     path = store._path("cp-1")
     path.write_text("{partial", encoding="utf-8")
     with pytest.raises(ValueError, match="RECORD_INVALID"):
