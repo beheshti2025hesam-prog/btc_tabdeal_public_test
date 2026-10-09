@@ -112,6 +112,17 @@ class ControlledForwardObservationRunnerV1:
                 snapshot_id=None,
             )
 
+        if record_bound_exceeded:
+            return ControlledObservationRunnerResult(
+                run_id=session.run_id,
+                status="BLOCKED",
+                records_received=len(records),
+                journal_path=str(self.journal_path),
+                reason="FORWARD_RECORD_BOUND_EXCEEDED",
+                snapshot_id=None,
+                diagnostics=({"max_records": self.max_records},),
+            )
+
         if not records:
             return ControlledObservationRunnerResult(
                 run_id=session.run_id,
