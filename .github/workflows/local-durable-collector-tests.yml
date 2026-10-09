@@ -24,6 +24,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/collector/test_local_durable_mode.py \
+            tests/collector/test_collector_liveness.py \
             tests/collector/test_final_checkpoint.py \
             tests/test_collector_startup_sync.py
       - name: Assert local durable mode keeps Git publication disabled
