@@ -16,6 +16,7 @@ class ReleaseReadinessGateV1:
         "execution_locked",
         "collector_disabled",
         "git_integrity_pass",
+        "upstream_sequence_contract_verified",
     )
     def evaluate(self, **checks: bool) -> ReadinessResult:
         for name in self.REQUIRED:
