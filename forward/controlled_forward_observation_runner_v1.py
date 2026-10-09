@@ -82,7 +82,7 @@ class ControlledForwardObservationRunnerV1:
 
         def collect_frame_metadata(metadata: dict[str, Any]) -> None:
             nonlocal metadata_bound_exceeded
-            value = metadata.get("sequence_value")
+            value = metadata.get("normalized_sequence", metadata.get("sequence_value"))
             if type(value) not in (int, str):
                 return
             key = str(value)
