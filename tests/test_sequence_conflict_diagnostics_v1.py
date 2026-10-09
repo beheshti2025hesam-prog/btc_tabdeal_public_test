@@ -127,3 +127,46 @@ def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path
             reason="SEQUENCE_UNSAFE",
             diagnostics=[event],
         )
+
+
+
+def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path: Path):
+    class MetadataOverflowTransport:
+        def __init__(self, on_record, on_frame_metadata, **kwargs):
+            self.on_record = on_record
+            self.on_frame_metadata = on_frame_metadata
+
+        def run_once(self):
+            for sequence in range(50001):
+                self.on_frame_metadata({
+                    "schema": "hes_transport_frame_fingerprint_v1",
+                    "raw_frame_sha256": f"frame-hash-{sequence}",
+                    "sequence_value": sequence,
+                })
+            # Even if a websocket client continues after the callback, this
+            # partial session must never reach observation/snapshot persistence.
+            self.on_record({
+                "symbol": "BTC_USDT",
+                "price": "100",
+                "amount": "0.1",
+                "side": "buy",
+                "sequence": 50000,
+                "timestamp": "2026-10-09T17:00:00+00:00",
+            })
+
+    journal_path = tmp_path / "observations.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal_path,
+        session_path=tmp_path / "sessions.jsonl",
+        transport_factory=MetadataOverflowTransport,
+        ws_factory=object,
+        max_runtime_seconds=1,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
+
+    assert result.status == "BLOCKED"
+    assert result.reason == "TRANSPORT_METADATA_BOUND_EXCEEDED"
+    assert result.snapshot_id is None
+    assert result.records_received == 1
+    assert not journal_path.exists()
+    assert result.diagnostics[0]["observation_written"] is False
