@@ -94,7 +94,12 @@ class ForwardObservationPathV1:
                          "status": "CANDLE_CLOSED_OBSERVED", "open": str(c.open),
                          "high": str(c.high), "low": str(c.low), "close": str(c.close)}
                         for c in result.candles]
-        contexts = [CleanStructureContextV1().observe(candle_dicts[:i+1])
+        # StructureContextV1 derives its bias only from the final two candles.
+        # Each candle has already been built by the validated candle normalizer, so
+        # validate/compare adjacent pairs rather than re-validating every growing
+        # prefix (which made this path quadratic in candle count).
+        structure_observer = CleanStructureContextV1()
+        contexts = [structure_observer.observe(candle_dicts[i-1:i+1])
                     for i in range(1, len(candle_dicts))]
         stability = CleanStructureStabilityV1().observe([c.bias for c in contexts])
         regime = CleanRegimeObservationV1().observe(stability.stable_bias)
