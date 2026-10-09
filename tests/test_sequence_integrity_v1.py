@@ -63,3 +63,14 @@ def test_invalid_sequence_fails_closed():
         assert str(exc) == "invalid sequence"
     else:
         raise AssertionError("invalid sequence was accepted")
+
+
+def test_unique_sequence_state_bound_fails_closed_without_growth():
+    s = SequenceIntegrityV1(max_records=2)
+    assert s.observe(rec(10)).status == "ACCEPTED"
+    assert s.observe(rec(11)).status == "ACCEPTED"
+    event = s.observe(rec(12))
+    assert event.status == "REJECT_STREAM"
+    assert event.reason == "SEQUENCE_STATE_BOUND_EXCEEDED"
+    assert event.diagnostic == {"max_records": 2}
+    assert len(s._records) == 2
