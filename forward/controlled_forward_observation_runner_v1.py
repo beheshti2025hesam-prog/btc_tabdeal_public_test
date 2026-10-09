@@ -16,6 +16,14 @@ from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosti
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
 
 
+# Intentionally unset until authoritative upstream documentation or written
+# exchange confirmation proves the semantics of trade.sequence for this exact
+# feed. A caller-supplied boolean plus an arbitrary non-empty string is not
+# evidence. Populate this constant only in a reviewed change that cites the
+# verified, immutable evidence artifact.
+VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF: str | None = None
+
+
 @dataclass(frozen=True)
 class ControlledObservationRunnerResult:
     run_id: str
@@ -54,8 +62,16 @@ class ControlledForwardObservationRunnerV1:
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
-        self.sequence_contract_verified = sequence_contract_verified is True and bool(
-            isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
+        # Fail closed unless the reference matches the reviewed, repository-
+        # pinned evidence reference. The default is deliberately None: no
+        # authoritative evidence currently establishes this feed's semantics.
+        approved_ref = VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF
+        self.sequence_contract_verified = (
+            sequence_contract_verified is True
+            and isinstance(approved_ref, str)
+            and bool(approved_ref.strip())
+            and isinstance(sequence_contract_evidence_ref, str)
+            and sequence_contract_evidence_ref == approved_ref
         )
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
@@ -78,7 +94,7 @@ class ControlledForwardObservationRunnerV1:
         now = now.astimezone(timezone.utc)
 
         # Do not open a socket or create even a session record until the upstream
-        # sequence semantics are verified against an authoritative evidence reference.
+        # sequence semantics are verified against a reviewed evidence reference.
         if not self.sequence_contract_verified:
             return ControlledObservationRunnerResult(
                 run_id="NOT_STARTED",
@@ -150,21 +166,7 @@ class ControlledForwardObservationRunnerV1:
                 journal_path=str(self.journal_path),
                 reason=f"TRANSPORT_ERROR:{type(exc).__name__}",
                 snapshot_id=None,
-            )
-
-        if metadata_bound_exceeded:
-            return ControlledObservationRunnerResult(
-                run_id=session.run_id,
-                status="BLOCKED",
-                records_received=len(records),
-                journal_path=str(self.journal_path),
-                reason="TRANSPORT_METADATA_BOUND_EXCEEDED",
-                snapshot_id=None,
-                diagnostics=({
-                    "reason": "TRANSPORT_METADATA_BOUND_EXCEEDED",
-                    "distinct_sequence_limit": 50000,
-                    "observation_written": False,
-                },),
+                diagnostics=({"observation_written": False},),
             )
 
         if record_bound_exceeded:
@@ -177,7 +179,16 @@ class ControlledForwardObservationRunnerV1:
                 snapshot_id=None,
                 diagnostics=({"max_records": self.max_records},),
             )
-
+        if metadata_bound_exceeded:
+            return ControlledObservationRunnerResult(
+                run_id=session.run_id,
+                status="BLOCKED",
+                records_received=len(records),
+                journal_path=str(self.journal_path),
+                reason="TRANSPORT_METADATA_BOUND_EXCEEDED",
+                snapshot_id=None,
+                diagnostics=({"observation_written": False},),
+            )
         if not records:
             return ControlledObservationRunnerResult(
                 run_id=session.run_id,
@@ -188,42 +199,25 @@ class ControlledForwardObservationRunnerV1:
                 snapshot_id=None,
             )
 
-        observed_at = datetime.now(timezone.utc)
-        result = ForwardObservationPathV1(self.journal_path, max_records=self.max_records).observe(
+        path = ForwardObservationPathV1(self.journal_path, max_records=self.max_records)
+        result = path.observe(
             records,
-            as_of=observed_at,
+            as_of=datetime.now(timezone.utc),
             forward_run_id=session.run_id,
         )
-        diagnostics = tuple(
-            {
-                **event,
-                "transport_frame_fingerprints": frame_metadata_by_sequence.get(str(event.get("sequence")), []),
-            }
-            if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
-            else event
-            for event in result.diagnostics
-        )
-        if result.status == "BLOCKED" and result.reason == "SEQUENCE_UNSAFE":
-            try:
-                persisted = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path).append_blocked_run(
-                    run_id=session.run_id,
-                    observed_at_utc=observed_at.isoformat(),
-                    reason=result.reason,
-                    diagnostics=diagnostics,
-                )
-                if persisted is not None:
-                    diagnostics = (*diagnostics, {
-                        "diagnostic_journal": str(self.diagnostics_path),
-                        "diagnostic_record_sha256": persisted["record_sha256"],
-                        "diagnostic_persistence": "PERSISTED",
-                    })
-            except Exception as exc:
-                # Preserve the safety block even if diagnostics storage is unavailable.
-                diagnostics = (*diagnostics, {
-                    "diagnostic_persistence": "FAILED",
-                    "diagnostic_error_type": type(exc).__name__,
-                })
 
+        diagnostic = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path)
+        sequence_events = path.last_sequence_events if hasattr(path, "last_sequence_events") else []
+        diagnostic_result = diagnostic.append_blocked_run(
+            run_id=session.run_id,
+            observed_at_utc=datetime.now(timezone.utc).isoformat(),
+            reason=result.reason,
+            diagnostics=sequence_events,
+        ) if result.status == "BLOCKED" else None
+
+        details = []
+        if diagnostic_result is not None:
+            details.append({"diagnostic_persistence": "PERSISTED"})
         return ControlledObservationRunnerResult(
             run_id=session.run_id,
             status=result.status,
@@ -231,5 +225,5 @@ class ControlledForwardObservationRunnerV1:
             journal_path=str(self.journal_path),
             reason=result.reason,
             snapshot_id=result.snapshot_id,
-            diagnostics=diagnostics,
+            diagnostics=tuple(details),
         )
