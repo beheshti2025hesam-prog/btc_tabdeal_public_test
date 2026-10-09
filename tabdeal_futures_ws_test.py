@@ -1786,7 +1786,6 @@ def main():
                 "=== CSV CLOSED SAFELY ===",
                 flush=True
             )
-            emit_liveness("STOPPED", force=True)
 
             if not checkpoint_ok:
                 raise RuntimeError(
@@ -1795,6 +1794,8 @@ def main():
 
     finally:
         release_single_writer_lock()
+        # Record STOPPED only after the single-writer lock has been released.
+        emit_liveness("STOPPED", force=True)
 
 
 if __name__ == "__main__":
