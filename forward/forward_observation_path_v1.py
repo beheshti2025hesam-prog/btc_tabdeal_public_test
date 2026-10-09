@@ -71,7 +71,7 @@ class ForwardObservationPathV1:
                 ({"max_records": self.max_records},),
             )
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
-        result = SequenceAwareCandleIngestionV1().ingest(parsed, as_of=as_of)
+        result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",
