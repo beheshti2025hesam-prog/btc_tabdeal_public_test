@@ -73,14 +73,21 @@ class ControlledForwardObservationRunnerV1:
 
         records: list[dict[str, Any]] = []
         frame_metadata_by_sequence: dict[str, list[dict[str, Any]]] = {}
+        metadata_bound_exceeded = False
 
         def collect_frame_metadata(metadata: dict[str, Any]) -> None:
+            nonlocal metadata_bound_exceeded
             value = metadata.get("sequence_value")
             if type(value) not in (int, str):
                 return
             key = str(value)
             if key not in frame_metadata_by_sequence and len(frame_metadata_by_sequence) >= 50000:
-                raise RuntimeError("transport metadata sequence bound exceeded")
+                # Do not raise from a WebSocket callback: some clients swallow
+                # callback exceptions and could otherwise leave a partial run
+                # looking successful. Record the condition and block after the
+                # bounded transport returns, before observation/snapshot writes.
+                metadata_bound_exceeded = True
+                return
             entries = frame_metadata_by_sequence.setdefault(key, [])
             # Keep only the first two frames for each sequence: enough to compare
             # the original and conflicting frame without unbounded per-key growth.
@@ -116,6 +123,21 @@ class ControlledForwardObservationRunnerV1:
                 journal_path=str(self.journal_path),
                 reason=f"TRANSPORT_ERROR:{type(exc).__name__}",
                 snapshot_id=None,
+            )
+
+        if metadata_bound_exceeded:
+            return ControlledObservationRunnerResult(
+                run_id=session.run_id,
+                status="BLOCKED",
+                records_received=len(records),
+                journal_path=str(self.journal_path),
+                reason="TRANSPORT_METADATA_BOUND_EXCEEDED",
+                snapshot_id=None,
+                diagnostics=({
+                    "reason": "TRANSPORT_METADATA_BOUND_EXCEEDED",
+                    "distinct_sequence_limit": 50000,
+                    "observation_written": False,
+                },),
             )
 
         if not records:
