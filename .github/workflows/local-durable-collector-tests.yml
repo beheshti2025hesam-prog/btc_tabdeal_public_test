@@ -1,0 +1,35 @@
+name: Local Durable Collector Safety v1
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-durable-collector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check pytest websocket-client
+      - name: Run local-durable and collector checkpoint safety tests
+        run: |
+          python -m pytest -q \
+            tests/collector/test_local_durable_mode.py \
+            tests/collector/test_final_checkpoint.py \
+            tests/test_collector_startup_sync.py
+      - name: Assert local durable mode keeps Git publication disabled
+        run: |
+          grep -q 'COLLECTOR_LOCAL_DURABLE_MODE' tabdeal_futures_ws_test.py
+          grep -q 'LOCAL DURABLE MODE: GIT SYNC AND PUBLICATION DISABLED' tabdeal_futures_ws_test.py
+          echo "LOCAL_DURABLE_MODE=OPT_IN"
+          echo "GIT_PUBLICATION=DISABLED_IN_LOCAL_MODE"
+          echo "LIVE_EXECUTION=UNCHANGED"
