@@ -368,7 +368,7 @@ def emit_liveness(event, *, force=False, ready=False):
     now = datetime.now(timezone.utc).isoformat()
     status = "STOPPING" if event == "STOPPING" else ("STOPPED" if event == "STOPPED" else "RUNNING")
     try:
-        directory = os.path.dirname(HEARTBEAT_FILE)
+        directory = os.path.dirname(HEARTBEAT_FILE) or "."
         os.makedirs(directory, exist_ok=True)
         payload = {
             "schema": "hes_collector_heartbeat_v1",
@@ -406,11 +406,15 @@ def emit_liveness(event, *, force=False, ready=False):
         last_liveness_emit_monotonic = now_mono
         return True
     except Exception as exc:
+        global running
         print(f"FATAL LIVENESS ERROR: {exc}; stopping collector fail-closed", flush=True)
-        try:
-            stop_collector()
-        except Exception:
-            pass
+        running = False
+        active_ws = current_ws
+        if active_ws is not None:
+            try:
+                active_ws.close()
+            except Exception:
+                pass
         return False
 
 
