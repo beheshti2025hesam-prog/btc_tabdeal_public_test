@@ -45,9 +45,13 @@ class ControlledForwardObservationRunnerV1:
         ws_factory: Callable[..., Any] | None = None,
         max_runtime_seconds: float = 60.0,
         diagnostics_path: str | Path | None = None,
+        max_records: int = 100_000,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
+        if max_records <= 0:
+            raise ValueError("max_records must be positive")
+        self.max_records = max_records
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -72,8 +76,13 @@ class ControlledForwardObservationRunnerV1:
         self.session_manager.write_once(session, self.session_path)
 
         records: list[dict[str, Any]] = []
+        record_bound_exceeded = False
 
         def collect(record: dict[str, Any]) -> None:
+            nonlocal record_bound_exceeded
+            if len(records) >= self.max_records:
+                record_bound_exceeded = True
+                return
             # Transport records are already normalized and fresh. Re-wrap only
             # to satisfy the path adapter's explicit frame contract.
             records.append({
@@ -114,7 +123,7 @@ class ControlledForwardObservationRunnerV1:
             )
 
         observed_at = datetime.now(timezone.utc)
-        result = ForwardObservationPathV1(self.journal_path).observe(
+        result = ForwardObservationPathV1(self.journal_path, max_records=self.max_records).observe(
             records,
             as_of=observed_at,
             forward_run_id=session.run_id,
