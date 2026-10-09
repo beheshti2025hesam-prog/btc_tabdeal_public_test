@@ -77,6 +77,23 @@ class ControlledForwardObservationRunnerV1:
 
         records: list[dict[str, Any]] = []
         record_bound_exceeded = False
+        frame_metadata_by_sequence: dict[str, list[dict[str, Any]]] = {}
+        metadata_bound_exceeded = False
+
+        def collect_frame_metadata(metadata: dict[str, Any]) -> None:
+            nonlocal metadata_bound_exceeded
+            value = metadata.get("sequence_value")
+            if type(value) not in (int, str):
+                return
+            key = str(value)
+            if key not in frame_metadata_by_sequence and len(frame_metadata_by_sequence) >= 50000:
+                # Avoid raising inside a WebSocket callback, where client libraries
+                # may swallow callback exceptions and leave a partial run looking successful.
+                metadata_bound_exceeded = True
+                return
+            entries = frame_metadata_by_sequence.setdefault(key, [])
+            if len(entries) < 2:
+                entries.append(dict(metadata))
 
         def collect(record: dict[str, Any]) -> None:
             nonlocal record_bound_exceeded
@@ -93,6 +110,7 @@ class ControlledForwardObservationRunnerV1:
         kwargs: dict[str, Any] = {
             "as_of_provider": lambda: datetime.now(timezone.utc),
             "on_record": collect,
+            "on_frame_metadata": collect_frame_metadata,
             "max_runtime_seconds": self.max_runtime_seconds,
         }
         if self.ws_factory is None:
@@ -110,6 +128,21 @@ class ControlledForwardObservationRunnerV1:
                 journal_path=str(self.journal_path),
                 reason=f"TRANSPORT_ERROR:{type(exc).__name__}",
                 snapshot_id=None,
+            )
+
+        if metadata_bound_exceeded:
+            return ControlledObservationRunnerResult(
+                run_id=session.run_id,
+                status="BLOCKED",
+                records_received=len(records),
+                journal_path=str(self.journal_path),
+                reason="TRANSPORT_METADATA_BOUND_EXCEEDED",
+                snapshot_id=None,
+                diagnostics=({
+                    "reason": "TRANSPORT_METADATA_BOUND_EXCEEDED",
+                    "distinct_sequence_limit": 50000,
+                    "observation_written": False,
+                },),
             )
 
         if record_bound_exceeded:
@@ -139,7 +172,15 @@ class ControlledForwardObservationRunnerV1:
             as_of=observed_at,
             forward_run_id=session.run_id,
         )
-        diagnostics = result.diagnostics
+        diagnostics = tuple(
+            {
+                **event,
+                "transport_frame_fingerprints": frame_metadata_by_sequence.get(str(event.get("sequence")), []),
+            }
+            if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+            else event
+            for event in result.diagnostics
+        )
         if result.status == "BLOCKED" and result.reason == "SEQUENCE_UNSAFE":
             try:
                 persisted = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path).append_blocked_run(
