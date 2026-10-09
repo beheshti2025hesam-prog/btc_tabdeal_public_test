@@ -1,0 +1,8 @@
+# Example systemd drop-in for the opt-in local-durable collector mode.
+# Install only after the heartbeat/watchdog tests pass and a controlled dry run is approved.
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=75
+Environment=COLLECTOR_LOCAL_DURABLE_MODE=1
+TimeoutStartSec=90
