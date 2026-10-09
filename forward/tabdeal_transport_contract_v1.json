@@ -1,1 +1,21 @@
-{"schema":"hes_forward_tabdeal_transport_v1","status":"ACTIVE_FROM_2026-10-07","mode":"READ_ONLY","url":"wss://api1.tabdeal.org/special_margin/broadcast/","symbol":"BTC_USDT","network_enabled":true,"persistence_enabled":false,"execution_enabled":false,"git_write_enabled":false,"systemd_control_enabled":false,"strategy_enabled":false,"fail_closed":true}
+{
+  "schema": "hes_forward_tabdeal_transport_v1",
+  "status": "ACTIVE_FROM_2026-10-07",
+  "mode": "READ_ONLY",
+  "url": "wss://api1.tabdeal.org/special_margin/broadcast/",
+  "symbol": "BTC_USDT",
+  "network_enabled": true,
+  "persistence_enabled": false,
+  "execution_enabled": false,
+  "git_write_enabled": false,
+  "systemd_control_enabled": false,
+  "strategy_enabled": false,
+  "bounded_session_required": true,
+  "default_max_runtime_seconds": 60,
+  "non_trade_frames": "IGNORE_WITH_COUNTER",
+  "rejection_reason_required": true,
+  "transport_metadata_callback": "OPTIONAL_SANITIZED_DIAGNOSTICS",
+  "raw_frame_persistence": false,
+  "collector_enablement": false,
+  "fail_closed": true
+}
