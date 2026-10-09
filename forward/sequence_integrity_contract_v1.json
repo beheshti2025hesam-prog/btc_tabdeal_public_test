@@ -9,5 +9,8 @@
   "reconnect_policy": "RESET_CONTINUITY",
   "restart_safe": true,
   "fail_closed": true,
-  "silent_repair": false
+  "silent_repair": false,
+  "conflict_diagnostics": "APPEND_ONLY_HASH_CHAIN",
+  "conflict_payload_storage": "NORMALIZED_PUBLIC_FIELDS_ONLY",
+  "diagnostic_persistence_failure_policy": "KEEP_BLOCKED_NO_REPAIR"
 }
