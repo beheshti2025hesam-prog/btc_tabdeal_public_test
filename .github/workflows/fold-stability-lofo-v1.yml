@@ -1,0 +1,70 @@
+name: HES Trade Agent — Fold Stability Leave-One-Fold-Out v1
+on:
+  push:
+    branches: [fold-stability-lofo-v1-20261004]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hes-fold-stability-lofo-v1
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LOCKED_RAW_BLOB_SHA: 58d21825e052dbaa42e7eb0695455c19997bff43
+      LOCKED_RAW_SOURCE_COMMIT: b9ebecf061dfe9a084797d77b48a2c7846d269e3
+      PROTOCOL_CONTRACT_SOURCE_COMMIT: e5f85f06b19b8427f761b95ab56ad15ccd7053c0
+      PROTOCOL_CONTRACT_BLOB_SHA: a84dafbc09c72ac37ebbbb0706b43d23f7681e12
+      PROTOCOL_SOURCE_COMMIT: bb308905d75ec5cbff80572c0746c7521ddab9a0
+      PROTOCOL_SOURCE_SCRIPT_BLOB: 406319c52cc36d9d549d6f29b170d184fac90859
+      PROTOCOL_SOURCE_SCRIPT_PATH: scripts/protocol_reconciliation_independent_snapshot_v1.py
+      HES_FROZEN_CSV: /tmp/hes_independent_trades.csv
+      PROTOCOL_CONTRACT_PATH: /tmp/protocol_reconciliation_v1_contract.json
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: ${{ github.sha }}, fetch-depth: 1}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Verify immutable protocol lineage
+        env: {GH_TOKEN: ${{ github.token }}}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,base64
+          from pathlib import Path
+          repo="beheshti2025hesam-prog/btc_tabdeal_public_test"
+          h={"Authorization":f"Bearer {os.environ['GH_TOKEN']}","Accept":"application/vnd.github+json"}
+          def get(path):
+            r=urllib.request.Request(f"https://api.github.com/repos/{repo}/contents/{path}",headers=h)
+            with urllib.request.urlopen(r) as x:return json.load(x)
+          raw=get(f"data/trades.csv?ref={os.environ['LOCKED_RAW_SOURCE_COMMIT']}")
+          contract=get(f"evidence/protocol_reconciliation_v1.json?ref={os.environ['PROTOCOL_CONTRACT_SOURCE_COMMIT']}")
+          script=get(f"{os.environ['PROTOCOL_SOURCE_SCRIPT_PATH']}?ref={os.environ['PROTOCOL_SOURCE_COMMIT']}")
+          assert raw["sha"]==os.environ["LOCKED_RAW_BLOB_SHA"]
+          assert contract["sha"]==os.environ["PROTOCOL_CONTRACT_BLOB_SHA"]
+          assert script["sha"]==os.environ["PROTOCOL_SOURCE_SCRIPT_BLOB"]
+          Path(os.environ["PROTOCOL_CONTRACT_PATH"]).write_bytes(base64.b64decode(contract["content"]))
+          print("IMMUTABLE_LINEAGE_BINDINGS_VALID")
+          PY
+      - name: Materialize exact locked Raw snapshot
+        env: {GH_TOKEN: ${{ github.token }}}
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/git/blobs/${LOCKED_RAW_BLOB_SHA}" > /tmp/raw.json
+          python - <<'PY'
+          import base64,json,os
+          from pathlib import Path
+          d=json.load(open("/tmp/raw.json")); assert d["sha"]==os.environ["LOCKED_RAW_BLOB_SHA"]
+          Path(os.environ["HES_FROZEN_CSV"]).write_bytes(base64.b64decode(d["content"]))
+          PY
+      - name: Re-run the frozen protocol unchanged
+        run: python scripts/protocol_reconciliation_independent_snapshot_v1.py
+      - name: Run Leave-One-Fold-Out stability audit
+        run: python scripts/fold_stability_leave_one_fold_out_v1.py
+      - name: Upload audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fold-stability-lofo-v1
+          path: fold_stability_leave_one_fold_out_v1.json
