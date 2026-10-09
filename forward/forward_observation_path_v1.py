@@ -7,7 +7,7 @@ Observation-only and fail-closed: no signals, trades, execution, historical
 evidence, or future outcomes.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -99,8 +99,13 @@ class ForwardObservationPathV1:
         # validate/compare adjacent pairs rather than re-validating every growing
         # prefix (which made this path quadratic in candle count).
         structure_observer = CleanStructureContextV1()
-        contexts = [structure_observer.observe(candle_dicts[i-1:i+1])
-                    for i in range(1, len(candle_dicts))]
+        contexts = [
+            replace(
+                structure_observer.observe(candle_dicts[i-1:i+1]),
+                candles=i+1,
+            )
+            for i in range(1, len(candle_dicts))
+        ]
         stability = CleanStructureStabilityV1().observe([c.bias for c in contexts])
         regime = CleanRegimeObservationV1().observe(stability.stable_bias)
         if regime.regime == "UPTREND":
