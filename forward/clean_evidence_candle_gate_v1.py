@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .clean_evidence_sequence_gate_v1 import CleanEvidenceSequenceGateV1
 from .sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
 
 
@@ -19,6 +20,12 @@ class CleanEvidenceCandleGateV1:
     def evaluate(self, records: list[dict[str, Any]], *, as_of) -> CleanEvidenceCandleResult:
         if not records:
             return CleanEvidenceCandleResult(False, (), (), "NO_FORWARD_RECORDS")
+
+        sequence_result = CleanEvidenceSequenceGateV1().evaluate(records)
+        if not sequence_result.safe:
+            return CleanEvidenceCandleResult(
+                False, (), (), sequence_result.reason or "SEQUENCE_UNSAFE"
+            )
 
         integration = SequenceAwareCandleIngestionV1()
         try:
