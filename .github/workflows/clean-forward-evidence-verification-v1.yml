@@ -3,6 +3,7 @@ name: Clean Forward Evidence Verification v1
 on:
   pull_request:
     branches:
+      - main
       - forward/integration-gate-test-2026-10-07
   workflow_dispatch:
 
