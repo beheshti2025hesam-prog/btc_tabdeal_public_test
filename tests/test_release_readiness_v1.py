@@ -14,7 +14,7 @@ def test_any_failed_release_check_blocks_promotion(name):
 def test_missing_check_blocks_promotion():
     checks=base(); checks.pop("git_integrity_pass")
     r=ReleaseReadinessGateV1().evaluate(**checks)
-    assert r.ready is False and r.reason=="git_integrity_pass"
+    assert r.ready is False and r.reason=="upstream_sequence_contract_verified"
 
 def test_all_checks_pass_is_ready():
     r=ReleaseReadinessGateV1().evaluate(**base())
