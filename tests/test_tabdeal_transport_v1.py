@@ -88,6 +88,7 @@ def test_transport_emits_sanitized_frame_fingerprint_for_normalized_trade():
     assert fingerprint["raw_frame_sha256"] == hashlib.sha256(message.encode("utf-8")).hexdigest()
     assert fingerprint["sequence_field_path"] == "trade.sequence"
     assert fingerprint["sequence_value"] == 123
+    assert fingerprint["normalized_sequence"] == records[0]["sequence"]
     assert fingerprint["sequence_value_type"] == "int"
     assert fingerprint["outer_keys"] == ["trade"]
     assert "price" in fingerprint["trade_keys"]
