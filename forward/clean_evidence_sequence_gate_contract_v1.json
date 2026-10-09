@@ -4,7 +4,7 @@
   "policy": "FAIL_CLOSED",
   "sequence_required": true,
   "identical_duplicate": "IDEMPOTENT_NO_OP",
-  "sequence_numeric_jump": "NOT_INFERRED_AS_GAP",
+  "sequence_gap": "BLOCK_EVIDENCE_UNVERIFIED",
   "out_of_order": "BLOCK_EVIDENCE",
   "conflicting_duplicate": "BLOCK_EVIDENCE",
   "invalid_sequence": "BLOCK_EVIDENCE",
