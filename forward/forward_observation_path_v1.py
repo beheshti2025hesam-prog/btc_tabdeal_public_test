@@ -64,8 +64,12 @@ class ForwardObservationPathV1:
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",
-                                                tuple({"sequence": e.sequence, "status": e.status, "reason": e.reason}
-                                                      for e in result.events))
+                                                tuple({
+                                                    "sequence": e.sequence,
+                                                    "status": e.status,
+                                                    "reason": e.reason,
+                                                    **({"diagnostic": e.diagnostic} if e.diagnostic is not None else {}),
+                                                } for e in result.events))
         if result.gaps:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed),
                                                 len(result.candles), len(result.gaps),
