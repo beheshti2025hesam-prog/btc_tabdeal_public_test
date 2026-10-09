@@ -56,6 +56,16 @@ class TabdealReadOnlyTransportV1:
             if not isinstance(trade, dict):
                 self.ignored += 1
                 return
+            frame = {
+                "type": "trade",
+                "symbol": trade.get("symbol", SYMBOL),
+                "price": trade.get("price"),
+                "amount": trade.get("amount"),
+                "side": trade.get("side", trade.get("side_name")),
+                "sequence": trade.get("sequence"),
+                "timestamp": trade.get("updated"),
+            }
+            record = parse_trade_frame(frame, as_of=self.as_of_provider())
             if self.on_frame_metadata is not None:
                 sequence_value = trade.get("sequence")
                 safe_sequence_value = (
@@ -74,16 +84,6 @@ class TabdealReadOnlyTransportV1:
                     "sequence_value_type": type(sequence_value).__name__,
                     "sequence_value": safe_sequence_value,
                 })
-            frame = {
-                "type": "trade",
-                "symbol": trade.get("symbol", SYMBOL),
-                "price": trade.get("price"),
-                "amount": trade.get("amount"),
-                "side": trade.get("side", trade.get("side_name")),
-                "sequence": trade.get("sequence"),
-                "timestamp": trade.get("updated"),
-            }
-            record = parse_trade_frame(frame, as_of=self.as_of_provider())
             self.on_record(record)
             self.records_emitted += 1
         except (ValueError, TypeError, json.JSONDecodeError, KeyError) as exc:
