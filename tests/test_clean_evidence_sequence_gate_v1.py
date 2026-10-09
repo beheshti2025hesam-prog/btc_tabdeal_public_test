@@ -16,14 +16,15 @@ def test_identical_duplicate_is_idempotent():
     assert r.safe and len(r.accepted) == 2
 
 
-def test_monotonic_numeric_jump_is_not_inferred_as_missing_event():
+def test_unverified_numeric_jump_blocks_clean_evidence():
     r = CleanEvidenceSequenceGateV1().evaluate([rec(10), rec(12)])
-    assert r.safe and len(r.accepted) == 2 and r.reason == "SEQUENCE_SAFE"
+    assert not r.safe and r.reason == "SEQUENCE_GAP_UNVERIFIED"
+    assert r.accepted == (rec(10),)
 
 
 def test_out_of_order_blocks_evidence():
     r = CleanEvidenceSequenceGateV1().evaluate([rec(10), rec(12), rec(11)])
-    assert not r.safe and r.reason == "OUT_OF_ORDER_SEQUENCE"
+    assert not r.safe and r.reason in {"SEQUENCE_GAP_UNVERIFIED", "OUT_OF_ORDER_SEQUENCE"}
 
 
 def test_conflicting_duplicate_blocks_evidence():
