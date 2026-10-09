@@ -60,6 +60,8 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         transport_factory=GapTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
@@ -79,6 +81,8 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
         session_path=session,
         ws_factory=EmptyWS,
         max_runtime_seconds=1,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -104,6 +108,8 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -128,6 +134,8 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -156,6 +164,8 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
         transport_factory=OverLimitTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         max_records=3,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
