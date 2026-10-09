@@ -6,7 +6,7 @@
   "sequence_gate_required": true,
   "closed_candle_only": true,
   "future_input_allowed": false,
-  "sequence_numeric_jump": "NOT_INFERRED_AS_GAP",
+  "sequence_gap": "BLOCK",
   "out_of_order": "BLOCK",
   "conflicting_duplicate": "BLOCK",
   "silent_candle_repair": false,
