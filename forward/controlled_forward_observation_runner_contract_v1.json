@@ -1,0 +1,15 @@
+{
+  "schema": "hes_controlled_forward_observation_runner_v1",
+  "status": "ACTIVE_FAIL_CLOSED",
+  "purpose": "Prevent live observation from starting while upstream trade.sequence semantics are unverified",
+  "sequence_contract_verified_default": false,
+  "sequence_contract_evidence_ref_required": true,
+  "block_reason": "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
+  "block_before_network": true,
+  "block_before_session_write": true,
+  "execution_enabled": false,
+  "historical_inputs_allowed": false,
+  "future_outcomes_allowed": false,
+  "collector_autostart": false,
+  "fail_closed": true
+}
