@@ -69,6 +69,10 @@ def get_run_seconds():
 
 RUN_SECONDS = get_run_seconds()
 
+# Optional local-durable mode: persist observations to the VPS filesystem only.
+# Git publication is intentionally decoupled from the collection process.
+LOCAL_DURABLE_MODE = os.getenv("COLLECTOR_LOCAL_DURABLE_MODE", "0").strip().lower() in {"1", "true", "yes"}
+
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
 
@@ -289,6 +293,43 @@ def synchronize_startup_data_state():
         flush=True
     )
     print("=== STARTUP DATA STATE SYNC COMPLETE ===", flush=True)
+
+
+def validate_local_durable_state():
+    """Validate existing local evidence without fetching, restoring, or resetting Git."""
+    if not os.path.isfile(OUTPUT_FILE):
+        raise RuntimeError("Local durable mode requires an existing data/trades.csv; refusing empty bootstrap.")
+
+    required = {"symbol", "price", "amount", "side", "updated", "sequence"}
+    row_count = 0
+    last_sequence_value = None
+    with open(OUTPUT_FILE, "r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+            raise RuntimeError("Local durable mode found an invalid trade CSV header.")
+        for row in reader:
+            row_count += 1
+            if row.get("symbol") != SYMBOL:
+                raise RuntimeError(f"Local durable mode found an unexpected symbol at row {row_count + 1}.")
+            try:
+                sequence = int(row.get("sequence", ""))
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(f"Local durable mode found an invalid sequence at row {row_count + 1}.") from exc
+            if sequence < 0:
+                raise RuntimeError(f"Local durable mode found a negative sequence at row {row_count + 1}.")
+            timestamp = _parse_trade_timestamp(row.get("updated"))
+            if timestamp is None or timestamp.tzinfo is None or timestamp.utcoffset() is None:
+                raise RuntimeError(f"Local durable mode found an invalid timestamp at row {row_count + 1}.")
+            last_sequence_value = sequence
+
+    if row_count == 0:
+        raise RuntimeError("Local durable mode refuses an empty trade CSV.")
+
+    digest = _sha256_file(OUTPUT_FILE)
+    print(
+        f"=== LOCAL DURABLE STATE VALIDATED: rows={row_count} last_physical_sequence={last_sequence_value} sha256={digest} ===",
+        flush=True,
+    )
 
 
 def _parse_trade_timestamp(value):
@@ -1169,6 +1210,9 @@ def maybe_checkpoint():
 
     global last_checkpoint_time
 
+    if LOCAL_DURABLE_MODE:
+        return
+
     if (
         time.time()
         - last_checkpoint_time
@@ -1601,7 +1645,11 @@ def main():
     acquire_single_writer_lock()
 
     try:
-        synchronize_startup_data_state()
+        if LOCAL_DURABLE_MODE:
+            print("=== LOCAL DURABLE MODE: GIT SYNC AND PUBLICATION DISABLED ===", flush=True)
+            validate_local_durable_state()
+        else:
+            synchronize_startup_data_state()
 
         last_sequence = load_global_last_sequence()
 
@@ -1625,12 +1673,15 @@ def main():
             if csv_file:
                 flush_csv()
 
-            print(
-                "=== FINAL GIT CHECKPOINT ===",
-                flush=True
-            )
-
-            checkpoint_ok = git_checkpoint()
+            if LOCAL_DURABLE_MODE:
+                print("=== LOCAL DURABLE MODE: FINAL GIT CHECKPOINT SKIPPED ===", flush=True)
+                checkpoint_ok = True
+            else:
+                print(
+                    "=== FINAL GIT CHECKPOINT ===",
+                    flush=True
+                )
+                checkpoint_ok = git_checkpoint()
 
             close_csv()
 
