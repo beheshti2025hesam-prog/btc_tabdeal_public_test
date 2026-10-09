@@ -55,3 +55,21 @@ def test_path_fails_closed_before_processing_over_limit_input(tmp_path):
     assert result.reason == "FORWARD_RECORD_BOUND_EXCEEDED"
     assert result.snapshot_id is None
     assert not (tmp_path / "observations.jsonl").exists()
+
+
+def test_adjacent_pair_structure_context_matches_prefix_semantics():
+    from forward.clean_structure_context_v1 import CleanStructureContextV1
+
+    candles = [
+        {"symbol":"BTC_USDT", "timeframe":"15m", "status":"CANDLE_CLOSED_OBSERVED",
+         "open":str(100+i), "high":str(102+i), "low":str(99+i), "close":str(101+i)}
+        for i in range(8)
+    ]
+    observer = CleanStructureContextV1()
+    prefix_contexts = [observer.observe(candles[:i+1]) for i in range(1, len(candles))]
+    pair_contexts = [observer.observe(candles[i-1:i+1]) for i in range(1, len(candles))]
+    assert [x.bias for x in pair_contexts] == [x.bias for x in prefix_contexts]
+    assert [x.higher_close for x in pair_contexts] == [x.higher_close for x in prefix_contexts]
+    assert [x.higher_high for x in pair_contexts] == [x.higher_high for x in prefix_contexts]
+    assert [x.lower_close for x in pair_contexts] == [x.lower_close for x in prefix_contexts]
+    assert [x.lower_low for x in pair_contexts] == [x.lower_low for x in prefix_contexts]
