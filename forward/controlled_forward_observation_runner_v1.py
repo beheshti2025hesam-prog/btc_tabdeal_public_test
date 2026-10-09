@@ -12,6 +12,7 @@ from typing import Any, Callable
 
 from .forward_observation_path_v1 import ForwardObservationPathV1
 from .observation_session_manager_v1 import ObservationSessionManagerV1
+from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
 
 
@@ -43,11 +44,16 @@ class ControlledForwardObservationRunnerV1:
         transport_factory: Callable[..., Any] = TabdealReadOnlyTransportV1,
         ws_factory: Callable[..., Any] | None = None,
         max_runtime_seconds: float = 60.0,
+        diagnostics_path: str | Path | None = None,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
+        self.diagnostics_path = (
+            Path(diagnostics_path) if diagnostics_path is not None
+            else self.session_path.with_name("sequence_integrity_diagnostics_v1.jsonl")
+        )
         self.session_manager = ObservationSessionManagerV1(
             policy_id=policy_id,
             policy_version=policy_version,
@@ -113,6 +119,28 @@ class ControlledForwardObservationRunnerV1:
             as_of=observed_at,
             forward_run_id=session.run_id,
         )
+        diagnostics = result.diagnostics
+        if result.status == "BLOCKED" and result.reason == "SEQUENCE_UNSAFE":
+            try:
+                persisted = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path).append_blocked_run(
+                    run_id=session.run_id,
+                    observed_at_utc=observed_at.isoformat(),
+                    reason=result.reason,
+                    diagnostics=diagnostics,
+                )
+                if persisted is not None:
+                    diagnostics = (*diagnostics, {
+                        "diagnostic_journal": str(self.diagnostics_path),
+                        "diagnostic_record_sha256": persisted["record_sha256"],
+                        "diagnostic_persistence": "PERSISTED",
+                    })
+            except Exception as exc:
+                # Preserve the safety block even if diagnostics storage is unavailable.
+                diagnostics = (*diagnostics, {
+                    "diagnostic_persistence": "FAILED",
+                    "diagnostic_error_type": type(exc).__name__,
+                })
+
         return ControlledObservationRunnerResult(
             run_id=session.run_id,
             status=result.status,
@@ -120,5 +148,5 @@ class ControlledForwardObservationRunnerV1:
             journal_path=str(self.journal_path),
             reason=result.reason,
             snapshot_id=result.snapshot_id,
-            diagnostics=result.diagnostics,
+            diagnostics=diagnostics,
         )
