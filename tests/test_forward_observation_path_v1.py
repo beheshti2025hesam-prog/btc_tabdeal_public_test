@@ -73,3 +73,6 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     assert [x.higher_high for x in pair_contexts] == [x.higher_high for x in prefix_contexts]
     assert [x.lower_close for x in pair_contexts] == [x.lower_close for x in prefix_contexts]
     assert [x.lower_low for x in pair_contexts] == [x.lower_low for x in prefix_contexts]
+    # Preserve the public context count even though only the adjacent pair is inspected.
+    assert [x.candles for x in prefix_contexts] == list(range(2, len(candles)+1))
+    assert [x.candles for x in pair_contexts] == [x.candles for x in prefix_contexts]
