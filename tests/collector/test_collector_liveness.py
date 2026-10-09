@@ -25,7 +25,7 @@ def test_emit_liveness_atomically_persists_health_and_notifies(monkeypatch, tmp_
     assert record["event"] == "READY"
     assert record["last_sequence"] == 12345
     assert record["trade_count_this_process"] == 7
-    assert messages and "READY=1" in messages[0] and "WATCHDOG=1" in messages[0]
+    assert messages and messages[0].splitlines() == ["STATUS=HES collector running: READY", "READY=1", "WATCHDOG=1"]
     assert not list(heartbeat.parent.glob("*.tmp"))
 
 
