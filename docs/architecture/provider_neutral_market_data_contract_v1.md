@@ -34,6 +34,17 @@ Each event should include:
 
 Native IDs/sequences must not be assumed unique, dense, monotonic, or replayable unless the exact source contract proves it. Do not use floating-point rounding as event identity. Do not substitute receive time for missing event time.
 
+## Local receipt identity, idempotency and gap observability
+
+HES should assign each successfully accepted inbound message/event a locally generated, unique, durable `receipt_id`. This identifies HES's receipt record only; it is not a substitute for, or a claim about, the exchange's native trade ID or sequence.
+
+- Define the receipt-ID uniqueness scope and persistence model explicitly. IDs must not be reused after process restart; an in-memory counter alone is insufficient for durable identity. Concurrency and single-writer behavior must be specified and tested.
+- Preserve the native event ID/sequence as opaque source fields, along with provider/venue/product/symbol, schema version, UTC source event time, UTC receive time, connection epoch, source provenance, and immutable evidence/hash reference.
+- Keep deduplication separate from receipt numbering. Deduplicate only where documented native identity semantics or a validated idempotency key justify it. Equal timestamps/prices/quantities alone do not prove two messages are the same trade. Conflicting records must remain auditable rather than being silently discarded.
+- Track duplicate deliveries, out-of-order arrivals, source-sequence anomalies, suspected/confirmed gaps, reconnects, stale feeds, and unresolved conflicts as distinct outcomes. A local receipt counter must not be used as a proxy for source sequence continuity.
+- **Critical limitation:** consecutive local receipt IDs prove only that HES numbered the records it received. They cannot prove that the upstream venue emitted every event or detect a message lost before HES received it. Upstream completeness requires a separately verified source contract and/or documented same-venue reconciliation.
+- On identity ambiguity, persistence failure, suspected gaps, unknown sequence semantics, or unresolved conflict, preserve evidence and expose an explicit degraded/blocked health state. Fail closed for dependent decisions (`NO_TRADE` where applicable); execution remains disabled until the relevant gate passes.
+
 ## Source-contract registry
 For every provider/product/channel, record:
 1. Official documentation URL and retrieval date/hash.
