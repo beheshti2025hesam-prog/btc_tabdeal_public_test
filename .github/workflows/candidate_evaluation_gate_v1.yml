@@ -1,0 +1,95 @@
+name: HES Trade Agent — Candidate Evaluation Evidence Gate v1
+
+on:
+  push:
+    branches:
+      - candidate-definition-fresh-snapshot-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-candidate-evaluation-gate
+  cancel-in-progress: false
+
+jobs:
+  candidate-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned candidate branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Validate candidate evidence artifact
+        run: |
+          python - <<'PY'
+          import json
+
+          p = "evidence/candidate_evaluation_gate_v1.json"
+          d = json.load(open(p, encoding="utf-8"))
+
+          assert d["status"] == "CANDIDATE_EVALUATION_REVIEW_ONLY"
+          assert d["candidate_id"] == "CANDIDATE_RESEARCH_V1"
+
+          lock = d["snapshot_lock"]
+          assert lock["source_ref"] == "main"
+          assert lock["source_commit"] == "86631f2522aa74a38cfa21fa28afe8d49fbc5f20"
+          assert lock["data_git_blob_sha"] == "b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+          assert lock["first_independent_sequence"] == 38710284291
+          assert lock["first_independent_timestamp"] == "2026-09-28T19:08:56.951Z"
+          assert lock["coverage_gap_seconds"] == 38478.772
+
+          features = d["inherited_evidence"]["candidate_features"]
+          assert set(features) == {"Buy Ratio", "Delta", "Trade Count"}
+          assert all(v == "temporally sign-stable" for v in features.values())
+
+          controls = d["controls"]
+          assert all(v is False for v in controls.values())
+
+          assert d["decision_boundary"]["status"] == "REVIEW_REQUIRED"
+          print("CANDIDATE_EVALUATION_ARTIFACT_VALIDATED")
+          print("candidate_id=CANDIDATE_RESEARCH_V1")
+          print("fresh_snapshot_blob_sha=" + lock["data_git_blob_sha"])
+          print("decision_boundary=REVIEW_REQUIRED")
+
+      - name: Verify immutable fresh snapshot blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/b296b1c95f075518bea0b56fd11bbf5f0f613a04" \
+            > /tmp/fresh_blob.json
+          python - <<'PY'
+          import json
+          d = json.load(open("/tmp/fresh_blob.json", encoding="utf-8"))
+          assert d["sha"] == "b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+          print("FRESH_SNAPSHOT_BLOB_PIN_VERIFIED")
+          PY
+
+      - name: Assert no execution or tuning boundary crossed
+        run: |
+          python - <<'PY'
+          import json
+          d = json.load(open("evidence/candidate_evaluation_gate_v1.json", encoding="utf-8"))
+          assert d["decision_boundary"]["status"] == "REVIEW_REQUIRED"
+          assert not d["controls"]["threshold_tuning"]
+          assert not d["controls"]["model_fitting"]
+          assert not d["controls"]["promotion_decision"]
+          assert not d["controls"]["live_execution"]
+          print("EXECUTION_AND_TUNING_BOUNDARY_INTACT")
+          PY
+
+      - name: Upload candidate evaluation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-evaluation-gate-v1
+          path: evidence/candidate_evaluation_gate_v1.json
