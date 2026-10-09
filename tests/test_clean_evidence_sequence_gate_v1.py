@@ -16,9 +16,9 @@ def test_identical_duplicate_is_idempotent():
     assert r.safe and len(r.accepted) == 2
 
 
-def test_gap_blocks_evidence():
+def test_monotonic_numeric_jump_is_not_inferred_as_missing_event():
     r = CleanEvidenceSequenceGateV1().evaluate([rec(10), rec(12)])
-    assert not r.safe and r.reason == "SEQUENCE_GAP"
+    assert r.safe and len(r.accepted) == 2 and r.reason == "SEQUENCE_SAFE"
 
 
 def test_out_of_order_blocks_evidence():
