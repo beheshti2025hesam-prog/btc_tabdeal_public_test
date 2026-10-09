@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from itertools import islice
 
 from .tabdeal_readonly_adapter_v1 import parse_trade_frame
 from .sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
@@ -38,7 +39,10 @@ class ForwardObservationPathResult:
     diagnostics: tuple[dict[str, Any], ...] = ()
 
 class ForwardObservationPathV1:
-    def __init__(self, journal_path: str | Path):
+    def __init__(self, journal_path: str | Path, *, max_records: int = 100_000):
+        if max_records <= 0:
+            raise ValueError("max_records must be positive")
+        self.max_records = max_records
         self.journal = ObservationJournalV1(journal_path)
         self.writer = ObservationJournalIntegrationV1(self.journal)
 
@@ -59,8 +63,15 @@ class ForwardObservationPathV1:
         if not forward_run_id.strip():
             raise ValueError("forward_run_id required")
 
-        parsed = [parse_trade_frame(frame, as_of=as_of) for frame in frames]
-        result = SequenceAwareCandleIngestionV1().ingest(parsed, as_of=as_of)
+        bounded_frames = list(islice(frames, self.max_records + 1))
+        if len(bounded_frames) > self.max_records:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "FORWARD_RECORD_BOUND_EXCEEDED",
+                ({"max_records": self.max_records},),
+            )
+        parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
+        result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",

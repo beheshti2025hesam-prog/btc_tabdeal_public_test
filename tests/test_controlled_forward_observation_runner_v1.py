@@ -135,3 +135,30 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
     assert result.records_received == 0
     assert session.exists()
     assert not journal.exists()
+
+
+def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
+    class OverLimitTransport:
+        def __init__(self, on_record, **kwargs):
+            self.on_record = on_record
+
+        def run_once(self):
+            for seq in range(4):
+                self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
+                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z"})
+
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=tmp_path / "session.jsonl",
+        transport_factory=OverLimitTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        max_records=3,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "FORWARD_RECORD_BOUND_EXCEEDED"
+    assert result.records_received == 3
+    assert result.diagnostics == ({"max_records": 3},)
+    assert not journal.exists()

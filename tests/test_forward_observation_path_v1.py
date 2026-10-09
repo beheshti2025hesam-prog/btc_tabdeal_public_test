@@ -42,3 +42,16 @@ def test_open_candle_is_not_observed(tmp_path):
         frames,as_of=as_of,forward_run_id="OBS-E2E-OPEN")
     assert result.status=="WAITING"
     assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
+
+
+def test_path_fails_closed_before_processing_over_limit_input(tmp_path):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl", max_records=2)
+    frames = [frame(1, as_of-timedelta(minutes=30), 100),
+              frame(2, as_of-timedelta(minutes=25), 101),
+              frame(3, as_of-timedelta(minutes=15), 102)]
+    result = path.observe(frames, as_of=as_of, forward_run_id="OBS-BOUND-001")
+    assert result.status == "BLOCKED"
+    assert result.reason == "FORWARD_RECORD_BOUND_EXCEEDED"
+    assert result.snapshot_id is None
+    assert not (tmp_path / "observations.jsonl").exists()

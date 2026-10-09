@@ -22,7 +22,10 @@ Continuity is enforced by rejecting regressions and conflicting duplicates; a nu
 jump is observable but is not, by itself, evidence of a missing market event.
 """
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_records: int = 100_000) -> None:
+        if max_records <= 0:
+            raise ValueError("max_records must be positive")
+        self.max_records = max_records
         self.last_sequence: int | None = None
         self._records: dict[int, dict[str, Any]] = {}
 
@@ -76,6 +79,11 @@ jump is observable but is not, by itself, evidence of a missing market event.
         if self.last_sequence is not None:
             if seq < self.last_sequence:
                 return SequenceEvent(seq, "ANOMALY", "OUT_OF_ORDER_SEQUENCE")
+        if len(self._records) >= self.max_records:
+            return SequenceEvent(
+                seq, "REJECT_STREAM", "SEQUENCE_STATE_BOUND_EXCEEDED",
+                {"max_records": self.max_records},
+            )
         self._records[seq] = dict(record)
         self.last_sequence = seq
         return SequenceEvent(seq, "ACCEPTED")
