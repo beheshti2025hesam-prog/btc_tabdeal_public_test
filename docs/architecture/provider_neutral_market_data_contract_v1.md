@@ -80,6 +80,36 @@ Use explicit states: `HEALTHY`, `STALE`, `DISCONNECTED`, `RECONNECTING`, `GAP_SU
 10. Append-only persistence, hashes, crash boundaries, malformed records and concurrent-writer attempts are tested without touching production evidence.
 11. Rate-limit backoff and regional failures are simulated; any later live canary is opt-in, bounded, read-only and timestamped.
 
+
+## Integration with the existing evidence boundary (Issue #70)
+
+This contract must feed the existing `CanonicalTrade`, `DataQualityReport`, and `EvidenceSnapshot`/`EvidenceRegistry` path. It does not introduce a second evidence registry or replace Raw Data as the source of truth.
+
+### Identity and provenance mapping
+
+| Concept | Canonical meaning | Constraint |
+|---|---|---|
+| `receipt_id` | HES-local durable identity for one accepted inbound receipt record | Unique within a documented durable namespace; never presented as an exchange ID |
+| Native `event_id` / `sequence` | Source-provided identifiers copied without reinterpretation | Preserve type and original representation; semantics are contract-versioned and may remain UNKNOWN |
+| `ingested_at` / receive time | UTC time HES recorded receipt | Distinct from source event time; retain precision and clock-health metadata |
+| Raw evidence reference + SHA-256 | Immutable original message/file bytes or an explicitly versioned privacy-safe representation | Hash exact stored bytes; never hash a silently normalized or rewritten substitute |
+| `collector_run_id` / connection epoch | Collection attempt and connection lifetime provenance | If unavailable, encode null plus a reason; never fabricate an ID |
+| Dataset manifest hash | Fingerprint of the exact raw inputs selected for one evaluation | Bind relative path, byte length, SHA-256 and evidence role; deterministic UTF-8 canonical serialization, stable key ordering, and lexicographically sorted normalized relative paths |
+| Canonical dataset hash | Fingerprint of the derived canonical records actually evaluated | Separate from raw-manifest hash; record canonicalization/schema version and deterministic record ordering |
+| `DataQualityReport` hash | Exact quality report used by the evaluation | Hash its canonical serialized representation and bind it to the raw-manifest hash and report/schema version |
+| `EvidenceSnapshot` | Existing evidence record for a specific evaluation | Bind dataset-manifest hash, canonical-dataset hash when available, evaluation window, run IDs, source bounds, quality-report hash, code commit and classification |
+
+Hashing rules: SHA-256 is applied to exact raw bytes for raw artifacts. Structured manifests/reports use a named, versioned canonical serialization before hashing; the serialization version is itself recorded. File paths are relative to a declared evidence root and may not escape it. The manifest records missing/unreadable inputs as explicit errors rather than silently omitting them. No filesystem enumeration order, locale, wall-clock value, or unstable map iteration may affect the hash.
+
+### Evaluation boundary and classification
+
+- Define evaluation windows as UTC half-open intervals `[start, end)`; record both endpoints and the timezone/precision contract. If a legacy evaluator cannot provide a window, mark it UNKNOWN instead of inferring one.
+- Keep three layers distinct: immutable raw receipts/files; canonical normalized records; and any deduplicated/filtered evaluation view. Every transformation must name its version and produce a manifest/hash linking its inputs to outputs. Deduplication must not delete or rewrite raw evidence.
+- Bind `DataQualityReport` to the exact raw manifest, canonicalization version and evaluation window it assessed. A report from another dataset/window is not interchangeable.
+- Use explicit evidence classifications such as `OBSERVED_ANOMALY`, `SUSPECTED_COVERAGE_LOSS`, `CONFIRMED_INTEGRITY_FAILURE`, and `UNRESOLVED`. A sequence discontinuity alone remains an observed anomaly unless a reviewed, source-specific contract establishes that the feed guarantees the relevant continuity.
+- A trusted evaluation snapshot must fail closed if required hashes, source/run provenance, code commit, evaluation window, or report linkage are absent or inconsistent. Optional fields may be null only with an explicit reason and must not satisfy a safety-critical gate.
+- Regression tests must prove detection of byte tampering, manifest/path changes, stale code commits, dataset/window/symbol/venue mismatch, quality-report mismatch, missing run IDs, nondeterministic ordering, and anomaly-versus-confirmed-loss misclassification. Tests use synthetic fixtures and never rewrite production evidence.
+
 ## Rollout gates
 1. Review and freeze this contract.
 2. Complete provider-specific official-source records, retaining explicit unknowns.
