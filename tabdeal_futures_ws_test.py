@@ -4,9 +4,11 @@ import json
 import os
 import fcntl
 import signal
+import socket
 import subprocess
 import threading
 import time
+from datetime import datetime, timezone
 
 import websocket
 
@@ -72,6 +74,11 @@ RUN_SECONDS = get_run_seconds()
 # Optional local-durable mode: persist observations to the VPS filesystem only.
 # Git publication is intentionally decoupled from the collection process.
 LOCAL_DURABLE_MODE = os.getenv("COLLECTOR_LOCAL_DURABLE_MODE", "0").strip().lower() in {"1", "true", "yes"}
+HEARTBEAT_FILE = os.getenv(
+    "COLLECTOR_HEARTBEAT_FILE",
+    os.path.join("data", "forward", "collector_heartbeat_v1.json"),
+)
+HEARTBEAT_INTERVAL_SECONDS = 10
 
 # Git checkpoint every 20 minutes
 CHECKPOINT_SECONDS = 20 * 60
@@ -330,6 +337,81 @@ def validate_local_durable_state():
         f"=== LOCAL DURABLE STATE VALIDATED: rows={row_count} last_physical_sequence={last_sequence_value} sha256={digest} ===",
         flush=True,
     )
+
+
+last_liveness_emit_monotonic = 0.0
+
+
+def systemd_notify(message):
+    """Send a systemd notification when NOTIFY_SOCKET is configured."""
+    address = os.getenv("NOTIFY_SOCKET")
+    if not address:
+        return False
+    if address.startswith("@"):
+        address = "\\0" + address[1:]
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as client:
+        client.connect(address)
+        client.sendall(message.encode("utf-8"))
+    return True
+
+
+def emit_liveness(event, *, force=False, ready=False):
+    """Atomically persist local health and refresh systemd watchdog on transport activity."""
+    global last_liveness_emit_monotonic
+    if not LOCAL_DURABLE_MODE:
+        return True
+
+    now_mono = time.monotonic()
+    if not force and now_mono - last_liveness_emit_monotonic < HEARTBEAT_INTERVAL_SECONDS:
+        return True
+
+    now = datetime.now(timezone.utc).isoformat()
+    status = "STOPPING" if event == "STOPPING" else ("STOPPED" if event == "STOPPED" else "RUNNING")
+    try:
+        directory = os.path.dirname(HEARTBEAT_FILE)
+        os.makedirs(directory, exist_ok=True)
+        payload = {
+            "schema": "hes_collector_heartbeat_v1",
+            "status": status,
+            "event": str(event),
+            "observed_at_utc": now,
+            "pid": os.getpid(),
+            "systemd_invocation_id": os.getenv("INVOCATION_ID"),
+            "local_durable_mode": True,
+            "writer_lock_held": writer_lock_file is not None,
+            "last_sequence": last_sequence,
+            "last_timestamp": last_timestamp.isoformat() if last_timestamp is not None else None,
+            "trade_count_this_process": trade_count,
+            "csv_bytes": os.path.getsize(OUTPUT_FILE) if os.path.isfile(OUTPUT_FILE) else None,
+        }
+        temp_path = f"{HEARTBEAT_FILE}.{os.getpid()}.tmp"
+        with open(temp_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, sort_keys=True, separators=(",", ":"))
+            handle.write("\\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, HEARTBEAT_FILE)
+        directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+
+        fields = [f"STATUS=HES collector {status.lower()}: {event}"]
+        if ready:
+            fields.append("READY=1")
+        if status not in {"STOPPING", "STOPPED"}:
+            fields.append("WATCHDOG=1")
+        systemd_notify("\\n".join(fields))
+        last_liveness_emit_monotonic = now_mono
+        return True
+    except Exception as exc:
+        print(f"FATAL LIVENESS ERROR: {exc}; stopping collector fail-closed", flush=True)
+        try:
+            stop_collector()
+        except Exception:
+            pass
+        return False
 
 
 def _parse_trade_timestamp(value):
@@ -1342,6 +1424,8 @@ def stop_collector(
         except Exception:
             pass
 
+    emit_liveness("STOPPING", force=True)
+
 
 signal.signal(
     signal.SIGINT,
@@ -1371,6 +1455,7 @@ def on_open(ws):
     )
 
     ws.send(SYMBOL)
+    emit_liveness("CONNECTED")
 
 
 def on_message(
@@ -1404,12 +1489,18 @@ def on_message(
                 flush=True
             )
 
+        emit_liveness("MESSAGE")
+
     except Exception as e:
 
         print(
             f"MESSAGE ERROR: {e}",
             flush=True
         )
+
+
+def on_pong(ws, message):
+    emit_liveness("PONG")
 
 
 def on_error(
@@ -1553,6 +1644,7 @@ def collect():
                 on_message=on_message,
                 on_error=on_error,
                 on_close=on_close,
+                on_pong=on_pong,
             )
 
             current_ws = ws
@@ -1665,6 +1757,7 @@ def main():
             )
 
         open_csv()
+        emit_liveness("READY", force=True, ready=True)
 
         try:
             collect()
@@ -1689,6 +1782,7 @@ def main():
                 "=== CSV CLOSED SAFELY ===",
                 flush=True
             )
+            emit_liveness("STOPPED", force=True)
 
             if not checkpoint_ok:
                 raise RuntimeError(
