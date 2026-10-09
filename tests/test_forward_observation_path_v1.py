@@ -58,6 +58,7 @@ def test_path_fails_closed_before_processing_over_limit_input(tmp_path):
 
 
 def test_adjacent_pair_structure_context_matches_prefix_semantics():
+    from dataclasses import replace
     from forward.clean_structure_context_v1 import CleanStructureContextV1
 
     candles = [
@@ -67,7 +68,10 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     ]
     observer = CleanStructureContextV1()
     prefix_contexts = [observer.observe(candles[:i+1]) for i in range(1, len(candles))]
-    pair_contexts = [observer.observe(candles[i-1:i+1]) for i in range(1, len(candles))]
+    pair_contexts = [
+        replace(observer.observe(candles[i-1:i+1]), candles=i+1)
+        for i in range(1, len(candles))
+    ]
     assert [x.bias for x in pair_contexts] == [x.bias for x in prefix_contexts]
     assert [x.higher_close for x in pair_contexts] == [x.higher_close for x in prefix_contexts]
     assert [x.higher_high for x in pair_contexts] == [x.higher_high for x in prefix_contexts]
