@@ -30,8 +30,8 @@ class SequenceCandleResult:
 class SequenceAwareCandleIngestionV1:
     """Sequence-check first; candle normalization only receives safe records."""
 
-    def __init__(self) -> None:
-        self.sequence = SequenceIntegrityV1()
+    def __init__(self, *, max_sequence_records: int = 100_000) -> None:
+        self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
 
     def ingest(
         self,
