@@ -72,6 +72,20 @@ class ControlledForwardObservationRunnerV1:
         self.session_manager.write_once(session, self.session_path)
 
         records: list[dict[str, Any]] = []
+        frame_metadata_by_sequence: dict[str, list[dict[str, Any]]] = {}
+
+        def collect_frame_metadata(metadata: dict[str, Any]) -> None:
+            value = metadata.get("sequence_value")
+            if type(value) not in (int, str):
+                return
+            key = str(value)
+            if key not in frame_metadata_by_sequence and len(frame_metadata_by_sequence) >= 50000:
+                raise RuntimeError("transport metadata sequence bound exceeded")
+            entries = frame_metadata_by_sequence.setdefault(key, [])
+            # Keep only the first two frames for each sequence: enough to compare
+            # the original and conflicting frame without unbounded per-key growth.
+            if len(entries) < 2:
+                entries.append(dict(metadata))
 
         def collect(record: dict[str, Any]) -> None:
             # Transport records are already normalized and fresh. Re-wrap only
@@ -84,6 +98,7 @@ class ControlledForwardObservationRunnerV1:
         kwargs: dict[str, Any] = {
             "as_of_provider": lambda: datetime.now(timezone.utc),
             "on_record": collect,
+            "on_frame_metadata": collect_frame_metadata,
             "max_runtime_seconds": self.max_runtime_seconds,
         }
         if self.ws_factory is None:
@@ -119,7 +134,15 @@ class ControlledForwardObservationRunnerV1:
             as_of=observed_at,
             forward_run_id=session.run_id,
         )
-        diagnostics = result.diagnostics
+        diagnostics = tuple(
+            {
+                **event,
+                "transport_frame_fingerprints": frame_metadata_by_sequence.get(str(event.get("sequence")), []),
+            }
+            if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+            else event
+            for event in result.diagnostics
+        )
         if result.status == "BLOCKED" and result.reason == "SEQUENCE_UNSAFE":
             try:
                 persisted = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path).append_blocked_run(
