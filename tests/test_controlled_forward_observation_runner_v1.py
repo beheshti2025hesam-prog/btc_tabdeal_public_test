@@ -1,9 +1,23 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+import forward.controlled_forward_observation_runner_v1 as runner_module
 from forward.controlled_forward_observation_runner_v1 import (
     ControlledForwardObservationRunnerV1,
 )
+
+
+
+@pytest.fixture(autouse=True)
+def use_test_only_sequence_contract_reference(monkeypatch):
+    # Test fixtures explicitly simulate a reviewed reference. Production remains
+    # blocked because the module-level approved reference is None.
+    monkeypatch.setattr(
+        runner_module,
+        "VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF",
+        "test-fixture:authoritative-contract",
+    )
 
 
 class FakeWS:
