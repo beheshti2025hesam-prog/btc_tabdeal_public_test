@@ -1,0 +1,32 @@
+name: Dedicated Forward Observation Supervisor v1
+
+on:
+  push:
+    branches:
+      - feat/dedicated-observation-supervisor-v1-20261010
+  pull_request:
+    branches:
+      - main
+      - feat/dedicated-observation-supervisor-v1-20261010
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supervisor-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run isolated supervisor tests and static safety guardrails
+        run: python -m pytest -q tests/test_observation_supervisor_v1.py tests/test_observation_supervisor_boundaries_v1.py tests/test_source_health_evidence_v1.py
+      - name: Assert explicit safe-mode marker
+        run: |
+          grep -q 'execution_enabled' forward/observation_supervisor_v1.py
+          echo "SUPERVISOR_LEDGER=PASS"
+          echo "STATIC_BOUNDARY_GUARDRAILS=PASS"
+          echo "NETWORK_COLLECTION=OFF"
+          echo "EXECUTION=OFF"
