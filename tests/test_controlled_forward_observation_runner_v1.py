@@ -1,15 +1,4 @@
-from d
-    if request.node.name in {
-        "test_runner_uses_transport_and_writes_observation",
-        "test_runner_accepts_non_contiguous_monotonic_sequence",
-        "test_runner_does_not_write_when_transport_has_no_records",
-        "test_runner_fails_closed_on_transport_error",
-        "test_runner_fails_closed_on_transport_construction_error",
-        "test_runner_fails_closed_when_record_bound_is_exceeded",
-    }:
-        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
-        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
-atetime import datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
 import json
@@ -74,6 +63,8 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
         "test_runner_fails_closed_when_record_bound_is_exceeded",
     }:
         monkeypatch.setattr(runner_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 class FakeWS:
