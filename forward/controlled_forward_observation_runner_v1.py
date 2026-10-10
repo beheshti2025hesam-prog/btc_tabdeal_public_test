@@ -50,6 +50,8 @@ class ControlledForwardObservationRunnerV1:
         sequence_contract_evidence_ref: str | None = None,
         source_completeness_verified: bool = False,
         source_completeness_evidence_ref: str | None = None,
+        source_ordering_verified: bool = False,
+        source_ordering_evidence_ref: str | None = None,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
@@ -63,6 +65,10 @@ class ControlledForwardObservationRunnerV1:
             isinstance(source_completeness_evidence_ref, str) and source_completeness_evidence_ref.strip()
         )
         self.source_completeness_evidence_ref = source_completeness_evidence_ref
+        self.source_ordering_verified = source_ordering_verified is True and bool(
+            isinstance(source_ordering_evidence_ref, str) and source_ordering_evidence_ref.strip()
+        )
+        self.source_ordering_evidence_ref = source_ordering_evidence_ref
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -111,6 +117,21 @@ class ControlledForwardObservationRunnerV1:
                     "network_started": False,
                     "session_written": False,
                     "source_completeness_evidence_required": True,
+                },),
+            )
+
+        if not self.source_ordering_verified:
+            return ControlledObservationRunnerResult(
+                run_id="NOT_STARTED",
+                status="BLOCKED",
+                records_received=0,
+                journal_path=str(self.journal_path),
+                reason="SOURCE_ORDERING_UNVERIFIED",
+                snapshot_id=None,
+                diagnostics=({
+                    "network_started": False,
+                    "session_written": False,
+                    "source_ordering_evidence_required": True,
                 },),
             )
 
@@ -217,6 +238,8 @@ class ControlledForwardObservationRunnerV1:
             max_records=self.max_records,
             source_completeness_verified=self.source_completeness_verified,
             source_completeness_evidence_ref=self.source_completeness_evidence_ref,
+            source_ordering_verified=self.source_ordering_verified,
+            source_ordering_evidence_ref=self.source_ordering_evidence_ref,
         ).observe(
             records,
             as_of=observed_at,
