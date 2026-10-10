@@ -166,6 +166,19 @@ def test_tampered_or_partial_journal_fails_closed_and_is_preserved(tmp_path):
     assert path.read_text() == tampered
 
 
+def test_continuity_rejects_invalid_current_monotonic_clock(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    clock.advance(21)
+    s.heartbeat(healthy=True)
+    s._monotonic_ns = lambda: clock.monotonic_ns() + 0.5
+    with pytest.raises(SupervisorError, match="MONOTONIC_CLOCK_INVALID"):
+        s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=30)
+    s._monotonic_ns = clock.monotonic_ns
+    s.stop()
+
+
 @pytest.mark.parametrize(
     "invalid_limit",
     [float("nan"), float("inf"), float("-inf"), True, 0, -1],
