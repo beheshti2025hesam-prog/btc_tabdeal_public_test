@@ -16,16 +16,16 @@ class SequenceCandleResult:
         gaps: tuple[IntervalGap, ...],
         events: tuple[SequenceEvent, ...],
         *,
-        sequence_contract_verified: bool,
+        source_completeness_verified: bool,
     ) -> None:
         self.candles = candles
         self.gaps = gaps
         self.events = events
-        self.sequence_contract_verified = sequence_contract_verified
+        self.source_completeness_verified = source_completeness_verified
 
     @property
     def safe_for_decision(self) -> bool:
-        return self.sequence_contract_verified and not any(
+        return self.source_completeness_verified and not any(
             event.status in {"REJECT_STREAM", "ANOMALY"} for event in self.events
         )
 
@@ -37,12 +37,12 @@ class SequenceAwareCandleIngestionV1:
         self,
         *,
         max_sequence_records: int = 100_000,
-        sequence_contract_verified: bool = False,
-        sequence_contract_evidence_ref: str | None = None,
+        source_completeness_verified: bool = False,
+        source_completeness_evidence_ref: str | None = None,
     ) -> None:
         self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
-        self.sequence_contract_verified = bool(
-            sequence_contract_verified and sequence_contract_evidence_ref
+        self.source_completeness_verified = bool(
+            source_completeness_verified and source_completeness_evidence_ref
         )
 
     def ingest(
@@ -63,18 +63,18 @@ class SequenceAwareCandleIngestionV1:
                 # Never feed an ambiguous stream into candle formation.
                 return SequenceCandleResult(
                     (), (), tuple(events),
-                    sequence_contract_verified=self.sequence_contract_verified,
+                    source_completeness_verified=self.source_completeness_verified,
                 )
 
         # The sequence field cannot certify upstream completeness. Without an
         # exact reviewed source contract, do not create a decision-grade candle.
-        if not self.sequence_contract_verified:
+        if not self.source_completeness_verified:
             return SequenceCandleResult(
-                (), (), tuple(events), sequence_contract_verified=False
+                (), (), tuple(events), source_completeness_verified=False
             )
 
         candles, gaps = ingest_closed_candles(safe, as_of=as_of)
         return SequenceCandleResult(
             candles, gaps, tuple(events),
-            sequence_contract_verified=True,
+            source_completeness_verified=True,
         )
