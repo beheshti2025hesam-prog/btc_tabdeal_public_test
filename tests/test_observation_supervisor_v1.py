@@ -85,10 +85,10 @@ def test_unhealthy_heartbeat_invalidates_run_and_blocks_future_heartbeats(tmp_pa
     s.heartbeat(healthy=False, reason_code="SOURCE_STALE")
     with pytest.raises(SupervisorError, match="SESSION_ALREADY_INTERRUPTED"):
         s.heartbeat(healthy=True)
+    s.stop()
     report = s.continuity_report(required_seconds=1, max_heartbeat_gap_seconds=30)
     assert not report["proven"]
     assert report["reason"] == "INTERRUPTION_RECORDED"
-    s.stop()
 
 
 def test_continuity_proof_requires_duration_and_bounded_heartbeat_gaps(tmp_path):
@@ -100,10 +100,10 @@ def test_continuity_proof_requires_duration_and_bounded_heartbeat_gaps(tmp_path)
     clock.advance(10)
     s.heartbeat(healthy=True)
     clock.advance(1)
+    s.stop()
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=15)
     assert report["proven"]
     assert report["continuous_seconds"] == 21
-    s.stop()
 
 
 def test_continuity_fails_when_heartbeat_gap_exceeds_bound(tmp_path):
@@ -113,10 +113,10 @@ def test_continuity_fails_when_heartbeat_gap_exceeds_bound(tmp_path):
     clock.advance(10)
     s.heartbeat(healthy=True)
     clock.advance(31)
+    s.stop()
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=15)
     assert not report["proven"]
     assert report["reason"] == "HEARTBEAT_GAP_EXCEEDED"
-    s.stop()
 
 
 def test_continuity_fails_on_boot_id_change(tmp_path):
@@ -166,17 +166,41 @@ def test_tampered_or_partial_journal_fails_closed_and_is_preserved(tmp_path):
     assert path.read_text() == tampered
 
 
-def test_continuity_rejects_invalid_current_monotonic_clock(tmp_path):
+def test_continuity_requires_durable_stop_marker(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(21)
     s.heartbeat(healthy=True)
-    s._monotonic_ns = lambda: clock.monotonic_ns() + 0.5
-    with pytest.raises(SupervisorError, match="MONOTONIC_CLOCK_INVALID"):
-        s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=30)
-    s._monotonic_ns = clock.monotonic_ns
+    report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=30)
+    assert not report["proven"]
+    assert report["reason"] == "SESSION_NOT_STOPPED_OR_DUPLICATE_STOP"
     s.stop()
+
+
+def test_continuity_fails_when_interruption_write_fails_but_stop_succeeds(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    clock.advance(10)
+    s.heartbeat(healthy=True)
+    clock.advance(10)
+    s.heartbeat(healthy=True)
+    original_append = s._append
+
+    def fail_interruption(events, *, event_type, run_id, details=None):
+        if event_type == "INTERRUPTION":
+            raise SupervisorError("JOURNAL_DURABLE_WRITE_FAILED")
+        return original_append(events, event_type=event_type, run_id=run_id, details=details)
+
+    s._append = fail_interruption
+    with pytest.raises(SupervisorError, match="JOURNAL_DURABLE_WRITE_FAILED"):
+        s.interrupt("SIMULATED_DISK_ERROR")
+    s._append = original_append
+    s.stop()
+    report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=15)
+    assert not report["proven"]
+    assert report["reason"] == "INTERRUPTION_RECORDED"
 
 
 @pytest.mark.parametrize(
