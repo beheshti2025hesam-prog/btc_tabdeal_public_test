@@ -15,7 +15,7 @@ from forward.controlled_forward_observation_runner_v1 import (
 @pytest.fixture(autouse=True)
 def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
     artifact = tmp_path / "fixture-evidence.txt"
-    artifact.write_text("synthetic reviewed test evidence\\n", encoding="utf-8")
+    artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
     artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
     rows = [
         ("test-fixture:authoritative-contract", "sequence_contract"),
@@ -41,7 +41,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
         "entries": entries,
     }
     path = tmp_path / "source_evidence_registry_v1.json"
-    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\\n").encode()
+    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
     path.write_bytes(raw)
     monkeypatch.setattr(
         registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
