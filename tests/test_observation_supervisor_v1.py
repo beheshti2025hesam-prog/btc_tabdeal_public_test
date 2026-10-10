@@ -301,7 +301,7 @@ def _rewrite_as_hash_valid_journal(path, event_types):
         ).hexdigest()
         previous = event["event_sha256"]
         rewritten.append(json.dumps(event, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
-    path.write_text("\\n".join(rewritten) + "\\n", encoding="utf-8")
+    path.write_text("\n".join(rewritten) + "\n", encoding="utf-8")
     # Independently confirm the rewritten chain itself is cryptographically valid.
     previous = None
     for line in path.read_text(encoding="utf-8").splitlines():
