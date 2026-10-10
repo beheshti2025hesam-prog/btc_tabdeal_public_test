@@ -461,6 +461,55 @@ def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_by
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize(
+    ("overrides", "expected_error"),
+    [
+        ({"observed_symbol": "ETH_USDT"}, "SOURCE_HEALTH_SCOPE_MISMATCH"),
+        ({"endpoint": "other/channel"}, "SOURCE_HEALTH_SCOPE_MISMATCH"),
+        ({"session_generation": True}, "SOURCE_HEALTH_SESSION_GENERATION_INVALID"),
+        ({"schema_valid": 1}, "SOURCE_HEALTH_SCHEMA_RESULT_INVALID"),
+        ({"source_event_at": datetime(2026, 10, 10)}, "SOURCE_HEALTH_TIMESTAMP_INVALID"),
+        ({"max_age_seconds": float("nan")}, "SOURCE_HEALTH_FRESHNESS_BOUND_INVALID"),
+    ],
+)
+def test_malformed_or_mismatched_source_health_evidence_is_rejected_without_journal_mutation(
+    tmp_path, overrides, expected_error
+):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    before = (tmp_path / "supervisor_events.jsonl").read_bytes()
+    with pytest.raises(SupervisorError, match=expected_error):
+        s.heartbeat(evidence=healthy_evidence(clock, **overrides))
+    assert (tmp_path / "supervisor_events.jsonl").read_bytes() == before
+    s.stop()
+
+
+def test_future_source_event_timestamp_is_rejected_without_journal_mutation(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    before = (tmp_path / "supervisor_events.jsonl").read_bytes()
+    future = clock.utc_now() + timedelta(seconds=1)
+    with pytest.raises(SupervisorError, match="SOURCE_HEALTH_TIMESTAMP_ORDER_INVALID"):
+        s.heartbeat(evidence=healthy_evidence(clock, source_event_at=future, received_at=clock.utc_now()))
+    assert (tmp_path / "supervisor_events.jsonl").read_bytes() == before
+    s.stop()
+
+
+def test_schema_invalid_source_evidence_records_interruption(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    event = s.heartbeat(evidence=healthy_evidence(clock, schema_valid=False))
+    assert event["event_type"] == "INTERRUPTION"
+    assert event["details"]["reason_code"] == "SOURCE_SCHEMA_INVALID"
+    s.stop()
+    report = s.continuity_report(required_seconds=1, max_heartbeat_gap_seconds=30)
+    assert not report["proven"]
+    assert report["reason"] == "INTERRUPTION_RECORDED"
+
+
 @pytest.mark.parametrize("legacy_health", [True, False, 1, "true", None, [], {}])
 def test_caller_asserted_health_is_rejected_without_journal_mutation(
     tmp_path, legacy_health
