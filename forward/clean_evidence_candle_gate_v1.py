@@ -20,21 +20,21 @@ class CleanEvidenceCandleGateV1:
     def __init__(
         self,
         *,
-        sequence_contract_verified: bool = False,
-        sequence_contract_evidence_ref: str | None = None,
+        source_completeness_verified: bool = False,
+        source_completeness_evidence_ref: str | None = None,
     ) -> None:
-        self.sequence_contract_verified = bool(
-            sequence_contract_verified and sequence_contract_evidence_ref
+        self.source_completeness_verified = bool(
+            source_completeness_verified and source_completeness_evidence_ref
         )
-        self.sequence_contract_evidence_ref = sequence_contract_evidence_ref
+        self.source_completeness_evidence_ref = source_completeness_evidence_ref
 
     def evaluate(self, records: list[dict[str, Any]], *, as_of) -> CleanEvidenceCandleResult:
         if not records:
             return CleanEvidenceCandleResult(False, (), (), "NO_FORWARD_RECORDS")
 
         sequence_result = CleanEvidenceSequenceGateV1(
-            sequence_contract_verified=self.sequence_contract_verified,
-            sequence_contract_evidence_ref=self.sequence_contract_evidence_ref,
+            source_completeness_verified=self.source_completeness_verified,
+            source_completeness_evidence_ref=self.source_completeness_evidence_ref,
         ).evaluate(records)
         if not sequence_result.safe:
             return CleanEvidenceCandleResult(
@@ -42,8 +42,8 @@ class CleanEvidenceCandleGateV1:
             )
 
         integration = SequenceAwareCandleIngestionV1(
-            sequence_contract_verified=self.sequence_contract_verified,
-            sequence_contract_evidence_ref=self.sequence_contract_evidence_ref,
+            source_completeness_verified=self.source_completeness_verified,
+            source_completeness_evidence_ref=self.source_completeness_evidence_ref,
         )
         try:
             result = integration.ingest(records, as_of=as_of)
