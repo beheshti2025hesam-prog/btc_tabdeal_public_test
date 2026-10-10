@@ -1,9 +1,86 @@
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
+import hashlib
+import json
+import pytest
+
+from forward import forward_observation_path_v1 as path_module
+from forward import sequence_candle_integration_v1 as integration_module
+from forward import source_evidence_registry_v1 as registry_module
 from forward.forward_observation_path_v1 import ForwardObservationPathV1
+
+
+@pytest.fixture(autouse=True)
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
+    artifact = tmp_path / "fixture-evidence.txt"
+    artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
+    artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    rows = [
+        ("test-fixture:authoritative-contract", "sequence_contract"),
+        ("test-fixture:reviewed-source-completeness", "source_completeness"),
+        ("test-fixture:reviewed-source-ordering", "source_ordering"),
+    ]
+    entries = [
+        {"evidence_ref": ref, "evidence_type": kind,
+         "source_scope": "tabdeal-futures:BTC_USDT", "evidence_path": artifact.name,
+         "evidence_sha256": artifact_sha, "review_status": "INDEPENDENTLY_REVIEWED",
+         "review_record_ref": "test-fixture:independent-review"}
+        for ref, kind in rows
+    ]
+    payload = {"schema": "hes_source_evidence_registry_v1", "status": "REVIEWED_PINNED",
+               "registry_version": 1, "entries": entries}
+    path = tmp_path / "source_evidence_registry_v1.json"
+    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    path.write_bytes(raw)
+    monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
+                        hashlib.sha256(raw).hexdigest())
+    monkeypatch.setattr(path_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
+
+    # Test-only harness: isolate downstream algorithm tests from the independent
+    # provenance gate. Production modules are never given a bypass; dedicated
+    # negative tests below keep the real verifier wired and fail-closed.
+    if request.node.name in {
+        "test_full_forward_observation_path",
+        "test_non_contiguous_sequence_reaches_candle_boundary",
+        "test_open_candle_is_not_observed",
+    }:
+        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+
 
 def frame(seq, when, price):
     return {"type":"trade","symbol":"BTC_USDT","price":str(price),"amount":"0.01",
             "side":"buy","sequence":seq,"timestamp":when.isoformat()}
+
+def verified_path(journal_path, *, max_records=100_000):
+    return ForwardObservationPathV1(
+        journal_path,
+        max_records=max_records,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
+    )
+
+
+def test_default_path_blocks_without_source_completeness_evidence(tmp_path):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    result = ForwardObservationPathV1(
+        tmp_path / "observations.jsonl",
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+    ).observe(
+        [frame(1, as_of-timedelta(minutes=30), 100)],
+        as_of=as_of,
+        forward_run_id="OBS-UNVERIFIED-COMPLETENESS",
+    )
+    assert result.status == "BLOCKED"
+    assert result.reason == "SOURCE_COMPLETENESS_UNVERIFIED"
+    assert result.snapshot_id is None
+    assert not (tmp_path / "observations.jsonl").exists()
+
 
 def test_full_forward_observation_path(tmp_path):
     as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
@@ -11,7 +88,7 @@ def test_full_forward_observation_path(tmp_path):
             frame(2,as_of-timedelta(minutes=25),101),
             frame(3,as_of-timedelta(minutes=15),102),
             frame(4,as_of-timedelta(minutes=10),104)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=verified_path(tmp_path/"observations.jsonl").observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-001")
     assert result.status=="OBSERVED"
     assert result.frames_accepted==4
@@ -21,13 +98,13 @@ def test_full_forward_observation_path(tmp_path):
     assert result.quality=="HIGH"
     assert result.gate_safe is True
     assert result.snapshot_id
-    assert len(ForwardObservationPathV1(tmp_path/"observations.jsonl").journal.read())==1
+    assert len(verified_path(tmp_path/"observations.jsonl").journal.read())==1
 
 def test_non_contiguous_sequence_reaches_candle_boundary(tmp_path):
     as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
     frames=[frame(1,as_of-timedelta(minutes=30),100),
             frame(3,as_of-timedelta(minutes=25),101)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=verified_path(tmp_path/"observations.jsonl").observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-MONOTONIC")
     assert result.status=="WAITING"
     assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
@@ -38,7 +115,7 @@ def test_open_candle_is_not_observed(tmp_path):
     as_of=datetime(2026,10,7,12,10,tzinfo=timezone.utc)
     frames=[frame(1,as_of-timedelta(minutes=2),100),
             frame(2,as_of-timedelta(minutes=1),101)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=verified_path(tmp_path/"observations.jsonl").observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-OPEN")
     assert result.status=="WAITING"
     assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
@@ -46,7 +123,7 @@ def test_open_candle_is_not_observed(tmp_path):
 
 def test_path_fails_closed_before_processing_over_limit_input(tmp_path):
     as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
-    path = ForwardObservationPathV1(tmp_path / "observations.jsonl", max_records=2)
+    path = verified_path(tmp_path / "observations.jsonl", max_records=2)
     frames = [frame(1, as_of-timedelta(minutes=30), 100),
               frame(2, as_of-timedelta(minutes=25), 101),
               frame(3, as_of-timedelta(minutes=15), 102)]
@@ -80,3 +157,26 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     # Preserve the public context count even though only the adjacent pair is inspected.
     assert [x.candles for x in prefix_contexts] == list(range(2, len(candles)+1))
     assert [x.candles for x in pair_contexts] == [x.candles for x in prefix_contexts]
+
+
+
+def test_path_rejects_unregistered_refs_even_when_flags_are_true(tmp_path):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    path = ForwardObservationPathV1(
+        tmp_path / "observations.jsonl",
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="caller-made-up:contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="caller-made-up:completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="caller-made-up:ordering",
+    )
+    result = path.observe(
+        [frame(1, as_of - timedelta(minutes=30), 100)],
+        as_of=as_of,
+        forward_run_id="OBS-UNREGISTERED-PROOF",
+    )
+    assert result.status == "BLOCKED"
+    assert result.reason == "SOURCE_EVIDENCE_REF_NOT_REGISTERED"
+    assert result.snapshot_id is None
+    assert not (tmp_path / "observations.jsonl").exists()
