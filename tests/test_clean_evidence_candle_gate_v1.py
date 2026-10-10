@@ -10,7 +10,7 @@ from forward.clean_evidence_candle_gate_v1 import CleanEvidenceCandleGateV1
 
 
 @pytest.fixture(autouse=True)
-def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     artifact = tmp_path / "fixture-evidence.txt"
     artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
     artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
@@ -34,6 +34,15 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
                         hashlib.sha256(raw).hexdigest())
     monkeypatch.setattr(gate_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
+
+    # Test-only harness isolates algorithm behavior from the external trust root.
+    # Dedicated negative tests still use the real production verifier.
+    if request.node.name in {
+        "test_future_input_fails_closed_when_contract_gate_is_explicitly_satisfied",
+        "test_conflicting_sequence_reuse_blocks_candle_evidence",
+        "test_unverified_sequence_jump_does_not_infer_a_missing_trade",
+    }:
+        monkeypatch.setattr(gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def rec(seq, ts, price="100"):
