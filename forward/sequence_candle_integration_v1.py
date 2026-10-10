@@ -67,6 +67,8 @@ class SequenceAwareCandleIngestionV1:
         self.sequence_contract_evidence_ref = sequence_contract_evidence_ref
         self.source_completeness_evidence_ref = source_completeness_evidence_ref
         self.source_ordering_evidence_ref = source_ordering_evidence_ref
+        self.source_completeness_evidence_ref = source_completeness_evidence_ref
+        self.source_ordering_evidence_ref = source_ordering_evidence_ref
         self.source_completeness_verified = bool(
             source_completeness_verified
             and isinstance(source_completeness_evidence_ref, str)
