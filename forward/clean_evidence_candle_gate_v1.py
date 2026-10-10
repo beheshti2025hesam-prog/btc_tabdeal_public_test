@@ -17,17 +17,34 @@ class CleanEvidenceCandleResult:
 
 
 class CleanEvidenceCandleGateV1:
+    def __init__(
+        self,
+        *,
+        sequence_contract_verified: bool = False,
+        sequence_contract_evidence_ref: str | None = None,
+    ) -> None:
+        self.sequence_contract_verified = bool(
+            sequence_contract_verified and sequence_contract_evidence_ref
+        )
+        self.sequence_contract_evidence_ref = sequence_contract_evidence_ref
+
     def evaluate(self, records: list[dict[str, Any]], *, as_of) -> CleanEvidenceCandleResult:
         if not records:
             return CleanEvidenceCandleResult(False, (), (), "NO_FORWARD_RECORDS")
 
-        sequence_result = CleanEvidenceSequenceGateV1().evaluate(records)
+        sequence_result = CleanEvidenceSequenceGateV1(
+            sequence_contract_verified=self.sequence_contract_verified,
+            sequence_contract_evidence_ref=self.sequence_contract_evidence_ref,
+        ).evaluate(records)
         if not sequence_result.safe:
             return CleanEvidenceCandleResult(
                 False, (), (), sequence_result.reason or "SEQUENCE_UNSAFE"
             )
 
-        integration = SequenceAwareCandleIngestionV1()
+        integration = SequenceAwareCandleIngestionV1(
+            sequence_contract_verified=self.sequence_contract_verified,
+            sequence_contract_evidence_ref=self.sequence_contract_evidence_ref,
+        )
         try:
             result = integration.ingest(records, as_of=as_of)
         except (TypeError, ValueError):
@@ -35,7 +52,7 @@ class CleanEvidenceCandleGateV1:
 
         if not result.safe_for_decision:
             return CleanEvidenceCandleResult(
-                False, tuple(result.candles), tuple(result.gaps), "SEQUENCE_UNSAFE"
+                False, (), (), "SEQUENCE_UNSAFE"
             )
         return CleanEvidenceCandleResult(
             True, tuple(result.candles), tuple(result.gaps), "CANDLE_SAFE"
