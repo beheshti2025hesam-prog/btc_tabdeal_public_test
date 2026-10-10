@@ -11,6 +11,8 @@ def verified_path(journal_path, *, max_records=100_000):
         max_records=max_records,
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
 
 
