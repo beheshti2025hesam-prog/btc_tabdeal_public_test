@@ -48,6 +48,8 @@ class ControlledForwardObservationRunnerV1:
         max_records: int = 100_000,
         sequence_contract_verified: bool = False,
         sequence_contract_evidence_ref: str | None = None,
+        source_completeness_verified: bool = False,
+        source_completeness_evidence_ref: str | None = None,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
@@ -57,6 +59,10 @@ class ControlledForwardObservationRunnerV1:
         self.sequence_contract_verified = sequence_contract_verified is True and bool(
             isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
         )
+        self.source_completeness_verified = source_completeness_verified is True and bool(
+            isinstance(source_completeness_evidence_ref, str) and source_completeness_evidence_ref.strip()
+        )
+        self.source_completeness_evidence_ref = source_completeness_evidence_ref
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -77,8 +83,8 @@ class ControlledForwardObservationRunnerV1:
             raise ValueError("started_at must be timezone-aware")
         now = now.astimezone(timezone.utc)
 
-        # Do not open a socket or create even a session record until the upstream
-        # sequence semantics are verified against an authoritative evidence reference.
+        # Do not open a socket or create even a session record until both exact-feed
+        # sequence semantics and source completeness have reviewed evidence references.
         if not self.sequence_contract_verified:
             return ControlledObservationRunnerResult(
                 run_id="NOT_STARTED",
@@ -93,6 +99,20 @@ class ControlledForwardObservationRunnerV1:
                     "sequence_contract_evidence_required": True,
                 },),
             )
+        if not self.source_completeness_verified:
+            return ControlledObservationRunnerResult(
+                run_id="NOT_STARTED",
+                status="BLOCKED",
+                records_received=0,
+                journal_path=str(self.journal_path),
+                reason="SOURCE_COMPLETENESS_UNVERIFIED",
+                snapshot_id=None,
+                diagnostics=({
+                    "network_started": False,
+                    "session_written": False,
+                    "source_completeness_evidence_required": True,
+                },),
+            )
 
         session = self.session_manager.start(started_at=now)
         self.session_manager.write_once(session, self.session_path)
@@ -104,10 +124,13 @@ class ControlledForwardObservationRunnerV1:
 
         def collect_frame_metadata(metadata: dict[str, Any]) -> None:
             nonlocal metadata_bound_exceeded
-            value = metadata.get("normalized_sequence", metadata.get("sequence_value"))
+            # Prefer the untouched source value; normalized aliases must not erase type/format.
+            value = metadata.get("sequence_value")
+            if type(value) not in (int, str):
+                value = metadata.get("normalized_sequence")
             if type(value) not in (int, str):
                 return
-            key = str(value)
+            key = f"{type(value).__name__}:{value}"
             if key not in frame_metadata_by_sequence and len(frame_metadata_by_sequence) >= 50000:
                 # Avoid raising inside a WebSocket callback, where client libraries
                 # may swallow callback exceptions and leave a partial run looking successful.
@@ -197,9 +220,14 @@ class ControlledForwardObservationRunnerV1:
         diagnostics = tuple(
             {
                 **event,
-                "transport_frame_fingerprints": frame_metadata_by_sequence.get(str(event.get("sequence")), []),
+                "transport_frame_fingerprints": frame_metadata_by_sequence.get(
+                    f"{type(event.get(\"sequence\")).__name__}:{event.get(\"sequence\")}", []
+                ),
             }
-            if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+            if event.get("reason") in {
+                "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN",
+                "REPEATED_SEQUENCE_IDENTITY_UNPROVEN",
+            }
             else event
             for event in result.diagnostics
         )
