@@ -6,8 +6,42 @@ from pathlib import Path
 import pytest
 
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
+from forward import controlled_forward_observation_runner_v1 as runner_module
+from forward import source_evidence_registry_v1 as registry_module
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
+
+
+@pytest.fixture(autouse=True)
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
+    artifact = tmp_path / "fixture-evidence.txt"
+    artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
+    artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    rows = [
+        ("test-fixture:authoritative-contract", "sequence_contract"),
+        ("test-fixture:reviewed-source-completeness", "source_completeness"),
+        ("test-fixture:reviewed-source-ordering", "source_ordering"),
+    ]
+    entries = [
+        {
+            "evidence_ref": ref,
+            "evidence_type": kind,
+            "source_scope": "tabdeal-futures:BTC_USDT",
+            "evidence_path": artifact.name,
+            "evidence_sha256": artifact_sha,
+            "review_status": "INDEPENDENTLY_REVIEWED",
+            "review_record_ref": "test-fixture:independent-review",
+        }
+        for ref, kind in rows
+    ]
+    payload = {"schema": "hes_source_evidence_registry_v1", "status": "REVIEWED_PINNED",
+               "registry_version": 1, "entries": entries}
+    path = tmp_path / "source_evidence_registry_v1.json"
+    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    path.write_bytes(raw)
+    monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
+                        hashlib.sha256(raw).hexdigest())
+    monkeypatch.setattr(runner_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
 
 
 def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
