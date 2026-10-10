@@ -131,6 +131,37 @@ class ForwardObservationSupervisorV1:
                     event_no = event.get("event_no")
                     if isinstance(event_no, bool) or not isinstance(event_no, int) or event_no != expected_no:
                         raise SupervisorError("JOURNAL_SEQUENCE_INVALID")
+                    required_fields = {
+                        "schema", "event_no", "event_type", "run_id", "at_utc",
+                        "monotonic_ns", "boot_id", "previous_event_sha256", "details",
+                        "event_sha256",
+                    }
+                    if set(event) != required_fields:
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    event_type = event.get("event_type")
+                    if event_type not in {"SESSION_STARTED", "HEARTBEAT", "INTERRUPTION", "SESSION_INTERRUPTED", "SESSION_STOPPED"}:
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    run_id = event.get("run_id")
+                    boot_id = event.get("boot_id")
+                    mono = event.get("monotonic_ns")
+                    details = event.get("details")
+                    at_utc = event.get("at_utc")
+                    if not isinstance(run_id, str) or not run_id.strip():
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    if not isinstance(boot_id, str) or not boot_id.strip():
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    if isinstance(mono, bool) or not isinstance(mono, int) or mono < 0:
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    if not isinstance(details, dict):
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    if not isinstance(at_utc, str):
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    try:
+                        parsed_utc = datetime.fromisoformat(at_utc.replace("Z", "+00:00"))
+                    except ValueError as exc:
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID") from exc
+                    if parsed_utc.tzinfo is None or parsed_utc.utcoffset() is None:
+                        raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
                     if event.get("previous_event_sha256") != previous_digest:
                         raise SupervisorError("JOURNAL_CHAIN_BROKEN")
                     previous_digest = event["event_sha256"]
