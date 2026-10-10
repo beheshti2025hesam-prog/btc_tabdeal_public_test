@@ -148,10 +148,13 @@ class ForwardObservationPathV1:
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
         result = SequenceAwareCandleIngestionV1(
             max_sequence_records=self.max_records,
+            sequence_contract_verified=self.sequence_contract_verified,
+            sequence_contract_evidence_ref=self.sequence_contract_evidence_ref,
             source_completeness_verified=self.source_completeness_verified,
             source_completeness_evidence_ref=self.source_completeness_evidence_ref,
             source_ordering_verified=self.source_ordering_verified,
             source_ordering_evidence_ref=self.source_ordering_evidence_ref,
+            source_evidence_registry_path=self.source_evidence_registry_path,
         ).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
