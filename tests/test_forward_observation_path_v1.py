@@ -10,7 +10,7 @@ from forward.forward_observation_path_v1 import ForwardObservationPathV1
 
 
 @pytest.fixture(autouse=True)
-def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     artifact = tmp_path / "fixture-evidence.txt"
     artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
     artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
@@ -34,6 +34,16 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
                         hashlib.sha256(raw).hexdigest())
     monkeypatch.setattr(path_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
+
+    # Test-only harness: isolate downstream algorithm tests from the independent
+    # provenance gate. Production modules are never given a bypass; dedicated
+    # negative tests below keep the real verifier wired and fail-closed.
+    if request.node.name in {
+        "test_full_forward_observation_path",
+        "test_non_contiguous_sequence_reaches_candle_boundary",
+        "test_open_candle_is_not_observed",
+    }:
+        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def frame(seq, when, price):
