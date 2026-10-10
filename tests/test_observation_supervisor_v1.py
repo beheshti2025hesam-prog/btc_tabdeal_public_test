@@ -497,6 +497,24 @@ def test_future_source_event_timestamp_is_rejected_without_journal_mutation(tmp_
     s.stop()
 
 
+def test_source_session_generation_change_interrupts_continuity(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    first = s.heartbeat(evidence=healthy_evidence(clock, session_generation=4))
+    assert first["event_type"] == "HEARTBEAT"
+    clock.advance(1)
+    changed = s.heartbeat(evidence=healthy_evidence(clock, session_generation=5))
+    assert changed["event_type"] == "INTERRUPTION"
+    assert changed["details"]["reason_code"] == "SOURCE_SESSION_IDENTITY_CHANGED"
+    with pytest.raises(SupervisorError, match="SESSION_ALREADY_INTERRUPTED"):
+        s.heartbeat(evidence=healthy_evidence(clock, session_generation=5))
+    s.stop()
+    report = s.continuity_report(required_seconds=1, max_heartbeat_gap_seconds=30)
+    assert not report["proven"]
+    assert report["reason"] == "INTERRUPTION_RECORDED"
+
+
 def test_schema_invalid_source_evidence_records_interruption(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
