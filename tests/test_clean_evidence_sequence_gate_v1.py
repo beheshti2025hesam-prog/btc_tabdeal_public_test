@@ -15,7 +15,7 @@ def verified_gate():
 def test_default_gate_blocks_when_source_contract_is_unverified():
     r = CleanEvidenceSequenceGateV1().evaluate([rec(10), rec(11), rec(12)])
     assert not r.safe
-    assert r.reason == "SEQUENCE_CONTRACT_UNVERIFIED"
+    assert r.reason == "SOURCE_COMPLETENESS_UNVERIFIED"
     assert r.accepted == ()
     assert r.rejected == (rec(10), rec(11), rec(12))
 
