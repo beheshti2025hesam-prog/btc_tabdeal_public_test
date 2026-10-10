@@ -128,7 +128,8 @@ class ForwardObservationSupervisorV1:
                     event = _parse_line(line)
                     if event.get("schema") != SCHEMA:
                         raise SupervisorError("JOURNAL_SCHEMA_INVALID")
-                    if event.get("event_no") != expected_no:
+                    event_no = event.get("event_no")
+                    if isinstance(event_no, bool) or not isinstance(event_no, int) or event_no != expected_no:
                         raise SupervisorError("JOURNAL_SEQUENCE_INVALID")
                     if event.get("previous_event_sha256") != previous_digest:
                         raise SupervisorError("JOURNAL_CHAIN_BROKEN")
