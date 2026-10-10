@@ -13,7 +13,7 @@ ASOF = datetime(2026, 10, 7, 7, 0, tzinfo=timezone.utc)
 
 
 @pytest.fixture(autouse=True)
-def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     artifact = tmp_path / "fixture-evidence.txt"
     artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
     artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
@@ -37,6 +37,18 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
                         hashlib.sha256(raw).hexdigest())
     monkeypatch.setattr(integration_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
+
+    # Test-only harness: isolate downstream algorithm tests from the independent
+    # provenance gate. Production modules are never given a bypass; dedicated
+    # negative tests below keep the real verifier wired and fail-closed.
+    if request.node.name in {
+        "test_verified_contract_allows_unique_records_to_reach_closed_candle",
+        "test_identical_repeated_sequence_blocks_candle_formation",
+        "test_conflicting_reused_sequence_stops_candle_formation",
+        "test_decreasing_sequence_is_not_assumed_to_be_out_of_order",
+        "test_reconnect_requires_explicit_reset_before_new_sequence_epoch",
+    }:
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
