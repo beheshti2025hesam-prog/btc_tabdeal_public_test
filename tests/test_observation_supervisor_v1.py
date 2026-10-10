@@ -276,3 +276,69 @@ def test_invalid_clock_and_configuration_fail_closed(tmp_path):
     with pytest.raises(SupervisorError, match="CONTINUITY_LIMIT_INVALID"):
         s.continuity_report(required_seconds=0)
     s.stop()
+
+
+
+def _rewrite_as_hash_valid_journal(path, event_types):
+    """Rewrite a synthetic journal with valid hashes but deliberately bad semantics."""
+    events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert len(events) == len(event_types)
+    previous = None
+    rewritten = []
+    for index, (event, event_type) in enumerate(zip(events, event_types), start=1):
+        event["event_no"] = index
+        event["event_type"] = event_type
+        event["previous_event_sha256"] = previous
+        if event_type == "SESSION_STOPPED":
+            event["details"] = {"reason_code": "TEST_STOP", "interrupted": False}
+        elif event_type == "HEARTBEAT":
+            event["details"] = {"source_health": "HEALTHY", "reason_code": "TEST"}
+        elif event_type == "SESSION_STARTED":
+            event["details"] = {"mode": "OBSERVATION_ONLY", "decision": "NO_TRADE_ONLY", "execution_enabled": False}
+        body = {key: value for key, value in event.items() if key != "event_sha256"}
+        event["event_sha256"] = hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+        ).hexdigest()
+        previous = event["event_sha256"]
+        rewritten.append(json.dumps(event, sort_keys=True, separators=(",", ":"), ensure_ascii=False))
+    path.write_text("\\n".join(rewritten) + "\\n", encoding="utf-8")
+    # Independently confirm the rewritten chain itself is cryptographically valid.
+    previous = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        assert event["previous_event_sha256"] == previous
+        body = {key: value for key, value in event.items() if key != "event_sha256"}
+        assert hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+        ).hexdigest() == event["event_sha256"]
+        previous = event["event_sha256"]
+
+
+@pytest.mark.parametrize(
+    ("event_types", "expected_error"),
+    [
+        (["HEARTBEAT", "SESSION_STARTED", "SESSION_STOPPED"], "JOURNAL_EVENT_RUN_MISMATCH"),
+        (["SESSION_STARTED", "SESSION_STOPPED", "HEARTBEAT"], "JOURNAL_EVENT_RUN_MISMATCH"),
+    ],
+)
+def test_hash_valid_but_semantically_invalid_journal_is_rejected_and_preserved(
+    tmp_path, event_types, expected_error
+):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock, run_id="source-run")
+    s.start()
+    clock.advance(1)
+    s.heartbeat(healthy=True)
+    clock.advance(1)
+    s.stop()
+
+    path = tmp_path / "supervisor_events.jsonl"
+    _rewrite_as_hash_valid_journal(path, event_types)
+    before = path.read_bytes()
+    # Verify the adversarial fixture is not merely a broken hash-chain test.
+    assert len(before) > 0
+
+    verifier = supervisor(tmp_path, clock, run_id="new-run")
+    with pytest.raises(SupervisorError, match=expected_error):
+        verifier.start()
+    assert path.read_bytes() == before
