@@ -216,3 +216,33 @@ The public Tabdeal contract and current single-symbol captures do not establish 
 - Any ambiguous ordering or unsupported recovery: no trusted completeness snapshot; dependent decisions remain `NO_TRADE`.
 
 This decision narrows a specific false assumption (sequence equals unique trade identity). It does not certify Tabdeal's undocumented sequence scope, order, recovery, or completeness guarantees and does not authorize a live collector, observation, VPS change, or execution.
+
+
+## Final disposition — Tabdeal `trade.sequence` ambiguity (2026-10-10)
+
+**Decision: stop trying to infer undocumented sequence scope. The Universal Core must not depend on it.** This closes the architecture question; it does not fabricate upstream guarantees.
+
+### Permanent rule
+- Store the native value as opaque, losslessly represented source metadata. It is not a trade ID, HES receipt ID, deduplication key, or completeness proof.
+- Do not coerce it into an integer for identity decisions; do not require N→N+1; do not classify a numeric gap alone as a missing trade.
+- Different payloads carrying the same sequence are preserved as separate immutable receipts and classified `SOURCE_SEQUENCE_REUSE_OBSERVED` / `ORDERING_SEMANTICS_UNKNOWN`, not automatically as a duplicate trade or corrupted feed.
+- Byte-identical redelivery may be idempotent only when established by a separately validated receipt/frame fingerprint and its documented scope. Never deduplicate on sequence alone.
+- Separate metrics and states for local receipt order, native sequence observations, deduplication, connection/recovery, and upstream completeness.
+- When a consumer requires source ordering or completeness and those properties are not independently established, return blocked/degraded health and `NO_TRADE`; do not issue a trusted snapshot or count the interval toward 48-hour acceptance.
+- This policy applies regardless of whether Tabdeal later confirms a global, per-symbol, partitioned, or session-scoped sequence. A future source contract may enable a versioned adapter capability, but must not change the default interpretation silently.
+
+### What is closed vs. what remains gated
+**Closed:** the design decision; the core will never infer trade identity, continuity, or completeness from `trade.sequence` alone. No need to wait for support to implement this conservative architecture.
+
+**Still gated:** claiming Tabdeal Futures upstream completeness and starting the 48-hour acceptance observation. Those require either an authoritative contract for the exact broadcast feed or a reviewed same-venue reconciliation method that independently proves coverage. Local receipt IDs, other exchanges' docs, and cross-venue comparisons cannot satisfy that gate.
+
+### Required implementation acceptance tests
+1. Same sequence + different payload => both receipt fingerprints retained; status is sequence reuse/ordering unknown, not `CONFLICTING_DUPLICATE_SEQUENCE`.
+2. Same sequence + exact same payload => no duplicate decision based on sequence; only the separate validated idempotency layer may classify redelivery.
+3. Sparse or decreasing sequence => no confirmed-loss inference without a reviewed feed-specific rule.
+4. Native sequence `7`, `"7"`, `"007"`, null, or another supported source representation remains distinguishable in raw evidence.
+5. Reconnect/session boundary does not silently carry ordering assumptions across epochs.
+6. Every unresolved ordering/completeness case prevents trusted snapshot and 48-hour continuity credit.
+7. Tests use synthetic fixtures only; no network, production files, VPS, collector start, or execution.
+
+This is the final architectural disposition for the ambiguity. It does not claim the runtime implementation already conforms, and it does not authorize merge or deployment without the project's review and rollout gates.
