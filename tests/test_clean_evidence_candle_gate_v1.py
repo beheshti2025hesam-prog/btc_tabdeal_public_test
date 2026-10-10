@@ -6,6 +6,7 @@ import pytest
 
 from forward import clean_evidence_candle_gate_v1 as gate_module
 from forward import clean_evidence_sequence_gate_v1 as sequence_gate_module
+from forward import sequence_candle_integration_v1 as integration_module
 from forward import source_evidence_registry_v1 as registry_module
 from forward.clean_evidence_candle_gate_v1 import CleanEvidenceCandleGateV1
 
@@ -44,6 +45,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
         "test_unverified_sequence_jump_does_not_infer_a_missing_trade",
     }:
         monkeypatch.setattr(sequence_gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def rec(seq, ts, price="100"):
