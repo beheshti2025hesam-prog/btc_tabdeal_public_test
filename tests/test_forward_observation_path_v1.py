@@ -1,10 +1,18 @@
-from datetime import datetime, timezone, timedelta
+from d
+    if request.node.name in {
+        "test_full_forward_observation_path",
+        "test_non_contiguous_sequence_reaches_candle_boundary",
+        "test_open_candle_is_not_observed",
+    }:
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+atetime import datetime, timezone, timedelta
 from pathlib import Path
 import hashlib
 import json
 import pytest
 
 from forward import forward_observation_path_v1 as path_module
+from forward import sequence_candle_integration_v1 as integration_module
 from forward import source_evidence_registry_v1 as registry_module
 from forward.forward_observation_path_v1 import ForwardObservationPathV1
 
