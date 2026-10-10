@@ -9,6 +9,8 @@ def verified_gate():
     return CleanEvidenceSequenceGateV1(
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-exact-feed-completeness-evidence",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-exact-feed-ordering-evidence",
     )
 
 
@@ -23,7 +25,7 @@ def test_default_gate_blocks_when_source_contract_is_unverified():
 def test_verified_contract_accepts_unique_native_sequences_without_gap_assumptions():
     r = verified_gate().evaluate([rec(10), rec(12), rec(11)])
     assert r.safe and len(r.accepted) == 3
-    assert r.reason == "SEQUENCE_CONTRACT_VERIFIED"
+    assert r.reason == "SOURCE_CONTRACT_GATES_VERIFIED"
 
 
 def test_identical_repeated_sequence_is_not_idempotently_deduplicated():
