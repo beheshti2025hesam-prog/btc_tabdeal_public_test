@@ -182,4 +182,37 @@ This section records a verified source-code mismatch against the proposed target
 - **Coinbase:** secondary candidate; channel-specific replay/reconnect and limits need further review.
 - **Kraken Spot:** secondary candidate; timestamp pagination boundaries and operational reachability need validation.
 
-This proposal approves no provider, changes no current gate, and makes no claim of VPS reachability.
+
+## Comparative sequence interpretation — decision record (2026-10-10)
+
+### Evidence-based conclusion
+For the observed Tabdeal Futures Broadcast payload, `trade.sequence` is **not safe to use as a unique per-trade identity key**. Two separately received records reused the same numeric value while their price and amount differed. The same pattern is compatible with documented sequence/correlation fields at other venues: Bybit separates Trade ID from cross-sequence `seq` and documents that messages may share a `seq`; OKX separates `tradeId` from `seqId` and documents reuse of `seqId` for distinct same-time trade updates. Binance likewise exposes separate raw and aggregate trade IDs. These comparisons support the interpretation that “sequence” and “trade identity” are different concepts; they do **not** prove Tabdeal implements the same protocol.
+
+Reference contracts:
+- Tabdeal Futures Broadcast documentation: https://docs.tabdeal.org/ (Futures WebSocket → Broadcast; no documented semantics for `trade.sequence`).
+- Bybit public trade WebSocket: https://bybit-exchange.github.io/docs/v5/websocket/public/trade
+- OKX API v5 documentation: https://www.okx.com/docs-v5/
+- Binance Spot WebSocket streams: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md
+
+### Explicit unknowns (must remain unknown until evidence exists)
+The public Tabdeal contract and current single-symbol captures do not establish whether the field is global across symbols, per symbol, per matching-engine partition, per connection/session, or another scope. They also do not establish monotonicity, density, reset/reconnect behavior, replay semantics, or upstream completeness. Do not claim any of these properties from another exchange's docs.
+
+### Normative handling rule for future implementation
+1. Treat native `trade.sequence` as an opaque source field with preserved original type/representation and contract version. Do not use it alone as a receipt ID, trade ID, deduplication key, or proof of completeness.
+2. Do not require consecutive values and do not infer a lost event from a numeric gap unless a reviewed contract for this exact feed explicitly guarantees the relevant continuity.
+3. A repeated sequence with a different payload is **sequence reuse / ambiguous source ordering**, not automatically a duplicate trade, lost trade, or corrupt payload. Preserve both immutable receipt records and fingerprints; never silently overwrite, deduplicate, reorder, or discard either record.
+4. Exact same-frame redelivery is a separate transport/idempotency case. Classify it only using a validated frame fingerprint and documented retry/replay context; a sequence match alone is insufficient.
+5. Keep separate state dimensions: local receipt continuity, native sequence observations, event identity/dedup outcome, connection/recovery state, and upstream completeness. Do not collapse these into one sequence-health boolean.
+6. Until the source-specific ordering/recovery contract is proven, any consumer that requires a trusted total order or completeness guarantee must receive `ORDERING_SEMANTICS_UNKNOWN` / degraded state and fail closed (`NO_TRADE`, execution disabled). Raw evidence capture, if separately authorized after review, may preserve events for diagnosis but must not create a trusted snapshot or count toward the 48-hour proof.
+7. Do not populate `VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF` merely because comparative docs make one interpretation plausible. Keep the evidence pin unset until a reviewed source-specific contract/evidence artifact exists.
+
+### Required synthetic regression cases
+- Same sequence + same symbol/time/side + different price/amount: preserve both receipts; classify sequence reuse/ambiguous ordering; never overwrite.
+- Same sequence + different symbol: do not assume global or per-symbol scope.
+- Same sequence + byte-identical frame fingerprint: distinguish exact redelivery from distinct payloads without treating the sequence as identity.
+- Sparse numeric jump with no contract guaranteeing density: no “missing trade confirmed” result.
+- Decreasing sequence after reconnect/session change: do not infer regression across epochs without documented scope.
+- Native sequence represented as integer, numeric string, null, or another source representation: preserve original value/type; no lossy coercion.
+- Any ambiguous ordering or unsupported recovery: no trusted completeness snapshot; dependent decisions remain `NO_TRADE`.
+
+This decision narrows a specific false assumption (sequence equals unique trade identity). It does not certify Tabdeal's undocumented sequence scope, order, recovery, or completeness guarantees and does not authorize a live collector, observation, VPS change, or execution.
