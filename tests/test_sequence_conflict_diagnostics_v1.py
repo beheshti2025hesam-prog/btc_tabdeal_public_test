@@ -27,7 +27,7 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     event = guard.observe(conflicting)
 
     assert event.status == "REJECT_STREAM"
-    assert event.reason == "CONFLICTING_DUPLICATE_SEQUENCE"
+    assert event.reason == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
     assert event.diagnostic["differing_fields"] == ["price"]
     assert event.diagnostic["first_values"] == {"price": "100"}
     assert event.diagnostic["conflicting_values"] == {"price": "101"}
@@ -83,7 +83,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
     conflict = next(
         event for event in record["sequence_events"]
-        if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+        if event.get("reason") == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
     )
     assert conflict["diagnostic"]["differing_fields"] == ["price"]
     fingerprints = conflict["transport_frame_fingerprints"]
@@ -97,7 +97,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
 def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path):
     path = tmp_path / "diagnostics.jsonl"
     journal = SequenceIntegrityDiagnosticJournalV1(path)
-    event = {"sequence": 7, "status": "REJECT_STREAM", "reason": "CONFLICTING_DUPLICATE_SEQUENCE"}
+    event = {"sequence": 7, "status": "REJECT_STREAM", "reason": "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"}
 
     first = journal.append_blocked_run(
         run_id="OBS-1",
