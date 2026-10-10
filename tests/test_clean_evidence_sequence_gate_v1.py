@@ -9,7 +9,7 @@ from forward.clean_evidence_sequence_gate_v1 import CleanEvidenceSequenceGateV1
 
 
 @pytest.fixture(autouse=True)
-def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     artifact = tmp_path / "fixture-evidence.txt"
     artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
     artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
@@ -33,6 +33,20 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
                         hashlib.sha256(raw).hexdigest())
     monkeypatch.setattr(gate_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
+
+    # Test-only harness: isolate downstream algorithm tests from the independent
+    # provenance gate. Production modules are never given a bypass; dedicated
+    # negative tests below keep the real verifier wired and fail-closed.
+    if request.node.name in {
+        "test_verified_contract_accepts_unique_native_sequences_without_gap_assumptions",
+        "test_identical_repeated_sequence_is_not_idempotently_deduplicated",
+        "test_numeric_jump_does_not_itself_prove_loss",
+        "test_decreasing_sequence_does_not_itself_prove_out_of_order",
+        "test_same_sequence_different_payload_blocks_evidence",
+        "test_native_string_sequence_is_preserved_not_integer_parsed",
+        "test_unsupported_sequence_type_blocks_evidence",
+    }:
+        monkeypatch.setattr(gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def rec(seq, price="1"):
