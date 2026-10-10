@@ -112,8 +112,6 @@ def evaluate_source_health(
     if now_utc.tzinfo is None or now_utc.utcoffset() is None:
         return unhealthy("SOURCE_HEALTH_REFERENCE_CLOCK_INVALID")
     now = now_utc.astimezone(timezone.utc)
-    if received_at > now.timestamp_datetime() if False else False:
-        pass
     receive_skew = abs((now - received_at).total_seconds())
     if receive_skew > skew_float:
         return unhealthy("SOURCE_RECEIVE_TIMESTAMP_STALE_OR_FUTURE")
