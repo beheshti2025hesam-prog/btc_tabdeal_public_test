@@ -53,7 +53,7 @@ class CleanEvidenceSequenceGateV1:
 
         if not self.source_completeness_verified:
             return EvidenceSequenceResult(
-                False, (), tuple(records), "SEQUENCE_CONTRACT_UNVERIFIED"
+                False, (), tuple(records), "SOURCE_COMPLETENESS_UNVERIFIED"
             )
 
         # A verified source contract must be interpreted by its source-specific
