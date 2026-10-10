@@ -145,3 +145,26 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     # Preserve the public context count even though only the adjacent pair is inspected.
     assert [x.candles for x in prefix_contexts] == list(range(2, len(candles)+1))
     assert [x.candles for x in pair_contexts] == [x.candles for x in prefix_contexts]
+
+
+
+def test_path_rejects_unregistered_refs_even_when_flags_are_true(tmp_path):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    path = ForwardObservationPathV1(
+        tmp_path / "observations.jsonl",
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="caller-made-up:contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="caller-made-up:completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="caller-made-up:ordering",
+    )
+    result = path.observe(
+        [frame(1, as_of - timedelta(minutes=30), 100)],
+        as_of=as_of,
+        forward_run_id="OBS-UNREGISTERED-PROOF",
+    )
+    assert result.status == "BLOCKED"
+    assert result.reason == "SOURCE_EVIDENCE_REF_NOT_REGISTERED"
+    assert result.snapshot_id is None
+    assert not (tmp_path / "observations.jsonl").exists()
