@@ -76,6 +76,7 @@ class ForwardObservationSupervisorV1:
         utc_now: Callable[[], datetime] | None = None,
         monotonic_ns: Callable[[], int] | None = None,
         session_generation: int = 1,
+        expected_symbol: str = "BTC_USDT",
     ) -> None:
         if not isinstance(run_id, str) or not run_id.strip():
             raise SupervisorError("RUN_ID_REQUIRED")
@@ -83,10 +84,14 @@ class ForwardObservationSupervisorV1:
             raise SupervisorError("BOOT_ID_REQUIRED")
         if isinstance(session_generation, bool) or not isinstance(session_generation, int) or session_generation < 1:
             raise SupervisorError("SESSION_GENERATION_INVALID")
+        if not isinstance(expected_symbol, str) or not expected_symbol.strip():
+            raise SupervisorError("EXPECTED_SYMBOL_INVALID")
         self.root = Path(root)
         self.run_id = run_id
         self.boot_id = boot_id
         self.session_generation = session_generation
+        self.expected_symbol = expected_symbol
+        self._connection_id: str | None = None
         self._utc_now = utc_now or (lambda: datetime.now(timezone.utc))
         self._monotonic_ns = monotonic_ns or time.monotonic_ns
         self.journal_path = self.root / "supervisor_events.jsonl"
@@ -334,8 +339,18 @@ class ForwardObservationSupervisorV1:
                 evidence,
                 expected_run_id=self.run_id,
                 expected_session_generation=self.session_generation,
+                expected_symbol=self.expected_symbol,
                 now_utc=self._utc_now(),
             )
+        if result["source_health"] == "HEALTHY":
+            connection_id = evidence.get("connection_id") if evidence is not None else None
+            if self._connection_id is None:
+                self._connection_id = connection_id
+            elif connection_id != self._connection_id:
+                result = {
+                    "source_health": "UNHEALTHY",
+                    "reason_code": "SOURCE_HEALTH_CONNECTION_MISMATCH",
+                }
         if result["source_health"] != "HEALTHY":
             self._interrupted = True
             return self._append(
