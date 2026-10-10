@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/dedicated-observation-supervisor-v1-20261010
   workflow_dispatch:
 
 permissions:
