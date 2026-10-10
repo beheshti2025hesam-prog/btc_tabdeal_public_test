@@ -34,6 +34,8 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -62,6 +64,8 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
@@ -83,6 +87,8 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -110,6 +116,8 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -136,6 +144,8 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -166,6 +176,8 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
         max_records=3,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
@@ -215,3 +227,29 @@ def test_runner_requires_evidence_reference_even_when_verified_flag_is_true(tmp_
     assert result.status == "BLOCKED"
     assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
     assert not (tmp_path / "session.jsonl").exists()
+
+
+def test_runner_blocks_before_network_without_source_completeness_evidence(tmp_path: Path):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed before source completeness verification")
+
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "SOURCE_COMPLETENESS_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics == ({
+        "network_started": False,
+        "session_written": False,
+        "source_completeness_evidence_required": True,
+    },)
+    assert not (tmp_path / "session.jsonl").exists()
+    assert not (tmp_path / "journal.jsonl").exists()
