@@ -470,7 +470,7 @@ def test_legacy_healthy_boolean_fails_closed_and_invalidates_session(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
     s.start()
-    event = s.heartbeat(evidence=source_health_evidence(s, clock))
+    event = s.heartbeat(healthy=True)
     assert event["event_type"] == "INTERRUPTION"
     assert event["details"]["reason_code"] == "SOURCE_HEALTH_EVIDENCE_REQUIRED"
     with pytest.raises(SupervisorError, match="SESSION_ALREADY_INTERRUPTED"):
