@@ -310,3 +310,55 @@ def test_runner_blocks_before_network_without_source_completeness_evidence(tmp_p
     },)
     assert not (tmp_path / "session.jsonl").exists()
     assert not (tmp_path / "journal.jsonl").exists()
+
+
+
+def test_runner_rejects_unregistered_caller_claims_before_network_or_session(tmp_path: Path):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("unregistered evidence must block before transport construction")
+
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="caller-made-up:contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="caller-made-up:completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="caller-made-up:ordering",
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "SOURCE_EVIDENCE_REF_NOT_REGISTERED"
+    assert result.run_id == "NOT_STARTED"
+    assert not (tmp_path / "session.jsonl").exists()
+    assert not (tmp_path / "journal.jsonl").exists()
+
+
+def test_runner_blocks_when_release_pin_is_unset(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("unset release pin must block before transport construction")
+
+    monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256", "")
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "SOURCE_EVIDENCE_REGISTRY_PIN_UNSET"
+    assert result.run_id == "NOT_STARTED"
+    assert not (tmp_path / "session.jsonl").exists()
+    assert not (tmp_path / "journal.jsonl").exists()
