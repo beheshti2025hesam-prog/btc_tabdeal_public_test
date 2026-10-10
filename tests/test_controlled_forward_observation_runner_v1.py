@@ -15,7 +15,8 @@ class FakeWS:
     def run_forever(self, **kwargs):
         self.on_open(self)
         for seq, price in ((100, "100.0"), (101, "101.0"), (102, "102.0")):
-            self.on_message(self, '{"trade": {"symbol":"BTC_USDT","price":"%s","amount":"0.1","side":"buy","sequence":%d,"updated":"2026-10-07T13:00:00Z"}}' % (price, seq))
+            updated = datetime.now(timezone.utc).isoformat()
+            self.on_message(self, '{"trade": {"symbol":"BTC_USDT","price":"%s","amount":"0.1","side":"buy","sequence":%d,"updated":"%s"}}' % (price, seq, updated))
 
     def send(self, symbol):
         assert symbol == "BTC_USDT"
