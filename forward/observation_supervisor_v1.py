@@ -123,7 +123,7 @@ class ForwardObservationSupervisorV1:
         active_run: str | None = None
         interrupted_runs: set[str] = set()
         seen_runs: set[str] = set()
-        last_mono_by_run: dict[str, int] = {}
+        last_mono_by_run: dict[tuple[str, str], int] = {}
         try:
             with self.journal_path.open("r", encoding="utf-8", newline="") as stream:
                 for expected_no, line in enumerate(stream, start=1):
@@ -171,7 +171,8 @@ class ForwardObservationSupervisorV1:
 
                     # A valid digest chain is not sufficient: enforce lifecycle,
                     # run ownership, boot identity, and per-run monotonic order.
-                    if run_id in last_mono_by_run and mono < last_mono_by_run[run_id]:
+                    monotonic_key = (run_id, boot_id)
+                    if monotonic_key in last_mono_by_run and mono < last_mono_by_run[monotonic_key]:
                         raise SupervisorError("JOURNAL_MONOTONIC_REGRESSION")
 
                     if event_type == "SESSION_STARTED":
@@ -200,7 +201,7 @@ class ForwardObservationSupervisorV1:
                             if stopped_interrupted:
                                 interrupted_runs.add(run_id)
                             active_run = None
-                    last_mono_by_run[run_id] = mono
+                    last_mono_by_run[monotonic_key] = mono
                     previous_digest = event["event_sha256"]
                     events.append(event)
         except UnicodeError as exc:
