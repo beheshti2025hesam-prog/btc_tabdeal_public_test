@@ -13,7 +13,7 @@ from forward.controlled_forward_observation_runner_v1 import (
 
 
 @pytest.fixture(autouse=True)
-def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     artifact = tmp_path / "fixture-evidence.txt"
     artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
     artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
@@ -48,6 +48,19 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
         hashlib.sha256(raw).hexdigest(),
     )
     monkeypatch.setattr(runner_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
+
+    # Test-only harness: isolate downstream algorithm tests from the independent
+    # provenance gate. Production modules are never given a bypass; dedicated
+    # negative tests below keep the real verifier wired and fail-closed.
+    if request.node.name in {
+        "test_runner_uses_transport_and_writes_observation",
+        "test_runner_accepts_non_contiguous_monotonic_sequence",
+        "test_runner_does_not_write_when_transport_has_no_records",
+        "test_runner_fails_closed_on_transport_error",
+        "test_runner_fails_closed_on_transport_construction_error",
+        "test_runner_fails_closed_when_record_bound_is_exceeded",
+    }:
+        monkeypatch.setattr(runner_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 class FakeWS:
