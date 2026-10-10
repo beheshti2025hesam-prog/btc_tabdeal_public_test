@@ -441,3 +441,31 @@ def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_by
     with pytest.raises(SupervisorError, match="JOURNAL_HEARTBEAT_(SOURCE_HEALTH|REASON)_INVALID"):
         verifier.continuity_report(required_seconds=1, max_heartbeat_gap_seconds=30)
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("invalid_health", [1, 0, "true", None, [], {}])
+def test_health_flag_spoofing_with_non_boolean_values_is_rejected(
+    tmp_path, invalid_health
+):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    before = (tmp_path / "supervisor_events.jsonl").read_bytes()
+    with pytest.raises(SupervisorError, match="HEALTH_FLAG_INVALID"):
+        s.heartbeat(healthy=invalid_health)
+    assert (tmp_path / "supervisor_events.jsonl").read_bytes() == before
+    s.stop()
+
+
+@pytest.mark.parametrize("invalid_reason", ["", "  ", 7, None, "x" * 121])
+def test_heartbeat_reason_code_cannot_be_missing_or_malformed(
+    tmp_path, invalid_reason
+):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    before = (tmp_path / "supervisor_events.jsonl").read_bytes()
+    with pytest.raises(SupervisorError, match="REASON_CODE_INVALID"):
+        s.heartbeat(healthy=True, reason_code=invalid_reason)
+    assert (tmp_path / "supervisor_events.jsonl").read_bytes() == before
+    s.stop()
