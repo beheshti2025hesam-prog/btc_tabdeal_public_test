@@ -84,6 +84,16 @@ class ForwardObservationPathV1:
         if not forward_run_id.strip():
             raise ValueError("forward_run_id required")
 
+        # Bound the input before evidence gates so an over-limit stream always
+        # reports its concrete safety violation, even when source proofs are absent.
+        bounded_frames = list(islice(frames, self.max_records + 1))
+        if len(bounded_frames) > self.max_records:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "FORWARD_RECORD_BOUND_EXCEEDED",
+                ({"max_records": self.max_records},),
+            )
+
         if not self.source_completeness_verified:
             return ForwardObservationPathResult(
                 "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
@@ -96,14 +106,6 @@ class ForwardObservationPathV1:
                 "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
                 False, None, "SOURCE_ORDERING_UNVERIFIED",
                 ({"source_ordering_evidence_required": True},),
-            )
-
-        bounded_frames = list(islice(frames, self.max_records + 1))
-        if len(bounded_frames) > self.max_records:
-            return ForwardObservationPathResult(
-                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
-                False, None, "FORWARD_RECORD_BOUND_EXCEEDED",
-                ({"max_records": self.max_records},),
             )
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
         result = SequenceAwareCandleIngestionV1(
