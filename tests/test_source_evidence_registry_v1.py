@@ -59,3 +59,32 @@ def test_duplicate_json_keys_rejected(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256", hashlib.sha256(raw).hexdigest())
     with pytest.raises(SourceEvidenceRegistryError,match="DUPLICATE_JSON_KEY"):
         SourceEvidenceRegistryV1.load(path)
+
+
+def test_registry_symlink_is_rejected_even_when_target_is_pinned(tmp_path, monkeypatch):
+    real_path, _, _ = fixture(tmp_path, monkeypatch)
+    alias = tmp_path / "registry-alias.json"
+    alias.symlink_to(real_path.name)
+    with pytest.raises(SourceEvidenceRegistryError, match="FILE_UNAVAILABLE"):
+        SourceEvidenceRegistryV1.load(alias)
+
+
+def test_evidence_symlink_escape_is_rejected(tmp_path, monkeypatch):
+    path, artifact, item = fixture(tmp_path, monkeypatch)
+    outside = tmp_path.parent / (tmp_path.name + "-outside-evidence.txt")
+    outside.write_text("synthetic evidence\\n", encoding="utf-8")
+    alias = tmp_path / "nested"
+    alias.mkdir()
+    (alias / "linked-evidence.txt").symlink_to(outside)
+    item["evidence_path"] = "nested/linked-evidence.txt"
+    raw = (json.dumps(
+        {"schema": "hes_source_evidence_registry_v1", "status": "REVIEWED_PINNED",
+         "registry_version": 1, "entries": [item]},
+        sort_keys=True, separators=(",", ":")
+    ) + "\\n").encode()
+    path.write_bytes(raw)
+    monkeypatch.setattr(m, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256", hashlib.sha256(raw).hexdigest())
+    registry = SourceEvidenceRegistryV1.load(path)
+    with pytest.raises(SourceEvidenceRegistryError, match="ARTIFACT_UNAVAILABLE|PATH_OUTSIDE_ROOT"):
+        registry.resolve(item["evidence_ref"], evidence_type="source_ordering",
+                         source_scope="tabdeal-futures:BTC_USDT")
