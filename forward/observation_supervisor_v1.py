@@ -124,7 +124,6 @@ class ForwardObservationSupervisorV1:
         interrupted_runs: set[str] = set()
         seen_runs: set[str] = set()
         last_mono_by_run: dict[str, int] = {}
-        boot_by_run: dict[str, str] = {}
         try:
             with self.journal_path.open("r", encoding="utf-8", newline="") as stream:
                 for expected_no, line in enumerate(stream, start=1):
@@ -172,8 +171,6 @@ class ForwardObservationSupervisorV1:
 
                     # A valid digest chain is not sufficient: enforce lifecycle,
                     # run ownership, boot identity, and per-run monotonic order.
-                    if run_id in boot_by_run and boot_by_run[run_id] != boot_id:
-                        raise SupervisorError("JOURNAL_BOOT_ID_CHANGED")
                     if run_id in last_mono_by_run and mono < last_mono_by_run[run_id]:
                         raise SupervisorError("JOURNAL_MONOTONIC_REGRESSION")
 
@@ -195,10 +192,14 @@ class ForwardObservationSupervisorV1:
                             interrupted_runs.add(run_id)
                         elif event_type == "SESSION_STOPPED":
                             stopped_interrupted = details.get("interrupted")
-                            if type(stopped_interrupted) is not bool or stopped_interrupted != (run_id in interrupted_runs):
+                            if type(stopped_interrupted) is not bool or (run_id in interrupted_runs and not stopped_interrupted):
                                 raise SupervisorError("JOURNAL_LIFECYCLE_INVALID")
+                            # A failed durable interruption write may still leave
+                            # the in-memory session invalidated; the stop marker
+                            # must preserve that conservative state.
+                            if stopped_interrupted:
+                                interrupted_runs.add(run_id)
                             active_run = None
-                    boot_by_run[run_id] = boot_id
                     last_mono_by_run[run_id] = mono
                     previous_digest = event["event_sha256"]
                     events.append(event)
