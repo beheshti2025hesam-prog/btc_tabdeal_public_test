@@ -1,0 +1,36 @@
+{
+  "artifact_type": "PRODUCER_CONTRACT_VALIDATION_V1",
+  "status": "VALIDATED_FOR_CURRENT_DIAGNOSTIC_SCOPE",
+  "source": {
+    "branch": "research/gate-by-gate-attribution-self-improvement-20261006",
+    "commit": "f0e45dd6dfa599d4eb2b96467c54b72f57ece44e",
+    "diagnostic": "scripts/gate_by_gate_attribution_self_improvement_v1.py"
+  },
+  "contracts": {
+    "baseline_strategy": "core/strategy/baseline.py",
+    "feature_quality": "core/feature_engine/quality.py",
+    "risk_boundary": "core/risk/boundary.py"
+  },
+  "checks": {
+    "ema_vwap_buy_ratio_scoring": "MATCH",
+    "minimum_confirmation": 3,
+    "feature_quality_current_fields": "MATCH",
+    "risk_default_behavior": "MATCH",
+    "risk_leverage_default": 1.0,
+    "independent_decision_assertion": "PASS"
+  },
+  "limitations": [
+    "Diagnostic supplies trend and structure_bias as None, so those producer dimensions are not independently attributed in this run.",
+    "Diagnostic uses a simplified explicit confirmation_trace rather than calling the producer's internal scoring path.",
+    "Fold regime labeling is a separate attribution contract and was not validated by this artifact."
+  ],
+  "self_improvement_boundary": {
+    "threshold_change": false,
+    "tuning": false,
+    "winner_reselection": false,
+    "promotion": false,
+    "causal_claims": false,
+    "action": "NO_CHANGE"
+  },
+  "verdict": "CURRENT_EMA_VWAP_BUY_RATIO_ATTRIBUTION_IS_CONTRACT_ALIGNED;_DO_NOT_TUNE"
+}

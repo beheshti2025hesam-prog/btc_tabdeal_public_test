@@ -1,0 +1,49 @@
+{
+  "artifact_type": "GATE_BY_GATE_ATTRIBUTION_SELF_IMPROVEMENT_V1_RECONCILIATION",
+  "status": "RECONCILED_DIAGNOSTIC_ARTIFACT",
+  "workflow": {
+    "run_id": 37555000351,
+    "head_sha": "67152cf4ecdfe310ac99b2f1d6c87bbb5cb543c3",
+    "artifact_id": 11454174123,
+    "artifact_zip_sha256": "79cb3d00b890d1fda0971a7f4ac880c01b8c605a8c6af9f207c8693c242270db",
+    "artifact_name": "gate-by-gate-attribution-self-improvement-v1"
+  },
+  "artifact_content": {
+    "json_sha256": "08ddaaee277c342d01ee8a3363238cf36a5e342d0243a111d0ed5542f9291632"
+  },
+  "source_locks": {
+    "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+    "raw_source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+    "protocol_contract_blob_sha": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12",
+    "full_candidate_base_sha256": "b38c946f1ca9f7618ef4029c50c9287fc0b987d81e0acc6b7b2481c61e958ca6"
+  },
+  "population_reconciliation": {
+    "oos_opportunities": 3200,
+    "oos_evaluated": 1027,
+    "oos_rejected": 2173,
+    "winner_gt_14bps": 28,
+    "losses_le_0": 508,
+    "raw_rows_invalid": 0,
+    "candidate_base_population_match": true
+  },
+  "gate_reconciliation": {
+    "primary_rejection_counts": {
+      "CONFIRMATION": 2173
+    },
+    "primary_rejection_reason_counts": {
+      "CONFIRMATION:insufficient_or_tied_confirmation": 2173
+    }
+  },
+  "self_improvement_boundary": {
+    "candidate_action": "NO_CHANGE",
+    "hypothesis_only": true,
+    "threshold_changed": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "tuning": false,
+    "promotion": false,
+    "live_execution": false,
+    "causal_claims": false
+  },
+  "next_required_surgery": "confirmation_reason_granularity_v2"
+}

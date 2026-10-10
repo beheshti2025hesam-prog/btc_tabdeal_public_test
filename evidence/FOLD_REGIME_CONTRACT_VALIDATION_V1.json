@@ -1,0 +1,46 @@
+{
+  "artifact_type": "FOLD_REGIME_CONTRACT_VALIDATION_V1",
+  "status": "VALIDATED",
+  "source_contract": {
+    "producer": "scripts/protocol_reconciliation_independent_snapshot_v1.py",
+    "producer_commit": "5f32ab330cb9a43cb1b5321e56411a406c899103"
+  },
+  "protocol": {
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "oos_observations": 3200
+  },
+  "fold_partition_contract": {
+    "rule": "observations[TRAIN + fold*STEP : TRAIN + fold*STEP + TEST]",
+    "diagnostic_match": true,
+    "raw_candle_index_slicing": false
+  },
+  "regime_contract": {
+    "input": "evaluated rows only",
+    "aggregate": "sum(gross_return)",
+    "uptrend": "gross_sum >= 0.01",
+    "downtrend": "gross_sum <= -0.01",
+    "range": "-0.01 < gross_sum < 0.01",
+    "diagnostic_match": true
+  },
+  "provenance_contract": {
+    "sequence_first": "preserved",
+    "sequence_last": "preserved",
+    "timestamp": "preserved",
+    "entry_price": "preserved",
+    "exit_price": "preserved",
+    "fold_index": "derived from observation position",
+    "fold_regime": "derived from frozen producer fold rule"
+  },
+  "boundary": {
+    "threshold_changed": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "tuning": false,
+    "promotion": false,
+    "causal_claims": false
+  },
+  "verdict": "FOLD_REGIME_ATTRIBUTION_IS_CONTRACT_ALIGNED;_NO_TUNING"
+}
