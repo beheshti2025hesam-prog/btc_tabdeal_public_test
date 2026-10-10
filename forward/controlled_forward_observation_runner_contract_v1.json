@@ -14,5 +14,10 @@
   "fail_closed": true,
   "source_completeness_verified_default": false,
   "source_completeness_evidence_ref_required": true,
-  "source_completeness_block_reason": "SOURCE_COMPLETENESS_UNVERIFIED"
+  "source_completeness_block_reason": "SOURCE_COMPLETENESS_UNVERIFIED",
+  "source_ordering_verified_default": false,
+  "source_ordering_evidence_ref_required": true,
+  "source_ordering_block_reason": "SOURCE_ORDERING_UNVERIFIED",
+  "production_observation_authorized": false,
+  "production_blocker": "REVIEWED_EVIDENCE_REGISTRY_AND_PIN_NOT_IMPLEMENTED"
 }
