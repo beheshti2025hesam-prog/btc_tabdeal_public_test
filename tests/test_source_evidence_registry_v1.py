@@ -25,8 +25,11 @@ def test_pin_unset_blocks_even_if_caller_has_a_reference(monkeypatch):
 
 def test_exact_pinned_registry_and_scope_required(tmp_path, monkeypatch):
     path,_,item=fixture(tmp_path, monkeypatch); registry=SourceEvidenceRegistryV1.load(path)
-    assert registry.resolve(item["evidence_ref"],evidence_type="source_ordering",
-                            source_scope="tabdeal-futures:BTC_USDT")["review_status"]=="INDEPENDENTLY_REVIEWED"
+    # A matching pin and artifact digest do not authenticate a reviewer.
+    # Free-form review_status/review_record_ref must never authorize evidence.
+    with pytest.raises(SourceEvidenceRegistryError,match="REVIEW_PROVENANCE_UNVERIFIABLE"):
+        registry.resolve(item["evidence_ref"],evidence_type="source_ordering",
+                         source_scope="tabdeal-futures:BTC_USDT")
     with pytest.raises(SourceEvidenceRegistryError,match="SCOPE_MISMATCH"):
         registry.resolve(item["evidence_ref"],evidence_type="source_ordering",source_scope="other")
     with pytest.raises(SourceEvidenceRegistryError,match="TYPE_MISMATCH"):
