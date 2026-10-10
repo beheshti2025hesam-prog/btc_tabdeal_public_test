@@ -22,7 +22,7 @@ from .clean_regime_quality_v1 import CleanRegimeQualityV1
 from .clean_regime_quality_gate_v1 import CleanRegimeQualityGateV1
 from .observation_journal_v1 import ObservationJournalV1
 from .observation_journal_integration_v1 import ObservationJournalIntegrationV1
-from .source_evidence_registry_v1 import SourceEvidenceRegistryError, SourceEvidenceRegistryV1
+from .source_evidence_registry_v1 import SourceEvidenceRegistryError, verify_source_evidence_bundle
 
 DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "evidence" / "source_evidence_registry_v1.json"
 
@@ -130,14 +130,13 @@ class ForwardObservationPathV1:
 
         # Decision-grade path output requires registry-backed proof, not flags alone.
         try:
-            registry = SourceEvidenceRegistryV1.load(self.source_evidence_registry_path)
-            scope = "tabdeal-futures:BTC_USDT"
-            registry.resolve(self.sequence_contract_evidence_ref or "",
-                             evidence_type="sequence_contract", source_scope=scope)
-            registry.resolve(self.source_completeness_evidence_ref or "",
-                             evidence_type="source_completeness", source_scope=scope)
-            registry.resolve(self.source_ordering_evidence_ref or "",
-                             evidence_type="source_ordering", source_scope=scope)
+            verify_source_evidence_bundle(
+                self.source_evidence_registry_path,
+                sequence_contract_ref=self.sequence_contract_evidence_ref or "",
+                source_completeness_ref=self.source_completeness_evidence_ref or "",
+                source_ordering_ref=self.source_ordering_evidence_ref or "",
+                source_scope="tabdeal-futures:BTC_USDT",
+            )
         except SourceEvidenceRegistryError as exc:
             return ForwardObservationPathResult(
                 "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
