@@ -1,11 +1,4 @@
-from d
-    if request.node.name in {
-        "test_full_forward_observation_path",
-        "test_non_contiguous_sequence_reaches_candle_boundary",
-        "test_open_candle_is_not_observed",
-    }:
-        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
-atetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import hashlib
 import json
@@ -52,6 +45,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
         "test_open_candle_is_not_observed",
     }:
         monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def frame(seq, when, price):
