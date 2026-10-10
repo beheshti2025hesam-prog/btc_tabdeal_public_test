@@ -166,6 +166,21 @@ def test_tampered_or_partial_journal_fails_closed_and_is_preserved(tmp_path):
     assert path.read_text() == tampered
 
 
+@pytest.mark.parametrize(
+    "invalid_limit",
+    [float("nan"), float("inf"), float("-inf"), True, 0, -1],
+)
+def test_continuity_rejects_non_finite_or_invalid_limits(tmp_path, invalid_limit):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    with pytest.raises(SupervisorError, match="CONTINUITY_LIMIT_INVALID"):
+        s.continuity_report(required_seconds=invalid_limit)
+    with pytest.raises(SupervisorError, match="CONTINUITY_LIMIT_INVALID"):
+        s.continuity_report(max_heartbeat_gap_seconds=invalid_limit)
+    s.stop()
+
+
 def test_invalid_clock_and_configuration_fail_closed(tmp_path):
     with pytest.raises(SupervisorError, match="BOOT_ID_REQUIRED"):
         ForwardObservationSupervisorV1(tmp_path, run_id="x", boot_id="")
