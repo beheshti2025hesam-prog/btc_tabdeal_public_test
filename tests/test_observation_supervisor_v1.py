@@ -31,13 +31,36 @@ def supervisor(tmp_path, clock, run_id="run-a", boot_id="boot-a"):
         utc_now=clock.utc_now, monotonic_ns=clock.monotonic_ns,
     )
 
+def source_health_evidence(s, clock, **overrides):
+    now = clock.utc_now().isoformat()
+    item = {
+        "schema": "hes_source_health_evidence_v1",
+        "venue": "tabdeal",
+        "product": "futures",
+        "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+        "topic": "trade",
+        "expected_symbol": s.expected_symbol,
+        "observed_symbol": s.expected_symbol,
+        "connection_id": f"conn-{s.run_id}",
+        "session_id": s.run_id,
+        "session_generation": s.session_generation,
+        "source_event_at_utc": now,
+        "received_at_utc": now,
+        "freshness_bound_seconds": 5,
+        "schema_validated": True,
+        "schema_validation_reason": "SCHEMA_VALID",
+        "reason_code": "SOURCE_HEALTHY",
+    }
+    item.update(overrides)
+    return item
+
 
 def test_start_heartbeat_stop_records_durable_hash_chain(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
     started = s.start()
     clock.advance(10)
-    heartbeat = s.heartbeat(healthy=True)
+    heartbeat = s.heartbeat(evidence=source_health_evidence(s, clock))
     stopped = s.stop()
     assert started["event_type"] == "SESSION_STARTED"
     assert heartbeat["event_type"] == "HEARTBEAT"
@@ -66,7 +89,7 @@ def test_unclosed_prior_run_is_explicitly_interrupted_on_next_start(tmp_path):
     first = supervisor(tmp_path, clock, "run-a")
     first.start()
     clock.advance(10)
-    first.heartbeat(healthy=True)
+    first.heartbeat(evidence=source_health_evidence(first, clock))
     first.close()  # Simulates process exit without a graceful stop marker.
 
     second = supervisor(tmp_path, clock, "run-b")
@@ -83,9 +106,9 @@ def test_unhealthy_heartbeat_invalidates_run_and_blocks_future_heartbeats(tmp_pa
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
     s.start()
-    s.heartbeat(healthy=False, reason_code="SOURCE_STALE")
+    s.heartbeat(evidence=source_health_evidence(s, clock, source_event_at_utc=(clock.utc_now() - timedelta(seconds=100)).isoformat()))
     with pytest.raises(SupervisorError, match="SESSION_ALREADY_INTERRUPTED"):
-        s.heartbeat(healthy=True)
+        s.heartbeat(evidence=source_health_evidence(s, clock))
     s.stop()
     report = s.continuity_report(required_seconds=1, max_heartbeat_gap_seconds=30)
     assert not report["proven"]
@@ -97,9 +120,9 @@ def test_continuity_proof_requires_duration_and_bounded_heartbeat_gaps(tmp_path)
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=15)
@@ -112,7 +135,7 @@ def test_continuity_fails_when_heartbeat_gap_exceeds_bound(tmp_path):
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(31)
     s.stop()
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=15)
@@ -125,7 +148,7 @@ def test_continuity_fails_on_boot_id_change(tmp_path):
     s = supervisor(tmp_path, clock, boot_id="boot-a")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     s.close()
     # A separate run after reboot has a different boot identity and must not
     # be interpreted as continuity with the first run.
@@ -220,7 +243,7 @@ def test_continuity_requires_durable_stop_marker(tmp_path):
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(21)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=30)
     assert not report["proven"]
     assert report["reason"] == "SESSION_NOT_STOPPED_OR_DUPLICATE_STOP"
@@ -232,9 +255,9 @@ def test_continuity_fails_when_interruption_write_fails_but_stop_succeeds(tmp_pa
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     original_append = s._append
 
     def fail_interruption(events, *, event_type, run_id, details=None):
@@ -299,7 +322,7 @@ def _rewrite_as_hash_valid_journal(path, event_types, *, event_numbers=None, run
             event["details"] = {"reason_code": "TEST_STOP", "interrupted": False}
         elif event_type == "HEARTBEAT":
             event["details"] = dict(heartbeat_details) if heartbeat_details is not None else {
-                "source_health": "HEALTHY", "reason_code": "TEST"
+                "source_health": "HEALTHY", "reason_code": "SOURCE_HEALTHY"
             }
         elif event_type == "SESSION_STARTED":
             event["details"] = {"mode": "OBSERVATION_ONLY", "decision": "NO_TRADE_ONLY", "execution_enabled": False}
@@ -336,7 +359,7 @@ def test_hash_valid_but_semantically_invalid_journal_is_rejected_and_preserved(
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -367,7 +390,7 @@ def test_hash_valid_journal_with_duplicate_or_reordered_event_numbers_is_rejecte
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -389,7 +412,7 @@ def test_hash_valid_cross_run_event_interleaving_is_rejected_and_preserved(tmp_p
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -414,6 +437,7 @@ def test_hash_valid_cross_run_event_interleaving_is_rejected_and_preserved(tmp_p
         {"source_health": None, "reason_code": "TEST"},
         {"source_health": "HEALTHY", "reason_code": ""},
         {"source_health": "HEALTHY", "reason_code": 7},
+        {"source_health": "HEALTHY", "reason_code": "FORGED_HEALTH"},
     ],
 )
 def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_bytes(
@@ -423,7 +447,7 @@ def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_by
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -443,29 +467,60 @@ def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_by
     assert path.read_bytes() == before
 
 
-@pytest.mark.parametrize("invalid_health", [1, 0, "true", None, [], {}])
-def test_health_flag_spoofing_with_non_boolean_values_is_rejected(
-    tmp_path, invalid_health
-):
+def test_legacy_healthy_boolean_fails_closed_and_invalidates_session(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
     s.start()
-    before = (tmp_path / "supervisor_events.jsonl").read_bytes()
-    with pytest.raises(SupervisorError, match="HEALTH_FLAG_INVALID"):
-        s.heartbeat(healthy=invalid_health)
-    assert (tmp_path / "supervisor_events.jsonl").read_bytes() == before
+    event = s.heartbeat(healthy=True)
+    assert event["event_type"] == "INTERRUPTION"
+    assert event["details"]["reason_code"] == "SOURCE_HEALTH_EVIDENCE_REQUIRED"
+    with pytest.raises(SupervisorError, match="SESSION_ALREADY_INTERRUPTED"):
+        s.heartbeat(evidence=source_health_evidence(s, clock))
+    s.stop()
+    report = s.continuity_report(required_seconds=1, max_heartbeat_gap_seconds=30)
+    assert not report["proven"]
+    assert report["reason"] == "INTERRUPTION_RECORDED"
+
+
+def test_caller_cannot_override_evidence_reason_code(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    event = s.heartbeat(evidence=source_health_evidence(s, clock, reason_code="SOURCE_STALE"))
+    assert event["event_type"] == "INTERRUPTION"
+    assert event["details"]["reason_code"] == "SOURCE_HEALTH_REASON_CONTRADICTION"
     s.stop()
 
 
-@pytest.mark.parametrize("invalid_reason", ["", "  ", 7, None, "x" * 121])
-def test_heartbeat_reason_code_cannot_be_missing_or_malformed(
-    tmp_path, invalid_reason
-):
+def test_malformed_evidence_fails_closed_without_healthy_heartbeat(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
     s.start()
-    before = (tmp_path / "supervisor_events.jsonl").read_bytes()
-    with pytest.raises(SupervisorError, match="REASON_CODE_INVALID"):
-        s.heartbeat(healthy=True, reason_code=invalid_reason)
-    assert (tmp_path / "supervisor_events.jsonl").read_bytes() == before
+    item = source_health_evidence(s, clock)
+    item["observed_symbol"] = "ETH_USDT"
+    event = s.heartbeat(evidence=item)
+    assert event["event_type"] == "INTERRUPTION"
+    assert event["details"]["reason_code"] == "SOURCE_HEALTH_SYMBOL_MISMATCH"
+    s.stop()
+
+def test_connection_identity_cannot_change_within_a_session(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    first = s.heartbeat(evidence=source_health_evidence(s, clock))
+    assert first["event_type"] == "HEARTBEAT"
+    second = s.heartbeat(evidence=source_health_evidence(s, clock, connection_id="forged-new-connection"))
+    assert second["event_type"] == "INTERRUPTION"
+    assert second["details"]["reason_code"] == "SOURCE_HEALTH_CONNECTION_MISMATCH"
+    s.stop()
+
+
+def test_claimed_expected_symbol_cannot_override_supervisor_configuration(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    item = source_health_evidence(s, clock, expected_symbol="ETH_USDT", observed_symbol="ETH_USDT")
+    event = s.heartbeat(evidence=item)
+    assert event["event_type"] == "INTERRUPTION"
+    assert event["details"]["reason_code"] == "SOURCE_HEALTH_EXPECTED_SYMBOL_MISMATCH"
     s.stop()
