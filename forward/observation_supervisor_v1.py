@@ -294,7 +294,10 @@ class ForwardObservationSupervisorV1:
             return {"run_id": self.run_id, "proven": False, "reason": "START_RECORD_MISSING_OR_DUPLICATE", "continuous_seconds": 0.0}
         start = starts[0]
         stops = [e for e in selected if e["event_type"] == "SESSION_STOPPED"]
-        end_mono = stops[-1]["monotonic_ns"] if stops else self._monotonic_ns()
+        if len(stops) != 1:
+            return {"run_id": self.run_id, "proven": False, "reason": "SESSION_NOT_STOPPED_OR_DUPLICATE_STOP", "continuous_seconds": 0.0}
+        stop_details = stops[0].get("details")
+        end_mono = stops[0]["monotonic_ns"]
         start_mono = start["monotonic_ns"]
         if (
             isinstance(end_mono, bool)
@@ -308,7 +311,7 @@ class ForwardObservationSupervisorV1:
         if end_mono < start_mono:
             return {"run_id": self.run_id, "proven": False, "reason": "MONOTONIC_CLOCK_REGRESSION", "continuous_seconds": 0.0}
         elapsed = (end_mono - start_mono) / 1_000_000_000
-        if interruptions:
+        if interruptions or not isinstance(stop_details, dict) or stop_details.get("interrupted") is not False:
             return {"run_id": self.run_id, "proven": False, "reason": "INTERRUPTION_RECORDED", "continuous_seconds": elapsed}
         if any(e["boot_id"] != start["boot_id"] for e in selected):
             return {"run_id": self.run_id, "proven": False, "reason": "BOOT_ID_CHANGED", "continuous_seconds": elapsed}
