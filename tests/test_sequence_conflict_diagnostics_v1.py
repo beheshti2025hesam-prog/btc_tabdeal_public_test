@@ -72,6 +72,8 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
