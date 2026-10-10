@@ -212,16 +212,24 @@ class ControlledForwardObservationRunnerV1:
             )
 
         observed_at = datetime.now(timezone.utc)
-        result = ForwardObservationPathV1(self.journal_path, max_records=self.max_records).observe(
+        result = ForwardObservationPathV1(
+            self.journal_path,
+            max_records=self.max_records,
+            source_completeness_verified=self.source_completeness_verified,
+            source_completeness_evidence_ref=self.source_completeness_evidence_ref,
+        ).observe(
             records,
             as_of=observed_at,
             forward_run_id=session.run_id,
         )
+        def sequence_metadata_key(value: Any) -> str:
+            return f"{type(value).__name__}:{value}"
+
         diagnostics = tuple(
             {
                 **event,
                 "transport_frame_fingerprints": frame_metadata_by_sequence.get(
-                    f"{type(event.get(\"sequence\")).__name__}:{event.get(\"sequence\")}", []
+                    sequence_metadata_key(event.get("sequence")), []
                 ),
             }
             if event.get("reason") in {
