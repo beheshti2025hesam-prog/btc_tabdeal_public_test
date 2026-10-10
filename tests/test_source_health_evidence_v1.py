@@ -33,7 +33,7 @@ def evidence(**overrides):
 
 def evaluate(item):
     return evaluate_source_health(
-        item, expected_run_id="run-1", expected_session_generation=1, now_utc=NOW
+        item, expected_run_id="run-1", expected_session_generation=1, expected_symbol="BTC_USDT", now_utc=NOW
     )
 
 
@@ -75,3 +75,10 @@ def test_missing_or_extra_fields_fail_closed():
 def test_naive_timestamps_are_rejected():
     result = evaluate(evidence(source_event_at_utc="2026-10-10T11:59:58"))
     assert result["reason_code"] == "SOURCE_HEALTH_TIMESTAMP_INVALID"
+
+def test_claimed_expected_symbol_cannot_redefine_trusted_scope():
+    result = evaluate(evidence(expected_symbol="ETH_USDT", observed_symbol="ETH_USDT"))
+    assert result == {
+        "source_health": "UNHEALTHY",
+        "reason_code": "SOURCE_HEALTH_EXPECTED_SYMBOL_MISMATCH",
+    }
