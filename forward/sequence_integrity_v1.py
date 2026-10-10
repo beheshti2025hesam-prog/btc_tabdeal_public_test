@@ -24,7 +24,7 @@ class SequenceEvent:
 class SequenceIntegrityV1:
     """Conservatively observe opaque sequence values without interpreting them.
 
-    \`\`last_sequence\`\` is retained for compatibility and means only the most
+    last_sequence is retained for compatibility and means only the most
     recently observed native value. It does not imply monotonicity or ordering.
     Every observed record is retained in bounded in-memory state for this
     connection epoch. Durable evidence persistence remains the caller's duty.
