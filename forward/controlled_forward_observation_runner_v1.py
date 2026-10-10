@@ -14,7 +14,7 @@ from .forward_observation_path_v1 import ForwardObservationPathV1
 from .observation_session_manager_v1 import ObservationSessionManagerV1
 from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
-from .source_evidence_registry_v1 import SourceEvidenceRegistryError, SourceEvidenceRegistryV1
+from .source_evidence_registry_v1 import SourceEvidenceRegistryError, verify_source_evidence_bundle
 
 DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "evidence" / "source_evidence_registry_v1.json"
 
@@ -144,22 +144,12 @@ class ControlledForwardObservationRunnerV1:
         # Non-empty caller strings/booleans are not evidence. Resolve all three
         # claims against the release-pinned registry before any session/network I/O.
         try:
-            registry = SourceEvidenceRegistryV1.load(self.source_evidence_registry_path)
-            scope = "tabdeal-futures:BTC_USDT"
-            registry.resolve(
-                self.sequence_contract_evidence_ref or "",
-                evidence_type="sequence_contract",
-                source_scope=scope,
-            )
-            registry.resolve(
-                self.source_completeness_evidence_ref or "",
-                evidence_type="source_completeness",
-                source_scope=scope,
-            )
-            registry.resolve(
-                self.source_ordering_evidence_ref or "",
-                evidence_type="source_ordering",
-                source_scope=scope,
+            verify_source_evidence_bundle(
+                self.source_evidence_registry_path,
+                sequence_contract_ref=self.sequence_contract_evidence_ref or "",
+                source_completeness_ref=self.source_completeness_evidence_ref or "",
+                source_ordering_ref=self.source_ordering_evidence_ref or "",
+                source_scope="tabdeal-futures:BTC_USDT",
             )
         except SourceEvidenceRegistryError as exc:
             return ControlledObservationRunnerResult(
