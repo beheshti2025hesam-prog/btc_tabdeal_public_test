@@ -18,18 +18,18 @@ class EvidenceSequenceResult:
 class CleanEvidenceSequenceGateV1:
     """Never infer order or completeness from sequence values.
 
-    A caller may set sequence_contract_verified only when it has a reviewed,
+    A caller may set source_completeness_verified only when it has a reviewed,
     exact-feed evidence pin. The default is intentionally blocked.
     """
 
     def __init__(
         self,
         *,
-        sequence_contract_verified: bool = False,
-        sequence_contract_evidence_ref: str | None = None,
+        source_completeness_verified: bool = False,
+        source_completeness_evidence_ref: str | None = None,
     ) -> None:
-        self.sequence_contract_verified = bool(
-            sequence_contract_verified and sequence_contract_evidence_ref
+        self.source_completeness_verified = bool(
+            source_completeness_verified and source_completeness_evidence_ref
         )
 
     def evaluate(self, records: list[dict[str, Any]]) -> EvidenceSequenceResult:
@@ -51,7 +51,7 @@ class CleanEvidenceSequenceGateV1:
                     False, (), tuple(records), event.reason or event.status
                 )
 
-        if not self.sequence_contract_verified:
+        if not self.source_completeness_verified:
             return EvidenceSequenceResult(
                 False, (), tuple(records), "SEQUENCE_CONTRACT_UNVERIFIED"
             )
