@@ -33,7 +33,7 @@ def test_default_gate_blocks_until_exact_feed_contract_is_verified():
         [rec(1, now - timedelta(minutes=20))], as_of=now
     )
     assert not r.safe
-    assert r.reason == "SEQUENCE_CONTRACT_UNVERIFIED"
+    assert r.reason == "SOURCE_COMPLETENESS_UNVERIFIED"
     assert r.candles == ()
 
 
