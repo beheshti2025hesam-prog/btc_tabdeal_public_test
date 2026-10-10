@@ -39,8 +39,8 @@ def source_health_evidence(s, clock, **overrides):
         "product": "futures",
         "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
         "topic": "trade",
-        "expected_symbol": "BTC_USDT",
-        "observed_symbol": "BTC_USDT",
+        "expected_symbol": s.expected_symbol,
+        "observed_symbol": s.expected_symbol,
         "connection_id": f"conn-{s.run_id}",
         "session_id": s.run_id,
         "session_generation": s.session_generation,
@@ -500,4 +500,26 @@ def test_malformed_evidence_fails_closed_without_healthy_heartbeat(tmp_path):
     event = s.heartbeat(evidence=item)
     assert event["event_type"] == "INTERRUPTION"
     assert event["details"]["reason_code"] == "SOURCE_HEALTH_SYMBOL_MISMATCH"
+    s.stop()
+
+def test_connection_identity_cannot_change_within_a_session(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    first = s.heartbeat(evidence=source_health_evidence(s, clock))
+    assert first["event_type"] == "HEARTBEAT"
+    second = s.heartbeat(evidence=source_health_evidence(s, clock, connection_id="forged-new-connection"))
+    assert second["event_type"] == "INTERRUPTION"
+    assert second["details"]["reason_code"] == "SOURCE_HEALTH_CONNECTION_MISMATCH"
+    s.stop()
+
+
+def test_claimed_expected_symbol_cannot_override_supervisor_configuration(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    item = source_health_evidence(s, clock, expected_symbol="ETH_USDT", observed_symbol="ETH_USDT")
+    event = s.heartbeat(evidence=item)
+    assert event["event_type"] == "INTERRUPTION"
+    assert event["details"]["reason_code"] == "SOURCE_HEALTH_EXPECTED_SYMBOL_MISMATCH"
     s.stop()
