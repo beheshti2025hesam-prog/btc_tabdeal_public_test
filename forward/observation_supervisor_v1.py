@@ -14,12 +14,69 @@ import math
 import os
 import time
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 SCHEMA = "hes_forward_observation_supervisor_event_v1"
 INTERRUPTION_TYPES = {"INTERRUPTION", "SESSION_INTERRUPTED"}
 
+
+@dataclass(frozen=True)
+class SourceHealthEvidence:
+    """Structured health evidence; not cryptographic proof of the venue."""
+    schema_version: str
+    venue: str
+    product: str
+    endpoint: str
+    topic: str
+    expected_symbol: str
+    observed_symbol: str
+    connection_id: str
+    session_generation: int
+    source_event_at: datetime
+    received_at: datetime
+    max_age_seconds: float
+    schema_valid: bool
+    reason_code: str = "SOURCE_HEALTHY"
+
+
+def _validate_source_health_evidence(evidence: SourceHealthEvidence, now: datetime) -> str:
+    if not isinstance(evidence, SourceHealthEvidence):
+        raise SupervisorError("SOURCE_HEALTH_EVIDENCE_REQUIRED")
+    if evidence.schema_version != "hes_source_health_evidence_v1":
+        raise SupervisorError("SOURCE_HEALTH_SCHEMA_VERSION_INVALID")
+    scope = {"venue": "tabdeal", "product": "futures", "endpoint": "special_margin/broadcast", "expected_symbol": "BTC_USDT", "observed_symbol": "BTC_USDT"}
+    for field_name, expected in scope.items():
+        value = getattr(evidence, field_name)
+        if not isinstance(value, str) or value != expected:
+            raise SupervisorError("SOURCE_HEALTH_SCOPE_MISMATCH")
+    for field_name in ("topic", "connection_id"):
+        value = getattr(evidence, field_name)
+        if not isinstance(value, str) or not value.strip() or len(value) > 256:
+            raise SupervisorError("SOURCE_HEALTH_IDENTITY_INVALID")
+    if isinstance(evidence.session_generation, bool) or not isinstance(evidence.session_generation, int) or evidence.session_generation < 0:
+        raise SupervisorError("SOURCE_HEALTH_SESSION_GENERATION_INVALID")
+    if type(evidence.schema_valid) is not bool:
+        raise SupervisorError("SOURCE_HEALTH_SCHEMA_RESULT_INVALID")
+    if not isinstance(evidence.reason_code, str) or not evidence.reason_code.strip() or len(evidence.reason_code) > 120:
+        raise SupervisorError("SOURCE_HEALTH_REASON_INVALID")
+    times = (evidence.source_event_at, evidence.received_at, now)
+    if any(not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None for value in times):
+        raise SupervisorError("SOURCE_HEALTH_TIMESTAMP_INVALID")
+    source_at, received_at, current_at = (value.astimezone(timezone.utc) for value in times)
+    if source_at > received_at or received_at > current_at:
+        raise SupervisorError("SOURCE_HEALTH_TIMESTAMP_ORDER_INVALID")
+    age = evidence.max_age_seconds
+    if isinstance(age, bool) or not isinstance(age, (int, float)) or not math.isfinite(float(age)) or age <= 0:
+        raise SupervisorError("SOURCE_HEALTH_FRESHNESS_BOUND_INVALID")
+    if not evidence.schema_valid:
+        return "SOURCE_SCHEMA_INVALID"
+    if (current_at - source_at).total_seconds() > float(age):
+        return "SOURCE_EVENT_STALE"
+    if evidence.reason_code != "SOURCE_HEALTHY":
+        return evidence.reason_code
+    return "SOURCE_HEALTHY"
 
 class SupervisorError(RuntimeError):
     """A fail-closed supervisor ledger error."""
@@ -298,24 +355,30 @@ class ForwardObservationSupervisorV1:
             self.close()
             raise
 
-    def heartbeat(self, *, healthy: bool, reason_code: str = "HEALTHY") -> dict[str, Any]:
+    def heartbeat(self, *, evidence: SourceHealthEvidence | None = None, healthy: Any = None) -> dict[str, Any]:
         if not self._started:
             raise SupervisorError("SESSION_NOT_STARTED")
         if self._interrupted:
             raise SupervisorError("SESSION_ALREADY_INTERRUPTED")
-        if type(healthy) is not bool:
-            raise SupervisorError("HEALTH_FLAG_INVALID")
-        if not isinstance(reason_code, str) or not reason_code.strip() or len(reason_code) > 120:
-            raise SupervisorError("REASON_CODE_INVALID")
+        if healthy is not None or evidence is None:
+            raise SupervisorError("STRUCTURED_SOURCE_EVIDENCE_REQUIRED")
         events = self._read_verified()
         if self._active_run(events) != self.run_id:
             raise SupervisorError("SESSION_OWNERSHIP_LOST")
-        if not healthy:
+        health_reason = _validate_source_health_evidence(evidence, self._utc_now())
+        if health_reason != "SOURCE_HEALTHY":
             self._interrupted = True
             return self._append(events, event_type="INTERRUPTION", run_id=self.run_id,
-                                details={"reason_code": reason_code})
-        return self._append(events, event_type="HEARTBEAT", run_id=self.run_id,
-                            details={"source_health": "HEALTHY", "reason_code": reason_code})
+                                details={"reason_code": health_reason})
+        return self._append(events, event_type="HEARTBEAT", run_id=self.run_id, details={
+            "source_health": "HEALTHY", "reason_code": evidence.reason_code,
+            "venue": evidence.venue, "product": evidence.product, "endpoint": evidence.endpoint,
+            "topic": evidence.topic, "symbol": evidence.observed_symbol,
+            "connection_id": evidence.connection_id, "session_generation": evidence.session_generation,
+            "source_event_at": evidence.source_event_at.astimezone(timezone.utc).isoformat(),
+            "received_at": evidence.received_at.astimezone(timezone.utc).isoformat(),
+            "max_age_seconds": evidence.max_age_seconds,
+        })
 
     def interrupt(self, reason_code: str) -> dict[str, Any]:
         if not self._started:
