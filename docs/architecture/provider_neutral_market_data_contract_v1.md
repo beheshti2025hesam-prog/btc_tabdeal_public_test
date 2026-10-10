@@ -110,6 +110,45 @@ Hashing rules: SHA-256 is applied to exact raw bytes for raw artifacts. Structur
 - A trusted evaluation snapshot must fail closed if required hashes, source/run provenance, code commit, evaluation window, or report linkage are absent or inconsistent. Optional fields may be null only with an explicit reason and must not satisfy a safety-critical gate.
 - Regression tests must prove detection of byte tampering, manifest/path changes, stale code commits, dataset/window/symbol/venue mismatch, quality-report mismatch, missing run IDs, nondeterministic ordering, and anomaly-versus-confirmed-loss misclassification. Tests use synthetic fixtures and never rewrite production evidence.
 
+## Normative local receipt-journal requirements (design gate)
+
+The following requirements are normative for any future durable receipt-journal implementation. They define acceptance criteria, not permission to deploy or to collect live data.
+
+### Identity unit and namespace
+- A `receipt_id` identifies exactly one **accepted receipt record** in HES, not a transport frame by implication and not an exchange event ID. The adapter must explicitly state whether one inbound frame can decode to zero, one, or multiple events.
+- If one frame yields multiple events, preserve a stable frame-level evidence reference and assign a distinct receipt ID to each accepted event record; record the relationship without claiming the events were separately transmitted.
+- The durable namespace must include a journal/schema identity and must survive process restarts. IDs must be strictly non-reused within that namespace. An in-memory counter or receive ordinal alone is not durable identity.
+- Allocation order is local acceptance order only. It must never be represented as upstream ordering or completeness evidence.
+
+### Append and commit protocol
+- A receipt is **accepted/issued** only after the complete record and its integrity metadata have crossed the storage backend's documented durability boundary. The implementation must document the actual primitive and its guarantees; a successful language-level write call alone is not proof of durable commit.
+- Serialize writers. A second writer must fail closed before appending; it must not race to allocate IDs or append to the same journal.
+- After restart, recover the next ID only by validating the durable journal and its namespace/schema metadata. Never silently truncate, rewrite, or repair a partial/corrupt tail.
+- On partial write, flush/fsync failure, disk-full, lock ambiguity, or corrupted tail, stop accepting receipts and report a persistent degraded/integrity-failure state. Preserve the bytes available for forensic recovery.
+- If a write's commit outcome is ambiguous, reconcile the intended record against the validated durable journal before retrying. Do not blindly allocate a new ID; if exact reconciliation is impossible, fail closed and require explicit recovery.
+- An existing receipt ID associated with different content is a hard integrity conflict. Identical retry content may be treated as an idempotent retry only after checking the durable journal; it must not create a second logical receipt silently.
+
+### Time and evidence representation
+- Store UTC wall-clock receive time separately from a monotonic elapsed-time measurement and identify the clock/boot epoch needed to interpret the monotonic value. Monotonic values are for elapsed-time diagnostics, not cross-boot timestamps.
+- Wall-clock rollback, large skew, missing monotonic continuity, or unknown clock health must never make old data appear fresh or prove continuity. Mark freshness/continuity as unknown or degraded.
+- State the evidence representation for each privacy mode. If only a decoded or sanitized representation is retained, version its canonical encoding and hash exactly those stored bytes; explicitly do **not** label that digest as a hash of the original transport frame.
+- When the received message is text re-encoded as UTF-8, name that representation precisely. It is not a wire-byte hash unless the transport layer actually exposes and preserves the original wire bytes.
+
+### Required synthetic fault-injection tests
+Before any implementation is considered reviewable, tests using temporary synthetic files only must cover:
+1. Failure at partial write, flush/fsync, and commit boundaries; no success/receipt issuance on uncommitted data.
+2. Restart recovery from a valid journal and from a partial or corrupt tail; no silent repair and no ID reuse.
+3. Ambiguous-commit retry, exact duplicate retry, and same-ID/different-content conflict.
+4. Monotonic ID allocation across restart and journal/schema namespace mismatch.
+5. Concurrent writer/lock contention; only one writer may append.
+6. Wall-clock rollback/skew and monotonic clock/boot-epoch discontinuity.
+7. Disk exhaustion and persistence errors; accepting stops immediately and health stays degraded.
+8. Multi-event frame identity relationships, if the adapter can decode multiple events from one frame.
+9. Privacy-mode representation/hash correctness, including a test proving that a sanitized-message hash is not described as an original-frame hash.
+10. Append-only guarantees: prior committed records remain byte-identical after every injected failure.
+
+These tests validate HES's local persistence behavior only. They do not establish Tabdeal Futures `trade.sequence` semantics, upstream delivery completeness, or authorization to start the 48-hour observation.
+ 
 ## Rollout gates
 1. Review and freeze this contract.
 2. Complete provider-specific official-source records, retaining explicit unknowns.
