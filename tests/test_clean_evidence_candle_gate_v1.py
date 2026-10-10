@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from forward import clean_evidence_candle_gate_v1 as gate_module
+from forward import clean_evidence_sequence_gate_v1 as sequence_gate_module
 from forward import source_evidence_registry_v1 as registry_module
 from forward.clean_evidence_candle_gate_v1 import CleanEvidenceCandleGateV1
 
@@ -42,7 +43,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
         "test_conflicting_sequence_reuse_blocks_candle_evidence",
         "test_unverified_sequence_jump_does_not_infer_a_missing_trade",
     }:
-        monkeypatch.setattr(gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(sequence_gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def rec(seq, ts, price="100"):
