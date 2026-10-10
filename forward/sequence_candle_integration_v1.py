@@ -17,21 +17,26 @@ class SequenceCandleResult:
         events: tuple[SequenceEvent, ...],
         *,
         source_completeness_verified: bool,
+        source_ordering_verified: bool,
     ) -> None:
         self.candles = candles
         self.gaps = gaps
         self.events = events
         self.source_completeness_verified = source_completeness_verified
+        self.source_ordering_verified = source_ordering_verified
 
     @property
     def safe_for_decision(self) -> bool:
-        return self.source_completeness_verified and not any(
-            event.status in {"REJECT_STREAM", "ANOMALY"} for event in self.events
+        return (
+            bool(self.events)
+            and self.source_completeness_verified
+            and self.source_ordering_verified
+            and not any(event.status in {"REJECT_STREAM", "ANOMALY"} for event in self.events)
         )
 
 
 class SequenceAwareCandleIngestionV1:
-    """Never infer completeness from sequence gaps or monotonicity."""
+    """Never infer completeness or ordering from sequence values."""
 
     def __init__(
         self,
@@ -39,10 +44,26 @@ class SequenceAwareCandleIngestionV1:
         max_sequence_records: int = 100_000,
         source_completeness_verified: bool = False,
         source_completeness_evidence_ref: str | None = None,
+        source_ordering_verified: bool = False,
+        source_ordering_evidence_ref: str | None = None,
     ) -> None:
         self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
         self.source_completeness_verified = bool(
-            source_completeness_verified and source_completeness_evidence_ref
+            source_completeness_verified
+            and isinstance(source_completeness_evidence_ref, str)
+            and source_completeness_evidence_ref.strip()
+        )
+        self.source_ordering_verified = bool(
+            source_ordering_verified
+            and isinstance(source_ordering_evidence_ref, str)
+            and source_ordering_evidence_ref.strip()
+        )
+
+    def _blocked(self, events: tuple[SequenceEvent, ...]) -> SequenceCandleResult:
+        return SequenceCandleResult(
+            (), (), events,
+            source_completeness_verified=self.source_completeness_verified,
+            source_ordering_verified=self.source_ordering_verified,
         )
 
     def ingest(
@@ -55,26 +76,40 @@ class SequenceAwareCandleIngestionV1:
         events: list[SequenceEvent] = []
 
         for record in records:
-            event = self.sequence.observe(record)
+            try:
+                event = self.sequence.observe(record)
+            except (TypeError, ValueError):
+                return self._blocked(tuple(events))
             events.append(event)
             if event.status == "ACCEPTED":
                 safe.append(record)
             else:
-                # Never feed an ambiguous stream into candle formation.
-                return SequenceCandleResult(
-                    (), (), tuple(events),
-                    source_completeness_verified=self.source_completeness_verified,
-                )
+                return self._blocked(tuple(events))
 
-        # The sequence field cannot certify upstream completeness. Without an
-        # exact reviewed source contract, do not create a decision-grade candle.
-        if not self.source_completeness_verified:
-            return SequenceCandleResult(
-                (), (), tuple(events), source_completeness_verified=False
+        if not events:
+            return self._blocked(())
+
+        if not self.source_completeness_verified or not self.source_ordering_verified:
+            return self._blocked(tuple(events))
+
+        try:
+            candles, gaps = ingest_closed_candles(safe, as_of=as_of)
+        except ValueError as exc:
+            reason = str(exc)
+            if reason not in {
+                "AMBIGUOUS_EQUAL_SOURCE_TIMESTAMP_ORDER",
+                "REPEATED_SEQUENCE_IDENTITY_UNPROVEN",
+            }:
+                reason = "CANDLE_NORMALIZATION_FAILED"
+            blocked_event = SequenceEvent(
+                self.sequence.last_sequence if self.sequence.last_sequence is not None else "",
+                "REJECT_STREAM",
+                reason,
             )
+            return self._blocked((*events, blocked_event))
 
-        candles, gaps = ingest_closed_candles(safe, as_of=as_of)
         return SequenceCandleResult(
             candles, gaps, tuple(events),
             source_completeness_verified=True,
+            source_ordering_verified=True,
         )
