@@ -19,5 +19,24 @@
   "source_ordering_evidence_ref_required": true,
   "source_ordering_block_reason": "SOURCE_ORDERING_UNVERIFIED",
   "production_observation_authorized": false,
-  "production_blocker": "REVIEWED_EVIDENCE_REGISTRY_AND_PIN_NOT_IMPLEMENTED"
+  "production_blocker": "SOURCE_EVIDENCE_REGISTRY_PIN_UNSET_AND_NO_INDEPENDENT_REVIEW",
+  "source_evidence_registry": {
+    "schema": "hes_source_evidence_registry_v1",
+    "path": "evidence/source_evidence_registry_v1.json",
+    "pin_constant": "forward.source_evidence_registry_v1.PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
+    "pin_default": "UNSET",
+    "caller_supplied_boolean_or_reference_is_proof": false,
+    "verified_before_network": true,
+    "verified_before_session_write": true,
+    "required_evidence_types": [
+      "sequence_contract",
+      "source_completeness",
+      "source_ordering"
+    ],
+    "required_scope": "tabdeal-futures:BTC_USDT",
+    "artifact_sha256_required": true,
+    "independent_review_record_required": true,
+    "failure_mode": "BLOCKED",
+    "production_observation_authorized": false
+  }
 }
