@@ -167,6 +167,30 @@ def test_tampered_or_partial_journal_fails_closed_and_is_preserved(tmp_path):
     assert path.read_text() == tampered
 
 
+def test_journal_rejects_missing_required_field_even_when_digest_is_recomputed(tmp_path):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock)
+    s.start()
+    s.close()
+    path = tmp_path / "supervisor_events.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    first = json.loads(lines[0])
+    del first["boot_id"]
+    body = {key: value for key, value in first.items() if key != "event_sha256"}
+    canonical = json.dumps(
+        body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    ).encode("utf-8")
+    first["event_sha256"] = hashlib.sha256(canonical).hexdigest()
+    lines[0] = json.dumps(first, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+    tampered = path.read_bytes()
+
+    next_run = supervisor(tmp_path, clock, "run-b")
+    with pytest.raises(SupervisorError, match="JOURNAL_EVENT_SCHEMA_INVALID"):
+        next_run.start()
+    assert path.read_bytes() == tampered
+
+
 def test_journal_rejects_boolean_event_number_even_when_digest_is_recomputed(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
