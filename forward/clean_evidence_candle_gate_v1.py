@@ -78,6 +78,6 @@ class CleanEvidenceCandleGateV1:
             return CleanEvidenceCandleResult(False, (), (), "INVALID_FORWARD_INPUT")
 
         if not result.safe_for_decision:
-            reason = next((event.reason for event in result.events if event.reason), None)
-            return CleanEvidenceCandleResult(False, (), (), reason or "SEQUENCE_UNSAFE")
+            event_reason = next((event.reason for event in result.events if event.reason), None)
+            return CleanEvidenceCandleResult(False, (), (), result.reason or event_reason or "SEQUENCE_UNSAFE")
         return CleanEvidenceCandleResult(True, tuple(result.candles), tuple(result.gaps), "CANDLE_SAFE")
