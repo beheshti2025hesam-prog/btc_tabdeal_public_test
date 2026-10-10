@@ -22,12 +22,12 @@ class SequenceEvent:
 
 
 class SequenceIntegrityV1:
-    """Conservatively observe opaque sequence values without interpreting them.
+    """Observe opaque sequence values without interpreting their semantics.
 
     last_sequence is retained for compatibility and means only the most
     recently observed native value. It does not imply monotonicity or ordering.
-    Every observed record is retained in bounded in-memory state for this
-    connection epoch. Durable evidence persistence remains the caller's duty.
+    Every observation is retained in bounded in-memory state for this connection
+    epoch. Durable evidence persistence remains the caller's responsibility.
     """
 
     def __init__(self, *, max_records: int = 100_000) -> None:
@@ -81,11 +81,11 @@ class SequenceIntegrityV1:
         return {
             "diagnostic_schema": "hes_sequence_reuse_observation_v2",
             "first_payload_sha256": SequenceIntegrityV1._digest(previous),
-            "observed_payload_sha256": SequenceIntegrityV1._digest(current),
+            "conflicting_payload_sha256": SequenceIntegrityV1._digest(current),
             "same_payload": previous == current,
             "differing_fields": differing,
             "first_values": {key: previous.get(key) for key in differing},
-            "observed_values": {key: current.get(key) for key in differing},
+            "conflicting_values": {key: current.get(key) for key in differing},
             "other_fields_changed": other_fields_changed,
         }
 
