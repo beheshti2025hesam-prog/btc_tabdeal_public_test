@@ -1,5 +1,12 @@
-"""Fail-closed sequence integrity state machine for forward observations."""
+"""Fail-closed observations for opaque source sequence metadata.
+
+The Tabdeal Futures sequence contract is undocumented. This module therefore
+preserves native scalar values but does not infer numeric ordering, continuity,
+trade identity, or redelivery from them. Any repeated native sequence is
+blocked for dependent consumers until a source-specific contract is reviewed.
+"""
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 import hashlib
 import json
@@ -8,87 +15,113 @@ from typing import Any
 
 @dataclass(frozen=True)
 class SequenceEvent:
-    sequence: int
+    sequence: int | str
     status: str
     reason: str | None = None
     diagnostic: dict[str, Any] | None = field(default=None, compare=False)
 
 
 class SequenceIntegrityV1:
-    """Tracks monotonic source sequence identifiers without repairing or reordering data.
+    """Conservatively observe opaque sequence values without interpreting them.
 
-Tabdeal sequence values are treated as ordered identifiers, not contiguous counters.
-Continuity is enforced by rejecting regressions and conflicting duplicates; a numeric
-jump is observable but is not, by itself, evidence of a missing market event.
-"""
+    \`\`last_sequence\`\` is retained for compatibility and means only the most
+    recently observed native value. It does not imply monotonicity or ordering.
+    Every observed record is retained in bounded in-memory state for this
+    connection epoch. Durable evidence persistence remains the caller's duty.
+    """
 
     def __init__(self, *, max_records: int = 100_000) -> None:
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
-        self.last_sequence: int | None = None
-        self._records: dict[int, dict[str, Any]] = {}
+        self.last_sequence: int | str | None = None
+        self._records: list[dict[str, Any]] = []
+        self._first_by_sequence: dict[tuple[str, int | str], dict[str, Any]] = {}
 
     @staticmethod
-    def _seq(value: Any) -> int:
-        try:
-            seq = int(value)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid sequence") from exc
-        if seq < 0:
+    def _seq(value: Any) -> int | str:
+        # Do not coerce native values: 7, "7", and "007" are distinct.
+        # bool is excluded even though bool is a subclass of int in Python.
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
             raise ValueError("invalid sequence")
-        return seq
+        if isinstance(value, str) and not value:
+            raise ValueError("invalid sequence")
+        return value
+
+    @staticmethod
+    def _sequence_key(value: int | str) -> tuple[str, int | str]:
+        return (type(value).__name__, value)
 
     @staticmethod
     def _digest(record: dict[str, Any]) -> str:
-        canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
+        canonical = json.dumps(
+            record, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+        )
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     @staticmethod
-    def _conflict_diagnostic(previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
-        # Persist only normalized public market fields; never arbitrary input payloads.
-        safe_fields = ("source", "symbol", "price", "amount", "side", "source_updated", "sequence")
-        differing = [key for key in safe_fields if previous.get(key) != current.get(key)]
+    def _repeat_diagnostic(
+        previous: dict[str, Any], current: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Store hashes and allowlisted field deltas, not arbitrary raw payloads.
+        safe_fields = (
+            "source", "symbol", "price", "amount", "side",
+            "source_updated", "sequence",
+        )
+        differing = [
+            key for key in safe_fields if previous.get(key) != current.get(key)
+        ]
         previous_keys = set(previous)
         current_keys = set(current)
         other_fields_changed = sorted(
-            key for key in (previous_keys | current_keys)
+            key
+            for key in (previous_keys | current_keys)
             if key not in safe_fields and previous.get(key) != current.get(key)
         )
         return {
-            "diagnostic_schema": "hes_sequence_conflict_fingerprint_v1",
+            "diagnostic_schema": "hes_sequence_reuse_observation_v2",
             "first_payload_sha256": SequenceIntegrityV1._digest(previous),
-            "conflicting_payload_sha256": SequenceIntegrityV1._digest(current),
+            "observed_payload_sha256": SequenceIntegrityV1._digest(current),
+            "same_payload": previous == current,
             "differing_fields": differing,
             "first_values": {key: previous.get(key) for key in differing},
-            "conflicting_values": {key: current.get(key) for key in differing},
+            "observed_values": {key: current.get(key) for key in differing},
             "other_fields_changed": other_fields_changed,
         }
 
     def observe(self, record: dict[str, Any]) -> SequenceEvent:
         seq = self._seq(record.get("sequence"))
-        previous = self._records.get(seq)
-        if previous is not None:
-            if previous == record:
-                return SequenceEvent(seq, "IDEMPOTENT_DUPLICATE")
-            return SequenceEvent(
-                seq, "REJECT_STREAM", "CONFLICTING_DUPLICATE_SEQUENCE",
-                self._conflict_diagnostic(previous, record),
-            )
+        current = dict(record)
 
-        if self.last_sequence is not None:
-            if seq < self.last_sequence:
-                return SequenceEvent(seq, "ANOMALY", "OUT_OF_ORDER_SEQUENCE")
         if len(self._records) >= self.max_records:
             return SequenceEvent(
-                seq, "REJECT_STREAM", "SEQUENCE_STATE_BOUND_EXCEEDED",
+                seq,
+                "REJECT_STREAM",
+                "SEQUENCE_STATE_BOUND_EXCEEDED",
                 {"max_records": self.max_records},
             )
-        self._records[seq] = dict(record)
+
+        key = self._sequence_key(seq)
+        previous = self._first_by_sequence.get(key)
+        # Keep every observation, including identical payloads. Sequence alone
+        # cannot prove a duplicate delivery, so dependent snapshots fail closed.
+        self._records.append(current)
         self.last_sequence = seq
+
+        if previous is not None:
+            diagnostic = self._repeat_diagnostic(previous, current)
+            reason = (
+                "REPEATED_SEQUENCE_IDENTITY_UNPROVEN"
+                if previous == current
+                else "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
+            )
+            return SequenceEvent(seq, "REJECT_STREAM", reason, diagnostic)
+
+        self._first_by_sequence[key] = current
         return SequenceEvent(seq, "ACCEPTED")
 
     def reset_for_reconnect(self) -> None:
-        """Clear continuity only; never fabricate continuity across reconnect."""
+        """Start a new connection epoch; callers must preserve prior evidence."""
         self.last_sequence = None
         self._records.clear()
+        self._first_by_sequence.clear()
