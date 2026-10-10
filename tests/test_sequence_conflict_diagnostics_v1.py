@@ -48,6 +48,13 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     # Test-only harness: isolate downstream algorithm tests from the independent
     # provenance gate. Production modules are never given a bypass; dedicated
     # negative tests below keep the real verifier wired and fail-closed.
+    if request.node.name in {
+        "test_runner_persists_conflict_fingerprint_and_still_blocks",
+        "test_runner_fails_closed_when_transport_metadata_bound_is_exceeded",
+    }:
+        monkeypatch.setattr(runner_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
@@ -62,12 +69,6 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
         "sequence": 41627925358,
     }
 
-    if request.node.name in {
-        "test_runner_persists_conflict_fingerprint_and_still_blocks",
-        "test_runner_fails_closed_when_transport_metadata_bound_is_exceeded",
-    }:
-        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
-        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
     conflicting = {**first, "price": "101"}
 
     assert guard.observe(first).status == "ACCEPTED"
