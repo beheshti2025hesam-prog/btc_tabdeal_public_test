@@ -39,10 +39,23 @@ class ForwardObservationPathResult:
     diagnostics: tuple[dict[str, Any], ...] = ()
 
 class ForwardObservationPathV1:
-    def __init__(self, journal_path: str | Path, *, max_records: int = 100_000):
+    def __init__(
+        self,
+        journal_path: str | Path,
+        *,
+        max_records: int = 100_000,
+        source_completeness_verified: bool = False,
+        source_completeness_evidence_ref: str | None = None,
+    ):
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
+        self.source_completeness_verified = bool(
+            source_completeness_verified
+            and isinstance(source_completeness_evidence_ref, str)
+            and source_completeness_evidence_ref.strip()
+        )
+        self.source_completeness_evidence_ref = source_completeness_evidence_ref
         self.journal = ObservationJournalV1(journal_path)
         self.writer = ObservationJournalIntegrationV1(self.journal)
 
@@ -63,6 +76,13 @@ class ForwardObservationPathV1:
         if not forward_run_id.strip():
             raise ValueError("forward_run_id required")
 
+        if not self.source_completeness_verified:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "SOURCE_COMPLETENESS_UNVERIFIED",
+                ({"source_completeness_evidence_required": True},),
+            )
+
         bounded_frames = list(islice(frames, self.max_records + 1))
         if len(bounded_frames) > self.max_records:
             return ForwardObservationPathResult(
@@ -71,7 +91,11 @@ class ForwardObservationPathV1:
                 ({"max_records": self.max_records},),
             )
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
-        result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
+        result = SequenceAwareCandleIngestionV1(
+            max_sequence_records=self.max_records,
+            source_completeness_verified=self.source_completeness_verified,
+            source_completeness_evidence_ref=self.source_completeness_evidence_ref,
+        ).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",
