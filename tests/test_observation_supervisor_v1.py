@@ -120,9 +120,9 @@ def test_continuity_proof_requires_duration_and_bounded_heartbeat_gaps(tmp_path)
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=15)
@@ -135,7 +135,7 @@ def test_continuity_fails_when_heartbeat_gap_exceeds_bound(tmp_path):
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(31)
     s.stop()
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=15)
@@ -148,7 +148,7 @@ def test_continuity_fails_on_boot_id_change(tmp_path):
     s = supervisor(tmp_path, clock, boot_id="boot-a")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     s.close()
     # A separate run after reboot has a different boot identity and must not
     # be interpreted as continuity with the first run.
@@ -243,7 +243,7 @@ def test_continuity_requires_durable_stop_marker(tmp_path):
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(21)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     report = s.continuity_report(required_seconds=20, max_heartbeat_gap_seconds=30)
     assert not report["proven"]
     assert report["reason"] == "SESSION_NOT_STOPPED_OR_DUPLICATE_STOP"
@@ -255,9 +255,9 @@ def test_continuity_fails_when_interruption_write_fails_but_stop_succeeds(tmp_pa
     s = supervisor(tmp_path, clock)
     s.start()
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(10)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     original_append = s._append
 
     def fail_interruption(events, *, event_type, run_id, details=None):
@@ -359,7 +359,7 @@ def test_hash_valid_but_semantically_invalid_journal_is_rejected_and_preserved(
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -390,7 +390,7 @@ def test_hash_valid_journal_with_duplicate_or_reordered_event_numbers_is_rejecte
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -412,7 +412,7 @@ def test_hash_valid_cross_run_event_interleaving_is_rejected_and_preserved(tmp_p
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -446,7 +446,7 @@ def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_by
     s = supervisor(tmp_path, clock, run_id="source-run")
     s.start()
     clock.advance(1)
-    s.heartbeat(healthy=True)
+    s.heartbeat(evidence=source_health_evidence(s, clock))
     clock.advance(1)
     s.stop()
 
@@ -470,7 +470,7 @@ def test_legacy_healthy_boolean_fails_closed_and_invalidates_session(tmp_path):
     clock = FakeClock()
     s = supervisor(tmp_path, clock)
     s.start()
-    event = s.heartbeat(healthy=True)
+    event = s.heartbeat(evidence=source_health_evidence(s, clock))
     assert event["event_type"] == "INTERRUPTION"
     assert event["details"]["reason_code"] == "SOURCE_HEALTH_EVIDENCE_REQUIRED"
     with pytest.raises(SupervisorError, match="SESSION_ALREADY_INTERRUPTED"):
