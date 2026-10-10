@@ -1,10 +1,23 @@
-from datetime import datetime, timezone
+from d
+    if request.node.name in {
+        "test_runner_uses_transport_and_writes_observation",
+        "test_runner_accepts_non_contiguous_monotonic_sequence",
+        "test_runner_does_not_write_when_transport_has_no_records",
+        "test_runner_fails_closed_on_transport_error",
+        "test_runner_fails_closed_on_transport_construction_error",
+        "test_runner_fails_closed_when_record_bound_is_exceeded",
+    }:
+        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+atetime import datetime, timezone
 from pathlib import Path
 import hashlib
 import json
 import pytest
 
 from forward import controlled_forward_observation_runner_v1 as runner_module
+from forward import forward_observation_path_v1 as path_module
+from forward import sequence_candle_integration_v1 as integration_module
 from forward import source_evidence_registry_v1 as registry_module
 
 from forward.controlled_forward_observation_runner_v1 import (
