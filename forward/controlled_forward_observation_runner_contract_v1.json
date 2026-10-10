@@ -11,5 +11,8 @@
   "historical_inputs_allowed": false,
   "future_outcomes_allowed": false,
   "collector_autostart": false,
-  "fail_closed": true
+  "fail_closed": true,
+  "source_completeness_verified_default": false,
+  "source_completeness_evidence_ref_required": true,
+  "source_completeness_block_reason": "SOURCE_COMPLETENESS_UNVERIFIED"
 }
