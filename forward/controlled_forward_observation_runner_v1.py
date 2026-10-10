@@ -277,10 +277,13 @@ class ControlledForwardObservationRunnerV1:
         result = ForwardObservationPathV1(
             self.journal_path,
             max_records=self.max_records,
+            sequence_contract_verified=self.sequence_contract_verified,
+            sequence_contract_evidence_ref=self.sequence_contract_evidence_ref,
             source_completeness_verified=self.source_completeness_verified,
             source_completeness_evidence_ref=self.source_completeness_evidence_ref,
             source_ordering_verified=self.source_ordering_verified,
             source_ordering_evidence_ref=self.source_ordering_evidence_ref,
+            source_evidence_registry_path=self.source_evidence_registry_path,
         ).observe(
             records,
             as_of=observed_at,
