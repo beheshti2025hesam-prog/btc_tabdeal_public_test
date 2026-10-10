@@ -20,8 +20,8 @@ def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
 
 def verified_ingestion():
     return SequenceAwareCandleIngestionV1(
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:reviewed-exact-feed-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-exact-feed-completeness-evidence",
     )
 
 
