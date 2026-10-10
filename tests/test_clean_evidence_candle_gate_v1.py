@@ -19,6 +19,8 @@ def verified_gate():
     return CleanEvidenceCandleGateV1(
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-exact-feed-completeness-evidence",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-exact-feed-ordering-evidence",
     )
 
 
