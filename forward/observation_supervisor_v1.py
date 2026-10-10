@@ -120,6 +120,11 @@ class ForwardObservationSupervisorV1:
             return []
         events: list[dict[str, Any]] = []
         previous_digest: str | None = None
+        active_run: str | None = None
+        interrupted_runs: set[str] = set()
+        seen_runs: set[str] = set()
+        last_mono_by_run: dict[str, int] = {}
+        boot_by_run: dict[str, str] = {}
         try:
             with self.journal_path.open("r", encoding="utf-8", newline="") as stream:
                 for expected_no, line in enumerate(stream, start=1):
@@ -164,6 +169,37 @@ class ForwardObservationSupervisorV1:
                         raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
                     if event.get("previous_event_sha256") != previous_digest:
                         raise SupervisorError("JOURNAL_CHAIN_BROKEN")
+
+                    # A valid digest chain is not sufficient: enforce lifecycle,
+                    # run ownership, boot identity, and per-run monotonic order.
+                    if run_id in boot_by_run and boot_by_run[run_id] != boot_id:
+                        raise SupervisorError("JOURNAL_BOOT_ID_CHANGED")
+                    if run_id in last_mono_by_run and mono < last_mono_by_run[run_id]:
+                        raise SupervisorError("JOURNAL_MONOTONIC_REGRESSION")
+
+                    if event_type == "SESSION_STARTED":
+                        if active_run is not None or run_id in seen_runs:
+                            raise SupervisorError("JOURNAL_LIFECYCLE_INVALID")
+                        active_run = run_id
+                        seen_runs.add(run_id)
+                        interrupted_runs.discard(run_id)
+                    elif event_type in {"HEARTBEAT", "INTERRUPTION", "SESSION_INTERRUPTED", "SESSION_STOPPED"}:
+                        if active_run != run_id:
+                            raise SupervisorError("JOURNAL_EVENT_RUN_MISMATCH")
+                        if event_type == "HEARTBEAT":
+                            if run_id in interrupted_runs:
+                                raise SupervisorError("JOURNAL_LIFECYCLE_INVALID")
+                        elif event_type in INTERRUPTION_TYPES:
+                            if run_id in interrupted_runs:
+                                raise SupervisorError("JOURNAL_LIFECYCLE_INVALID")
+                            interrupted_runs.add(run_id)
+                        elif event_type == "SESSION_STOPPED":
+                            stopped_interrupted = details.get("interrupted")
+                            if type(stopped_interrupted) is not bool or stopped_interrupted != (run_id in interrupted_runs):
+                                raise SupervisorError("JOURNAL_LIFECYCLE_INVALID")
+                            active_run = None
+                    boot_by_run[run_id] = boot_id
+                    last_mono_by_run[run_id] = mono
                     previous_digest = event["event_sha256"]
                     events.append(event)
         except UnicodeError as exc:
