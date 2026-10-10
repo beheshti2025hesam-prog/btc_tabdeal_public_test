@@ -182,7 +182,7 @@ def test_journal_rejects_missing_required_field_even_when_digest_is_recomputed(t
     ).encode("utf-8")
     first["event_sha256"] = hashlib.sha256(canonical).hexdigest()
     lines[0] = json.dumps(first, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     tampered = path.read_bytes()
 
     next_run = supervisor(tmp_path, clock, "run-b")
