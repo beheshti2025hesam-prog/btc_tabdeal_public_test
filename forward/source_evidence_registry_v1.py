@@ -104,7 +104,10 @@ class SourceEvidenceRegistryV1:
             raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_PATH_OUTSIDE_ROOT") from exc
         if _sha256(artifact) != item["evidence_sha256"]:
             raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_ARTIFACT_DIGEST_MISMATCH")
-        return dict(item)
+        # A pinned registry and artifact hash prove byte integrity, not reviewer identity
+        # or provenance. This module has no authenticated review-record verifier; never
+        # authorize evidence from a free-form status/reference string alone.
+        raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_REVIEW_PROVENANCE_UNVERIFIABLE")
 
 
 
