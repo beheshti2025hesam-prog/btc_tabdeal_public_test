@@ -65,6 +65,7 @@ class ControlledForwardObservationRunnerV1:
         self.sequence_contract_verified = sequence_contract_verified is True and bool(
             isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
         )
+        self.sequence_contract_evidence_ref = sequence_contract_evidence_ref
         self.source_completeness_verified = source_completeness_verified is True and bool(
             isinstance(source_completeness_evidence_ref, str) and source_completeness_evidence_ref.strip()
         )
