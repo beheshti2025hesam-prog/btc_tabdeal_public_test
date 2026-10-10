@@ -14,6 +14,9 @@ from .forward_observation_path_v1 import ForwardObservationPathV1
 from .observation_session_manager_v1 import ObservationSessionManagerV1
 from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
+from .source_evidence_registry_v1 import SourceEvidenceRegistryError, SourceEvidenceRegistryV1
+
+DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "evidence" / "source_evidence_registry_v1.json"
 
 
 @dataclass(frozen=True)
@@ -52,6 +55,7 @@ class ControlledForwardObservationRunnerV1:
         source_completeness_evidence_ref: str | None = None,
         source_ordering_verified: bool = False,
         source_ordering_evidence_ref: str | None = None,
+        source_evidence_registry_path: str | Path | None = None,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
@@ -69,6 +73,7 @@ class ControlledForwardObservationRunnerV1:
             isinstance(source_ordering_evidence_ref, str) and source_ordering_evidence_ref.strip()
         )
         self.source_ordering_evidence_ref = source_ordering_evidence_ref
+        self.source_evidence_registry_path = Path(source_evidence_registry_path) if source_evidence_registry_path is not None else DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -132,6 +137,41 @@ class ControlledForwardObservationRunnerV1:
                     "network_started": False,
                     "session_written": False,
                     "source_ordering_evidence_required": True,
+                },),
+            )
+
+        # Non-empty caller strings/booleans are not evidence. Resolve all three
+        # claims against the release-pinned registry before any session/network I/O.
+        try:
+            registry = SourceEvidenceRegistryV1.load(self.source_evidence_registry_path)
+            scope = "tabdeal-futures:BTC_USDT"
+            registry.resolve(
+                self.sequence_contract_evidence_ref or "",
+                evidence_type="sequence_contract",
+                source_scope=scope,
+            )
+            registry.resolve(
+                self.source_completeness_evidence_ref or "",
+                evidence_type="source_completeness",
+                source_scope=scope,
+            )
+            registry.resolve(
+                self.source_ordering_evidence_ref or "",
+                evidence_type="source_ordering",
+                source_scope=scope,
+            )
+        except SourceEvidenceRegistryError as exc:
+            return ControlledObservationRunnerResult(
+                run_id="NOT_STARTED",
+                status="BLOCKED",
+                records_received=0,
+                journal_path=str(self.journal_path),
+                reason=exc.code,
+                snapshot_id=None,
+                diagnostics=({
+                    "network_started": False,
+                    "session_written": False,
+                    "source_evidence_registry_verified": False,
                 },),
             )
 
