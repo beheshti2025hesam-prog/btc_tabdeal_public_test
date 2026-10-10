@@ -17,12 +17,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
-      - name: Run isolated supervisor tests
-        run: python -m pytest -q tests/test_observation_supervisor_v1.py
-      - name: Assert hard boundaries
+      - name: Run isolated supervisor tests and static safety guardrails
+        run: python -m pytest -q tests/test_observation_supervisor_v1.py tests/test_observation_supervisor_boundaries_v1.py
+      - name: Assert explicit safe-mode marker
         run: |
-          ! grep -nE 'create_order|api/v1/order|systemctl|websocket|requests\.' forward/observation_supervisor_v1.py
           grep -q 'execution_enabled' forward/observation_supervisor_v1.py
           echo "SUPERVISOR_LEDGER=PASS"
+          echo "STATIC_BOUNDARY_GUARDRAILS=PASS"
           echo "NETWORK_COLLECTION=OFF"
           echo "EXECUTION=OFF"
