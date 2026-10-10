@@ -7,8 +7,8 @@ def rec(seq, price="1"):
 
 def verified_gate():
     return CleanEvidenceSequenceGateV1(
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:reviewed-exact-feed-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-exact-feed-completeness-evidence",
     )
 
 
