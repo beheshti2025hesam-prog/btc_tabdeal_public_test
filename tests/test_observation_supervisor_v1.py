@@ -322,7 +322,7 @@ def _rewrite_as_hash_valid_journal(path, event_types, *, event_numbers=None, run
             event["details"] = {"reason_code": "TEST_STOP", "interrupted": False}
         elif event_type == "HEARTBEAT":
             event["details"] = dict(heartbeat_details) if heartbeat_details is not None else {
-                "source_health": "HEALTHY", "reason_code": "TEST"
+                "source_health": "HEALTHY", "reason_code": "SOURCE_HEALTHY"
             }
         elif event_type == "SESSION_STARTED":
             event["details"] = {"mode": "OBSERVATION_ONLY", "decision": "NO_TRADE_ONLY", "execution_enabled": False}
@@ -437,6 +437,7 @@ def test_hash_valid_cross_run_event_interleaving_is_rejected_and_preserved(tmp_p
         {"source_health": None, "reason_code": "TEST"},
         {"source_health": "HEALTHY", "reason_code": ""},
         {"source_health": "HEALTHY", "reason_code": 7},
+        {"source_health": "HEALTHY", "reason_code": "FORGED_HEALTH"},
     ],
 )
 def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_bytes(
