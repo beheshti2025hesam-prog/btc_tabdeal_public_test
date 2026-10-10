@@ -24,4 +24,6 @@ jobs:
       - name: Run Data Foundation integration tests
         env:
           PYTHONPATH: .
-        run: pytest -q tests/data_engine/test_foundation.py
+        run: |
+          pytest -q tests/data_engine/test_foundation.py
+          pytest -q tests/test_source_evidence_registry_v1.py
