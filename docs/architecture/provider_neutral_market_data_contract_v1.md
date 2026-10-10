@@ -149,6 +149,25 @@ Before any implementation is considered reviewable, tests using temporary synthe
 
 These tests validate HES's local persistence behavior only. They do not establish Tabdeal Futures `trade.sequence` semantics, upstream delivery completeness, or authorization to start the 48-hour observation.
  
+## Existing implementation gap — explicit non-equivalence
+
+The current `main` implementations are **not yet a conforming persistence path for this contract**. This proposal must not be read as claiming that the fields below are already stored, hashed, or recoverable.
+
+- `core/models/trade.py::CanonicalTrade` currently has `event_id: str`, `sequence: Optional[int]`, normalized numeric price/quantity, and source/exchange/symbol/side/timestamps. It has no explicit durable `receipt_id`, schema/contract version, connection epoch, raw-evidence reference/hash, or native-ID type/original-representation field. Coercing an opaque native ID/sequence into `str` or `int` can lose source representation or falsely imply semantics.
+- `core/evaluation/evidence.py::EvidenceSnapshot` currently hashes project/owner/source commit and boolean evidence checks. It does not bind a dataset-manifest hash, canonical-dataset hash, evaluation window, run/source bounds, or a `DataQualityReport` hash.
+- `core/evaluation/registry.py::EvidenceRegistry` is an immutable in-memory tuple. By itself it is not a durable, crash-recoverable, append-only on-disk journal.
+
+### Required implementation boundary
+
+1. Keep the provider-neutral receipt/provenance envelope authoritative and non-lossy. Preserve opaque native values and their original representation; do not force them into the current `CanonicalTrade` fields when that would lose information.
+2. Before implementation, choose and independently review one explicit approach: (a) a versioned schema evolution of the existing canonical/evidence models, or (b) a lossless envelope linked to a documented projection into the existing models. Do not create a parallel evidence registry that competes with the existing source-of-truth path.
+3. If a required provenance element cannot be represented and verified end-to-end, mark the projection/evaluation as incomplete and fail closed. A successful conversion into `CanonicalTrade` alone is not proof that the provenance contract was preserved.
+4. Keep durable receipt-journal implementation, schema migration, and evidence persistence changes in a separate, narrowly scoped implementation PR with independent review; this documentation PR authorizes none of them.
+5. Add synthetic regression tests for: opaque native sequence as string/null/non-numeric; numeric-looking IDs with distinct original representations; event-ID collision across provider/product/connection epoch; provenance loss during projection; and missing/mismatched manifest, evaluation-window, run, or quality-report bindings.
+6. Tests must assert that legacy model compatibility does not silently downgrade evidence classification or turn an unknown/invalid source field into a trusted identity. No live network, production evidence, VPS, observation, or execution is involved.
+
+This section records a verified source-code mismatch against the proposed target contract. It is a design constraint, not approval of an implementation or a relaxation of any safety gate.
+
 ## Rollout gates
 1. Review and freeze this contract.
 2. Complete provider-specific official-source records, retaining explicit unknowns.
