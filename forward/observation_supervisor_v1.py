@@ -15,7 +15,9 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
+
+from forward.source_health_evidence_v1 import evaluate_source_health
 
 SCHEMA = "hes_forward_observation_supervisor_event_v1"
 INTERRUPTION_TYPES = {"INTERRUPTION", "SESSION_INTERRUPTED"}
@@ -73,14 +75,18 @@ class ForwardObservationSupervisorV1:
         boot_id: str,
         utc_now: Callable[[], datetime] | None = None,
         monotonic_ns: Callable[[], int] | None = None,
+        session_generation: int = 1,
     ) -> None:
         if not isinstance(run_id, str) or not run_id.strip():
             raise SupervisorError("RUN_ID_REQUIRED")
         if not isinstance(boot_id, str) or not boot_id.strip():
             raise SupervisorError("BOOT_ID_REQUIRED")
+        if isinstance(session_generation, bool) or not isinstance(session_generation, int) or session_generation < 1:
+            raise SupervisorError("SESSION_GENERATION_INVALID")
         self.root = Path(root)
         self.run_id = run_id
         self.boot_id = boot_id
+        self.session_generation = session_generation
         self._utc_now = utc_now or (lambda: datetime.now(timezone.utc))
         self._monotonic_ns = monotonic_ns or time.monotonic_ns
         self.journal_path = self.root / "supervisor_events.jsonl"
@@ -298,24 +304,52 @@ class ForwardObservationSupervisorV1:
             self.close()
             raise
 
-    def heartbeat(self, *, healthy: bool, reason_code: str = "HEALTHY") -> dict[str, Any]:
+    def heartbeat(
+        self,
+        *,
+        evidence: Mapping[str, Any] | None = None,
+        healthy: bool | None = None,
+        reason_code: str = "HEALTHY",
+    ) -> dict[str, Any]:
+        """Record a heartbeat only when structured source evidence validates.
+
+        The legacy caller-asserted healthy flag is retained only to fail closed
+        for stale callers; it can never create a healthy heartbeat.
+        """
         if not self._started:
             raise SupervisorError("SESSION_NOT_STARTED")
         if self._interrupted:
             raise SupervisorError("SESSION_ALREADY_INTERRUPTED")
-        if type(healthy) is not bool:
-            raise SupervisorError("HEALTH_FLAG_INVALID")
-        if not isinstance(reason_code, str) or not reason_code.strip() or len(reason_code) > 120:
-            raise SupervisorError("REASON_CODE_INVALID")
         events = self._read_verified()
         if self._active_run(events) != self.run_id:
             raise SupervisorError("SESSION_OWNERSHIP_LOST")
-        if not healthy:
+
+        if evidence is None or healthy is not None or reason_code != "HEALTHY":
+            result = {
+                "source_health": "UNHEALTHY",
+                "reason_code": "SOURCE_HEALTH_EVIDENCE_REQUIRED",
+            }
+        else:
+            result = evaluate_source_health(
+                evidence,
+                expected_run_id=self.run_id,
+                expected_session_generation=self.session_generation,
+                now_utc=self._utc_now(),
+            )
+        if result["source_health"] != "HEALTHY":
             self._interrupted = True
-            return self._append(events, event_type="INTERRUPTION", run_id=self.run_id,
-                                details={"reason_code": reason_code})
-        return self._append(events, event_type="HEARTBEAT", run_id=self.run_id,
-                            details={"source_health": "HEALTHY", "reason_code": reason_code})
+            return self._append(
+                events,
+                event_type="INTERRUPTION",
+                run_id=self.run_id,
+                details={"reason_code": result["reason_code"]},
+            )
+        return self._append(
+            events,
+            event_type="HEARTBEAT",
+            run_id=self.run_id,
+            details=result,
+        )
 
     def interrupt(self, reason_code: str) -> dict[str, Any]:
         if not self._started:
