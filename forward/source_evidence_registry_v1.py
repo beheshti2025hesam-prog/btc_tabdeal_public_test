@@ -105,3 +105,20 @@ class SourceEvidenceRegistryV1:
         if _sha256(artifact) != item["evidence_sha256"]:
             raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_ARTIFACT_DIGEST_MISMATCH")
         return dict(item)
+
+
+
+def verify_source_evidence_bundle(
+    registry_path: str | Path,
+    *,
+    sequence_contract_ref: str,
+    source_completeness_ref: str,
+    source_ordering_ref: str,
+    source_scope: str,
+) -> SourceEvidenceRegistryV1:
+    """Verify all three required proof classes against one pinned registry."""
+    registry = SourceEvidenceRegistryV1.load(registry_path)
+    registry.resolve(sequence_contract_ref, evidence_type="sequence_contract", source_scope=source_scope)
+    registry.resolve(source_completeness_ref, evidence_type="source_completeness", source_scope=source_scope)
+    registry.resolve(source_ordering_ref, evidence_type="source_ordering", source_scope=source_scope)
+    return registry
