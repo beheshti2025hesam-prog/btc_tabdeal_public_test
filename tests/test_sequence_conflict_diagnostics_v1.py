@@ -9,8 +9,6 @@ from forward.controlled_forward_observation_runner_v1 import ControlledForwardOb
 from forward import controlled_forward_observation_runner_v1 as runner_module
 from forward import forward_observation_path_v1 as path_module
 from forward import sequence_candle_integration_v1 as integration_module
-from forward import forward_observation_path_v1 as path_module
-from forward import sequence_candle_integration_v1 as integration_module
 from forward import source_evidence_registry_v1 as registry_module
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
@@ -50,13 +48,6 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     # Test-only harness: isolate downstream algorithm tests from the independent
     # provenance gate. Production modules are never given a bypass; dedicated
     # negative tests below keep the real verifier wired and fail-closed.
-    if request.node.name in {
-        "test_runner_persists_conflict_fingerprint_and_still_blocks",
-        "test_runner_fails_closed_when_transport_metadata_bound_is_exceeded",
-    }:
-        monkeypatch.setattr(runner_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
-        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
-        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
