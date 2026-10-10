@@ -18,8 +18,8 @@ class EvidenceSequenceResult:
 class CleanEvidenceSequenceGateV1:
     """Never infer order or completeness from sequence values.
 
-    A caller may set source_completeness_verified only when it has a reviewed,
-    exact-feed evidence pin. The default is intentionally blocked.
+    Trusted evidence requires separately reviewed source-completeness and
+    source-ordering evidence references. Both gates default to blocked.
     """
 
     def __init__(
@@ -27,9 +27,18 @@ class CleanEvidenceSequenceGateV1:
         *,
         source_completeness_verified: bool = False,
         source_completeness_evidence_ref: str | None = None,
+        source_ordering_verified: bool = False,
+        source_ordering_evidence_ref: str | None = None,
     ) -> None:
         self.source_completeness_verified = bool(
-            source_completeness_verified and source_completeness_evidence_ref
+            source_completeness_verified
+            and isinstance(source_completeness_evidence_ref, str)
+            and source_completeness_evidence_ref.strip()
+        )
+        self.source_ordering_verified = bool(
+            source_ordering_verified
+            and isinstance(source_ordering_evidence_ref, str)
+            and source_ordering_evidence_ref.strip()
         )
 
     def evaluate(self, records: list[dict[str, Any]]) -> EvidenceSequenceResult:
@@ -42,20 +51,16 @@ class CleanEvidenceSequenceGateV1:
             try:
                 event = gate.observe(record)
             except (TypeError, ValueError):
-                return EvidenceSequenceResult(
-                    False, (), tuple(records), "INVALID_SEQUENCE_TYPE"
-                )
+                return EvidenceSequenceResult(False, (), tuple(records), "INVALID_SEQUENCE_TYPE")
             observed.append(record)
             if event.status != "ACCEPTED":
-                return EvidenceSequenceResult(
-                    False, (), tuple(records), event.reason or event.status
-                )
+                return EvidenceSequenceResult(False, (), tuple(records), event.reason or event.status)
 
         if not self.source_completeness_verified:
-            return EvidenceSequenceResult(
-                False, (), tuple(records), "SOURCE_COMPLETENESS_UNVERIFIED"
-            )
+            return EvidenceSequenceResult(False, (), tuple(records), "SOURCE_COMPLETENESS_UNVERIFIED")
+        if not self.source_ordering_verified:
+            return EvidenceSequenceResult(False, (), tuple(records), "SOURCE_ORDERING_UNVERIFIED")
 
-        # A verified source contract must be interpreted by its source-specific
-        # adapter. This generic gate deliberately imposes no numeric gap/order rule.
-        return EvidenceSequenceResult(True, tuple(observed), (), "SEQUENCE_CONTRACT_VERIFIED")
+        # This generic gate imposes no numeric gap/order rule. Source-specific
+        # validation must be implemented only from the reviewed contract.
+        return EvidenceSequenceResult(True, tuple(observed), (), "SOURCE_CONTRACT_GATES_VERIFIED")
