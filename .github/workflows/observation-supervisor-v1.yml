@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/dedicated-observation-supervisor-v1-20261010
+      - feat/typed-source-health-evidence-v1-20261010
   pull_request:
     branches:
       - main
