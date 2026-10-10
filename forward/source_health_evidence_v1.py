@@ -62,11 +62,13 @@ def evaluate_source_health(
         or evidence["topic"] != EXPECTED_TOPIC
     ):
         return unhealthy("SOURCE_HEALTH_SCOPE_MISMATCH")
-    expected_symbol = evidence.get("expected_symbol")
+    claimed_expected_symbol = evidence.get("expected_symbol")
     observed_symbol = evidence.get("observed_symbol")
     if not isinstance(expected_symbol, str) or not expected_symbol.strip():
         return unhealthy("SOURCE_HEALTH_EXPECTED_SYMBOL_INVALID")
-    if evidence.get("expected_symbol") != expected_symbol:
+    if not isinstance(claimed_expected_symbol, str) or not claimed_expected_symbol.strip():
+        return unhealthy("SOURCE_HEALTH_EXPECTED_SYMBOL_INVALID")
+    if claimed_expected_symbol != expected_symbol:
         return unhealthy("SOURCE_HEALTH_EXPECTED_SYMBOL_MISMATCH")
     if not isinstance(observed_symbol, str) or not observed_symbol.strip():
         return unhealthy("SOURCE_HEALTH_SYMBOL_INVALID")
