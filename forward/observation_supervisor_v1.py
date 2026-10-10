@@ -174,7 +174,7 @@ class ForwardObservationSupervisorV1:
                         reason_code = details.get("reason_code")
                         if source_health != "HEALTHY":
                             raise SupervisorError("JOURNAL_HEARTBEAT_SOURCE_HEALTH_INVALID")
-                        if not isinstance(reason_code, str) or not reason_code.strip() or len(reason_code) > 120:
+                        if reason_code != "SOURCE_HEALTHY":
                             raise SupervisorError("JOURNAL_HEARTBEAT_REASON_INVALID")
                     if not isinstance(at_utc, str):
                         raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
