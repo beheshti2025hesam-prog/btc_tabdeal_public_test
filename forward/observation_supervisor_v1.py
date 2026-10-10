@@ -145,6 +145,7 @@ class ForwardObservationSupervisorV1:
         self._lock_fd: int | None = None
         self._started = False
         self._interrupted = False
+        self._source_session_identity: tuple[str, int] | None = None
 
     @staticmethod
     def _timestamp(value: datetime) -> str:
@@ -370,7 +371,14 @@ class ForwardObservationSupervisorV1:
             self._interrupted = True
             return self._append(events, event_type="INTERRUPTION", run_id=self.run_id,
                                 details={"reason_code": health_reason})
-        return self._append(events, event_type="HEARTBEAT", run_id=self.run_id, details={
+        source_session_identity = (evidence.connection_id, evidence.session_generation)
+        if self._source_session_identity is not None and source_session_identity != self._source_session_identity:
+            self._interrupted = True
+            return self._append(
+                events, event_type="INTERRUPTION", run_id=self.run_id,
+                details={"reason_code": "SOURCE_SESSION_IDENTITY_CHANGED"},
+            )
+        event = self._append(events, event_type="HEARTBEAT", run_id=self.run_id, details={
             "source_health": "HEALTHY", "reason_code": evidence.reason_code,
             "venue": evidence.venue, "product": evidence.product, "endpoint": evidence.endpoint,
             "topic": evidence.topic, "symbol": evidence.observed_symbol,
@@ -379,6 +387,8 @@ class ForwardObservationSupervisorV1:
             "received_at": evidence.received_at.astimezone(timezone.utc).isoformat(),
             "max_age_seconds": evidence.max_age_seconds,
         })
+        self._source_session_identity = source_session_identity
+        return event
 
     def interrupt(self, reason_code: str) -> dict[str, Any]:
         if not self._started:
