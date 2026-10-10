@@ -46,6 +46,8 @@ class ForwardObservationPathV1:
         max_records: int = 100_000,
         source_completeness_verified: bool = False,
         source_completeness_evidence_ref: str | None = None,
+        source_ordering_verified: bool = False,
+        source_ordering_evidence_ref: str | None = None,
     ):
         if max_records <= 0:
             raise ValueError("max_records must be positive")
@@ -56,6 +58,12 @@ class ForwardObservationPathV1:
             and source_completeness_evidence_ref.strip()
         )
         self.source_completeness_evidence_ref = source_completeness_evidence_ref
+        self.source_ordering_verified = bool(
+            source_ordering_verified
+            and isinstance(source_ordering_evidence_ref, str)
+            and source_ordering_evidence_ref.strip()
+        )
+        self.source_ordering_evidence_ref = source_ordering_evidence_ref
         self.journal = ObservationJournalV1(journal_path)
         self.writer = ObservationJournalIntegrationV1(self.journal)
 
@@ -83,6 +91,13 @@ class ForwardObservationPathV1:
                 ({"source_completeness_evidence_required": True},),
             )
 
+        if not self.source_ordering_verified:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "SOURCE_ORDERING_UNVERIFIED",
+                ({"source_ordering_evidence_required": True},),
+            )
+
         bounded_frames = list(islice(frames, self.max_records + 1))
         if len(bounded_frames) > self.max_records:
             return ForwardObservationPathResult(
@@ -95,6 +110,8 @@ class ForwardObservationPathV1:
             max_sequence_records=self.max_records,
             source_completeness_verified=self.source_completeness_verified,
             source_completeness_evidence_ref=self.source_completeness_evidence_ref,
+            source_ordering_verified=self.source_ordering_verified,
+            source_ordering_evidence_ref=self.source_ordering_evidence_ref,
         ).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
