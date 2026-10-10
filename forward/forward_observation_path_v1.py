@@ -22,6 +22,9 @@ from .clean_regime_quality_v1 import CleanRegimeQualityV1
 from .clean_regime_quality_gate_v1 import CleanRegimeQualityGateV1
 from .observation_journal_v1 import ObservationJournalV1
 from .observation_journal_integration_v1 import ObservationJournalIntegrationV1
+from .source_evidence_registry_v1 import SourceEvidenceRegistryError, SourceEvidenceRegistryV1
+
+DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "evidence" / "source_evidence_registry_v1.json"
 
 @dataclass(frozen=True)
 class ForwardObservationPathResult:
@@ -44,14 +47,24 @@ class ForwardObservationPathV1:
         journal_path: str | Path,
         *,
         max_records: int = 100_000,
+        sequence_contract_verified: bool = False,
+        sequence_contract_evidence_ref: str | None = None,
         source_completeness_verified: bool = False,
         source_completeness_evidence_ref: str | None = None,
         source_ordering_verified: bool = False,
         source_ordering_evidence_ref: str | None = None,
+        source_evidence_registry_path: str | Path | None = None,
     ):
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
+        self.sequence_contract_verified = bool(
+            sequence_contract_verified
+            and isinstance(sequence_contract_evidence_ref, str)
+            and sequence_contract_evidence_ref.strip()
+        )
+        self.sequence_contract_evidence_ref = sequence_contract_evidence_ref
+        self.source_evidence_registry_path = Path(source_evidence_registry_path) if source_evidence_registry_path is not None else DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH
         self.source_completeness_verified = bool(
             source_completeness_verified
             and isinstance(source_completeness_evidence_ref, str)
@@ -94,6 +107,13 @@ class ForwardObservationPathV1:
                 ({"max_records": self.max_records},),
             )
 
+        if not self.sequence_contract_verified:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
+                ({"sequence_contract_evidence_required": True},),
+            )
+
         if not self.source_completeness_verified:
             return ForwardObservationPathResult(
                 "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
@@ -107,6 +127,24 @@ class ForwardObservationPathV1:
                 False, None, "SOURCE_ORDERING_UNVERIFIED",
                 ({"source_ordering_evidence_required": True},),
             )
+
+        # Decision-grade path output requires registry-backed proof, not flags alone.
+        try:
+            registry = SourceEvidenceRegistryV1.load(self.source_evidence_registry_path)
+            scope = "tabdeal-futures:BTC_USDT"
+            registry.resolve(self.sequence_contract_evidence_ref or "",
+                             evidence_type="sequence_contract", source_scope=scope)
+            registry.resolve(self.source_completeness_evidence_ref or "",
+                             evidence_type="source_completeness", source_scope=scope)
+            registry.resolve(self.source_ordering_evidence_ref or "",
+                             evidence_type="source_ordering", source_scope=scope)
+        except SourceEvidenceRegistryError as exc:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, exc.code,
+                ({"source_evidence_registry_verified": False},),
+            )
+
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
         result = SequenceAwareCandleIngestionV1(
             max_sequence_records=self.max_records,
