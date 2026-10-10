@@ -36,6 +36,8 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -66,6 +68,8 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
@@ -89,6 +93,8 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -118,6 +124,8 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -146,6 +154,8 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -178,6 +188,8 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
         max_records=3,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
