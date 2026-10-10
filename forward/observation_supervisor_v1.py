@@ -158,6 +158,13 @@ class ForwardObservationSupervisorV1:
                         raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
                     if not isinstance(details, dict):
                         raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    if event_type == "HEARTBEAT":
+                        source_health = details.get("source_health")
+                        reason_code = details.get("reason_code")
+                        if source_health != "HEALTHY":
+                            raise SupervisorError("JOURNAL_HEARTBEAT_SOURCE_HEALTH_INVALID")
+                        if not isinstance(reason_code, str) or not reason_code.strip() or len(reason_code) > 120:
+                            raise SupervisorError("JOURNAL_HEARTBEAT_REASON_INVALID")
                     if not isinstance(at_utc, str):
                         raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
                     try:
