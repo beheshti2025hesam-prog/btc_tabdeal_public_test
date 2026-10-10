@@ -10,6 +10,7 @@ import fcntl
 import hashlib
 import hmac
 import json
+import math
 import os
 import time
 from datetime import datetime, timezone
@@ -271,7 +272,18 @@ class ForwardObservationSupervisorV1:
         self, *, required_seconds: float = 48 * 60 * 60,
         max_heartbeat_gap_seconds: float = 90.0,
     ) -> dict[str, Any]:
-        if required_seconds <= 0 or max_heartbeat_gap_seconds <= 0:
+        limits = (required_seconds, max_heartbeat_gap_seconds)
+        try:
+            valid_limits = all(
+                not isinstance(value, bool)
+                and isinstance(value, (int, float))
+                and math.isfinite(float(value))
+                and value > 0
+                for value in limits
+            )
+        except (OverflowError, TypeError, ValueError):
+            valid_limits = False
+        if not valid_limits:
             raise SupervisorError("CONTINUITY_LIMIT_INVALID")
         events = self._read_verified()
         selected = [e for e in events if e["run_id"] == self.run_id]
