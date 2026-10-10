@@ -72,7 +72,7 @@ def test_registry_symlink_is_rejected_even_when_target_is_pinned(tmp_path, monke
 def test_evidence_symlink_escape_is_rejected(tmp_path, monkeypatch):
     path, artifact, item = fixture(tmp_path, monkeypatch)
     outside = tmp_path.parent / (tmp_path.name + "-outside-evidence.txt")
-    outside.write_text("synthetic evidence\\n", encoding="utf-8")
+    outside.write_text("synthetic evidence\n", encoding="utf-8")
     alias = tmp_path / "nested"
     alias.mkdir()
     (alias / "linked-evidence.txt").symlink_to(outside)
@@ -81,7 +81,7 @@ def test_evidence_symlink_escape_is_rejected(tmp_path, monkeypatch):
         {"schema": "hes_source_evidence_registry_v1", "status": "REVIEWED_PINNED",
          "registry_version": 1, "entries": [item]},
         sort_keys=True, separators=(",", ":")
-    ) + "\\n").encode()
+    ) + "\n").encode()
     path.write_bytes(raw)
     monkeypatch.setattr(m, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256", hashlib.sha256(raw).hexdigest())
     registry = SourceEvidenceRegistryV1.load(path)
