@@ -296,6 +296,15 @@ class ForwardObservationSupervisorV1:
         stops = [e for e in selected if e["event_type"] == "SESSION_STOPPED"]
         end_mono = stops[-1]["monotonic_ns"] if stops else self._monotonic_ns()
         start_mono = start["monotonic_ns"]
+        if (
+            isinstance(end_mono, bool)
+            or not isinstance(end_mono, int)
+            or end_mono < 0
+            or isinstance(start_mono, bool)
+            or not isinstance(start_mono, int)
+            or start_mono < 0
+        ):
+            raise SupervisorError("MONOTONIC_CLOCK_INVALID")
         if end_mono < start_mono:
             return {"run_id": self.run_id, "proven": False, "reason": "MONOTONIC_CLOCK_REGRESSION", "continuous_seconds": 0.0}
         elapsed = (end_mono - start_mono) / 1_000_000_000
