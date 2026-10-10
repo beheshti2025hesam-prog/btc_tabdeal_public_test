@@ -40,6 +40,7 @@ def evaluate_source_health(
     *,
     expected_run_id: str,
     expected_session_generation: int,
+    expected_symbol: str,
     now_utc: datetime,
     max_receive_clock_skew_seconds: float = 5.0,
 ) -> dict[str, str]:
@@ -64,7 +65,9 @@ def evaluate_source_health(
     expected_symbol = evidence.get("expected_symbol")
     observed_symbol = evidence.get("observed_symbol")
     if not isinstance(expected_symbol, str) or not expected_symbol.strip():
-        return unhealthy("SOURCE_HEALTH_SYMBOL_INVALID")
+        return unhealthy("SOURCE_HEALTH_EXPECTED_SYMBOL_INVALID")
+    if evidence.get("expected_symbol") != expected_symbol:
+        return unhealthy("SOURCE_HEALTH_EXPECTED_SYMBOL_MISMATCH")
     if not isinstance(observed_symbol, str) or not observed_symbol.strip():
         return unhealthy("SOURCE_HEALTH_SYMBOL_INVALID")
     if observed_symbol != expected_symbol:
