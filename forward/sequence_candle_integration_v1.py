@@ -96,7 +96,9 @@ class SequenceAwareCandleIngestionV1:
             candles, gaps = ingest_closed_candles(safe, as_of=as_of)
         except ValueError as exc:
             reason = str(exc)
-            if reason not in {
+            if "future" in reason.lower():
+                reason = "INVALID_FORWARD_INPUT"
+            elif reason not in {
                 "AMBIGUOUS_EQUAL_SOURCE_TIMESTAMP_ORDER",
                 "REPEATED_SEQUENCE_IDENTITY_UNPROVEN",
             }:
