@@ -12,7 +12,7 @@ from forward.clean_evidence_candle_gate_v1 import CleanEvidenceCandleGateV1
 @pytest.fixture(autouse=True)
 def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
     artifact = tmp_path / "fixture-evidence.txt"
-    artifact.write_text("synthetic reviewed test evidence\\n", encoding="utf-8")
+    artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
     artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
     rows = [
         ("test-fixture:authoritative-contract", "sequence_contract"),
@@ -29,7 +29,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch):
     payload = {"schema": "hes_source_evidence_registry_v1", "status": "REVIEWED_PINNED",
                "registry_version": 1, "entries": entries}
     path = tmp_path / "source_evidence_registry_v1.json"
-    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\\n").encode()
+    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
     path.write_bytes(raw)
     monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
                         hashlib.sha256(raw).hexdigest())
