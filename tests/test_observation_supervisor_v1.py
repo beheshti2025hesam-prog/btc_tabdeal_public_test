@@ -279,7 +279,7 @@ def test_invalid_clock_and_configuration_fail_closed(tmp_path):
 
 
 
-def _rewrite_as_hash_valid_journal(path, event_types, *, event_numbers=None, run_ids=None):
+def _rewrite_as_hash_valid_journal(path, event_types, *, event_numbers=None, run_ids=None, heartbeat_details=None):
     """Rewrite a synthetic journal with valid hashes but deliberately bad semantics."""
     events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert len(events) == len(event_types)
@@ -298,7 +298,9 @@ def _rewrite_as_hash_valid_journal(path, event_types, *, event_numbers=None, run
         if event_type == "SESSION_STOPPED":
             event["details"] = {"reason_code": "TEST_STOP", "interrupted": False}
         elif event_type == "HEARTBEAT":
-            event["details"] = {"source_health": "HEALTHY", "reason_code": "TEST"}
+            event["details"] = dict(heartbeat_details) if heartbeat_details is not None else {
+                "source_health": "HEALTHY", "reason_code": "TEST"
+            }
         elif event_type == "SESSION_STARTED":
             event["details"] = {"mode": "OBSERVATION_ONLY", "decision": "NO_TRADE_ONLY", "execution_enabled": False}
         body = {key: value for key, value in event.items() if key != "event_sha256"}
@@ -401,4 +403,41 @@ def test_hash_valid_cross_run_event_interleaving_is_rejected_and_preserved(tmp_p
     verifier = supervisor(tmp_path, clock, run_id="new-run")
     with pytest.raises(SupervisorError, match="JOURNAL_EVENT_RUN_MISMATCH"):
         verifier.start()
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "heartbeat_details",
+    [
+        {"source_health": "UNHEALTHY", "reason_code": "TEST"},
+        {"reason_code": "TEST"},
+        {"source_health": None, "reason_code": "TEST"},
+        {"source_health": "HEALTHY", "reason_code": ""},
+        {"source_health": "HEALTHY", "reason_code": 7},
+    ],
+)
+def test_hash_valid_journal_rejects_invalid_heartbeat_semantics_and_preserves_bytes(
+    tmp_path, heartbeat_details
+):
+    clock = FakeClock()
+    s = supervisor(tmp_path, clock, run_id="source-run")
+    s.start()
+    clock.advance(1)
+    s.heartbeat(healthy=True)
+    clock.advance(1)
+    s.stop()
+
+    path = tmp_path / "supervisor_events.jsonl"
+    _rewrite_as_hash_valid_journal(
+        path,
+        ["SESSION_STARTED", "HEARTBEAT", "SESSION_STOPPED"],
+        heartbeat_details=heartbeat_details,
+    )
+    before = path.read_bytes()
+    verifier = supervisor(tmp_path, clock, run_id="new-run")
+    with pytest.raises(SupervisorError, match="JOURNAL_HEARTBEAT_(SOURCE_HEALTH|REASON)_INVALID"):
+        verifier.start()
+    assert path.read_bytes() == before
+    with pytest.raises(SupervisorError, match="JOURNAL_HEARTBEAT_(SOURCE_HEALTH|REASON)_INVALID"):
+        verifier.continuity_report(required_seconds=1, max_heartbeat_gap_seconds=30)
     assert path.read_bytes() == before
