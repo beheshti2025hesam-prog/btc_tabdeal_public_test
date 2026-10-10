@@ -64,6 +64,8 @@ def test_unverified_sequence_jump_does_not_infer_a_missing_trade():
     r = CleanEvidenceCandleGateV1(
         source_completeness_verified=True,
         source_completeness_evidence_ref="test-fixture:reviewed-exact-feed-completeness-evidence",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-exact-feed-ordering-evidence",
     ).evaluate(data, as_of=now)
     assert r.safe
     assert r.reason == "CANDLE_SAFE"
