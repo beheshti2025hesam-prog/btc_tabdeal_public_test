@@ -97,4 +97,6 @@ def verify_attestation(
         "snapshot_sha256": actual_digest,
         "signer_key_id": att["signer_key_id"],
         "source_context": att["source_context"],
+        "requested_url": att["requested_url"],
+        "final_url": att["final_url"],
     }
