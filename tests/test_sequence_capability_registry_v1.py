@@ -172,3 +172,48 @@ def test_conservative_record_cannot_grant_positive_capability(tmp_path):
     registry, lock = write_registry(tmp_path, status="active-but-conservative", claims=claims)
     with pytest.raises(RegistryError, match="UNVERIFIED_STATUS_CANNOT_GRANT_CAPABILITY"):
         load_verified_contract(registry, lock, SCOPE)
+
+
+
+def test_verified_claim_rejects_source_snapshot_digest_mismatch(tmp_path):
+    claims = {
+        "unique": True, "monotonic": True, "contiguous": True, "ordered": True,
+        "comparable_across_reconnect": False, "comparable_across_symbols": False,
+        "comparable_across_channels": False, "gap_detection_supported": True,
+        "duplicate_identity_supported": False,
+    }
+    (tmp_path / "source.md").write_text("actual source snapshot excerpt", encoding="utf-8")
+    registry, lock = write_registry(
+        tmp_path, status="verified", claims=claims,
+        evidence=[{
+            "url": "https://docs.tabdeal.org/", "source_kind": "primary",
+            "retrieved_at": "2026-10-10", "source_content_sha256": "0" * 64,
+            "source_snapshot_file": "source.md",
+            "evidence_excerpt": "actual source snapshot excerpt",
+        }],
+    )
+    with pytest.raises(RegistryError, match="SOURCE_SNAPSHOT_DIGEST_MISMATCH"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+def test_verified_claim_requires_excerpt_to_exist_in_pinned_snapshot(tmp_path):
+    claims = {
+        "unique": True, "monotonic": True, "contiguous": True, "ordered": True,
+        "comparable_across_reconnect": False, "comparable_across_symbols": False,
+        "comparable_across_channels": False, "gap_detection_supported": True,
+        "duplicate_identity_supported": False,
+    }
+    snapshot = b"captured primary source text"
+    (tmp_path / "source.md").write_bytes(snapshot)
+    registry, lock = write_registry(
+        tmp_path, status="verified", claims=claims,
+        evidence=[{
+            "url": "https://docs.tabdeal.org/", "source_kind": "primary",
+            "retrieved_at": "2026-10-10",
+            "source_content_sha256": hashlib.sha256(snapshot).hexdigest(),
+            "source_snapshot_file": "source.md",
+            "evidence_excerpt": "claim not present in captured source",
+        }],
+    )
+    with pytest.raises(RegistryError, match="SOURCE_EXCERPT_NOT_IN_SNAPSHOT"):
+        load_verified_contract(registry, lock, SCOPE)
