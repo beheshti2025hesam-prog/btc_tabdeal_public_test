@@ -2,6 +2,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
 import json
+import base64
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from forward.source_attestation_verifier_v1 import _canonical_payload
 
 import forward.controlled_forward_observation_runner_v1 as runner_module
 
@@ -19,7 +24,34 @@ def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
         "field_path": "trade.sequence", "protocol_version": "unknown",
     }
     snapshot_bytes = b"Synthetic test fixture; not real exchange evidence.\\n"
-    (tmp_path / "source_snapshot.md").write_bytes(snapshot_bytes)
+    snapshot_path = tmp_path / "source_snapshot.md"
+    snapshot_path.write_bytes(snapshot_bytes)
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    attestation = {
+        "schema_version": "hes-source-attestation-v1",
+        "snapshot_sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
+        "requested_url": "https://docs.tabdeal.org/test-only",
+        "final_url": "https://docs.tabdeal.org/test-only",
+        "redirect_chain": [
+            {"url": "https://docs.tabdeal.org/test-only", "status": 200}
+        ],
+        "retrieved_at_utc": "2026-10-11T00:00:00Z",
+        "retrieval_tool": "synthetic-test-fixture",
+        "retrieval_tool_version": "1",
+        "source_context": scope,
+        "signer_key_id": "synthetic-test-key",
+    }
+    attestation["signature"] = base64.b64encode(
+        private_key.sign(_canonical_payload(attestation))
+    ).decode("ascii")
+    (tmp_path / "source_attestation.json").write_text(
+        json.dumps(attestation), encoding="utf-8"
+    )
+    monkeypatch.setenv(
+        "HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64",
+        base64.b64encode(public_key).decode("ascii"),
+    )
     registry_obj = {
         "schema": "hes_sequence_capability_registry_v1",
         "registry_revision": "TEST-ONLY",
@@ -36,6 +68,7 @@ def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
                 "retrieved_at": "test-only",
                 "source_content_sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
                 "source_snapshot_file": "source_snapshot.md",
+                "source_attestation_file": "source_attestation.json",
                 "evidence_excerpt": "Synthetic test fixture; not real exchange evidence.",
             }],
         }],
@@ -268,3 +301,32 @@ def test_runner_requires_evidence_reference_even_when_verified_flag_is_true(tmp_
     assert result.status == "BLOCKED"
     assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
     assert not (tmp_path / "session.jsonl").exists()
+
+
+
+def test_runner_blocks_before_socket_or_session_when_attestation_is_tampered(tmp_path: Path, monkeypatch):
+    install_verified_test_registry(tmp_path, monkeypatch)
+    attestation_path = tmp_path / "source_attestation.json"
+    attestation = json.loads(attestation_path.read_text(encoding="utf-8"))
+    attestation["final_url"] = "https://attacker.invalid/forged"
+    attestation_path.write_text(json.dumps(attestation), encoding="utf-8")
+
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed for invalid source attestation")
+
+    journal = tmp_path / "journal.jsonl"
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED"
+    assert not session.exists()
+    assert not journal.exists()
