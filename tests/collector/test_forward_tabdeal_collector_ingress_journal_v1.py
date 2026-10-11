@@ -139,3 +139,17 @@ def test_trade_shaped_schema_drift_is_preserved_as_rejected(tmp_path):
     assert event["reason_code"] == "TRADE_SCHEMA_INVALID"
     assert base64.b64decode(event["raw_bytes_b64"]) == raw
     assert not output.exists()
+
+
+def test_empty_websocket_payload_is_preserved_not_silently_dropped(tmp_path):
+    output = tmp_path / "observations.jsonl"
+    collector = ForwardTabdealCollectorV1(str(output))
+    raw = b""
+
+    collector._process_message(raw, generation=4)
+
+    event = read_events(tmp_path / "observations.raw_ingress.jsonl")[0]
+    assert event["verdict"] == "REJECTED"
+    assert event["reason_code"] == "JSON_DECODE_ERROR"
+    assert base64.b64decode(event["raw_bytes_b64"]) == raw
+    assert not output.exists()
