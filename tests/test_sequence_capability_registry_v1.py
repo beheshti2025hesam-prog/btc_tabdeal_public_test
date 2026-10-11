@@ -159,3 +159,16 @@ def test_checked_in_tabdeal_record_and_lock_are_consistent():
     assert contract.status == "active-but-conservative"
     assert contract.semantic_class == "unknown"
     assert contract.gap_detection_authorized is False
+
+
+
+def test_conservative_record_cannot_grant_positive_capability(tmp_path):
+    claims = {
+        "unique": "unknown", "monotonic": "unknown", "contiguous": True,
+        "ordered": True, "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown", "comparable_across_channels": "unknown",
+        "gap_detection_supported": True, "duplicate_identity_supported": False,
+    }
+    registry, lock = write_registry(tmp_path, status="active-but-conservative", claims=claims)
+    with pytest.raises(RegistryError, match="UNVERIFIED_STATUS_CANNOT_GRANT_CAPABILITY"):
+        load_verified_contract(registry, lock, SCOPE)
