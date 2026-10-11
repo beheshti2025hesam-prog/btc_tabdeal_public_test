@@ -154,8 +154,33 @@ def load_verified_contract(
             source_digest = item.get("source_content_sha256")
             if not isinstance(source_digest, str) or not _SHA256.fullmatch(source_digest):
                 raise RegistryError("SOURCE_SNAPSHOT_NOT_HASH_PINNED")
-            if not isinstance(item.get("evidence_excerpt"), str) or not item["evidence_excerpt"].strip():
+            snapshot_ref = item.get("source_snapshot_file")
+            if not isinstance(snapshot_ref, str) or not snapshot_ref.strip():
+                raise RegistryError("SOURCE_SNAPSHOT_FILE_MISSING")
+            relative_snapshot = Path(snapshot_ref)
+            if relative_snapshot.is_absolute() or ".." in relative_snapshot.parts:
+                raise RegistryError("SOURCE_SNAPSHOT_PATH_INVALID")
+            evidence_root = Path(registry_path).resolve().parent
+            snapshot_path = (evidence_root / relative_snapshot).resolve()
+            try:
+                snapshot_path.relative_to(evidence_root)
+            except ValueError as exc:
+                raise RegistryError("SOURCE_SNAPSHOT_PATH_INVALID") from exc
+            try:
+                snapshot_bytes = snapshot_path.read_bytes()
+            except OSError as exc:
+                raise RegistryError("SOURCE_SNAPSHOT_UNAVAILABLE") from exc
+            if hashlib.sha256(snapshot_bytes).hexdigest() != source_digest:
+                raise RegistryError("SOURCE_SNAPSHOT_DIGEST_MISMATCH")
+            excerpt = item.get("evidence_excerpt")
+            if not isinstance(excerpt, str) or not excerpt.strip():
                 raise RegistryError("SOURCE_EXCERPT_MISSING")
+            try:
+                snapshot_text = snapshot_bytes.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise RegistryError("SOURCE_SNAPSHOT_NOT_UTF8") from exc
+            if excerpt not in snapshot_text:
+                raise RegistryError("SOURCE_EXCERPT_NOT_IN_SNAPSHOT")
         if semantic_class == "unknown" and any(claims[k] is True for k in _CAPABILITIES):
             raise RegistryError("UNKNOWN_SEMANTICS_CANNOT_GRANT_CAPABILITY")
 
