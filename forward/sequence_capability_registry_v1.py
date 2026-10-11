@@ -77,10 +77,11 @@ def load_verified_contract(
 ) -> VerifiedSequenceContract:
     """Load only a SHA-256-pinned record matching every scope dimension.
 
-    The lock is a separate trust anchor; embedding a digest inside the file it
-    hashes would be self-referential. This validates local integrity, not the
-    truth of the cited source. Positive capabilities additionally require
-    primary-source snapshot hashes and explicit evidence metadata.
+    The separate lock detects registry-only edits; when both files live in the
+    same repository, the lock itself is protected by repository review and
+    commit controls, not by cryptographic independence. This validates local
+    integrity, not the truth of the cited source. Positive capabilities
+    additionally require primary-source snapshot hashes and evidence metadata.
     """
     raw = Path(registry_path).read_bytes()
     lock_raw = Path(lock_path).read_bytes()
@@ -135,6 +136,9 @@ def load_verified_contract(
         value = claims[key]
         if type(value) is not bool and value != "unknown":
             raise RegistryError("CAPABILITY_VALUE_INVALID")
+
+    if status != "verified" and any(claims[key] is True for key in _CAPABILITIES):
+        raise RegistryError("UNVERIFIED_STATUS_CANNOT_GRANT_CAPABILITY")
 
     if status == "verified":
         evidence = record.get("source_evidence")
