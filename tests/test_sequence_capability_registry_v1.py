@@ -134,3 +134,28 @@ def test_duplicate_json_keys_are_rejected(tmp_path):
     }), encoding="utf-8")
     with pytest.raises(RegistryError, match="DUPLICATE_JSON_KEY"):
         load_verified_contract(registry, lock, SCOPE)
+
+
+
+def test_integer_is_not_accepted_as_boolean_capability(tmp_path):
+    claims = {
+        "unique": 1, "monotonic": "unknown", "contiguous": "unknown",
+        "ordered": "unknown", "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown", "comparable_across_channels": "unknown",
+        "gap_detection_supported": False, "duplicate_identity_supported": False,
+    }
+    registry, lock = write_registry(tmp_path, claims=claims)
+    with pytest.raises(RegistryError, match="CAPABILITY_VALUE_INVALID"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+def test_checked_in_tabdeal_record_and_lock_are_consistent():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    registry = root / "forward" / "sequence_capability_registry_v1.json"
+    lock = root / "forward" / "sequence_capability_registry_v1.lock.json"
+    contract = load_verified_contract(registry, lock, SCOPE)
+    assert contract.status == "active-but-conservative"
+    assert contract.semantic_class == "unknown"
+    assert contract.gap_detection_authorized is False
