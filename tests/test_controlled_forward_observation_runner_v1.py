@@ -36,7 +36,7 @@ def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
             }],
         }],
     }
-    raw = (json.dumps(registry_obj, sort_keys=True, separators=(",", ":")) + "\\n").encode()
+    raw = (json.dumps(registry_obj, sort_keys=True, separators=(",", ":")) + "\n").encode()
     registry_path = tmp_path / "test_registry.json"
     registry_path.write_bytes(raw)
     lock_path = tmp_path / "test_registry.lock.json"
