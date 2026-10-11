@@ -94,7 +94,6 @@ class ForwardTabdealCollectorV1:
     ) -> None:
         self.output = Path(output)
         self.enabled = enabled
-        self.last_sequence: int | None = None
         # Constructing the sidecar does not create files; writes begin only when
         # the explicitly enabled collector starts receiving connection events.
         journal_path = self.output.with_name(self.output.stem + ".raw_ingress.jsonl")
@@ -200,18 +199,9 @@ class ForwardTabdealCollectorV1:
             )
             return
 
+        # Sequence ordering semantics are unverified for this channel. Preserve
+        # every schema-valid trade; never suppress output based on an opaque field.
         sequence = record["sequence"]
-        if self.last_sequence is not None and sequence <= self.last_sequence:
-            self._journal(
-                event_type="FRAME", verdict="IGNORED", generation=generation,
-                raw_bytes=raw_bytes, reason_code="NON_MONOTONIC_SEQUENCE",
-                details={
-                    "raw_frame_sha256": raw_sha256,
-                    "sequence_value": sequence,
-                    "sequence_semantics": "OPAQUE_UNVERIFIED",
-                },
-            )
-            return
 
         # A durable journal append must succeed before normalized output is written.
         self._journal(
@@ -233,7 +223,6 @@ class ForwardTabdealCollectorV1:
                 details={"raw_frame_sha256": raw_sha256, "error_type": type(exc).__name__},
             )
             raise
-        self.last_sequence = sequence
 
     def run(self, *, run_seconds: int = 0) -> None:
         if not self.enabled:
