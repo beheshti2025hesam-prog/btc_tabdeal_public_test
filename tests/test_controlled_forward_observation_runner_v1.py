@@ -18,6 +18,8 @@ def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
         "channel_or_topic": "BTC_USDT raw-text subscription", "message_type": "trade-envelope",
         "field_path": "trade.sequence", "protocol_version": "unknown",
     }
+    snapshot_bytes = b"Synthetic test fixture; not real exchange evidence.\\n"
+    (tmp_path / "source_snapshot.md").write_bytes(snapshot_bytes)
     registry_obj = {
         "schema": "hes_sequence_capability_registry_v1",
         "registry_revision": "TEST-ONLY",
@@ -31,7 +33,9 @@ def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
             },
             "source_evidence": [{
                 "url": "https://example.invalid/test-only", "source_kind": "primary",
-                "retrieved_at": "test-only", "source_content_sha256": "a" * 64,
+                "retrieved_at": "test-only",
+                "source_content_sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
+                "source_snapshot_file": "source_snapshot.md",
                 "evidence_excerpt": "Synthetic test fixture; not real exchange evidence.",
             }],
         }],
