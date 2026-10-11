@@ -330,3 +330,43 @@ def test_runner_blocks_before_socket_or_session_when_attestation_is_tampered(tmp
     assert result.run_id == "NOT_STARTED"
     assert not session.exists()
     assert not journal.exists()
+
+
+
+def test_runner_blocks_coordinated_registry_and_lock_replacement_without_new_attestation(
+    tmp_path: Path, monkeypatch
+):
+    install_verified_test_registry(tmp_path, monkeypatch)
+    registry_path = tmp_path / "test_registry.json"
+    lock_path = tmp_path / "test_registry.lock.json"
+
+    # Simulate a coordinated attacker changing both the registry and its local
+    # hash lock. The independently signed source attestation is left unchanged.
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["records"][0]["source_evidence"][0]["source_content_sha256"] = "0" * 64
+    raw = (json.dumps(registry, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    registry_path.write_bytes(raw)
+    lock_path.write_text(json.dumps({
+        "schema": "hes_sequence_registry_lock_v1",
+        "registry_revision": "TEST-ONLY",
+        "registry_sha256": hashlib.sha256(raw).hexdigest(),
+    }), encoding="utf-8")
+
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed after coordinated tampering")
+
+    journal = tmp_path / "journal.jsonl"
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert not session.exists()
+    assert not journal.exists()
