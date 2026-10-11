@@ -1,0 +1,66 @@
+{
+  "records": [
+    {
+      "adapter_rule": "Expose field as opaque metadata only",
+      "bootstrap_rule": "No documented snapshot/delta contract for this field",
+      "channel_or_topic": "BTC_USDT raw-text subscription",
+      "claims": {
+        "comparable_across_channels": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "contiguous": "unknown",
+        "duplicate_identity_supported": false,
+        "gap_detection_supported": false,
+        "monotonic": "unknown",
+        "ordered": "unknown",
+        "unique": "unknown"
+      },
+      "confidence": "high for absence in reviewed public contract; low for undocumented runtime behavior",
+      "duplicate_rule": "Only exact-payload replay may be idempotently ignored; repeated value is not a conflict key",
+      "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+      "fail_closed_trigger": "Any code path attempts ordering, gap detection, or conflict detection using this field",
+      "field_path": "trade.sequence",
+      "gap_rule": "Never infer a missing event from numeric differences",
+      "known_limitations": [
+        "Current public documentation does not define inner trade object",
+        "No live capture or exchange clarification performed"
+      ],
+      "last_verified": "2026-10-10",
+      "message_type": "trade-envelope",
+      "product": "fapi-futures-margin",
+      "protocol_version": "unknown",
+      "reconnect_rule": "Reset local evidence state; do not compare across sessions",
+      "registry_revision": "2026-10-10.1",
+      "scope": {
+        "channel": true,
+        "connection": "unknown",
+        "endpoint": true,
+        "instrument": true,
+        "product": true,
+        "session": "unknown",
+        "symbol": true,
+        "venue": false
+      },
+      "semantic_class": "unknown",
+      "source_evidence": [
+        {
+          "evidence_note": "Broadcast envelope documented, inner trade fields not defined",
+          "publication_or_update_date": "Documentation lists version 0.9.0; exact section date not stated",
+          "retrieval_metadata": "HTML/Markdown extraction; source snapshot hash not yet pinned",
+          "retrieved_at": "2026-10-10",
+          "source_kind": "primary",
+          "url": "https://docs.tabdeal.org/"
+        }
+      ],
+      "status": "active-but-conservative",
+      "transport": "websocket",
+      "venue": "tabdeal",
+      "verified_examples": [
+        "{\"trade\": {...}} only; no official trade.sequence example"
+      ],
+      "wire_type": "unknown"
+    }
+  ],
+  "registry_revision": "2026-10-10.1",
+  "schema": "hes_sequence_capability_registry_v1"
+}
