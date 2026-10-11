@@ -23,15 +23,39 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Validate record-level identity artifact
+      - name: Fetch exact source commits
+        run: |
+          git fetch --no-tags origin b8c4fe4fa054dbfa4fca17d2f307d269c16335e1
+          git fetch --no-tags origin b9ebecf061dfe9a084797d77b48a2c7846d269e3
+          git fetch --no-tags origin e5f85f06b19b8427f761b95ab56ad15ccd7053c0
+
+      - name: Verify source bytes and all 42 record lineages
         run: |
           python - <<'PY'
-          import hashlib, json
+          import csv, hashlib, io, json, math, subprocess
+          from datetime import datetime, timezone
+          from decimal import Decimal
           from pathlib import Path
 
           p = Path("evidence/source_identity_reconciliation_v1.json")
           raw = p.read_bytes()
           d = json.loads(raw)
+
+          def git_blob(commit, path):
+              return subprocess.check_output(
+                  ["git", "rev-parse", f"{commit}:{path}"], text=True
+              ).strip()
+
+          def source_rows(commit, path, expected_blob):
+              actual_blob = git_blob(commit, path)
+              assert actual_blob == expected_blob, {
+                  "path": path, "commit": commit,
+                  "expected_blob": expected_blob, "actual_blob": actual_blob,
+              }
+              raw_source = subprocess.check_output(["git", "show", f"{commit}:{path}"])
+              rows = list(csv.DictReader(io.StringIO(raw_source.decode("utf-8"), newline="")))
+              assert rows and rows[0].get("symbol") == "BTC_USDT"
+              return rows, actual_blob, len(raw_source)
 
           assert d["status"] == "SOURCE_IDENTITY_LOCKED"
           assert d["protocol"] == {"train":800,"test":400,"step":400,"folds":8,"gross_threshold_bps":14}
@@ -39,20 +63,83 @@ jobs:
           assert d["sources"]["prior"]["source_commit"] == "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
           assert d["sources"]["current"]["raw_blob_sha"] == "58d21825e052dbaa42e7eb0695455c19997bff43"
           assert d["sources"]["current"]["source_commit"] == "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
+          assert d["sources"]["protocol_contract"]["source_commit"] == "e5f85f06b19b8427f761b95ab56ad15ccd7053c0"
           assert d["sources"]["protocol_contract"]["blob_sha"] == "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
-          assert d["counts"] == {"prior_survivor_records":14,"current_winner_records":28,"exact_record_key_matches":0}
+          assert git_blob(d["sources"]["protocol_contract"]["source_commit"], "evidence/protocol_reconciliation_v1.json") == d["sources"]["protocol_contract"]["blob_sha"]
+
+          prior_rows, prior_blob, prior_bytes = source_rows(
+              d["sources"]["prior"]["source_commit"], "data/trades.csv",
+              d["sources"]["prior"]["raw_blob_sha"]
+          )
+          current_rows, current_blob, current_bytes = source_rows(
+              d["sources"]["current"]["source_commit"], "data/trades.csv",
+              d["sources"]["current"]["raw_blob_sha"]
+          )
+          source_sets = {
+              "prior_14_survivor": prior_rows,
+              "current_28_winner": current_rows,
+          }
 
           records = d["records"]
           assert len(records) == 42
           assert sum(r["lineage"] == "prior_14_survivor" for r in records) == 14
           assert sum(r["lineage"] == "current_28_winner" for r in records) == 28
+          assert d["counts"] == {
+              "prior_survivor_records":14,
+              "current_winner_records":28,
+              "exact_record_key_matches":0,
+          }
 
           keys = []
           for r in records:
+              lineage = r["lineage"]
+              assert lineage in source_sets
               k = tuple(r[x] for x in d["record_key"])
-              keys.append((r["lineage"], k))
+              keys.append((lineage, k))
               assert r["evaluated"] is True
               assert r["gross_return"] > 0.0014
+              rows = source_sets[lineage]
+
+              first_seq, last_seq = str(r["sequence_first"]), str(r["sequence_last"])
+              first_hits = [i for i, row in enumerate(rows) if row["sequence"] == first_seq]
+              last_hits = [i for i, row in enumerate(rows) if row["sequence"] == last_seq]
+              assert len(first_hits) == 1, {"lineage":lineage,"sequence_first":first_seq,"hits":len(first_hits)}
+              assert len(last_hits) == 1, {"lineage":lineage,"sequence_last":last_seq,"hits":len(last_hits)}
+              first_i, last_i = first_hits[0], last_hits[0]
+              assert first_i <= last_i, {"lineage":lineage,"sequence_first":first_seq,"sequence_last":last_seq}
+              interval = rows[first_i:last_i + 1]
+              assert interval and all(row["symbol"] == "BTC_USDT" for row in interval)
+
+              entry = Decimal(str(r["entry_price"]))
+              exit_ = Decimal(str(r["exit_price"]))
+              assert any(Decimal(row["price"]) == entry for row in interval), {
+                  "lineage":lineage,"timestamp":r["timestamp"],"entry_price":str(entry)
+              }
+
+              event_time = datetime.fromisoformat(r["timestamp"].replace("Z", "+00:00"))
+              assert event_time.tzinfo is not None and event_time.utcoffset() is not None
+              minute = event_time.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M")
+              exit_rows = [
+                  row for row in rows
+                  if row["updated"].startswith(minute)
+                  and Decimal(row["price"]) == exit_
+              ]
+              assert exit_rows, {
+                  "lineage":lineage,"timestamp":r["timestamp"],"exit_price":str(exit_)
+              }
+              last_time = datetime.fromisoformat(rows[last_i]["updated"])
+              assert last_time.tzinfo is not None and last_time < event_time
+
+              calculated = (
+                  (exit_ - entry) / entry if r["direction"] == "LONG"
+                  else (entry - exit_) / entry if r["direction"] == "SHORT"
+                  else None
+              )
+              assert calculated is not None
+              assert math.isclose(float(calculated), float(r["gross_return"]), rel_tol=1e-10, abs_tol=1e-12), {
+                  "lineage":lineage,"timestamp":r["timestamp"],
+                  "calculated":float(calculated),"stored":r["gross_return"]
+              }
 
           assert len(keys) == len(set(keys))
           prior_keys = {k for lineage,k in keys if lineage == "prior_14_survivor"}
@@ -69,6 +156,19 @@ jobs:
               "current_record_count":28,
               "exact_record_key_matches":0,
               "source_refs":d["sources"],
+              "source_byte_verification":{
+                  "prior_blob_sha_verified":prior_blob,
+                  "prior_source_bytes":prior_bytes,
+                  "prior_source_rows":len(prior_rows),
+                  "current_blob_sha_verified":current_blob,
+                  "current_source_bytes":current_bytes,
+                  "current_source_rows":len(current_rows),
+                  "protocol_contract_blob_verified":True,
+                  "sequence_endpoints_verified":42,
+                  "entry_prices_verified_within_sequence_ranges":42,
+                  "exit_prices_verified_at_record_minute":42,
+                  "gross_returns_recomputed":42,
+              },
               "safety":d["claim_boundary"],
           }
           Path("evidence/source_identity_reconciliation_v1.lock.json").write_text(
