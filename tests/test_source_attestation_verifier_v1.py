@@ -156,7 +156,6 @@ def test_non_https_or_credentialed_url_blocks(tmp_path, monkeypatch):
 def test_signer_key_id_must_match_protected_identity(tmp_path, monkeypatch):
     snapshot, attestation, public, _ = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
-    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "different-protected-key")
     with pytest.raises(AttestationError, match="identity does not match"):
         verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
