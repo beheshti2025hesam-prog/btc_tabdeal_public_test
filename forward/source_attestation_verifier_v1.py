@@ -84,8 +84,9 @@ def verify_attestation(
     # a key bundled with the untrusted attestation. Inject only via protected
     # runtime configuration managed outside PR-writable files.
     key_b64 = os.environ.get("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64")
-    if not key_b64:
-        raise AttestationError("BLOCK: external trust root is not configured")
+    configured_key_id = os.environ.get("HES_SOURCE_ATTESTATION_KEY_ID")
+    if not key_b64 or not configured_key_id:
+        raise AttestationError("BLOCK: external trust root or key identity is not configured")
 
     try:
         att = json.loads(Path(attestation_path).read_text(encoding="utf-8"))
@@ -102,6 +103,8 @@ def verify_attestation(
     for field in ("retrieval_tool", "retrieval_tool_version", "signer_key_id"):
         if not isinstance(att[field], str) or not att[field].strip():
             raise AttestationError(f"BLOCK: {field} missing")
+    if att["signer_key_id"] != configured_key_id:
+        raise AttestationError("BLOCK: signer key identity does not match protected configuration")
     chain = att["redirect_chain"]
     if not isinstance(chain, list) or not chain:
         raise AttestationError("BLOCK: redirect chain must include final response")
