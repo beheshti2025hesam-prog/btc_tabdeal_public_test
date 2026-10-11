@@ -8,6 +8,7 @@ on:
     branches:
       - main
       - feat/dedicated-observation-supervisor-v1-20261010
+      - feat/sequence-capability-registry-v1
   workflow_dispatch:
 
 permissions:
@@ -22,7 +23,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install test dependency
-        run: python -m pip install --disable-pip-version-check pytest
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check pytest cryptography
       - name: Run adversarial registry and runner integration tests
-        run: python -m pytest -q tests/test_sequence_capability_registry_v1.py tests/test_controlled_forward_observation_runner_v1.py
+        run: python -m pytest -q tests/test_sequence_capability_registry_v1.py tests/test_controlled_forward_observation_runner_v1.py tests/test_source_attestation_verifier_v1.py
