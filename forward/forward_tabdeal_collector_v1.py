@@ -120,7 +120,7 @@ class ForwardTabdealCollectorV1:
 
         try:
             payload = json.loads(message)
-        except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as exc:
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError, RecursionError) as exc:
             self._journal(
                 event_type="FRAME", verdict="REJECTED", generation=generation,
                 raw_bytes=raw_bytes, reason_code="JSON_DECODE_ERROR",
@@ -193,7 +193,15 @@ class ForwardTabdealCollectorV1:
                 "sequence_semantics": "OPAQUE_UNVERIFIED",
             },
         )
-        self._append(record)
+        try:
+            self._append(record)
+        except Exception as exc:
+            self._journal(
+                event_type="HANDOFF_FAILURE", verdict="REJECTED", generation=generation,
+                raw_bytes=raw_bytes, reason_code="OUTPUT_PERSISTENCE_FAILED",
+                details={"raw_frame_sha256": raw_sha256, "error_type": type(exc).__name__},
+            )
+            raise
         self.last_sequence = sequence
 
     def run(self, *, run_seconds: int = 0) -> None:
