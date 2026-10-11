@@ -33,7 +33,7 @@ def write_registry(tmp_path, *, status="active-but-conservative", claims=None, e
         "status": status,
         "claims": claims,
         "source_evidence": evidence or [{
-            "url": "https://docs.tabdeal.org/",
+            "url": "https://docs.tabdeal.org/", "final_url": "https://docs.tabdeal.org/",
             "source_kind": "primary",
             "retrieved_at": "2026-10-10",
             "evidence_excerpt": "Broadcast envelope only; inner trade fields are not defined.",
@@ -114,7 +114,7 @@ def test_positive_capability_requires_hashed_source_snapshot(tmp_path):
     registry, lock = write_registry(
         tmp_path, status="verified", claims=claims,
         evidence=[{
-            "url": "https://docs.tabdeal.org/",
+            "url": "https://docs.tabdeal.org/", "final_url": "https://docs.tabdeal.org/",
             "source_kind": "primary",
             "retrieved_at": "2026-10-10",
             "evidence_excerpt": "some excerpt",
@@ -186,7 +186,7 @@ def test_verified_claim_rejects_source_snapshot_digest_mismatch(tmp_path):
     registry, lock = write_registry(
         tmp_path, status="verified", claims=claims,
         evidence=[{
-            "url": "https://docs.tabdeal.org/", "source_kind": "primary",
+            "url": "https://docs.tabdeal.org/", "final_url": "https://docs.tabdeal.org/", "source_kind": "primary",
             "retrieved_at": "2026-10-10", "source_content_sha256": "0" * 64,
             "source_snapshot_file": "source.md",
             "evidence_excerpt": "actual source snapshot excerpt",
@@ -208,7 +208,7 @@ def test_verified_claim_requires_excerpt_to_exist_in_pinned_snapshot(tmp_path):
     registry, lock = write_registry(
         tmp_path, status="verified", claims=claims,
         evidence=[{
-            "url": "https://docs.tabdeal.org/", "source_kind": "primary",
+            "url": "https://docs.tabdeal.org/", "final_url": "https://docs.tabdeal.org/", "source_kind": "primary",
             "retrieved_at": "2026-10-10",
             "source_content_sha256": hashlib.sha256(snapshot).hexdigest(),
             "source_snapshot_file": "source.md",
@@ -216,4 +216,51 @@ def test_verified_claim_requires_excerpt_to_exist_in_pinned_snapshot(tmp_path):
         }],
     )
     with pytest.raises(RegistryError, match="SOURCE_EXCERPT_NOT_IN_SNAPSHOT"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+
+def test_verified_claim_rejects_untrusted_https_host_even_with_matching_snapshot(tmp_path):
+    claims = {
+        "unique": True, "monotonic": True, "contiguous": True, "ordered": True,
+        "comparable_across_reconnect": False, "comparable_across_symbols": False,
+        "comparable_across_channels": False, "gap_detection_supported": True,
+        "duplicate_identity_supported": False,
+    }
+    snapshot = b"claimed evidence from an untrusted host"
+    (tmp_path / "source.md").write_bytes(snapshot)
+    registry, lock = write_registry(
+        tmp_path, status="verified", claims=claims,
+        evidence=[{
+            "url": "https://docs.tabdeal.org.attacker.example/",
+            "final_url": "https://docs.tabdeal.org.attacker.example/",
+            "source_kind": "primary", "retrieved_at": "2026-10-10",
+            "source_content_sha256": hashlib.sha256(snapshot).hexdigest(),
+            "source_snapshot_file": "source.md",
+            "evidence_excerpt": "claimed evidence from an untrusted host",
+        }],
+    )
+    with pytest.raises(RegistryError, match="SOURCE_HOST_NOT_TRUSTED"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+def test_verified_claim_requires_final_url_metadata(tmp_path):
+    claims = {
+        "unique": True, "monotonic": True, "contiguous": True, "ordered": True,
+        "comparable_across_reconnect": False, "comparable_across_symbols": False,
+        "comparable_across_channels": False, "gap_detection_supported": True,
+        "duplicate_identity_supported": False,
+    }
+    snapshot = b"source excerpt"
+    (tmp_path / "source.md").write_bytes(snapshot)
+    registry, lock = write_registry(
+        tmp_path, status="verified", claims=claims,
+        evidence=[{
+            "url": "https://docs.tabdeal.org/",
+            "source_kind": "primary", "retrieved_at": "2026-10-10",
+            "source_content_sha256": hashlib.sha256(snapshot).hexdigest(),
+            "source_snapshot_file": "source.md", "evidence_excerpt": "source excerpt",
+        }],
+    )
+    with pytest.raises(RegistryError, match="SOURCE_URL_INVALID"):
         load_verified_contract(registry, lock, SCOPE)
