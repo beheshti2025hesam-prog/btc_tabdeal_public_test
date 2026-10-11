@@ -29,7 +29,7 @@ def git_object_sha(raw):
 def git_blob(sha):
     obj = api_json(f"https://api.github.com/repos/{REPO}/git/blobs/{sha}")
     assert obj.get("sha") == sha and obj.get("encoding") == "base64", f"Unexpected Git blob response for {sha}"
-    raw = base64.b64decode(obj["content"], validate=True)
+    raw = base64.b64decode("".join(obj["content"].split()), validate=True)
     assert git_object_sha(raw) == sha, f"Git blob content hash mismatch for {sha}"
     return raw
 
