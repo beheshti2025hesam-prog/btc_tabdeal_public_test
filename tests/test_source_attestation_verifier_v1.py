@@ -60,32 +60,33 @@ def test_missing_external_trust_root_blocks(tmp_path, monkeypatch):
         )
 
 
-def test_valid_signed_snapshot_verifies(tmp_path):
+def test_valid_signed_snapshot_verifies(tmp_path, monkeypatch):
     snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     result = verify_attestation(
         snapshot_path=snapshot,
         attestation_path=attestation,
         expected_context={"venue": "example", "product": "BTC_USDT"},
-        trusted_public_key_b64=public,
     )
     assert result["verified"] is True
     assert result["snapshot_sha256"] == att["snapshot_sha256"]
 
 
-def test_one_byte_snapshot_change_blocks(tmp_path):
+def test_one_byte_snapshot_change_blocks(tmp_path, monkeypatch):
     snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     snapshot.write_bytes(snapshot.read_bytes() + b"!")
     with pytest.raises(AttestationError, match="SHA-256 mismatch"):
         verify_attestation(
             snapshot_path=snapshot,
             attestation_path=attestation,
             expected_context={"venue": "example"},
-            trusted_public_key_b64=public,
         )
 
 
-def test_forged_final_url_without_resigning_blocks(tmp_path):
+def test_forged_final_url_without_resigning_blocks(tmp_path, monkeypatch):
     snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     att["final_url"] = "https://attacker.invalid/forged"
     attestation.write_text(json.dumps(att), encoding="utf-8")
     with pytest.raises(AttestationError, match="invalid key, signature"):
@@ -93,23 +94,23 @@ def test_forged_final_url_without_resigning_blocks(tmp_path):
             snapshot_path=snapshot,
             attestation_path=attestation,
             expected_context={"venue": "example"},
-            trusted_public_key_b64=public,
         )
 
 
-def test_context_mismatch_blocks(tmp_path):
+def test_context_mismatch_blocks(tmp_path, monkeypatch):
     snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     with pytest.raises(AttestationError, match="source context mismatch"):
         verify_attestation(
             snapshot_path=snapshot,
             attestation_path=attestation,
             expected_context={"product": "ETH_USDT"},
-            trusted_public_key_b64=public,
         )
 
 
-def test_unknown_schema_blocks_even_if_signed(tmp_path):
+def test_unknown_schema_blocks_even_if_signed(tmp_path, monkeypatch):
     snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     att["schema_version"] = "future-unsupported"
     # Deliberately do not re-sign: schema rejection must happen before signature checks.
     attestation.write_text(json.dumps(att), encoding="utf-8")
@@ -118,5 +119,4 @@ def test_unknown_schema_blocks_even_if_signed(tmp_path):
             snapshot_path=snapshot,
             attestation_path=attestation,
             expected_context={},
-            trusted_public_key_b64=public,
         )
