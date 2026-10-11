@@ -1,0 +1,20 @@
+{
+  "lock_id": "HES-PROTOCOL-SOURCE-IDENTITY-RECONCILIATION-V2-LOCK",
+  "status": "LOCKED",
+  "artifact_path": "evidence/protocol_source_identity_reconciliation_v2.json",
+  "artifact_commit": "8dde2a55ebc8a3576ac0fb6d84d84406464fc9c6",
+  "artifact_git_blob_sha1": "51e7c18984385f21377d8c6d5ddf1d185ab328f7",
+  "artifact_sha256": "e0f284f959db7b763502fde0c56ca8bfe78aed949696ea018f0a6f57ddba29e7",
+  "artifact_bytes": 4071,
+  "lock_basis": "SHA-256 and byte count computed from the exact UTF-8 artifact bytes; Git blob SHA-1 independently checked against the committed blob.",
+  "mutation_scope": "New v2 reconciliation artifact only. The v1 registry, source rows, winner selection, thresholds, and historical artifacts remain unchanged.",
+  "claim_boundary": {
+    "record_identity": "PASS_14_OF_14_AND_28_OF_28",
+    "prior_v1_source_run_attribution": "DISCREPANCY_DOCUMENTED",
+    "archive_lineage": "OPEN",
+    "sequence_semantics": "UNKNOWN_UNLESS_SEPARATELY_VERIFIED",
+    "feature_extraction_performed": false,
+    "effective_evidence_performed": false,
+    "live_execution": false
+  }
+}
