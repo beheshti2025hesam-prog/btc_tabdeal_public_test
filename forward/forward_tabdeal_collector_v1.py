@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import time
 from datetime import datetime, timezone
@@ -28,7 +29,22 @@ def _now() -> str:
 
 
 def _sequence(value: Any) -> int:
-    return int(value)
+    # Do not silently truncate floats or accept booleans as sequence numbers.
+    if type(value) is int:
+        return value
+    if isinstance(value, str) and value.isdecimal():
+        return int(value)
+    raise ValueError("sequence must be an integer or decimal string")
+
+
+def _positive_finite(value: Any, field: str) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{field} must be numeric") from exc
+    if not math.isfinite(number) or number <= 0:
+        raise ValueError(f"{field} must be finite and positive")
+    return number
 
 
 def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -55,14 +71,18 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
     if source_updated is None:
         return None
 
+    normalized_price = _positive_finite(price, "price")
+    normalized_amount = _positive_finite(amount, "amount")
+    normalized_sequence = _sequence(sequence)
+
     return {
         "observed_at": _now(),
         "source_updated": str(source_updated),
         "symbol": SYMBOL,
-        "price": float(price),
-        "amount": float(amount),
+        "price": normalized_price,
+        "amount": normalized_amount,
         "side": str(side) if side is not None else "UNKNOWN",
-        "sequence": _sequence(sequence),
+        "sequence": normalized_sequence,
         "source": "tabdeal_ws_forward_v1",
     }
 
@@ -82,8 +102,19 @@ class ForwardTabdealCollectorV1:
 
     def _append(self, record: dict[str, Any]) -> None:
         self.output.parent.mkdir(parents=True, exist_ok=True)
-        with self.output.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+        # Reject non-standard JSON numbers and refuse a symlink at the output path.
+        encoded = json.dumps(record, sort_keys=True, allow_nan=False).encode("utf-8") + b"\\n"
+        flags = os.O_CREAT | os.O_WRONLY | os.O_APPEND
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        fd = os.open(self.output, flags, 0o600)
+        with os.fdopen(fd, "ab") as handle:
+            view = memoryview(encoded)
+            while view:
+                written = handle.write(view)
+                if not written:
+                    raise OSError("short output write")
+                view = view[written:]
             handle.flush()
             os.fsync(handle.fileno())
 
