@@ -32,7 +32,7 @@ def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
                 "duplicate_identity_supported": False,
             },
             "source_evidence": [{
-                "url": "https://example.invalid/test-only", "source_kind": "primary",
+                "url": "https://docs.tabdeal.org/test-only", "final_url": "https://docs.tabdeal.org/test-only", "source_kind": "primary",
                 "retrieved_at": "test-only",
                 "source_content_sha256": hashlib.sha256(snapshot_bytes).hexdigest(),
                 "source_snapshot_file": "source_snapshot.md",
