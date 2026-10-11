@@ -5,6 +5,7 @@ Fresh-data only. No Git commands, no pushes, no historical imports, no orders.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -13,6 +14,8 @@ from pathlib import Path
 from typing import Any
 
 import websocket
+
+from .raw_ingress_journal_v1 import RawIngressJournalV1
 
 
 WS_URL = "wss://api1.tabdeal.org/special_margin/broadcast/"
@@ -65,10 +68,17 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
 
 
 class ForwardTabdealCollectorV1:
-    def __init__(self, output: str = DEFAULT_OUTPUT, *, enabled: bool = False) -> None:
+    def __init__(
+        self, output: str = DEFAULT_OUTPUT, *, enabled: bool = False,
+        raw_ingress_journal: RawIngressJournalV1 | None = None,
+    ) -> None:
         self.output = Path(output)
         self.enabled = enabled
         self.last_sequence: int | None = None
+        # Constructing the sidecar does not create files; writes begin only when
+        # the explicitly enabled collector starts receiving connection events.
+        journal_path = self.output.with_name(self.output.stem + ".raw_ingress.jsonl")
+        self.raw_ingress_journal = raw_ingress_journal or RawIngressJournalV1(journal_path)
 
     def _append(self, record: dict[str, Any]) -> None:
         self.output.parent.mkdir(parents=True, exist_ok=True)
@@ -77,48 +87,156 @@ class ForwardTabdealCollectorV1:
             handle.flush()
             os.fsync(handle.fileno())
 
+    @staticmethod
+    def _raw_bytes(message: Any) -> bytes:
+        if isinstance(message, bytes):
+            return message
+        if isinstance(message, str):
+            # websocket-client returns decoded text frames as str; this preserves
+            # the callback text representation, not independent wire-level bytes.
+            return message.encode("utf-8", errors="surrogatepass")
+        raise TypeError("websocket message must be str or bytes")
+
+    def _journal(
+        self, *, event_type: str, verdict: str, generation: int,
+        raw_bytes: bytes | None = None, reason_code: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self.raw_ingress_journal.append(
+            event_type=event_type,
+            received_at_utc=_now(),
+            receive_monotonic_ns=time.monotonic_ns(),
+            connection_generation=generation,
+            verdict=verdict,
+            reason_code=reason_code,
+            raw_bytes=raw_bytes,
+            details=details or {},
+        )
+
+    def _process_message(self, message: Any, *, generation: int) -> None:
+        """Journal every callback payload before any output handoff or filtering."""
+        raw_bytes = self._raw_bytes(message)
+        raw_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+
+        try:
+            payload = json.loads(message)
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as exc:
+            self._journal(
+                event_type="FRAME", verdict="REJECTED", generation=generation,
+                raw_bytes=raw_bytes, reason_code="JSON_DECODE_ERROR",
+                details={"raw_frame_sha256": raw_sha256, "error_type": type(exc).__name__},
+            )
+            return
+
+        if not isinstance(payload, dict):
+            self._journal(
+                event_type="FRAME", verdict="REJECTED", generation=generation,
+                raw_bytes=raw_bytes, reason_code="ENVELOPE_NOT_OBJECT",
+                details={"raw_frame_sha256": raw_sha256},
+            )
+            return
+
+        event_type = str(payload.get("type", payload.get("event", ""))).lower()
+        if "order" in event_type:
+            self._journal(
+                event_type="FRAME", verdict="IGNORED", generation=generation,
+                raw_bytes=raw_bytes, reason_code="ORDER_EVENT",
+                details={"raw_frame_sha256": raw_sha256},
+            )
+            return
+
+        try:
+            record = normalize_trade(payload)
+        except (ValueError, TypeError, KeyError, OverflowError) as exc:
+            self._journal(
+                event_type="FRAME", verdict="REJECTED", generation=generation,
+                raw_bytes=raw_bytes, reason_code="TRADE_NORMALIZATION_ERROR",
+                details={"raw_frame_sha256": raw_sha256, "error_type": type(exc).__name__},
+            )
+            return
+
+        if record is None:
+            has_trade_shape = any(
+                key in payload for key in ("trade", "data", "symbol", "s", "price", "p")
+            )
+            self._journal(
+                event_type="FRAME",
+                verdict="REJECTED" if has_trade_shape else "IGNORED",
+                generation=generation,
+                raw_bytes=raw_bytes,
+                reason_code="TRADE_SCHEMA_INVALID" if has_trade_shape else "UNSUPPORTED_ENVELOPE",
+                details={"raw_frame_sha256": raw_sha256},
+            )
+            return
+
+        sequence = record["sequence"]
+        if self.last_sequence is not None and sequence <= self.last_sequence:
+            self._journal(
+                event_type="FRAME", verdict="IGNORED", generation=generation,
+                raw_bytes=raw_bytes, reason_code="NON_MONOTONIC_SEQUENCE",
+                details={
+                    "raw_frame_sha256": raw_sha256,
+                    "sequence_value": sequence,
+                    "sequence_semantics": "OPAQUE_UNVERIFIED",
+                },
+            )
+            return
+
+        # A durable journal append must succeed before normalized output is written.
+        self._journal(
+            event_type="FRAME", verdict="ACCEPTED", generation=generation,
+            raw_bytes=raw_bytes,
+            details={
+                "raw_frame_sha256": raw_sha256,
+                "symbol": record["symbol"],
+                "sequence_value": sequence,
+                "sequence_semantics": "OPAQUE_UNVERIFIED",
+            },
+        )
+        self._append(record)
+        self.last_sequence = sequence
+
     def run(self, *, run_seconds: int = 0) -> None:
         if not self.enabled:
             raise RuntimeError("Forward Tabdeal collector is disabled by default.")
 
         started = time.monotonic()
+        generation = 0
 
         while run_seconds == 0 or time.monotonic() - started < run_seconds:
             ws = None
+            generation += 1
             try:
                 ws = websocket.create_connection(WS_URL, timeout=15)
                 ws.send(SYMBOL)
+                self._journal(
+                    event_type="CONNECTED", verdict="ACCEPTED", generation=generation,
+                    details={"subscription": SYMBOL},
+                )
 
                 while run_seconds == 0 or time.monotonic() - started < run_seconds:
                     message = ws.recv()
                     if not message:
                         break
-
-                    try:
-                        payload = json.loads(message)
-                    except json.JSONDecodeError:
-                        continue
-
-                    record = normalize_trade(payload)
-                    if record is None:
-                        continue
-
-                    seq = record["sequence"]
-                    if self.last_sequence is not None and seq <= self.last_sequence:
-                        continue
-
-                    self._append(record)
-                    self.last_sequence = seq
-            except Exception:
-                # Fail closed for the current connection; reconnect without
-                # inventing observations or changing persisted records.
-                pass
+                    self._process_message(message, generation=generation)
+            except Exception as exc:
+                # Never persist exception text; if the journal itself is unavailable,
+                # the journal append below raises and stops this run fail-closed.
+                self._journal(
+                    event_type="CONNECTION_ERROR", verdict="CONNECTION_ERROR",
+                    generation=generation, reason_code="COLLECTOR_CONNECTION_ERROR",
+                    details={"error_type": type(exc).__name__},
+                )
             finally:
                 if ws is not None:
                     try:
                         ws.close()
                     except Exception:
                         pass
+                self._journal(
+                    event_type="DISCONNECT", verdict="DISCONNECTED",
+                    generation=generation, reason_code="CONNECTION_ENDED",
+                )
 
             if run_seconds and time.monotonic() - started >= run_seconds:
                 break
