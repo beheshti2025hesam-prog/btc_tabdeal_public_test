@@ -106,3 +106,36 @@ def test_run_records_connection_lifecycle_for_actual_collector(monkeypatch, tmp_
     assert [event["connection_generation"] for event in events] == [1, 1, 1]
     assert events[1]["verdict"] == "ACCEPTED"
     assert len(output.read_text().splitlines()) == 1
+
+
+def test_output_persistence_failure_is_explicitly_journaled(monkeypatch, tmp_path):
+    output = tmp_path / "observations.jsonl"
+    collector = ForwardTabdealCollectorV1(str(output))
+
+    def fail_append(_record):
+        raise OSError("output disk unavailable")
+
+    monkeypatch.setattr(collector, "_append", fail_append)
+    with pytest.raises(OSError, match="output disk unavailable"):
+        collector._process_message(valid_payload(), generation=2)
+
+    events = read_events(tmp_path / "observations.raw_ingress.jsonl")
+    assert [event["event_type"] for event in events] == ["FRAME", "HANDOFF_FAILURE"]
+    assert [event["verdict"] for event in events] == ["ACCEPTED", "REJECTED"]
+    assert events[1]["reason_code"] == "OUTPUT_PERSISTENCE_FAILED"
+    assert events[1]["details"]["error_type"] == "OSError"
+    assert not output.exists()
+
+
+def test_trade_shaped_schema_drift_is_preserved_as_rejected(tmp_path):
+    output = tmp_path / "observations.jsonl"
+    collector = ForwardTabdealCollectorV1(str(output))
+    raw = b'{"trade":{"symbol":"BTC_USDT","price":"65000"}}'
+
+    collector._process_message(raw, generation=2)
+
+    event = read_events(tmp_path / "observations.raw_ingress.jsonl")[0]
+    assert event["verdict"] == "REJECTED"
+    assert event["reason_code"] == "TRADE_SCHEMA_INVALID"
+    assert base64.b64decode(event["raw_bytes_b64"]) == raw
+    assert not output.exists()
