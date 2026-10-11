@@ -19,7 +19,12 @@ _SCOPE_FIELDS = (
     "venue", "product", "transport", "endpoint", "channel_or_topic",
     "message_type", "field_path", "protocol_version",
 )
-_PRIMARY_SOURCE_HOSTS = {\n    # Exact official hosts only; do not use suffix matching (e.g. tabdeal.org.attacker).\n    "tabdeal": frozenset({"docs.tabdeal.org", "tabdeal.org", "www.tabdeal.org", "api1.tabdeal.org"}),\n}\n\n_CAPABILITIES = (
+_PRIMARY_SOURCE_HOSTS = {
+    # Exact official hosts only; do not use suffix matching (e.g. tabdeal.org.attacker).
+    "tabdeal": frozenset({"docs.tabdeal.org", "tabdeal.org", "www.tabdeal.org", "api1.tabdeal.org"}),
+}
+
+_CAPABILITIES = (
     "unique", "monotonic", "contiguous", "ordered",
     "comparable_across_reconnect", "comparable_across_symbols",
     "comparable_across_channels", "gap_detection_supported",
