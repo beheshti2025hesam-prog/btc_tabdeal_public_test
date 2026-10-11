@@ -105,3 +105,36 @@ def test_journal_failure_blocks_downstream_handoff(tmp_path):
     with pytest.raises(OSError, match="journal unavailable"):
         transport._message(None, valid_payload())
     assert records == []
+
+
+def test_missing_required_field_is_preserved_as_schema_rejection(tmp_path):
+    journal = RawIngressJournalV1(tmp_path / "ingress.jsonl")
+    transport = make_transport(tmp_path, journal=journal)
+    raw = json.dumps({"trade": {
+        "symbol": "BTC_USDT", "price": "65000", "amount": "0.01",
+        "side": "buy", "updated": "2026-10-10T23:59:00Z",
+    }}, separators=(",", ":")).encode()
+    transport._message(None, raw)
+    event = read_events(journal.path)[0]
+    assert event["verdict"] == "REJECTED"
+    assert base64.b64decode(event["raw_bytes_b64"]) == raw
+
+
+def test_opaque_sequence_jump_does_not_claim_missing_message(tmp_path):
+    journal = RawIngressJournalV1(tmp_path / "ingress.jsonl")
+    transport = make_transport(tmp_path, journal=journal)
+    transport._message(None, valid_payload(sequence=7))
+    transport._message(None, valid_payload(sequence=9))
+    events = read_events(journal.path)
+    assert [event["verdict"] for event in events] == ["ACCEPTED", "ACCEPTED"]
+    assert all(event["details"]["sequence_semantics"] == "OPAQUE_UNVERIFIED" for event in events)
+
+
+def test_connection_error_is_journaled_without_exception_text(tmp_path):
+    journal = RawIngressJournalV1(tmp_path / "ingress.jsonl")
+    transport = make_transport(tmp_path, generation=5, journal=journal)
+    transport._error(None, RuntimeError("secret-like details should not be persisted"))
+    event = read_events(journal.path)[0]
+    assert event["verdict"] == "CONNECTION_ERROR"
+    assert event["reason_code"] == "WEBSOCKET_ERROR"
+    assert event["details"] == {"error_type": "RuntimeError"}
