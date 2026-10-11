@@ -11,8 +11,10 @@ import base64
 import hashlib
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 REQUIRED_FIELDS = {
     "schema_version",
@@ -40,6 +42,32 @@ def _canonical_payload(attestation: dict[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+def _validate_https_url(value: Any) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        parsed = urlsplit(value)
+        return (
+            parsed.scheme == "https"
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port in (None, 443)
+        )
+    except ValueError:
+        return False
+
+
+def _validate_utc_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        return False
+    try:
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+        return parsed.utcoffset() is not None and parsed.utcoffset().total_seconds() == 0
+    except ValueError:
+        return False
+
+
 def verify_attestation(
     *,
     snapshot_path: str | Path,
@@ -49,7 +77,7 @@ def verify_attestation(
     """Verify signed attestation and exact raw snapshot bytes; raise on any gap.
 
     Public key defaults to HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64, which must
-    come from protected environment/secret configuration external to the PR.
+    come from protected environment configuration external to the PR.
     Ed25519 verification requires the 'cryptography' package.
     """
     # Never accept the trust root as a function argument: callers could pass
@@ -67,21 +95,31 @@ def verify_attestation(
         raise AttestationError("BLOCK: required attestation fields missing")
     if att["schema_version"] != SCHEMA_VERSION:
         raise AttestationError("BLOCK: unsupported attestation schema")
-    if not isinstance(att["requested_url"], str) or not att["requested_url"].strip():
-        raise AttestationError("BLOCK: requested URL missing")
-    if not isinstance(att["final_url"], str) or not att["final_url"].strip():
-        raise AttestationError("BLOCK: final URL missing")
+    if not _validate_https_url(att["requested_url"]) or not _validate_https_url(att["final_url"]):
+        raise AttestationError("BLOCK: source URLs must be valid HTTPS URLs without credentials")
+    if not _validate_utc_timestamp(att["retrieved_at_utc"]):
+        raise AttestationError("BLOCK: retrieval timestamp must be ISO-8601 UTC ending in Z")
+    for field in ("retrieval_tool", "retrieval_tool_version", "signer_key_id"):
+        if not isinstance(att[field], str) or not att[field].strip():
+            raise AttestationError(f"BLOCK: {field} missing")
     chain = att["redirect_chain"]
     if not isinstance(chain, list) or not chain:
         raise AttestationError("BLOCK: redirect chain must include final response")
-    for hop in chain:
+    for index, hop in enumerate(chain):
         if (
             not isinstance(hop, dict)
-            or not isinstance(hop.get("url"), str)
+            or not _validate_https_url(hop.get("url"))
             or type(hop.get("status")) is not int
             or not 100 <= hop["status"] <= 599
         ):
             raise AttestationError("BLOCK: malformed redirect-chain hop")
+        if index < len(chain) - 1:
+            if not 300 <= hop["status"] <= 399:
+                raise AttestationError("BLOCK: non-final redirect hop must have a 3xx status")
+            if hop.get("next_url") != chain[index + 1]["url"]:
+                raise AttestationError("BLOCK: redirect chain does not bind each next URL")
+        elif not 200 <= hop["status"] <= 299:
+            raise AttestationError("BLOCK: final response must have a 2xx status")
     if chain[0]["url"] != att["requested_url"] or chain[-1]["url"] != att["final_url"]:
         raise AttestationError("BLOCK: redirect chain URL mismatch")
     if not isinstance(att["source_context"], dict):
