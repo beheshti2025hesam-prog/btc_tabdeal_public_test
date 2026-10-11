@@ -67,8 +67,23 @@ def verify_attestation(
         raise AttestationError("BLOCK: required attestation fields missing")
     if att["schema_version"] != SCHEMA_VERSION:
         raise AttestationError("BLOCK: unsupported attestation schema")
-    if not isinstance(att["redirect_chain"], list) or not att["redirect_chain"]:
+    if not isinstance(att["requested_url"], str) or not att["requested_url"].strip():
+        raise AttestationError("BLOCK: requested URL missing")
+    if not isinstance(att["final_url"], str) or not att["final_url"].strip():
+        raise AttestationError("BLOCK: final URL missing")
+    chain = att["redirect_chain"]
+    if not isinstance(chain, list) or not chain:
         raise AttestationError("BLOCK: redirect chain must include final response")
+    for hop in chain:
+        if (
+            not isinstance(hop, dict)
+            or not isinstance(hop.get("url"), str)
+            or type(hop.get("status")) is not int
+            or not 100 <= hop["status"] <= 599
+        ):
+            raise AttestationError("BLOCK: malformed redirect-chain hop")
+    if chain[0]["url"] != att["requested_url"] or chain[-1]["url"] != att["final_url"]:
+        raise AttestationError("BLOCK: redirect chain URL mismatch")
     if not isinstance(att["source_context"], dict):
         raise AttestationError("BLOCK: source context must be an object")
     for key, expected in expected_context.items():
