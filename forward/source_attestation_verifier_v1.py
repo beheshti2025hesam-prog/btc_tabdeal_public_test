@@ -45,7 +45,6 @@ def verify_attestation(
     snapshot_path: str | Path,
     attestation_path: str | Path,
     expected_context: dict[str, Any],
-    trusted_public_key_b64: str | None = None,
 ) -> dict[str, Any]:
     """Verify signed attestation and exact raw snapshot bytes; raise on any gap.
 
@@ -53,9 +52,10 @@ def verify_attestation(
     come from protected environment/secret configuration external to the PR.
     Ed25519 verification requires the 'cryptography' package.
     """
-    key_b64 = trusted_public_key_b64 or os.environ.get(
-        "HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64"
-    )
+    # Never accept the trust root as a function argument: callers could pass
+    # a key bundled with the untrusted attestation. Inject only via protected
+    # runtime configuration managed outside PR-writable files.
+    key_b64 = os.environ.get("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64")
     if not key_b64:
         raise AttestationError("BLOCK: external trust root is not configured")
 
