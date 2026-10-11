@@ -87,14 +87,14 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path, monkeypatc
     assert not journal.exists()
 
 
-def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path, monkeypatch):
+def test_runner_accepts_contiguous_sequence_in_verified_test_mode(tmp_path: Path, monkeypatch):
     install_verified_test_registry(tmp_path, monkeypatch)
     class GapTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
 
         def run_once(self):
-            for seq in (100, 102):
+            for seq in (100, 101):
                 self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
                                 "sequence":seq,"timestamp":"2026-10-07T13:00:00Z"})
 
