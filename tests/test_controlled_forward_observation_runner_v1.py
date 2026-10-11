@@ -52,6 +52,7 @@ def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
         "HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64",
         base64.b64encode(public_key).decode("ascii"),
     )
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "synthetic-test-key")
     registry_obj = {
         "schema": "hes_sequence_capability_registry_v1",
         "registry_revision": "TEST-ONLY",
