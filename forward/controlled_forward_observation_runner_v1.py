@@ -6,6 +6,7 @@ No execution, no historical inputs, no outcomes, no strategy tuning.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -15,6 +16,7 @@ from .observation_session_manager_v1 import ObservationSessionManagerV1
 from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1, WS_URL, SYMBOL
 from .sequence_capability_registry_v1 import RegistryError, load_verified_contract
+from .source_attestation_verifier_v1 import AttestationError, verify_attestation
 
 # Trust paths are code-owned, not caller-selectable. The checked-in Tabdeal
 # record is conservative, so production remains blocked until reviewed evidence
@@ -31,6 +33,60 @@ _SEQUENCE_SCOPE = {
     "field_path": "trade.sequence",
     "protocol_version": "unknown",
 }
+
+
+def _safe_evidence_path(root: Path, value: Any) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise AttestationError("BLOCK: evidence path missing")
+    relative = Path(value)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise AttestationError("BLOCK: unsafe evidence path")
+    resolved_root = root.resolve()
+    resolved = (resolved_root / relative).resolve()
+    try:
+        resolved.relative_to(resolved_root)
+    except ValueError as exc:
+        raise AttestationError("BLOCK: evidence path escapes trust directory") from exc
+    return resolved
+
+
+def _verify_registry_source_attestations(
+    registry_path: str | Path, expected_scope: dict[str, str]
+) -> None:
+    """Verify detached source attestations before the runner may create a session or socket."""
+    registry_file = Path(registry_path)
+    try:
+        registry = json.loads(registry_file.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise AttestationError("BLOCK: registry unreadable for attestation lookup") from exc
+    if not isinstance(registry, dict) or not isinstance(registry.get("records"), list):
+        raise AttestationError("BLOCK: registry records unavailable")
+    matches = [
+        item for item in registry["records"]
+        if isinstance(item, dict)
+        and all(item.get(key) == expected_scope[key] for key in expected_scope)
+    ]
+    if len(matches) != 1:
+        raise AttestationError("BLOCK: attestation scope is not uniquely registered")
+    evidence = matches[0].get("source_evidence")
+    if not isinstance(evidence, list) or not evidence:
+        raise AttestationError("BLOCK: source evidence missing")
+    for item in evidence:
+        if not isinstance(item, dict):
+            raise AttestationError("BLOCK: malformed source evidence")
+        snapshot_path = _safe_evidence_path(registry_file.parent, item.get("source_snapshot_file"))
+        attestation_path = _safe_evidence_path(registry_file.parent, item.get("source_attestation_file"))
+        verified = verify_attestation(
+            snapshot_path=snapshot_path,
+            attestation_path=attestation_path,
+            expected_context=expected_scope,
+        )
+        if verified["snapshot_sha256"] != item.get("source_content_sha256"):
+            raise AttestationError("BLOCK: registry and attestation snapshot digests differ")
+        if verified["requested_url"] != item.get("url"):
+            raise AttestationError("BLOCK: registry and attestation requested URLs differ")
+        if verified["final_url"] != item.get("final_url"):
+            raise AttestationError("BLOCK: registry and attestation final URLs differ")
 
 
 @dataclass(frozen=True)
@@ -98,11 +154,14 @@ class ControlledForwardObservationRunnerV1:
         # Do not open a socket or create even a session record until the upstream
         # sequence semantics are verified against an authoritative evidence reference.
         try:
+            # Detached provenance must pass before registry claims can authorize
+            # anything; this gate runs before session writes and socket creation.
+            _verify_registry_source_attestations(_SEQUENCE_REGISTRY_PATH, _SEQUENCE_SCOPE)
             sequence_contract = load_verified_contract(
                 _SEQUENCE_REGISTRY_PATH, _SEQUENCE_REGISTRY_LOCK_PATH, _SEQUENCE_SCOPE
             )
             sequence_contract_authorized = sequence_contract.gap_detection_authorized
-        except (OSError, RegistryError, ValueError):
+        except (OSError, RegistryError, AttestationError, ValueError):
             sequence_contract_authorized = False
 
         if not sequence_contract_authorized:
