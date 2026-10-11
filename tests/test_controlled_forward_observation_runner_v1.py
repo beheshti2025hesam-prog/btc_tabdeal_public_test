@@ -1,9 +1,51 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import hashlib
+import json
+
+import forward.controlled_forward_observation_runner_v1 as runner_module
 
 from forward.controlled_forward_observation_runner_v1 import (
     ControlledForwardObservationRunnerV1,
 )
+
+
+def install_verified_test_registry(tmp_path: Path, monkeypatch) -> None:
+    # Synthetic evidence is test-only and never changes the checked-in production registry.
+    scope = {
+        "venue": "tabdeal", "product": "fapi-futures-margin", "transport": "websocket",
+        "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+        "channel_or_topic": "BTC_USDT raw-text subscription", "message_type": "trade-envelope",
+        "field_path": "trade.sequence", "protocol_version": "unknown",
+    }
+    registry_obj = {
+        "schema": "hes_sequence_capability_registry_v1",
+        "registry_revision": "TEST-ONLY",
+        "records": [{
+            **scope, "semantic_class": "message_sequence", "status": "verified",
+            "claims": {
+                "unique": True, "monotonic": True, "contiguous": True, "ordered": True,
+                "comparable_across_reconnect": False, "comparable_across_symbols": False,
+                "comparable_across_channels": False, "gap_detection_supported": True,
+                "duplicate_identity_supported": False,
+            },
+            "source_evidence": [{
+                "url": "https://example.invalid/test-only", "source_kind": "primary",
+                "retrieved_at": "test-only", "source_content_sha256": "a" * 64,
+                "evidence_excerpt": "Synthetic test fixture; not real exchange evidence.",
+            }],
+        }],
+    }
+    raw = (json.dumps(registry_obj, sort_keys=True, separators=(",", ":")) + "\\n").encode()
+    registry_path = tmp_path / "test_registry.json"
+    registry_path.write_bytes(raw)
+    lock_path = tmp_path / "test_registry.lock.json"
+    lock_path.write_text(json.dumps({
+        "schema": "hes_sequence_registry_lock_v1", "registry_revision": "TEST-ONLY",
+        "registry_sha256": hashlib.sha256(raw).hexdigest(),
+    }), encoding="utf-8")
+    monkeypatch.setattr(runner_module, "_SEQUENCE_REGISTRY_PATH", registry_path)
+    monkeypatch.setattr(runner_module, "_SEQUENCE_REGISTRY_LOCK_PATH", lock_path)
 
 
 class FakeWS:
@@ -24,7 +66,8 @@ class FakeWS:
         pass
 
 
-def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
+def test_runner_uses_transport_and_writes_observation(tmp_path: Path, monkeypatch):
+    install_verified_test_registry(tmp_path, monkeypatch)
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
@@ -44,7 +87,8 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
+def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path, monkeypatch):
+    install_verified_test_registry(tmp_path, monkeypatch)
     class GapTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
@@ -69,7 +113,8 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     assert not (tmp_path / "journal.jsonl").exists()
 
 
-def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
+def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path, monkeypatch):
+    install_verified_test_registry(tmp_path, monkeypatch)
     class EmptyWS(FakeWS):
         def run_forever(self, **kwargs):
             self.on_open(self)
@@ -92,7 +137,8 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_error(tmp_path: Path, monkeypatch):
+    install_verified_test_registry(tmp_path, monkeypatch)
     class BrokenTransport:
         def __init__(self, **kwargs):
             pass
@@ -121,7 +167,8 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path, monkeypatch):
+    install_verified_test_registry(tmp_path, monkeypatch)
     class BrokenTransport:
         def __init__(self, **kwargs):
             raise RuntimeError("simulated construction failure")
@@ -147,7 +194,8 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
+def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path, monkeypatch):
+    install_verified_test_registry(tmp_path, monkeypatch)
     class OverLimitTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
