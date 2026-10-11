@@ -56,6 +56,8 @@ def evaluate_source_health(
     """Compute transport-message health conservatively; never infer sequence semantics."""
     if evidence is None:
         return SourceHealthResultV1(False, "SOURCE_HEALTH_EVIDENCE_MISSING")
+    if not isinstance(evidence, SourceHealthEvidenceV1):
+        return SourceHealthResultV1(False, "SOURCE_HEALTH_EVIDENCE_TYPE_INVALID")
     if not _aware_utc(now) or not _aware_utc(evidence.source_event_time) or not _aware_utc(evidence.received_at):
         return SourceHealthResultV1(False, "TIMESTAMP_TIMEZONE_REQUIRED")
     if max_age_seconds < 0 or max_future_skew_seconds < 0:
