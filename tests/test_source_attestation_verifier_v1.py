@@ -89,7 +89,7 @@ def test_forged_final_url_without_resigning_blocks(tmp_path, monkeypatch):
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     att["final_url"] = "https://attacker.invalid/forged"
     attestation.write_text(json.dumps(att), encoding="utf-8")
-    with pytest.raises(AttestationError, match="invalid key, signature"):
+    with pytest.raises(AttestationError, match="redirect chain URL mismatch"):
         verify_attestation(
             snapshot_path=snapshot,
             attestation_path=attestation,
