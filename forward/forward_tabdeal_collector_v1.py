@@ -224,7 +224,7 @@ class ForwardTabdealCollectorV1:
 
                 while run_seconds == 0 or time.monotonic() - started < run_seconds:
                     message = ws.recv()
-                    if not message:
+                    if message is None:
                         break
                     self._process_message(message, generation=generation)
             except Exception as exc:
