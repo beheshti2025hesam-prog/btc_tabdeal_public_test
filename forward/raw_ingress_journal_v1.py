@@ -10,6 +10,7 @@ import fcntl
 import hashlib
 import json
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -89,6 +90,14 @@ class RawIngressJournalV1:
             raise RawIngressJournalError("EVENT_TYPE_REQUIRED")
         if not isinstance(received_at_utc, str) or not received_at_utc.strip():
             raise RawIngressJournalError("UTC_TIMESTAMP_REQUIRED")
+        try:
+            parsed_timestamp = datetime.fromisoformat(
+                received_at_utc[:-1] + "+00:00" if received_at_utc.endswith("Z") else received_at_utc
+            )
+        except ValueError as exc:
+            raise RawIngressJournalError("UTC_TIMESTAMP_INVALID") from exc
+        if parsed_timestamp.tzinfo is None or parsed_timestamp.utcoffset() != timedelta(0):
+            raise RawIngressJournalError("UTC_TIMESTAMP_MUST_BE_UTC")
         if type(receive_monotonic_ns) is not int or receive_monotonic_ns < 0:
             raise RawIngressJournalError("MONOTONIC_TIMESTAMP_INVALID")
         if type(connection_generation) is not int or connection_generation < 0:
@@ -105,7 +114,11 @@ class RawIngressJournalV1:
         flags = os.O_CREAT | os.O_RDWR | os.O_APPEND
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
-        with self.lock_path.open("a+b") as lock_file:
+        lock_flags = os.O_CREAT | os.O_RDWR
+        if hasattr(os, "O_NOFOLLOW"):
+            lock_flags |= os.O_NOFOLLOW
+        lock_fd = os.open(self.lock_path, lock_flags, 0o600)
+        with os.fdopen(lock_fd, "a+b") as lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
             fd = os.open(self.path, flags, 0o600)
             try:
