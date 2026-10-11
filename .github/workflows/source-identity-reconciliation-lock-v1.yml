@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - reconciliation/source-identity-lock-20261005
+      - fix/raw-ingress-rejected-event-journal-v1
   pull_request:
     branches:
       - main
