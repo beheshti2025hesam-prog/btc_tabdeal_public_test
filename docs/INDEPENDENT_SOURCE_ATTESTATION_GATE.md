@@ -1,7 +1,15 @@
 # Independent Source Attestation Gate — Design and Acceptance Criteria
 
-Status: DESIGN / NOT IMPLEMENTED
+Status: PARTIAL IMPLEMENTATION / PRODUCTION TRUST ROOT NOT VERIFIED
 Date: 2026-10-11
+
+## Implementation checkpoint (2026-10-11)
+
+Implemented in the current code path: detached Ed25519 attestation verification; strict trust-key ID matching; raw snapshot SHA-256 comparison; requested/final URL and source-context binding; fail-closed runner gate before session creation and WebSocket transport construction; registry/lock digest validation; adversarial tests for signature tampering, wrong keys, missing/mismatched key identity, coordinated registry+lock replacement, and pre-network blocking.
+
+Not established by these tests: that the production trust key is independently governed outside PR control; that the production registry contains an attestation produced by an independently operated retriever; that the recorded redirect chain was observed from a real HTTP exchange; or that Tabdeal defines `trade.sequence` semantics. Synthetic test keys and synthetic source snapshots are test fixtures only.
+
+Current production decision: `trade.sequence` remains `unknown`; gap detection remains disabled; runner remains blocked before socket/session creation while the checked-in production evidence lacks a valid independently trusted attestation. A green CI run is test evidence, not source-authenticity evidence.
 Scope: HES Trade Agent exchange-sequence capability registry and controlled forward-observation runner.
 
 ## Safety invariant
