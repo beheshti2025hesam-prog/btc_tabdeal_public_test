@@ -191,3 +191,48 @@ def test_run_stops_without_reconnect_when_output_persistence_fails(monkeypatch, 
     events = read_events(tmp_path / "observations.raw_ingress.jsonl")
     assert [event["event_type"] for event in events] == ["CONNECTED", "FRAME", "HANDOFF_FAILURE"]
     assert events[-1]["reason_code"] == "OUTPUT_PERSISTENCE_FAILED"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("price", "NaN"), ("price", "Infinity"), ("price", "-1"), ("price", "0"),
+    ("amount", "NaN"), ("amount", "Infinity"), ("amount", "-0.1"), ("amount", "0"),
+])
+def test_nonfinite_or_nonpositive_trade_values_are_rejected(tmp_path, field, value):
+    output = tmp_path / "observations.jsonl"
+    collector = ForwardTabdealCollectorV1(str(output))
+    payload = json.loads(valid_payload())
+    payload["trade"][field] = value
+
+    collector._process_message(json.dumps(payload).encode(), generation=1)
+
+    event = read_events(tmp_path / "observations.raw_ingress.jsonl")[0]
+    assert event["verdict"] == "REJECTED"
+    assert event["reason_code"] == "TRADE_NORMALIZATION_ERROR"
+    assert not output.exists()
+
+
+def test_fractional_sequence_is_rejected_without_truncation(tmp_path):
+    output = tmp_path / "observations.jsonl"
+    collector = ForwardTabdealCollectorV1(str(output))
+    payload = json.loads(valid_payload())
+    payload["trade"]["sequence"] = 7.5
+
+    collector._process_message(json.dumps(payload).encode(), generation=1)
+
+    event = read_events(tmp_path / "observations.raw_ingress.jsonl")[0]
+    assert event["verdict"] == "REJECTED"
+    assert event["reason_code"] == "TRADE_NORMALIZATION_ERROR"
+    assert not output.exists()
+
+
+def test_output_symlink_is_rejected_without_modifying_target(tmp_path):
+    target = tmp_path / "important.txt"
+    target.write_text("preserve me")
+    output = tmp_path / "observations.jsonl"
+    output.symlink_to(target)
+    collector = ForwardTabdealCollectorV1(str(output))
+
+    with pytest.raises(OSError):
+        collector._append({"price": 1.0, "amount": 1.0})
+
+    assert target.read_text() == "preserve me"
