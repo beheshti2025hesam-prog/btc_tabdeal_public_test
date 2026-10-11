@@ -12,13 +12,14 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import urlsplit
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SCOPE_FIELDS = (
     "venue", "product", "transport", "endpoint", "channel_or_topic",
     "message_type", "field_path", "protocol_version",
 )
-_CAPABILITIES = (
+_PRIMARY_SOURCE_HOSTS = {\n    # Exact official hosts only; do not use suffix matching (e.g. tabdeal.org.attacker).\n    "tabdeal": frozenset({"docs.tabdeal.org", "tabdeal.org", "www.tabdeal.org", "api1.tabdeal.org"}),\n}\n\n_CAPABILITIES = (
     "unique", "monotonic", "contiguous", "ordered",
     "comparable_across_reconnect", "comparable_across_symbols",
     "comparable_across_channels", "gap_detection_supported",
@@ -147,8 +148,22 @@ def load_verified_contract(
         for item in evidence:
             if not isinstance(item, dict) or item.get("source_kind") != "primary":
                 raise RegistryError("NON_PRIMARY_EVIDENCE")
-            if not isinstance(item.get("url"), str) or not item["url"].startswith("https://"):
+            source_url = item.get("url")
+            final_url = item.get("final_url")
+            if not isinstance(source_url, str) or not isinstance(final_url, str):
                 raise RegistryError("SOURCE_URL_INVALID")
+            allowed_hosts = _PRIMARY_SOURCE_HOSTS.get(str(record.get("venue")), frozenset())
+            for candidate in (source_url, final_url):
+                parsed = urlsplit(candidate)
+                if (
+                    parsed.scheme != "https"
+                    or not parsed.hostname
+                    or parsed.hostname.lower() not in allowed_hosts
+                    or parsed.username is not None
+                    or parsed.password is not None
+                    or parsed.port not in (None, 443)
+                ):
+                    raise RegistryError("SOURCE_HOST_NOT_TRUSTED")
             if not isinstance(item.get("retrieved_at"), str) or not item["retrieved_at"].strip():
                 raise RegistryError("SOURCE_RETRIEVAL_METADATA_MISSING")
             source_digest = item.get("source_content_sha256")
