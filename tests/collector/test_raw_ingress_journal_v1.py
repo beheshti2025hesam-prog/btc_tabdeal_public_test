@@ -79,3 +79,29 @@ def test_invalid_verdict_rejected_before_append(tmp_path):
     with pytest.raises(RawIngressJournalError, match="VERDICT_INVALID"):
         append(journal, verdict="MAYBE")
     assert not journal.path.exists()
+
+def test_non_utc_or_malformed_timestamp_is_rejected_before_append(tmp_path):
+    journal = RawIngressJournalV1(tmp_path / "ingress.jsonl")
+    with pytest.raises(RawIngressJournalError, match="UTC_TIMESTAMP_MUST_BE_UTC"):
+        journal.append(
+            event_type="FRAME", received_at_utc="2026-10-11T01:00:00+01:00",
+            receive_monotonic_ns=100, connection_generation=1, verdict="ACCEPTED",
+        )
+    with pytest.raises(RawIngressJournalError, match="UTC_TIMESTAMP_INVALID"):
+        journal.append(
+            event_type="FRAME", received_at_utc="not-a-timestamp",
+            receive_monotonic_ns=100, connection_generation=1, verdict="ACCEPTED",
+        )
+    assert not journal.path.exists()
+
+
+def test_symlinked_lock_file_fails_closed(tmp_path):
+    journal = RawIngressJournalV1(tmp_path / "ingress.jsonl")
+    target = tmp_path / "attacker-controlled-lock"
+    target.write_bytes(b"do not modify")
+    journal.lock_path.symlink_to(target)
+    with pytest.raises(OSError):
+        append(journal)
+    assert target.read_bytes() == b"do not modify"
+    assert not journal.path.exists()
+
