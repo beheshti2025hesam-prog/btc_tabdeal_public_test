@@ -77,6 +77,28 @@ jobs:
           print(json.dumps(lock, indent=2))
           PY
 
+      - name: Checkout exact historical computation code
+        uses: actions/checkout@v4
+        with:
+          ref: 4a197977a82633468cb65d9c8cb1e91740bc3295
+          path: locked-computation-code
+          fetch-depth: 1
+
+      - name: Independently rederive and compare all 42 source records
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HES_LOCKED_COMPUTATION_ROOT: ${{ github.workspace }}/locked-computation-code
+        run: python scripts/verify_source_identity_derivation_v1.py
+
+      - name: Upload record-level derivation proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-identity-derivation-verification-v1
+          path: |
+            evidence/source_identity_derivation_verification_v1.json
+            evidence/source_identity_derivation_verification_v1.lock.json
+          if-no-files-found: error
+
       - name: Upload immutable reconciliation artifact
         uses: actions/upload-artifact@v4
         with:
