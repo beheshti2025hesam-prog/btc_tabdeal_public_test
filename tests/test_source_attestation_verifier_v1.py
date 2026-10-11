@@ -120,3 +120,17 @@ def test_unknown_schema_blocks_even_if_signed(tmp_path, monkeypatch):
             attestation_path=attestation,
             expected_context={},
         )
+
+
+
+def test_redirect_chain_must_match_signed_requested_and_final_urls(tmp_path, monkeypatch):
+    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    att["redirect_chain"][0]["url"] = "https://attacker.invalid/unrecorded-hop"
+    attestation.write_text(json.dumps(att), encoding="utf-8")
+    with pytest.raises(AttestationError, match="redirect chain URL mismatch"):
+        verify_attestation(
+            snapshot_path=snapshot,
+            attestation_path=attestation,
+            expected_context={"venue": "example"},
+        )
