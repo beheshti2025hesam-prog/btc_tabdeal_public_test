@@ -216,32 +216,31 @@ class ForwardTabdealCollectorV1:
             generation += 1
             connection_error: Exception | None = None
             try:
-                ws = websocket.create_connection(WS_URL, timeout=15)
-                ws.send(SYMBOL)
-                self._journal(
-                    event_type="CONNECTED", verdict="ACCEPTED", generation=generation,
-                    details={"subscription": SYMBOL},
-                )
+                try:
+                    ws = websocket.create_connection(WS_URL, timeout=15)
+                    ws.send(SYMBOL)
+                except Exception as exc:
+                    # Connection setup/send errors can be retried after journaling.
+                    connection_error = exc
+                else:
+                    # Journal failures are intentionally not caught: fail closed.
+                    self._journal(
+                        event_type="CONNECTED", verdict="ACCEPTED", generation=generation,
+                        details={"subscription": SYMBOL},
+                    )
 
-                while run_seconds == 0 or time.monotonic() - started < run_seconds:
-                    # Catch only socket receive failures here. Message processing,
-                    # journaling, and output persistence failures must escape and
-                    # stop the collector rather than being mistaken for disconnects.
-                    try:
-                        message = ws.recv()
-                    except Exception as exc:
-                        connection_error = exc
-                        break
-                    if message is None:
-                        break
-                    self._process_message(message, generation=generation)
-
-            except Exception as exc:
-                # Setup/send failures are connection failures. Failures from
-                # journal writes occur here too and must not trigger reconnect.
-                if isinstance(exc, OSError):
-                    raise
-                connection_error = exc
+                    while run_seconds == 0 or time.monotonic() - started < run_seconds:
+                        try:
+                            message = ws.recv()
+                        except Exception as exc:
+                            connection_error = exc
+                            break
+                        if message is None:
+                            break
+                        # Processing, journaling, and persistence errors propagate
+                        # out and terminate the collector; never treat them as
+                        # ordinary disconnects or automatically reconnect.
+                        self._process_message(message, generation=generation)
             finally:
                 if ws is not None:
                     try:
