@@ -132,7 +132,8 @@ def load_verified_contract(
     if not isinstance(claims, dict) or any(key not in claims for key in _CAPABILITIES):
         raise RegistryError("CAPABILITIES_INCOMPLETE")
     for key in _CAPABILITIES:
-        if claims[key] not in (True, False, "unknown"):
+        value = claims[key]
+        if type(value) is not bool and value != "unknown":
             raise RegistryError("CAPABILITY_VALUE_INVALID")
 
     if status == "verified":
