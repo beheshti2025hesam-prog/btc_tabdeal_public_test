@@ -73,7 +73,7 @@ sources = manifest["sources"]
 prior_source, current_source, contract_source = sources["prior"], sources["current"], sources["protocol_contract"]
 tree_blob(prior_source["source_commit"], "data/trades.csv", prior_source["raw_blob_sha"])
 tree_blob(current_source["source_commit"], "data/trades.csv", current_source["raw_blob_sha"])
-tree_blob(contract_source["source_commit"], ".github/workflows/protocol-reconciliation-v1.yml", contract_source["blob_sha"])
+tree_blob(contract_source["source_commit"], "evidence/protocol_reconciliation_v1.json", contract_source["blob_sha"])
 
 prior_raw = git_blob(prior_source["raw_blob_sha"])
 current_raw = git_blob(current_source["raw_blob_sha"])
