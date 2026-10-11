@@ -103,7 +103,7 @@ class ForwardTabdealCollectorV1:
     def _append(self, record: dict[str, Any]) -> None:
         self.output.parent.mkdir(parents=True, exist_ok=True)
         # Reject non-standard JSON numbers and refuse a symlink at the output path.
-        encoded = json.dumps(record, sort_keys=True, allow_nan=False).encode("utf-8") + b"\\n"
+        encoded = json.dumps(record, sort_keys=True, allow_nan=False).encode("utf-8") + b"\n"
         flags = os.O_CREAT | os.O_WRONLY | os.O_APPEND
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
