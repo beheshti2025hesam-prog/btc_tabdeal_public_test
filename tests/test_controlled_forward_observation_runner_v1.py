@@ -257,6 +257,7 @@ def test_runner_requires_evidence_reference_even_when_verified_flag_is_true(tmp_
         journal_path=tmp_path / "journal.jsonl",
         session_path=tmp_path / "session.jsonl",
         sequence_contract_verified=True,
+        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
         ws_factory=FakeWS,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
