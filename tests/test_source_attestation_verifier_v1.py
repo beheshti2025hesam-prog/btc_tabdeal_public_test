@@ -160,3 +160,31 @@ def test_signer_key_id_must_match_protected_identity(tmp_path, monkeypatch):
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "different-protected-key")
     with pytest.raises(AttestationError, match="identity does not match"):
         verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+
+
+def test_signature_tampering_blocks(tmp_path, monkeypatch):
+    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
+    att["retrieval_tool_version"] = "tampered-after-signing"
+    attestation.write_text(json.dumps(att), encoding="utf-8")
+    with pytest.raises(AttestationError, match="invalid key, signature, or attestation encoding"):
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+
+
+def test_wrong_public_key_blocks(tmp_path, monkeypatch):
+    snapshot, attestation, _, _ = _signed_fixture(tmp_path)
+    other_private = Ed25519PrivateKey.generate()
+    other_public = other_private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", base64.b64encode(other_public).decode())
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
+    with pytest.raises(AttestationError, match="invalid key, signature, or attestation encoding"):
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+
+
+def test_missing_key_identity_blocks_even_with_public_key(tmp_path, monkeypatch):
+    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.delenv("HES_SOURCE_ATTESTATION_KEY_ID", raising=False)
+    with pytest.raises(AttestationError, match="trust root"):
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
