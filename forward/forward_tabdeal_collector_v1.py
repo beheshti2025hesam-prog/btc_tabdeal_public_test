@@ -214,6 +214,7 @@ class ForwardTabdealCollectorV1:
         while run_seconds == 0 or time.monotonic() - started < run_seconds:
             ws = None
             generation += 1
+            connection_error: Exception | None = None
             try:
                 ws = websocket.create_connection(WS_URL, timeout=15)
                 ws.send(SYMBOL)
@@ -223,28 +224,41 @@ class ForwardTabdealCollectorV1:
                 )
 
                 while run_seconds == 0 or time.monotonic() - started < run_seconds:
-                    message = ws.recv()
+                    # Catch only socket receive failures here. Message processing,
+                    # journaling, and output persistence failures must escape and
+                    # stop the collector rather than being mistaken for disconnects.
+                    try:
+                        message = ws.recv()
+                    except Exception as exc:
+                        connection_error = exc
+                        break
                     if message is None:
                         break
                     self._process_message(message, generation=generation)
+
             except Exception as exc:
-                # Never persist exception text; if the journal itself is unavailable,
-                # the journal append below raises and stops this run fail-closed.
-                self._journal(
-                    event_type="CONNECTION_ERROR", verdict="CONNECTION_ERROR",
-                    generation=generation, reason_code="COLLECTOR_CONNECTION_ERROR",
-                    details={"error_type": type(exc).__name__},
-                )
+                # Setup/send failures are connection failures. Failures from
+                # journal writes occur here too and must not trigger reconnect.
+                if isinstance(exc, OSError):
+                    raise
+                connection_error = exc
             finally:
                 if ws is not None:
                     try:
                         ws.close()
                     except Exception:
                         pass
+
+            if connection_error is not None:
                 self._journal(
-                    event_type="DISCONNECT", verdict="DISCONNECTED",
-                    generation=generation, reason_code="CONNECTION_ENDED",
+                    event_type="CONNECTION_ERROR", verdict="CONNECTION_ERROR",
+                    generation=generation, reason_code="COLLECTOR_CONNECTION_ERROR",
+                    details={"error_type": type(connection_error).__name__},
                 )
+            self._journal(
+                event_type="DISCONNECT", verdict="DISCONNECTED",
+                generation=generation, reason_code="CONNECTION_ENDED",
+            )
 
             if run_seconds and time.monotonic() - started >= run_seconds:
                 break
