@@ -153,3 +153,41 @@ def test_empty_websocket_payload_is_preserved_not_silently_dropped(tmp_path):
     assert event["reason_code"] == "JSON_DECODE_ERROR"
     assert base64.b64decode(event["raw_bytes_b64"]) == raw
     assert not output.exists()
+
+
+def test_run_stops_without_reconnect_when_output_persistence_fails(monkeypatch, tmp_path):
+    import forward.forward_tabdeal_collector_v1 as module
+
+    calls = []
+
+    class FakeSocket:
+        def send(self, value):
+            assert value == "BTC_USDT"
+
+        def recv(self):
+            return valid_payload()
+
+        def close(self):
+            pass
+
+    socket = FakeSocket()
+
+    def connect(*args, **kwargs):
+        calls.append(1)
+        return socket
+
+    monkeypatch.setattr(module.websocket, "create_connection", connect)
+    output = tmp_path / "observations.jsonl"
+    collector = ForwardTabdealCollectorV1(str(output), enabled=True)
+
+    def fail_append(_record):
+        raise OSError("output disk unavailable")
+
+    monkeypatch.setattr(collector, "_append", fail_append)
+    with pytest.raises(OSError, match="output disk unavailable"):
+        collector.run(run_seconds=0)
+
+    assert len(calls) == 1
+    events = read_events(tmp_path / "observations.raw_ingress.jsonl")
+    assert [event["event_type"] for event in events] == ["CONNECTED", "FRAME", "HANDOFF_FAILURE"]
+    assert events[-1]["reason_code"] == "OUTPUT_PERSISTENCE_FAILED"
