@@ -150,7 +150,7 @@ class TabdealReadOnlyTransportV1:
                 "raw_frame_sha256": raw_frame_sha256,
                 "received_at_utc": received_at,
                 "receive_monotonic_ns": received_monotonic_ns,
-                "outer_keys": sorted(payload.keys()) if isinstance(payload, dict) else [],
+                "outer_keys": sorted(payload.keys()),
                 "trade_keys": sorted(trade.keys()),
                 "sequence_field_path": "trade.sequence" if "sequence" in trade else None,
                 "sequence_value_type": type(sequence_value).__name__,
@@ -158,15 +158,6 @@ class TabdealReadOnlyTransportV1:
                 "normalized_sequence": record.get("sequence"),
                 "sequence_semantics": "OPAQUE_UNVERIFIED",
             }
-            self._journal(
-                event_type="FRAME", received_at=received_at,
-                monotonic_ns=received_monotonic_ns, verdict="ACCEPTED",
-                raw_bytes=raw_bytes, details=metadata,
-            )
-            if self.on_frame_metadata is not None:
-                self.on_frame_metadata(metadata)
-            self.on_record(record)
-            self.records_emitted += 1
         except (ValueError, TypeError, json.JSONDecodeError, KeyError) as exc:
             self.rejected += 1
             reason = type(exc).__name__
@@ -177,6 +168,18 @@ class TabdealReadOnlyTransportV1:
                 raw_bytes=raw_bytes, reason_code=reason,
                 details={"raw_frame_sha256": raw_frame_sha256},
             )
+            return
+
+        # A journal write must succeed before any downstream callback runs.
+        self._journal(
+            event_type="FRAME", received_at=received_at,
+            monotonic_ns=received_monotonic_ns, verdict="ACCEPTED",
+            raw_bytes=raw_bytes, details=metadata,
+        )
+        if self.on_frame_metadata is not None:
+            self.on_frame_metadata(metadata)
+        self.on_record(record)
+        self.records_emitted += 1
 
     def _close_for_budget(self, ws: Any) -> None:
         self.closed_by_budget = True
