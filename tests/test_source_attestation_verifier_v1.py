@@ -61,7 +61,6 @@ def test_valid_signed_snapshot_verifies(tmp_path, monkeypatch):
     snapshot, attestation, public, att = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
-    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     result = verify_attestation(
         snapshot_path=snapshot,
         attestation_path=attestation,
