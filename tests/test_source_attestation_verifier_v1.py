@@ -52,6 +52,7 @@ def test_missing_external_trust_root_blocks(tmp_path, monkeypatch):
     att = tmp_path / "attestation.json"
     att.write_text("{}", encoding="utf-8")
     monkeypatch.delenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", raising=False)
+    monkeypatch.delenv("HES_SOURCE_ATTESTATION_KEY_ID", raising=False)
     with pytest.raises(AttestationError, match="trust root"):
         verify_attestation(snapshot_path=snapshot, attestation_path=att, expected_context={})
 
@@ -59,6 +60,7 @@ def test_missing_external_trust_root_blocks(tmp_path, monkeypatch):
 def test_valid_signed_snapshot_verifies(tmp_path, monkeypatch):
     snapshot, attestation, public, att = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     result = verify_attestation(
         snapshot_path=snapshot,
         attestation_path=attestation,
@@ -140,4 +142,12 @@ def test_non_https_or_credentialed_url_blocks(tmp_path, monkeypatch):
     att["requested_url"] = "https://user:pass@api.example.invalid/docs"
     attestation.write_text(json.dumps(att), encoding="utf-8")
     with pytest.raises(AttestationError, match="HTTPS URLs"):
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+
+
+def test_signer_key_id_must_match_protected_identity(tmp_path, monkeypatch):
+    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "different-protected-key")
+    with pytest.raises(AttestationError, match="identity does not match"):
         verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
