@@ -1,0 +1,27 @@
+{
+  "lock_id": "HES-SOURCE-IDENTITY-RAW-ANCHOR-RECONCILIATION-V1-LOCK",
+  "status": "LOCKED_AUDIT_DERIVATIVE",
+  "artifact_path": "archive/source_identity_raw_anchor_reconciliation_v1_20261012.json",
+  "artifact_commit": "dc1f2ccddfa330f788b398dc3fb9e8a8ba5c6e65",
+  "artifact_git_blob_sha1": "2d6e16093f0c1ce58a203e7c259fb4f8b575c688",
+  "artifact_sha256": "4b5e347af384ffa1888e70ffba44a23817c988b8de1098378fed6abb3c57bddc",
+  "artifact_bytes": 62811,
+  "lock_basis": [
+    "SHA-256 recomputed from exact UTF-8 content read back from GitHub",
+    "Git blob SHA read back from the committed artifact"
+  ],
+  "claim_boundary": {
+    "raw_sequence_and_entry_anchor_checks": "PASS_42_OF_42",
+    "exit_sequence_identity": "NOT_EXPLICIT_IN_SOURCE_RECORD; MATCH IS INFERRED",
+    "live_source_attestation": "NOT_VERIFIED",
+    "vps_archive_lineage": "OPEN",
+    "single_writer_proof": "OPEN",
+    "feature_extraction": false,
+    "effective_evidence_calculation": false,
+    "threshold_tuning": false,
+    "winner_selection_changes": false,
+    "record_deletion": false,
+    "collector_started_or_enabled": false,
+    "trading_authorized": false
+  }
+}
