@@ -9,6 +9,7 @@ on:
       - main
       - feat/dedicated-observation-supervisor-v1-20261010
       - feat/sequence-capability-registry-v1
+      - impl/detached-source-attestation-v1-20261011
   workflow_dispatch:
 
 permissions:
