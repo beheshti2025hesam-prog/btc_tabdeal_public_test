@@ -12,8 +12,7 @@
   "source_identity_artifact": {
     "path": "evidence/source_identity_reconciliation_v1.json",
     "sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
-    "record_count": 42,
-    "lock_artifact_sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd"
+    "record_count": 42
   },
   "sources": {
     "prior": {
