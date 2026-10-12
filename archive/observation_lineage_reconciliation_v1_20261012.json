@@ -1,0 +1,92 @@
+{
+  "artifact_id": "HES-OBSERVATION-LINEAGE-RECONCILIATION-V1",
+  "schema": "hes.observation_lineage_reconciliation.v1",
+  "snapshot_at_utc": "2026-10-12T10:55:00Z",
+  "status": "PARTIAL_PARSE_RECONCILIATION_PASS_LINEAGE_OPEN",
+  "method": {
+    "mode": "READ_ONLY_IN_MEMORY_NORMALIZATION",
+    "transformation": "For parse diagnostics only, remove exactly the final two bytes 0x5c 0x6e (literal backslash+n) from the end of each affected file in memory. Original files were not modified.",
+    "historical_source_bytes_modified": false
+  },
+  "manifest": {
+    "path": "data/forward/observation_artifact_manifest_v1.json",
+    "raw_sha256": "1bab9a35dde633107a3dfaa394067260645e110a62cd53355838853c63b89095",
+    "raw_bytes": 678,
+    "raw_parse": "FAIL_EXTRA_DATA_TRAILING_LITERAL_BACKSLASH_N",
+    "in_memory_normalized_sha256": "63ab0cf2650c8a4edaf8be9817b65f0163271c54e94d5d59c6f630ce0afe172a",
+    "normalized_parse": "PASS",
+    "declared_run_id": "FORWARD_OBS_20261007T014726Z",
+    "declared_record_count": 10,
+    "declared_observation_file": "data/forward/observations.jsonl",
+    "declared_observation_sha256": "ef050fcf90fb43032527f121f13e2ed4c66a661080d772b4b3056fcd4f1416eb",
+    "declared_sequence_strictly_increasing": true
+  },
+  "run_ledger": {
+    "path": "data/forward/observation_runs.jsonl",
+    "raw_sha256": "04acbe65cd589bc4cbe5eaa375dab19ca433fe02ad94083a44667ebf0ac661cd",
+    "raw_bytes": 353,
+    "raw_parse": "FAIL_EXTRA_DATA_TRAILING_LITERAL_BACKSLASH_N",
+    "in_memory_normalized_sha256": "e0d3e969c2fad3965d1122bdd4e2eb030abe1985175b0ce69c266a028699dda4",
+    "normalized_parse": "PASS",
+    "records": 1,
+    "run_ids": ["FORWARD_OBS_20261007T014726Z"],
+    "declared_observation_file": "data/forward/observations.jsonl",
+    "declared_observation_sha256": "ef050fcf90fb43032527f121f13e2ed4c66a661080d772b4b3056fcd4f1416eb"
+  },
+  "observations": {
+    "path": "data/forward/observations.jsonl",
+    "raw_sha256": "ef050fcf90fb43032527f121f13e2ed4c66a661080d772b4b3056fcd4f1416eb",
+    "bytes": 2400,
+    "records": 10,
+    "parse": "PASS",
+    "run_id_join": "PASS_WITH_MANIFEST_AND_RUN_LEDGER_AFTER_IN_MEMORY_NORMALIZATION"
+  },
+  "session_lineage": {
+    "path": "data/forward/observation_sessions_v1.jsonl",
+    "raw_sha256": "e8fa23e2aba609f9cf0937c10ca552155c91bd5dae04870403e3cbdab38bd050",
+    "records": 3,
+    "run_ids": [
+      "OBS-20261007T154238Z-0ea8e61be07a",
+      "OBS-20261007T154746Z-0f49be0272ae",
+      "OBS-20261009T163045Z-9d53227e7b20"
+    ],
+    "join_to_observation_run_ledger": "NO_MATCH",
+    "join_status": "OPEN_DIFFERENT_RUN_ID_FAMILY"
+  },
+  "live_session": {
+    "path": "data/forward/live_observation_session.json",
+    "raw_sha256": "96ebf38812a73ab7bc59628637d1b398f1bee13ab844ea3fd3344c705fb075f6",
+    "run_id": "OBS-20261007T144740Z-7dd0ba7739de",
+    "join_to_session_ledger": "NO_MATCH",
+    "join_to_observation_run_ledger": "NO_MATCH",
+    "join_status": "OPEN"
+  },
+  "probe": {
+    "path": "data/forward/live_probe_20261007.jsonl",
+    "raw_sha256": "26044fec93bbb501e2c1eb46174a0bfd74f670b77e4adb304c049eeeca4d009d",
+    "records": 11,
+    "parse": "PASS",
+    "exact_sequence_intersection_with_observations": 0,
+    "lineage_join": "OPEN_NO_EXPLICIT_RUN_ID_IN_RECORDS",
+    "sequence_semantics": "UNKNOWN_NO_NUMERIC_GAP_INFERENCE"
+  },
+  "gates": {
+    "manifest_and_run_ledger_syntax_original_files": "FAIL",
+    "in_memory_parse_diagnostic": "PASS",
+    "session_run_probe_lineage": "OPEN",
+    "source_identity": "OPEN",
+    "immutable_normalized_historical_artifact_created": false,
+    "feature_extraction": false,
+    "effective_evidence_calculation": false,
+    "threshold_tuning": false,
+    "winner_selection_changes": false,
+    "record_deletion": false,
+    "collector_started_or_enabled": false,
+    "trading_authorized": false
+  },
+  "next_actions": [
+    "Publish a new versioned normalized derivative artifact that embeds original hashes and the exact two-byte normalization rule; never overwrite source files.",
+    "Resolve the three OBS-* session run IDs and separate live session against the run/probe records using explicit IDs and existing manifests only.",
+    "Obtain independent live source identity proof and single-writer lock attribution before evidence gate evaluation."
+  ]
+}
