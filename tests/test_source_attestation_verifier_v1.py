@@ -1,5 +1,6 @@
 import base64
 import hashlib
+from datetime import datetime, timedelta, timezone
 import json
 
 import pytest
@@ -29,7 +30,7 @@ def _signed_fixture(tmp_path):
         "redirect_chain": [
             {"url": "https://api.example.invalid/docs", "status": 200}
         ],
-        "retrieved_at_utc": "2026-10-11T00:00:00Z",
+        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "retrieval_tool": "controlled-attestor",
         "retrieval_tool_version": "1.0",
         "source_context": {
@@ -115,6 +116,35 @@ def test_redirect_chain_must_match_signed_requested_and_final_urls(tmp_path, mon
     attestation.write_text(json.dumps(att), encoding="utf-8")
     with pytest.raises(AttestationError, match="redirect chain URL mismatch"):
         verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={"venue": "example"})
+
+
+
+def test_stale_attestation_blocks_before_signature_check(tmp_path, monkeypatch):
+    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
+    att["retrieved_at_utc"] = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    attestation.write_text(json.dumps(att), encoding="utf-8")
+    with pytest.raises(AttestationError, match="attestation is stale"):
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+
+
+def test_future_dated_attestation_blocks(tmp_path, monkeypatch):
+    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
+    att["retrieved_at_utc"] = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    attestation.write_text(json.dumps(att), encoding="utf-8")
+    with pytest.raises(AttestationError, match="timestamp is in the future"):
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+
+
+def test_naive_verification_clock_is_rejected(tmp_path, monkeypatch):
+    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
+    with pytest.raises(ValueError, match="now_utc must be timezone-aware"):
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={}, now_utc=datetime(2026, 10, 12))
 
 
 def test_timestamp_must_be_explicit_utc(tmp_path, monkeypatch):
