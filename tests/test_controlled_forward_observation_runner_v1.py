@@ -104,7 +104,7 @@ class FakeWS:
         pass
 
 
-def test_runner_uses_transport_and_writes_observation(tmp_path: Path, monkeypatch):
+def test_runner_blocks_synthetic_registry_before_transport(tmp_path: Path, monkeypatch):
     install_verified_test_registry(tmp_path, monkeypatch)
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
@@ -119,13 +119,15 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path, monkeypatc
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
     )
-    assert result.status == "WAITING"
-    assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
-    assert session.exists()
+    assert result.status == "BLOCKED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.records_received == 0
+    assert not session.exists()
     assert not journal.exists()
 
 
-def test_runner_accepts_contiguous_sequence_in_verified_test_mode(tmp_path: Path, monkeypatch):
+def test_runner_blocks_synthetic_sequence_contract_before_transport(tmp_path: Path, monkeypatch):
     install_verified_test_registry(tmp_path, monkeypatch)
     class GapTransport:
         def __init__(self, on_record, **kwargs):
@@ -146,12 +148,15 @@ def test_runner_accepts_contiguous_sequence_in_verified_test_mode(tmp_path: Path
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
-    assert result.status == "WAITING"
-    assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
+    assert result.status == "BLOCKED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.records_received == 0
+    assert not (tmp_path / "session.jsonl").exists()
     assert not (tmp_path / "journal.jsonl").exists()
 
 
-def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path, monkeypatch):
+def test_runner_blocks_before_empty_transport_is_constructed(tmp_path: Path, monkeypatch):
     install_verified_test_registry(tmp_path, monkeypatch)
     class EmptyWS(FakeWS):
         def run_forever(self, **kwargs):
@@ -170,12 +175,15 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path, mon
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
     )
-    assert result.status == "WAITING"
-    assert result.reason == "NO_FRESH_RECORDS"
+    assert result.status == "BLOCKED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.records_received == 0
+    assert not session.exists()
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_error(tmp_path: Path, monkeypatch):
+def test_runner_blocks_before_transport_error_can_occur(tmp_path: Path, monkeypatch):
     install_verified_test_registry(tmp_path, monkeypatch)
     class BrokenTransport:
         def __init__(self, **kwargs):
@@ -199,13 +207,14 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path, monkeypatch):
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
     )
     assert result.status == "BLOCKED"
-    assert result.reason == "TRANSPORT_ERROR:RuntimeError"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED"
     assert result.records_received == 0
-    assert session.exists()
+    assert not session.exists()
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path, monkeypatch):
+def test_runner_blocks_before_transport_construction(tmp_path: Path, monkeypatch):
     install_verified_test_registry(tmp_path, monkeypatch)
     class BrokenTransport:
         def __init__(self, **kwargs):
@@ -232,7 +241,7 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path, mon
     assert not journal.exists()
 
 
-def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path, monkeypatch):
+def test_runner_blocks_before_record_bound_can_be_exercised(tmp_path: Path, monkeypatch):
     install_verified_test_registry(tmp_path, monkeypatch)
     class OverLimitTransport:
         def __init__(self, on_record, **kwargs):
@@ -256,9 +265,10 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path, monke
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "FORWARD_RECORD_BOUND_EXCEEDED"
-    assert result.records_received == 3
-    assert result.diagnostics == ({"max_records": 3},)
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.records_received == 0
+    assert not (tmp_path / "session.jsonl").exists()
     assert not journal.exists()
 
 
