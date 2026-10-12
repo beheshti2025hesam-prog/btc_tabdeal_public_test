@@ -11,7 +11,7 @@ import base64
 import hashlib
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -29,6 +29,8 @@ REQUIRED_FIELDS = {
     "signer_key_id",
 }
 SCHEMA_VERSION = "hes-source-attestation-v1"
+MAX_ATTESTATION_AGE = timedelta(hours=24)
+ALLOWED_FUTURE_SKEW = timedelta(minutes=5)
 
 
 class AttestationError(ValueError):
@@ -73,6 +75,9 @@ def verify_attestation(
     snapshot_path: str | Path,
     attestation_path: str | Path,
     expected_context: dict[str, Any],
+    now_utc: datetime | None = None,
+    max_age: timedelta = MAX_ATTESTATION_AGE,
+    allowed_future_skew: timedelta = ALLOWED_FUTURE_SKEW,
 ) -> dict[str, Any]:
     """Verify signed attestation and exact raw snapshot bytes; raise on any gap.
 
@@ -100,6 +105,21 @@ def verify_attestation(
         raise AttestationError("BLOCK: source URLs must be valid HTTPS URLs without credentials")
     if not _validate_utc_timestamp(att["retrieved_at_utc"]):
         raise AttestationError("BLOCK: retrieval timestamp must be ISO-8601 UTC ending in Z")
+    if max_age < timedelta(0) or allowed_future_skew < timedelta(0):
+        raise ValueError("max_age and allowed_future_skew must be non-negative")
+    try:
+        retrieved_at = datetime.fromisoformat(att["retrieved_at_utc"][:-1] + "+00:00")
+    except ValueError as exc:
+        raise AttestationError("BLOCK: malformed retrieval timestamp") from exc
+    now = now_utc if now_utc is not None else datetime.now(timezone.utc)
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("now_utc must be timezone-aware")
+    now = now.astimezone(timezone.utc)
+    age = now - retrieved_at.astimezone(timezone.utc)
+    if age > max_age:
+        raise AttestationError("BLOCK: attestation is stale")
+    if age < -allowed_future_skew:
+        raise AttestationError("BLOCK: attestation timestamp is in the future")
     for field in ("retrieval_tool", "retrieval_tool_version", "signer_key_id"):
         if not isinstance(att[field], str) or not att[field].strip():
             raise AttestationError(f"BLOCK: {field} missing")
