@@ -44,7 +44,13 @@ def _signed_fixture(tmp_path):
     att["signature"] = base64.b64encode(private.sign(_canonical_payload(att))).decode()
     path = tmp_path / "attestation.json"
     path.write_text(json.dumps(att), encoding="utf-8")
-    return snapshot, path, base64.b64encode(public).decode(), att
+    return snapshot, path, base64.b64encode(public).decode(), att, private
+
+
+def _resign_attestation(path, att, private):
+    att.pop("signature", None)
+    att["signature"] = base64.b64encode(private.sign(_canonical_payload(att))).decode()
+    path.write_text(json.dumps(att), encoding="utf-8")
 
 
 def test_missing_external_trust_root_blocks(tmp_path, monkeypatch):
@@ -59,7 +65,7 @@ def test_missing_external_trust_root_blocks(tmp_path, monkeypatch):
 
 
 def test_valid_signed_snapshot_verifies(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     result = verify_attestation(
@@ -72,7 +78,7 @@ def test_valid_signed_snapshot_verifies(tmp_path, monkeypatch):
 
 
 def test_one_byte_snapshot_change_blocks(tmp_path, monkeypatch):
-    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    snapshot, attestation, public, _, _private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     snapshot.write_bytes(snapshot.read_bytes() + b"!")
@@ -81,7 +87,7 @@ def test_one_byte_snapshot_change_blocks(tmp_path, monkeypatch):
 
 
 def test_forged_final_url_without_resigning_blocks(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     att["final_url"] = "https://attacker.invalid/forged"
@@ -91,7 +97,7 @@ def test_forged_final_url_without_resigning_blocks(tmp_path, monkeypatch):
 
 
 def test_context_mismatch_blocks(tmp_path, monkeypatch):
-    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    snapshot, attestation, public, _, _private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     with pytest.raises(AttestationError, match="source context mismatch"):
@@ -99,7 +105,7 @@ def test_context_mismatch_blocks(tmp_path, monkeypatch):
 
 
 def test_unknown_schema_blocks_even_if_signed(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     att["schema_version"] = "future-unsupported"
@@ -109,7 +115,7 @@ def test_unknown_schema_blocks_even_if_signed(tmp_path, monkeypatch):
 
 
 def test_redirect_chain_must_match_signed_requested_and_final_urls(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     att["redirect_chain"][0]["url"] = "https://attacker.invalid/unrecorded-hop"
@@ -119,28 +125,47 @@ def test_redirect_chain_must_match_signed_requested_and_final_urls(tmp_path, mon
 
 
 
-def test_stale_attestation_blocks_before_signature_check(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+def test_stale_attestation_with_valid_signature_blocks(tmp_path, monkeypatch):
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
-    att["retrieved_at_utc"] = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(timespec="seconds").replace("+00:00", "Z")
-    attestation.write_text(json.dumps(att), encoding="utf-8")
+    now = datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc)
+    att["retrieved_at_utc"] = (now - timedelta(days=2)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    _resign_attestation(attestation, att, private)
     with pytest.raises(AttestationError, match="attestation is stale"):
-        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={}, now_utc=now)
 
 
-def test_future_dated_attestation_blocks(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+def test_future_dated_attestation_with_valid_signature_blocks(tmp_path, monkeypatch):
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
-    att["retrieved_at_utc"] = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(timespec="seconds").replace("+00:00", "Z")
-    attestation.write_text(json.dumps(att), encoding="utf-8")
+    now = datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc)
+    att["retrieved_at_utc"] = (now + timedelta(minutes=10)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    _resign_attestation(attestation, att, private)
     with pytest.raises(AttestationError, match="timestamp is in the future"):
-        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={})
+        verify_attestation(snapshot_path=snapshot, attestation_path=attestation, expected_context={}, now_utc=now)
+
+
+@pytest.mark.parametrize("age", [timedelta(hours=24), timedelta(minutes=-5)])
+def test_exact_freshness_boundaries_are_accepted(tmp_path, monkeypatch, age):
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
+    now = datetime(2026, 10, 12, 12, 0, tzinfo=timezone.utc)
+    att["retrieved_at_utc"] = (now - age).isoformat(timespec="seconds").replace("+00:00", "Z")
+    _resign_attestation(attestation, att, private)
+    result = verify_attestation(
+        snapshot_path=snapshot,
+        attestation_path=attestation,
+        expected_context={},
+        now_utc=now,
+    )
+    assert result["verified"] is True
 
 
 def test_naive_verification_clock_is_rejected(tmp_path, monkeypatch):
-    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    snapshot, attestation, public, _, _private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     with pytest.raises(ValueError, match="now_utc must be timezone-aware"):
@@ -148,7 +173,7 @@ def test_naive_verification_clock_is_rejected(tmp_path, monkeypatch):
 
 
 def test_timestamp_must_be_explicit_utc(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     att["retrieved_at_utc"] = "2026-10-11T00:00:00+03:00"
@@ -158,7 +183,7 @@ def test_timestamp_must_be_explicit_utc(tmp_path, monkeypatch):
 
 
 def test_redirect_hops_must_bind_next_url_and_status(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     first = "https://api.example.invalid/docs"
@@ -174,7 +199,7 @@ def test_redirect_hops_must_bind_next_url_and_status(tmp_path, monkeypatch):
 
 
 def test_non_https_or_credentialed_url_blocks(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     att["requested_url"] = "https://user:pass@api.example.invalid/docs"
@@ -184,7 +209,7 @@ def test_non_https_or_credentialed_url_blocks(tmp_path, monkeypatch):
 
 
 def test_signer_key_id_must_match_protected_identity(tmp_path, monkeypatch):
-    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    snapshot, attestation, public, _, _private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "different-protected-key")
     with pytest.raises(AttestationError, match="identity does not match"):
@@ -192,7 +217,7 @@ def test_signer_key_id_must_match_protected_identity(tmp_path, monkeypatch):
 
 
 def test_signature_tampering_blocks(tmp_path, monkeypatch):
-    snapshot, attestation, public, att = _signed_fixture(tmp_path)
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
     att["retrieval_tool_version"] = "tampered-after-signing"
@@ -202,7 +227,7 @@ def test_signature_tampering_blocks(tmp_path, monkeypatch):
 
 
 def test_wrong_public_key_blocks(tmp_path, monkeypatch):
-    snapshot, attestation, _, _ = _signed_fixture(tmp_path)
+    snapshot, attestation, _, _, _private = _signed_fixture(tmp_path)
     other_private = Ed25519PrivateKey.generate()
     other_public = other_private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", base64.b64encode(other_public).decode())
@@ -212,7 +237,7 @@ def test_wrong_public_key_blocks(tmp_path, monkeypatch):
 
 
 def test_missing_key_identity_blocks_even_with_public_key(tmp_path, monkeypatch):
-    snapshot, attestation, public, _ = _signed_fixture(tmp_path)
+    snapshot, attestation, public, _, _private = _signed_fixture(tmp_path)
     monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
     monkeypatch.delenv("HES_SOURCE_ATTESTATION_KEY_ID", raising=False)
     with pytest.raises(AttestationError, match="trust root"):
