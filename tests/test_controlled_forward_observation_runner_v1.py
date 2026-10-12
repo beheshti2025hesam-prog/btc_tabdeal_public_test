@@ -235,9 +235,9 @@ def test_runner_blocks_before_transport_construction(tmp_path: Path, monkeypatch
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
     )
     assert result.status == "BLOCKED"
-    assert result.reason == "TRANSPORT_ERROR:RuntimeError"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
     assert result.records_received == 0
-    assert session.exists()
+    assert not session.exists()
     assert not journal.exists()
 
 
