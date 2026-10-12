@@ -2,10 +2,10 @@
   "lock_id": "HES-SOURCE-IDENTITY-RAW-ANCHOR-RECONCILIATION-V1-LOCK",
   "status": "LOCKED_AUDIT_DERIVATIVE",
   "artifact_path": "archive/source_identity_raw_anchor_reconciliation_v1_20261012.json",
-  "artifact_commit": "dc1f2ccddfa330f788b398dc3fb9e8a8ba5c6e65",
-  "artifact_git_blob_sha1": "2d6e16093f0c1ce58a203e7c259fb4f8b575c688",
-  "artifact_sha256": "4b5e347af384ffa1888e70ffba44a23817c988b8de1098378fed6abb3c57bddc",
-  "artifact_bytes": 62811,
+  "artifact_commit": "0849a35654c41769b293a3b28e81d9cb477f174d",
+  "artifact_git_blob_sha1": "eaaff9f4b9871d3d0e6cebc9240a569e065a1e7a",
+  "artifact_sha256": "cca2ac5b5c90940e4ba1cb6cc1237710353736fa6590307adc2c1f2dc791a49f",
+  "artifact_bytes": 62804,
   "lock_basis": [
     "SHA-256 recomputed from exact UTF-8 content read back from GitHub",
     "Git blob SHA read back from the committed artifact"
