@@ -92,3 +92,16 @@ Do not include credentials, API secrets, cookies, authorization headers, or othe
 - [ ] Exact-head CI passes.
 - [ ] Independent human review is recorded.
 - [ ] Sequence semantics are still marked unknown unless authoritative, context-matched evidence supports a narrower claim.
+
+## Producer utility checkpoint (2026-10-12)
+
+A first producer utility now exists at `scripts/independent_source_attestor_v1.py`. It retrieves raw HTTPS response bytes, records observed redirect hops/statuses, enforces an exact-host allow-list for the initial URL and redirects, hashes the raw bytes, and emits a detached Ed25519 signature. The private key and signer key ID are required from runtime environment configuration; they are not checked into source. A response-size cap and credential-free HTTPS URL checks are enforced.
+
+The producer has focused tests for exact-host URL policy, missing signing-key fail-closed behavior, canonical payload stability, and attestation/verifier schema compatibility. These tests use synthetic fixtures only and are not production source evidence. The sequence-gate CI workflow now includes the producer test module.
+
+Operational boundary: do not run this producer in ordinary PR CI with a signing secret. Run it only in a separately governed trusted environment after the trust root and key custody are independently established. No production snapshot or attestation is created by this code change itself.
+
+- [ ] Independently governed signing key provisioned and custody documented.
+- [ ] Producer run from trusted environment against an authoritative source.
+- [ ] Raw snapshot and signed attestation reviewed and pinned in registry.
+- [ ] Exact-head CI passes including producer tests.
