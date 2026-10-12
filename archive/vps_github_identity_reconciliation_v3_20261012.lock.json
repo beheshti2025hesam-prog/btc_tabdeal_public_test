@@ -1,0 +1,31 @@
+{
+  "lock_id": "HES-VPS-GITHUB-IDENTITY-RECONCILIATION-V3-LOCK",
+  "version": 3,
+  "status": "LOCKED",
+  "artifact_path": "archive/vps_github_identity_reconciliation_v3_20261012.json",
+  "artifact_commit": "8ba78ff1c25dedb42345a7174ce809bf63bad7b6",
+  "artifact_git_blob_sha1": "0fabbf376981d55bf28ecaf74fd54610060da730",
+  "artifact_sha256": "e7e96cceef8d5fafdc37fff6d7be55311dcb9b3242d165bea2d934c3e178752b",
+  "artifact_bytes": 5177,
+  "lock_basis": [
+    "SHA-256 and byte count are computed from exact UTF-8 artifact bytes",
+    "Git blob SHA-1 was read back from the committed artifact on the audit branch"
+  ],
+  "mutation_scope": "New V3 audit snapshot and lock only. No VPS files, source data, historical artifacts, Winner selection, thresholds, strategy, or evidence logic were modified.",
+  "claim_boundary": {
+    "trade_csv_byte_identity": "PASS_LOCAL_HEAD_REMOTE_MAIN_AND_CHECKPOINT_COMMIT",
+    "current_vps_ref_state": "HEAD_BEHIND_REMOTE_MAIN_BY_6",
+    "untracked_paths": 2459,
+    "observation_manifest_syntax": "FAIL_TRAILING_LITERAL_BACKSLASH_N",
+    "run_ledger_syntax": "FAIL_TRAILING_LITERAL_BACKSLASH_N",
+    "session_probe_lineage": "OPEN",
+    "single_writer_current_lock_binding": "FAIL_HASH_MISMATCH",
+    "collector_state": "FAILED_DISABLED",
+    "live_source_identity": "OPEN_NOT_INDEPENDENTLY_VERIFIED",
+    "sequence_semantics": "UNKNOWN",
+    "feature_extraction": false,
+    "effective_evidence": false,
+    "continuous_48h_observation": false,
+    "trading_authorized": false
+  }
+}
