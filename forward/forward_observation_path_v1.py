@@ -77,13 +77,21 @@ class ForwardObservationPathV1:
         for frame in bounded_frames:
             supplied_session = frame.get("session_id")
             supplied_run = frame.get("run_id")
-            if session_id is not None and supplied_session not in (None, session_id):
+            if session_id is not None and supplied_session != session_id:
+                reason = "SESSION_ID_MISSING" if supplied_session is None else "SESSION_ID_MISMATCH"
                 return ForwardObservationPathResult(
                     "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
-                    False, None, "SESSION_ID_MISMATCH",
+                    False, None, reason,
                     ({"expected_session_id": session_id},), session_id,
                 )
-            if supplied_run not in (None, forward_run_id):
+            if session_id is not None and supplied_run != forward_run_id:
+                reason = "RUN_ID_MISSING" if supplied_run is None else "RUN_ID_MISMATCH"
+                return ForwardObservationPathResult(
+                    "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                    False, None, reason,
+                    ({"expected_run_id": forward_run_id},), session_id,
+                )
+            if session_id is None and supplied_run not in (None, forward_run_id):
                 return ForwardObservationPathResult(
                     "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
                     False, None, "RUN_ID_MISMATCH",
