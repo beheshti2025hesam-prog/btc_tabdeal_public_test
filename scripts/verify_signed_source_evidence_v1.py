@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
-"""Fail-closed verifier for signed source-evidence envelopes.
-
-Envelope fields: expected_commit, evidence_path, raw_sha256, source_url,
-redirect_chain, retrieved_at, market_scope, key_id, payload_b64, signature_b64.
-The Ed25519 signature covers canonical JSON of every field except signature_b64.
-"""
-import argparse, base64, hashlib, json, sys
+"""Fail-closed verifier for signed source-evidence envelopes."""
+import argparse, base64, hashlib, json, re, sys
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 def canonical_signed_bytes(envelope):
@@ -21,16 +16,25 @@ def require(condition, message):
 def verify(envelope, *, expected_commit, expected_path, market_scope, key_registry,
            now=None, max_age_seconds=86400):
     require(isinstance(envelope, dict), "envelope must be an object")
+    require(isinstance(expected_commit, str) and re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", expected_commit) is not None,
+            "expected commit must be a full hexadecimal Git SHA")
     require(envelope.get("expected_commit") == expected_commit, "expected commit mismatch")
+    require(isinstance(expected_path, str) and expected_path and not expected_path.startswith("/"),
+            "expected evidence path must be relative")
+    path = PurePosixPath(expected_path)
+    require(".." not in path.parts and "." not in path.parts, "unsafe evidence path")
     require(envelope.get("evidence_path") == expected_path, "evidence path mismatch")
     require(envelope.get("market_scope") == market_scope, "market scope mismatch")
     digest = envelope.get("raw_sha256", "")
     require(isinstance(digest, str) and len(digest) == 64 and all(c in "0123456789abcdef" for c in digest), "invalid raw SHA-256")
+    requested_url = envelope.get("requested_url", "")
     url = envelope.get("source_url", "")
+    require(urlparse(requested_url).scheme == "https" and bool(urlparse(requested_url).netloc), "requested URL must be HTTPS")
     require(urlparse(url).scheme == "https" and bool(urlparse(url).netloc), "source URL must be HTTPS")
     redirects = envelope.get("redirect_chain")
     require(isinstance(redirects, list) and redirects, "redirect chain missing")
     require(all(isinstance(u, str) and urlparse(u).scheme == "https" and urlparse(u).netloc for u in redirects), "invalid redirect URL")
+    require(redirects[0] == requested_url, "redirect chain initial URL differs from requested URL")
     require(redirects[-1] == url, "redirect chain final URL differs from source URL")
     stamp = envelope.get("retrieved_at", "")
     try:
@@ -41,7 +45,7 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
     now = now or datetime.now(timezone.utc)
     age = (now - retrieved.astimezone(timezone.utc)).total_seconds()
     require(age >= -60, "retrieval time is in the future")
-    require(age <= max_age_seconds, "source signature/evidence is stale")
+    require(max_age_seconds > 0 and age <= max_age_seconds, "source signature/evidence is stale or max age invalid")
     key_id = envelope.get("key_id")
     require(isinstance(key_id, str) and key_id in key_registry, "untrusted key id")
     require(envelope.get("signature_algorithm") == "Ed25519", "unsupported signature algorithm")
@@ -55,8 +59,8 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
         raise ValueError("signature verification failed") from exc
     require(hashlib.sha256(payload).hexdigest() == digest, "raw payload SHA-256 mismatch")
     return {"status": "VERIFIED", "expected_commit": expected_commit, "evidence_path": expected_path,
-            "raw_sha256": digest, "source_url": url, "redirect_chain": redirects,
-            "retrieved_at": stamp, "market_scope": market_scope, "key_id": key_id}
+            "raw_sha256": digest, "requested_url": requested_url, "source_url": url,
+            "redirect_chain": redirects, "retrieved_at": stamp, "market_scope": market_scope, "key_id": key_id}
 
 def main():
     p = argparse.ArgumentParser()
