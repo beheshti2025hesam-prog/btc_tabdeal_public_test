@@ -109,6 +109,8 @@ def verify_lineage(events: Iterable[dict[str, Any]]) -> dict[str, str]:
 
     if any(record["session_id"] != session_id for record in records):
         raise EvidenceLineageError("SESSION_LINEAGE_MISMATCH")
+    if session["parent_event_id"] is not None:
+        raise EvidenceLineageError("SESSION_PARENT_INVALID")
     if execution["parent_event_id"] != session["event_id"]:
         raise EvidenceLineageError("EXECUTION_PARENT_MISMATCH")
     if execution["session_id"] != session_id:
