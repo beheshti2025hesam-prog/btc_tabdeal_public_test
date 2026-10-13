@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+from datetime import datetime, timezone
 
 import pytest
 
@@ -52,14 +53,24 @@ def test_signed_attestation_schema_is_compatible_with_verifier(tmp_path, monkeyp
     snapshot.write_bytes(raw)
     private = Ed25519PrivateKey.generate()
     public = private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-    context = {"venue": "tabdeal", "product": "fapi-futures-margin"}
+    context = {
+        "venue": "tabdeal",
+        "product": "fapi-futures-margin",
+        "endpoint": "/special_margin/broadcast/",
+        "channel": "trade",
+        "message_type": "trade",
+        "field": "trade.sequence",
+        "protocol_version": "unknown",
+        "reviewed_commit_sha": "a" * 40,
+        "contract_version": "sequence-semantics/1",
+    }
     att = {
         "schema_version": "hes-source-attestation-v1",
         "snapshot_sha256": hashlib.sha256(raw).hexdigest(),
         "requested_url": "https://docs.tabdeal.org/",
         "final_url": "https://docs.tabdeal.org/",
         "redirect_chain": [{"url": "https://docs.tabdeal.org/", "status": 200}],
-        "retrieved_at_utc": "2026-10-12T00:00:00Z",
+        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "retrieval_tool": "hes-independent-source-attestor",
         "retrieval_tool_version": "1.0.0",
         "source_context": context,
