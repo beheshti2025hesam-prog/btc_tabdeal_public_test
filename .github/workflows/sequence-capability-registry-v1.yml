@@ -27,4 +27,4 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install --disable-pip-version-check pytest cryptography
       - name: Run adversarial registry and runner integration tests
-        run: python -m pytest -q tests/test_sequence_capability_registry_v1.py tests/test_controlled_forward_observation_runner_v1.py tests/test_source_attestation_verifier_v1.py tests/test_independent_source_attestor_v1.py
+        run: python -m pytest -q tests/test_sequence_capability_registry_v1.py tests/test_controlled_forward_observation_runner_v1.py tests/test_source_attestation_verifier_v1.py tests/test_independent_source_attestor_v1.py tests/test_source_attestation_context_shape_v1.py
