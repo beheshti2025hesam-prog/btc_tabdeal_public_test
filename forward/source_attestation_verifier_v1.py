@@ -29,6 +29,18 @@ REQUIRED_FIELDS = {
     "signer_key_id",
 }
 SCHEMA_VERSION = "hes-source-attestation-v1"
+
+REQUIRED_CONTEXT_FIELDS = {
+    "venue",
+    "product",
+    "endpoint",
+    "channel",
+    "message_type",
+    "field",
+    "protocol_version",
+    "reviewed_commit_sha",
+    "contract_version",
+}
 MAX_ATTESTATION_AGE = timedelta(hours=24)
 ALLOWED_FUTURE_SKEW = timedelta(minutes=5)
 
@@ -147,6 +159,13 @@ def verify_attestation(
         raise AttestationError("BLOCK: redirect chain URL mismatch")
     if not isinstance(att["source_context"], dict):
         raise AttestationError("BLOCK: source context must be an object")
+    missing_expected = REQUIRED_CONTEXT_FIELDS - set(expected_context)
+    missing_attested = REQUIRED_CONTEXT_FIELDS - set(att["source_context"])
+    if missing_expected or missing_attested:
+        raise AttestationError(
+            "BLOCK: source context is missing required scope fields "
+            f"(expected={sorted(missing_expected)}, attested={sorted(missing_attested)})"
+        )
     for key, expected in expected_context.items():
         if att["source_context"].get(key) != expected:
             raise AttestationError(f"BLOCK: source context mismatch for {key}")
