@@ -37,8 +37,9 @@ class AttestationContractTests(unittest.TestCase):
             verify_attestation(forged, self.artifact, self.key_id, self.public)
 
     def test_negative_hash_mismatch(self):
+        tampered_same_length = self.artifact[:-1] + b"X"
         with self.assertRaisesRegex(AttestationError, "SHA-256 mismatch"):
-            verify_attestation(self.attestation, self.artifact + b"tampered", self.key_id, self.public)
+            verify_attestation(self.attestation, tampered_same_length, self.key_id, self.public)
 
     def test_negative_incomplete_contract(self):
         incomplete = dict(self.attestation)
