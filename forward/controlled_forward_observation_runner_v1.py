@@ -25,6 +25,7 @@ class ControlledObservationRunnerResult:
     reason: str
     snapshot_id: str | None
     diagnostics: tuple[dict[str, Any], ...] = ()
+    session_id: str | None = None
 
 
 class ControlledForwardObservationRunnerV1:
@@ -131,6 +132,8 @@ class ControlledForwardObservationRunnerV1:
 
         kwargs: dict[str, Any] = {
             "as_of_provider": lambda: datetime.now(timezone.utc),
+            "session_id": session.session_id,
+            "run_id": session.run_id,
             "on_record": collect,
             "on_frame_metadata": collect_frame_metadata,
             "max_runtime_seconds": self.max_runtime_seconds,
@@ -145,6 +148,7 @@ class ControlledForwardObservationRunnerV1:
         except Exception as exc:
             return ControlledObservationRunnerResult(
                 run_id=session.run_id,
+                session_id=session.session_id,
                 status="BLOCKED",
                 records_received=len(records),
                 journal_path=str(self.journal_path),
@@ -193,6 +197,7 @@ class ControlledForwardObservationRunnerV1:
             records,
             as_of=observed_at,
             forward_run_id=session.run_id,
+            session_id=session.session_id,
         )
         diagnostics = tuple(
             {
@@ -232,4 +237,5 @@ class ControlledForwardObservationRunnerV1:
             reason=result.reason,
             snapshot_id=result.snapshot_id,
             diagnostics=diagnostics,
+            session_id=session.session_id,
         )
