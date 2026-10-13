@@ -3,7 +3,9 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [security/source-signature-identity-contract-20261013]
+    branches:
+      - security/source-signature-identity-contract-20261013
+      - security/source-signature-contract-hardening-20261013
   workflow_dispatch:
 permissions:
   contents: read
