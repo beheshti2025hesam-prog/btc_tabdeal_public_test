@@ -64,8 +64,8 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
-    assert result.status == "WAITING"
-    assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
     assert not (tmp_path / "journal.jsonl").exists()
 
 
