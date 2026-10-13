@@ -1,0 +1,46 @@
+name: HES Trade Agent — Attestation Contract Negative Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "hes_attestation/**"
+      - "tests/test_attestation_contract.py"
+      - ".github/workflows/attestation-contract-tests.yml"
+  push:
+    branches: [safety/attestation-contract-negative-tests-main-20261013]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  attestation-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact triggering commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install verification dependency
+        run: python -m pip install --disable-pip-version-check "cryptography>=42,<47"
+      - name: Run positive and negative contract tests
+        run: python -m unittest discover -s tests -p "test_attestation_contract.py" -v
+      - name: Print exact verification identity
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          print(json.dumps({
+              "event_sha": os.environ.get("GITHUB_SHA"),
+              "checked_out_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "workflow": os.environ.get("GITHUB_WORKFLOW"),
+              "run_id": os.environ.get("GITHUB_RUN_ID"),
+              "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+          }, indent=2))
+          PY
