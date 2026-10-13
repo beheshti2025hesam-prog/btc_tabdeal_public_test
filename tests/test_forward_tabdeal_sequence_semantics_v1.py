@@ -57,11 +57,34 @@ def test_normalizer_does_not_require_an_undocumented_sequence_field():
     assert record["sequence_semantics"] == "UNKNOWN_OPAQUE"
 
 
+@pytest.mark.parametrize(
+    ("price", "amount"),
+    [
+        ("NaN", "0.01"),
+        ("Infinity", "0.01"),
+        ("65000", "Infinity"),
+        ("-1", "0.01"),
+        ("65000", "0"),
+        ("not-a-number", "0.01"),
+    ],
+)
+def test_normalizer_rejects_invalid_or_non_finite_trade_numbers(price, amount):
+    payload = {
+        "trade": {
+            "symbol": "BTC_USDT",
+            "price": price,
+            "amount": amount,
+            "updated": "2026-10-13T12:00:00Z",
+        }
+    }
+    assert normalize_trade(payload) is None
+
+
 def test_collector_keeps_decreasing_sequence_values_instead_of_dropping_them(
     tmp_path, monkeypatch
 ):
     messages = [_message(7), _message(6), ""]
-    
+
     class FakeSocket:
         def send(self, _value):
             pass
@@ -89,6 +112,28 @@ def test_collector_keeps_decreasing_sequence_values_instead_of_dropping_them(
     assert [record["sequence"] for record in records] == [7, 6]
     assert all(record["sequence_semantics"] == "UNKNOWN_OPAQUE" for record in records)
     assert [record["raw_payload"] for record in records] == [_message(7), _message(6)]
+
+
+def test_connection_failure_is_logged_and_collector_reconnects(monkeypatch, caplog):
+    attempts = {"count": 0}
+
+    def fail_connection(*_args, **_kwargs):
+        attempts["count"] += 1
+        raise OSError("synthetic connection failure")
+
+    monkeypatch.setattr(
+        collector_module.websocket, "create_connection", fail_connection
+    )
+    ticks = iter([0, 0, 0, 20])
+    monkeypatch.setattr(collector_module.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(collector_module.time, "sleep", lambda _seconds: None)
+
+    collector = ForwardTabdealCollectorV1(enabled=True)
+    with caplog.at_level("ERROR"):
+        collector.run(run_seconds=10)
+
+    assert attempts["count"] == 1
+    assert "Forward Tabdeal observation connection failed" in caplog.text
 
 
 def test_collector_stays_disabled_by_default(tmp_path):
