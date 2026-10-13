@@ -38,8 +38,8 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
     )
-    assert result.status == "WAITING"
-    assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
     assert session.exists()
     assert not journal.exists()
 
