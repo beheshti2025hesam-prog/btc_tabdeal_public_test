@@ -46,13 +46,16 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
 
 def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     class GapTransport:
-        def __init__(self, on_record, **kwargs):
+        def __init__(self, on_record, session_id, run_id, **kwargs):
             self.on_record = on_record
+            self.session_id = session_id
+            self.run_id = run_id
 
         def run_once(self):
             for seq in (100, 102):
                 self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
-                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z"})
+                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z",
+                                "session_id":self.session_id,"run_id":self.run_id})
 
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
