@@ -8,6 +8,8 @@ The detached signature covers the exact decoded payload bytes.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone, timedelta
+import re
 import base64
 import hashlib
 import json
@@ -73,8 +75,27 @@ def verify_attestation(
         raise AttestationError("signed provenance payload is incomplete")
     if payload["schema_version"] != 1:
         raise AttestationError("unsupported provenance payload schema")
+    if not isinstance(expected_commit, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", expected_commit):
+        raise AttestationError("expected commit must be a full 40- or 64-character lowercase hex SHA")
     if payload["commit_sha"] != expected_commit:
         raise AttestationError("attestation is for a different commit")
+    if not isinstance(payload["raw_sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", payload["raw_sha256"]):
+        raise AttestationError("raw_sha256 must be a 64-character lowercase SHA-256 hex digest")
+    for field in ("tool_version", "contract_version"):
+        if not isinstance(payload[field], str) or not payload[field].strip():
+            raise AttestationError(f"{field} must be a non-empty string")
+    fetched_at = payload["fetched_at"]
+    if not isinstance(fetched_at, str) or not fetched_at.strip():
+        raise AttestationError("fetched_at must be an RFC 3339 timestamp with timezone")
+    try:
+        normalized_timestamp = fetched_at[:-1] + "+00:00" if fetched_at.endswith("Z") else fetched_at
+        parsed_timestamp = datetime.fromisoformat(normalized_timestamp)
+        if parsed_timestamp.tzinfo is None or parsed_timestamp.utcoffset() is None:
+            raise ValueError("timezone is required")
+    except (TypeError, ValueError) as exc:
+        raise AttestationError("fetched_at must be a valid RFC 3339 timestamp with timezone") from exc
+    if parsed_timestamp.astimezone(timezone.utc) > datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise AttestationError("fetched_at is unacceptably far in the future")
     for field in ("source_url", "resolved_url"):
         parsed = urlparse(payload[field]) if isinstance(payload[field], str) else None
         if not parsed or parsed.scheme != "https" or not parsed.netloc:
