@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/sequence-capability-registry-v1
+      - fix/source-attestation-freshness-v1-20261012
   pull_request:
     branches:
       - main
