@@ -11,6 +11,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class ObservationSessionV1:
+    session_id: str
     run_id: str
     started_at: str
     policy_id: str
@@ -25,7 +26,7 @@ class ObservationSessionV1:
 
     def record(self) -> dict:
         return {
-            "run_id": self.run_id, "started_at": self.started_at,
+            "session_id": self.session_id, "run_id": self.run_id, "started_at": self.started_at,
             "policy_id": self.policy_id, "policy_version": self.policy_version,
             "symbol": self.symbol, "timeframe": self.timeframe, "source": self.source,
             "mode": self.mode, "decision_mode": self.decision_mode,
@@ -50,8 +51,9 @@ class ObservationSessionManagerV1:
         if not self.source.startswith("tabdeal_"):
             raise ValueError("unsupported observation source")
         ts=started_at.astimezone(timezone.utc)
-        run_id=f"OBS-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}"
-        return ObservationSessionV1(run_id=run_id,started_at=ts.isoformat(),
+        session_id=f"SES-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}",
+            run_id=f"OBS-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}"
+        return ObservationSessionV1(session_id=session_id, run_id=run_id,started_at=ts.isoformat(),
             policy_id=self.policy_id,policy_version=self.policy_version,
             symbol=self.symbol,timeframe=self.timeframe,source=self.source)
 
