@@ -212,6 +212,7 @@ class ControlledForwardObservationRunnerV1:
             try:
                 persisted = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path).append_blocked_run(
                     run_id=session.run_id,
+                    session_id=session.session_id,
                     observed_at_utc=observed_at.isoformat(),
                     reason=result.reason,
                     diagnostics=diagnostics,
