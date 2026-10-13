@@ -168,7 +168,10 @@ class ControlledForwardObservationRunnerV1:
                     "reason": "TRANSPORT_METADATA_BOUND_EXCEEDED",
                     "distinct_sequence_limit": 50000,
                     "observation_written": False,
+                    "session_id": session.session_id,
+                    "run_id": session.run_id,
                 },),
+                session_id=session.session_id,
             )
 
         if record_bound_exceeded:
@@ -179,7 +182,12 @@ class ControlledForwardObservationRunnerV1:
                 journal_path=str(self.journal_path),
                 reason="FORWARD_RECORD_BOUND_EXCEEDED",
                 snapshot_id=None,
-                diagnostics=({"max_records": self.max_records},),
+                diagnostics=({
+                    "max_records": self.max_records,
+                    "session_id": session.session_id,
+                    "run_id": session.run_id,
+                },),
+                session_id=session.session_id,
             )
 
         if not records:
@@ -190,6 +198,12 @@ class ControlledForwardObservationRunnerV1:
                 journal_path=str(self.journal_path),
                 reason="NO_FRESH_RECORDS",
                 snapshot_id=None,
+                diagnostics=({
+                    "session_id": session.session_id,
+                    "run_id": session.run_id,
+                    "records_received": 0,
+                },),
+                session_id=session.session_id,
             )
 
         observed_at = datetime.now(timezone.utc)
