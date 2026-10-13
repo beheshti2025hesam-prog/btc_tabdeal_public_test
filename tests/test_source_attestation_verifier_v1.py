@@ -94,6 +94,20 @@ def test_reviewed_commit_mismatch_blocks(tmp_path, monkeypatch):
             expected_context=EXPECTED_CONTEXT | {"reviewed_commit_sha": "b" * 40},
         )
 
+
+def test_signed_attestation_missing_scope_field_blocks(tmp_path, monkeypatch):
+    snapshot, attestation, public, att, private = _signed_fixture(tmp_path)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64", public)
+    monkeypatch.setenv("HES_SOURCE_ATTESTATION_KEY_ID", "test-key")
+    att["source_context"].pop("endpoint")
+    _resign_attestation(attestation, att, private)
+    with pytest.raises(AttestationError, match="missing required scope fields"):
+        verify_attestation(
+            snapshot_path=snapshot,
+            attestation_path=attestation,
+            expected_context=EXPECTED_CONTEXT,
+        )
+
 def test_missing_external_trust_root_blocks(tmp_path, monkeypatch):
     snapshot = tmp_path / "source.bin"
     snapshot.write_bytes(b"x")
