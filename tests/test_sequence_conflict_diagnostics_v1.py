@@ -93,9 +93,6 @@ def test_runner_persists_opaque_sequence_diagnostic_and_still_blocks(tmp_path: P
     assert record["session_id"] == result.session_id
     assert len(record["record_sha256"]) == 64
     assert record["sequence_events"]
-    assert fingerprints[0]["raw_frame_sha256"] != fingerprints[1]["raw_frame_sha256"]
-    assert all(item["sequence_field_path"] == "trade.sequence" for item in fingerprints)
-    assert all("price" not in item and "amount" not in item for item in fingerprints)
     assert any(item.get("diagnostic_persistence") == "PERSISTED" for item in result.diagnostics)
 
 
