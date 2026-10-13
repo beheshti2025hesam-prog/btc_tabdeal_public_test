@@ -11,38 +11,25 @@ import base64
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 REQUIRED_FIELDS = {
-    "schema_version",
-    "snapshot_sha256",
-    "requested_url",
-    "final_url",
-    "redirect_chain",
-    "retrieved_at_utc",
-    "retrieval_tool",
-    "retrieval_tool_version",
-    "source_context",
-    "signer_key_id",
+    "schema_version", "snapshot_sha256", "requested_url", "final_url",
+    "redirect_chain", "retrieved_at_utc", "retrieval_tool",
+    "retrieval_tool_version", "source_context", "signer_key_id",
 }
 SCHEMA_VERSION = "hes-source-attestation-v1"
-
 REQUIRED_CONTEXT_FIELDS = {
-    "venue",
-    "product",
-    "endpoint",
-    "channel",
-    "message_type",
-    "field",
-    "protocol_version",
-    "reviewed_commit_sha",
-    "contract_version",
+    "venue", "product", "endpoint", "channel", "message_type", "field",
+    "protocol_version", "reviewed_commit_sha", "contract_version",
 }
 MAX_ATTESTATION_AGE = timedelta(hours=24)
 ALLOWED_FUTURE_SKEW = timedelta(minutes=5)
+_COMMIT_SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 
 class AttestationError(ValueError):
@@ -62,10 +49,8 @@ def _validate_https_url(value: Any) -> bool:
     try:
         parsed = urlsplit(value)
         return (
-            parsed.scheme == "https"
-            and bool(parsed.hostname)
-            and parsed.username is None
-            and parsed.password is None
+            parsed.scheme == "https" and bool(parsed.hostname)
+            and parsed.username is None and parsed.password is None
             and parsed.port in (None, 443)
         )
     except ValueError:
@@ -80,6 +65,22 @@ def _validate_utc_timestamp(value: Any) -> bool:
         return parsed.utcoffset() is not None and parsed.utcoffset().total_seconds() == 0
     except ValueError:
         return False
+
+
+def _validate_context_shape(context: Any, label: str) -> None:
+    if not isinstance(context, dict):
+        raise AttestationError(f"BLOCK: {label} source context must be an object")
+    missing = REQUIRED_CONTEXT_FIELDS - set(context)
+    if missing:
+        raise AttestationError(
+            f"BLOCK: source context is missing required scope fields ({label}={sorted(missing)})"
+        )
+    for field in REQUIRED_CONTEXT_FIELDS:
+        value = context[field]
+        if not isinstance(value, str) or not value.strip():
+            raise AttestationError(f"BLOCK: source context field {field} must be a non-empty string")
+    if not _COMMIT_SHA_RE.fullmatch(context["reviewed_commit_sha"]):
+        raise AttestationError("BLOCK: reviewed_commit_sha must be a full 40- or 64-character lowercase hex SHA")
 
 
 def verify_attestation(
@@ -97,9 +98,6 @@ def verify_attestation(
     come from protected environment configuration external to the PR.
     Ed25519 verification requires the 'cryptography' package.
     """
-    # Never accept the trust root as a function argument: callers could pass
-    # a key bundled with the untrusted attestation. Inject only via protected
-    # runtime configuration managed outside PR-writable files.
     key_b64 = os.environ.get("HES_SOURCE_ATTESTATION_PUBLIC_KEY_B64")
     configured_key_id = os.environ.get("HES_SOURCE_ATTESTATION_KEY_ID")
     if not key_b64 or not configured_key_id:
@@ -137,15 +135,14 @@ def verify_attestation(
             raise AttestationError(f"BLOCK: {field} missing")
     if att["signer_key_id"] != configured_key_id:
         raise AttestationError("BLOCK: signer key identity does not match protected configuration")
+
     chain = att["redirect_chain"]
     if not isinstance(chain, list) or not chain:
         raise AttestationError("BLOCK: redirect chain must include final response")
     for index, hop in enumerate(chain):
         if (
-            not isinstance(hop, dict)
-            or not _validate_https_url(hop.get("url"))
-            or type(hop.get("status")) is not int
-            or not 100 <= hop["status"] <= 599
+            not isinstance(hop, dict) or not _validate_https_url(hop.get("url"))
+            or type(hop.get("status")) is not int or not 100 <= hop["status"] <= 599
         ):
             raise AttestationError("BLOCK: malformed redirect-chain hop")
         if index < len(chain) - 1:
@@ -157,15 +154,9 @@ def verify_attestation(
             raise AttestationError("BLOCK: final response must have a 2xx status")
     if chain[0]["url"] != att["requested_url"] or chain[-1]["url"] != att["final_url"]:
         raise AttestationError("BLOCK: redirect chain URL mismatch")
-    if not isinstance(att["source_context"], dict):
-        raise AttestationError("BLOCK: source context must be an object")
-    missing_expected = REQUIRED_CONTEXT_FIELDS - set(expected_context)
-    missing_attested = REQUIRED_CONTEXT_FIELDS - set(att["source_context"])
-    if missing_expected or missing_attested:
-        raise AttestationError(
-            "BLOCK: source context is missing required scope fields "
-            f"(expected={sorted(missing_expected)}, attested={sorted(missing_attested)})"
-        )
+
+    _validate_context_shape(expected_context, "expected")
+    _validate_context_shape(att["source_context"], "attested")
     for key, expected in expected_context.items():
         if att["source_context"].get(key) != expected:
             raise AttestationError(f"BLOCK: source context mismatch for {key}")
@@ -179,19 +170,14 @@ def verify_attestation(
         public_key = base64.b64decode(key_b64, validate=True)
         signature = base64.b64decode(att["signature"], validate=True)
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-        Ed25519PublicKey.from_public_bytes(public_key).verify(
-            signature, _canonical_payload(att)
-        )
+        Ed25519PublicKey.from_public_bytes(public_key).verify(signature, _canonical_payload(att))
     except AttestationError:
         raise
     except Exception as exc:
         raise AttestationError("BLOCK: invalid key, signature, or attestation encoding") from exc
 
     return {
-        "verified": True,
-        "snapshot_sha256": actual_digest,
-        "signer_key_id": att["signer_key_id"],
-        "source_context": att["source_context"],
-        "requested_url": att["requested_url"],
-        "final_url": att["final_url"],
+        "verified": True, "snapshot_sha256": actual_digest,
+        "signer_key_id": att["signer_key_id"], "source_context": att["source_context"],
+        "requested_url": att["requested_url"], "final_url": att["final_url"],
     }
