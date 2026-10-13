@@ -1,6 +1,8 @@
-"""Sequence-aware boundary from fresh Tabdeal trades to closed 15m candles."""
+"""Fail-closed boundary from fresh Tabdeal trades to closed 15m candles."""
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime
 from typing import Any, Iterable
 
@@ -28,7 +30,12 @@ class SequenceCandleResult:
 
 
 class SequenceAwareCandleIngestionV1:
-    """Sequence-check first; candle normalization only receives safe records."""
+    """Sequence-check first; only capability-authorized records reach candles.
+
+    The current Tabdeal broadcast contract does not establish sequence
+    uniqueness or ordering. Records explicitly marked UNKNOWN_OPAQUE must not
+    enter the integer sequence state machine or candle/evidence path.
+    """
 
     def __init__(self, *, max_sequence_records: int = 100_000) -> None:
         self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
@@ -43,14 +50,46 @@ class SequenceAwareCandleIngestionV1:
         events: list[SequenceEvent] = []
 
         for record in records:
-            event = self.sequence.observe(record)
+            if record.get("sequence_semantics") == "UNKNOWN_OPAQUE":
+                raw = record.get("raw_payload")
+                digest = record.get("raw_payload_sha256")
+                if raw is not None:
+                    calculated = hashlib.sha256(
+                        raw.encode("utf-8") if isinstance(raw, str) else raw
+                    ).hexdigest()
+                    if digest != calculated:
+                        events.append(SequenceEvent(
+                            -1, "REJECT_STREAM", "RAW_PAYLOAD_DIGEST_MISMATCH",
+                            {"expected": digest, "calculated": calculated},
+                        ))
+                        return SequenceCandleResult((), (), tuple(events))
+                fingerprint = hashlib.sha256(json.dumps(
+                    {
+                        "source": record.get("source"),
+                        "symbol": record.get("symbol"),
+                        "sequence": record.get("sequence"),
+                        "raw_payload_sha256": digest,
+                    }, sort_keys=True, separators=(",", ":"), default=str,
+                ).encode("utf-8")).hexdigest()
+                events.append(SequenceEvent(
+                    -1, "REJECT_STREAM", "UNKNOWN_SEQUENCE_SEMANTICS",
+                    {"record_fingerprint_sha256": fingerprint},
+                ))
+                return SequenceCandleResult((), (), tuple(events))
+
+            try:
+                event = self.sequence.observe(record)
+            except (TypeError, ValueError):
+                events.append(SequenceEvent(
+                    -1, "REJECT_STREAM", "INVALID_SEQUENCE_VALUE",
+                ))
+                return SequenceCandleResult((), (), tuple(events))
             events.append(event)
             if event.status == "ACCEPTED":
                 safe.append(record)
             elif event.status == "IDEMPOTENT_DUPLICATE":
                 continue
             else:
-                # Never feed an ambiguous stream into candle formation.
                 return SequenceCandleResult((), (), tuple(events))
 
         candles, gaps = ingest_closed_candles(safe, as_of=as_of)
