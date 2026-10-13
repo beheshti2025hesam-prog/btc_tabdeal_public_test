@@ -1,4 +1,4 @@
-"""Sequence-aware boundary from fresh Tabdeal trades to closed 15m candles."""
+"""Fail-closed boundary from explicitly verified sequences to closed 15m candles."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,20 +15,23 @@ class SequenceCandleResult:
         candles: tuple[Candle15m, ...],
         gaps: tuple[IntervalGap, ...],
         events: tuple[SequenceEvent, ...],
+        *,
+        blocked_reason: str | None = None,
     ) -> None:
         self.candles = candles
         self.gaps = gaps
         self.events = events
+        self.blocked_reason = blocked_reason
 
     @property
     def safe_for_decision(self) -> bool:
-        return not any(
+        return self.blocked_reason is None and not any(
             event.status in {"REJECT_STREAM", "ANOMALY"} for event in self.events
         )
 
 
 class SequenceAwareCandleIngestionV1:
-    """Sequence-check first; candle normalization only receives safe records."""
+    """Sequence-check first; only explicitly verified sequence semantics may form candles."""
 
     def __init__(self, *, max_sequence_records: int = 100_000) -> None:
         self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
@@ -43,6 +46,12 @@ class SequenceAwareCandleIngestionV1:
         events: list[SequenceEvent] = []
 
         for record in records:
+            # Unknown/missing semantics are not evidence of monotonic identity.
+            # Stop before sequence state, candle construction, or evidence use.
+            if record.get("sequence_semantics") != "VERIFIED_MONOTONIC":
+                return SequenceCandleResult(
+                    (), (), tuple(events), blocked_reason="SEQUENCE_SEMANTICS_UNVERIFIED"
+                )
             event = self.sequence.observe(record)
             events.append(event)
             if event.status == "ACCEPTED":
@@ -50,8 +59,7 @@ class SequenceAwareCandleIngestionV1:
             elif event.status == "IDEMPOTENT_DUPLICATE":
                 continue
             else:
-                # Never feed an ambiguous stream into candle formation.
                 return SequenceCandleResult((), (), tuple(events))
 
         candles, gaps = ingest_closed_candles(safe, as_of=as_of)
-        return SequenceCandleResult(candles, gaps, tuple(events))
+        return SequenceCandleResult(tuple(candles), tuple(gaps), tuple(events))
