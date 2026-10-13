@@ -25,12 +25,16 @@ class TabdealReadOnlyTransportV1:
         ws_factory: Callable[..., Any], url: str = WS_URL,
         max_runtime_seconds: float = 60.0,
         on_frame_metadata: Callable[[dict[str, Any]], None] | None = None,
+        session_id: str | None = None,
+        run_id: str | None = None,
     ):
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
         self.as_of_provider = as_of_provider
         self.on_record = on_record
         self.on_frame_metadata = on_frame_metadata
+        self.session_id = session_id
+        self.run_id = run_id
         self.ws_factory = ws_factory
         self.url = url
         self.max_runtime_seconds = float(max_runtime_seconds)
@@ -65,7 +69,10 @@ class TabdealReadOnlyTransportV1:
                 "sequence": trade.get("sequence"),
                 "timestamp": trade.get("updated"),
             }
-            record = parse_trade_frame(frame, as_of=self.as_of_provider())
+            record = parse_trade_frame(
+                frame, as_of=self.as_of_provider(), raw_payload=raw_bytes,
+                session_id=self.session_id, run_id=self.run_id,
+            )
             if self.on_frame_metadata is not None:
                 sequence_value = trade.get("sequence")
                 safe_sequence_value = (
