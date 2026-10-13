@@ -1,0 +1,112 @@
+{
+  "artifact_id": "HES-SOURCE-IDENTITY-INDEPENDENT-VERIFICATION-V1",
+  "version": 1,
+  "generated_at": "2026-10-13",
+  "status": "SOURCE_IDENTITY_AND_RAW_ARCHIVE_LINEAGE_VERIFIED",
+  "scope": "Independent verification of the frozen 42-record source identity set; no evidence calculation or promotion.",
+  "source_identity": {
+    "path": "evidence/source_identity_reconciliation_v1.json",
+    "git_blob_sha1": "d21a37bb239249ebe16678a1e21d698e0db68472",
+    "bytes": 17937,
+    "sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
+    "lock_path": "evidence/source_identity_reconciliation_v1.lock.json",
+    "lock_match": true
+  },
+  "raw_sources": [
+    {
+      "lineage": "prior_14_survivor",
+      "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+      "path": "data/trades.csv",
+      "git_blob_sha1": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+      "bytes": 9592808,
+      "rows": 127201,
+      "sha256": "2c0013ad64aa3fa400a9c66e646382b34b0c1d1ac640a440353d31a78ca346e8",
+      "matching_archive_blobs": [
+        "07c99bfcc6071cf7d915e0e64a7bf085e223c70b",
+        "3d021b1348608a4534c76a39f5673a690401af1f",
+        "7f84e0721f044943cdfffa3bfa0e7d7b599874ee"
+      ],
+      "exact_rows_found_in_archives": 127201,
+      "missing_rows": 0,
+      "conflicting_rows": 0
+    },
+    {
+      "lineage": "current_28_winner",
+      "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+      "path": "data/trades.csv",
+      "git_blob_sha1": "58d21825e052dbaa42e7eb0695455c19997bff43",
+      "bytes": 10501596,
+      "rows": 139250,
+      "sha256": "c6c20f30fc6cbf6934c81e7b5e0495f952b7bab5fe2978baca6fdd78c68b90e6",
+      "sha256_matches_raw_snapshot_lock": true,
+      "matching_archive_blobs": [
+        "3c86db9f29ca79aa7ce79a5ac848524b0e3fbbff",
+        "bbd19c6f725acb838427e3d638b0dafb8e0f6f36",
+        "3f82eb53bf43eabe9c71b19d79d5280d7c36f9bb"
+      ],
+      "exact_rows_found_in_archives": 139250,
+      "missing_rows": 0,
+      "conflicting_rows": 0
+    }
+  ],
+  "record_reconstruction": {
+    "prior_survivor_records": 14,
+    "prior_records_matching_entry_candle_sequence_range": 14,
+    "prior_records_matching_entry_close": 14,
+    "prior_records_matching_next_candle_exit_close": 14,
+    "prior_records_matching_direction_adjusted_return": 14,
+    "current_winner_records": 28,
+    "current_records_matching_entry_candle_sequence_range": 28,
+    "current_records_matching_entry_close": 28,
+    "current_records_matching_next_candle_exit_close": 28,
+    "current_records_matching_direction_adjusted_return": 28,
+    "all_frozen_key_fields_match_raw_candle_reconstruction": true,
+    "exact_prior_current_key_intersection": 0
+  },
+  "archive_identity_lock": {
+    "path": "archive/vps_github_archive_identity_reconciliation_v1.lock.json",
+    "artifact_git_blob_sha1": "3909270fa563907a67fd36ff390bacdc28cfdf2a",
+    "artifact_sha256": "70769072e959e19e3a6e71f93f0667cc6800145ea61733034bbef3ab3447352b",
+    "independently_recomputed_sha256_matches_lock": true
+  },
+  "current_tail_lock": {
+    "path": "archive/vps_github_current_tail_reconciliation_v1.lock.json",
+    "artifact_git_blob_sha1": "6d9000213c564e16c797c4e70a50ab50f77d0062",
+    "artifact_sha256": "9ea54e7e7c52e6977aadee112e21ee1b5c584f6e023d5700f4b98e61c3476f3d",
+    "independently_recomputed_sha256_matches_lock": true,
+    "preserved_metadata_discrepancy": {
+      "artifact_body_status": "LOCK_PENDING",
+      "lock_status": "LOCKED",
+      "resolution": "The exact artifact bytes match the lock hash. Preserve the stale body status as a metadata discrepancy; do not rewrite the historical artifact."
+    }
+  },
+  "existing_closure": {
+    "path": "evidence/record_identity_lineage_closure_v1.json",
+    "commit": "01ce021b9545ace1ea32dd3a71ac37ea7787bc93",
+    "git_blob_sha1": "47f4ca5072509f2dfcff5aa7c3c2631b322e39a0",
+    "declared_status": "CLOSED",
+    "single_writer_basis": [
+      "archive/run196_reconciliation_closure.json",
+      "archive/collector_checkpoint_provenance_v1.json"
+    ],
+    "interpretation": "Reused as existing durable attribution evidence; the historical VPS process state was not re-probed live in this verification."
+  },
+  "guardrails": {
+    "feature_extraction_performed": false,
+    "effective_evidence_performed": false,
+    "threshold_changed": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "promotion_performed": false,
+    "live_execution": false
+  },
+  "remaining_release_blocker": "The upstream Tabdeal trade.sequence contract remains unverified. Keep forward observation and network/session writes blocked until a documented contract is accepted.",
+  "automation_status": {
+    "daily_health_review_enabled": false,
+    "weekly_deep_review_enabled": true,
+    "weekly_deep_review_immediate_run_requested": true,
+    "immediate_run_completed": false,
+    "effective_evidence_audit_runs_38350552232_and_38350588500": "completed/skipped with no artifacts; not gate passes"
+  },
+  "next_action": "Do not repeat the 42-record or archive row matching. Resolve the upstream trade.sequence contract, investigate the stale current-tail status field without rewriting history, and retrieve the asynchronous weekly review output when available."
+}
