@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/opaque-tabdeal-sequence-evidence-20261013
+      - fix/pr273-controlled-lineage-gate-20261013
   pull_request:
     branches:
       - main
@@ -21,8 +22,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest websocket-client
-      - name: Test opaque sequence preservation and raw payload integrity
-        run: python -m pytest -q tests/test_forward_tabdeal_sequence_semantics_v1.py
+      - name: Test opaque sequence and candle-ingestion negative cases
+        run: >-
+          python -m pytest -q
+          tests/test_forward_tabdeal_sequence_semantics_v1.py
+          tests/test_sequence_candle_integration_v1.py
+          tests/test_tabdeal_readonly_adapter_v1.py
       - name: Assert collector remains opt-in and non-trading
         run: |
           grep -q 'enabled: bool = False' forward/forward_tabdeal_collector_v1.py
