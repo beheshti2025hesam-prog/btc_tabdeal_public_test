@@ -90,6 +90,7 @@ def test_runner_persists_opaque_sequence_diagnostic_and_still_blocks(tmp_path: P
     assert unknown["session_id"] == result.session_id
     assert unknown["run_id"] == result.run_id
     assert record["reason"] == "SEQUENCE_UNSAFE"
+    assert record["session_id"] == result.session_id
     assert len(record["record_sha256"]) == 64
     assert record["sequence_events"]
     assert fingerprints[0]["raw_frame_sha256"] != fingerprints[1]["raw_frame_sha256"]
