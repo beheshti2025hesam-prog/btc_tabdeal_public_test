@@ -98,6 +98,8 @@ class ForwardObservationPathV1:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",
                                                 tuple({
+                                                    "session_id": session_id,
+                                                    "run_id": forward_run_id,
                                                     "sequence": e.sequence,
                                                     "status": e.status,
                                                     "reason": e.reason,
