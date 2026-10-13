@@ -13,7 +13,7 @@ import json
 import math
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -173,6 +173,13 @@ class ForwardObservationSupervisorV1:
                         raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID") from exc
                     if parsed_utc.tzinfo is None or parsed_utc.utcoffset() is None:
                         raise SupervisorError("JOURNAL_EVENT_SCHEMA_INVALID")
+                    now_utc = self._utc_now()
+                    if now_utc.tzinfo is None or now_utc.utcoffset() is None:
+                        raise SupervisorError("UTC_CLOCK_MUST_BE_TIMEZONE_AWARE")
+                    # Allow a small clock-skew margin, but never accept a
+                    # journal event materially ahead of the verifier's clock.
+                    if parsed_utc > now_utc.astimezone(timezone.utc) + timedelta(seconds=5):
+                        raise SupervisorError("JOURNAL_TIMESTAMP_IN_FUTURE")
                     if event.get("previous_event_sha256") != previous_digest:
                         raise SupervisorError("JOURNAL_CHAIN_BROKEN")
 
