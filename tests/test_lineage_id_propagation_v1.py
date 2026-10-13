@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
 from forward.observation_session_manager_v1 import ObservationSessionManagerV1
+from forward.forward_observation_path_v1 import ForwardObservationPathV1
 from forward.tabdeal_transport_v1 import TabdealReadOnlyTransportV1
 
 
@@ -88,4 +89,36 @@ def test_runner_propagates_same_ids_to_fail_closed_consumer(tmp_path):
     assert result.diagnostics
     assert result.diagnostics[0]["session_id"] == session["session_id"]
     assert result.diagnostics[0]["run_id"] == session["run_id"]
+    assert not (tmp_path / "observations.jsonl").exists()
+
+
+def test_path_rejects_missing_session_id_in_producer_record(tmp_path):
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl")
+    result = path.observe(
+        [{
+            "type": "trade", "symbol": "BTC_USDT", "price": "100", "amount": "0.1",
+            "side": "buy", "sequence": "0007", "timestamp": "2026-10-13T00:00:00Z",
+            "run_id": "OBS-test",
+        }],
+        as_of=datetime(2026, 10, 13, 12, 0, tzinfo=timezone.utc),
+        forward_run_id="OBS-test", session_id="SES-test",
+    )
+    assert result.status == "BLOCKED"
+    assert result.reason == "SESSION_ID_MISSING"
+    assert not (tmp_path / "observations.jsonl").exists()
+
+
+def test_path_rejects_mismatched_run_id_in_producer_record(tmp_path):
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl")
+    result = path.observe(
+        [{
+            "type": "trade", "symbol": "BTC_USDT", "price": "100", "amount": "0.1",
+            "side": "buy", "sequence": "0007", "timestamp": "2026-10-13T00:00:00Z",
+            "session_id": "SES-test", "run_id": "OBS-other",
+        }],
+        as_of=datetime(2026, 10, 13, 12, 0, tzinfo=timezone.utc),
+        forward_run_id="OBS-test", session_id="SES-test",
+    )
+    assert result.status == "BLOCKED"
+    assert result.reason == "RUN_ID_MISMATCH"
     assert not (tmp_path / "observations.jsonl").exists()
