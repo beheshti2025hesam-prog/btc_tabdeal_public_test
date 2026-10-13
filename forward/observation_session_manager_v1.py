@@ -51,8 +51,8 @@ class ObservationSessionManagerV1:
         if not self.source.startswith("tabdeal_"):
             raise ValueError("unsupported observation source")
         ts=started_at.astimezone(timezone.utc)
-        session_id=f"SES-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}",
-            run_id=f"OBS-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}"
+        session_id = f"SES-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}"
+        run_id = f"OBS-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}"
         return ObservationSessionV1(session_id=session_id, run_id=run_id,started_at=ts.isoformat(),
             policy_id=self.policy_id,policy_version=self.policy_version,
             symbol=self.symbol,timeframe=self.timeframe,source=self.source)
