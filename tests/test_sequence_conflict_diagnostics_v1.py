@@ -36,9 +36,11 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
 
 def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     class ConflictTransport:
-        def __init__(self, on_record, on_frame_metadata, **kwargs):
+        def __init__(self, on_record, on_frame_metadata, session_id, run_id, **kwargs):
             self.on_record = on_record
             self.on_frame_metadata = on_frame_metadata
+            self.session_id = session_id
+            self.run_id = run_id
 
         def run_once(self):
             base = {
@@ -60,7 +62,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
                     "sequence_value_type": "int",
                     "sequence_value": 41627925358,
                 })
-                self.on_record({**base, "price": price})
+                self.on_record({**base, "price": price, "session_id": self.session_id, "run_id": self.run_id})
 
     diagnostics_path = tmp_path / "sequence_integrity_diagnostics_v1.jsonl"
     runner = ControlledForwardObservationRunnerV1(
