@@ -6,6 +6,7 @@ commit, evidence path, and market scope.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -24,8 +25,10 @@ def verify_sequence_contract_evidence(
     now=None,
 ) -> dict[str, Any]:
     """Return verifier metadata or raise; callers must fail closed on any error."""
-    envelope = json.loads(Path(envelope_path).read_text(encoding="utf-8"))
-    key_registry = json.loads(Path(key_registry_path).read_text(encoding="utf-8"))
+    envelope_bytes = Path(envelope_path).read_bytes()
+    key_registry_bytes = Path(key_registry_path).read_bytes()
+    envelope = json.loads(envelope_bytes.decode("utf-8"))
+    key_registry = json.loads(key_registry_bytes.decode("utf-8"))
     if not isinstance(key_registry, dict) or not key_registry:
         raise ValueError("trusted key registry must be a non-empty object")
     result = verify(
@@ -39,4 +42,10 @@ def verify_sequence_contract_evidence(
     )
     if result.get("status") != "VERIFIED":
         raise ValueError("sequence contract evidence was not verified")
-    return result
+    # Pin the exact envelope and trust-registry bytes used for this decision.
+    # A later audit must not silently substitute a re-serialized envelope or rotated key file.
+    return {
+        **result,
+        "envelope_sha256": hashlib.sha256(envelope_bytes).hexdigest(),
+        "key_registry_sha256": hashlib.sha256(key_registry_bytes).hexdigest(),
+    }
