@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
+from .sequence_attestation_v1 import verify_registry_attestation
+
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SCOPE_FIELDS = (
     "venue", "product", "transport", "endpoint", "channel_or_topic",
@@ -203,6 +205,7 @@ def load_verified_contract(
                 raise RegistryError("SOURCE_EXCERPT_NOT_IN_SNAPSHOT")
         if semantic_class == "unknown" and any(claims[k] is True for k in _CAPABILITIES):
             raise RegistryError("UNKNOWN_SEMANTICS_CANNOT_GRANT_CAPABILITY")
+        verify_registry_attestation(raw, lock)
 
     return VerifiedSequenceContract(
         registry_revision=revision,
