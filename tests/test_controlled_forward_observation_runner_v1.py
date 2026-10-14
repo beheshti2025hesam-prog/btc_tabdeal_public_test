@@ -40,11 +40,13 @@ def signed_gate_kwargs(tmp_path: Path):
     registry_path = tmp_path / "trusted-test-keys.json"
     envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
     registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    registry_pin = hashlib.sha256(registry_path.read_bytes()).hexdigest()
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
         "expected_commit": "a" * 40,
         "expected_evidence_path": "evidence/sequence-contract.json",
+        "expected_key_registry_sha256": registry_pin,
         "market_scope": "tabdeal:futures:BTC_USDT",
         "evidence_max_age_seconds": 3600,
     }
@@ -95,6 +97,39 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     assert len(evidence["envelope_sha256"]) == 64
     assert len(evidence["key_registry_sha256"]) == 64
     assert session_record["session_digest"]
+    assert not journal.exists()
+
+
+
+def test_runner_rejects_registry_replacement_before_network_or_session(tmp_path: Path):
+    kwargs = signed_gate_kwargs(tmp_path)
+    registry_path = kwargs["sequence_contract_key_registry_path"]
+    attacker_key = Ed25519PrivateKey.generate()
+    attacker_public_key = base64.b64encode(
+        attacker_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    ).decode("ascii")
+    # Replace the key registry but deliberately retain the digest pinned before replacement.
+    registry_path.write_text(json.dumps({"synthetic-test-key": attacker_public_key}), encoding="utf-8")
+
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed with a substituted registry")
+
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert "registry SHA-256 pin mismatch" in result.reason
+    assert result.records_received == 0
+    assert not session.exists()
     assert not journal.exists()
 
 
