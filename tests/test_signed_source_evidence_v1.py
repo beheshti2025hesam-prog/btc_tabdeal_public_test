@@ -58,4 +58,25 @@ class SignedSourceEvidenceTests(unittest.TestCase):
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "market scope"): self.check(e)
 
+
+    def test_unsafe_evidence_paths_rejected_even_when_signed(self):
+        for unsafe_path in ("../outside.json", "/tmp/evidence.json", "evidence\\\\outside.json", "evidence//source.json", "C:/evidence.json"):
+            with self.subTest(path=unsafe_path):
+                e = envelope()
+                e["evidence_path"] = unsafe_path
+                e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+                with self.assertRaisesRegex(ValueError, "unsafe evidence path|canonical"):
+                    verify(e, expected_commit=COMMIT, expected_path=unsafe_path,
+                           market_scope=MARKET, key_registry={"test-key": PUB},
+                           now=NOW, max_age_seconds=3600)
+
+    def test_malformed_source_port_rejected(self):
+        e = envelope()
+        e["source_url"] = "https://exchange.example:bad/source"
+        e["redirect_chain"] = [e["source_url"]]
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "invalid source URL or redirect chain"):
+            verify(e, expected_commit=COMMIT, expected_path=PATH, market_scope=MARKET,
+                   key_registry={"test-key": PUB}, now=NOW, max_age_seconds=3600)
+
 if __name__ == "__main__": unittest.main()
