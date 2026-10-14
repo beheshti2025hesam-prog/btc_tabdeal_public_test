@@ -15,6 +15,8 @@ def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
         "side": "buy",
         "source_updated": ts,
         "sequence": seq,
+        # Synthetic fixture only; production adapter remains UNKNOWN_OPAQUE.
+        "sequence_semantics": "VERIFIED_MONOTONIC",
     }
 
 
