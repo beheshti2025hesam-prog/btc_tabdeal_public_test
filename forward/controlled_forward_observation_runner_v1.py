@@ -51,6 +51,7 @@ class ControlledForwardObservationRunnerV1:
         sequence_contract_key_registry_path: str | Path | None = None,
         expected_commit: str | None = None,
         expected_evidence_path: str | None = None,
+        expected_key_registry_sha256: str | None = None,
         market_scope: str = "tabdeal:futures:BTC_USDT",
         evidence_max_age_seconds: int = 86400,
     ) -> None:
@@ -68,6 +69,7 @@ class ControlledForwardObservationRunnerV1:
         )
         self.expected_commit = expected_commit
         self.expected_evidence_path = expected_evidence_path
+        self.expected_key_registry_sha256 = expected_key_registry_sha256
         self.market_scope = market_scope
         self.evidence_max_age_seconds = evidence_max_age_seconds
         self.journal_path = Path(journal_path)
@@ -100,6 +102,8 @@ class ControlledForwardObservationRunnerV1:
                 or not self.expected_commit
                 or not isinstance(self.expected_evidence_path, str)
                 or not self.expected_evidence_path
+                or not isinstance(self.expected_key_registry_sha256, str)
+                or not self.expected_key_registry_sha256
                 or self.evidence_max_age_seconds <= 0
             ):
                 raise ValueError("signed evidence configuration is incomplete")
@@ -109,6 +113,7 @@ class ControlledForwardObservationRunnerV1:
                 expected_commit=self.expected_commit,
                 expected_evidence_path=self.expected_evidence_path,
                 market_scope=self.market_scope,
+                expected_key_registry_sha256=self.expected_key_registry_sha256,
                 max_age_seconds=self.evidence_max_age_seconds,
                 now=now,
             )
