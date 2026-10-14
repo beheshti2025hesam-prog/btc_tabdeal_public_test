@@ -7,7 +7,7 @@ The Ed25519 signature covers canonical JSON of every field except signature_b64.
 """
 import argparse, base64, hashlib, json, sys
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 def canonical_signed_bytes(envelope):
@@ -18,24 +18,47 @@ def require(condition, message):
     if not condition:
         raise ValueError(message)
 
+def validate_evidence_path(path):
+    # Evidence identifiers are repository-relative POSIX paths, never filesystem paths.
+    require(isinstance(path, str) and bool(path), "evidence path must be a non-empty string")
+    require("\\" not in path and "\x00" not in path, "unsafe evidence path")
+    parsed = PurePosixPath(path)
+    require(not parsed.is_absolute(), "unsafe evidence path")
+    require(path == parsed.as_posix(), "evidence path must be canonical")
+    require(all(part not in ("", ".", "..") for part in path.split("/")), "unsafe evidence path")
+    require(not (len(path) >= 2 and path[1] == ":"), "unsafe evidence path")
+    return path
+
 def verify(envelope, *, expected_commit, expected_path, market_scope, key_registry,
            now=None, max_age_seconds=86400):
     require(isinstance(envelope, dict), "envelope must be an object")
+    validate_evidence_path(expected_path)
+    validate_evidence_path(envelope.get("evidence_path"))
     require(envelope.get("expected_commit") == expected_commit, "expected commit mismatch")
     require(envelope.get("evidence_path") == expected_path, "evidence path mismatch")
     require(envelope.get("market_scope") == market_scope, "market scope mismatch")
     digest = envelope.get("raw_sha256", "")
     require(isinstance(digest, str) and len(digest) == 64 and all(c in "0123456789abcdef" for c in digest), "invalid raw SHA-256")
     url = envelope.get("source_url", "")
-    require(urlparse(url).scheme == "https" and bool(urlparse(url).netloc), "source URL must be HTTPS")
-    redirects = envelope.get("redirect_chain")
-    require(isinstance(redirects, list) and redirects, "redirect chain missing")
-    require(all(isinstance(u, str) and urlparse(u).scheme == "https" and urlparse(u).netloc for u in redirects), "invalid redirect URL")
-    require(redirects[-1] == url, "redirect chain final URL differs from source URL")
+    parsed_url = urlparse(url)
+    require(parsed_url.scheme == "https" and bool(parsed_url.netloc), "source URL must be HTTPS")
+    try:
+        # Access .port to force malformed ports to fail closed.
+        _ = parsed_url.port
+        redirects = envelope.get("redirect_chain")
+        require(isinstance(redirects, list) and redirects, "redirect chain missing")
+        for redirect in redirects:
+            parsed_redirect = urlparse(redirect) if isinstance(redirect, str) else None
+            require(parsed_redirect is not None and parsed_redirect.scheme == "https" and parsed_redirect.netloc,
+                    "invalid redirect URL")
+            _ = parsed_redirect.port
+        require(redirects[-1] == url, "redirect chain final URL differs from source URL")
+    except (ValueError, TypeError) as exc:
+        raise ValueError("invalid source URL or redirect chain") from exc
     stamp = envelope.get("retrieved_at", "")
     try:
         retrieved = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-        require(retrieved.tzinfo is not None, "retrieved_at must include timezone")
+        require(retrieved.tzinfo is not None and retrieved.utcoffset() is not None, "retrieved_at must include timezone")
     except Exception as exc:
         raise ValueError("invalid retrieved_at") from exc
     now = now or datetime.now(timezone.utc)
@@ -50,6 +73,7 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
         pub = base64.b64decode(key_registry[key_id], validate=True)
         sig = base64.b64decode(envelope["signature_b64"], validate=True)
         payload = base64.b64decode(envelope["payload_b64"], validate=True)
+        require(len(sig) == 64, "invalid Ed25519 signature length")
         Ed25519PublicKey.from_public_bytes(pub).verify(sig, canonical_signed_bytes(envelope))
     except Exception as exc:
         raise ValueError("signature verification failed") from exc
