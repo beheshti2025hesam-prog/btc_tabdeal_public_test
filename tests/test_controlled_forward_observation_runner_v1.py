@@ -96,7 +96,14 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     session_record = json.loads(session.read_text(encoding="utf-8").splitlines()[0])
     evidence = session_record["sequence_contract_evidence"]
     assert evidence["status"] == "VERIFIED"
-    assert evidence["expected_commit"] == subprocess.run(\n        ["git", "rev-parse", "--verify", "HEAD^{commit}"],\n        cwd=Path(__file__).resolve().parents[1], check=True, capture_output=True, text=True, timeout=5,\n    ).stdout.strip()
+    assert evidence["expected_commit"] == subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    ).stdout.strip()
     assert evidence["evidence_path"] == "evidence/sequence-contract.json"
     assert evidence["market_scope"] == "tabdeal:futures:BTC_USDT"
     assert evidence["key_id"] == "synthetic-test-key"
