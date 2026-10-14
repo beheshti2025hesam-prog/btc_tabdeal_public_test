@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .forward_observation_path_v1 import ForwardObservationPathV1
+from .signed_sequence_contract_gate_v1 import verify_sequence_contract_evidence
 from .observation_session_manager_v1 import ObservationSessionManagerV1
 from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
@@ -46,17 +47,29 @@ class ControlledForwardObservationRunnerV1:
         max_runtime_seconds: float = 60.0,
         diagnostics_path: str | Path | None = None,
         max_records: int = 100_000,
-        sequence_contract_verified: bool = False,
-        sequence_contract_evidence_ref: str | None = None,
+        sequence_contract_envelope_path: str | Path | None = None,
+        sequence_contract_key_registry_path: str | Path | None = None,
+        expected_commit: str | None = None,
+        expected_evidence_path: str | None = None,
+        market_scope: str = "tabdeal:futures:BTC_USDT",
+        evidence_max_age_seconds: int = 86400,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
-        self.sequence_contract_verified = sequence_contract_verified is True and bool(
-            isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
+        # These values are inputs to cryptographic verification, never proof by themselves.
+        self.sequence_contract_envelope_path = (
+            Path(sequence_contract_envelope_path) if sequence_contract_envelope_path is not None else None
         )
+        self.sequence_contract_key_registry_path = (
+            Path(sequence_contract_key_registry_path) if sequence_contract_key_registry_path is not None else None
+        )
+        self.expected_commit = expected_commit
+        self.expected_evidence_path = expected_evidence_path
+        self.market_scope = market_scope
+        self.evidence_max_age_seconds = evidence_max_age_seconds
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -77,22 +90,46 @@ class ControlledForwardObservationRunnerV1:
             raise ValueError("started_at must be timezone-aware")
         now = now.astimezone(timezone.utc)
 
-        # Do not open a socket or create even a session record until the upstream
-        # sequence semantics are verified against an authoritative evidence reference.
-        if not self.sequence_contract_verified:
+        # Cryptographically verify the exact evidence before creating a session,
+        # constructing a transport, or opening a socket. A boolean/reference is not proof.
+        try:
+            if (
+                self.sequence_contract_envelope_path is None
+                or self.sequence_contract_key_registry_path is None
+                or not isinstance(self.expected_commit, str)
+                or not self.expected_commit
+                or not isinstance(self.expected_evidence_path, str)
+                or not self.expected_evidence_path
+                or self.evidence_max_age_seconds <= 0
+            ):
+                raise ValueError("signed evidence configuration is incomplete")
+            verified_evidence = verify_sequence_contract_evidence(
+                envelope_path=self.sequence_contract_envelope_path,
+                key_registry_path=self.sequence_contract_key_registry_path,
+                expected_commit=self.expected_commit,
+                expected_evidence_path=self.expected_evidence_path,
+                market_scope=self.market_scope,
+                max_age_seconds=self.evidence_max_age_seconds,
+                now=now,
+            )
+        except Exception as exc:
             return ControlledObservationRunnerResult(
                 run_id="NOT_STARTED",
                 status="BLOCKED",
                 records_received=0,
                 journal_path=str(self.journal_path),
-                reason="UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
+                reason=f"UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:{type(exc).__name__}",
                 snapshot_id=None,
                 diagnostics=({
                     "network_started": False,
                     "session_written": False,
+                    "signature_verified": False,
                     "sequence_contract_evidence_required": True,
+                    "verification_error": type(exc).__name__,
                 },),
             )
+
+        # The session is created only after successful Ed25519 verification.
 
         session = self.session_manager.start(started_at=now)
         self.session_manager.write_once(session, self.session_path)
