@@ -22,7 +22,6 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     expected_evidence_path="evidence/sequence.json",
                     market_scope="tabdeal:spot:BTC_USDT",
                     trusted_key_registry_sha256=hashlib.sha256(registry.read_bytes()).hexdigest(),
-                    trusted_key_registry_sha256=hashlib.sha256(registry.read_bytes()).hexdigest(),
                 )
 
 
@@ -60,6 +59,7 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     expected_commit="a" * 40,
                     expected_evidence_path="evidence/sequence.json",
                     market_scope="tabdeal:spot:BTC_USDT",
+                    trusted_key_registry_sha256=hashlib.sha256(registry.read_bytes()).hexdigest(),
                 )
 
 
