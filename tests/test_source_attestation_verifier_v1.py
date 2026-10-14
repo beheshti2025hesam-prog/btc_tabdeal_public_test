@@ -149,3 +149,60 @@ def test_signed_payload_with_duplicate_json_keys_is_rejected(signed_case):
     attestation.write_text(json.dumps(envelope), encoding="utf-8")
     with pytest.raises(AttestationError, match="duplicate JSON key"):
         verify(signed_case, trusted_public_key_b64=b64(public))
+
+
+
+def test_envelope_rejects_unexpected_fields(signed_case):
+    attestation, _, _, _, envelope = signed_case
+    envelope["unexpected"] = True
+    attestation.write_text(json.dumps(envelope), encoding="utf-8")
+    with pytest.raises(AttestationError, match="missing or unexpected fields"):
+        verify(signed_case)
+
+
+def test_envelope_rejects_wrong_signature_length(signed_case):
+    attestation, _, _, _, envelope = signed_case
+    envelope["signature_b64"] = b64(b"short")
+    attestation.write_text(json.dumps(envelope), encoding="utf-8")
+    with pytest.raises(AttestationError, match="must be 64 bytes"):
+        verify(signed_case)
+
+
+def test_signed_payload_rejects_unexpected_fields(signed_case):
+    attestation, artifact, _, payload, _ = signed_case
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    payload["unexpected"] = "must-not-be-ignored"
+    payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    envelope = {
+        "schema_version": 1,
+        "key_id": "test-key-1",
+        "payload_b64": b64(payload_bytes),
+        "signature_b64": b64(private.sign(payload_bytes)),
+    }
+    attestation.write_text(json.dumps(envelope), encoding="utf-8")
+    with pytest.raises(AttestationError, match="missing or unexpected fields"):
+        verify(signed_case, trusted_public_key_b64=b64(public))
+
+
+def test_signed_payload_rejects_malformed_port_without_traceback(signed_case):
+    attestation, _, _, payload, _ = signed_case
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    payload["source_url"] = "https://docs.tabdeal.org:bad-port/"
+    payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    envelope = {
+        "schema_version": 1,
+        "key_id": "test-key-1",
+        "payload_b64": b64(payload_bytes),
+        "signature_b64": b64(private.sign(payload_bytes)),
+    }
+    attestation.write_text(json.dumps(envelope), encoding="utf-8")
+    with pytest.raises(AttestationError, match="official Tabdeal HTTPS URL"):
+        verify(signed_case, trusted_public_key_b64=b64(public))
