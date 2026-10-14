@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import subprocess
 from typing import Any, Callable
 
 from .forward_observation_path_v1 import ForwardObservationPathV1
@@ -103,10 +104,25 @@ class ControlledForwardObservationRunnerV1:
                 or self.evidence_max_age_seconds <= 0
             ):
                 raise ValueError("signed evidence configuration is incomplete")
+            # Trust anchor: derive the running source revision from this checkout.
+            # Never let caller configuration define which commit is considered current.
+            completed = subprocess.run(
+                ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+                cwd=Path(__file__).resolve().parents[1],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            running_commit = completed.stdout.strip()
+            if len(running_commit) != 40 or any(ch not in "0123456789abcdef" for ch in running_commit):
+                raise ValueError("unable to establish canonical running commit")
+            if self.expected_commit != running_commit:
+                raise ValueError("configured expected commit does not match running commit")
             verified_evidence = verify_sequence_contract_evidence(
                 envelope_path=self.sequence_contract_envelope_path,
                 key_registry_path=self.sequence_contract_key_registry_path,
-                expected_commit=self.expected_commit,
+                expected_commit=running_commit,
                 expected_evidence_path=self.expected_evidence_path,
                 market_scope=self.market_scope,
                 max_age_seconds=self.evidence_max_age_seconds,
