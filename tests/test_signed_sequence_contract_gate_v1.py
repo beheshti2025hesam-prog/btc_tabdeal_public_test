@@ -2,10 +2,13 @@ import hashlib
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
+
 from pathlib import Path
 from unittest.mock import patch
 
 from forward.signed_sequence_contract_gate_v1 import verify_sequence_contract_evidence
+from scripts.verify_signed_source_evidence_v1 import verify
 
 
 class SignedSequenceContractGateTests(unittest.TestCase):
@@ -43,6 +46,53 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     expected_evidence_path="evidence/sequence.json",
                     market_scope="tabdeal:spot:BTC_USDT",
                     trusted_key_registry_sha256=independently_pinned_digest,
+                )
+
+
+    def test_unknown_or_revoked_key_id_fails_closed(self):
+        now = datetime.now(timezone.utc)
+        envelope = {
+            "expected_commit": "a" * 40,
+            "evidence_path": "evidence/sequence.json",
+            "raw_sha256": "0" * 64,
+            "source_url": "https://exchange.example/evidence",
+            "redirect_chain": ["https://exchange.example/evidence"],
+            "retrieved_at": now.isoformat(),
+            "market_scope": "tabdeal:spot:BTC_USDT",
+            "key_id": "revoked-or-unknown-key",
+            "signature_algorithm": "Ed25519",
+            "payload_b64": "",
+            "signature_b64": "",
+        }
+        with self.assertRaisesRegex(ValueError, "untrusted key id"):
+            verify(
+                envelope,
+                expected_commit="a" * 40,
+                expected_path="evidence/sequence.json",
+                market_scope="tabdeal:spot:BTC_USDT",
+                key_registry={},
+                now=now,
+            )
+
+    def test_registry_rollback_to_old_bytes_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            envelope = root / "envelope.json"
+            registry = root / "keys.json"
+            envelope.write_text("{}", encoding="utf-8")
+            old_registry_bytes = json.dumps({"old-key": "b2xk"}).encode("utf-8")
+            current_registry_bytes = json.dumps({"current-key": "Y3VycmVudA=="}).encode("utf-8")
+            # The trusted pin represents the current registry version, not the old version.
+            registry.write_bytes(old_registry_bytes)
+            trusted_current_digest = hashlib.sha256(current_registry_bytes).hexdigest()
+            with self.assertRaisesRegex(ValueError, "registry identity mismatch"):
+                verify_sequence_contract_evidence(
+                    envelope_path=envelope,
+                    key_registry_path=registry,
+                    expected_commit="a" * 40,
+                    expected_evidence_path="evidence/sequence.json",
+                    market_scope="tabdeal:spot:BTC_USDT",
+                    trusted_key_registry_sha256=trusted_current_digest,
                 )
 
     def test_empty_trust_registry_fails_closed(self):
