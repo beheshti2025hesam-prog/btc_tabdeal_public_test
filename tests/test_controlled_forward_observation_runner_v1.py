@@ -145,6 +145,43 @@ def test_runner_blocks_replaced_registry_and_attacker_key_before_network_or_sess
 
 
 
+
+def test_runner_blocks_coordinated_registry_and_envelope_replacement_before_network_or_session(tmp_path: Path):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed after coordinated trust substitution")
+
+    kwargs = signed_gate_kwargs(tmp_path)
+    registry_path = kwargs["sequence_contract_key_registry_path"]
+    envelope_path = kwargs["sequence_contract_envelope_path"]
+    # Attacker replaces both the trust registry and the signed envelope, using an attacker key.
+    registry_path.write_text(json.dumps({"attacker-key": "YWNrZXI="}), encoding="utf-8")
+    envelope_path.write_text(json.dumps({
+        "key_id": "attacker-key",
+        "signature_algorithm": "Ed25519",
+        "signature_b64": "YXR0YWNrZXItc2lnbmF0dXJl",
+        "payload_b64": "YXR0YWNrZXItcGF5bG9hZA==",
+    }), encoding="utf-8")
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
+
+
 def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     class GapTransport:
         def __init__(self, on_record, **kwargs):
