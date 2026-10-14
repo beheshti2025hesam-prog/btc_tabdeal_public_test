@@ -129,7 +129,26 @@ class ControlledForwardObservationRunnerV1:
                 },),
             )
 
-        # The session is created only after successful Ed25519 verification.
+        # A live WebSocket factory is required. Reject this invalid execution mode
+        # before writing a session or constructing any transport.
+        if self.ws_factory is None:
+            return ControlledObservationRunnerResult(
+                run_id="NOT_STARTED",
+                status="BLOCKED",
+                records_received=0,
+                journal_path=str(self.journal_path),
+                reason="WS_FACTORY_REQUIRED",
+                snapshot_id=None,
+                diagnostics=({
+                    "network_started": False,
+                    "session_written": False,
+                    "signature_verified": True,
+                    "ws_factory_required": True,
+                },),
+            )
+
+        # The session is created only after successful Ed25519 verification
+        # and validation of the required live transport configuration.
 
         session = self.session_manager.start(started_at=now)
         self.session_manager.write_once(session, self.session_path)
@@ -172,8 +191,6 @@ class ControlledForwardObservationRunnerV1:
             "on_frame_metadata": collect_frame_metadata,
             "max_runtime_seconds": self.max_runtime_seconds,
         }
-        if self.ws_factory is None:
-            raise ValueError("ws_factory must be supplied explicitly for a live run")
         kwargs["ws_factory"] = self.ws_factory
 
         try:
