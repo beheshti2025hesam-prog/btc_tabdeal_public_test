@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -19,6 +20,7 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     key_registry_path=registry,
                     expected_commit="a" * 40,
                     expected_evidence_path="evidence/sequence.json",
+                    expected_key_registry_sha256=hashlib.sha256(registry.read_bytes()).hexdigest(),
                     market_scope="tabdeal:spot:BTC_USDT",
                 )
 
@@ -35,6 +37,7 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     key_registry_path=registry,
                     expected_commit="a" * 40,
                     expected_evidence_path="evidence/sequence.json",
+                    expected_key_registry_sha256=hashlib.sha256(registry.read_bytes()).hexdigest(),
                     market_scope="tabdeal:spot:BTC_USDT",
                 )
 
