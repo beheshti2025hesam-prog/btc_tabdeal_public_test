@@ -53,6 +53,7 @@ def signed_gate_kwargs(tmp_path: Path):
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
+        "trusted_key_registry_sha256": hashlib.sha256(registry_path.read_bytes()).hexdigest(),
         "expected_commit": running_commit,
         "expected_evidence_path": "evidence/sequence-contract.json",
         "market_scope": "tabdeal:futures:BTC_USDT",
