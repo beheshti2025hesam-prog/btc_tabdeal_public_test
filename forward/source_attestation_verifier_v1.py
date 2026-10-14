@@ -26,6 +26,44 @@ class AttestationError(ValueError):
     pass
 
 
+_ALLOWED_SOURCE_HOSTS = frozenset({
+    "docs.tabdeal.org", "tabdeal.org", "www.tabdeal.org", "api1.tabdeal.org",
+})
+_MAX_ATTESTATION_AGE = timedelta(hours=24)
+_ALLOWED_FUTURE_SKEW = timedelta(minutes=5)
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise AttestationError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _strict_json(raw: str | bytes, label: str) -> object:
+    try:
+        return json.loads(raw, object_pairs_hook=_unique_object,
+                          parse_constant=lambda value: (_ for _ in ()).throw(
+                              AttestationError(f"non-finite JSON value in {label}")))
+    except AttestationError:
+        raise
+    except Exception as exc:
+        raise AttestationError(f"{label} is unreadable or invalid JSON") from exc
+
+
+def _validate_source_url(value: object, label: str) -> None:
+    parsed = urlparse(value) if isinstance(value, str) else None
+    if (
+        not parsed or parsed.scheme != "https" or not parsed.hostname
+        or parsed.hostname.lower() not in _ALLOWED_SOURCE_HOSTS
+        or parsed.username is not None or parsed.password is not None
+        or parsed.port not in (None, 443)
+    ):
+        raise AttestationError(f"{label} is not an allowed official Tabdeal HTTPS URL")
+
+
 def _b64(value: object, label: str) -> bytes:
     if not isinstance(value, str) or not value:
         raise AttestationError(f"missing or invalid {label}")
@@ -42,14 +80,14 @@ def verify_attestation(
     expected_commit: str,
     trusted_key_id: str | None,
     trusted_public_key_b64: str | None,
+    now_utc: datetime | None = None,
+    max_age: timedelta = _MAX_ATTESTATION_AGE,
+    allowed_future_skew: timedelta = _ALLOWED_FUTURE_SKEW,
 ) -> dict:
     """Verify detached Ed25519 signature, artifact digest, source URL and commit."""
     if not trusted_key_id or not trusted_public_key_b64:
         raise AttestationError("external trust configuration is missing")
-    try:
-        envelope = json.loads(Path(attestation_path).read_text(encoding="utf-8"))
-    except Exception as exc:
-        raise AttestationError("attestation envelope is unreadable or invalid JSON") from exc
+    envelope = _strict_json(Path(attestation_path).read_text(encoding="utf-8"), "attestation envelope")
     if not isinstance(envelope, dict) or envelope.get("schema_version") != 1:
         raise AttestationError("unsupported attestation envelope schema")
     if envelope.get("key_id") != trusted_key_id:
@@ -65,10 +103,7 @@ def verify_attestation(
     except (InvalidSignature, ValueError) as exc:
         raise AttestationError("detached signature verification failed") from exc
 
-    try:
-        payload = json.loads(payload_bytes.decode("utf-8"))
-    except Exception as exc:
-        raise AttestationError("signed payload is not valid UTF-8 JSON") from exc
+    payload = _strict_json(payload_bytes.decode("utf-8"), "signed payload")
     required = ("schema_version", "source_url", "resolved_url", "raw_sha256",
                 "commit_sha", "fetched_at", "tool_version", "contract_version")
     if not isinstance(payload, dict) or any(k not in payload for k in required):
@@ -84,6 +119,8 @@ def verify_attestation(
     for field in ("tool_version", "contract_version"):
         if not isinstance(payload[field], str) or not payload[field].strip():
             raise AttestationError(f"{field} must be a non-empty string")
+    if max_age < timedelta(0) or allowed_future_skew < timedelta(0):
+        raise ValueError("max_age and allowed_future_skew must be non-negative")
     fetched_at = payload["fetched_at"]
     if not isinstance(fetched_at, str) or not fetched_at.strip():
         raise AttestationError("fetched_at must be an RFC 3339 timestamp with timezone")
@@ -94,12 +131,16 @@ def verify_attestation(
             raise ValueError("timezone is required")
     except (TypeError, ValueError) as exc:
         raise AttestationError("fetched_at must be a valid RFC 3339 timestamp with timezone") from exc
-    if parsed_timestamp.astimezone(timezone.utc) > datetime.now(timezone.utc) + timedelta(minutes=5):
+    now = now_utc if now_utc is not None else datetime.now(timezone.utc)
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("now_utc must be timezone-aware")
+    age = now.astimezone(timezone.utc) - parsed_timestamp.astimezone(timezone.utc)
+    if age > max_age:
+        raise AttestationError("attestation is stale")
+    if age < -allowed_future_skew:
         raise AttestationError("fetched_at is unacceptably far in the future")
     for field in ("source_url", "resolved_url"):
-        parsed = urlparse(payload[field]) if isinstance(payload[field], str) else None
-        if not parsed or parsed.scheme != "https" or not parsed.netloc:
-            raise AttestationError(f"{field} must be an absolute HTTPS URL")
+        _validate_source_url(payload[field], field)
     digest = hashlib.sha256(Path(artifact_path).read_bytes()).hexdigest()
     if payload["raw_sha256"] != digest:
         raise AttestationError("source artifact SHA-256 does not match signed provenance")
