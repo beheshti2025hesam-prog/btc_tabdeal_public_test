@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from forward.sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
+from forward.tabdeal_readonly_adapter_v1 import parse_trade_frame
 
 
 ASOF = datetime(2026, 10, 7, 7, 0, tzinfo=timezone.utc)
@@ -81,6 +82,26 @@ def test_unknown_opaque_sequence_is_blocked_before_candle_formation():
 def test_missing_sequence_semantics_is_blocked_before_candle_formation():
     record = rec(7)
     record.pop("sequence_semantics")
+    result = SequenceAwareCandleIngestionV1().ingest([record], as_of=ASOF)
+    assert result.safe_for_decision is False
+    assert result.candles == ()
+    assert result.gaps == ()
+    assert result.events[-1].reason == "SEQUENCE_SEMANTICS_UNVERIFIED"
+
+def test_actual_adapter_output_is_blocked_before_candle_formation():
+    frame = {
+        "type": "trade",
+        "symbol": "BTC_USDT",
+        "price": "100",
+        "amount": "0.1",
+        "side": "buy",
+        "sequence": "opaque-007",
+        "timestamp": 1791356400000,
+    }
+    record = parse_trade_frame(frame, as_of=ASOF)
+    assert record["sequence"] == "opaque-007"
+    assert record["sequence_semantics"] == "UNKNOWN_OPAQUE"
+
     result = SequenceAwareCandleIngestionV1().ingest([record], as_of=ASOF)
     assert result.safe_for_decision is False
     assert result.candles == ()
