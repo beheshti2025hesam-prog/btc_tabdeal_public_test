@@ -41,8 +41,10 @@ def signed_gate_kwargs(tmp_path: Path):
     registry_path = tmp_path / "trusted-test-keys.json"
     envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
     registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    registry_pin = hashlib.sha256(registry_path.read_bytes()).hexdigest()
     return {
         "sequence_contract_envelope_path": envelope_path,
+        "expected_key_registry_sha256": registry_pin,
         "sequence_contract_key_registry_path": registry_path,
         "expected_commit": "a" * 40,
         "expected_evidence_path": "evidence/sequence-contract.json",
