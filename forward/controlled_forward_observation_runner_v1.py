@@ -50,6 +50,7 @@ class ControlledForwardObservationRunnerV1:
         max_records: int = 100_000,
         sequence_contract_envelope_path: str | Path | None = None,
         sequence_contract_key_registry_path: str | Path | None = None,
+        trusted_key_registry_sha256: str | None = None,
         expected_commit: str | None = None,
         expected_evidence_path: str | None = None,
         market_scope: str = "tabdeal:futures:BTC_USDT",
@@ -67,6 +68,7 @@ class ControlledForwardObservationRunnerV1:
         self.sequence_contract_key_registry_path = (
             Path(sequence_contract_key_registry_path) if sequence_contract_key_registry_path is not None else None
         )
+        self.trusted_key_registry_sha256 = trusted_key_registry_sha256
         self.expected_commit = expected_commit
         self.expected_evidence_path = expected_evidence_path
         self.market_scope = market_scope
@@ -97,6 +99,8 @@ class ControlledForwardObservationRunnerV1:
             if (
                 self.sequence_contract_envelope_path is None
                 or self.sequence_contract_key_registry_path is None
+                or not isinstance(self.trusted_key_registry_sha256, str)
+                or len(self.trusted_key_registry_sha256) != 64
                 or not isinstance(self.expected_commit, str)
                 or not self.expected_commit
                 or not isinstance(self.expected_evidence_path, str)
@@ -125,6 +129,7 @@ class ControlledForwardObservationRunnerV1:
                 expected_commit=running_commit,
                 expected_evidence_path=self.expected_evidence_path,
                 market_scope=self.market_scope,
+                trusted_key_registry_sha256=self.trusted_key_registry_sha256,
                 max_age_seconds=self.evidence_max_age_seconds,
                 now=now,
             )
