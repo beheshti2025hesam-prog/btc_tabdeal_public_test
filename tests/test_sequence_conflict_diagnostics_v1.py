@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,11 +21,19 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
 
 def signed_gate_kwargs(tmp_path: Path):
+    running_commit = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    ).stdout.strip()
     private_key = Ed25519PrivateKey.generate()
     payload = b'{"sequence_contract":"synthetic-test-only"}'
     source_url = "https://exchange.example/sequence-contract"
     envelope = {
-        "expected_commit": "a" * 40,
+        "expected_commit": running_commit,
         "evidence_path": "evidence/sequence-contract.json",
         "raw_sha256": hashlib.sha256(payload).hexdigest(),
         "source_url": source_url,
@@ -44,7 +53,7 @@ def signed_gate_kwargs(tmp_path: Path):
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
-        "expected_commit": "a" * 40,
+        "expected_commit": running_commit,
         "expected_evidence_path": "evidence/sequence-contract.json",
         "market_scope": "tabdeal:futures:BTC_USDT",
         "evidence_max_age_seconds": 3600,
