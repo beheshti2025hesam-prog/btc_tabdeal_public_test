@@ -67,3 +67,22 @@ def test_reconnect_requires_explicit_reset_before_new_continuity():
     second = s.ingest([rec(100)], as_of=ASOF)
     assert second.safe_for_decision is True
     assert second.events[0].status == "ACCEPTED"
+
+def test_unknown_opaque_sequence_is_blocked_before_candle_formation():
+    record = rec("opaque-007")
+    record["sequence_semantics"] = "UNKNOWN_OPAQUE"
+    result = SequenceAwareCandleIngestionV1().ingest([record], as_of=ASOF)
+    assert result.safe_for_decision is False
+    assert result.candles == ()
+    assert result.gaps == ()
+    assert result.events[-1].reason == "SEQUENCE_SEMANTICS_UNVERIFIED"
+
+
+def test_missing_sequence_semantics_is_blocked_before_candle_formation():
+    record = rec(7)
+    record.pop("sequence_semantics")
+    result = SequenceAwareCandleIngestionV1().ingest([record], as_of=ASOF)
+    assert result.safe_for_decision is False
+    assert result.candles == ()
+    assert result.gaps == ()
+    assert result.events[-1].reason == "SEQUENCE_SEMANTICS_UNVERIFIED"
