@@ -76,7 +76,7 @@ def test_unknown_opaque_sequence_is_blocked_before_candle_formation():
     assert result.safe_for_decision is False
     assert result.candles == ()
     assert result.gaps == ()
-    assert result.events[-1].reason == "SEQUENCE_SEMANTICS_UNVERIFIED"
+    assert result.events[-1].reason == "UNKNOWN_SEQUENCE_SEMANTICS"
 
 
 def test_missing_sequence_semantics_is_blocked_before_candle_formation():
@@ -86,7 +86,7 @@ def test_missing_sequence_semantics_is_blocked_before_candle_formation():
     assert result.safe_for_decision is False
     assert result.candles == ()
     assert result.gaps == ()
-    assert result.events[-1].reason == "SEQUENCE_SEMANTICS_UNVERIFIED"
+    assert result.events[-1].reason == "UNKNOWN_SEQUENCE_SEMANTICS"
 
 def test_actual_adapter_output_is_blocked_before_candle_formation():
     frame = {
@@ -106,4 +106,4 @@ def test_actual_adapter_output_is_blocked_before_candle_formation():
     assert result.safe_for_decision is False
     assert result.candles == ()
     assert result.gaps == ()
-    assert result.events[-1].reason == "SEQUENCE_SEMANTICS_UNVERIFIED"
+    assert result.events[-1].reason == "UNKNOWN_SEQUENCE_SEMANTICS"
