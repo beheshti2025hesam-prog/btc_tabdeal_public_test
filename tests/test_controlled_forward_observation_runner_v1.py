@@ -92,6 +92,8 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     assert evidence["market_scope"] == "tabdeal:futures:BTC_USDT"
     assert evidence["key_id"] == "synthetic-test-key"
     assert len(evidence["raw_sha256"]) == 64
+    assert len(evidence["envelope_sha256"]) == 64
+    assert len(evidence["key_registry_sha256"]) == 64
     assert session_record["session_digest"]
     assert not journal.exists()
 
