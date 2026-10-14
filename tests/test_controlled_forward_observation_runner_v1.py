@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,11 +16,19 @@ from forward.controlled_forward_observation_runner_v1 import (
 
 def signed_gate_kwargs(tmp_path: Path):
     """Build real synthetic Ed25519 evidence; never use a boolean as proof."""
+    running_commit = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    ).stdout.strip()
     private_key = Ed25519PrivateKey.generate()
     payload = b'{"sequence_contract":"synthetic-test-only"}'
     source_url = "https://exchange.example/sequence-contract"
     envelope = {
-        "expected_commit": "a" * 40,
+        "expected_commit": running_commit,
         "evidence_path": "evidence/sequence-contract.json",
         "raw_sha256": hashlib.sha256(payload).hexdigest(),
         "source_url": source_url,
@@ -43,7 +52,7 @@ def signed_gate_kwargs(tmp_path: Path):
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
-        "expected_commit": "a" * 40,
+        "expected_commit": running_commit,
         "expected_evidence_path": "evidence/sequence-contract.json",
         "market_scope": "tabdeal:futures:BTC_USDT",
         "evidence_max_age_seconds": 3600,
@@ -87,7 +96,7 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     session_record = json.loads(session.read_text(encoding="utf-8").splitlines()[0])
     evidence = session_record["sequence_contract_evidence"]
     assert evidence["status"] == "VERIFIED"
-    assert evidence["expected_commit"] == "a" * 40
+    assert evidence["expected_commit"] == subprocess.run(\n        ["git", "rev-parse", "--verify", "HEAD^{commit}"],\n        cwd=Path(__file__).resolve().parents[1], check=True, capture_output=True, text=True, timeout=5,\n    ).stdout.strip()
     assert evidence["evidence_path"] == "evidence/sequence-contract.json"
     assert evidence["market_scope"] == "tabdeal:futures:BTC_USDT"
     assert evidence["key_id"] == "synthetic-test-key"
@@ -291,3 +300,29 @@ def test_runner_blocks_when_signed_evidence_is_not_configured(tmp_path: Path):
     assert result.status == "BLOCKED"
     assert result.reason.startswith("UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED")
     assert not (tmp_path / "session.jsonl").exists()
+
+
+def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path: Path):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed for another commit")
+
+    kwargs = signed_gate_kwargs(tmp_path)
+    kwargs["expected_commit"] = "f" * 40
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not (tmp_path / "journal.jsonl").exists()
