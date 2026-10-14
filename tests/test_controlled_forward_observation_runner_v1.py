@@ -244,6 +244,32 @@ def test_runner_blocks_before_network_or_session_without_verified_sequence_contr
     assert not journal.exists()
 
 
+def test_runner_blocks_missing_ws_factory_before_session_or_transport(tmp_path: Path):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed without ws_factory")
+
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        **signed_gate_kwargs(tmp_path),
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "WS_FACTORY_REQUIRED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics == ({
+        "network_started": False,
+        "session_written": False,
+        "signature_verified": True,
+        "ws_factory_required": True,
+    },)
+    assert not session.exists()
+    assert not (tmp_path / "journal.jsonl").exists()
+
+
 def test_runner_blocks_when_signed_evidence_is_not_configured(tmp_path: Path):
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
