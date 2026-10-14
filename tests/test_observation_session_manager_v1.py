@@ -50,6 +50,8 @@ def test_verified_sequence_contract_evidence_is_bound_to_immutable_session(tmp_p
         "market_scope": "tabdeal:futures:BTC_USDT",
         "retrieved_at": "2026-10-07T13:00:00+00:00",
         "key_id": "synthetic-test-key",
+        "envelope_sha256": "c" * 64,
+        "key_registry_sha256": "d" * 64,
     }
     session = m.start(
         started_at=datetime(2026, 10, 7, 6, 0, tzinfo=timezone.utc),
