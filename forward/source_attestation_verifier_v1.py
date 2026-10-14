@@ -54,13 +54,18 @@ def _strict_json(raw: str | bytes, label: str) -> object:
 
 
 def _validate_source_url(value: object, label: str) -> None:
-    parsed = urlparse(value) if isinstance(value, str) else None
-    if (
-        not parsed or parsed.scheme != "https" or not parsed.hostname
-        or parsed.hostname.lower() not in _ALLOWED_SOURCE_HOSTS
-        or parsed.username is not None or parsed.password is not None
-        or parsed.port not in (None, 443)
-    ):
+    try:
+        parsed = urlparse(value) if isinstance(value, str) else None
+        valid = bool(
+            parsed and parsed.scheme == "https" and parsed.hostname
+            and parsed.hostname.lower() in _ALLOWED_SOURCE_HOSTS
+            and parsed.username is None and parsed.password is None
+            and parsed.port in (None, 443)
+        )
+    except ValueError:
+        # urlparse(...).port can raise for malformed ports or bracketed hosts.
+        valid = False
+    if not valid:
         raise AttestationError(f"{label} is not an allowed official Tabdeal HTTPS URL")
 
 
@@ -88,13 +93,19 @@ def verify_attestation(
     if not trusted_key_id or not trusted_public_key_b64:
         raise AttestationError("external trust configuration is missing")
     envelope = _strict_json(Path(attestation_path).read_text(encoding="utf-8"), "attestation envelope")
-    if not isinstance(envelope, dict) or envelope.get("schema_version") != 1:
+    if not isinstance(envelope, dict):
+        raise AttestationError("attestation envelope must be a JSON object")
+    if set(envelope) != {"schema_version", "key_id", "payload_b64", "signature_b64"}:
+        raise AttestationError("attestation envelope has missing or unexpected fields")
+    if type(envelope["schema_version"]) is not int or envelope["schema_version"] != 1:
         raise AttestationError("unsupported attestation envelope schema")
-    if envelope.get("key_id") != trusted_key_id:
+    if envelope["key_id"] != trusted_key_id:
         raise AttestationError("attestation key_id does not match externally trusted key")
 
     payload_bytes = _b64(envelope.get("payload_b64"), "payload_b64")
-    signature = _b64(envelope.get("signature_b64"), "signature_b64")
+    signature = _b64(envelope["signature_b64"], "signature_b64")
+    if len(signature) != 64:
+        raise AttestationError("Ed25519 signature must be 64 bytes")
     public_key_bytes = _b64(trusted_public_key_b64, "trusted public key")
     if len(public_key_bytes) != 32:
         raise AttestationError("Ed25519 public key must be 32 bytes")
@@ -104,11 +115,11 @@ def verify_attestation(
         raise AttestationError("detached signature verification failed") from exc
 
     payload = _strict_json(payload_bytes.decode("utf-8"), "signed payload")
-    required = ("schema_version", "source_url", "resolved_url", "raw_sha256",
-                "commit_sha", "fetched_at", "tool_version", "contract_version")
-    if not isinstance(payload, dict) or any(k not in payload for k in required):
-        raise AttestationError("signed provenance payload is incomplete")
-    if payload["schema_version"] != 1:
+    required = {"schema_version", "source_url", "resolved_url", "raw_sha256",
+                "commit_sha", "fetched_at", "tool_version", "contract_version"}
+    if not isinstance(payload, dict) or set(payload) != required:
+        raise AttestationError("signed provenance payload has missing or unexpected fields")
+    if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:
         raise AttestationError("unsupported provenance payload schema")
     if not isinstance(expected_commit, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", expected_commit):
         raise AttestationError("expected commit must be a full 40- or 64-character lowercase hex SHA")
