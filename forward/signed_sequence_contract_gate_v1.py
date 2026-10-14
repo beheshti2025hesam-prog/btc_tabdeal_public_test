@@ -21,12 +21,24 @@ def verify_sequence_contract_evidence(
     expected_commit: str,
     expected_evidence_path: str,
     market_scope: str,
+    expected_key_registry_sha256: str,
     max_age_seconds: int = 86400,
     now=None,
 ) -> dict[str, Any]:
     """Return verifier metadata or raise; callers must fail closed on any error."""
     envelope_bytes = Path(envelope_path).read_bytes()
     key_registry_bytes = Path(key_registry_path).read_bytes()
+    # The expected digest must come from a separate protected trust channel, not
+    # from the registry file being checked. Verify exact bytes before parsing keys.
+    if (
+        not isinstance(expected_key_registry_sha256, str)
+        or len(expected_key_registry_sha256) != 64
+        or any(c not in "0123456789abcdef" for c in expected_key_registry_sha256)
+    ):
+        raise ValueError("trusted key registry SHA-256 pin is missing or invalid")
+    actual_registry_sha256 = hashlib.sha256(key_registry_bytes).hexdigest()
+    if actual_registry_sha256 != expected_key_registry_sha256:
+        raise ValueError("trusted key registry SHA-256 pin mismatch")
     envelope = json.loads(envelope_bytes.decode("utf-8"))
     key_registry = json.loads(key_registry_bytes.decode("utf-8"))
     if not isinstance(key_registry, dict) or not key_registry:
