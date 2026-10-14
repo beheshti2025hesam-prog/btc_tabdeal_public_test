@@ -77,7 +77,7 @@ class SequenceAwareCandleIngestionV1:
                     }, sort_keys=True, separators=(",", ":"), default=str,
                 ).encode("utf-8")).hexdigest()
                 events.append(SequenceEvent(
-                    -1, "REJECT_STREAM", "SEQUENCE_SEMANTICS_UNVERIFIED",
+                    -1, "REJECT_STREAM", "UNKNOWN_SEQUENCE_SEMANTICS",
                     {"record_fingerprint_sha256": fingerprint},
                 ))
                 return SequenceCandleResult((), (), tuple(events))
