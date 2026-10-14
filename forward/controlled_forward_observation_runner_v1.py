@@ -150,7 +150,12 @@ class ControlledForwardObservationRunnerV1:
         # The session is created only after successful Ed25519 verification
         # and validation of the required live transport configuration.
 
-        session = self.session_manager.start(started_at=now)
+        # Bind the exact verified source attestation to the immutable session record.
+        # This makes later audits able to identify which signed evidence authorized this run.
+        session = self.session_manager.start(
+            started_at=now,
+            sequence_contract_evidence=verified_evidence,
+        )
         self.session_manager.write_once(session, self.session_path)
 
         records: list[dict[str, Any]] = []
