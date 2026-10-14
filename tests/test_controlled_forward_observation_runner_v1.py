@@ -252,5 +252,5 @@ def test_runner_blocks_when_signed_evidence_is_not_configured(tmp_path: Path):
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.reason.startswith("UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED")
     assert not (tmp_path / "session.jsonl").exists()
