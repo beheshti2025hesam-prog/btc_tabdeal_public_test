@@ -7,7 +7,10 @@ commit, evidence path, and market scope.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
+import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +30,17 @@ def verify_sequence_contract_evidence(
     """Return verifier metadata or raise; callers must fail closed on any error."""
     envelope_bytes = Path(envelope_path).read_bytes()
     key_registry_bytes = Path(key_registry_path).read_bytes()
+
+    # This digest must come from deployment-owned protected configuration,
+    # not from the same repository/workspace as the registry and envelope.
+    # A local registry hash is audit metadata, not a trust anchor.
+    trusted_registry_sha256 = os.environ.get("HES_TRUSTED_KEY_REGISTRY_SHA256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", trusted_registry_sha256):
+        raise ValueError("independent trusted key-registry SHA-256 is not configured")
+    actual_registry_sha256 = hashlib.sha256(key_registry_bytes).hexdigest()
+    if not hmac.compare_digest(actual_registry_sha256, trusted_registry_sha256):
+        raise ValueError("trusted key-registry SHA-256 mismatch")
+
     envelope = json.loads(envelope_bytes.decode("utf-8"))
     key_registry = json.loads(key_registry_bytes.decode("utf-8"))
     if not isinstance(key_registry, dict) or not key_registry:
