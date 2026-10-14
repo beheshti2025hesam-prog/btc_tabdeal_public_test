@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +50,9 @@ def signed_gate_kwargs(tmp_path: Path):
     registry_path = tmp_path / "trusted-test-keys.json"
     envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
     registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    # In production this value is supplied by protected deployment configuration;
+    # the test pins the exact synthetic registry bytes independently of the envelope.
+    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = hashlib.sha256(registry_path.read_bytes()).hexdigest()
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
@@ -295,6 +299,45 @@ def test_runner_blocks_missing_ws_factory_before_session_or_transport(tmp_path: 
     },)
     assert not session.exists()
     assert not (tmp_path / "journal.jsonl").exists()
+
+
+def test_runner_blocks_coordinated_registry_and_envelope_replacement(tmp_path: Path):
+    """A new attacker key plus a re-signed envelope cannot replace the pinned registry."""
+    kwargs = signed_gate_kwargs(tmp_path)
+    envelope_path = kwargs["sequence_contract_envelope_path"]
+    registry_path = kwargs["sequence_contract_key_registry_path"]
+
+    attacker_key = Ed25519PrivateKey.generate()
+    envelope = json.loads(envelope_path.read_text(encoding="utf-8"))
+    envelope["key_id"] = "attacker-controlled-key"
+    envelope.pop("signature_b64", None)
+    envelope["signature_b64"] = base64.b64encode(
+        attacker_key.sign(canonical_signed_bytes(envelope))
+    ).decode("ascii")
+    attacker_public_key = base64.b64encode(
+        attacker_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    ).decode("ascii")
+    # Replace both files, but deliberately leave the deployment-pinned digest unchanged.
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+    registry_path.write_text(json.dumps({"attacker-controlled-key": attacker_public_key}), encoding="utf-8")
+
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
 
 
 def test_runner_blocks_when_signed_evidence_is_not_configured(tmp_path: Path):
