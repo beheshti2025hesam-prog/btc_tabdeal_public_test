@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from cryptography.hazmat.primitives import serialization
@@ -28,7 +29,7 @@ def signed_case(tmp_path):
         "resolved_url": "https://docs.tabdeal.org/api",
         "raw_sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
         "commit_sha": "a" * 40,
-        "fetched_at": "2026-10-12T00:00:00Z",
+        "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "tool_version": "test-extractor/1",
         "contract_version": "sequence-semantics/1",
     }
@@ -96,5 +97,55 @@ def test_signed_payload_with_non_https_source_is_rejected(signed_case):
     envelope = {"schema_version": 1, "key_id": "test-key-1",
                 "payload_b64": b64(payload_bytes), "signature_b64": b64(private.sign(payload_bytes))}
     attestation.write_text(json.dumps(envelope), encoding="utf-8")
-    with pytest.raises(AttestationError, match="HTTPS"):
+    with pytest.raises(AttestationError, match="official Tabdeal HTTPS URL"):
         verify(signed_case, trusted_public_key_b64=b64(pub))
+
+
+def test_signed_attestation_rejects_lookalike_official_host(signed_case):
+    attestation, artifact, _, payload, _ = signed_case
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    payload["source_url"] = "https://docs.tabdeal.org.attacker.example/"
+    payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    envelope = {
+        "schema_version": 1, "key_id": "test-key-1",
+        "payload_b64": b64(payload_bytes), "signature_b64": b64(private.sign(payload_bytes)),
+    }
+    attestation.write_text(json.dumps(envelope), encoding="utf-8")
+    with pytest.raises(AttestationError, match="official Tabdeal HTTPS URL"):
+        verify(signed_case, trusted_public_key_b64=b64(public))
+
+
+def test_stale_attestation_is_rejected(signed_case):
+    now = datetime.now(timezone.utc)
+    with pytest.raises(AttestationError, match="stale"):
+        verify(signed_case, now_utc=now + timedelta(hours=25))
+
+
+def test_attestation_more_than_five_minutes_in_future_is_rejected(signed_case):
+    now = datetime.now(timezone.utc)
+    with pytest.raises(AttestationError, match="future"):
+        verify(signed_case, now_utc=now - timedelta(minutes=6))
+
+
+def test_signed_payload_with_duplicate_json_keys_is_rejected(signed_case):
+    attestation, artifact, _, payload, _ = signed_case
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    # The signature is valid, but duplicate-key JSON must not be interpreted ambiguously.
+    payload_text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    payload_text = payload_text.replace('"schema_version":1', '"schema_version":1,"schema_version":1', 1)
+    payload_bytes = payload_text.encode()
+    envelope = {
+        "schema_version": 1, "key_id": "test-key-1",
+        "payload_b64": b64(payload_bytes), "signature_b64": b64(private.sign(payload_bytes)),
+    }
+    attestation.write_text(json.dumps(envelope), encoding="utf-8")
+    with pytest.raises(AttestationError, match="duplicate JSON key"):
+        verify(signed_case, trusted_public_key_b64=b64(public))
