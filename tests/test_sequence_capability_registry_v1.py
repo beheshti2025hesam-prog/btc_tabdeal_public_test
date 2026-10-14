@@ -264,3 +264,72 @@ def test_verified_claim_requires_final_url_metadata(tmp_path):
     )
     with pytest.raises(RegistryError, match="SOURCE_URL_INVALID"):
         load_verified_contract(registry, lock, SCOPE)
+
+
+
+def test_missing_registry_record_is_rejected(tmp_path):
+    registry, lock = write_registry(tmp_path)
+    raw = json.loads(registry.read_text(encoding="utf-8"))
+    raw["records"][0]["channel_or_topic"] = "different-channel"
+    encoded = (json.dumps(raw, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    registry.write_bytes(encoded)
+    lock.write_text(json.dumps({
+        "schema": "hes_sequence_registry_lock_v1",
+        "registry_revision": "2026-10-10.1",
+        "registry_sha256": hashlib.sha256(encoded).hexdigest(),
+    }), encoding="utf-8")
+    with pytest.raises(RegistryError, match="SCOPE_NOT_UNIQUELY_REGISTERED"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+def test_duplicate_matching_registry_records_are_rejected(tmp_path):
+    registry, lock = write_registry(tmp_path)
+    raw = json.loads(registry.read_text(encoding="utf-8"))
+    raw["records"].append(dict(raw["records"][0]))
+    encoded = (json.dumps(raw, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    registry.write_bytes(encoded)
+    lock.write_text(json.dumps({
+        "schema": "hes_sequence_registry_lock_v1",
+        "registry_revision": "2026-10-10.1",
+        "registry_sha256": hashlib.sha256(encoded).hexdigest(),
+    }), encoding="utf-8")
+    with pytest.raises(RegistryError, match="SCOPE_NOT_UNIQUELY_REGISTERED"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+def test_malformed_lock_digest_is_rejected(tmp_path):
+    registry, lock = write_registry(tmp_path)
+    lock.write_text(json.dumps({
+        "schema": "hes_sequence_registry_lock_v1",
+        "registry_revision": "2026-10-10.1",
+        "registry_sha256": "not-a-sha256",
+    }), encoding="utf-8")
+    with pytest.raises(RegistryError, match="LOCK_DIGEST_INVALID"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+def test_registry_and_lock_revision_mismatch_is_rejected(tmp_path):
+    registry, lock = write_registry(tmp_path)
+    raw = registry.read_bytes()
+    lock.write_text(json.dumps({
+        "schema": "hes_sequence_registry_lock_v1",
+        "registry_revision": "2026-10-10.2",
+        "registry_sha256": hashlib.sha256(raw).hexdigest(),
+    }), encoding="utf-8")
+    with pytest.raises(RegistryError, match="REGISTRY_REVISION_MISMATCH"):
+        load_verified_contract(registry, lock, SCOPE)
+
+
+def test_empty_registry_records_are_rejected(tmp_path):
+    registry, lock = write_registry(tmp_path)
+    raw = json.loads(registry.read_text(encoding="utf-8"))
+    raw["records"] = []
+    encoded = (json.dumps(raw, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    registry.write_bytes(encoded)
+    lock.write_text(json.dumps({
+        "schema": "hes_sequence_registry_lock_v1",
+        "registry_revision": "2026-10-10.1",
+        "registry_sha256": hashlib.sha256(encoded).hexdigest(),
+    }), encoding="utf-8")
+    with pytest.raises(RegistryError, match="SCOPE_NOT_UNIQUELY_REGISTERED"):
+        load_verified_contract(registry, lock, SCOPE)
