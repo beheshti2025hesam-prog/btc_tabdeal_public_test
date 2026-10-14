@@ -45,16 +45,19 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
     try:
         # Access .port to force malformed ports to fail closed.
         _ = parsed_url.port
-        redirects = envelope.get("redirect_chain")
-        require(isinstance(redirects, list) and redirects, "redirect chain missing")
-        for redirect in redirects:
-            parsed_redirect = urlparse(redirect) if isinstance(redirect, str) else None
-            require(parsed_redirect is not None and parsed_redirect.scheme == "https" and parsed_redirect.netloc,
-                    "invalid redirect URL")
-            _ = parsed_redirect.port
-        require(redirects[-1] == url, "redirect chain final URL differs from source URL")
-    except (ValueError, TypeError) as exc:
+    except ValueError as exc:
         raise ValueError("invalid source URL or redirect chain") from exc
+    redirects = envelope.get("redirect_chain")
+    require(isinstance(redirects, list) and redirects, "redirect chain missing")
+    for redirect in redirects:
+        parsed_redirect = urlparse(redirect) if isinstance(redirect, str) else None
+        require(parsed_redirect is not None and parsed_redirect.scheme == "https" and parsed_redirect.netloc,
+                "invalid redirect URL")
+        try:
+            _ = parsed_redirect.port
+        except ValueError as exc:
+            raise ValueError("invalid source URL or redirect chain") from exc
+    require(redirects[-1] == url, "redirect chain final URL differs from source URL")
     stamp = envelope.get("retrieved_at", "")
     try:
         retrieved = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
