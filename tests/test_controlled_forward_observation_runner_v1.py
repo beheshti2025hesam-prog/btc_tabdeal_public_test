@@ -84,6 +84,15 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     assert result.status == "WAITING"
     assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
     assert session.exists()
+    session_record = json.loads(session.read_text(encoding="utf-8").splitlines()[0])
+    evidence = session_record["sequence_contract_evidence"]
+    assert evidence["status"] == "VERIFIED"
+    assert evidence["expected_commit"] == "a" * 40
+    assert evidence["evidence_path"] == "evidence/sequence-contract.json"
+    assert evidence["market_scope"] == "tabdeal:futures:BTC_USDT"
+    assert evidence["key_id"] == "synthetic-test-key"
+    assert len(evidence["raw_sha256"]) == 64
+    assert session_record["session_digest"]
     assert not journal.exists()
 
 
