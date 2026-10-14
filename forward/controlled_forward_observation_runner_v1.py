@@ -123,7 +123,7 @@ class ControlledForwardObservationRunnerV1:
                 status="BLOCKED",
                 records_received=0,
                 journal_path=str(self.journal_path),
-                reason=f"UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:{type(exc).__name__}",
+                reason=f"UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:{type(exc).__name__}:{exc}",
                 snapshot_id=None,
                 diagnostics=({
                     "network_started": False,
