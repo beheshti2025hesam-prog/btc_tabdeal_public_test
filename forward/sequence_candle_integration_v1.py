@@ -50,13 +50,15 @@ class SequenceAwareCandleIngestionV1:
         events: list[SequenceEvent] = []
 
         for record in records:
-            if record.get("sequence_semantics") == "UNKNOWN_OPAQUE":
+            # Only an explicit, registry-backed verification marker may reach
+            # the integer sequence state machine. Missing and opaque semantics
+            # are equally unknown; numeric appearance is not evidence.
+            if record.get("sequence_semantics") != "VERIFIED_MONOTONIC":
                 raw = record.get("raw_payload")
                 digest = record.get("raw_payload_sha256")
                 if raw is not None:
-                    calculated = hashlib.sha256(
-                        raw.encode("utf-8") if isinstance(raw, str) else raw
-                    ).hexdigest()
+                    raw_bytes = raw.encode("utf-8") if isinstance(raw, str) else raw
+                    calculated = hashlib.sha256(raw_bytes).hexdigest()
                     if digest != calculated:
                         events.append(SequenceEvent(
                             -1, "REJECT_STREAM", "RAW_PAYLOAD_DIGEST_MISMATCH",
@@ -68,11 +70,12 @@ class SequenceAwareCandleIngestionV1:
                         "source": record.get("source"),
                         "symbol": record.get("symbol"),
                         "sequence": record.get("sequence"),
+                        "sequence_semantics": record.get("sequence_semantics"),
                         "raw_payload_sha256": digest,
                     }, sort_keys=True, separators=(",", ":"), default=str,
                 ).encode("utf-8")).hexdigest()
                 events.append(SequenceEvent(
-                    -1, "REJECT_STREAM", "UNKNOWN_SEQUENCE_SEMANTICS",
+                    -1, "REJECT_STREAM", "SEQUENCE_SEMANTICS_UNVERIFIED",
                     {"record_fingerprint_sha256": fingerprint},
                 ))
                 return SequenceCandleResult((), (), tuple(events))
