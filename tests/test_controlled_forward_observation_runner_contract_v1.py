@@ -10,7 +10,7 @@ RUNNER = ROOT / "forward" / "controlled_forward_observation_runner_v1.py"
 def test_runner_contract_requires_authoritative_sequence_contract_evidence():
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
     assert contract["sequence_contract_verified_default"] is False
-    assert contract.get("signed_sequence_contract_evidence_required", True) is True
+    assert contract["sequence_contract_evidence_ref_required"] is True
     assert contract["block_reason"] == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
     assert contract["block_before_network"] is True
     assert contract["block_before_session_write"] is True
