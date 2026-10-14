@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 import pytest
 from forward.observation_session_manager_v1 import ObservationSessionManagerV1
 
@@ -56,7 +57,7 @@ def test_verified_sequence_contract_evidence_is_bound_to_immutable_session(tmp_p
     )
     path = tmp_path / "sessions.jsonl"
     m.write_once(session, path)
-    record = __import__("json").loads(path.read_text().strip())
+    record = json.loads(path.read_text().strip())
     assert record["sequence_contract_evidence"] == evidence
     assert record["session_digest"] == session.digest()
 
