@@ -33,8 +33,10 @@ class SequenceAwareCandleIngestionV1:
     """Sequence-check first; only capability-authorized records reach candles.
 
     The current Tabdeal broadcast contract does not establish sequence
-    uniqueness or ordering. Records explicitly marked UNKNOWN_OPAQUE must not
-    enter the integer sequence state machine or candle/evidence path.
+    uniqueness or ordering. Missing or unknown semantics must not enter the
+    integer sequence state machine or candle/evidence path. The explicit
+    VERIFIED_MONOTONIC marker is a gate, not a substitute for a reviewed,
+    source-backed registry record.
     """
 
     def __init__(self, *, max_sequence_records: int = 100_000) -> None:
@@ -50,7 +52,7 @@ class SequenceAwareCandleIngestionV1:
         events: list[SequenceEvent] = []
 
         for record in records:
-            # Only an explicit, registry-backed verification marker may reach
+            # Only an explicit verification marker may reach
             # the integer sequence state machine. Missing and opaque semantics
             # are equally unknown; numeric appearance is not evidence.
             if record.get("sequence_semantics") != "VERIFIED_MONOTONIC":
