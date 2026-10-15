@@ -1,0 +1,74 @@
+name: Protocol Source Identity Reconciliation v2
+
+on:
+  push:
+    branches:
+      - fix/sequence-evidence-gate-fail-closed-20261011
+  pull_request:
+    branches:
+      - main
+      - fix/sequence-evidence-gate-fail-closed-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-reconciliation-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Verify raw bytes and lock
+        run: |
+          python - <<'PY'
+          import hashlib, json, subprocess
+          from pathlib import Path
+
+          artifact_path = Path("evidence/protocol_source_identity_reconciliation_v2.json")
+          lock_path = Path("evidence/protocol_source_identity_reconciliation_v2.lock.json")
+          raw = artifact_path.read_bytes()
+          artifact = json.loads(raw)
+          lock = json.loads(lock_path.read_text(encoding="utf-8"))
+
+          assert lock["status"] == "LOCKED"
+          assert lock["artifact_path"] == str(artifact_path)
+          assert len(raw) == lock["artifact_bytes"]
+          assert hashlib.sha256(raw).hexdigest() == lock["artifact_sha256"]
+          assert subprocess.check_output(["git", "hash-object", str(artifact_path)], text=True).strip() == lock["artifact_git_blob_sha1"]
+
+          registry_path = Path("evidence/source_identity_reconciliation_v1.json")
+          registry_raw = registry_path.read_bytes()
+          registry_lock = json.loads(Path("evidence/source_identity_reconciliation_v1.lock.json").read_text())
+          assert len(registry_raw) == registry_lock["artifact_bytes"] == artifact["source_identity_registry"]["bytes"]
+          assert hashlib.sha256(registry_raw).hexdigest() == registry_lock["artifact_sha256"] == artifact["source_identity_registry"]["sha256"]
+
+          assert artifact["status"] == "RECORD_IDENTITY_MATCHES_VERIFIED_PROVENANCE_REVIEW_OPEN"
+          assert artifact["verification"]["prior_registry_vs_canonical"] == {"records": 14, "exact_matches": 14, "missing": 0, "extra": 0}
+          assert artifact["verification"]["current_registry_vs_canonical_csv"] == {"records": 28, "exact_matches": 28, "missing": 0, "extra": 0}
+          assert artifact["verification"]["current_audit_vs_csv"] == {"records": 28, "csv_records": 28, "exact_matches": 28, "missing": 0, "extra": 0}
+          assert artifact["verification"]["cross_lineage_exact_key_matches"] == 0
+          assert artifact["v1_provenance_discrepancy"]["v1_claimed_workflow_run_id"] == 37311909412
+          assert artifact["v1_provenance_discrepancy"]["corrected_canonical_workflow_run_id"] == 36759909488
+          assert artifact["v1_provenance_discrepancy"]["corrected_canonical_artifact_id"] == 11118395474
+          assert artifact["claim_boundary"]["archive_lineage_current_tail_lock"] == "OPEN"
+          assert artifact["claim_boundary"]["sequence_semantics"] == "UNKNOWN_UNLESS_SEPARATELY_VERIFIED"
+          assert artifact["claim_boundary"]["feature_extraction_performed"] is False
+          assert artifact["claim_boundary"]["effective_evidence_performed"] is False
+          assert artifact["claim_boundary"]["live_execution"] is False
+          assert lock["claim_boundary"]["archive_lineage"] == "OPEN"
+          assert lock["claim_boundary"]["sequence_semantics"] == "UNKNOWN_UNLESS_SEPARATELY_VERIFIED"
+
+          print("RECONCILIATION_V2_RAW_SHA256=PASS")
+          print("RECONCILIATION_V2_GIT_BLOB_SHA1=PASS")
+          print("SOURCE_REGISTRY_LOCK=PASS")
+          print("RECORD_IDENTITY_MATCHES=14/14_PRIOR_AND_28/28_CURRENT")
+          print("PRIOR_RUN_ATTRIBUTION_DISCREPANCY=DOCUMENTED")
+          print("ARCHIVE_LINEAGE=OPEN")
+          print("SEQUENCE_SEMANTICS=UNKNOWN_UNLESS_SEPARATELY_VERIFIED")
+          print("FEATURE_EXTRACTION=OFF")
+          print("LIVE_EXECUTION=OFF")
+          PY

@@ -1,0 +1,110 @@
+{
+  "artifact_id": "HES-PROTOCOL-SOURCE-IDENTITY-RECONCILIATION-V2",
+  "schema": "hes.protocol_source_identity_reconciliation.v2",
+  "status": "RECORD_IDENTITY_MATCHES_VERIFIED_PROVENANCE_REVIEW_OPEN",
+  "scope": "Record identity and source reference reconciliation only; no feature extraction or effective-evidence calculation.",
+  "reviewed_head": "fd80a6dfce5dc124d755190eaab55e20c03f02ac",
+  "source_identity_registry": {
+    "path": "evidence/source_identity_reconciliation_v1.json",
+    "sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
+    "bytes": 17937,
+    "record_count": 42,
+    "lock_agrees": true
+  },
+  "canonical_prior_14": {
+    "source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "raw_data_git_blob_sha1": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "workflow_run_id": 36759909488,
+    "job_id": 110039519584,
+    "artifact_id": 11118395474,
+    "artifact_zip_sha256": "415aca0959f2fc5eb22b28d3c8b9dd27b44a19af80426dbf8cfd8148f58144fc",
+    "csv": "14_vs_1035_winners.csv",
+    "csv_sha256": "1d966845c7822d5821255d7ed9a3c7153ec5fae4b8552547a57a2b1682c92028",
+    "evaluated_oos": 1049,
+    "winners": 14,
+    "controls": 1035,
+    "record_key_set_sha256": "61a0413dc91ab0cb376e4e8a129bbe813280b3925e9f4dc6d0d3b6a9b60672a3"
+  },
+  "canonical_current_28": {
+    "source_commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+    "raw_data_git_blob_sha1": "58d21825e052dbaa42e7eb0695455c19997bff43",
+    "raw_data_sha256": "c6c20f30fc6cbf6934c81e7b5e0495f952b7bab5fe2978baca6fdd78c68b90e6",
+    "raw_data_bytes": 10501596,
+    "raw_data_rows": 139250,
+    "workflow_run_id": 37125436806,
+    "job_id": 111209676056,
+    "artifact_id": 11275181041,
+    "artifact_zip_sha256": "95a49f8b8ab61038d8f1ba3c4f739126c5a5959b5f9ca329eca94b44c4b379af",
+    "csv": "protocol_reconciliation_winners.csv",
+    "csv_sha256": "27c23fc5b6725f86bf6621408d91edac2489b0a457781e788f9a176b8e91ae59",
+    "evaluated_oos": 1027,
+    "winners": 28,
+    "controls": 999,
+    "record_key_set_sha256": "8540496f24cd1bd69362f078f131a5b1f57242a928841c60e1eab4279169016c"
+  },
+  "protocol_contract": {
+    "source_commit": "e5f85f06b19b8427f761b95ab56ad15ccd7053c0",
+    "path": "evidence/protocol_reconciliation_v1.json",
+    "git_blob_sha1": "a84dafbc09c72ac37ebbbb0706b43d23f7681e12",
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "gross_threshold": 0.0014
+  },
+  "verification": {
+    "prior_registry_vs_canonical": {
+      "records": 14,
+      "exact_matches": 14,
+      "missing": 0,
+      "extra": 0
+    },
+    "current_registry_vs_canonical_csv": {
+      "records": 28,
+      "exact_matches": 28,
+      "missing": 0,
+      "extra": 0
+    },
+    "current_audit_vs_csv": {
+      "records": 28,
+      "csv_records": 28,
+      "exact_matches": 28,
+      "missing": 0,
+      "extra": 0
+    },
+    "cross_lineage_exact_key_matches": 0,
+    "comparison_key": [
+      "timestamp",
+      "sequence_first",
+      "sequence_last",
+      "entry_price",
+      "exit_price",
+      "gross_return",
+      "direction"
+    ]
+  },
+  "v1_provenance_discrepancy": {
+    "v1_claimed_workflow_run_id": 37311909412,
+    "v1_claimed_job_id": 111769100585,
+    "claimed_run_artifact": "cross-lineage-effective-evidence-v1 aggregate, not canonical 14-row CSV",
+    "corrected_canonical_workflow_run_id": 36759909488,
+    "corrected_canonical_job_id": 110039519584,
+    "corrected_canonical_artifact_id": 11118395474,
+    "preserve_v1_unchanged": true
+  },
+  "claim_boundary": {
+    "record_identity": "PASS_14_OF_14_AND_28_OF_28",
+    "source_blob_identity": "PASS_GITHUB_TREE_BLOB_IDS_MATCH",
+    "prior_v1_run_attribution": "MISMATCH_DOCUMENTED_HERE",
+    "archive_lineage_current_tail_lock": "OPEN",
+    "sequence_semantics": "UNKNOWN_UNLESS_SEPARATELY_VERIFIED",
+    "feature_extraction_performed": false,
+    "effective_evidence_performed": false,
+    "threshold_changed": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "promotion": false,
+    "live_collection": false,
+    "live_execution": false
+  }
+}

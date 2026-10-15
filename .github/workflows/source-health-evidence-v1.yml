@@ -1,0 +1,32 @@
+name: Source Health Evidence Contract v1
+
+on:
+  push:
+    branches:
+      - fix/sequence-evidence-gate-fail-closed-20261011
+  pull_request:
+    branches:
+      - main
+      - fix/sequence-evidence-gate-fail-closed-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-health-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run typed source-health adversarial tests
+        run: python -m pytest -q tests/test_source_health_evidence_v1.py
+      - name: Assert safety boundary remains explicit
+        run: |
+          grep -q 'does not authorize network access' forward/source_health_evidence_v1.py
+          echo "SOURCE_HEALTH_EVIDENCE_TESTS=PASS"
+          echo "SEQUENCE_SEMANTICS=UNKNOWN_UNLESS_SEPARATELY_VERIFIED"
+          echo "NETWORK_COLLECTION=OFF"
+          echo "EXECUTION=OFF"
