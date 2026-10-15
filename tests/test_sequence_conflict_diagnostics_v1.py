@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import json
-import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
 
-def signed_gate_kwargs(tmp_path: Path):
+def signed_gate_kwargs(tmp_path: Path, monkeypatch):
     running_commit = subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD^{commit}"],
         cwd=Path(__file__).resolve().parents[1],
@@ -53,7 +52,7 @@ def signed_gate_kwargs(tmp_path: Path):
     registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
     trusted_registry_sha256 = hashlib.sha256(registry_path.read_bytes()).hexdigest()
     # Synthetic test pin only; production must provision this through protected deployment config.
-    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = trusted_registry_sha256
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", trusted_registry_sha256)
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
@@ -126,7 +125,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
         transport_factory=ConflictTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
@@ -216,7 +215,7 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
         transport_factory=MetadataOverflowTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
