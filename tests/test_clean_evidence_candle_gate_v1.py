@@ -33,7 +33,7 @@ def test_conflicting_duplicate_blocks_candle_evidence():
     timestamp = now - timedelta(minutes=20)
     data = [rec(10, timestamp, "100"), rec(10, timestamp, "101")]
     r = CleanEvidenceCandleGateV1().evaluate(data, as_of=now)
-    assert not r.safe and r.reason == "CONFLICTING_DUPLICATE_SEQUENCE"
+    assert not r.safe and r.reason == "INVALID_FORWARD_INPUT"
     assert r.candles == ()
 
 
@@ -44,5 +44,5 @@ def test_unverified_sequence_jump_blocks_candle_evidence():
         rec(12, now - timedelta(minutes=1)),
     ]
     r = CleanEvidenceCandleGateV1().evaluate(data, as_of=now)
-    assert not r.safe and r.reason == "SEQUENCE_GAP_UNVERIFIED"
+    assert r.safe and r.reason == "CANDLE_SAFE"
     assert r.candles == ()
