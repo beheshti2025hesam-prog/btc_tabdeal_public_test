@@ -81,7 +81,7 @@ class FakeWS:
         pass
 
 
-def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
+def test_runner_uses_transport_and_writes_observation(tmp_path: Path, monkeypatch):
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
@@ -118,7 +118,7 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_blocks_replaced_registry_and_attacker_key_before_network_or_session(tmp_path: Path):
+def test_runner_blocks_replaced_registry_and_attacker_key_before_network_or_session(tmp_path: Path, monkeypatch):
     class MustNotRunTransport:
         def __init__(self, **kwargs):
             raise AssertionError("transport must not be constructed after registry substitution")
@@ -149,7 +149,7 @@ def test_runner_blocks_replaced_registry_and_attacker_key_before_network_or_sess
 
 
 
-def test_runner_blocks_coordinated_registry_and_envelope_replacement_before_network_or_session(tmp_path: Path):
+def test_runner_blocks_coordinated_registry_and_envelope_replacement_before_network_or_session(tmp_path: Path, monkeypatch):
     class MustNotRunTransport:
         def __init__(self, **kwargs):
             raise AssertionError("transport must not be constructed after coordinated trust substitution")
@@ -185,7 +185,7 @@ def test_runner_blocks_coordinated_registry_and_envelope_replacement_before_netw
     assert not journal.exists()
 
 
-def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
+def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path, monkeypatch):
     class GapTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
@@ -209,7 +209,7 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     assert not (tmp_path / "journal.jsonl").exists()
 
 
-def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
+def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path, monkeypatch):
     class EmptyWS(FakeWS):
         def run_forever(self, **kwargs):
             self.on_open(self)
@@ -231,7 +231,7 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_error(tmp_path: Path, monkeypatch):
     class BrokenTransport:
         def __init__(self, **kwargs):
             pass
@@ -259,7 +259,7 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path, monkeypatch):
     class BrokenTransport:
         def __init__(self, **kwargs):
             raise RuntimeError("simulated construction failure")
@@ -284,7 +284,7 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
+def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path, monkeypatch):
     class OverLimitTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
@@ -342,7 +342,7 @@ def test_runner_blocks_before_network_or_session_without_verified_sequence_contr
     assert not journal.exists()
 
 
-def test_runner_blocks_missing_ws_factory_before_session_or_transport(tmp_path: Path):
+def test_runner_blocks_missing_ws_factory_before_session_or_transport(tmp_path: Path, monkeypatch):
     class MustNotRunTransport:
         def __init__(self, **kwargs):
             raise AssertionError("transport must not be constructed without ws_factory")
@@ -380,7 +380,7 @@ def test_runner_blocks_when_signed_evidence_is_not_configured(tmp_path: Path):
     assert not (tmp_path / "session.jsonl").exists()
 
 
-def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path: Path):
+def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path: Path, monkeypatch):
     class MustNotRunTransport:
         def __init__(self, **kwargs):
             raise AssertionError("transport must not be constructed for another commit")
