@@ -40,11 +40,11 @@ payload = json.dumps({
         "field_path": "trade.sequence",
         "scope": "tabdeal:futures:BTC_USDT",
         "protocol_version": "unknown",
-        "semantic_class": "unknown",
+        "semantic_class": "message_sequence",
         "capabilities": {
             "exact_replay_dedup": True,
             "event_id_dedup": False,
-            "ordered_within_scope": False,
+            "ordered_within_scope": True,
             "contiguous_within_scope": False,
             "gap_detectable": False,
             "cross_reconnect": False,
