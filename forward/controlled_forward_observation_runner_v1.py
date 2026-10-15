@@ -141,6 +141,19 @@ class ControlledForwardObservationRunnerV1:
                 max_age_seconds=self.evidence_max_age_seconds,
                 now=now,
             )
+            # The runner feeds records into candle OHLC construction. That consumer
+            # needs an explicitly signed ordering capability for this exact scope.
+            # A valid signature with unknown/insufficient capabilities is not enough.
+            contract = verified_evidence.get("contract")
+            capabilities = contract.get("capabilities") if isinstance(contract, dict) else None
+            if (
+                not isinstance(contract, dict)
+                or contract.get("scope") != self.market_scope
+                or contract.get("field_path") != "trade.sequence"
+                or not isinstance(capabilities, dict)
+                or capabilities.get("ordered_within_scope") is not True
+            ):
+                raise ValueError("signed contract lacks required scoped consumer capability")
         except Exception as exc:
             return ControlledObservationRunnerResult(
                 run_id="NOT_STARTED",
