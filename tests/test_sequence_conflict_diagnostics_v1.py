@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,10 +51,13 @@ def signed_gate_kwargs(tmp_path: Path):
     registry_path = tmp_path / "trusted-test-keys.json"
     envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
     registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    trusted_registry_sha256 = hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    # Synthetic test pin only; production must provision this through protected deployment config.
+    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = trusted_registry_sha256
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
-        "trusted_key_registry_sha256": hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+        "trusted_key_registry_sha256": trusted_registry_sha256,
         "expected_commit": running_commit,
         "expected_evidence_path": "evidence/sequence-contract.json",
         "market_scope": "tabdeal:futures:BTC_USDT",
