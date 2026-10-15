@@ -72,6 +72,17 @@ def validate_sequence_contract_payload(payload: bytes, *, market_scope: str) -> 
         raise ValueError("gap detection requires contiguous capability")
     if capabilities["cross_reconnect"] and not capabilities["ordered_within_scope"]:
         raise ValueError("cross-reconnect capability requires ordered capability")
+    if semantic_class == "unknown" and any(
+        capabilities[key]
+        for key in (
+            "event_id_dedup",
+            "ordered_within_scope",
+            "contiguous_within_scope",
+            "gap_detectable",
+            "cross_reconnect",
+        )
+    ):
+        raise ValueError("unknown semantic_class cannot authorize identity or ordering capabilities")
 
     return {
         "schema": contract["schema"],
