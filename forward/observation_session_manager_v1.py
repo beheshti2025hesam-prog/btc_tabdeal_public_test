@@ -57,7 +57,9 @@ class ObservationSessionManagerV1:
             required = (
                 "status", "expected_commit", "evidence_path", "raw_sha256",
                 "source_url", "market_scope", "retrieved_at", "key_id",
-                "envelope_sha256", "key_registry_sha256",
+                "envelope_sha256", "key_registry_sha256", "sequence_contract_schema",
+                "sequence_contract_semantic_class", "sequence_contract_capabilities_json",
+                "source_snapshot_sha256",
             )
             if not isinstance(sequence_contract_evidence, dict) or any(
                 not isinstance(sequence_contract_evidence.get(key), str)
