@@ -20,6 +20,8 @@ def test_runner_contract_requires_signed_sequence_contract_evidence():
     assert contract["block_before_network"] is True
     assert contract["block_before_session_write"] is True
     assert contract["fail_closed"] is True
+    assert contract["sequence_contract_payload_schema_required"] is True
+    assert contract["source_snapshot_digest_must_match_raw_payload"] is True
 
 
 def test_runner_source_contains_pre_network_signed_evidence_gate():
