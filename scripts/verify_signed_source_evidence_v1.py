@@ -10,6 +10,11 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
+# This evidence contract currently authorizes only the official Tabdeal docs host.
+# Add other venues only through an independently reviewed, explicit trust-policy change.
+TRUSTED_SOURCE_HOSTS = frozenset({"docs.tabdeal.org"})
+MAX_REDIRECT_CHAIN_URLS = 11  # initial URL plus at most ten redirects
+
 
 def canonical_signed_bytes(envelope):
     signed = {k: v for k, v in envelope.items() if k != "signature_b64"}
@@ -48,6 +53,10 @@ def validate_https_url(value, *, label):
     except ValueError as exc:
         raise ValueError(f"invalid {label}") from exc
     require(port is None or 1 <= port <= 65535, f"invalid {label} port")
+    hostname = parsed.hostname.lower()
+    require(hostname == hostname.rstrip("."), f"non-canonical {label} host")
+    require(hostname in TRUSTED_SOURCE_HOSTS, f"{label} host is not allowlisted")
+    require(port is None or port == 443, f"non-standard {label} port")
     return parsed
 
 
@@ -63,11 +72,16 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
     require(isinstance(digest, str) and len(digest) == 64 and all(c in "0123456789abcdef" for c in digest), "invalid raw SHA-256")
 
     url = envelope.get("source_url", "")
-    validate_https_url(url, label="source URL")
+    parsed_source = validate_https_url(url, label="source URL")
     redirects = envelope.get("redirect_chain")
     require(isinstance(redirects, list) and redirects, "redirect chain missing")
-    for redirect in redirects:
-        validate_https_url(redirect, label="redirect URL")
+    require(len(redirects) <= MAX_REDIRECT_CHAIN_URLS, "redirect chain exceeds maximum length")
+    parsed_redirects = [validate_https_url(redirect, label="redirect URL") for redirect in redirects]
+    require(len(set(redirects)) == len(redirects), "redirect chain contains a loop")
+    require(
+        all(parsed.hostname.lower() == parsed_source.hostname.lower() for parsed in parsed_redirects),
+        "redirect chain host continuity violation",
+    )
     require(redirects[-1] == url, "redirect chain final URL differs from source URL")
 
     stamp = envelope.get("retrieved_at", "")
