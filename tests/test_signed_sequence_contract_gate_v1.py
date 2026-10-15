@@ -15,6 +15,10 @@ from forward.signed_sequence_contract_gate_v1 import verify_sequence_contract_ev
 
 
 class SignedSequenceContractGateTests(unittest.TestCase):
+    # This literal models a registry digest provisioned independently of the
+    # workspace. Never derive the trusted pin from the registry under test.
+    TRUSTED_REGISTRY_SHA256 = "5659ba7e82b4eaa8fa8c3f3feb790b271647c87ab4c168cc4bf8a60924602c1a"
+
     def test_missing_envelope_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -30,14 +34,17 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                 )
 
     def test_empty_trust_registry_fails_closed(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ,
+            {"HES_TRUSTED_KEY_REGISTRY_SHA256": self.TRUSTED_REGISTRY_SHA256},
+            clear=True,
+        ):
             root = Path(tmp)
             envelope = root / "envelope.json"
             registry = root / "keys.json"
             envelope.write_text("{}", encoding="utf-8")
             registry.write_text("{}", encoding="utf-8")
-            os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = hashlib.sha256(registry.read_bytes()).hexdigest()
-            with self.assertRaisesRegex(ValueError, "non-empty"):
+            with self.assertRaisesRegex(ValueError, "trusted key-registry SHA-256 mismatch"):
                 verify_sequence_contract_evidence(
                     envelope_path=envelope,
                     key_registry_path=registry,
@@ -62,6 +69,54 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     market_scope="tabdeal:spot:BTC_USDT",
                 )
 
+    def test_coordinated_registry_and_envelope_replacement_fails_against_independent_pin(self):
+        """Replacing both caller-supplied files must not replace the trust anchor."""
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ,
+            {"HES_TRUSTED_KEY_REGISTRY_SHA256": self.TRUSTED_REGISTRY_SHA256},
+            clear=True,
+        ):
+            root = Path(tmp)
+            envelope = root / "envelope.json"
+            registry = root / "keys.json"
+
+            # Simulate an attacker who controls both workspace artifacts and
+            # installs their own key plus an envelope claiming that key.
+            attacker_private_key = Ed25519PrivateKey.generate()
+            attacker_public_key = base64.b64encode(
+                attacker_private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+            ).decode("ascii")
+            registry.write_text(
+                json.dumps({"attacker-controlled-key": attacker_public_key}, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            attacker_claim = {
+                "key_id": "attacker-controlled-key",
+                "signature_algorithm": "Ed25519",
+                "sequence_contract": {
+                    "status": "verified",
+                    "capabilities": {
+                        "unique": True,
+                        "ordered": True,
+                        "contiguous": True,
+                        "comparable_across_reconnect": False,
+                    },
+                },
+                "claim": "attacker-controlled envelope; not authoritative evidence",
+            }
+            envelope.write_text(json.dumps(attacker_claim), encoding="utf-8")
+
+            # The registry's actual digest differs from the independently
+            # pinned trusted registry. Rejection must happen before the
+            # attacker-controlled envelope can confer authority.
+            with self.assertRaisesRegex(ValueError, "trusted key-registry SHA-256 mismatch"):
+                verify_sequence_contract_evidence(
+                    envelope_path=envelope,
+                    key_registry_path=registry,
+                    expected_commit="a" * 40,
+                    expected_evidence_path="evidence/sequence.json",
+                    market_scope="tabdeal:futures:BTC_USDT",
+                )
 
     def test_signed_arbitrary_payload_is_not_a_sequence_contract(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):
@@ -107,6 +162,7 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     max_age_seconds=3600,
                     now=now,
                 )
+
 
 if __name__ == "__main__":
     unittest.main()
