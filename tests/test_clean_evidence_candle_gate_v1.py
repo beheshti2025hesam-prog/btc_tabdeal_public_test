@@ -25,7 +25,7 @@ def test_future_input_fails_closed():
     r = CleanEvidenceCandleGateV1().evaluate(
         [rec(1, now + timedelta(seconds=1))], as_of=now
     )
-    assert not r.safe and r.reason == "INVALID_FORWARD_INPUT"
+    assert not r.safe and r.reason == "SEQUENCE_UNSAFE"
 
 
 def test_conflicting_duplicate_blocks_candle_evidence():
