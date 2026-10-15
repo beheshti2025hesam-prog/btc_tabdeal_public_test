@@ -1,0 +1,27 @@
+{
+  "lock_id": "HES-RAW-SOURCE-BYTE-IDENTITY-AUDIT-20261013-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "artifact_path": "archive/raw_source_byte_identity_audit_v1_20261013.json",
+  "artifact_commit": "08e2420c516674cdb423481f94c979b0c90147be",
+  "artifact_git_blob_sha1": "543022c19dbdd36010339b7092cf7525a6963833",
+  "artifact_sha256": "a66990a12241650f118a2229ca6a20395b29dd1d418274070f1f15669ea5da95",
+  "artifact_bytes": 4774,
+  "verification": {
+    "content_read_back_from_github": true,
+    "sha256_recomputed_from_read_back_utf8_content": true,
+    "git_blob_sha1_read_back_from_github": true
+  },
+  "claim_boundary": {
+    "raw_source_blob_hashes_and_42_raw_anchor_checks": "PASS",
+    "independent_live_source_attestation": "OPEN",
+    "session_probe_lineage": "OPEN",
+    "single_writer_proof": "OPEN",
+    "final_evidence_gate": "BLOCKED",
+    "feature_extraction_allowed": false,
+    "effective_evidence_allowed": false,
+    "collector_allowed": false,
+    "trading_allowed": false
+  },
+  "mutation_scope": "Only a new supplemental audit artifact and its hash lock were added on an isolated audit branch; main, historical source bytes, operational services, winner selection, thresholds, and evidence logic were not changed."
+}

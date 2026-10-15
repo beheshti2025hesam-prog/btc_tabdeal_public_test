@@ -1,0 +1,104 @@
+{
+  "schema": "hes.raw_source_byte_identity_audit.v1",
+  "artifact_id": "HES-RAW-SOURCE-BYTE-IDENTITY-AUDIT-20261013",
+  "snapshot_date_utc": "2026-10-13",
+  "status": "PARTIAL_RAW_SOURCE_IDENTITY_PASS_EXIT_LINK_INFERRED_EXTERNAL_ATTESTATION_LINEAGE_AND_SINGLE_WRITER_OPEN",
+  "method": {
+    "mode": "READ_ONLY_GITHUB_GIT_BLOB_FETCH_AND_INDEPENDENT_RECOMPUTATION",
+    "encoding": "UTF-8; retrieved Git blobs contain ASCII CSV bytes",
+    "git_blob_sha1": "Independently recomputed canonical Git blob SHA-1 over `blob <byte_length>\\0<raw_bytes>`",
+    "sha256": "Independently recomputed SHA-256 over exact raw bytes",
+    "source_files_modified": false,
+    "historical_records_modified": false,
+    "winner_selection_changed": false,
+    "thresholds_changed": false,
+    "feature_extraction_performed": false,
+    "effective_evidence_calculated": false
+  },
+  "sources": {
+    "prior": {
+      "role": "14 prior Survivor records",
+      "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+      "path": "data/trades.csv",
+      "git_blob_sha1": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+      "independently_recomputed_git_blob_sha1": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+      "bytes": 9592808,
+      "rows": 127201,
+      "sha256": "2c0013ad64aa3fa400a9c66e646382b34b0c1d1ac640a440353d31a78ca346e8"
+    },
+    "current": {
+      "role": "28 current Winner records",
+      "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+      "path": "data/trades.csv",
+      "git_blob_sha1": "58d21825e052dbaa42e7eb0695455c19997bff43",
+      "independently_recomputed_git_blob_sha1": "58d21825e052dbaa42e7eb0695455c19997bff43",
+      "bytes": 10501596,
+      "rows": 139250,
+      "sha256": "c6c20f30fc6cbf6934c81e7b5e0495f952b7bab5fe2978baca6fdd78c68b90e6"
+    }
+  },
+  "record_identity": {
+    "source_artifact_path": "evidence/source_identity_reconciliation_v1.json",
+    "source_artifact_git_blob_sha1": "d21a37bb239249ebe16678a1e21d698e0db68472",
+    "source_artifact_bytes": 17937,
+    "source_artifact_sha256_recomputed": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
+    "prior_survivor_records": 14,
+    "current_winner_records": 28,
+    "total_records": 42,
+    "frozen_key_fields": [
+      "timestamp",
+      "sequence_first",
+      "sequence_last",
+      "entry_price",
+      "exit_price",
+      "gross_return",
+      "direction"
+    ],
+    "exact_key_overlap_prior_vs_current": 0,
+    "prior_anchor_checks": {
+      "sequence_first_found": 14,
+      "sequence_last_found": 14,
+      "entry_price_at_sequence_last": 14,
+      "exit_price_match_later_in_record_minute": 14,
+      "gross_return_formula_consistent": 14
+    },
+    "current_anchor_checks": {
+      "sequence_first_found": 28,
+      "sequence_last_found": 28,
+      "entry_price_at_sequence_last": 28,
+      "exit_price_match_later_in_record_minute": 28,
+      "gross_return_formula_consistent": 28
+    },
+    "missing_or_conflicting_anchor_records": 0,
+    "exit_linkage": "INFERRED_PRICE_MATCH; raw record schema has no explicit exit sequence; not authoritative exit-event identity"
+  },
+  "gates": {
+    "source_csv_byte_identity": "PASS_FOR_TWO_DECLARED_GIT_BLOBS",
+    "exact_record_raw_anchor_reconciliation": "PASS_42_OF_42_FOR_SEQUENCE_BOUNDS_ENTRY_PRICE_AND_RETURN_FORMULA",
+    "exact_exit_event_identity": "OPEN_NO_EXPLICIT_EXIT_SEQUENCE",
+    "independent_live_source_attestation": "OPEN_NOT_PRODUCED_OR_VERIFIED",
+    "session_run_probe_lineage": "OPEN",
+    "single_writer_proof": "OPEN",
+    "immutable_final_reconciliation_artifact": "NOT_CREATED_BECAUSE_UPSTREAM_GATES_REMAIN_OPEN",
+    "feature_extraction_allowed": false,
+    "effective_evidence_allowed": false,
+    "collector_allowed": false,
+    "trading_allowed": false
+  },
+  "next_actions": [
+    "Obtain a detached source attestation from a separately trusted signer/fetcher and verify its public key/key ID through an out-of-band trust procedure.",
+    "Reconcile the three OBS-* session IDs, the separate live session, and 11 probe records to explicit run IDs using existing manifests and process/log evidence only; do not synthesize joins.",
+    "Prove single-writer attribution from process identity, lock ownership, and journal evidence; do not remove the stale lock.",
+    "Keep exit linkage marked inferred unless an authoritative exit sequence/event identifier is recovered."
+  ],
+  "claim_boundary": {
+    "audit_scope": "Exact GitHub source blobs and the frozen 42-record identity artifact only",
+    "live_exchange_capture_performed": false,
+    "vps_independently_accessed": false,
+    "historical_source_bytes_modified": false,
+    "source_identity_gate_closed": false,
+    "lineage_gate_closed": false,
+    "single_writer_gate_closed": false,
+    "evidence_gate_pass": false
+  }
+}
