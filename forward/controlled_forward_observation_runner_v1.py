@@ -109,6 +109,7 @@ class ControlledForwardObservationRunnerV1:
                 or any(ch not in "0123456789abcdef" for ch in protected_registry_sha256)
                 or not isinstance(self.trusted_key_registry_sha256, str)
                 or self.trusted_key_registry_sha256 != protected_registry_sha256
+                or self.market_scope != "tabdeal:futures:BTC_USDT"
                 or not isinstance(self.expected_commit, str)
                 or not self.expected_commit
                 or not isinstance(self.expected_evidence_path, str)
