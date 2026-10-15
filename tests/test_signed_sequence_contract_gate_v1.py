@@ -41,6 +41,34 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     market_scope="tabdeal:spot:BTC_USDT",
                 )
 
+
+    def test_coordinated_registry_replacement_rejected_by_independent_pin(self):
+        """Replacing the registry cannot redefine the independently pinned digest."""
+        trusted_registry_bytes = b'{"trusted-test-key":"dHJ1c3RlZA=="}'
+        independent_pin = hashlib.sha256(trusted_registry_bytes).hexdigest()
+        attacker_registry_bytes = b'{"attacker-controlled-key":"ZmFrZQ=="}'
+
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(
+            os.environ,
+            {"HES_TRUSTED_KEY_REGISTRY_SHA256": independent_pin},
+            clear=True,
+        ):
+            root = Path(tmp)
+            envelope = root / "envelope.json"
+            registry = root / "keys.json"
+            # The envelope and registry are attacker-controlled together.
+            envelope.write_text("{}", encoding="utf-8")
+            registry.write_bytes(attacker_registry_bytes)
+
+            with self.assertRaisesRegex(ValueError, "trusted key-registry SHA-256 mismatch"):
+                verify_sequence_contract_evidence(
+                    envelope_path=envelope,
+                    key_registry_path=registry,
+                    expected_commit="a" * 40,
+                    expected_evidence_path="evidence/sequence.json",
+                    market_scope="tabdeal:spot:BTC_USDT",
+                )
+
     def test_missing_independent_registry_pin_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):
             root = Path(tmp)
