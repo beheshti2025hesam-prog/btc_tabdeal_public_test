@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import os
 import subprocess
 from typing import Any, Callable
 
@@ -96,18 +97,25 @@ class ControlledForwardObservationRunnerV1:
         # Cryptographically verify the exact evidence before creating a session,
         # constructing a transport, or opening a socket. A boolean/reference is not proof.
         try:
+            # The trust pin is provisioned by the deployment environment, outside
+            # caller-controlled constructor arguments. The constructor value is only
+            # a consistency assertion; it can never establish trust on its own.
+            protected_registry_sha256 = os.environ.get("HES_TRUSTED_KEY_REGISTRY_SHA256")
             if (
                 self.sequence_contract_envelope_path is None
                 or self.sequence_contract_key_registry_path is None
+                or not isinstance(protected_registry_sha256, str)
+                or len(protected_registry_sha256) != 64
+                or any(ch not in "0123456789abcdef" for ch in protected_registry_sha256)
                 or not isinstance(self.trusted_key_registry_sha256, str)
-                or len(self.trusted_key_registry_sha256) != 64
+                or self.trusted_key_registry_sha256 != protected_registry_sha256
                 or not isinstance(self.expected_commit, str)
                 or not self.expected_commit
                 or not isinstance(self.expected_evidence_path, str)
                 or not self.expected_evidence_path
                 or self.evidence_max_age_seconds <= 0
             ):
-                raise ValueError("signed evidence configuration is incomplete")
+                raise ValueError("signed evidence configuration or protected registry pin is incomplete")
             # Trust anchor: derive the running source revision from this checkout.
             # Never let caller configuration define which commit is considered current.
             completed = subprocess.run(
@@ -129,7 +137,7 @@ class ControlledForwardObservationRunnerV1:
                 expected_commit=running_commit,
                 expected_evidence_path=self.expected_evidence_path,
                 market_scope=self.market_scope,
-                trusted_key_registry_sha256=self.trusted_key_registry_sha256,
+                trusted_key_registry_sha256=protected_registry_sha256,
                 max_age_seconds=self.evidence_max_age_seconds,
                 now=now,
             )
