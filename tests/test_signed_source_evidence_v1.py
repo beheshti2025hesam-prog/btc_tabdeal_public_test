@@ -12,6 +12,7 @@ PAYLOAD = b'{"evidence":"raw-bytes"}'
 KEY = Ed25519PrivateKey.generate()
 PUB = base64.b64encode(KEY.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode()
 
+
 def envelope():
     e = {"expected_commit": COMMIT, "evidence_path": PATH,
          "raw_sha256": hashlib.sha256(PAYLOAD).hexdigest(),
@@ -22,42 +23,52 @@ def envelope():
     e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
     return e
 
+
 class SignedSourceEvidenceTests(unittest.TestCase):
     def check(self, e):
         return verify(e, expected_commit=COMMIT, expected_path=PATH, market_scope=MARKET,
                       key_registry={"test-key": PUB}, now=NOW, max_age_seconds=3600)
+
     def test_valid_envelope(self):
         self.assertEqual(self.check(envelope())["status"], "VERIFIED")
+
     def test_wrong_commit_rejected_even_if_signed(self):
         e = envelope(); e["expected_commit"] = "b" * 40
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "commit mismatch"): self.check(e)
+
     def test_wrong_path_rejected_even_if_signed(self):
         e = envelope(); e["evidence_path"] = "evidence/other.json"
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "path mismatch"): self.check(e)
+
     def test_untrusted_key_rejected(self):
         e = envelope(); e["key_id"] = "unknown"
         with self.assertRaisesRegex(ValueError, "untrusted key"): self.check(e)
+
     def test_payload_tamper_rejected(self):
         e = envelope(); e["payload_b64"] = base64.b64encode(b"tampered").decode()
         with self.assertRaisesRegex(ValueError, "signature verification failed"): self.check(e)
+
     def test_forged_signature_rejected(self):
         e = envelope(); e["signature_b64"] = base64.b64encode(b"x" * 64).decode()
         with self.assertRaisesRegex(ValueError, "signature verification failed"): self.check(e)
+
     def test_expired_evidence_rejected(self):
         e = envelope(); e["retrieved_at"] = "2026-10-12T00:00:00+00:00"
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "stale"): self.check(e)
+
     def test_redirect_chain_identity_required(self):
         e = envelope(); e["redirect_chain"] = ["https://evil.example/source"]
+        e["signature_b64"] = base64.b64encode(canonical_signed_bytes(e)).decode()
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "final URL"): self.check(e)
+
     def test_market_scope_mismatch_rejected(self):
         e = envelope(); e["market_scope"] = "other-venue"
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "market scope"): self.check(e)
-
 
     def test_unsafe_evidence_paths_rejected_even_when_signed(self):
         for unsafe_path in ("../outside.json", "/tmp/evidence.json", "evidence\\\\outside.json", "evidence//source.json", "C:/evidence.json"):
@@ -75,8 +86,40 @@ class SignedSourceEvidenceTests(unittest.TestCase):
         e["source_url"] = "https://exchange.example:bad/source"
         e["redirect_chain"] = [e["source_url"]]
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
-        with self.assertRaisesRegex(ValueError, "invalid source URL or redirect chain"):
-            verify(e, expected_commit=COMMIT, expected_path=PATH, market_scope=MARKET,
-                   key_registry={"test-key": PUB}, now=NOW, max_age_seconds=3600)
+        with self.assertRaisesRegex(ValueError, "invalid source URL"):
+            self.check(e)
 
-if __name__ == "__main__": unittest.main()
+    def test_source_url_credentials_rejected_even_when_signed(self):
+        e = envelope()
+        e["source_url"] = "https://trusted.example@evil.example/source"
+        e["redirect_chain"] = [e["source_url"]]
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "must not contain credentials"):
+            self.check(e)
+
+    def test_source_url_fragment_rejected_even_when_signed(self):
+        e = envelope()
+        e["source_url"] = "https://exchange.example/source#fragment"
+        e["redirect_chain"] = [e["source_url"]]
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "must not contain a fragment"):
+            self.check(e)
+
+    def test_redirect_credentials_rejected_even_when_signed(self):
+        e = envelope()
+        e["redirect_chain"] = ["https://user:secret@exchange.example/redirect", e["source_url"]]
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "must not contain credentials"):
+            self.check(e)
+
+    def test_source_url_whitespace_rejected_even_when_signed(self):
+        e = envelope()
+        e["source_url"] = "https://exchange.example/bad path"
+        e["redirect_chain"] = [e["source_url"]]
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "invalid source URL"):
+            self.check(e)
+
+
+if __name__ == "__main__":
+    unittest.main()
