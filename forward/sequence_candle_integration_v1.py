@@ -31,7 +31,7 @@ class SequenceAwareCandleIngestionV1:
     """Sequence-check first; candle normalization only receives safe records."""
 
     def __init__(self, *, max_sequence_records: int = 100_000) -> None:
-        self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
+        self.sequence = SequenceIntegrityV1(max_records=max_sequence_records, sequence_semantics_verified=False)
 
     def ingest(
         self,
@@ -47,7 +47,7 @@ class SequenceAwareCandleIngestionV1:
             events.append(event)
             if event.status == "ACCEPTED":
                 safe.append(record)
-            elif event.status == "IDEMPOTENT_DUPLICATE":
+            elif event.status in {"IDEMPOTENT_DUPLICATE", "EXACT_REPLAY"}:
                 continue
             else:
                 # Never feed an ambiguous stream into candle formation.
