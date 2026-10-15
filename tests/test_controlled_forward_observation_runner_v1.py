@@ -396,14 +396,15 @@ def test_runner_blocks_alternate_market_scope_before_network_or_session(tmp_path
 
     session = tmp_path / "session.jsonl"
     journal = tmp_path / "journal.jsonl"
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
+    kwargs["market_scope"] = "tabdeal:spot:BTC_USDT"
     runner = ControlledForwardObservationRunnerV1(
         journal_path=journal,
         session_path=session,
         transport_factory=MustNotRunTransport,
         ws_factory=FakeWS,
-        market_scope="tabdeal:spot:BTC_USDT",
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path, monkeypatch),
+        **kwargs,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
