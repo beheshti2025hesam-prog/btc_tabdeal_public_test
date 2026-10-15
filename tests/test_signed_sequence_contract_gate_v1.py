@@ -126,7 +126,7 @@ class SignedSequenceContractGateTests(unittest.TestCase):
             now = datetime(2026, 10, 15, 12, 0, tzinfo=timezone.utc)
             # Deterministic synthetic key lets the test use a fixed independent
             # registry pin instead of deriving trust from the file under test.
-            private_key = Ed25519PrivateKey.from_private_bytes(b"\\x01" * 32)
+            private_key = Ed25519PrivateKey.from_private_bytes(bytes([1]) * 32)
             public_key = base64.b64encode(
                 private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
             ).decode("ascii")
