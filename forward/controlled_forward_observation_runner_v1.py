@@ -294,6 +294,7 @@ class ControlledForwardObservationRunnerV1:
             records,
             as_of=observed_at,
             forward_run_id=session.run_id,
+            sequence_contract=verified_evidence["contract"],
         )
         diagnostics = tuple(
             {
