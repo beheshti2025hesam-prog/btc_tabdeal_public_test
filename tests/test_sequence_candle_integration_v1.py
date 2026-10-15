@@ -55,6 +55,36 @@ def test_non_contiguous_sequence_is_accepted_without_gap_inference():
     assert result.events[-1].status == "ACCEPTED"
 
 
+
+def test_signed_ordering_capability_is_explicitly_required_for_timestamp_ties():
+    records = [
+        rec(2, "2026-10-07T06:30:00+00:00", "105"),
+        rec(1, "2026-10-07T06:30:00+00:00", "100"),
+    ]
+    blocked = SequenceAwareCandleIngestionV1().ingest(records, as_of=ASOF)
+    assert blocked.safe_for_decision is False
+    assert blocked.events[-1].reason == "AMBIGUOUS_TIMESTAMP_ORDER"
+
+    authorized = SequenceAwareCandleIngestionV1(
+        sequence_ordering_authorized=True
+    ).ingest(records, as_of=ASOF)
+    assert authorized.safe_for_decision is True
+    assert len(authorized.candles) == 1
+    assert authorized.candles[0].open == 100
+    assert authorized.candles[0].close == 105
+
+
+def test_ordering_capability_does_not_imply_duplicate_identity():
+    records = [
+        rec(1, "2026-10-07T06:30:00+00:00", "100"),
+        rec(1, "2026-10-07T06:30:00+00:00", "101"),
+    ]
+    result = SequenceAwareCandleIngestionV1(
+        sequence_ordering_authorized=True
+    ).ingest(records, as_of=ASOF)
+    assert result.safe_for_decision is False
+    assert result.events[-1].reason == "AMBIGUOUS_TIMESTAMP_ORDER"
+
 def test_reconnect_does_not_compare_sequence_across_sessions():
     s = SequenceAwareCandleIngestionV1()
     first = s.ingest([rec(10)], as_of=ASOF)
