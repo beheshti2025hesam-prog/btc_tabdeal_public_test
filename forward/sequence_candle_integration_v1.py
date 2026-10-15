@@ -30,7 +30,13 @@ class SequenceCandleResult:
 class SequenceAwareCandleIngestionV1:
     """Do not use an opaque sequence value as identity, order, or conflict key."""
 
-    def __init__(self, *, max_sequence_records: int = 100_000) -> None:
+    def __init__(
+        self, *, max_sequence_records: int = 100_000,
+        sequence_ordering_authorized: bool = False,
+    ) -> None:
+        if type(sequence_ordering_authorized) is not bool:
+            raise ValueError("sequence_ordering_authorized must be bool")
+        self.sequence_ordering_authorized = sequence_ordering_authorized
         self.sequence = SequenceIntegrityV1(max_records=max_sequence_records, sequence_semantics_verified=False)
 
     def ingest(
@@ -55,7 +61,10 @@ class SequenceAwareCandleIngestionV1:
         # Candle normalization must not infer identity or ordering from sequence.
         # It raises on same-timestamp ambiguity instead of manufacturing an order.
         try:
-            candles, gaps = ingest_closed_candles(safe, as_of=as_of)
+            candles, gaps = ingest_closed_candles(
+                safe, as_of=as_of,
+                sequence_ordering_authorized=self.sequence_ordering_authorized,
+            )
         except ValueError as exc:
             if "ambiguous timestamp tie" in str(exc):
                 events.append(SequenceEvent(
