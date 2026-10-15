@@ -89,7 +89,7 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
 
 
-def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
+def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path, monkeypatch):
     class ConflictTransport:
         def __init__(self, on_record, on_frame_metadata, **kwargs):
             self.on_record = on_record
@@ -186,7 +186,7 @@ def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path
 
  
 
-def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path: Path):
+def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path: Path, monkeypatch):
     class MetadataOverflowTransport:
         def __init__(self, on_record, on_frame_metadata, **kwargs):
             self.on_record = on_record
