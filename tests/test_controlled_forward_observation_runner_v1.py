@@ -131,7 +131,9 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         "unique": True, "ordered": True, "contiguous": True,
         "comparable_across_reconnect": False,
     }
-    assert evidence["source_snapshot_sha256"] == "a" * 64
+    assert evidence["source_snapshot_sha256"] == hashlib.sha256(
+        b"Synthetic test fixture only; not production exchange evidence."
+    ).hexdigest()
     assert evidence["expected_commit"] == subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD^{commit}"],
         cwd=Path(__file__).resolve().parents[1],
