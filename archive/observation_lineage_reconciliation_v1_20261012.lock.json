@@ -1,0 +1,27 @@
+{
+  "lock_id": "HES-OBSERVATION-LINEAGE-RECONCILIATION-V1-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "artifact_path": "archive/observation_lineage_reconciliation_v1_20261012.json",
+  "artifact_commit": "aac0372bccea55e77fe541b3fcf9d49fe5cb8878",
+  "artifact_git_blob_sha1": "ba5711d36607e87453f0c7e268fb870c01f5d8b1",
+  "artifact_sha256": "84a77ae431466c9f8bcf0ffedd68d0a263f32903aaacde422a914992c1339274",
+  "artifact_bytes": 4289,
+  "lock_basis": [
+    "SHA-256 and byte count were recomputed from exact UTF-8 bytes read back from GitHub",
+    "Git blob SHA-1 was read back from the committed artifact"
+  ],
+  "mutation_scope": "New lineage diagnostic artifact and this lock only. Original manifest, run ledger, observations, session ledger, probe, and VPS files were not modified.",
+  "claim_boundary": {
+    "in_memory_parse_diagnostic": "PASS_AFTER_REMOVING_EXACT_FINAL_TWO_BYTES_FROM_AFFECTED_FILES",
+    "original_manifest_and_run_ledger": "REMAIN_INVALID_UNMODIFIED",
+    "observation_run_id": "FORWARD_OBS_20261007T014726Z",
+    "session_lineage": "OPEN",
+    "probe_lineage": "OPEN",
+    "source_identity": "OPEN",
+    "sequence_semantics": "UNKNOWN",
+    "feature_extraction": false,
+    "effective_evidence": false,
+    "trading_authorized": false
+  }
+}
