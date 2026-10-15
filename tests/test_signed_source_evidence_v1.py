@@ -61,7 +61,6 @@ class SignedSourceEvidenceTests(unittest.TestCase):
 
     def test_redirect_chain_identity_required(self):
         e = envelope(); e["redirect_chain"] = ["https://evil.example/source"]
-        e["signature_b64"] = base64.b64encode(canonical_signed_bytes(e)).decode()
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "final URL"): self.check(e)
 
