@@ -71,9 +71,10 @@ jobs:
               "source_refs":d["sources"],
               "safety":d["claim_boundary"],
           }
-          Path("evidence/source_identity_reconciliation_v1.lock.json").write_text(
-              json.dumps(lock, indent=2) + "\n", encoding="utf-8"
-          )
+          lock_path = Path("evidence/source_identity_reconciliation_v1.lock.json")
+          committed_lock = json.loads(lock_path.read_text(encoding="utf-8"))
+          assert committed_lock == lock, "committed hash lock does not match recomputed artifact"
+          print("COMMITTED_LOCK_MATCH=PASS")
           print(json.dumps(lock, indent=2))
           PY
 
