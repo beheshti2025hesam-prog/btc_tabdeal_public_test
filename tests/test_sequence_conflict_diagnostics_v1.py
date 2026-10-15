@@ -31,8 +31,33 @@ def signed_gate_kwargs(tmp_path: Path):
         timeout=5,
     ).stdout.strip()
     private_key = Ed25519PrivateKey.generate()
-    payload = b'{"sequence_contract":"synthetic-test-only"}'
-    source_url = "https://exchange.example/sequence-contract"
+    payload_obj = {
+        "schema": "hes_sequence_contract_attestation_v1",
+        "status": "verified",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "venue": "tabdeal",
+        "product": "fapi-futures-margin",
+        "symbol": "BTC_USDT",
+        "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+        "channel_or_topic": "BTC_USDT raw-text subscription",
+        "message_type": "trade-envelope",
+        "field_path": "trade.sequence",
+        "protocol_version": "unknown",
+        "semantic_class": "message_sequence",
+        "capabilities": {
+            "unique": True, "ordered": True, "contiguous": True,
+            "comparable_across_reconnect": False,
+        },
+        "source_evidence": {
+            "source_kind": "primary",
+            "source_url": "https://docs.tabdeal.org/",
+            "retrieved_at": "2026-10-09T17:00:00+00:00",
+            "source_snapshot_sha256": "a" * 64,
+            "evidence_excerpt": "Synthetic test fixture only; not production exchange evidence.",
+        },
+    }
+    payload = json.dumps(payload_obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    source_url = "https://docs.tabdeal.org/"
     envelope = {
         "expected_commit": running_commit,
         "evidence_path": "evidence/sequence-contract.json",
