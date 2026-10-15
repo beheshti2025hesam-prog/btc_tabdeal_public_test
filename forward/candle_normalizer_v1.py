@@ -63,6 +63,7 @@ def normalize_trades(
     *,
     as_of: datetime,
     expected_symbol: str | None = None,
+    sequence_ordering_authorized: bool = False,
 ) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
     """Build closed candles; timestamps order events, never opaque sequence IDs.
 
@@ -91,15 +92,18 @@ def normalize_trades(
             raise ValueError(f"mixed symbols are not allowed: expected {symbol}, got {trade.symbol}")
         rows.append(trade)
 
-    # Python's stable sort preserves observed input order for equal timestamps,
-    # but that arrival order is not evidence of venue order; reject ambiguous ties.
-    ordered = sorted(rows, key=lambda x: x.updated.astimezone(timezone.utc))
+    # Only a verified, scope-bound contract may authorize sequence as a tie-breaker.
+    if type(sequence_ordering_authorized) is not bool:
+        raise ValueError("sequence_ordering_authorized must be bool")
+    if sequence_ordering_authorized:
+        ordered = sorted(rows, key=lambda x: (x.updated.astimezone(timezone.utc), x.sequence))
+    else:
+        ordered = sorted(rows, key=lambda x: x.updated.astimezone(timezone.utc))
     for previous, current in zip(ordered, ordered[1:]):
-        if (
-            previous.updated.astimezone(timezone.utc) == current.updated.astimezone(timezone.utc)
-            and previous.price != current.price
-        ):
-            raise ValueError("ambiguous timestamp tie without verified ordering")
+        same_timestamp = previous.updated.astimezone(timezone.utc) == current.updated.astimezone(timezone.utc)
+        if same_timestamp and previous.price != current.price:
+            if not sequence_ordering_authorized or previous.sequence == current.sequence:
+                raise ValueError("ambiguous timestamp tie without verified ordering")
 
     if not ordered:
         return (), ()
