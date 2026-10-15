@@ -25,7 +25,7 @@ def signed_gate_kwargs(tmp_path: Path, monkeypatch):
         timeout=5,
     ).stdout.strip()
     private_key = Ed25519PrivateKey.generate()
-payload = json.dumps({
+    payload = json.dumps({
         "schema": "hes_sequence_contract_v1",
         "venue": "tabdeal",
         "product": "futures_margin",
