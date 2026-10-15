@@ -16,5 +16,16 @@
   "historical_inputs_allowed": false,
   "future_outcomes_allowed": false,
   "collector_autostart": false,
-  "fail_closed": true
+  "fail_closed": true,
+  "sequence_contract_payload_schema_required": true,
+  "source_snapshot_digest_must_match_raw_payload": true,
+  "protocol_version_must_be_pinned": true,
+  "required_sequence_capabilities": {
+    "unique": true,
+    "ordered": true,
+    "contiguous": true,
+    "comparable_across_reconnect": false
+  },
+  "source_evidence_host": "docs.tabdeal.org",
+  "session_records_verified_capabilities": true
 }
