@@ -407,9 +407,9 @@ def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path:
     assert not (tmp_path / "journal.jsonl").exists()
 
 
-def test_runner_blocks_when_protected_registry_pin_is_missing_or_malformed(tmp_path: Path):
+def test_runner_blocks_when_protected_registry_pin_is_missing_or_malformed(tmp_path: Path, monkeypatch):
     kwargs = signed_gate_kwargs(tmp_path)
-    os.environ.pop("HES_TRUSTED_KEY_REGISTRY_SHA256", None)
+    monkeypatch.delenv("HES_TRUSTED_KEY_REGISTRY_SHA256", raising=False)
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
         session_path=tmp_path / "session.jsonl",
@@ -425,16 +425,16 @@ def test_runner_blocks_when_protected_registry_pin_is_missing_or_malformed(tmp_p
     assert not (tmp_path / "session.jsonl").exists()
     assert not (tmp_path / "journal.jsonl").exists()
 
-    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = "not-a-sha256"
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", "not-a-sha256")
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
     assert result.run_id == "NOT_STARTED"
     assert not (tmp_path / "session.jsonl").exists()
 
 
-def test_runner_rejects_registry_pin_mismatch_with_protected_environment(tmp_path: Path):
+def test_runner_rejects_registry_pin_mismatch_with_protected_environment(tmp_path: Path, monkeypatch):
     kwargs = signed_gate_kwargs(tmp_path)
-    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = "0" * 64
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", "0" * 64)
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
         session_path=tmp_path / "session.jsonl",
