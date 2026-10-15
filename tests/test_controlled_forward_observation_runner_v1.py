@@ -45,7 +45,7 @@ def signed_gate_kwargs(tmp_path: Path, monkeypatch, *, ordered_within_scope=True
             "cross_reconnect": False,
         },
     }, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    source_url = "https://exchange.example/sequence-contract"
+    source_url = "https://docs.tabdeal.org/sequence-contract"
     envelope = {
         "expected_commit": running_commit,
         "evidence_path": "evidence/sequence-contract.json",
