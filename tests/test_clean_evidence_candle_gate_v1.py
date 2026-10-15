@@ -34,7 +34,7 @@ def test_conflicting_same_timestamp_prices_block_all_candle_evidence():
     timestamp = now - timedelta(minutes=20)
     data = [rec(10, timestamp, "100"), rec(10, timestamp, "101")]
     r = CleanEvidenceCandleGateV1().evaluate(data, as_of=now)
-    assert not r.safe and r.reason == "INVALID_FORWARD_INPUT"
+    assert not r.safe and r.reason == "SEQUENCE_UNSAFE"
     assert r.candles == ()
 
 
