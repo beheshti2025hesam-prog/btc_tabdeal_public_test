@@ -121,8 +121,7 @@ class SignedSourceEvidenceTests(unittest.TestCase):
 
     def test_redirect_domain_allowlist_rejects_untrusted_hop_even_when_signed(self):
         e = envelope()
-        e["redirect_chain"] = ["https://docs.tabdeal.org/start", "https://evil.example/source"]
-        e["source_url"] = e["redirect_chain"][-1]
+        e["redirect_chain"] = ["https://evil.example/redirect", e["source_url"]]
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "host is not allowlisted"):
             self.check(e)
