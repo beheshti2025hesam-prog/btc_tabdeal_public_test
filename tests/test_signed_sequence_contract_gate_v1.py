@@ -1,8 +1,13 @@
+import base64
 import hashlib
 import json
 import os
 import tempfile
 import unittest
+from datetime import datetime, timezone
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
 from pathlib import Path
 from unittest.mock import patch
 
@@ -57,6 +62,51 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     market_scope="tabdeal:spot:BTC_USDT",
                 )
 
+
+    def test_signed_arbitrary_payload_is_not_a_sequence_contract(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {}, clear=True):
+            root = Path(tmp)
+            payload = b'{"sequence_contract":"signed-but-insufficient"}'
+            source_url = "https://docs.tabdeal.org/"
+            now = datetime(2026, 10, 15, 12, 0, tzinfo=timezone.utc)
+            private_key = Ed25519PrivateKey.generate()
+            public_key = base64.b64encode(
+                private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+            ).decode("ascii")
+            envelope = {
+                "expected_commit": "a" * 40,
+                "evidence_path": "evidence/sequence.json",
+                "raw_sha256": hashlib.sha256(payload).hexdigest(),
+                "source_url": source_url,
+                "redirect_chain": [source_url],
+                "retrieved_at": now.isoformat(),
+                "market_scope": "tabdeal:futures:BTC_USDT",
+                "key_id": "synthetic-test-key",
+                "signature_algorithm": "Ed25519",
+                "payload_b64": base64.b64encode(payload).decode("ascii"),
+            }
+            envelope["signature_b64"] = base64.b64encode(
+                private_key.sign(canonical_signed_bytes(envelope))
+            ).decode("ascii")
+            envelope_path = root / "envelope.json"
+            registry_path = root / "keys.json"
+            envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+            registry_path.write_text(
+                json.dumps({"synthetic-test-key": public_key}), encoding="utf-8"
+            )
+            os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = hashlib.sha256(
+                registry_path.read_bytes()
+            ).hexdigest()
+            with self.assertRaisesRegex(ValueError, "missing or unexpected fields"):
+                verify_sequence_contract_evidence(
+                    envelope_path=envelope_path,
+                    key_registry_path=registry_path,
+                    expected_commit="a" * 40,
+                    expected_evidence_path="evidence/sequence.json",
+                    market_scope="tabdeal:futures:BTC_USDT",
+                    max_age_seconds=3600,
+                    now=now,
+                )
 
 if __name__ == "__main__":
     unittest.main()
