@@ -66,7 +66,7 @@ def signed_gate_kwargs(tmp_path: Path, monkeypatch):
 
 
 def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
-    guard = SequenceIntegrityV1()
+    guard = SequenceIntegrityV1(sequence_semantics_verified=True)
     first = {
         "source": "tabdeal_ws_forward_v1",
         "symbol": "BTC_USDT",
@@ -135,16 +135,13 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path, m
     assert not (tmp_path / "observations.jsonl").exists()
     assert diagnostics_path.exists()
     record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
-    conflict = next(
+    ambiguous = next(
         event for event in record["sequence_events"]
-        if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+        if event.get("reason") == "AMBIGUOUS_TIMESTAMP_ORDER"
     )
-    assert conflict["diagnostic"]["differing_fields"] == ["price"]
-    fingerprints = conflict["transport_frame_fingerprints"]
-    assert len(fingerprints) == 2
-    assert fingerprints[0]["raw_frame_sha256"] != fingerprints[1]["raw_frame_sha256"]
-    assert all(item["sequence_field_path"] == "trade.sequence" for item in fingerprints)
-    assert all("price" not in item and "amount" not in item for item in fingerprints)
+    assert ambiguous["status"] == "REJECT_STREAM"
+    # Distinct raw frame fingerprints do not authorize sequence-based identity.
+    assert "transport_frame_fingerprints" not in ambiguous
     assert any(item.get("diagnostic_persistence") == "PERSISTED" for item in result.diagnostics)
 
 
