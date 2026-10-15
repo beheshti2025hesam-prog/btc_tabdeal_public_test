@@ -68,7 +68,20 @@ jobs:
               "prior_record_count":14,
               "current_record_count":28,
               "exact_record_key_matches":0,
-              "source_refs":d["sources"],
+              "source_refs": {
+                  "prior": {
+                      "source_commit":d["sources"]["prior"]["source_commit"],
+                      "raw_blob_sha":d["sources"]["prior"]["raw_blob_sha"],
+                  },
+                  "current": {
+                      "source_commit":d["sources"]["current"]["source_commit"],
+                      "raw_blob_sha":d["sources"]["current"]["raw_blob_sha"],
+                  },
+                  "protocol_contract": {
+                      "source_commit":d["sources"]["protocol_contract"]["source_commit"],
+                      "blob_sha":d["sources"]["protocol_contract"]["blob_sha"],
+                  },
+              },
               "safety":d["claim_boundary"],
           }
           lock_path = Path("evidence/source_identity_reconciliation_v1.lock.json")
