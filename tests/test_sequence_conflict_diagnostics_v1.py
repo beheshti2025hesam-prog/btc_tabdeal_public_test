@@ -30,7 +30,26 @@ def signed_gate_kwargs(tmp_path: Path, monkeypatch):
         timeout=5,
     ).stdout.strip()
     private_key = Ed25519PrivateKey.generate()
-    payload = b'{"sequence_contract":"synthetic-test-only"}'
+payload = json.dumps({
+        "schema": "hes_sequence_contract_v1",
+        "venue": "tabdeal",
+        "product": "futures_margin",
+        "endpoint": "special_margin/broadcast/",
+        "channel": "trade_broadcast",
+        "message_type": "trade",
+        "field_path": "trade.sequence",
+        "scope": "tabdeal:futures:BTC_USDT",
+        "protocol_version": "unknown",
+        "semantic_class": "unknown",
+        "capabilities": {
+            "exact_replay_dedup": True,
+            "event_id_dedup": False,
+            "ordered_within_scope": False,
+            "contiguous_within_scope": False,
+            "gap_detectable": False,
+            "cross_reconnect": False,
+        },
+    }, sort_keys=True, separators=(",", ":")).encode("utf-8")
     source_url = "https://exchange.example/sequence-contract"
     envelope = {
         "expected_commit": running_commit,
