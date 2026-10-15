@@ -125,6 +125,13 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     session_record = json.loads(session.read_text(encoding="utf-8").splitlines()[0])
     evidence = session_record["sequence_contract_evidence"]
     assert evidence["status"] == "VERIFIED"
+    assert evidence["sequence_contract_schema"] == "hes_sequence_contract_attestation_v1"
+    assert evidence["sequence_contract_semantic_class"] == "message_sequence"
+    assert json.loads(evidence["sequence_contract_capabilities_json"]) == {
+        "unique": True, "ordered": True, "contiguous": True,
+        "comparable_across_reconnect": False,
+    }
+    assert evidence["source_snapshot_sha256"] == "a" * 64
     assert evidence["expected_commit"] == subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD^{commit}"],
         cwd=Path(__file__).resolve().parents[1],
