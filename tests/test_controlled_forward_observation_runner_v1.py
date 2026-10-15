@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import json
-import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +14,7 @@ from forward.controlled_forward_observation_runner_v1 import (
 )
 
 
-def signed_gate_kwargs(tmp_path: Path):
+def signed_gate_kwargs(tmp_path: Path, monkeypatch):
     """Build real synthetic Ed25519 evidence; never use a boolean as proof."""
     running_commit = subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD^{commit}"],
@@ -52,7 +51,7 @@ def signed_gate_kwargs(tmp_path: Path):
     registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
     trusted_registry_sha256 = hashlib.sha256(registry_path.read_bytes()).hexdigest()
     # Synthetic test pin only; production must provision this through protected deployment config.
-    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = trusted_registry_sha256
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", trusted_registry_sha256)
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
@@ -90,7 +89,7 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         session_path=session,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -124,7 +123,7 @@ def test_runner_blocks_replaced_registry_and_attacker_key_before_network_or_sess
         def __init__(self, **kwargs):
             raise AssertionError("transport must not be constructed after registry substitution")
 
-    kwargs = signed_gate_kwargs(tmp_path)
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
     registry_path = kwargs["sequence_contract_key_registry_path"]
     # Simulate replacement after the independently trusted digest was captured.
     registry_path.write_text(json.dumps({"attacker-key": "YWNrZXI="}), encoding="utf-8")
@@ -155,7 +154,7 @@ def test_runner_blocks_coordinated_registry_and_envelope_replacement_before_netw
         def __init__(self, **kwargs):
             raise AssertionError("transport must not be constructed after coordinated trust substitution")
 
-    kwargs = signed_gate_kwargs(tmp_path)
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
     registry_path = kwargs["sequence_contract_key_registry_path"]
     envelope_path = kwargs["sequence_contract_envelope_path"]
     # Attacker replaces both the trust registry and the signed envelope, using an attacker key.
@@ -202,7 +201,7 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         transport_factory=GapTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
@@ -222,7 +221,7 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
         session_path=session,
         ws_factory=EmptyWS,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -248,7 +247,7 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -273,7 +272,7 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -302,7 +301,7 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
         transport_factory=OverLimitTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
         max_records=3,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
@@ -353,7 +352,7 @@ def test_runner_blocks_missing_ws_factory_before_session_or_transport(tmp_path: 
         journal_path=tmp_path / "journal.jsonl",
         session_path=session,
         transport_factory=MustNotRunTransport,
-        **signed_gate_kwargs(tmp_path),
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
@@ -386,7 +385,7 @@ def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path:
         def __init__(self, **kwargs):
             raise AssertionError("transport must not be constructed for another commit")
 
-    kwargs = signed_gate_kwargs(tmp_path)
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
     kwargs["expected_commit"] = "f" * 40
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
@@ -408,7 +407,7 @@ def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path:
 
 
 def test_runner_blocks_when_protected_registry_pin_is_missing_or_malformed(tmp_path: Path, monkeypatch):
-    kwargs = signed_gate_kwargs(tmp_path)
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
     monkeypatch.delenv("HES_TRUSTED_KEY_REGISTRY_SHA256", raising=False)
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
@@ -433,7 +432,7 @@ def test_runner_blocks_when_protected_registry_pin_is_missing_or_malformed(tmp_p
 
 
 def test_runner_rejects_registry_pin_mismatch_with_protected_environment(tmp_path: Path, monkeypatch):
-    kwargs = signed_gate_kwargs(tmp_path)
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
     monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", "0" * 64)
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
