@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from forward.signed_sequence_contract_gate_v1 import verify_sequence_contract_evidence
+from forward.signed_sequence_contract_gate_v1 import verify_sequence_contract_evidence, validate_sequence_contract_payload
 from scripts.verify_signed_source_evidence_v1 import verify
 
 
@@ -111,6 +111,63 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     market_scope="tabdeal:spot:BTC_USDT",
                     trusted_key_registry_sha256=hashlib.sha256(registry.read_bytes()).hexdigest(),
                 )
+
+
+    def test_contract_structure_requires_exact_scope_and_capability_schema(self):
+        payload = {
+            "schema": "hes_sequence_contract_v1",
+            "venue": "tabdeal",
+            "product": "futures_margin",
+            "endpoint": "special_margin/broadcast/",
+            "channel": "trade_broadcast",
+            "message_type": "trade",
+            "field_path": "trade.sequence",
+            "scope": "tabdeal:futures:BTC_USDT",
+            "protocol_version": "unknown",
+            "semantic_class": "unknown",
+            "capabilities": {
+                "exact_replay_dedup": True,
+                "event_id_dedup": False,
+                "ordered_within_scope": False,
+                "contiguous_within_scope": False,
+                "gap_detectable": False,
+                "cross_reconnect": False,
+            },
+        }
+        result = validate_sequence_contract_payload(
+            json.dumps(payload).encode(), market_scope="tabdeal:futures:BTC_USDT"
+        )
+        assert result["capabilities"]["ordered_within_scope"] is False
+        with self.assertRaisesRegex(ValueError, "scope mismatch"):
+            validate_sequence_contract_payload(
+                json.dumps(payload).encode(), market_scope="tabdeal:spot:BTC_USDT"
+            )
+
+    def test_contract_rejects_implied_capability_without_prerequisite(self):
+        payload = {
+            "schema": "hes_sequence_contract_v1",
+            "venue": "tabdeal",
+            "product": "futures_margin",
+            "endpoint": "special_margin/broadcast/",
+            "channel": "trade_broadcast",
+            "message_type": "trade",
+            "field_path": "trade.sequence",
+            "scope": "tabdeal:futures:BTC_USDT",
+            "protocol_version": "unknown",
+            "semantic_class": "unknown",
+            "capabilities": {
+                "exact_replay_dedup": False,
+                "event_id_dedup": False,
+                "ordered_within_scope": False,
+                "contiguous_within_scope": True,
+                "gap_detectable": False,
+                "cross_reconnect": False,
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "requires ordered capability"):
+            validate_sequence_contract_payload(
+                json.dumps(payload).encode(), market_scope="tabdeal:futures:BTC_USDT"
+            )
 
 
 if __name__ == "__main__":
