@@ -79,4 +79,19 @@ class SignedSourceEvidenceTests(unittest.TestCase):
             verify(e, expected_commit=COMMIT, expected_path=PATH, market_scope=MARKET,
                    key_registry={"test-key": PUB}, now=NOW, max_age_seconds=3600)
 
+    def test_destination_changed_after_signing_rejected(self):
+        # A destination rewrite must not be accepted merely because the
+        # attacker also rewrites the redirect chain to look internally consistent.
+        # Keep the original signature: the canonical signed bytes bind both fields.
+        e = envelope()
+        e["source_url"] = "https://evil.example/source"
+        e["redirect_chain"] = [
+            "https://evil.example/redirect",
+            "https://evil.example/source",
+        ]
+        with self.assertRaisesRegex(ValueError, "signature verification failed"):
+            self.check(e)
+
+
+
 if __name__ == "__main__": unittest.main()
