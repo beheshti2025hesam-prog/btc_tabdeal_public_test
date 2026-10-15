@@ -55,7 +55,7 @@ def signed_gate_kwargs(tmp_path: Path):
             "channel_or_topic": "BTC_USDT raw-text subscription",
             "message_type": "trade-envelope",
             "field_path": "trade.sequence",
-            "protocol_version": "unknown",
+            "protocol_version": "synthetic-test-protocol-v1",
             "semantic_class": "message_sequence",
             "capabilities": {
                 "unique": True, "ordered": True, "contiguous": True,
