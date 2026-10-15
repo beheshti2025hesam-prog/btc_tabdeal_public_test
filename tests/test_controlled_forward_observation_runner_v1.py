@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,10 +50,13 @@ def signed_gate_kwargs(tmp_path: Path):
     registry_path = tmp_path / "trusted-test-keys.json"
     envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
     registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    trusted_registry_sha256 = hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    # Synthetic test pin only; production must provision this through protected deployment config.
+    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = trusted_registry_sha256
     return {
         "sequence_contract_envelope_path": envelope_path,
         "sequence_contract_key_registry_path": registry_path,
-        "trusted_key_registry_sha256": hashlib.sha256(registry_path.read_bytes()).hexdigest(),
+        "trusted_key_registry_sha256": trusted_registry_sha256,
         "expected_commit": running_commit,
         "expected_evidence_path": "evidence/sequence-contract.json",
         "market_scope": "tabdeal:futures:BTC_USDT",
@@ -400,4 +404,48 @@ def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path:
     assert result.diagnostics[0]["network_started"] is False
     assert result.diagnostics[0]["session_written"] is False
     assert not session.exists()
+    assert not (tmp_path / "journal.jsonl").exists()
+
+
+def test_runner_blocks_when_protected_registry_pin_is_missing_or_malformed(tmp_path: Path):
+    kwargs = signed_gate_kwargs(tmp_path)
+    os.environ.pop("HES_TRUSTED_KEY_REGISTRY_SHA256", None)
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not (tmp_path / "session.jsonl").exists()
+    assert not (tmp_path / "journal.jsonl").exists()
+
+    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = "not-a-sha256"
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert not (tmp_path / "session.jsonl").exists()
+
+
+def test_runner_rejects_registry_pin_mismatch_with_protected_environment(tmp_path: Path):
+    kwargs = signed_gate_kwargs(tmp_path)
+    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = "0" * 64
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not (tmp_path / "session.jsonl").exists()
     assert not (tmp_path / "journal.jsonl").exists()
