@@ -3,7 +3,6 @@
 Consumes fresh raw trade observations and emits only closed candles.
 No strategy, indicator, threshold, signal, or outcome logic belongs here.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -65,44 +64,43 @@ def normalize_trades(
     as_of: datetime,
     expected_symbol: str | None = None,
 ) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
-    """Build deterministic closed candles and explicit missing intervals.
+    """Build closed candles; timestamps order events, never opaque sequence IDs.
 
-    as_of is mandatory so an open 15m bucket can never be emitted as closed.
-    expected_symbol prevents accidental multi-symbol aggregation.
+    When multiple distinct prices have the exact same source timestamp, the
+    OHLC open/close ordering is not established by timestamps. Without an
+    authorized ordering capability, fail closed rather than using sequence as
+    a tie-breaker. Repeated sequence values are not deduplicated or conflicted.
     """
-    if as_of.tzinfo is None:
+    if as_of.tzinfo is None or as_of.utcoffset() is None:
         raise ValueError("as_of must be timezone-aware")
     as_of = as_of.astimezone(timezone.utc)
 
-    unique: dict[int, TradeObservation] = {}
+    rows: list[TradeObservation] = []
     symbol = expected_symbol
-
     for trade in trades:
-        if trade.updated.tzinfo is None:
+        if trade.updated.tzinfo is None or trade.updated.utcoffset() is None:
             raise ValueError("updated must be timezone-aware")
         updated = trade.updated.astimezone(timezone.utc)
         if updated > as_of:
             raise ValueError("observation occurs after as_of")
         if trade.price <= 0 or trade.amount < 0:
             raise ValueError("price must be > 0 and amount must be >= 0")
-
         if symbol is None:
             symbol = trade.symbol
         if trade.symbol != symbol:
-            raise ValueError(
-                f"mixed symbols are not allowed: expected {symbol}, got {trade.symbol}"
-            )
+            raise ValueError(f"mixed symbols are not allowed: expected {symbol}, got {trade.symbol}")
+        rows.append(trade)
 
-        if trade.sequence in unique:
-            if unique[trade.sequence] != trade:
-                raise ValueError(f"Conflicting duplicate sequence: {trade.sequence}")
-            continue
-        unique[trade.sequence] = trade
+    # Python's stable sort preserves observed input order for equal timestamps,
+    # but that arrival order is not evidence of venue order; reject ambiguous ties.
+    ordered = sorted(rows, key=lambda x: x.updated.astimezone(timezone.utc))
+    for previous, current in zip(ordered, ordered[1:]):
+        if (
+            previous.updated.astimezone(timezone.utc) == current.updated.astimezone(timezone.utc)
+            and previous.price != current.price
+        ):
+            raise ValueError("ambiguous timestamp tie without verified ordering")
 
-    ordered = sorted(
-        unique.values(),
-        key=lambda x: (x.updated.astimezone(timezone.utc), x.sequence),
-    )
     if not ordered:
         return (), ()
 
@@ -122,40 +120,30 @@ def normalize_trades(
 
     while cursor <= last_bucket:
         close_time = cursor + timedelta(minutes=15)
-        rows = buckets.get(cursor)
-        if not rows:
-            gaps.append(
-                IntervalGap(
-                    symbol=symbol or "",
-                    timeframe=TIMEFRAME,
-                    open_time=cursor,
-                    close_time=close_time,
-                )
-            )
+        bucket_rows = buckets.get(cursor)
+        if not bucket_rows:
+            gaps.append(IntervalGap(
+                symbol=symbol or "", timeframe=TIMEFRAME,
+                open_time=cursor, close_time=close_time,
+            ))
         else:
-            rows = sorted(
-                rows,
-                key=lambda x: (x.updated.astimezone(timezone.utc), x.sequence),
-            )
-            prices = [x.price for x in rows]
-            candles.append(
-                Candle15m(
-                    symbol=symbol or rows[0].symbol,
-                    timeframe=TIMEFRAME,
-                    open_time=cursor,
-                    close_time=close_time,
-                    open=rows[0].price,
-                    high=max(prices),
-                    low=min(prices),
-                    close=rows[-1].price,
-                    volume=sum((x.amount for x in rows), Decimal("0")),
-                    trade_count=len(rows),
-                    first_sequence=rows[0].sequence,
-                    last_sequence=rows[-1].sequence,
-                    source_first_observed_at=rows[0].updated.astimezone(timezone.utc),
-                    source_last_observed_at=rows[-1].updated.astimezone(timezone.utc),
-                )
-            )
+            prices = [x.price for x in bucket_rows]
+            candles.append(Candle15m(
+                symbol=symbol or bucket_rows[0].symbol,
+                timeframe=TIMEFRAME,
+                open_time=cursor,
+                close_time=close_time,
+                open=bucket_rows[0].price,
+                high=max(prices),
+                low=min(prices),
+                close=bucket_rows[-1].price,
+                volume=sum((x.amount for x in bucket_rows), Decimal("0")),
+                trade_count=len(bucket_rows),
+                first_sequence=bucket_rows[0].sequence,
+                last_sequence=bucket_rows[-1].sequence,
+                source_first_observed_at=bucket_rows[0].updated.astimezone(timezone.utc),
+                source_last_observed_at=bucket_rows[-1].updated.astimezone(timezone.utc),
+            ))
         cursor = close_time
 
     return tuple(candles), tuple(gaps)
