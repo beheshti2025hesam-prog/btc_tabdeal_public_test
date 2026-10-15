@@ -14,7 +14,7 @@ from forward.controlled_forward_observation_runner_v1 import (
 )
 
 
-def signed_gate_kwargs(tmp_path: Path, monkeypatch):
+def signed_gate_kwargs(tmp_path: Path, monkeypatch, *, ordered_within_scope=True):
     """Build real synthetic Ed25519 evidence; never use a boolean as proof."""
     running_commit = subprocess.run(
         ["git", "rev-parse", "--verify", "HEAD^{commit}"],
@@ -35,11 +35,11 @@ def signed_gate_kwargs(tmp_path: Path, monkeypatch):
         "field_path": "trade.sequence",
         "scope": "tabdeal:futures:BTC_USDT",
         "protocol_version": "unknown",
-        "semantic_class": "message_sequence",
+        "semantic_class": "message_sequence" if ordered_within_scope else "unknown",
         "capabilities": {
             "exact_replay_dedup": True,
             "event_id_dedup": False,
-            "ordered_within_scope": True,
+            "ordered_within_scope": ordered_within_scope,
             "contiguous_within_scope": False,
             "gap_detectable": False,
             "cross_reconnect": False,
@@ -385,6 +385,32 @@ def test_runner_blocks_missing_ws_factory_before_session_or_transport(tmp_path: 
     },)
     assert not session.exists()
     assert not (tmp_path / "journal.jsonl").exists()
+
+
+
+def test_runner_blocks_signed_contract_without_consumer_capability_before_network_or_session(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed without signed ordering capability")
+
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **signed_gate_kwargs(tmp_path, monkeypatch, ordered_within_scope=False),
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
 
 
 def test_runner_blocks_when_signed_evidence_is_not_configured(tmp_path: Path):
