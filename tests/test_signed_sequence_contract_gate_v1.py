@@ -124,7 +124,9 @@ class SignedSequenceContractGateTests(unittest.TestCase):
             payload = b'{"sequence_contract":"signed-but-insufficient"}'
             source_url = "https://docs.tabdeal.org/"
             now = datetime(2026, 10, 15, 12, 0, tzinfo=timezone.utc)
-            private_key = Ed25519PrivateKey.generate()
+            # Deterministic synthetic key lets the test use a fixed independent
+            # registry pin instead of deriving trust from the file under test.
+            private_key = Ed25519PrivateKey.from_private_bytes(b"\\x01" * 32)
             public_key = base64.b64encode(
                 private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
             ).decode("ascii")
@@ -149,9 +151,9 @@ class SignedSequenceContractGateTests(unittest.TestCase):
             registry_path.write_text(
                 json.dumps({"synthetic-test-key": public_key}), encoding="utf-8"
             )
-            os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = hashlib.sha256(
-                registry_path.read_bytes()
-            ).hexdigest()
+            os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = (
+                "9d1bd6019558fe32b5737ad98998b88273e01133fd5bdee8f8d1d4ddfc187f92"
+            )
             with self.assertRaisesRegex(ValueError, "missing or unexpected fields"):
                 verify_sequence_contract_evidence(
                     envelope_path=envelope_path,
