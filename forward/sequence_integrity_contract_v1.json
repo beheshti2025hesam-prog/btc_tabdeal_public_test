@@ -1,16 +1,48 @@
 {
   "schema": "hes_forward_sequence_integrity_v1",
-  "status": "ACTIVE_FROM_2026-10-07",
+  "status": "ACTIVE_FAIL_CLOSED",
   "mode": "FORWARD_ONLY",
-  "duplicate_policy": "IDENTICAL_ONLY",
-  "conflicting_duplicate_policy": "REJECT_STREAM",
-  "gap_policy": "ANOMALY_NO_REPAIR",
-  "out_of_order_policy": "ANOMALY_NO_REORDER",
-  "reconnect_policy": "RESET_CONTINUITY",
+  "sequence_semantics_default": "UNKNOWN_OPAQUE",
+  "identity_conflict_requires": "VERIFIED_ADAPTER_IDENTITY_CAPABILITY",
+  "ordering_requires": "VERIFIED_ADAPTER_ORDERING_CAPABILITY",
+  "contiguity_requires": "VERIFIED_ADAPTER_CONTIGUITY_CAPABILITY",
+  "duplicate_policy": "RAW_PAYLOAD_SHA256_EXACT_REPLAY_ONLY_WHEN_SEMANTICS_UNKNOWN",
+  "conflicting_duplicate_policy": "NO_CONFLICT_INFERENCE_FROM_OPAQUE_SEQUENCE",
+  "gap_policy": "NO_GAP_INFERENCE_FROM_OPAQUE_SEQUENCE",
+  "out_of_order_policy": "NO_ORDERING_INFERENCE_FROM_OPAQUE_SEQUENCE",
+  "reconnect_policy": "RESET_LOCAL_REPLAY_STATE",
   "restart_safe": true,
   "fail_closed": true,
   "silent_repair": false,
-  "conflict_diagnostics": "APPEND_ONLY_HASH_CHAIN",
+  "conflict_diagnostics": "APPEND_ONLY_HASH_CHAIN_WHEN_IDENTITY_CAPABILITY_VERIFIED",
   "conflict_payload_storage": "NORMALIZED_PUBLIC_FIELDS_ONLY",
-  "diagnostic_persistence_failure_policy": "KEEP_BLOCKED_NO_REPAIR"
+  "diagnostic_persistence_failure_policy": "KEEP_BLOCKED_NO_REPAIR",
+  "tabdeal_fapi_broadcast": {
+    "field_path": "trade.sequence",
+    "semantic_class": "UNKNOWN",
+    "unique": "UNKNOWN",
+    "ordered": "UNKNOWN",
+    "contiguous": "UNKNOWN",
+    "cross_reconnect_comparable": "UNKNOWN",
+    "source_evidence": "https://docs.tabdeal.org/",
+    "notes": "Public contract documents only a trade envelope; inner trade fields and trade.sequence semantics are not defined."
+  },
+  "tabdeal_spot_depth": {
+    "sequence_field": "NOT_DOCUMENTED_IN_REVIEWED_SAMPLE",
+    "ordering": "UNKNOWN",
+    "gap_detection": "DISABLED"
+  },
+  "tabdeal_fapi_stream_depth": {
+    "sequence_field": "NOT_DOCUMENTED_IN_REVIEWED_SAMPLE",
+    "ordering": "UNKNOWN",
+    "gap_detection": "DISABLED"
+  },
+  "tabdeal_fapi_rest_agg_depth": {
+    "field_path": "sequence",
+    "semantic_class": "OPAQUE",
+    "unique": "UNKNOWN",
+    "ordered": "UNKNOWN",
+    "contiguous": "UNKNOWN",
+    "cross_endpoint_comparable": "UNKNOWN"
+  }
 }
