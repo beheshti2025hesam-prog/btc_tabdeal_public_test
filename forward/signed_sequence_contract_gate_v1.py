@@ -61,11 +61,13 @@ def _validate_contract(envelope: dict[str, Any], raw_source_bytes: bytes, market
         "channel_or_topic": "BTC_USDT raw-text subscription",
         "message_type": "trade-envelope",
         "field_path": "trade.sequence",
-        "protocol_version": "unknown",
         "semantic_class": "message_sequence",
     }
     if any(contract.get(key) != value for key, value in expected.items()):
         raise SequenceContractPayloadError("signed contract scope or status mismatch")
+    protocol_version = contract.get("protocol_version")
+    if not isinstance(protocol_version, str) or not protocol_version.strip() or protocol_version == "unknown":
+        raise SequenceContractPayloadError("sequence protocol version must be explicitly pinned")
 
     capabilities = contract.get("capabilities")
     if not isinstance(capabilities, dict) or set(capabilities) != {
