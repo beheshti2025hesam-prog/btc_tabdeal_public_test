@@ -1,0 +1,24 @@
+name: VPS GitHub Identity Reconciliation v2
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - audit/vps-github-identity-reconciliation-v2-20261011
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-immutable-reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify artifact hash lock and fail-closed claim boundaries
+        run: python scripts/verify_vps_github_identity_reconciliation_v2.py

@@ -1,0 +1,29 @@
+{
+  "lock_id": "HES-VPS-GITHUB-IDENTITY-RECONCILIATION-V2-LOCK",
+  "version": 2,
+  "status": "LOCKED",
+  "artifact_path": "archive/vps_github_identity_reconciliation_v2.json",
+  "artifact_commit": "64e865897dc0d5934958ad63d818cfdc3f9d6ea0",
+  "artifact_git_blob_sha1": "e2c157fc51cfcd864a7b1b949b19601b52122b05",
+  "artifact_sha256": "0cfd4c55ff77890fb3bc31ba1fe21f3f4a2f6aa88b032081717cab1e38b571a7",
+  "artifact_bytes": 5863,
+  "lock_basis": [
+    "SHA-256 and byte count are computed from the exact UTF-8 artifact bytes",
+    "Git blob SHA-1 was read back from the committed v2 artifact"
+  ],
+  "mutation_scope": "This v2 audit artifact and its lock only. No source data, v1 artifact, archive, winner selection, threshold, strategy, or historical observation was modified.",
+  "claim_boundary": {
+    "archive_byte_identity": "PASS_16_OF_16",
+    "current_tail_prefix_identity": "PASS",
+    "observation_manifest_and_run_ledger_syntax": "FAIL",
+    "session_lineage": "OPEN",
+    "single_writer_current_lock_binding": "FAIL_HASH_MISMATCH",
+    "historical_writer_attribution": "OPEN",
+    "sequence_semantics": "UNKNOWN",
+    "feature_extraction": false,
+    "effective_evidence": false,
+    "continuous_48h_observation": false,
+    "live_execution": false,
+    "trading_authorized": false
+  }
+}
