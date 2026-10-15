@@ -10,13 +10,16 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
+
 def canonical_signed_bytes(envelope):
     signed = {k: v for k, v in envelope.items() if k != "signature_b64"}
     return json.dumps(signed, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
+
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
 
 def validate_evidence_path(path):
     # Evidence identifiers are repository-relative POSIX paths, never filesystem paths.
@@ -29,6 +32,25 @@ def validate_evidence_path(path):
     require(not (len(path) >= 2 and path[1] == ":"), "unsafe evidence path")
     return path
 
+
+def validate_https_url(value, *, label):
+    """Reject ambiguous or credential-bearing HTTPS URLs before trusting signed metadata."""
+    require(isinstance(value, str) and bool(value), f"{label} must be a non-empty HTTPS URL")
+    require(not any(ord(ch) < 0x20 or ch.isspace() for ch in value), f"invalid {label}")
+    require("\\" not in value, f"invalid {label}")
+    parsed = urlparse(value)
+    require(parsed.scheme == "https" and bool(parsed.netloc) and bool(parsed.hostname),
+            f"{label} must be HTTPS")
+    require(parsed.username is None and parsed.password is None, f"{label} must not contain credentials")
+    require(not parsed.fragment, f"{label} must not contain a fragment")
+    try:
+        port = parsed.port  # Force malformed ports to fail closed.
+    except ValueError as exc:
+        raise ValueError(f"invalid {label}") from exc
+    require(port is None or 1 <= port <= 65535, f"invalid {label} port")
+    return parsed
+
+
 def verify(envelope, *, expected_commit, expected_path, market_scope, key_registry,
            now=None, max_age_seconds=86400):
     require(isinstance(envelope, dict), "envelope must be an object")
@@ -39,25 +61,15 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
     require(envelope.get("market_scope") == market_scope, "market scope mismatch")
     digest = envelope.get("raw_sha256", "")
     require(isinstance(digest, str) and len(digest) == 64 and all(c in "0123456789abcdef" for c in digest), "invalid raw SHA-256")
+
     url = envelope.get("source_url", "")
-    parsed_url = urlparse(url)
-    require(parsed_url.scheme == "https" and bool(parsed_url.netloc), "source URL must be HTTPS")
-    try:
-        # Access .port to force malformed ports to fail closed.
-        _ = parsed_url.port
-    except ValueError as exc:
-        raise ValueError("invalid source URL or redirect chain") from exc
+    validate_https_url(url, label="source URL")
     redirects = envelope.get("redirect_chain")
     require(isinstance(redirects, list) and redirects, "redirect chain missing")
     for redirect in redirects:
-        parsed_redirect = urlparse(redirect) if isinstance(redirect, str) else None
-        require(parsed_redirect is not None and parsed_redirect.scheme == "https" and parsed_redirect.netloc,
-                "invalid redirect URL")
-        try:
-            _ = parsed_redirect.port
-        except ValueError as exc:
-            raise ValueError("invalid source URL or redirect chain") from exc
+        validate_https_url(redirect, label="redirect URL")
     require(redirects[-1] == url, "redirect chain final URL differs from source URL")
+
     stamp = envelope.get("retrieved_at", "")
     try:
         retrieved = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
@@ -85,6 +97,7 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
             "raw_sha256": digest, "source_url": url, "redirect_chain": redirects,
             "retrieved_at": stamp, "market_scope": market_scope, "key_id": key_id}
 
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("envelope")
@@ -104,5 +117,7 @@ def main():
         print(f"FAIL-CLOSED: {exc}", file=sys.stderr)
         return 1
     return 0
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
