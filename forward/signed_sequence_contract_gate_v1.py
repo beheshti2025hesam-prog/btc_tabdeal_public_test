@@ -160,6 +160,7 @@ def verify_sequence_contract_evidence(
         "sequence_contract_schema": payload["schema"],
         "sequence_contract_semantic_class": payload["semantic_class"],
         "sequence_contract_capabilities": payload["capabilities"],
+        "sequence_contract_capabilities_json": json.dumps(payload["capabilities"], sort_keys=True, separators=(",", ":")),
         "source_snapshot_sha256": payload["source_evidence"]["source_snapshot_sha256"],
         "envelope_sha256": hashlib.sha256(envelope_bytes).hexdigest(),
         "key_registry_sha256": hashlib.sha256(key_registry_bytes).hexdigest(),
