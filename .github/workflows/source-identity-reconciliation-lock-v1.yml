@@ -25,7 +25,7 @@ jobs:
 
       - name: Validate source identity against pinned raw rows
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           OLD_RAW_BLOB_SHA: "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
           CURRENT_RAW_BLOB_SHA: "58d21825e052dbaa42e7eb0695455c19997bff43"
         run: |
