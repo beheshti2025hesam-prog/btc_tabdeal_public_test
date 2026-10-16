@@ -28,4 +28,4 @@ For a venue/product/symbol/interval, request the same bounded time window from t
 
 Add one explicit adapter per official public candle endpoint or documented SDK. Keep venue, product, instrument, timeframe, timestamp convention, closure rule, and source digest in the record. Do not guess broker endpoints, reuse Binance rules for another venue, or silently fall back to trade aggregation.
 
-This is a read-only reference adapter, not a live collector or trading authorization.
+A durable append-only one-shot collector is available in native_ohlcv_collector_v1.py. It is disabled by default and must be explicitly enabled for one bounded fetch. It is not a scheduled live collector or trading authorization.

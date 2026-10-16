@@ -11,7 +11,8 @@
 2. Binance Spot standard klines for parity checks.
 3. Binance USDⓈ-M Futures klines.
 4. Raw response SHA-256, Decimal precision, closed-candle filtering, malformed-row rejection, duplicate conflict handling, explicit intra-window gaps, and no synthetic candles.
-5. Deterministic tests using fake HTTP responses; tests do not hit a live endpoint.
+5. Disabled-by-default durable append-only one-shot collector with explicit fsync and source digest.
+6. Deterministic tests using fake HTTP responses; tests do not hit a live endpoint.
 
 ## Deliberate limits
 

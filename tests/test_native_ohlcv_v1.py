@@ -75,6 +75,8 @@ def test_identical_duplicate_is_idempotent_but_conflicting_duplicate_fails():
     lambda r: [r[0], r[1], "98", r[3], r[4], *r[5:]],
     lambda r: [r[0], r[1], r[2], r[3], r[4], "-1", *r[6:]],
     lambda r: [r[0] + 1, *r[1:]],
+    lambda r: [float(r[0]), *r[1:]],
+    lambda r: [r[0], 100.0, *r[2:]],
 ])
 def test_rejects_malformed_rows(mutate):
     with pytest.raises(ValueError):

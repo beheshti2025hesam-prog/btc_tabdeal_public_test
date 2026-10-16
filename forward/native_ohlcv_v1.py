@@ -69,18 +69,20 @@ class NativeOHLCVBatch:
 
 
 def _wire_int(value: object, field: str) -> int:
+    # Binance kline timestamps and trade counts are JSON integers; reject
+    # booleans, floats, and numeric strings rather than silently coercing them.
     if type(value) is int:
         return value
-    if type(value) is str and value and value.isdecimal():
-        return int(value)
-    raise ValueError(f"{field} must be an integer wire value")
+    raise ValueError(f"{field} must be a JSON integer")
 
 
 def _decimal(value: object, field: str) -> Decimal:
-    if type(value) not in (str, int, float, Decimal):
-        raise ValueError(f"{field} must be numeric")
+    # Binance documents price and quantity fields as decimal strings. Accepting
+    # floats would allow precision loss before Decimal sees the value.
+    if type(value) is not str:
+        raise ValueError(f"{field} must be a decimal string")
     try:
-        result = Decimal(str(value))
+        result = Decimal(value)
     except (InvalidOperation, ValueError) as exc:
         raise ValueError(f"{field} is not a decimal") from exc
     if not result.is_finite():
