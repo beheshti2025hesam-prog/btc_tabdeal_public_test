@@ -12,6 +12,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+# Running a script from scripts/ places that directory, not the repo root, on sys.path.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from forward.native_ohlcv_v1 import BinanceSpotKlineSource
 
 OUT = Path("artifacts/native_ohlcv_live_parity.json")
