@@ -13,11 +13,28 @@ KEY = Ed25519PrivateKey.generate()
 PUB = base64.b64encode(KEY.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode()
 
 
+def _response(status_line, location=None):
+    lines = [status_line, "Content-Type: text/html"]
+    if location is not None:
+        lines.append("Location: " + location)
+    raw = ("\r\n".join(lines) + "\r\n\r\n").encode("iso-8859-1")
+    return {"response_status": int(status_line.split()[1]),
+            "response_headers_b64": base64.b64encode(raw).decode(),
+            "response_headers_sha256": hashlib.sha256(raw).hexdigest()}
+
+
 def envelope():
+    redirect = "https://docs.tabdeal.org/redirect"
+    source = "https://docs.tabdeal.org/source"
+    hop = _response("HTTP/1.1 302 Found", "/source")
+    hop.update({"request_url": redirect, "raw_location": "/source",
+                "resolved_next_url": source})
+    final = _response("HTTP/1.1 200 OK")
+    final["request_url"] = source
     e = {"expected_commit": COMMIT, "evidence_path": PATH,
          "raw_sha256": hashlib.sha256(PAYLOAD).hexdigest(),
-         "source_url": "https://docs.tabdeal.org/source",
-         "redirect_chain": ["https://docs.tabdeal.org/redirect", "https://docs.tabdeal.org/source"],
+         "source_url": source, "redirect_chain": [redirect, source],
+         "redirect_hops": [hop], "final_response": final,
          "retrieved_at": NOW.isoformat(), "market_scope": MARKET, "key_id": "test-key",
          "signature_algorithm": "Ed25519", "payload_b64": base64.b64encode(PAYLOAD).decode()}
     e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
@@ -58,6 +75,42 @@ class SignedSourceEvidenceTests(unittest.TestCase):
         e = envelope(); e["retrieved_at"] = "2026-10-12T00:00:00+00:00"
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "stale"): self.check(e)
+
+    def test_redirect_hop_evidence_required(self):
+        e = envelope(); e.pop("redirect_hops")
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "redirect hop evidence missing"):
+            self.check(e)
+
+    def test_redirect_hop_count_must_match_chain(self):
+        e = envelope(); e["redirect_hops"] = []
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "redirect hop count mismatch"):
+            self.check(e)
+
+    def test_fabricated_location_rejected_against_captured_headers(self):
+        e = envelope(); e["redirect_hops"][0]["raw_location"] = "/fabricated"
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "raw Location does not match captured headers"):
+            self.check(e)
+
+    def test_reordered_or_mismatched_hop_rejected(self):
+        e = envelope(); e["redirect_hops"][0]["request_url"] = e["source_url"]
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "request URL mismatch"):
+            self.check(e)
+
+    def test_captured_header_tamper_rejected(self):
+        e = envelope(); e["redirect_hops"][0]["response_headers_sha256"] = "0" * 64
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "response-header SHA-256 mismatch"):
+            self.check(e)
+
+    def test_final_response_must_be_successful(self):
+        e = envelope(); e["final_response"]["response_status"] = 302
+        e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
+        with self.assertRaisesRegex(ValueError, "final response must be 2xx"):
+            self.check(e)
 
     def test_redirect_chain_identity_required(self):
         e = envelope(); e["redirect_chain"] = ["https://docs.tabdeal.org/other"]
