@@ -46,7 +46,7 @@ def signed_gate_kwargs(tmp_path: Path, monkeypatch, *, ordered_within_scope=True
         },
     }, sort_keys=True, separators=(",", ":")).encode("utf-8")
     source_url = "https://docs.tabdeal.org/sequence-contract"
-    final_headers = b"HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n"
+    final_headers = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
     final_response = {
         "request_url": source_url,
         "response_status": 200,
