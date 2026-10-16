@@ -74,13 +74,13 @@ def _decode_header_block(encoded, expected_digest, *, label):
         raise ValueError(f"invalid {label} header evidence encoding") from exc
     require(hashlib.sha256(raw).hexdigest() == expected_digest,
             f"{label} header evidence digest mismatch")
-    require(raw.endswith(b"\\r\\n\\r\\n"), f"{label} header block is not CRLF terminated")
-    require(b"\\x00" not in raw and b"\\n" not in raw.replace(b"\\r\\n", b""),
+    require(raw.endswith(b"\r\n\r\n"), f"{label} header block is not CRLF terminated")
+    require(b"\x00" not in raw and b"\n" not in raw.replace(b"\r\n", b""),
             f"invalid {label} header block line endings")
-    lines = raw[:-4].split(b"\\r\\n") if raw[:-4] else []
+    lines = raw[:-4].split(b"\r\n") if raw[:-4] else []
     parsed = []
     for line in lines:
-        require(b":" in line and not line.startswith((b" ", b"\\t")),
+        require(b":" in line and not line.startswith((b" ", b"\t")),
                 f"invalid {label} header line")
         name, value = line.split(b":", 1)
         require(name and all(ch in b"!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" for ch in name),
@@ -119,7 +119,7 @@ def validate_redirect_hop_evidence(envelope, source_url, redirects):
         raw_location = hop.get("location_header")
         require(isinstance(raw_location, str) and raw_location == locations[0],
                 "redirect hop raw Location value mismatch")
-        require(not any(ord(ch) < 0x20 and ch != "\\t" for ch in raw_location),
+        require(not any(ord(ch) < 0x20 and ch != "\t" for ch in raw_location),
                 "redirect hop Location contains control characters")
         try:
             resolved = urljoin(request_url, raw_location)
