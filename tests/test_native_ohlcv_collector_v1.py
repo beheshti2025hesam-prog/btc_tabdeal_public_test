@@ -23,6 +23,7 @@ class FakeSource:
 
 def batch():
     candle = SimpleNamespace(
+        venue="binance", product="spot", symbol="BTCUSDT", interval="15m",
         open_time_ms=1800000000000, close_time_ms=1800000899999,
         open=Decimal("100.00"), high=Decimal("102.00"),
         low=Decimal("99.00"), close=Decimal("101.25"),

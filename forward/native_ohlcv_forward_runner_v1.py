@@ -1,18 +1,14 @@
 """Disabled-by-default native OHLCV forward runner; independent of trade.sequence."""
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
 from pathlib import Path
 
 from .forward_observation_writer_v1 import ForwardObservationWriterV1
 from .native_ohlcv_v1 import INTERVAL_MS, NativeOHLCVBatch, NativeOHLCVSource, validate_native_batch
 from .runtime_guard_v1 import RuntimeContext
-
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True)
