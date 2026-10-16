@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "evidence_id": "BINANCE_NATIVE_OHLCV_SPOT_LIVE_PARITY_2026-10-16",
+  "source_commit_sha": "b0e9bf47234464ec66d7d9ef01b2830d71a94e34",
+  "workflow_run_id": "38969466792",
+  "artifact_zip_sha256": "sha256:945df73af744019219b975552f9dcac1533bcef714266f72a98f61c1d459ad28",
+  "observed_at_utc": "2026-10-16T21:27:43.550302+00:00",
+  "scope": {
+    "venue": "binance",
+    "product": "spot",
+    "symbol": "BTCUSDT",
+    "interval": "15m",
+    "limit_per_endpoint": 12,
+    "endpoints": [
+      "https://data-api.binance.vision/api/v3/uiKlines",
+      "https://data-api.binance.vision/api/v3/klines"
+    ]
+  },
+  "security": {
+    "credentials_used": false,
+    "private_endpoints_used": false,
+    "orders_or_account_actions": false,
+    "execution": "OFF"
+  },
+  "status": "PASS",
+  "endpoint_hashes": {
+    "uiKlines": {
+      "sha256": "c92ce35a2bdb0038d631e859bfa5aa868f7dee2e97c262e5bfee3219897c8d45",
+      "fetched_at_ms": 1792186064144,
+      "closed_candles": 11,
+      "open_candles_excluded": 1
+    },
+    "klines": {
+      "sha256": "c92ce35a2bdb0038d631e859bfa5aa868f7dee2e97c262e5bfee3219897c8d45",
+      "fetched_at_ms": 1792186064686,
+      "closed_candles": 11,
+      "open_candles_excluded": 1
+    }
+  },
+  "comparison": {
+    "common_closed_candles": 11,
+    "minimum_required": 8,
+    "compared_fields": [
+      "close_time_ms",
+      "open",
+      "high",
+      "low",
+      "close",
+      "base_volume",
+      "quote_volume",
+      "trade_count"
+    ],
+    "mismatch_count": 0,
+    "closed_candle_parity": true,
+    "common_open_times_utc": [
+      "2026-10-16T18:30:00Z",
+      "2026-10-16T18:45:00Z",
+      "2026-10-16T19:00:00Z",
+      "2026-10-16T19:15:00Z",
+      "2026-10-16T19:30:00Z",
+      "2026-10-16T19:45:00Z",
+      "2026-10-16T20:00:00Z",
+      "2026-10-16T20:15:00Z",
+      "2026-10-16T20:30:00Z",
+      "2026-10-16T20:45:00Z",
+      "2026-10-16T21:00:00Z"
+    ]
+  },
+  "candles": [
+    [
+      1792175400000,
+      1792176299999,
+      "81413.37000000",
+      "81475.96000000",
+      "81000.00000000",
+      "81107.59000000",
+      "304.14154000",
+      "24695834.26995850",
+      49808,
+      "133.36609000",
+      "10827043.41430270"
+    ],
+    [
+      1792176300000,
+      1792177199999,
+      "81107.60000000",
+      "81300.01000000",
+      "80920.00000000",
+      "81145.73000000",
+      "386.00271000",
+      "31295729.61595670",
+      72569,
+      "206.50766000",
+      "16747906.93634090"
+    ],
+    [
+      1792177200000,
+      1792178099999,
+      "81145.72000000",
+      "81403.21000000",
+      "81020.13000000",
+      "81403.21000000",
+      "151.87899000",
+      "12333140.69113770",
+      60597,
+      "104.36782000",
+      "8476858.45151020"
+    ],
+    [
+      1792178100000,
+      1792178999999,
+      "81403.21000000",
+      "81742.72000000",
+      "81322.75000000",
+      "81604.00000000",
+      "299.35950000",
+      "24396873.63719130",
+      56038,
+      "150.64119000",
+      "12279809.30237910"
+    ],
+    [
+      1792179000000,
+      1792179899999,
+      "81604.01000000",
+      "81619.18000000",
+      "81349.96000000",
+      "81355.67000000",
+      "104.73324000",
+      "8529155.74444260",
+      30837,
+      "50.55596000",
+      "4116608.68552330"
+    ],
+    [
+      1792179900000,
+      1792180799999,
+      "81355.67000000",
+      "81658.77000000",
+      "81355.67000000",
+      "81589.86000000",
+      "122.30733000",
+      "9970185.74691010",
+      38076,
+      "71.78299000",
+      "5850902.73541910"
+    ],
+    [
+      1792180800000,
+      1792181699999,
+      "81589.85000000",
+      "81684.95000000",
+      "81524.00000000",
+      "81578.75000000",
+      "165.26158000",
+      "13484503.16931660",
+      25680,
+      "49.35468000",
+      "4028087.34104530"
+    ],
+    [
+      1792181700000,
+      1792182599999,
+      "81578.76000000",
+      "81700.10000000",
+      "81578.75000000",
+      "81648.90000000",
+      "103.55797000",
+      "8455795.93342380",
+      19961,
+      "84.98045000",
+      "6939201.57706510"
+    ],
+    [
+      1792182600000,
+      1792183499999,
+      "81648.91000000",
+      "81739.50000000",
+      "81648.91000000",
+      "81716.01000000",
+      "86.20982000",
+      "7043068.44429640",
+      22229,
+      "57.77108000",
+      "4719509.52697290"
+    ],
+    [
+      1792183500000,
+      1792184399999,
+      "81716.00000000",
+      "81784.01000000",
+      "81664.00000000",
+      "81727.84000000",
+      "87.42365000",
+      "7144739.47408730",
+      19067,
+      "44.03836000",
+      "3599045.04702510"
+    ],
+    [
+      1792184400000,
+      1792185299999,
+      "81727.83000000",
+      "81742.01000000",
+      "81561.27000000",
+      "81717.35000000",
+      "138.65403000",
+      "11324171.20436520",
+      25057,
+      "82.06559000",
+      "6702946.76430620"
+    ]
+  ],
+  "candle_row_fields": [
+    "open_time_ms",
+    "close_time_ms",
+    "open",
+    "high",
+    "low",
+    "close",
+    "base_volume",
+    "quote_volume",
+    "trade_count",
+    "taker_buy_volume",
+    "taker_buy_quote_volume"
+  ],
+  "separate_product_probe": {
+    "product": "usdm_perpetual",
+    "status": "BLOCKED_SOURCE_UNAVAILABLE",
+    "endpoint": "https://fapi.binance.com/fapi/v1/klines",
+    "reason": "HTTP 451 from the hosted runner; no workaround or proxy was used."
+  },
+  "limitations": [
+    "This validates parity between the two public Spot endpoints for 11 closed candles only.",
+    "Matching endpoint payload hashes were observed in this capture.",
+    "It does not prove which endpoint the website UI uses internally.",
+    "USDⓈ-M Futures direct live capture remains blocked by HTTP 451.",
+    "Tabdeal/broker native candle parity remains unverified until an official candle endpoint is identified and reachable."
+  ]
+}
