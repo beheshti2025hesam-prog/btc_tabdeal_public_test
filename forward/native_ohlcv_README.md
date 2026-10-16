@@ -41,3 +41,8 @@ The `.github/workflows/native-ohlcv-live-parity-v1.yml` workflow performs a boun
 ## Native feature pipeline
 
 `NativeOHLCVFeaturePipelineV1` builds a descriptive `FeatureSnapshot` from native candles: EMA, a volume-weighted price computed as summed quote volume divided by summed base volume over the configured closed-candle window, taker-buy ratio/delta, volume, volatility/ATR, and regime. It preserves source digest and product identity. Any observed in-window candle gap blocks decision readiness; insufficient closed history and invalid quality also fail closed. This pipeline does not place orders.
+
+
+## One-shot native feature journaling
+
+When enabled explicitly, `NativeOHLCVForwardRunnerV1` now fetches one native batch, builds the feature snapshot from that same batch, and journals candles, source hash, feature-quality outcome, and the snapshot together. A snapshot is emitted only when feature quality, history sufficiency, and gap checks pass; otherwise the journal records the block reason and no usable snapshot. Execution remains OFF.

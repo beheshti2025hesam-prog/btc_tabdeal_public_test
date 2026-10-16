@@ -43,3 +43,8 @@ A dedicated adapter now converts validated native candles into the existing feat
 ## Native OHLCV feature path
 
 A native-only feature pipeline now creates the existing descriptive FeatureSnapshot from validated exchange candles. It uses native quote/base volume for window VWAP and native taker-buy volume for ratio/delta, preserving exact Decimal source data until the analytics boundary. Any observed gap or insufficient history blocks decision readiness. It does not invoke order execution.
+
+
+## Same-batch feature journaling
+
+The disabled-by-default forward runner now passes its single validated native batch through `NativeOHLCVFeaturePipelineV1` and stores the resulting feature-quality/readiness state in the same immutable journal record. It never performs a second market-data fetch for features. A feature snapshot is withheld when readiness fails.

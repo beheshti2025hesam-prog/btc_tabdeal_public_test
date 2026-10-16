@@ -4,6 +4,7 @@ import hashlib
 import json
 from decimal import Decimal
 
+from core.strategy.baseline import BaselineDecision, BaselineStrategy, BaselineStrategyInput
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from forward.native_ohlcv_v1 import normalize_native_klines
 
@@ -12,11 +13,12 @@ INTERVAL = 900_000
 
 
 def row(open_time: int, *, close: str = "101.25", volume: str = "2.500",
-        quote: str = "250.625", taker_buy: str = "1.250") -> list[object]:
+        quote: str = "250.625", taker_buy: str = "1.250",
+        taker_buy_quote: str = "125.3125") -> list[object]:
     high = str(max(102.0, float(close)))
     return [
         open_time, "100.00", high, "99.00", close, volume,
-        open_time + INTERVAL - 1, quote, 12, taker_buy, "125.3125", "0",
+        open_time + INTERVAL - 1, quote, 12, taker_buy, taker_buy_quote, "0",
     ]
 
 
@@ -58,6 +60,7 @@ def test_observed_gaps_block_decision_readiness_without_fabricating_candles():
     assert result.candle_count == 2
     assert len(result.gaps) == 1
     assert not result.decision_ready
+    assert result.snapshot is None
     assert result.reason == "OBSERVED_CANDLE_GAPS"
 
 
@@ -69,6 +72,7 @@ def test_insufficient_closed_history_fails_closed():
     assert not result.decision_ready
     assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
     assert not result.quality.passed
+    assert result.snapshot is None
 
 
 def test_spot_and_futures_identity_remain_separate():
@@ -81,3 +85,18 @@ def test_spot_and_futures_identity_remain_separate():
     assert futures_result.product == "usdm_perpetual"
     assert spot_result.source_response_sha256 != ""
     assert futures_result.source_response_sha256 != ""
+
+
+def test_ready_native_snapshot_can_feed_signal_only_baseline_strategy():
+    rows = [
+        row(BASE + i * INTERVAL, close=str(100 + i), taker_buy="1.600",
+            taker_buy_quote="160.400")
+        for i in range(4)
+    ]
+    source = batch(rows)
+    result = NativeOHLCVFeaturePipelineV1(
+        ema_period=3, vwap_period=3, momentum_period=2
+    ).build(source, now_ms=source.fetched_at_ms + 1)
+    assert result.decision_ready and result.snapshot is not None
+    decision = BaselineStrategy().evaluate(BaselineStrategyInput(features=result.snapshot))
+    assert decision == BaselineDecision.LONG

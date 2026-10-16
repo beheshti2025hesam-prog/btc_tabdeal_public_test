@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .forward_observation_writer_v1 import ForwardObservationWriterV1
+from .native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from .native_ohlcv_v1 import INTERVAL_MS, NativeOHLCVBatch, NativeOHLCVSource, validate_native_batch
 from .runtime_guard_v1 import RuntimeContext
 
@@ -21,19 +22,24 @@ class NativeOHLCVForwardRunResult:
     gap_count: int = 0
     journal_digest: str | None = None
     response_sha256: str | None = None
+    feature_ready: bool = False
+    feature_reason: str | None = None
+    feature_quality_violations: tuple[str, ...] = ()
 
 
 class NativeOHLCVForwardRunnerV1:
     """One bounded native-candle fetch and one immutable journal record."""
 
     def __init__(self, *, source: NativeOHLCVSource, journal_path: str | Path,
-                 enabled: bool = False, writer: ForwardObservationWriterV1 | None = None):
+                 enabled: bool = False, writer: ForwardObservationWriterV1 | None = None,
+                 feature_pipeline: NativeOHLCVFeaturePipelineV1 | None = None):
         if type(enabled) is not bool:
             raise ValueError("enabled must be bool")
         self.source = source
         self.journal_path = Path(journal_path)
         self.enabled = enabled
         self.writer = writer or ForwardObservationWriterV1(self.journal_path)
+        self.feature_pipeline = feature_pipeline or NativeOHLCVFeaturePipelineV1()
 
     def run_once(self, *, symbol: str, interval: str = "15m", limit: int = 100,
                  start_time_ms: int | None = None, end_time_ms: int | None = None,
@@ -63,8 +69,42 @@ class NativeOHLCVForwardRunnerV1:
                 f"NATIVE_OHLCV_SOURCE_INVALID:{type(exc).__name__}",
             )
 
+        feature_result = None
+        feature_error = None
+        try:
+            feature_result = self.feature_pipeline.build(batch)
+        except Exception as exc:
+            feature_error = f"NATIVE_OHLCV_FEATURE_PIPELINE_FAILED:{type(exc).__name__}"
+
         observed_at = datetime.fromtimestamp(batch.fetched_at_ms / 1000, tz=timezone.utc)
         source_name = f"{batch.venue}_native_ohlcv_v1"
+        feature_snapshot = None
+        if feature_result is not None and feature_result.snapshot is not None:
+            snap = feature_result.snapshot
+            feature_snapshot = {
+                "symbol": snap.symbol, "timeframe_seconds": snap.timeframe_seconds,
+                "close": snap.close, "ema": snap.ema, "vwap": snap.vwap,
+                "buy_sell_delta": snap.buy_sell_delta, "buy_ratio": snap.buy_ratio,
+                "realized_volatility": snap.realized_volatility,
+                "average_true_range": snap.average_true_range,
+                "volume_ratio": snap.volume_ratio, "volume_spike": snap.volume_spike,
+                "regime": snap.regime,
+                "timestamp": snap.timestamp.isoformat() if snap.timestamp else None,
+            }
+        native_features = ({
+            "decision_ready": feature_result.decision_ready,
+            "reason": feature_result.reason,
+            "quality_passed": feature_result.quality.passed,
+            "quality_violations": list(feature_result.quality.violations),
+            "ema_points": feature_result.ema_points,
+            "momentum_points": feature_result.momentum_points,
+            "structure_points": feature_result.structure_points,
+            "snapshot": feature_snapshot,
+        } if feature_result is not None else {
+            "decision_ready": False, "reason": feature_error or "FEATURE_PIPELINE_UNAVAILABLE",
+            "quality_passed": False, "quality_violations": ["feature_pipeline_error"],
+            "snapshot": None,
+        })
         record = {
             "event_id": f"{run_id}:batch:{batch.fetched_at_ms}",
             "observed_at": observed_at.isoformat(),
@@ -88,6 +128,7 @@ class NativeOHLCVForwardRunnerV1:
                 "taker_buy_volume": str(c.taker_buy_volume),
                 "taker_buy_quote_volume": str(c.taker_buy_quote_volume),
             } for c in batch.candles],
+            "native_features": native_features,
             "gaps": [{
                 "expected_open_time_ms": g.expected_open_time_ms,
                 "next_observed_open_time_ms": g.next_observed_open_time_ms,
@@ -103,8 +144,14 @@ class NativeOHLCVForwardRunnerV1:
                 run_id, "BLOCKED", str(self.journal_path),
                 f"NATIVE_OHLCV_JOURNAL_WRITE_FAILED:{type(exc).__name__}",
                 len(batch.candles), len(batch.gaps), None, batch.response_sha256,
+                bool(feature_result and feature_result.decision_ready),
+                feature_result.reason if feature_result else feature_error,
+                feature_result.quality.violations if feature_result else ("feature_pipeline_error",),
             )
         return NativeOHLCVForwardRunResult(
             run_id, record["status"], str(self.journal_path), "NATIVE_OHLCV_BATCH_RECORDED",
             len(batch.candles), len(batch.gaps), digest, batch.response_sha256,
+            bool(feature_result and feature_result.decision_ready),
+            feature_result.reason if feature_result else feature_error,
+            feature_result.quality.violations if feature_result else ("feature_pipeline_error",),
         )

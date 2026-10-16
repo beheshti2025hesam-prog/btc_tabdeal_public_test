@@ -27,7 +27,7 @@ class NativeOHLCVFeatureResult:
     as_of_ms: int
     candle_count: int
     gaps: tuple
-    snapshot: FeatureSnapshot
+    snapshot: FeatureSnapshot | None
     quality: FeatureQualityResult
     ema_points: int
     momentum_points: int
@@ -144,7 +144,7 @@ class NativeOHLCVFeaturePipelineV1:
             as_of_ms=feature_batch.as_of_ms,
             candle_count=len(candles),
             gaps=feature_batch.gaps,
-            snapshot=snapshot,
+            snapshot=snapshot if ready else None,
             quality=quality,
             ema_points=len(ema_points),
             momentum_points=len(momentum_points),
