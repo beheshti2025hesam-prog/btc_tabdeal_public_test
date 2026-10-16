@@ -6,11 +6,11 @@ from types import SimpleNamespace
 
 from forward.native_ohlcv_forward_runner_v1 import NativeOHLCVForwardRunnerV1
 
-FETCHED = 1_800_000_900_100
-OPEN = 1_800_000_000_000
+OPEN = 1_760_000_400_000
+FETCHED = OPEN + 900_100
 
 
-def sample_batch(*, gaps=(), close_time=OPEN + 899_999):
+def sample_batch(*, gaps=(), close_time=OPEN + 899_999, fetched_at_ms=FETCHED):
     candle = SimpleNamespace(
         venue="binance", product="spot", symbol="BTCUSDT", interval="15m",
         open_time_ms=OPEN, close_time_ms=close_time,
@@ -21,7 +21,7 @@ def sample_batch(*, gaps=(), close_time=OPEN + 899_999):
     )
     return SimpleNamespace(
         venue="binance", product="spot", symbol="BTCUSDT", interval="15m",
-        endpoint_kind="uiKlines", fetched_at_ms=FETCHED, response_sha256="a" * 64,
+        endpoint_kind="uiKlines", fetched_at_ms=fetched_at_ms, response_sha256="a" * 64,
         candles=(candle,), gaps=tuple(gaps), open_candles_excluded=1,
     )
 
@@ -100,3 +100,14 @@ def test_gaps_are_journaled_explicitly_without_fabricated_candles(tmp_path):
     assert result.status == "NATIVE_OHLCV_GAPS_PRESENT"
     assert len(stored["candles"]) == 1
     assert stored["gaps"][0]["missing_intervals"] == 2
+
+
+def test_future_fetch_timestamp_is_blocked_before_journaling(tmp_path):
+    import time
+    source = FakeSource(sample_batch(fetched_at_ms=int(time.time() * 1000) + 120_000))
+    journal = tmp_path / "observations.jsonl"
+    runner = NativeOHLCVForwardRunnerV1(source=source, journal_path=journal, enabled=True)
+    result = runner.run_once(symbol="BTCUSDT", run_id="run-future-fetch")
+    assert result.status == "BLOCKED"
+    assert result.reason == "NATIVE_OHLCV_SOURCE_INVALID:ValueError"
+    assert not journal.exists()

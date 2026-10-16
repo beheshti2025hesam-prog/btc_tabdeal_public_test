@@ -35,6 +35,9 @@ def _validate_batch(batch: NativeOHLCVBatch) -> None:
         raise ValueError("unsupported fixed interval")
     if type(batch.fetched_at_ms) is not int or batch.fetched_at_ms < 0:
         raise ValueError("invalid fetched_at_ms")
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    if batch.fetched_at_ms > now_ms + 60_000:
+        raise ValueError("fetch timestamp is in the future")
     if type(batch.open_candles_excluded) is not int or batch.open_candles_excluded < 0:
         raise ValueError("invalid open_candles_excluded")
     if not isinstance(batch.response_sha256, str) or not _SHA256.fullmatch(batch.response_sha256):
