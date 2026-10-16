@@ -70,6 +70,18 @@ class RiskGateV1:
             return reject("CONFIRMATION_STATE_MISMATCH", result_checks=result.checks)
         if result.state == "RISK_REJECTED":
             return result
+        if confirmation_state not in ("CONFIRMED_LONG", "CONFIRMED_SHORT"):
+            return reject("CONFIRMATION_NOT_VALID", result_checks=result.checks)
+        if result.observed_at is None:
+            return reject("MALFORMED_POLICY_RESULT", result_checks=result.checks)
+        if result.observed_at != observed_at:
+            return reject("OBSERVATION_TIME_MISMATCH", result_checks=result.checks)
+        if (
+            not isinstance(result.reason_codes, (tuple, list))
+            or not result.reason_codes
+            or any(not isinstance(code, str) or not code.strip() for code in result.reason_codes)
+        ):
+            return reject("MALFORMED_POLICY_RESULT", result_checks=result.checks)
 
         # Defense in depth: approval requires an explicit versioned required-check
         # list and a complete, well-formed, all-PASS result. A policy's own
