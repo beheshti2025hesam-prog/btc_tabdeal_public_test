@@ -14,6 +14,8 @@ SYMBOL = "BTC_USDT"
 
 
 def _timestamp(value: Any) -> str:
+    if isinstance(value, bool):
+        raise ValueError("invalid timestamp")
     if isinstance(value, (int, float)):
         # Tabdeal-style millisecond timestamps are normalized to UTC ISO.
         value = float(value)
@@ -53,7 +55,14 @@ def parse_trade_frame(frame: dict[str, Any], *, as_of: datetime) -> dict[str, An
         raise ValueError("price and amount must be positive")
     if str(side).lower() not in {"buy", "sell", "b", "s"}:
         raise ValueError("unsupported side")
-    seq = int(sequence)
+    # bool is an int subclass, and floats can be silently truncated by int().
+    # Preserve the wire type boundary before normalizing an opaque identifier.
+    if type(sequence) not in (int, str):
+        raise ValueError("invalid sequence")
+    try:
+        seq = int(sequence)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid sequence") from exc
     if seq < 0:
         raise ValueError("invalid sequence")
     record = {

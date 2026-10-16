@@ -18,6 +18,17 @@ def test_rejects_bad_values():
   x=base(); x[key]=val
   with pytest.raises(ValueError): parse_trade_frame(x,as_of=ASOF)
 
+def test_rejects_boolean_and_float_sequence_wire_values():
+ for value in (True, False, 7.0, 7.5):
+  x=base(); x["sequence"]=value
+  with pytest.raises(ValueError, match="invalid sequence"):
+   parse_trade_frame(x,as_of=ASOF)
+
+def test_rejects_boolean_timestamp_wire_value():
+ x=base(); x["timestamp"]=True
+ with pytest.raises(ValueError, match="invalid timestamp"):
+  parse_trade_frame(x,as_of=ASOF)
+
 def test_transport_payload_digest_survives_normalization_and_exact_replay_is_detected():
     from forward.sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
 
