@@ -37,8 +37,14 @@ class RiskGateV1:
         self.policy = policy
 
     def evaluate(self, *, observed_at, confirmation, checks: Sequence[RiskCheck] = ()) -> RiskGateResult:
-        checks = tuple(checks)
         confirmation_state = getattr(confirmation, "state", "UNKNOWN")
+        try:
+            checks = tuple(checks)
+        except TypeError:
+            checks = ()
+            malformed_input = True
+        else:
+            malformed_input = False
 
         def reject(*reason_codes, result_checks=None):
             selected_checks = checks if result_checks is None else result_checks
@@ -54,16 +60,24 @@ class RiskGateV1:
                 reason_codes=tuple(reason_codes),
             )
 
+        if malformed_input:
+            return reject("MALFORMED_RISK_EVIDENCE")
         if self.policy is None:
             return reject("NO_POLICY_CONFIGURED")
 
-        result = self.policy.evaluate(
-            observed_at=observed_at,
-            confirmation=confirmation,
-            checks=checks,
-        )
+        try:
+            result = self.policy.evaluate(
+                observed_at=observed_at,
+                confirmation=confirmation,
+                checks=checks,
+            )
+        except Exception:
+            # A policy failure must never escape as an approval path or prevent
+            # the caller from receiving an explicit fail-closed result.
+            return reject("POLICY_EVALUATION_ERROR")
+
         if not isinstance(result, RiskGateResult):
-            raise TypeError("Risk policy must return RiskGateResult")
+            return reject("MALFORMED_POLICY_RESULT")
         if result.state not in ("RISK_APPROVED", "RISK_REJECTED"):
             return reject("INVALID_POLICY_RESULT_STATE")
         if result.confirmation_state != confirmation_state:
