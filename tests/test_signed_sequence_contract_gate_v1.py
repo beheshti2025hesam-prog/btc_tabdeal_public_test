@@ -51,12 +51,23 @@ class SignedSequenceContractGateTests(unittest.TestCase):
 
     def test_unknown_or_revoked_key_id_fails_closed(self):
         now = datetime.now(timezone.utc)
+        source_url = "https://docs.tabdeal.org/evidence"
+        final_headers = b"Content-Type:application/json\r\n\r\n"
         envelope = {
             "expected_commit": "a" * 40,
             "evidence_path": "evidence/sequence.json",
             "raw_sha256": "0" * 64,
-            "source_url": "https://docs.tabdeal.org/evidence",
-            "redirect_chain": ["https://docs.tabdeal.org/evidence"],
+            "source_url": source_url,
+            "redirect_chain": [source_url],
+            "redirect_evidence_schema": "hes_http_redirect_hops_v1",
+            "initial_request_url": source_url,
+            "redirect_hops": [],
+            "final_response": {
+                "url": source_url,
+                "response_status": 200,
+                "response_headers_b64": base64.b64encode(final_headers).decode("ascii"),
+                "response_headers_sha256": hashlib.sha256(final_headers).hexdigest(),
+            },
             "retrieved_at": now.isoformat(),
             "market_scope": "tabdeal:spot:BTC_USDT",
             "key_id": "revoked-or-unknown-key",
