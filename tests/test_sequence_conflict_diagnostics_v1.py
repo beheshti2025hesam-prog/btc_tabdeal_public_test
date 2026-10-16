@@ -6,8 +6,55 @@ from pathlib import Path
 import pytest
 
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
+from forward import controlled_forward_observation_runner_v1 as runner_module
+from forward import forward_observation_path_v1 as path_module
+from forward import sequence_candle_integration_v1 as integration_module
+from forward import source_evidence_registry_v1 as registry_module
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
+
+
+@pytest.fixture(autouse=True)
+def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
+    artifact = tmp_path / "fixture-evidence.txt"
+    artifact.write_text("synthetic reviewed test evidence\n", encoding="utf-8")
+    artifact_sha = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    rows = [
+        ("test-fixture:authoritative-contract", "sequence_contract"),
+        ("test-fixture:reviewed-source-completeness", "source_completeness"),
+        ("test-fixture:reviewed-source-ordering", "source_ordering"),
+    ]
+    entries = [
+        {
+            "evidence_ref": ref,
+            "evidence_type": kind,
+            "source_scope": "tabdeal-futures:BTC_USDT",
+            "evidence_path": artifact.name,
+            "evidence_sha256": artifact_sha,
+            "review_status": "INDEPENDENTLY_REVIEWED",
+            "review_record_ref": "test-fixture:independent-review",
+        }
+        for ref, kind in rows
+    ]
+    payload = {"schema": "hes_source_evidence_registry_v1", "status": "REVIEWED_PINNED",
+               "registry_version": 1, "entries": entries}
+    path = tmp_path / "source_evidence_registry_v1.json"
+    raw = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    path.write_bytes(raw)
+    monkeypatch.setattr(registry_module, "PINNED_SOURCE_EVIDENCE_REGISTRY_SHA256",
+                        hashlib.sha256(raw).hexdigest())
+    monkeypatch.setattr(runner_module, "DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH", path)
+
+    # Test-only harness: isolate downstream algorithm tests from the independent
+    # provenance gate. Production modules are never given a bypass; dedicated
+    # negative tests below keep the real verifier wired and fail-closed.
+    if request.node.name in {
+        "test_runner_persists_conflict_fingerprint_and_still_blocks",
+        "test_runner_fails_closed_when_transport_metadata_bound_is_exceeded",
+    }:
+        monkeypatch.setattr(runner_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(path_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
+        monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
 def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
@@ -21,13 +68,14 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
         "source_updated": "2026-10-09T17:00:00+00:00",
         "sequence": 41627925358,
     }
+
     conflicting = {**first, "price": "101"}
 
     assert guard.observe(first).status == "ACCEPTED"
     event = guard.observe(conflicting)
 
     assert event.status == "REJECT_STREAM"
-    assert event.reason == "CONFLICTING_DUPLICATE_SEQUENCE"
+    assert event.reason == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
     assert event.diagnostic["differing_fields"] == ["price"]
     assert event.diagnostic["first_values"] == {"price": "100"}
     assert event.diagnostic["conflicting_values"] == {"price": "101"}
@@ -72,6 +120,10 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
@@ -83,7 +135,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
     conflict = next(
         event for event in record["sequence_events"]
-        if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+        if event.get("reason") == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
     )
     assert conflict["diagnostic"]["differing_fields"] == ["price"]
     fingerprints = conflict["transport_frame_fingerprints"]
@@ -97,7 +149,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
 def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path):
     path = tmp_path / "diagnostics.jsonl"
     journal = SequenceIntegrityDiagnosticJournalV1(path)
-    event = {"sequence": 7, "status": "REJECT_STREAM", "reason": "CONFLICTING_DUPLICATE_SEQUENCE"}
+    event = {"sequence": 7, "status": "REJECT_STREAM", "reason": "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"}
 
     first = journal.append_blocked_run(
         run_id="OBS-1",
@@ -163,6 +215,10 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
         max_runtime_seconds=1,
         sequence_contract_verified=True,
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        source_completeness_verified=True,
+        source_completeness_evidence_ref="test-fixture:reviewed-source-completeness",
+        source_ordering_verified=True,
+        source_ordering_evidence_ref="test-fixture:reviewed-source-ordering",
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
