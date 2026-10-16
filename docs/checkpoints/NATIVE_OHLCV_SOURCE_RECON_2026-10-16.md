@@ -42,3 +42,10 @@ Do not implement a Tabdeal native candle client until an endpoint/contract is su
 
 ## Safety
 No production code, strategy, historical evidence, collector state, deployment, or exchange order was changed. Current disposition remains `HOLD / NO_TRADE_ONLY`.
+
+
+## Anti-duplication check against prior project history
+Prior HES investigation dated 2026-09-05 already tested the likely Tabdeal Kline paths on `api.tabdeal.org` and `api1.tabdeal.org`, including `/api/v1/klines`, `/fapi/v1/klines`, `/api/v1/fapi/klines`, and futures read-path variants. The recorded responses were HTTP 404. Do not repeat these same endpoint probes unless a new authoritative contract or changed API version gives a reason. Prior checks also confirmed public Futures `ping`, `time`, `exchangeInfo`, and `depth` endpoints can respond successfully; that does not establish OHLCV support.
+
+## Updated next action
+Because the likely endpoint guesses have already failed and the reviewed official references still do not document Klines, the next high-value step is to obtain an authoritative answer through Tabdeal's currently verified support channel or a newly published official contract. Do not reuse the previously reported failed `info@tabdeal.org` address. In parallel, native OHLCV support may be implemented for another venue only as a clearly separated venue adapter; never label that as Tabdeal chart parity.
