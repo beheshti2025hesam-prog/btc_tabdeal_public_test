@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Fail-closed verifier for signed source-evidence envelopes.
 
-Envelope fields: expected_commit, evidence_path, raw_sha256, source_url,
-redirect_chain, retrieved_at, market_scope, key_id, payload_b64, signature_b64.
-The Ed25519 signature covers canonical JSON of every field except signature_b64.
+Envelope fields include expected_commit, evidence_path, raw_sha256, source_url,
+redirect_chain, redirect_hops, final_response, retrieved_at, market_scope,
+key_id, payload_b64, and signature_b64. The Ed25519 signature covers canonical
+JSON of every field except signature_b64. Redirect evidence is a signed collector
+attestation; it is not independent proof of remote-server behavior.
 """
 import argparse, base64, hashlib, json, sys
 from datetime import datetime, timezone
