@@ -38,3 +38,8 @@ A bounded live public read-only workflow now captures both Binance Spot endpoint
 ## Native feature bridge
 
 A dedicated adapter now converts validated native candles into the existing feature-engine candle contract while retaining source/product/digest metadata and enforcing historical as-of cutoffs. It does not silently substitute trade-derived pressure/VWAP when those inputs are unavailable. Strategy integration and broker-specific candle adapters remain separate validation work.
+
+
+## Native OHLCV feature path
+
+A native-only feature pipeline now creates the existing descriptive FeatureSnapshot from validated exchange candles. It uses native quote/base volume for window VWAP and native taker-buy volume for ratio/delta, preserving exact Decimal source data until the analytics boundary. Any observed gap or insufficient history blocks decision readiness. It does not invoke order execution.

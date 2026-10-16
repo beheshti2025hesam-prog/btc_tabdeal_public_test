@@ -38,10 +38,38 @@
     "Other exchanges and brokers must implement this contract with their own official, versioned endpoint evidence; no cross-venue field semantics are assumed."
   ],
   "supported_fixed_intervals": [
-    "1s", "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d"
+    "1s",
+    "1m",
+    "3m",
+    "5m",
+    "15m",
+    "30m",
+    "1h",
+    "2h",
+    "4h",
+    "6h",
+    "8h",
+    "12h",
+    "1d",
+    "3d"
   ],
   "monthly_and_weekly_intervals": "disabled until venue-specific calendar alignment is implemented",
   "open_candle_policy": "exclude when close_time_ms >= as_of_ms",
   "gap_policy": "explicit_between_returned_closed_candles_only",
-  "trading_authorized": false
+  "trading_authorized": false,
+  "candle_fields": [
+    "open_time_ms",
+    "close_time_ms",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "quote_volume",
+    "trade_count",
+    "taker_buy_volume",
+    "taker_buy_quote_volume",
+    "closed"
+  ],
+  "feature_pipeline": "NativeOHLCVFeaturePipelineV1; native-only descriptive features; gaps or insufficient history block decision readiness"
 }

@@ -37,3 +37,7 @@ The `.github/workflows/native-ohlcv-live-parity-v1.yml` workflow performs a boun
 ## Native candle feature boundary
 
 `forward/native_ohlcv_feature_adapter_v1.py` is the explicit bridge from validated native OHLCV batches into the existing float-based core candle feature interface. Exact Decimal values and raw-response hashes remain in the source batch/journal; float conversion happens only at this analytics boundary. The envelope retains venue, product, timeframe, source digest, observation cutoff, and gap metadata. It does not silently create trade-side pressure or trade-derived VWAP features that are absent from a candle batch.
+
+## Native feature pipeline
+
+`NativeOHLCVFeaturePipelineV1` builds a descriptive `FeatureSnapshot` from native candles: EMA, a volume-weighted price computed as summed quote volume divided by summed base volume over the configured closed-candle window, taker-buy ratio/delta, volume, volatility/ATR, and regime. It preserves source digest and product identity. Any observed in-window candle gap blocks decision readiness; insufficient closed history and invalid quality also fail closed. This pipeline does not place orders.

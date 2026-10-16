@@ -73,6 +73,8 @@ class NativeOHLCVCollectorV1:
                     "volume": str(candle.volume),
                     "quote_volume": str(candle.quote_volume),
                     "trade_count": candle.trade_count,
+                    "taker_buy_volume": str(candle.taker_buy_volume),
+                    "taker_buy_quote_volume": str(candle.taker_buy_quote_volume),
                     "closed": candle.closed,
                 }
                 for candle in batch.candles

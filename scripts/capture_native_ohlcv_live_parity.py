@@ -42,6 +42,8 @@ def candle_dict(c: Any) -> dict[str, Any]:
         "base_volume": str(c.volume),
         "quote_volume": str(c.quote_volume),
         "trade_count": c.trade_count,
+        "taker_buy_volume": str(c.taker_buy_volume),
+        "taker_buy_quote_volume": str(c.taker_buy_quote_volume),
         "closed": c.closed,
     }
 

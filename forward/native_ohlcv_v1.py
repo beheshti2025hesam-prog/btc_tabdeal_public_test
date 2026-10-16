@@ -44,6 +44,8 @@ class NativeCandle:
     volume: Decimal
     quote_volume: Decimal
     trade_count: int
+    taker_buy_volume: Decimal
+    taker_buy_quote_volume: Decimal
     closed: bool = True
 
 
@@ -125,6 +127,11 @@ def validate_native_batch(batch: NativeOHLCVBatch) -> None:
         if any(type(x) is not Decimal or not x.is_finite() or x < 0
                for x in (candle.volume, candle.quote_volume)):
             raise ValueError("invalid volume")
+        if any(type(x) is not Decimal or not x.is_finite() or x < 0
+               for x in (candle.taker_buy_volume, candle.taker_buy_quote_volume)):
+            raise ValueError("invalid taker-buy volume")
+        if candle.taker_buy_volume > candle.volume or candle.taker_buy_quote_volume > candle.quote_volume:
+            raise ValueError("taker-buy volume exceeds total volume")
         if type(candle.trade_count) is not int or candle.trade_count < 0:
             raise ValueError("invalid trade count")
     for gap in batch.gaps:
@@ -182,16 +189,17 @@ def _canonical_row(row: object, interval_ms: int) -> tuple:
         raise ValueError("OHLC relationship is invalid")
     if volume < 0 or quote_volume < 0 or trade_count < 0:
         raise ValueError("volume and trade_count must be non-negative")
-    if _decimal(row[9], "taker_buy_base_volume") < 0:
-        raise ValueError("taker-buy base volume must be non-negative")
-    if _decimal(row[10], "taker_buy_quote_volume") < 0:
-        raise ValueError("taker-buy quote volume must be non-negative")
+    taker_buy_volume = _decimal(row[9], "taker_buy_base_volume")
+    taker_buy_quote_volume = _decimal(row[10], "taker_buy_quote_volume")
+    if taker_buy_volume < 0 or taker_buy_quote_volume < 0:
+        raise ValueError("taker-buy volumes must be non-negative")
+    if taker_buy_volume > volume or taker_buy_quote_volume > quote_volume:
+        raise ValueError("taker-buy volumes cannot exceed total candle volumes")
     if type(row[11]) is not str or row[11] not in ("0", "0.0"):
         raise ValueError("reserved kline field must be a zero string")
     return (
         open_time, close_time, open_price, high, low, close, volume, quote_volume,
-        trade_count, _decimal(row[9], "taker_buy_base_volume"),
-        _decimal(row[10], "taker_buy_quote_volume"), row[11],
+        trade_count, taker_buy_volume, taker_buy_quote_volume, row[11],
     )
 
 
@@ -250,6 +258,7 @@ def normalize_native_klines(
             open_time_ms=open_time, close_time_ms=close_time,
             open=item[2], high=item[3], low=item[4], close=item[5],
             volume=item[6], quote_volume=item[7], trade_count=item[8],
+            taker_buy_volume=item[9], taker_buy_quote_volume=item[10],
         ))
 
     gaps: list[CandleGap] = []

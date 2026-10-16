@@ -17,7 +17,8 @@ def sample_batch(*, gaps=(), close_time=OPEN + 899_999, fetched_at_ms=FETCHED):
         open=Decimal("100.00"), high=Decimal("102.00"),
         low=Decimal("99.00"), close=Decimal("101.25"),
         volume=Decimal("2.500"), quote_volume=Decimal("250.625"),
-        trade_count=12, closed=True,
+        trade_count=12, taker_buy_volume=Decimal("1.250"),
+        taker_buy_quote_volume=Decimal("125.3125"), closed=True,
     )
     return SimpleNamespace(
         venue="binance", product="spot", symbol="BTCUSDT", interval="15m",

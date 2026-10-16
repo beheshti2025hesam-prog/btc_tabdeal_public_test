@@ -40,6 +40,8 @@ def test_preserves_native_decimal_precision_and_source_identity():
     assert candle.open == Decimal("100.00")
     assert candle.close == Decimal("100.25")
     assert candle.volume == Decimal("2.50")
+    assert candle.taker_buy_volume == Decimal("1.25")
+    assert candle.taker_buy_quote_volume == Decimal("125.00")
     assert candle.venue == "binance"
     assert candle.product == "spot"
     assert candle.symbol == "BTCUSDT"
@@ -168,3 +170,10 @@ def test_source_rejects_future_as_of_cutoff():
     with pytest.raises(ValueError, match="must not be after the fetch time"):
         source.fetch(symbol="BTCUSDT", interval="15m", limit=5,
                      as_of_ms=BASE + INTERVAL + 1)
+
+
+def test_rejects_taker_buy_volume_above_total_volume():
+    malformed = row(BASE)
+    malformed[9] = "3.00"
+    with pytest.raises(ValueError, match="taker-buy volumes cannot exceed"):
+        normalize([malformed])

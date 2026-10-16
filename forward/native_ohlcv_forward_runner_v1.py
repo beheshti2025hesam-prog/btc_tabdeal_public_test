@@ -85,6 +85,8 @@ class NativeOHLCVForwardRunnerV1:
                 "open": str(c.open), "high": str(c.high), "low": str(c.low),
                 "close": str(c.close), "volume": str(c.volume),
                 "quote_volume": str(c.quote_volume), "trade_count": c.trade_count,
+                "taker_buy_volume": str(c.taker_buy_volume),
+                "taker_buy_quote_volume": str(c.taker_buy_quote_volume),
             } for c in batch.candles],
             "gaps": [{
                 "expected_open_time_ms": g.expected_open_time_ms,
