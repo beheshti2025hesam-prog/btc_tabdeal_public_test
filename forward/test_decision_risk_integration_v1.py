@@ -66,6 +66,48 @@ def test_real_risk_gate_reject_to_no_trade_to_journal(tmp_path):
     assert stored["closed_at"] is None
 
 
+def test_decision_result_as_journal_record_risk_veto_round_trip(tmp_path):
+    candidate = _candidate("CANDIDATE_LONG")
+    confirmation = _confirmation("CONFIRMED_LONG")
+    risk = RiskGateV1(RiskPolicyV1()).evaluate(
+        observed_at=OBS,
+        confirmation=confirmation,
+        checks=_checks("FAIL"),
+    )
+    result = DecisionEngineV1().evaluate(
+        observed_at=OBS,
+        candidate=candidate,
+        confirmation=confirmation,
+        risk=risk,
+    )
+
+    record = result.as_journal_record(
+        event_id="evt-decision-result-journal-001",
+        evidence_source=["test:risk-veto"],
+        market_input={"symbol": "BTC_USDT", "timeframe": "15m"},
+        candidate=candidate,
+        confirmation=confirmation,
+        risk=risk,
+    )
+    assert record["decision"] == "NO_TRADE"
+    assert record["direction"] == "NONE"
+    assert record["risk_state"] == "RISK_REJECTED"
+    assert record["no_trade_reason"]
+    assert record["outcome"] is None
+    assert record["closed_at"] is None
+    assert record["observed_at"] == OBS.isoformat()
+
+    journal = ForwardJournalV1(tmp_path / "journal.jsonl")
+    journal.append_decision(record)
+    stored = json.loads(
+        (tmp_path / "journal.jsonl").read_text(encoding="utf-8").splitlines()[0]
+    )
+    assert stored["decision"] == "NO_TRADE"
+    assert stored["risk_state"] == "RISK_REJECTED"
+    assert stored["outcome"] is None
+    assert stored["closed_at"] is None
+
+
 def test_real_risk_gate_fail_closed_without_policy():
     confirmation = _confirmation("CONFIRMED_SHORT")
     risk = RiskGateV1().evaluate(
