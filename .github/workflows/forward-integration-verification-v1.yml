@@ -50,7 +50,10 @@ jobs:
             tests/test_clock_integrity_v1.py \
             tests/test_health_monitor_v1.py \
             tests/test_crash_safe_checkpoint_v1.py \
-            tests/test_soak_health_v1.py
+            tests/test_soak_health_v1.py \
+            forward/test_risk_gate_v1.py \
+            forward/test_risk_policy_v1.py \
+            forward/test_decision_risk_integration_v1.py
 
       - name: Explicit execution and historical firewall scan
         run: |
