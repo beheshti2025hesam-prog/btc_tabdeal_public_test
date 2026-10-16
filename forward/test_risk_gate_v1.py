@@ -128,3 +128,28 @@ def test_reference_policy_approval_survives_gate_validation():
         observed_at=OBS, confirmation=_confirmation(), checks=checks
     )
     assert result.state == "RISK_APPROVED"
+
+
+def test_gate_rejects_non_riskcheck_object_even_if_policy_approves():
+    result = _evaluate(_PermissivePolicy([object()]))
+    assert result.state == "RISK_REJECTED"
+    assert "MALFORMED_RISK_EVIDENCE" in result.reason_codes
+
+
+def test_gate_rejects_invalid_check_state_even_if_policy_approves():
+    checks = list(_checks())
+    checks[0] = RiskCheck(
+        checks[0].name, "PASSED", checks[0].evidence_ref, checks[0].observed_at
+    )
+    result = _evaluate(_PermissivePolicy(checks))
+    assert result.state == "RISK_REJECTED"
+    assert "MALFORMED_RISK_EVIDENCE" in result.reason_codes
+
+
+def test_gate_rejects_duplicate_policy_requirement_names():
+    class DuplicateRequirementsPolicy(_PermissivePolicy):
+        REQUIRED = (RiskPolicyV1.REQUIRED[0], RiskPolicyV1.REQUIRED[0])
+
+    result = _evaluate(DuplicateRequirementsPolicy(_checks()))
+    assert result.state == "RISK_REJECTED"
+    assert "POLICY_REQUIRED_CHECKS_UNDEFINED" in result.reason_codes
