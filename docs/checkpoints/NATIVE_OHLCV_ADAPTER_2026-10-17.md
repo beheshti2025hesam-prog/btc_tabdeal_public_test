@@ -33,3 +33,8 @@ Repeat the bounded BTCUSDT 15m Spot comparison through the new direct HTTP adapt
 ## Live parity workflow added
 
 A bounded live public read-only workflow now captures both Binance Spot endpoint response hashes, compares at least eight common closed candles across timestamps/OHLC/volume/trade count, and uploads an evidence artifact on pass or failure. This is endpoint parity evidence only, not proof of website-chart backend identity or cross-venue parity.
+
+
+## Native feature bridge
+
+A dedicated adapter now converts validated native candles into the existing feature-engine candle contract while retaining source/product/digest metadata and enforcing historical as-of cutoffs. It does not silently substitute trade-derived pressure/VWAP when those inputs are unavailable. Strategy integration and broker-specific candle adapters remain separate validation work.

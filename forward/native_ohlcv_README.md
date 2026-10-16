@@ -33,3 +33,7 @@ A durable append-only one-shot collector is available in native_ohlcv_collector_
 ## Live endpoint parity evidence
 
 The `.github/workflows/native-ohlcv-live-parity-v1.yml` workflow performs a bounded, public, read-only comparison of BTCUSDT 15m Spot `uiKlines` and standard `klines`. It compares only closed candles, requires at least eight common closed candles, stores both exact raw-response SHA-256 values, and uploads a JSON artifact even when the probe fails. This establishes endpoint-to-endpoint parity for that sampled window only; it does not prove that the website's rendered chart uses either endpoint, nor does it validate other venues or brokers.
+
+## Native candle feature boundary
+
+`forward/native_ohlcv_feature_adapter_v1.py` is the explicit bridge from validated native OHLCV batches into the existing float-based core candle feature interface. Exact Decimal values and raw-response hashes remain in the source batch/journal; float conversion happens only at this analytics boundary. The envelope retains venue, product, timeframe, source digest, observation cutoff, and gap metadata. It does not silently create trade-side pressure or trade-derived VWAP features that are absent from a candle batch.
