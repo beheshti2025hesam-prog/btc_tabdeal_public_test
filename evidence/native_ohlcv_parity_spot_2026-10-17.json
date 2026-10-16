@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "evidence_id": "NATIVE_OHLCV_BINANCE_SPOT_CHART_ENDPOINT_PARITY_2026-10-17",
+  "capture_date_utc": "2026-10-17",
+  "source": {
+    "kind": "structured responses from connected Binance public market-data tools",
+    "raw_http_payload_preserved": false,
+    "raw_response_sha256_available": false,
+    "private_account_authentication_tested": false,
+    "orders_or_account_actions_performed": false
+  },
+  "scope": {
+    "venue": "binance",
+    "product": "spot",
+    "symbol": "BTCUSDT",
+    "interval": "15m",
+    "window_open_time_utc": "2026-10-16T20:00:00Z",
+    "window_last_close_time_utc": "2026-10-16T21:14:59.999Z",
+    "endpoints": [
+      "GET /api/v3/klines",
+      "GET /api/v3/uiKlines"
+    ]
+  },
+  "spot_comparison": [
+    {
+      "open_time_ms": 1792180800000,
+      "close_time_ms": 1792181699999,
+      "ohlc": ["81589.85000000", "81684.95000000", "81524.00000000", "81578.75000000"],
+      "standard_volume": "165.26158000",
+      "ui_volume": "165.26158000",
+      "standard_trade_count": 25680,
+      "ui_trade_count": 25680,
+      "ohlc_and_timestamps_match": true,
+      "volume_and_count_match": true
+    },
+    {
+      "open_time_ms": 1792181700000,
+      "close_time_ms": 1792182599999,
+      "ohlc": ["81578.76000000", "81700.10000000", "81578.75000000", "81648.90000000"],
+      "standard_volume": "103.55797000",
+      "ui_volume": "103.55797000",
+      "standard_trade_count": 19961,
+      "ui_trade_count": 19961,
+      "ohlc_and_timestamps_match": true,
+      "volume_and_count_match": true
+    },
+    {
+      "open_time_ms": 1792182600000,
+      "close_time_ms": 1792183499999,
+      "ohlc": ["81648.91000000", "81739.50000000", "81648.91000000", "81716.01000000"],
+      "standard_volume": "86.20982000",
+      "ui_volume": "86.20982000",
+      "standard_trade_count": 22229,
+      "ui_trade_count": 22229,
+      "ohlc_and_timestamps_match": true,
+      "volume_and_count_match": true
+    },
+    {
+      "open_time_ms": 1792183500000,
+      "close_time_ms": 1792184399999,
+      "ohlc": ["81716.00000000", "81784.01000000", "81664.00000000", "81727.84000000"],
+      "standard_volume": "87.42365000",
+      "ui_volume": "87.42365000",
+      "standard_trade_count": 19067,
+      "ui_trade_count": 19067,
+      "ohlc_and_timestamps_match": true,
+      "volume_and_count_match": true
+    },
+    {
+      "open_time_ms": 1792184400000,
+      "close_time_ms": 1792185299999,
+      "ohlc": ["81727.83000000", "81742.01000000", "81636.00000000", "81636.01000000"],
+      "standard_volume": "48.29596000",
+      "ui_volume": "48.29630000",
+      "standard_quote_volume": "3946105.87029370",
+      "ui_quote_volume": "3946133.62653710",
+      "standard_trade_count": 5246,
+      "ui_trade_count": 5247,
+      "ohlc_and_timestamps_match": true,
+      "volume_and_count_match": false
+    }
+  ],
+  "verdict": {
+    "sample_size": 5,
+    "spot_open_and_close_timestamps_match": true,
+    "spot_ohlc_match_exactly": true,
+    "spot_volume_match_exactly": false,
+    "spot_volume_difference_count": 1,
+    "decision": "OHLC/time parity observed in this five-candle sample; volume parity is not established. Investigate the final-bar discrepancy and repeat with preserved raw responses before declaring chart parity.",
+    "not_a_claim_of": [
+      "raw HTTP payload preservation",
+      "long-window parity",
+      "broker parity",
+      "historical completeness",
+      "live collector validation",
+      "trading authorization"
+    ]
+  },
+  "product_separation": {
+    "usdm_futures_candles_were_also_read": true,
+    "futures_data_is_not_compared_as_spot": true,
+    "reason": "Spot and USDⓈ-M Futures are distinct markets and must retain separate source identity."
+  }
+}

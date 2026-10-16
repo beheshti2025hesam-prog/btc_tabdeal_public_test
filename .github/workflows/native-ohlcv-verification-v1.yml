@@ -1,0 +1,54 @@
+name: Native OHLCV Verification v1
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-ohlcv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Assert exact source revision
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED_SOURCE_SHA=$EXPECTED_SOURCE_SHA"
+          echo "CHECKED_OUT_SOURCE_SHA=$actual"
+          test "$actual" = "$EXPECTED_SOURCE_SHA"
+
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Run deterministic native OHLCV tests
+        run: python -m pytest -q tests/test_native_ohlcv_v1.py
+
+      - name: Validate source contract and evidence JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in (
+              "forward/native_ohlcv_contract_v1.json",
+              "evidence/native_ohlcv_parity_spot_2026-10-17.json",
+          ):
+              json.loads(Path(name).read_text(encoding="utf-8"))
+              print(f"JSON_VALID={name}")
+          print("LIVE_NETWORK_CALLS_IN_TESTS=NONE")
+          print("PRIVATE_API_OR_ORDER_CALLS=NONE")
+          print("EXECUTION=OFF")
+          PY
