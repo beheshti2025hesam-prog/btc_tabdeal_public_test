@@ -1,0 +1,29 @@
+{
+  "lock_id": "HES-SOURCE-IDENTITY-INDEPENDENT-VERIFICATION-V1-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "artifact_path": "evidence/source_identity_independent_verification_v1.json",
+  "artifact_commit": "590bb239dc8b947ea5a9b261c6bcf3d6cbaa2e5d",
+  "artifact_git_blob_sha1": "669ac60ccd6a1534c289967c5036c9895f03950f",
+  "artifact_sha256": "6d46be03f3231c7dd8d687d6945a10fd9ff73040e277ed47d8c86facaa2634df",
+  "artifact_bytes": 5242,
+  "locked_at": "2026-10-13",
+  "lock_basis": [
+    "Exact source identity JSON SHA-256 and byte length independently verified",
+    "Exact prior/current raw CSV Git blob IDs and byte lengths verified",
+    "42/42 records reproduced from frozen raw candle semantics",
+    "All prior/current raw CSV rows matched exact lines in their respective locked GitHub archive chunks",
+    "Archive identity and current-tail artifact SHA-256 values match their existing locks"
+  ],
+  "safety_scope": {
+    "winner_selection_changed": false,
+    "threshold_changed": false,
+    "tuning_performed": false,
+    "records_deleted": false,
+    "feature_extraction_performed": false,
+    "effective_evidence_performed": false,
+    "promotion_performed": false,
+    "live_execution": false
+  },
+  "remaining_blocker": "Upstream Tabdeal trade.sequence semantics remain unverified; forward observation and network/session writes stay blocked."
+}
