@@ -1,0 +1,151 @@
+name: Binance Direct Time Source Probe
+
+on:
+  push:
+    branches:
+      - research/binance-time-source-probe-20261016
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Capture raw Spot and USDⓈ-M time responses
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact probe commit
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run bounded raw-response probe
+        id: probe
+        continue-on-error: true
+        run: |
+          python -u - <<'PY'
+          import datetime, hashlib, json, pathlib, socket, time, urllib.error, urllib.request
+          out = pathlib.Path('binance-time-probe-artifacts')
+          out.mkdir(parents=True, exist_ok=True)
+          endpoints = {
+              'spot': 'https://api.binance.com/api/v3/time',
+              'usdm_futures': 'https://fapi.binance.com/fapi/v1/time',
+          }
+          selected_headers = {
+              'date', 'age', 'via', 'cache-control', 'expires', 'etag',
+              'last-modified', 'server', 'content-type', 'content-length',
+              'x-cache', 'cf-cache-status', 'x-served-by', 'x-proxy-cache',
+          }
+          dns = {}
+          for host in ('api.binance.com', 'fapi.binance.com'):
+              try:
+                  dns[host] = sorted({r[4][0] for r in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)})
+              except Exception as exc:
+                  dns[host] = {'error': repr(exc)}
+          rows = []
+          opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+          for sample in range(1, 7):
+              for name, url in endpoints.items():
+                  request = urllib.request.Request(url, method='GET', headers={
+                      'Accept': 'application/json',
+                      'Cache-Control': 'no-cache, no-store, max-age=0',
+                      'Pragma': 'no-cache',
+                      'User-Agent': 'HES-Trade-Agent-time-source-probe/1.0',
+                  })
+                  wall_start = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='microseconds')
+                  epoch_start_ms = time.time_ns() / 1_000_000
+                  mono_start = time.monotonic_ns()
+                  try:
+                      try:
+                          response = opener.open(request, timeout=8)
+                      except urllib.error.HTTPError as http_error:
+                          response = http_error
+                      with response:
+                          raw = response.read()
+                          status = response.status
+                          headers = {k.lower(): v for k, v in response.headers.items() if k.lower() in selected_headers}
+                      error = None
+                  except Exception as exc:
+                      raw, status, headers, error = b'', None, {}, repr(exc)
+                  mono_end = time.monotonic_ns()
+                  epoch_end_ms = time.time_ns() / 1_000_000
+                  wall_end = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='microseconds')
+                  body_name = f'{name}_sample_{sample:02d}.raw'
+                  if status is not None:
+                      (out / body_name).write_bytes(raw)
+                  row = {
+                      'sample': sample, 'endpoint': name, 'url': url, 'method': 'GET',
+                      'request_started_utc': wall_start, 'response_received_utc': wall_end,
+                      'request_started_epoch_ms': round(epoch_start_ms, 3),
+                      'response_received_epoch_ms': round(epoch_end_ms, 3),
+                      'rtt_ms_monotonic': round((mono_end - mono_start) / 1e6, 3),
+                      'http_status': status, 'selected_response_headers': headers,
+                      'body_length_bytes': len(raw),
+                      'body_sha256': hashlib.sha256(raw).hexdigest() if status is not None else None,
+                      'raw_body_file': body_name if status is not None else None,
+                      'error': error,
+                      'explicit_proxy_configuration': 'disabled via urllib ProxyHandler({})',
+                      'tls_certificate_verification': 'urllib default verification enabled',
+                  }
+                  try:
+                      payload = json.loads(raw)
+                      server_ms = payload.get('serverTime')
+                      row['serverTime_ms'] = server_ms
+                      midpoint_ms = (epoch_start_ms + epoch_end_ms) / 2
+                      row['server_minus_local_midpoint_ms'] = round(server_ms - midpoint_ms, 3) if isinstance(server_ms, (int, float)) else None
+                      row['offset_uncertainty_bound_ms_approx'] = round((mono_end - mono_start) / 2e6, 3)
+                  except Exception as exc:
+                      row['json_parse_error'] = repr(exc) if status is not None else None
+                  rows.append(row)
+                  print(json.dumps(row, sort_keys=True), flush=True)
+                  time.sleep(0.5)
+          summary = {}
+          for name in endpoints:
+              subset = [r for r in rows if r['endpoint'] == name]
+              valid = [r for r in subset if r['http_status'] == 200 and r.get('serverTime_ms') is not None]
+              summary[name] = {
+                  'attempts': len(subset), 'http_200_valid_serverTime': len(valid),
+                  'unique_body_hashes': len({r['body_sha256'] for r in subset if r['body_sha256']}),
+                  'rtt_ms_monotonic': [r['rtt_ms_monotonic'] for r in subset],
+                  'server_minus_local_midpoint_ms': [r.get('server_minus_local_midpoint_ms') for r in valid],
+                  'errors': [r['error'] for r in subset if r['error']],
+              }
+          manifest = {
+              'schema_version': 1,
+              'purpose': 'Raw, read-only Binance public time endpoint observation; not a trading authorization.',
+              'captured_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='microseconds'),
+              'repository': '${{ github.repository }}',
+              'commit_sha': '${{ github.sha }}',
+              'workflow_run_id': '${{ github.run_id }}',
+              'workflow_attempt': '${{ github.run_attempt }}',
+              'runner_os': 'ubuntu-latest',
+              'python_version': __import__('sys').version,
+              'dns_answers_observed': dns,
+              'proxy_environment_variable_names_only': sorted(k for k in __import__('os').environ if 'proxy' in k.lower()),
+              'limitations': [
+                  'ProxyHandler({}) disables configured proxies in this client; transparent network interception cannot be ruled out from client observations alone.',
+                  'Identical bodies/hashes alone do not prove caching; changing bodies alone do not prove absence of intermediaries.',
+                  'Local wall-clock offset is approximate and has RTT-related uncertainty; it is not an independent trusted clock.',
+              ],
+              'endpoints': endpoints, 'samples': rows, 'summary': summary,
+          }
+          manifest_path = out / 'manifest.json'
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print('SUMMARY=' + json.dumps(summary, sort_keys=True), flush=True)
+          print('MANIFEST_SHA256=' + hashlib.sha256(manifest_path.read_bytes()).hexdigest(), flush=True)
+          PY
+      - name: Upload immutable run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-time-source-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: binance-time-probe-artifacts/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Enforce evidence availability (not exchange availability)
+        if: always()
+        run: |
+          test -s binance-time-probe-artifacts/manifest.json
+          echo 'Probe artifact was produced. Endpoint/network failures are recorded as evidence and do not get mislabeled as successful HTTP responses.'
