@@ -40,11 +40,16 @@ class RiskGateV1:
         checks = tuple(checks)
         confirmation_state = getattr(confirmation, "state", "UNKNOWN")
 
-        def reject(*reason_codes, result_checks=checks):
+        def reject(*reason_codes, result_checks=None):
+            selected_checks = checks if result_checks is None else result_checks
+            try:
+                safe_checks = tuple(selected_checks)
+            except TypeError:
+                safe_checks = checks
             return RiskGateResult(
                 observed_at=observed_at,
                 confirmation_state=confirmation_state,
-                checks=tuple(result_checks),
+                checks=safe_checks,
                 state="RISK_REJECTED",
                 reason_codes=tuple(reason_codes),
             )
@@ -78,7 +83,10 @@ class RiskGateV1:
         ):
             return reject("POLICY_REQUIRED_CHECKS_UNDEFINED", result_checks=result.checks)
 
-        result_checks = tuple(result.checks)
+        try:
+            result_checks = tuple(result.checks)
+        except TypeError:
+            return reject("MALFORMED_RISK_EVIDENCE")
         by_name = {}
         for check in result_checks:
             if not isinstance(check, RiskCheck):
