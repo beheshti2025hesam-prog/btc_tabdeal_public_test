@@ -78,6 +78,64 @@ class NativeOHLCVSource(Protocol):
     ) -> NativeOHLCVBatch: ...
 
 
+def validate_native_batch(batch: NativeOHLCVBatch) -> None:
+    """Validate a normalized batch before persistence or forward journaling."""
+    for key in ("venue", "product", "symbol", "interval", "endpoint_kind"):
+        value = getattr(batch, key, None)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("missing batch metadata: " + key)
+    if batch.interval not in INTERVAL_MS:
+        raise ValueError("unsupported fixed interval")
+    if type(batch.fetched_at_ms) is not int or batch.fetched_at_ms < 0:
+        raise ValueError("invalid fetched_at_ms")
+    if type(batch.open_candles_excluded) is not int or batch.open_candles_excluded < 0:
+        raise ValueError("invalid open_candles_excluded")
+    if not isinstance(batch.response_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", batch.response_sha256):
+        raise ValueError("invalid response SHA-256")
+
+    interval_ms = INTERVAL_MS[batch.interval]
+    previous_open = None
+    seen = set()
+    for candle in batch.candles:
+        if (candle.venue, candle.product, candle.symbol, candle.interval) != (
+            batch.venue, batch.product, batch.symbol, batch.interval
+        ):
+            raise ValueError("candle source scope differs from batch")
+        if type(candle.closed) is not bool or candle.closed is not True:
+            raise ValueError("unclosed candle in native batch")
+        if type(candle.open_time_ms) is not int or type(candle.close_time_ms) is not int:
+            raise ValueError("candle timestamps must be integers")
+        if candle.open_time_ms < 0 or candle.close_time_ms != candle.open_time_ms + interval_ms - 1:
+            raise ValueError("invalid candle timestamps")
+        if candle.open_time_ms % interval_ms or candle.close_time_ms >= batch.fetched_at_ms:
+            raise ValueError("unclosed or misaligned candle")
+        if candle.open_time_ms in seen or (
+            previous_open is not None and candle.open_time_ms <= previous_open
+        ):
+            raise ValueError("duplicate or unordered candle")
+        seen.add(candle.open_time_ms)
+        previous_open = candle.open_time_ms
+        prices = (candle.open, candle.high, candle.low, candle.close)
+        if any(type(x) is not Decimal or not x.is_finite() or x <= 0 for x in prices):
+            raise ValueError("invalid OHLC decimal")
+        if candle.high < max(candle.open, candle.low, candle.close):
+            raise ValueError("invalid candle high")
+        if candle.low > min(candle.open, candle.high, candle.close):
+            raise ValueError("invalid candle low")
+        if any(type(x) is not Decimal or not x.is_finite() or x < 0
+               for x in (candle.volume, candle.quote_volume)):
+            raise ValueError("invalid volume")
+        if type(candle.trade_count) is not int or candle.trade_count < 0:
+            raise ValueError("invalid trade count")
+    for gap in batch.gaps:
+        if type(gap.expected_open_time_ms) is not int or type(gap.next_observed_open_time_ms) is not int:
+            raise ValueError("invalid gap timestamps")
+        if type(gap.missing_intervals) is not int or gap.missing_intervals <= 0:
+            raise ValueError("invalid gap count")
+        if gap.expected_open_time_ms < 0 or gap.next_observed_open_time_ms <= gap.expected_open_time_ms:
+            raise ValueError("invalid gap boundaries")
+
+
 def _wire_int(value: object, field: str) -> int:
     # Binance kline timestamps and trade counts are JSON integers; reject
     # booleans, floats, and numeric strings rather than silently coercing them.
@@ -128,9 +186,13 @@ def _canonical_row(row: object, interval_ms: int) -> tuple:
         raise ValueError("taker-buy base volume must be non-negative")
     if _decimal(row[10], "taker_buy_quote_volume") < 0:
         raise ValueError("taker-buy quote volume must be non-negative")
-    if type(row[11]) not in (str, int) or str(row[11]) not in ("0", "0.0"):
-        raise ValueError("reserved kline field must be zero")
-    return (open_time, close_time, open_price, high, low, close, volume, quote_volume, trade_count)
+    if type(row[11]) is not str or row[11] not in ("0", "0.0"):
+        raise ValueError("reserved kline field must be a zero string")
+    return (
+        open_time, close_time, open_price, high, low, close, volume, quote_volume,
+        trade_count, _decimal(row[9], "taker_buy_base_volume"),
+        _decimal(row[10], "taker_buy_quote_volume"), row[11],
+    )
 
 
 def normalize_native_klines(

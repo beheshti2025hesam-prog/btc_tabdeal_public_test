@@ -9,7 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from .forward_observation_writer_v1 import ForwardObservationWriterV1
-from .native_ohlcv_v1 import INTERVAL_MS, NativeOHLCVBatch, NativeOHLCVSource
+from .native_ohlcv_v1 import INTERVAL_MS, NativeOHLCVBatch, NativeOHLCVSource, validate_native_batch
 from .runtime_guard_v1 import RuntimeContext
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -25,65 +25,6 @@ class NativeOHLCVForwardRunResult:
     gap_count: int = 0
     journal_digest: str | None = None
     response_sha256: str | None = None
-
-
-def _validate_batch(batch: NativeOHLCVBatch) -> None:
-    for key in ("venue", "product", "symbol", "interval", "endpoint_kind"):
-        if not isinstance(getattr(batch, key, None), str) or not getattr(batch, key).strip():
-            raise ValueError("missing batch metadata: " + key)
-    if batch.interval not in INTERVAL_MS:
-        raise ValueError("unsupported fixed interval")
-    if type(batch.fetched_at_ms) is not int or batch.fetched_at_ms < 0:
-        raise ValueError("invalid fetched_at_ms")
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    if batch.fetched_at_ms > now_ms + 60_000:
-        raise ValueError("fetch timestamp is in the future")
-    if type(batch.open_candles_excluded) is not int or batch.open_candles_excluded < 0:
-        raise ValueError("invalid open_candles_excluded")
-    if not isinstance(batch.response_sha256, str) or not _SHA256.fullmatch(batch.response_sha256):
-        raise ValueError("invalid response SHA-256")
-
-    interval_ms = INTERVAL_MS[batch.interval]
-    previous_open = None
-    seen = set()
-    for candle in batch.candles:
-        if (candle.venue, candle.product, candle.symbol, candle.interval) != (
-            batch.venue, batch.product, batch.symbol, batch.interval
-        ):
-            raise ValueError("candle source scope differs from batch")
-        if type(candle.closed) is not bool or candle.closed is not True:
-            raise ValueError("unclosed candle in native batch")
-        if type(candle.open_time_ms) is not int or type(candle.close_time_ms) is not int:
-            raise ValueError("candle timestamps must be integers")
-        if candle.open_time_ms < 0 or candle.close_time_ms != candle.open_time_ms + interval_ms - 1:
-            raise ValueError("invalid candle timestamps")
-        if candle.open_time_ms % interval_ms or candle.close_time_ms >= batch.fetched_at_ms:
-            raise ValueError("unclosed or misaligned candle")
-        if candle.open_time_ms in seen or (
-            previous_open is not None and candle.open_time_ms <= previous_open
-        ):
-            raise ValueError("duplicate or unordered candle")
-        seen.add(candle.open_time_ms)
-        previous_open = candle.open_time_ms
-        prices = (candle.open, candle.high, candle.low, candle.close)
-        if any(type(x) is not Decimal or not x.is_finite() or x <= 0 for x in prices):
-            raise ValueError("invalid OHLC decimal")
-        if candle.high < max(candle.open, candle.low, candle.close):
-            raise ValueError("invalid candle high")
-        if candle.low > min(candle.open, candle.high, candle.close):
-            raise ValueError("invalid candle low")
-        if any(type(x) is not Decimal or not x.is_finite() or x < 0
-               for x in (candle.volume, candle.quote_volume)):
-            raise ValueError("invalid volume")
-        if type(candle.trade_count) is not int or candle.trade_count < 0:
-            raise ValueError("invalid trade count")
-    for gap in batch.gaps:
-        if type(gap.missing_intervals) is not int or gap.missing_intervals <= 0:
-            raise ValueError("invalid gap count")
-        if type(gap.expected_open_time_ms) is not int or type(gap.next_observed_open_time_ms) is not int:
-            raise ValueError("invalid gap timestamps")
-        if gap.next_observed_open_time_ms <= gap.expected_open_time_ms:
-            raise ValueError("invalid gap boundaries")
 
 
 class NativeOHLCVForwardRunnerV1:
@@ -115,7 +56,9 @@ class NativeOHLCVForwardRunnerV1:
                 symbol=symbol, interval=interval, limit=limit,
                 start_time_ms=start_time_ms, end_time_ms=end_time_ms,
             )
-            _validate_batch(batch)
+            validate_native_batch(batch)
+            if batch.fetched_at_ms > int(datetime.now(timezone.utc).timestamp() * 1000) + 60_000:
+                raise ValueError("fetch timestamp is in the future")
             if batch.symbol != symbol or batch.interval != interval:
                 raise ValueError("response scope differs from request")
         except Exception as exc:

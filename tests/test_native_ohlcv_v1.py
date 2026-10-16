@@ -66,6 +66,10 @@ def test_identical_duplicate_is_idempotent_but_conflicting_duplicate_fails():
     assert len(batch.candles) == 1
     with pytest.raises(ValueError, match="conflicting duplicate"):
         normalize([row(BASE), row(BASE, close="100.26")])
+    altered_taker_buy = row(BASE)
+    altered_taker_buy[9] = "1.26"
+    with pytest.raises(ValueError, match="conflicting duplicate"):
+        normalize([row(BASE), altered_taker_buy])
 
 
 @pytest.mark.parametrize("mutate", [

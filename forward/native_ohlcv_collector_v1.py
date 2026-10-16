@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .native_ohlcv_v1 import NativeOHLCVBatch, NativeOHLCVSource
+from .native_ohlcv_v1 import NativeOHLCVBatch, NativeOHLCVSource, validate_native_batch
 
 DEFAULT_OUTPUT = "data/forward/native_ohlcv_batches.jsonl"
 
@@ -50,6 +50,7 @@ class NativeOHLCVCollectorV1:
             start_time_ms=start_time_ms, end_time_ms=end_time_ms,
             as_of_ms=as_of_ms,
         )
+        validate_native_batch(batch)
         record: dict[str, Any] = {
             "artifact_type": "NATIVE_OHLCV_BATCH",
             "schema_version": 1,
