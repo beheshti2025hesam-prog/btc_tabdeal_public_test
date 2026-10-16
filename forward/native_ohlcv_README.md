@@ -29,3 +29,7 @@ For a venue/product/symbol/interval, request the same bounded time window from t
 Add one explicit adapter per official public candle endpoint or documented SDK. Keep venue, product, instrument, timeframe, timestamp convention, closure rule, and source digest in the record. Do not guess broker endpoints, reuse Binance rules for another venue, or silently fall back to trade aggregation.
 
 A durable append-only one-shot collector is available in native_ohlcv_collector_v1.py. NativeOHLCVForwardRunnerV1 can also append a fully validated batch to the immutable forward observation journal in one record, without depending on trade.sequence. It is disabled by default and must be explicitly enabled for one bounded fetch. It is not a scheduled live collector or trading authorization.
+
+## Live endpoint parity evidence
+
+The `.github/workflows/native-ohlcv-live-parity-v1.yml` workflow performs a bounded, public, read-only comparison of BTCUSDT 15m Spot `uiKlines` and standard `klines`. It compares only closed candles, requires at least eight common closed candles, stores both exact raw-response SHA-256 values, and uploads a JSON artifact even when the probe fails. This establishes endpoint-to-endpoint parity for that sampled window only; it does not prove that the website's rendered chart uses either endpoint, nor does it validate other venues or brokers.

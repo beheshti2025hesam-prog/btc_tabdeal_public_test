@@ -27,4 +27,9 @@
 
 ## Required next validation
 
-Repeat the bounded BTCUSDT 15m Spot comparison through the new direct HTTP adapter, preserve raw-response SHA-256 values, and compare only fully closed candles. Keep Spot and USDⓈ-M Futures separate. Add each selected broker through an official endpoint/SDK once its identity and chart contract are established. Add each selected broker through an official endpoint/SDK once its identity and chart contract are established.
+Repeat the bounded BTCUSDT 15m Spot comparison through the new direct HTTP adapter, preserve raw-response SHA-256 values, and compare only fully closed candles. Keep Spot and USDⓈ-M Futures separate. Run the live public endpoint parity workflow and preserve its artifact hashes. Add Tabdeal or another broker only after its official public candle endpoint or documented SDK method is established; the currently reviewed official Tabdeal Postman collection did not expose a kline/candlestick request.
+
+
+## Live parity workflow added
+
+A bounded live public read-only workflow now captures both Binance Spot endpoint response hashes, compares at least eight common closed candles across timestamps/OHLC/volume/trade count, and uploads an evidence artifact on pass or failure. This is endpoint parity evidence only, not proof of website-chart backend identity or cross-venue parity.
