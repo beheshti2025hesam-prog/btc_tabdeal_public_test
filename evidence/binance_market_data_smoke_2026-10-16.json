@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "evidence_id": "BINANCE_PUBLIC_MARKET_DATA_SMOKE_2026-10-16",
+  "captured_at_utc": "2026-10-16T08:25:46.376Z",
+  "source": {
+    "description": "Structured results returned by the connected Binance public market-data tools",
+    "raw_http_payload_preserved": false,
+    "private_account_authentication_tested": false,
+    "websocket_stream_tested": false,
+    "orders_or_account_actions_performed": false
+  },
+  "spot": {
+    "exchange_info": {
+      "serverTime_ms": 1792139145381,
+      "serverTime_utc": "2026-10-16T08:25:45.381Z",
+      "symbol": "BTCUSDT",
+      "status": "TRADING",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT",
+      "price_tick_size": "0.01000000",
+      "lot_step_size": "0.00001000",
+      "min_notional": "5.00000000"
+    },
+    "price_ticker": {
+      "symbol": "BTCUSDT",
+      "price": "82200.00000000",
+      "timestamp_field_present": false
+    },
+    "recent_trades": [
+      {
+        "id": 6767748544,
+        "price": "82200.00000000",
+        "qty": "0.20633000",
+        "quoteQty": "16960.32600000",
+        "time_ms": 1792139143342,
+        "time_utc": "2026-10-16T08:25:43.342Z",
+        "isBuyerMaker": true,
+        "isBestMatch": true
+      },
+      {
+        "id": 6767748545,
+        "price": "82200.00000000",
+        "qty": "0.00008000",
+        "quoteQty": "6.57600000",
+        "time_ms": 1792139143693,
+        "time_utc": "2026-10-16T08:25:43.693Z",
+        "isBuyerMaker": true,
+        "isBestMatch": true
+      },
+      {
+        "id": 6767748546,
+        "price": "82200.00000000",
+        "qty": "0.00042000",
+        "quoteQty": "34.52400000",
+        "time_ms": 1792139143874,
+        "time_utc": "2026-10-16T08:25:43.874Z",
+        "isBuyerMaker": true,
+        "isBestMatch": true
+      }
+    ],
+    "sample_local_trade_ids_consecutive": true
+  },
+  "usds_m_futures": {
+    "exchange_info": {
+      "futuresType": "U_MARGINED",
+      "symbol": "BTCUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "marginAsset": "USDT",
+      "price_tick_size": "0.10",
+      "lot_step_size": "0.001",
+      "min_notional": "50",
+      "serverTime_ms": 1792137674761,
+      "serverTime_utc": "2026-10-16T08:01:14.761Z",
+      "repeated_serverTime_ms_across_three_calls": [
+        1792137674762,
+        1792137674762,
+        1792137674761
+      ]
+    },
+    "recent_trades": [
+      {
+        "id": 8178415084,
+        "price": "82162.60",
+        "qty": "0.006",
+        "quoteQty": "492.97",
+        "time_ms": 1792139143958,
+        "time_utc": "2026-10-16T08:25:43.958Z",
+        "isBuyerMaker": true,
+        "isRPITrade": false
+      },
+      {
+        "id": 8178415085,
+        "price": "82162.60",
+        "qty": "0.001",
+        "quoteQty": "82.16",
+        "time_ms": 1792139144337,
+        "time_utc": "2026-10-16T08:25:44.337Z",
+        "isBuyerMaker": true,
+        "isRPITrade": false
+      },
+      {
+        "id": 8178415086,
+        "price": "82162.70",
+        "qty": "0.024",
+        "quoteQty": "1971.90",
+        "time_ms": 1792139145072,
+        "time_utc": "2026-10-16T08:25:45.072Z",
+        "isBuyerMaker": false,
+        "isRPITrade": false
+      }
+    ],
+    "sample_local_trade_ids_consecutive": true,
+    "price_ticker_v2": {
+      "symbol": "BTCUSDT",
+      "price": "82162.60",
+      "time_ms": 1792139146376,
+      "time_utc": "2026-10-16T08:25:46.376Z"
+    }
+  },
+  "cross_endpoint_checks": {
+    "spot_exchange_info_serverTime_minus_usds_m_exchange_info_serverTime_ms": 1470620,
+    "difference_seconds": 1470.62,
+    "interpretation": "The USDⓈ-M exchangeInfo serverTime stayed near 2026-10-16T08:01:14Z across three calls while Spot exchangeInfo advanced to 2026-10-16T08:25:45Z and USDⓈ-M recent-trade/ticker timestamps were current. Cache behavior or endpoint clock/source behavior is not established; do not use the USDⓈ-M exchangeInfo serverTime as a common synchronization clock.",
+    "recent_trade_id_contiguity_scope": "Only the three-record samples are consecutive; this does not prove global completeness, no gaps, ordering guarantees, or WebSocket replay behavior."
+  },
+  "verdict": {
+    "public_market_data_reads_succeeded": true,
+    "spot_symbol_metadata_observed": true,
+    "usds_m_perpetual_symbol_metadata_observed": true,
+    "cross_endpoint_time_consistency_verified": false,
+    "private_authenticated_connection_verified": false,
+    "websocket_stream_verified": false,
+    "sequence_semantics_verified": false,
+    "trading_authorized": false
+  }
+}

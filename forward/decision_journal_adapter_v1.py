@@ -24,6 +24,10 @@ def decision_to_journal_record_v1(
     observed_at = getattr(decision, "observed_at", None)
     if observed_at is None:
         raise ValueError("observed_at is required")
+    if hasattr(observed_at, "isoformat"):
+        observed_at = observed_at.isoformat()
+    if not isinstance(observed_at, str) or not observed_at:
+        raise ValueError("observed_at must be a non-empty timestamp string")
     future_outcome = getattr(decision, "outcome", None)
     if future_outcome is not None:
         raise ValueError("DECISION_CONTAINS_FUTURE_OUTCOME")
