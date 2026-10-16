@@ -8,12 +8,14 @@ The Ed25519 signature covers canonical JSON of every field except signature_b64.
 import argparse, base64, hashlib, json, sys
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 # This evidence contract currently authorizes only the official Tabdeal docs host.
 # Add other venues only through an independently reviewed, explicit trust-policy change.
 TRUSTED_SOURCE_HOSTS = frozenset({"docs.tabdeal.org"})
 MAX_REDIRECT_CHAIN_URLS = 11  # initial URL plus at most ten redirects
+REDIRECT_EVIDENCE_SCHEMA = "hes_http_redirect_hops_v1"
+ALLOWED_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 
 
 def canonical_signed_bytes(envelope):
@@ -60,6 +62,89 @@ def validate_https_url(value, *, label):
     return parsed
 
 
+
+def _decode_header_block(encoded, expected_digest, *, label):
+    require(isinstance(encoded, str) and encoded, f"{label} header evidence missing")
+    require(isinstance(expected_digest, str) and len(expected_digest) == 64
+            and all(ch in "0123456789abcdef" for ch in expected_digest),
+            f"invalid {label} header SHA-256")
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except Exception as exc:
+        raise ValueError(f"invalid {label} header evidence encoding") from exc
+    require(hashlib.sha256(raw).hexdigest() == expected_digest,
+            f"{label} header evidence digest mismatch")
+    require(raw.endswith(b"\r\n\r\n"), f"{label} header block is not CRLF terminated")
+    require(b"\x00" not in raw and b"\n" not in raw.replace(b"\r\n", b""),
+            f"invalid {label} header block line endings")
+    lines = raw[:-4].split(b"\r\n") if raw[:-4] else []
+    parsed = []
+    for line in lines:
+        require(b":" in line and not line.startswith((b" ", b"\t")),
+                f"invalid {label} header line")
+        name, value = line.split(b":", 1)
+        require(name and all(ch in b"!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" for ch in name),
+                f"invalid {label} header name")
+        parsed.append((name.decode("ascii").lower(), value.decode("latin-1")))
+    return parsed
+
+
+def validate_redirect_hop_evidence(envelope, source_url, redirects):
+    """Validate signed, byte-bound HTTP response-header observations for every hop."""
+    require(envelope.get("redirect_evidence_schema") == REDIRECT_EVIDENCE_SCHEMA,
+            "redirect hop evidence schema missing or unsupported")
+    require(envelope.get("initial_request_url") == redirects[0],
+            "redirect initial request URL mismatch")
+    hops = envelope.get("redirect_hops")
+    require(isinstance(hops, list), "redirect hop evidence missing")
+    require(len(hops) == len(redirects) - 1,
+            "redirect hop evidence count mismatch")
+    for index, hop in enumerate(hops):
+        require(isinstance(hop, dict), "redirect hop must be an object")
+        request_url = redirects[index]
+        next_url = redirects[index + 1]
+        require(hop.get("request_url") == request_url,
+                "redirect hop request URL mismatch")
+        require(hop.get("next_url") == next_url,
+                "redirect hop next URL mismatch")
+        status = hop.get("response_status")
+        require(type(status) is int and status in ALLOWED_REDIRECT_STATUSES,
+                "redirect hop status is not an allowed redirect")
+        headers = _decode_header_block(
+            hop.get("response_headers_b64"), hop.get("response_headers_sha256"),
+            label=f"redirect hop {index} response",
+        )
+        locations = [value for name, value in headers if name == "location"]
+        require(len(locations) == 1, "redirect hop must contain exactly one Location header")
+        raw_location = hop.get("location_header")
+        require(isinstance(raw_location, str) and raw_location == locations[0],
+                "redirect hop raw Location value mismatch")
+        require(not any(ord(ch) < 0x20 and ch != "\t" for ch in raw_location),
+                "redirect hop Location contains control characters")
+        try:
+            resolved = urljoin(request_url, raw_location)
+        except Exception as exc:
+            raise ValueError("redirect hop Location cannot be resolved") from exc
+        require(resolved == next_url, "redirect hop resolved Location mismatch")
+        parsed_request = validate_https_url(request_url, label="redirect request URL")
+        parsed_next = validate_https_url(next_url, label="redirect next URL")
+        require(parsed_request.hostname.lower() == parsed_next.hostname.lower(),
+                "redirect hop host continuity violation")
+
+    final = envelope.get("final_response")
+    require(isinstance(final, dict), "final response evidence missing")
+    require(final.get("url") == source_url, "final response URL mismatch")
+    status = final.get("response_status")
+    require(type(status) is int and 200 <= status <= 299,
+            "final response status must be 2xx")
+    final_headers = _decode_header_block(
+        final.get("response_headers_b64"), final.get("response_headers_sha256"),
+        label="final response",
+    )
+    require(not any(name == "location" for name, _ in final_headers),
+            "final response contains an untracked Location header")
+
+
 def verify(envelope, *, expected_commit, expected_path, market_scope, key_registry,
            now=None, max_age_seconds=86400):
     require(isinstance(envelope, dict), "envelope must be an object")
@@ -83,6 +168,7 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
         "redirect chain host continuity violation",
     )
     require(redirects[-1] == url, "redirect chain final URL differs from source URL")
+    validate_redirect_hop_evidence(envelope, url, redirects)
 
     stamp = envelope.get("retrieved_at", "")
     try:
