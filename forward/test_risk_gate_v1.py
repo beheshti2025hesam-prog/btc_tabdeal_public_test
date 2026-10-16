@@ -206,3 +206,37 @@ def test_gate_rejects_empty_policy_reason_codes():
     result = _evaluate(EmptyReasonsPolicy(_checks()))
     assert result.state == "RISK_REJECTED"
     assert "MALFORMED_POLICY_RESULT" in result.reason_codes
+
+
+def test_gate_rejects_policy_returning_wrong_result_type():
+    class WrongTypePolicy:
+        REQUIRED = RiskPolicyV1.REQUIRED
+
+        def evaluate(self, *, observed_at, confirmation, checks=()):
+            return {"state": "RISK_APPROVED"}
+
+    result = _evaluate(WrongTypePolicy())
+    assert result.state == "RISK_REJECTED"
+    assert "MALFORMED_POLICY_RESULT" in result.reason_codes
+
+
+def test_gate_rejects_policy_exception_instead_of_propagating_it():
+    class RaisingPolicy:
+        REQUIRED = RiskPolicyV1.REQUIRED
+
+        def evaluate(self, *, observed_at, confirmation, checks=()):
+            raise RuntimeError("synthetic policy failure")
+
+    result = _evaluate(RaisingPolicy())
+    assert result.state == "RISK_REJECTED"
+    assert "POLICY_EVALUATION_ERROR" in result.reason_codes
+
+
+def test_gate_rejects_non_iterable_input_checks():
+    result = RiskGateV1(RiskPolicyV1()).evaluate(
+        observed_at=OBS,
+        confirmation=_confirmation(),
+        checks=None,
+    )
+    assert result.state == "RISK_REJECTED"
+    assert "MALFORMED_RISK_EVIDENCE" in result.reason_codes
