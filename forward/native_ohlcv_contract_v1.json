@@ -7,14 +7,14 @@
     {
       "venue": "binance",
       "product": "spot",
-      "endpoint": "https://api.binance.com/api/v3/uiKlines",
+      "endpoint": "https://data-api.binance.vision/api/v3/uiKlines",
       "purpose": "chart-optimized Spot candles",
       "credentials": "none"
     },
     {
       "venue": "binance",
       "product": "spot",
-      "endpoint": "https://api.binance.com/api/v3/klines",
+      "endpoint": "https://data-api.binance.vision/api/v3/klines",
       "purpose": "standard Spot candles for parity checks",
       "credentials": "none"
     },

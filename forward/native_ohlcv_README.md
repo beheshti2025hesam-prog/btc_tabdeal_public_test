@@ -4,8 +4,8 @@
 
 ## Implemented read-only sources
 
-- Binance Spot chart-optimized uiKlines (/api/v3/uiKlines)
-- Binance Spot standard klines (/api/v3/klines) for parity checks
+- Binance Spot chart-optimized uiKlines (/api/v3/uiKlines) via the official public market-data-only host data-api.binance.vision
+- Binance Spot standard klines (/api/v3/klines) for parity checks via data-api.binance.vision
 - Binance USDⓈ-M Futures klines (/fapi/v1/klines)
 
 All requests are public HTTPS GETs. No API keys, private account endpoints, orders, or trading calls are present. The default timeout is 10 seconds. No network call occurs merely by importing a module or constructing a source; fetch() explicitly performs the read.

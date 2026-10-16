@@ -12,7 +12,7 @@ import re
 import time
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Protocol
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -66,6 +66,16 @@ class NativeOHLCVBatch:
     candles: tuple[NativeCandle, ...]
     gaps: tuple[CandleGap, ...]
     open_candles_excluded: int
+
+
+class NativeOHLCVSource(Protocol):
+    """Common interface for exchange and broker-specific candle adapters."""
+
+    def fetch(
+        self, *, symbol: str, interval: str = "15m", limit: int = 100,
+        start_time_ms: int | None = None, end_time_ms: int | None = None,
+        as_of_ms: int | None = None,
+    ) -> NativeOHLCVBatch: ...
 
 
 def _wire_int(value: object, field: str) -> int:
@@ -223,8 +233,8 @@ class BinanceNativeKlineSource:
     ) -> None:
         if product == "spot":
             self.endpoint = (
-                "https://api.binance.com/api/v3/uiKlines"
-                if chart_optimized else "https://api.binance.com/api/v3/klines"
+                "https://data-api.binance.vision/api/v3/uiKlines"
+                if chart_optimized else "https://data-api.binance.vision/api/v3/klines"
             )
             self.max_limit = 1000
         elif product == "usdm_perpetual":

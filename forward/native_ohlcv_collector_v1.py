@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .native_ohlcv_v1 import BinanceNativeKlineSource, NativeOHLCVBatch
+from .native_ohlcv_v1 import NativeOHLCVBatch, NativeOHLCVSource
 
 DEFAULT_OUTPUT = "data/forward/native_ohlcv_batches.jsonl"
 
@@ -22,7 +22,7 @@ class NativeOHLCVCollectorV1:
     def __init__(
         self,
         *,
-        source: BinanceNativeKlineSource,
+        source: NativeOHLCVSource,
         output: str | Path = DEFAULT_OUTPUT,
         enabled: bool = False,
     ) -> None:

@@ -102,7 +102,7 @@ def test_spot_chart_and_standard_endpoints_are_distinct_and_read_only():
                                   clock_ms=lambda: BASE + INTERVAL * 2)
     batch = spot.fetch(symbol="BTCUSDT", interval="15m", limit=5,
                        as_of_ms=BASE + INTERVAL * 2)
-    assert "/api/v3/uiKlines?" in seen[0][0]
+    assert "https://data-api.binance.vision/api/v3/uiKlines?" in seen[0][0]
     assert "timeZone=0" in seen[0][0]
     assert seen[0][1] == 10
     assert batch.endpoint_kind == "uiKlines"
@@ -112,7 +112,7 @@ def test_spot_chart_and_standard_endpoints_are_distinct_and_read_only():
                                       clock_ms=lambda: BASE + INTERVAL * 2)
     standard.fetch(symbol="BTCUSDT", interval="15m", limit=5,
                    as_of_ms=BASE + INTERVAL * 2)
-    assert "/api/v3/klines?" in seen[1][0]
+    assert "https://data-api.binance.vision/api/v3/klines?" in seen[1][0]
 
 
 def test_usdm_perpetual_uses_product_specific_public_kline_endpoint():
