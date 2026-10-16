@@ -47,6 +47,9 @@ def probe(venue: str, base_url: str, time_path: str, kline_path: str) -> ProbeRe
     if not isinstance(server_payload, dict) or not isinstance(server_payload.get("serverTime"), int):
         raise ValueError(f"{venue}: invalid server-time payload")
     server_time = server_payload["serverTime"]
+    skew = server_time - midpoint
+    if abs(skew) > MAX_SKEW_MS:
+        raise RuntimeError(f"{venue}: server/local clock skew {skew} ms exceeds {MAX_SKEW_MS} ms")
 
     candles = get_json(base_url + kline_path)
     if not isinstance(candles, list) or not candles or not isinstance(candles[0], list):
@@ -55,12 +58,9 @@ def probe(venue: str, base_url: str, time_path: str, kline_path: str) -> ProbeRe
     if not isinstance(candle_open, int):
         raise ValueError(f"{venue}: candle open timestamp is not an integer")
 
-    skew = server_time - midpoint
     age = server_time - candle_open
     result = ProbeResult(venue, server_time, candle_open, midpoint, skew, age)
 
-    if abs(skew) > MAX_SKEW_MS:
-        raise RuntimeError(f"{venue}: server/local clock skew {skew} ms exceeds {MAX_SKEW_MS} ms")
     if age < 0:
         raise RuntimeError(f"{venue}: latest candle opens in the future by {-age} ms")
     if age > MAX_CANDLE_AGE_MS:
