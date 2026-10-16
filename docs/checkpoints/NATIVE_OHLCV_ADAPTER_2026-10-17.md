@@ -19,11 +19,12 @@
 
 - No collector is enabled and no background/live process is started.
 - No credentials, private account data, order endpoints, or execution code are used.
-- A five-candle Spot comparison found exact open/close timestamp and OHLC matches between standard klines and uiKlines, but the final candle's volume differed (48.29596000 vs 48.29630000; trade count 5246 vs 5247). Full volume/chart parity remains unverified.
+- Four closed Spot candles matched exactly across standard klines and uiKlines for timestamps, OHLC, volume, and trade count.
+- The fifth candle was still open during the source calls and changed between requests. It is excluded from parity assessment; its changing volume/count is not evidence of a closed-candle discrepancy.
 - The comparison came from structured connector output; raw HTTP bytes and their hashes were not preserved in that evidence artifact.
 - Other exchanges and brokers require explicit official-source adapters; they are not inferred from Binance.
 - The existing Tabdeal trade-derived path is not silently promoted as the primary path by this adapter.
 
 ## Required next validation
 
-Repeat the bounded BTCUSDT 15m Spot comparison through the new direct HTTP adapter, preserve raw-response SHA-256 values, investigate the one-bar volume discrepancy, and compare Spot and USDⓈ-M Futures only within their own product identity. Add each selected broker through an official endpoint/SDK once its identity and chart contract are established.
+Repeat the bounded BTCUSDT 15m Spot comparison through the new direct HTTP adapter, preserve raw-response SHA-256 values, and compare only fully closed candles. Keep Spot and USDⓈ-M Futures separate. Add each selected broker through an official endpoint/SDK once its identity and chart contract are established. Add each selected broker through an official endpoint/SDK once its identity and chart contract are established.
