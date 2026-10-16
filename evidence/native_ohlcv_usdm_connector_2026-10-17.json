@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "evidence_id": "BINANCE_USDM_BTCUSDT_15M_STRUCTURED_CONNECTOR_CAPTURE_2026-10-17",
+  "captured_at_utc": "2026-10-16T21:44:28.369Z",
+  "source": {
+    "kind": "connected Binance public market-data tool",
+    "operation": "get_futures_usds_kline_candlestick_data",
+    "raw_http_payload_preserved": false,
+    "raw_response_sha256_available": false,
+    "provider_request_timestamp_returned": false,
+    "private_account_authentication_tested": false,
+    "orders_or_account_actions_performed": false,
+    "direct_host_http_probe": "NETWORK_UNREACHABLE; no proxy or workaround used"
+  },
+  "scope": {
+    "venue": "binance",
+    "product": "usdm_perpetual",
+    "symbol": "BTCUSDT",
+    "interval": "15m",
+    "requested_rows": 12,
+    "closed_rows": 11,
+    "open_rows_excluded": 1,
+    "closed_candle_fields": [
+      "open_time_ms",
+      "open",
+      "high",
+      "low",
+      "close",
+      "base_volume",
+      "close_time_ms",
+      "quote_volume",
+      "trade_count",
+      "taker_buy_base_volume",
+      "taker_buy_quote_volume"
+    ]
+  },
+  "hash": {
+    "algorithm": "SHA-256",
+    "scope": "canonical JSON UTF-8 bytes of closed_candles array only; compact separators; ensure_ascii=false",
+    "sha256": "f811c99e314a0a4feba8081fc1953388c6752cfbc60f5a8ade1092940867f329",
+    "raw_http_response_hash": null
+  },
+  "closed_candles": [
+    [
+      1792176300000,
+      "81083.70",
+      "81280.50",
+      "80888.80",
+      "81117.60",
+      "3309.991",
+      1792177199999,
+      "268253113.76420",
+      74503,
+      "1619.840",
+      "131310863.76230"
+    ],
+    [
+      1792177200000,
+      "81117.60",
+      "81374.30",
+      "80978.20",
+      "81368.20",
+      "1867.179",
+      1792178099999,
+      "151598661.09470",
+      48509,
+      "1100.134",
+      "89333003.89560"
+    ],
+    [
+      1792178100000,
+      "81368.30",
+      "81742.40",
+      "81279.10",
+      "81573.70",
+      "3534.751",
+      1792178999999,
+      "288301481.21920",
+      61558,
+      "2530.214",
+      "206392609.71210"
+    ],
+    [
+      1792179000000,
+      "81573.70",
+      "81593.70",
+      "81318.40",
+      "81329.40",
+      "862.068",
+      1792179899999,
+      "70200033.63290",
+      30286,
+      "345.345",
+      "28120369.83690"
+    ],
+    [
+      1792179900000,
+      "81329.40",
+      "81630.00",
+      "81326.80",
+      "81557.40",
+      "976.107",
+      1792180799999,
+      "79542526.57350",
+      33576,
+      "484.797",
+      "39507997.18890"
+    ],
+    [
+      1792180800000,
+      "81557.40",
+      "81656.90",
+      "81480.40",
+      "81547.90",
+      "868.763",
+      1792181699999,
+      "70874049.96880",
+      26037,
+      "314.055",
+      "25622973.87830"
+    ],
+    [
+      1792181700000,
+      "81547.90",
+      "81672.90",
+      "81547.90",
+      "81619.90",
+      "392.568",
+      1792182599999,
+      "32035443.39400",
+      16815,
+      "178.007",
+      "14527278.45790"
+    ],
+    [
+      1792182600000,
+      "81620.00",
+      "81759.10",
+      "81619.90",
+      "81687.90",
+      "942.052",
+      1792183499999,
+      "76946533.85320",
+      23166,
+      "697.893",
+      "57006148.23930"
+    ],
+    [
+      1792183500000,
+      "81687.90",
+      "81767.20",
+      "81626.50",
+      "81694.60",
+      "546.540",
+      1792184399999,
+      "44648538.03320",
+      19991,
+      "288.341",
+      "23556254.17300"
+    ],
+    [
+      1792184400000,
+      "81694.60",
+      "81725.30",
+      "81533.40",
+      "81689.90",
+      "658.737",
+      1792185299999,
+      "53776247.06250",
+      22342,
+      "285.869",
+      "23338609.55180"
+    ],
+    [
+      1792185300000,
+      "81689.90",
+      "81771.40",
+      "81682.60",
+      "81695.00",
+      "334.323",
+      1792186199999,
+      "27323375.46850",
+      12493,
+      "149.704",
+      "12235510.31040"
+    ]
+  ],
+  "open_candle_excluded": {
+    "open_time_ms": 1792186200000,
+    "close_time_ms": 1792187099999,
+    "reason": "At capture time 2026-10-16T21:44:28.369Z this 15m candle had not reached its scheduled close."
+  },
+  "verdict": {
+    "status": "PASS_SUPPLEMENTAL_STRUCTURED_EVIDENCE",
+    "minimum_closed_candles_required": 8,
+    "closed_candle_count": 11,
+    "product_separated_from_spot": true,
+    "adapter_direct_capture_verified": false,
+    "raw_http_integrity_verified": false,
+    "limitations": [
+      "This is connector-returned structured market data, not a raw HTTP capture from the adapter.",
+      "The hash covers only the canonical closed-candle array and must not be described as a raw-response hash.",
+      "This does not resolve the hosted runner's HTTP 451 or prove the native adapter's direct Futures path.",
+      "No comparison against Spot candles was performed."
+    ]
+  }
+}
