@@ -13,8 +13,9 @@ INTERVAL = 900_000
 
 def row(open_time: int, *, close: str = "101.25", volume: str = "2.500",
         quote: str = "250.625", taker_buy: str = "1.250") -> list[object]:
+    high = str(max(102.0, float(close)))
     return [
-        open_time, "100.00", "102.00", "99.00", close, volume,
+        open_time, "100.00", high, "99.00", close, volume,
         open_time + INTERVAL - 1, quote, 12, taker_buy, "125.3125", "0",
     ]
 
