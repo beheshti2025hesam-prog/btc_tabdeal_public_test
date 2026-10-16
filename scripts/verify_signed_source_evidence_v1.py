@@ -166,7 +166,6 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
         "redirect chain host continuity violation",
     )
     require(redirects[-1] == url, "redirect chain final URL differs from source URL")
-    validate_redirect_evidence(envelope, redirects, url)
 
     stamp = envelope.get("retrieved_at", "")
     try:
@@ -191,6 +190,7 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
     except Exception as exc:
         raise ValueError("signature verification failed") from exc
     require(hashlib.sha256(payload).hexdigest() == digest, "raw payload SHA-256 mismatch")
+    validate_redirect_evidence(envelope, redirects, url)
     return {"status": "VERIFIED", "verification_scope": "signed_collector_attestation_not_independent_remote_proof",
             "expected_commit": expected_commit, "evidence_path": expected_path,
             "raw_sha256": digest, "source_url": url, "redirect_chain": redirects,
