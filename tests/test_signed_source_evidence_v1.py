@@ -28,8 +28,8 @@ def resign(e):
 def envelope():
     initial = "https://docs.tabdeal.org/redirect"
     source = "https://docs.tabdeal.org/source"
-    redirect_headers = b"Location:/source\\r\\nContent-Type:text/html\\r\\n\\r\\n"
-    final_headers = b"Content-Type:text/html\\r\\n\\r\\n"
+    redirect_headers = b"Location:/source\r\nContent-Type:text/html\r\n\r\n"
+    final_headers = b"Content-Type:text/html\r\n\r\n"
     e = {"expected_commit": COMMIT, "evidence_path": PATH,
          "raw_sha256": hashlib.sha256(PAYLOAD).hexdigest(),
          "source_url": source,
@@ -122,7 +122,7 @@ class SignedSourceEvidenceTests(unittest.TestCase):
     def test_redirect_hop_header_digest_must_match_bytes(self):
         e = envelope()
         e["redirect_hops"][0]["response_headers_b64"] = base64.b64encode(
-            b"Location:/forged\\r\\n\\r\\n"
+            b"Location:/forged\r\n\r\n"
         ).decode()
         resign(e)
         with self.assertRaisesRegex(ValueError, "header evidence digest mismatch"):
@@ -149,7 +149,7 @@ class SignedSourceEvidenceTests(unittest.TestCase):
 
     def test_final_response_must_not_hide_another_redirect(self):
         e = envelope()
-        raw = b"Location:/hidden\\r\\nContent-Type:text/html\\r\\n\\r\\n"
+        raw = b"Location:/hidden\r\nContent-Type:text/html\r\n\r\n"
         e["final_response"].update(_header_evidence(raw))
         resign(e)
         with self.assertRaisesRegex(ValueError, "untracked Location"):
