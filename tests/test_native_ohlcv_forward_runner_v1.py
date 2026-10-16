@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from forward.native_ohlcv_forward_runner_v1 import NativeOHLCVForwardRunnerV1
 
-FETCHED = 1_800_000_001_000
+FETCHED = 1_800_000_900_100
 OPEN = 1_800_000_000_000
 
 
