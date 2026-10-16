@@ -168,3 +168,41 @@ def test_gate_rejects_none_check_collection_even_if_policy_approves():
     result = _evaluate(NoneChecksPolicy())
     assert result.state == "RISK_REJECTED"
     assert "MALFORMED_RISK_EVIDENCE" in result.reason_codes
+
+
+def test_gate_rejects_policy_observation_time_mismatch():
+    class MismatchedTimePolicy(_PermissivePolicy):
+        def evaluate(self, *, observed_at, confirmation, checks=()):
+            return RiskGateResult(
+                observed_at=datetime(2026, 10, 15, tzinfo=timezone.utc),
+                confirmation_state=confirmation.state,
+                checks=self.checks,
+                state="RISK_APPROVED",
+                reason_codes=("POLICY_SAYS_APPROVE",),
+            )
+
+    result = _evaluate(MismatchedTimePolicy(_checks()))
+    assert result.state == "RISK_REJECTED"
+    assert "OBSERVATION_TIME_MISMATCH" in result.reason_codes
+
+
+def test_gate_rejects_unconfirmed_input_even_if_policy_approves():
+    result = _evaluate(
+        _PermissivePolicy(_checks(), confirmation_state="UNCONFIRMED"),
+        confirmation=_confirmation("UNCONFIRMED"),
+    )
+    assert result.state == "RISK_REJECTED"
+    assert "CONFIRMATION_NOT_VALID" in result.reason_codes
+
+
+def test_gate_rejects_empty_policy_reason_codes():
+    class EmptyReasonsPolicy(_PermissivePolicy):
+        def evaluate(self, *, observed_at, confirmation, checks=()):
+            return RiskGateResult(
+                observed_at, confirmation.state, self.checks,
+                "RISK_APPROVED", ()
+            )
+
+    result = _evaluate(EmptyReasonsPolicy(_checks()))
+    assert result.state == "RISK_REJECTED"
+    assert "MALFORMED_POLICY_RESULT" in result.reason_codes
