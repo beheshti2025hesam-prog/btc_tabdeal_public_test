@@ -153,3 +153,18 @@ def test_gate_rejects_duplicate_policy_requirement_names():
     result = _evaluate(DuplicateRequirementsPolicy(_checks()))
     assert result.state == "RISK_REJECTED"
     assert "POLICY_REQUIRED_CHECKS_UNDEFINED" in result.reason_codes
+
+
+def test_gate_rejects_none_check_collection_even_if_policy_approves():
+    class NoneChecksPolicy:
+        REQUIRED = RiskPolicyV1.REQUIRED
+
+        def evaluate(self, *, observed_at, confirmation, checks=()):
+            return RiskGateResult(
+                observed_at, confirmation.state, None,
+                "RISK_APPROVED", ("POLICY_SAYS_APPROVE",)
+            )
+
+    result = _evaluate(NoneChecksPolicy())
+    assert result.state == "RISK_REJECTED"
+    assert "MALFORMED_RISK_EVIDENCE" in result.reason_codes
