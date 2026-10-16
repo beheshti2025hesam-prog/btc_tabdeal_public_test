@@ -70,15 +70,23 @@ class RiskGateV1:
         # list and a complete, well-formed, all-PASS result. A policy's own
         # approval is not sufficient evidence by itself.
         required = getattr(self.policy, "REQUIRED", None)
-        if not isinstance(required, (tuple, list)) or not required:
+        if (
+            not isinstance(required, (tuple, list))
+            or not required
+            or any(not isinstance(name, str) or not name.strip() for name in required)
+            or len(set(required)) != len(required)
+        ):
             return reject("POLICY_REQUIRED_CHECKS_UNDEFINED", result_checks=result.checks)
 
         result_checks = tuple(result.checks)
         by_name = {}
         for check in result_checks:
+            if not isinstance(check, RiskCheck):
+                return reject("MALFORMED_RISK_EVIDENCE", result_checks=result_checks)
             if (
                 not isinstance(check.name, str)
                 or not check.name.strip()
+                or not isinstance(check.state, str)
                 or check.state not in _VALID_CHECK_STATES
                 or not isinstance(check.evidence_ref, str)
                 or not check.evidence_ref.strip()
