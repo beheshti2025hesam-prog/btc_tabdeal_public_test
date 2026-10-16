@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 jobs:
   identity-integrity:
+    name: HES Trade Agent Identity Integrity
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
