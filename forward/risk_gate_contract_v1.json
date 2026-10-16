@@ -34,6 +34,8 @@
     "A policy cannot approve unless it declares a non-empty versioned required-check list.",
     "At the gate boundary, every returned check must be well formed, uniquely named, carry a non-empty evidence reference and observation time, and have state PASS for approval.",
     "Missing required checks, duplicate check names, malformed evidence, FAIL, or UNKNOWN in any returned check yields RISK_REJECTED.",
-    "The policy result confirmation_state must match the confirmation input state."
+    "The policy result confirmation_state must match the confirmation input state.",
+    "A risk approval requires confirmation_state CONFIRMED_LONG or CONFIRMED_SHORT.",
+    "The policy result observation time must match the gate input observation time and include non-empty reason codes."
   ]
 }
