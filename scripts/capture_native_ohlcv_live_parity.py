@@ -7,6 +7,7 @@ evidence JSON even when validation fails. No credentials or order APIs.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from forward.native_ohlcv_v1 import BinanceSpotKlineSource
+from forward.native_ohlcv_v1 import BinanceSpotKlineSource, BinanceUsdMPerpetualKlineSource
 
 OUT = Path("artifacts/native_ohlcv_live_parity.json")
 COMPARE_FIELDS = (
@@ -50,6 +51,8 @@ def main() -> int:
         "schema_version": 1,
         "evidence_id": "BINANCE_SPOT_NATIVE_OHLCV_LIVE_PARITY_V1",
         "probe_kind": "bounded_public_read_only_live_probe",
+        "source_commit_sha": os.environ.get("HES_SOURCE_COMMIT_SHA"),
+        "workflow_run_id": os.environ.get("HES_WORKFLOW_RUN_ID"),
         "request_scope": {
             "venue": "binance",
             "product": "spot",
@@ -59,6 +62,7 @@ def main() -> int:
             "endpoints": [
                 "https://data-api.binance.vision/api/v3/uiKlines",
                 "https://data-api.binance.vision/api/v3/klines",
+                "https://fapi.binance.com/fapi/v1/klines",
             ],
         },
         "security": {
@@ -75,6 +79,9 @@ def main() -> int:
             symbol="BTCUSDT", interval="15m", limit=12
         )
         standard = BinanceSpotKlineSource(chart_optimized=False).fetch(
+            symbol="BTCUSDT", interval="15m", limit=12
+        )
+        futures = BinanceUsdMPerpetualKlineSource().fetch(
             symbol="BTCUSDT", interval="15m", limit=12
         )
         evidence["observed_at_utc"] = datetime.now(timezone.utc).isoformat()
@@ -111,7 +118,26 @@ def main() -> int:
                 ],
                 "candles": [candle_dict(c) for c in standard.candles],
             },
+            "usdm_perpetual_klines": {
+                "endpoint_kind": futures.endpoint_kind,
+                "product": futures.product,
+                "fetched_at_ms": futures.fetched_at_ms,
+                "fetched_at_utc": utc(futures.fetched_at_ms),
+                "raw_response_sha256": futures.response_sha256,
+                "closed_candle_count": len(futures.candles),
+                "open_candles_excluded": futures.open_candles_excluded,
+                "gaps": [
+                    {
+                        "expected_open_time_ms": g.expected_open_time_ms,
+                        "next_observed_open_time_ms": g.next_observed_open_time_ms,
+                        "missing_intervals": g.missing_intervals,
+                    } for g in futures.gaps
+                ],
+                "candles": [candle_dict(c) for c in futures.candles],
+            },
         }
+        if len(futures.candles) < 8:
+            evidence["failure_reasons"].append("INSUFFICIENT_USDM_CLOSED_CANDLES")
         chart_by_open = {c.open_time_ms: c for c in chart.candles}
         standard_by_open = {c.open_time_ms: c for c in standard.candles}
         common = sorted(set(chart_by_open) & set(standard_by_open))
@@ -156,6 +182,7 @@ def main() -> int:
         "evidence_path": str(OUT),
         "uiKlines_sha256": evidence.get("sources", {}).get("uiKlines", {}).get("raw_response_sha256"),
         "klines_sha256": evidence.get("sources", {}).get("klines", {}).get("raw_response_sha256"),
+        "usdm_futures_sha256": evidence.get("sources", {}).get("usdm_perpetual_klines", {}).get("raw_response_sha256"),
         "common_closed_candles": evidence.get("comparison", {}).get("common_closed_candles", 0),
     }, sort_keys=True))
     return 0 if evidence["status"] == "PASS" else 1
