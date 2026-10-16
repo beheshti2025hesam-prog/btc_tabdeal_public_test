@@ -49,3 +49,15 @@ Prior HES investigation dated 2026-09-05 already tested the likely Tabdeal Kline
 
 ## Updated next action
 Because the likely endpoint guesses have already failed and the reviewed official references still do not document Klines, the next high-value step is to obtain an authoritative answer through Tabdeal's currently verified support channel or a newly published official contract. Do not reuse the previously reported failed `info@tabdeal.org` address. In parallel, native OHLCV support may be implemented for another venue only as a clearly separated venue adapter; never label that as Tabdeal chart parity.
+
+
+## Additional route check — public Binance OHLCV
+On 2026-10-16, official Binance documentation was verified to document public Spot klines at `GET /api/v3/klines`; the market-data-only domain `data-api.binance.vision` documents unauthenticated public `/api/v3/klines` access. The Binance tool also returned sample Spot and USDⓈ-M Futures 1m candles plus recent Spot trades without user credentials. This establishes that a separate Binance OHLCV adapter is technically plausible without a personal API key.
+- Official docs: https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md
+- Market-data-only docs: https://github.com/binance/binance-spot-api-docs/blob/master/faqs/market_data_only.md
+
+## Critical timestamp anomaly — FAIL CLOSED
+The sampled Binance tool responses contained candle open timestamps around `1792160580000` ms (2026-11-16 UTC), which are in the future relative to this checkpoint date (2026-10-16). The recent-trades payload had the same future-date pattern. The direct Binance server-time URL could not be retrieved through the web tool in this session, so the cause is unresolved (tool fixture/cache/time-source anomaly versus upstream data issue). Do not use these samples for model training, backtesting, chart parity or trading. Before implementing/accepting any adapter, query a trusted live server-time endpoint from the execution environment, record request/response times, validate timestamp freshness and compare the same symbol/timeframe across independent requests. This is a data-quality gate, not evidence that Binance itself is malfunctioning.
+
+## Revised recommendation
+No personal API key is needed for public Binance candles. Do not request or accept the user's API secret. Next implementation should be venue-separated and read-only, but remains blocked on resolving the timestamp anomaly. Tabdeal-native OHLCV remains undocumented in the official sources reviewed; Binance candles must never be represented as Tabdeal chart parity.
