@@ -60,6 +60,89 @@ def validate_https_url(value, *, label):
     return parsed
 
 
+def _captured_response_headers(record, *, label):
+    """Decode and verify the exact captured HTTP status/header bytes."""
+    require(isinstance(record, dict), f"{label} must be an object")
+    status = record.get("response_status")
+    require(type(status) is int and 100 <= status <= 599, f"{label} has invalid response status")
+    encoded = record.get("response_headers_b64")
+    require(isinstance(encoded, str) and encoded, f"{label} missing captured response headers")
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except Exception as exc:
+        raise ValueError(f"{label} response headers are not valid base64") from exc
+    digest = record.get("response_headers_sha256")
+    require(isinstance(digest, str) and len(digest) == 64
+            and all(c in "0123456789abcdef" for c in digest),
+            f"{label} has invalid response-header SHA-256")
+    require(hashlib.sha256(raw).hexdigest() == digest,
+            f"{label} response-header SHA-256 mismatch")
+    require(raw.endswith(b"\r\n\r\n"), f"{label} captured headers are not CRLF terminated")
+    try:
+        lines = raw.decode("iso-8859-1").split("\r\n")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{label} captured headers cannot be decoded") from exc
+    import re
+    match = re.fullmatch(r"HTTP/1\.[01] ([1-5][0-9][0-9])(?: [^\r\n]*)?", lines[0])
+    require(match is not None, f"{label} has invalid HTTP status line")
+    require(int(match.group(1)) == status, f"{label} status line mismatch")
+    headers = []
+    for line in lines[1:]:
+        if line == "":
+            break
+        require(not line.startswith((" ", "\t")), f"{label} folded headers are unsupported")
+        require(":" in line, f"{label} has malformed header line")
+        name, value = line.split(":", 1)
+        require(bool(name) and all(ch.isalnum() or ch == "-" for ch in name),
+                f"{label} has malformed header name")
+        headers.append((name.lower(), value.strip(" \t")))
+    return headers
+
+
+def validate_redirect_evidence(envelope, redirects, source_url):
+    """Validate a signed collector attestation of each captured HTTP transition.
+
+    This verifies internally consistent captured bytes and chain linkage. It is
+    not independent proof from the remote server or a third-party TLS witness.
+    """
+    hops = envelope.get("redirect_hops")
+    require(isinstance(hops, list), "redirect hop evidence missing")
+    require(len(hops) == len(redirects) - 1, "redirect hop count mismatch")
+    for index, hop in enumerate(hops):
+        label = f"redirect hop {index}"
+        require(isinstance(hop, dict), f"{label} must be an object")
+        request_url = hop.get("request_url")
+        require(request_url == redirects[index], f"{label} request URL mismatch")
+        validate_https_url(request_url, label=f"{label} request URL")
+        status = hop.get("response_status")
+        require(type(status) is int and 300 <= status <= 399,
+                f"{label} must contain a 3xx response")
+        headers = _captured_response_headers(hop, label=label)
+        locations = [value for name, value in headers if name == "location"]
+        require(len(locations) == 1, f"{label} must contain exactly one Location header")
+        raw_location = hop.get("raw_location")
+        require(isinstance(raw_location, str) and bool(raw_location),
+                f"{label} raw Location missing")
+        require(raw_location == locations[0], f"{label} raw Location does not match captured headers")
+        from urllib.parse import urljoin
+        resolved = urljoin(request_url, raw_location)
+        validate_https_url(resolved, label=f"{label} resolved URL")
+        require(hop.get("resolved_next_url") == resolved,
+                f"{label} resolved next URL mismatch")
+        require(resolved == redirects[index + 1],
+                f"{label} does not link to the next redirect-chain URL")
+
+    final_response = envelope.get("final_response")
+    require(isinstance(final_response, dict), "final response evidence missing")
+    require(final_response.get("request_url") == source_url,
+            "final response request URL mismatch")
+    validate_https_url(final_response.get("request_url"), label="final response URL")
+    final_status = final_response.get("response_status")
+    require(type(final_status) is int and 200 <= final_status <= 299,
+            "final response must be 2xx")
+    _captured_response_headers(final_response, label="final response")
+
+
 def verify(envelope, *, expected_commit, expected_path, market_scope, key_registry,
            now=None, max_age_seconds=86400):
     require(isinstance(envelope, dict), "envelope must be an object")
@@ -83,6 +166,7 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
         "redirect chain host continuity violation",
     )
     require(redirects[-1] == url, "redirect chain final URL differs from source URL")
+    validate_redirect_evidence(envelope, redirects, url)
 
     stamp = envelope.get("retrieved_at", "")
     try:
@@ -107,8 +191,10 @@ def verify(envelope, *, expected_commit, expected_path, market_scope, key_regist
     except Exception as exc:
         raise ValueError("signature verification failed") from exc
     require(hashlib.sha256(payload).hexdigest() == digest, "raw payload SHA-256 mismatch")
-    return {"status": "VERIFIED", "expected_commit": expected_commit, "evidence_path": expected_path,
+    return {"status": "VERIFIED", "verification_scope": "signed_collector_attestation_not_independent_remote_proof",
+            "expected_commit": expected_commit, "evidence_path": expected_path,
             "raw_sha256": digest, "source_url": url, "redirect_chain": redirects,
+            "redirect_hops_verified": len(redirects) - 1,
             "retrieved_at": stamp, "market_scope": market_scope, "key_id": key_id}
 
 
