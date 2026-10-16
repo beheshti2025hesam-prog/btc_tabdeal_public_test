@@ -13,15 +13,41 @@ KEY = Ed25519PrivateKey.generate()
 PUB = base64.b64encode(KEY.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode()
 
 
-def envelope():
-    e = {"expected_commit": COMMIT, "evidence_path": PATH,
-         "raw_sha256": hashlib.sha256(PAYLOAD).hexdigest(),
-         "source_url": "https://docs.tabdeal.org/source",
-         "redirect_chain": ["https://docs.tabdeal.org/redirect", "https://docs.tabdeal.org/source"],
-         "retrieved_at": NOW.isoformat(), "market_scope": MARKET, "key_id": "test-key",
-         "signature_algorithm": "Ed25519", "payload_b64": base64.b64encode(PAYLOAD).decode()}
+def _header_evidence(raw):
+    return {
+        "response_headers_b64": base64.b64encode(raw).decode(),
+        "response_headers_sha256": hashlib.sha256(raw).hexdigest(),
+    }
+
+
+def resign(e):
     e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
     return e
+
+
+def envelope():
+    initial = "https://docs.tabdeal.org/redirect"
+    source = "https://docs.tabdeal.org/source"
+    redirect_headers = b"Location:/source\r\nContent-Type:text/html\r\n\r\n"
+    final_headers = b"Content-Type:text/html\r\n\r\n"
+    e = {"expected_commit": COMMIT, "evidence_path": PATH,
+         "raw_sha256": hashlib.sha256(PAYLOAD).hexdigest(),
+         "source_url": source,
+         "redirect_chain": [initial, source],
+         "redirect_evidence_schema": "hes_http_redirect_hops_v1",
+         "initial_request_url": initial,
+         "redirect_hops": [{
+             "request_url": initial, "response_status": 302,
+             "location_header": "/source", "next_url": source,
+             **_header_evidence(redirect_headers),
+         }],
+         "final_response": {
+             "url": source, "response_status": 200,
+             **_header_evidence(final_headers),
+         },
+         "retrieved_at": NOW.isoformat(), "market_scope": MARKET, "key_id": "test-key",
+         "signature_algorithm": "Ed25519", "payload_b64": base64.b64encode(PAYLOAD).decode()}
+    return resign(e)
 
 
 class SignedSourceEvidenceTests(unittest.TestCase):
@@ -63,6 +89,71 @@ class SignedSourceEvidenceTests(unittest.TestCase):
         e = envelope(); e["redirect_chain"] = ["https://docs.tabdeal.org/other"]
         e["signature_b64"] = base64.b64encode(KEY.sign(canonical_signed_bytes(e))).decode()
         with self.assertRaisesRegex(ValueError, "final URL"): self.check(e)
+
+
+    def test_redirect_hop_evidence_is_required(self):
+        e = envelope()
+        del e["redirect_hops"]
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "redirect hop evidence missing"):
+            self.check(e)
+
+    def test_redirect_hop_status_must_be_redirect(self):
+        e = envelope()
+        e["redirect_hops"][0]["response_status"] = 200
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "not an allowed redirect"):
+            self.check(e)
+
+    def test_redirect_hop_location_must_match_captured_header(self):
+        e = envelope()
+        e["redirect_hops"][0]["location_header"] = "/forged"
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "raw Location value mismatch"):
+            self.check(e)
+
+    def test_redirect_hop_next_url_must_match_location_resolution(self):
+        e = envelope()
+        e["redirect_hops"][0]["next_url"] = "https://docs.tabdeal.org/other"
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "next URL mismatch"):
+            self.check(e)
+
+    def test_redirect_hop_header_digest_must_match_bytes(self):
+        e = envelope()
+        e["redirect_hops"][0]["response_headers_b64"] = base64.b64encode(
+            b"Location:/forged\r\n\r\n"
+        ).decode()
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "header evidence digest mismatch"):
+            self.check(e)
+
+    def test_redirect_hop_count_must_match_chain(self):
+        e = envelope()
+        e["redirect_hops"].append(dict(e["redirect_hops"][0]))
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "hop evidence count mismatch"):
+            self.check(e)
+
+    def test_final_response_must_match_source_url_and_be_success(self):
+        e = envelope()
+        e["final_response"]["url"] = "https://docs.tabdeal.org/other"
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "final response URL mismatch"):
+            self.check(e)
+        e = envelope()
+        e["final_response"]["response_status"] = 302
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "final response status must be 2xx"):
+            self.check(e)
+
+    def test_final_response_must_not_hide_another_redirect(self):
+        e = envelope()
+        raw = b"Location:/hidden\r\nContent-Type:text/html\r\n\r\n"
+        e["final_response"].update(_header_evidence(raw))
+        resign(e)
+        with self.assertRaisesRegex(ValueError, "untracked Location"):
+            self.check(e)
 
     def test_market_scope_mismatch_rejected(self):
         e = envelope(); e["market_scope"] = "other-venue"
