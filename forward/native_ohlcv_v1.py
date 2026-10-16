@@ -286,6 +286,13 @@ class BinanceNativeKlineSource:
         if not isinstance(payload, list):
             raise ValueError("public kline response must be a list")
         fetched_at_ms = self._clock_ms()
+        if type(fetched_at_ms) is not int or fetched_at_ms < 0:
+            raise ValueError("clock must return a non-negative integer millisecond timestamp")
+        if as_of_ms is not None:
+            if type(as_of_ms) is not int or as_of_ms < 0:
+                raise ValueError("as_of_ms must be a non-negative integer")
+            if as_of_ms > fetched_at_ms:
+                raise ValueError("as_of_ms must not be after the fetch time")
         effective_as_of_ms = fetched_at_ms if as_of_ms is None else as_of_ms
         return normalize_native_klines(
             payload, venue=self.venue, product=self.product, symbol=symbol,

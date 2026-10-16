@@ -154,3 +154,13 @@ def test_raw_response_hash_is_exact_sha256():
     batch = source.fetch(symbol="BTCUSDT", interval="15m", limit=5,
                          as_of_ms=BASE + INTERVAL * 2)
     assert batch.response_sha256 == hashlib.sha256(body).hexdigest()
+
+
+def test_source_rejects_future_as_of_cutoff():
+    source = BinanceSpotKlineSource(
+        transport=lambda _url, _timeout: b"[]",
+        clock_ms=lambda: BASE + INTERVAL,
+    )
+    with pytest.raises(ValueError, match="must not be after the fetch time"):
+        source.fetch(symbol="BTCUSDT", interval="15m", limit=5,
+                     as_of_ms=BASE + INTERVAL + 1)
