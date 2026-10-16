@@ -8,34 +8,37 @@
 - GitHub = technical source of truth.
 - Chat = conversation log.
 - Continue forward; do not repeat completed work unless new evidence contradicts it.
-- A skipped workflow is not a pass. A green PR check is evidence for that exact head only, not permission to merge, deploy, observe live, or trade.
+- A skipped workflow is not a pass. A green CI result is evidence for that exact commit only, not permission to deploy, collect live, or trade.
 
-## Completed in this continuation
-- [x] Read the previous master checkpoint `archive/checkpoints/MASTER_CHECKPOINT_2026-10-13.md` and followed its instruction not to repeat the 42-record reconciliation.
-- [x] Inspected current main before checkpoint update: `dd952051873638daad2e0a14e470560119d120e7`; saved this dated checkpoint on main at commit `93b2534eef7ce4f39a4f7e1ec40e64595c1d2ba1`.
-- [x] Inspected PR #282 at exact head `e8f6763c4e956270e2d13dc322bb32bca654e979`. GitHub reported **27/27 checks successful** on that exact head. The PR remains open and unmerged; green checks do not establish upstream Tabdeal semantics.
-- [x] Reviewed the official Tabdeal documentation entry point and official SDK WebSocket helper. They establish the `special_margin/broadcast/` endpoint/helper but do not define the inner trade schema or guarantees for `trade.sequence` (uniqueness, ordering, contiguity, completeness, replay, reconnect, or cross-session scope). Keep its semantics `unknown/opaque`.
-- [x] Reused the existing independent source identity verification artifact instead of repeating reconciliation: `evidence/source_identity_independent_verification_v1.json` and `evidence/source_identity_independent_verification_v1.lock.json`. The existing artifact records the source JSON SHA-256/byte-length lock match and reconstruction of **42/42** records (14 prior + 28 current), with zero prior/current key intersection. This is previously locked evidence, not a fresh recomputation in this continuation.
-- [x] Investigated the two older Effective Evidence Audit runs: [38872027057](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/38872027057) and [38871991549](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/38871991549). Both concluded `skipped`; neither is a pass.
-- [x] Confirmed a valid main-branch Effective Evidence Audit subsequently ran successfully on checkpoint commit `93b2534eef7ce4f39a4f7e1ec40e64595c1d2ba1`: [run 38873168881](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/38873168881). Its `effective-evidence-audit-v1` artifact was uploaded (artifact SHA-256 `a7a3dd8bc5306c79414819db62d9781cb457fae6d6609bde938fee36b6de8072`). This is a successful audit execution, **not promotion**; the workflow contract remains fail-closed and the evidence verdict does not authorize release.
-- [x] Inspected the risk-veto-to-journal path. `DecisionResult` did not expose the requested `as_journal_record()` convenience method; a separate adapter existed, but datetime values were not normalized for JSON serialization.
-- [x] Opened PR [#291 — serialize DecisionResult safely to the forward journal](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/291), head `742452f95e5a53f837aeb73ea8e3ae9c8fb22687`. It adds the method, normalizes datetime-like timestamps to ISO strings, and adds an end-to-end `RiskGate rejection → NO_TRADE → journal JSONL` test. The exact-head **Forward Integration Verification** and **Clean Forward Evidence Verification** jobs passed. At last poll, **24/26 checks had passed, zero failed, and 2 unrelated jobs were still running**; do not claim the entire suite is complete until those finish.
+## Completed — checked
+- [x] Read the previous checkpoint `archive/checkpoints/MASTER_CHECKPOINT_2026-10-13.md`; respected its instruction not to repeat the 42-record reconciliation.
+- [x] Created and maintained this dated master checkpoint in GitHub. Latest code commit before this checkpoint refresh: `023b471af6196b67b2b4608306d9b95596cbea97`.
+- [x] PR #282 was inspected at exact head `e8f6763c4e956270e2d13dc322bb32bca654e979`; GitHub reported **27/27 checks successful**. PR #282 remains open and unmerged. Green checks do not establish upstream Tabdeal sequence semantics.
+- [x] Reviewed the official Tabdeal documentation entry point and official SDK WebSocket helper. They identify the `special_margin/broadcast/` helper/endpoint but do not establish the inner `trade.sequence` contract (uniqueness, ordering, completeness, replay, reconnect, or cross-session scope). Keep sequence semantics `unknown/opaque`.
+- [x] Reused the existing locked independent source-identity evidence instead of repeating reconciliation: `evidence/source_identity_independent_verification_v1.json` and its lock. That existing artifact records the SHA-256/byte-length lock match and **42/42** records (14 prior + 28 current), with zero cross-group key intersection. This is existing locked evidence, not a new recomputation in this continuation.
+- [x] Confirmed the Effective Evidence Audit completed successfully on main commit `023b471af6196b67b2b4608306d9b95596cbea97`: [run 38873604261](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/38873604261). Its artifact `effective-evidence-audit-v1` exists with digest `sha256:badf8fa8dcf97ee032ce81e86fe2eaac5fb6608d6f74e65bb8891f121395c495`. The audit contract remains fail-closed; this is not a promotion signal. Earlier runs [38872027057](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/38872027057), [38871991549](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/38871991549), and [38873120164](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/38873120164) were `skipped` and are not counted as passes.
+- [x] Fixed the missing `DecisionResult.as_journal_record()` path and datetime-to-ISO normalization in PR [#292](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/292). The exact PR head `dd6dd6f8ab9777bfa2e7a40d0711d1b6300c7f77` passed **26/26 checks**; PR #292 was squash-merged as `023b471af6196b67b2b4608306d9b95596cbea97`. The risk-veto → `NO_TRADE` → append-only JSONL integration check passed. Superseded PR #291 was closed unmerged after its collector tests raced a concurrent main-branch update; the test was not weakened.
+- [x] Post-merge CI for main commit `023b471af6196b67b2b4608306d9b95596cbea97` completed with **22/22 checks successful and zero failures**.
+- [x] Read-only Binance public market-data smoke test completed and recorded at `evidence/binance_market_data_smoke_2026-10-16.json`. Spot `BTCUSDT` and USDⓈ-M Futures `BTCUSDT` metadata, recent-trade IDs, prices, and timestamps were returned. Sample trade IDs were consecutive within each three-record sample only.
+- [x] Recorded a Binance time anomaly: Spot `exchangeInfo.serverTime` was `1792139145381` (`2026-10-16T08:25:45.381Z`); USDⓈ-M `exchangeInfo.serverTime` remained around `1792137674761` (`2026-10-16T08:01:14.761Z`) across three calls — **1,470,620 ms (24m 30.620s) behind**. USDⓈ-M trade and ticker timestamps were current. Root cause is unknown; do not use that stale `serverTime` as a shared clock.
+- [x] No live collector or VPS commands were started. No exchange orders, deployments, or production promotions were performed.
 
-## Still open — do not mark complete
-- [ ] Re-poll PR #291 checks; resolve any failure. The two remaining jobs at last poll were Collector Persistence Hardening and Local Durable Collector Safety.
-- [ ] Review PR #291 for merge after all required exact-head checks complete.
-- [ ] Review PR #282 and merge only after exact-head CI and safety review; the source contract itself remains unverified, so merging code must not be interpreted as semantic verification.
-- [ ] Obtain authoritative Tabdeal written clarification or a documented schema specifically for `special_margin/broadcast/` trade payloads, `trade.sequence`, event completeness, replay/reconnect behavior, and session scope. Until then, keep production evidence pin unset and sequence-based identity/order/gap capabilities disabled.
-- [ ] Verify real Binance BTCUSDT Spot and USDⓈ-M Futures payloads, timestamps, and identifiers from current connector data before claiming that connection is verified.
-- [ ] Use only the project-authorized first VPS. The only SentinelX host currently listed is `vps-second-261930`; no host commands were run because that host does not satisfy the project’s host constraint.
-- [ ] Resolve the remaining source-attestation, session/run/probe lineage, and single-writer attribution blockers before any live observation or promotion.
+## Still open — do not tick until evidence exists
+- [ ] Review and resolve PR #282; despite green checks, do not claim Tabdeal sequence semantics are verified until authoritative documentation or written exchange confirmation is available.
+- [ ] Obtain authoritative Tabdeal clarification for `special_margin/broadcast/` trade payloads, `trade.sequence`, event completeness, replay/reconnect behavior, and session scope. Keep production evidence pin unset and sequence-based identity/order/gap capabilities disabled until then.
+- [ ] Investigate why USDⓈ-M `exchangeInfo.serverTime` is stale in the connector and verify the timestamp against a fresh raw/public API response or another authoritative clock. Public data retrieval works; cross-endpoint clock consistency is **not** verified.
+- [ ] Verify private/authenticated Binance account access only if needed and authorized; it was not tested. A WebSocket stream was not opened or verified.
+- [ ] Use only the project-authorized first VPS. The only SentinelX host currently listed is `vps-second-261930`; no host commands were run because that host violates the project constraint.
+- [ ] Resolve remaining source-attestation, session/run/probe lineage, and single-writer attribution blockers before any live observation or promotion.
 
 ## Safety boundary
-- [x] No live collector started by this continuation.
-- [x] No exchange order placed; no deployment or production promotion performed.
-- [x] No historical records, winners, thresholds, or evidence logic changed.
+- [x] No historical records, selected winners, thresholds, or evidence logic were changed.
 - [x] The 42-record reconciliation was not repeated.
-- [x] Trading remains disabled; status remains **HOLD / NO_TRADE_ONLY**.
+- [x] No production promotion or live trading.
+- [x] Current decision remains **HOLD / NO_TRADE_ONLY**.
 
-## Next action
-Finish checking PR #291's exact-head CI, then refresh this checkpoint with final run IDs and outcomes. Pursue the authoritative Tabdeal contract and validate actual Binance market-data payloads separately. Do not infer a release date or relax gates to make CI green.
+## Next actions
+1. Resolve the stale USDⓈ-M exchangeInfo timestamp and preserve the result as evidence.
+2. Obtain Tabdeal's authoritative sequence contract; do not infer guarantees from consecutive sample IDs.
+3. Review PR #282 against that contract and only then decide whether its change can be merged.
+4. Keep all live paths disabled until every required gate passes. Do not invent a release date or relax a gate to obtain a green dashboard.
