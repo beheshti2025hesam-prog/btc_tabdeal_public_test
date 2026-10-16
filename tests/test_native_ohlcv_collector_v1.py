@@ -81,3 +81,13 @@ def test_failed_fetch_does_not_create_or_append_partial_record(tmp_path):
 def test_enabled_must_be_an_exact_boolean(tmp_path):
     with pytest.raises(ValueError, match="enabled must be bool"):
         NativeOHLCVCollectorV1(source=FakeSource(batch()), output=tmp_path / "x", enabled=1)
+
+
+def test_incomplete_existing_jsonl_tail_fails_closed(tmp_path):
+    source = FakeSource(batch())
+    path = tmp_path / "batches.jsonl"
+    path.write_bytes(b'{"artifact_type":"NATIVE_OHLCV_BATCH"')
+    collector = NativeOHLCVCollectorV1(source=source, output=path, enabled=True)
+    with pytest.raises(RuntimeError, match="incomplete trailing record"):
+        collector.collect_once(symbol="BTCUSDT")
+    assert path.read_bytes() == b'{"artifact_type":"NATIVE_OHLCV_BATCH"'

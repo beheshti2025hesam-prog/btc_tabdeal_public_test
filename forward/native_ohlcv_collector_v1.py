@@ -16,14 +16,6 @@ from .native_ohlcv_v1 import BinanceNativeKlineSource, NativeOHLCVBatch
 DEFAULT_OUTPUT = "data/forward/native_ohlcv_batches.jsonl"
 
 
-def _decimal_to_string(value: object) -> object:
-    # Decimal values are persisted as strings to preserve source precision.
-    from decimal import Decimal
-    if isinstance(value, Decimal):
-        return str(value)
-    raise TypeError(f"unsupported JSON value: {type(value).__name__}")
-
-
 class NativeOHLCVCollectorV1:
     """Append-only, one-batch collector. Disabled unless explicitly opted in."""
 
@@ -99,13 +91,30 @@ class NativeOHLCVCollectorV1:
         with self.lock_path.open("a+", encoding="utf-8") as lock_handle:
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
             try:
+                # Never append behind a truncated JSONL tail from a prior crash.
+                if self.output.exists() and self.output.stat().st_size:
+                    with self.output.open("rb") as existing:
+                        existing.seek(-1, os.SEEK_END)
+                        if existing.read(1) != b"\n":
+                            raise RuntimeError("native OHLCV journal has an incomplete trailing record")
                 fd = os.open(self.output, os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
                 try:
                     data = line.encode("utf-8")
-                    written = os.write(fd, data)
-                    if written != len(data):
-                        raise OSError("partial native OHLCV batch write")
-                    os.fsync(fd)
+                    original_size = os.fstat(fd).st_size
+                    try:
+                        offset = 0
+                        while offset < len(data):
+                            written = os.write(fd, data[offset:])
+                            if written <= 0:
+                                raise OSError("native OHLCV write made no progress")
+                            offset += written
+                        os.fsync(fd)
+                    except Exception:
+                        # Roll back a partial write while the process still owns
+                        # the lock; do not leave a corrupt tail for later appends.
+                        os.ftruncate(fd, original_size)
+                        os.fsync(fd)
+                        raise
                 finally:
                     os.close(fd)
             finally:
