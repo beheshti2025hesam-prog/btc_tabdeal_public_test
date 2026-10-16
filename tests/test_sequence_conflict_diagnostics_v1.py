@@ -51,12 +51,21 @@ def signed_gate_kwargs(tmp_path: Path, monkeypatch):
         },
     }, sort_keys=True, separators=(",", ":")).encode("utf-8")
     source_url = "https://docs.tabdeal.org/sequence-contract"
+    final_headers = b"HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n"
+    final_response = {
+        "request_url": source_url,
+        "response_status": 200,
+        "response_headers_b64": base64.b64encode(final_headers).decode("ascii"),
+        "response_headers_sha256": hashlib.sha256(final_headers).hexdigest(),
+    }
     envelope = {
         "expected_commit": running_commit,
         "evidence_path": "evidence/sequence-contract.json",
         "raw_sha256": hashlib.sha256(payload).hexdigest(),
         "source_url": source_url,
         "redirect_chain": [source_url],
+        "redirect_hops": [],
+        "final_response": final_response,
         "retrieved_at": "2026-10-09T17:00:00+00:00",
         "market_scope": "tabdeal:futures:BTC_USDT",
         "key_id": "synthetic-test-key",
