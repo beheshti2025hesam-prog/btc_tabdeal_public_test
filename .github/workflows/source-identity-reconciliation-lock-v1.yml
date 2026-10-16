@@ -23,29 +23,90 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Validate record-level identity artifact
+      - name: Validate source identity against pinned raw rows
+        env:
+          GH_TOKEN: \${{ github.token }}
+          OLD_RAW_BLOB_SHA: "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+          CURRENT_RAW_BLOB_SHA: "58d21825e052dbaa42e7eb0695455c19997bff43"
         run: |
           python - <<'PY'
-          import hashlib, json
+          import base64, csv, hashlib, io, json, os, urllib.request
+          from datetime import datetime, timedelta
+          from decimal import Decimal
           from pathlib import Path
 
+          repo = os.environ["GITHUB_REPOSITORY"]
+          headers = {
+              "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+              "Accept": "application/vnd.github+json",
+          }
+
+          def pinned_blob(sha):
+              request = urllib.request.Request(
+                  f"https://api.github.com/repos/{repo}/git/blobs/{sha}",
+                  headers=headers,
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  blob = json.load(response)
+              assert blob["sha"] == sha, f"RAW_BLOB_SHA_MISMATCH expected={sha} actual={blob.get('sha')}"
+              assert blob["encoding"] == "base64", "UNEXPECTED_GIT_BLOB_ENCODING"
+              raw = base64.b64decode(blob["content"], validate=True)
+              return list(csv.DictReader(io.StringIO(raw.decode("utf-8"))))
+
+          sources = {
+              "prior_14_survivor": pinned_blob(os.environ["OLD_RAW_BLOB_SHA"]),
+              "current_28_winner": pinned_blob(os.environ["CURRENT_RAW_BLOB_SHA"]),
+          }
           p = Path("evidence/source_identity_reconciliation_v1.json")
           raw = p.read_bytes()
           d = json.loads(raw)
 
           assert d["status"] == "SOURCE_IDENTITY_LOCKED"
           assert d["protocol"] == {"train":800,"test":400,"step":400,"folds":8,"gross_threshold_bps":14}
-          assert d["sources"]["prior"]["raw_blob_sha"] == "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+          assert d["sources"]["prior"]["raw_blob_sha"] == os.environ["OLD_RAW_BLOB_SHA"]
           assert d["sources"]["prior"]["source_commit"] == "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
-          assert d["sources"]["current"]["raw_blob_sha"] == "58d21825e052dbaa42e7eb0695455c19997bff43"
+          assert d["sources"]["current"]["raw_blob_sha"] == os.environ["CURRENT_RAW_BLOB_SHA"]
           assert d["sources"]["current"]["source_commit"] == "b9ebecf061dfe9a084797d77b48a2c7846d269e3"
           assert d["sources"]["protocol_contract"]["blob_sha"] == "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
           assert d["counts"] == {"prior_survivor_records":14,"current_winner_records":28,"exact_record_key_matches":0}
 
           records = d["records"]
-          assert len(records) == 42
+          assert len(records) == 42, f"RECORD_COUNT_MISMATCH actual={len(records)} expected=42"
           assert sum(r["lineage"] == "prior_14_survivor" for r in records) == 14
           assert sum(r["lineage"] == "current_28_winner" for r in records) == 28
+
+          def validate_lineage(lineage, rows):
+              by_sequence = {}
+              for index, row in enumerate(rows):
+                  sequence = row["sequence"]
+                  assert sequence not in by_sequence, f"DUPLICATE_RAW_SEQUENCE lineage={lineage} sequence={sequence}"
+                  by_sequence[sequence] = (index, row)
+
+              selected = [r for r in records if r["lineage"] == lineage]
+              for r in selected:
+                  first_key, last_key = str(r["sequence_first"]), str(r["sequence_last"])
+                  assert first_key in by_sequence, f"SOURCE_SEQUENCE_MISSING lineage={lineage} sequence_first={first_key}"
+                  assert last_key in by_sequence, f"SOURCE_SEQUENCE_MISSING lineage={lineage} sequence_last={last_key}"
+                  first_i, first = by_sequence[first_key]
+                  last_i, last = by_sequence[last_key]
+                  assert first_i <= last_i, f"SEQUENCE_ORDER_INVALID lineage={lineage} timestamp={r['timestamp']}"
+
+                  expected_minute = (datetime.fromisoformat(r["timestamp"]) - timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M")
+                  first_minute, last_minute = first["updated"][:16], last["updated"][:16]
+                  assert first_minute == expected_minute, f"SEQUENCE_FIRST_MINUTE_MISMATCH lineage={lineage} timestamp={r['timestamp']}"
+                  assert last_minute == expected_minute, f"SEQUENCE_LAST_MINUTE_MISMATCH lineage={lineage} timestamp={r['timestamp']}"
+                  assert first_i == 0 or rows[first_i - 1]["updated"][:16] != expected_minute, f"SEQUENCE_FIRST_NOT_MINUTE_BOUNDARY lineage={lineage} timestamp={r['timestamp']}"
+                  assert last_i == len(rows) - 1 or rows[last_i + 1]["updated"][:16] != expected_minute, f"SEQUENCE_LAST_NOT_MINUTE_BOUNDARY lineage={lineage} timestamp={r['timestamp']}"
+                  assert Decimal(last["price"]) == Decimal(str(r["entry_price"])), f"ENTRY_PRICE_RAW_MISMATCH lineage={lineage} timestamp={r['timestamp']}"
+
+              return len(selected)
+
+          prior_verified = validate_lineage("prior_14_survivor", sources["prior_14_survivor"])
+          current_verified = validate_lineage("current_28_winner", sources["current_28_winner"])
+          assert prior_verified == 14 and current_verified == 28
+          print(f"SOURCE_IDENTITY_RAW_MATCH={prior_verified + current_verified}/42")
+          print("PRIOR_SOURCE_MATCH=14/14")
+          print("CURRENT_SOURCE_MATCH=28/28")
 
           keys = []
           for r in records:
@@ -70,6 +131,8 @@ jobs:
               "exact_record_key_matches":0,
               "source_refs":d["sources"],
               "safety":d["claim_boundary"],
+              "raw_source_identity_verified":True,
+              "raw_source_identity_match_count":42,
           }
           Path("evidence/source_identity_reconciliation_v1.lock.json").write_text(
               json.dumps(lock, indent=2) + "\n", encoding="utf-8"
