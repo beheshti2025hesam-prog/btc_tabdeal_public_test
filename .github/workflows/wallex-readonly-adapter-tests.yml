@@ -31,5 +31,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install --upgrade pip pytest
+      - run: python -m pip install --upgrade pip pytest python-socketio==4.6.1
       - run: python -m pytest -q tests/test_wallex_readonly_adapter_v1.py tests/test_wallex_rest_readonly_v1.py
