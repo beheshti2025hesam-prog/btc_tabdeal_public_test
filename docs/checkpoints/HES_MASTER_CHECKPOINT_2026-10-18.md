@@ -71,3 +71,19 @@ No CI run or combined status was returned for recent commits from the connector.
 - The GitHub connector still returned zero PR-triggered runs and no combined statuses for the checked recent head `9523d7363b61484f3fe35452f0939990cb46a942`. This is an evidence/CI visibility blocker; do not mark the new tests passed.
 - Added/updated tests are present in the branch, but need execution on an exact commit via GitHub Actions or a trusted local checkout before acceptance.
 - Next highest-value step: resolve why exact-head Actions/status results are absent for the newest commits, then run the affected sequence/collector/ingestion tests and full required CI on the exact head. Do not merge or activate collection while unresolved.
+
+
+## Authoritative continuation note (verified 2026-10-18, latest update)
+This section supersedes older “latest head” statements above, which were accurate at their respective earlier checkpoints.
+
+- PR #308 state: **OPEN, DRAFT, NOT MERGED**.
+- Current PR head at verification: `14014346cab37f54d1f244a7e681b2e93c011623`.
+- Exact-head workflow-run lookup: 0 runs returned.
+- Exact-head combined status lookup: 0 statuses returned.
+- This means CI status is **UNKNOWN/PENDING**, not failed and not passed. Do not infer a failure solely from missing run metadata; investigate the Actions trigger/connector visibility and then obtain a real run.
+- Code/test hardening on the branch includes strict non-negative integer/ASCII-digit-string sequence parsing at core, collector and ingestion boundaries; regression tests for invalid coercions; and `tests/test_sequence_adversarial_followup_v1.py` covering a conflicting duplicate followed by a later valid record and a changed non-market field for the same ID.
+- Latest code/test commit known from the verified tool sequence: `7c39447dfd1e92317af058f23700815040021538`. The audit and checkpoint documentation were updated afterward; current PR head is the checkpoint documentation commit above.
+- The new/changed tests have **not been confirmed as executed**. Do not claim green tests.
+- Next action order: (1) resolve exact-head CI visibility/trigger and get tests to execute; (2) fix only evidenced failures and rerun on the exact resulting SHA; (3) extend destructive tests for hash-valid semantic invalidity, artifact mutation/deletion/reordering and protocol/order changes; (4) maintain source identity 42/42 artifacts without unnecessary reconstruction; (5) keep independent review, merge, live collection, and trading blocked until required gates pass.
+- Overall completion target remains 70%, but no defensible numeric percentage is established yet. Build a weighted deliverable/acceptance ledger first; only count verified accepted work.
+- Safety state remains **HOLD / NO TRADE**. No merge, live collection, or trade execution occurred in this session.
