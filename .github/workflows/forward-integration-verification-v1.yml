@@ -46,6 +46,7 @@ jobs:
             tests/test_sequence_integrity_v1.py \
             tests/test_sequence_candle_integration_v1.py \
             tests/test_sequence_adversarial_followup_v1.py \
+            tests/test_exchange_sequence_semantics_registry_v1.py \
             tests/test_forward_tabdeal_collector_sequence.py \
             tests/test_recovery_idempotent_v1.py \
             tests/test_liveness_stale_guard_v1.py \
