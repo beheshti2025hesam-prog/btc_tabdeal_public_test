@@ -77,11 +77,11 @@ def test_collector_is_disabled_by_default(tmp_path):
         collector.run_once()
 
 
-def test_collector_handles_and_persists_trade_frame(tmp_path):
+def test_collector_handles_and_persists_broadcaster_event(tmp_path):
     output = tmp_path / "events.jsonl"
     collector = WallexReadOnlyCollectorV1(output=str(output), symbol="USDTTMN", enabled=True)
-    collector._handle_message(json.dumps(["USDTTMN@trade", valid()]))
-    collector._handle_message(json.dumps(["OTHER@trade", valid()]))
+    collector._handle_event("USDTTMN@trade", valid())
+    collector._handle_event("OTHER@trade", valid())
     lines = output.read_text().splitlines()
     assert collector.frames_seen == 2
     assert collector.records_written == 1
@@ -90,3 +90,41 @@ def test_collector_handles_and_persists_trade_frame(tmp_path):
     saved = json.loads(lines[0])
     assert saved["symbol"] == "USDTTMN"
     assert saved["sequence"] is None
+
+
+def test_run_once_uses_socketio_subscribe_and_broadcaster(tmp_path):
+    class FakeSocketIO:
+        def __init__(self):
+            self.handlers = {}
+            self.connected = False
+            self.emitted = []
+
+        def on(self, event):
+            def register(callback):
+                self.handlers[event] = callback
+                return callback
+            return register
+
+        def connect(self, url, transports):
+            assert url == "https://api.wallex.ir"
+            assert transports == ["websocket"]
+            self.connected = True
+            self.handlers["connect"]()
+
+        def emit(self, event, payload):
+            self.emitted.append((event, payload))
+            self.handlers["Broadcaster"]("USDTTMN@trade", valid())
+
+        def disconnect(self):
+            self.connected = False
+
+    fake = FakeSocketIO()
+    output = tmp_path / "events.jsonl"
+    collector = WallexReadOnlyCollectorV1(
+        output=str(output), symbol="USDTTMN", enabled=True,
+        max_runtime_seconds=0.01, sio_factory=lambda: fake,
+    )
+    collector.run_once()
+    assert fake.emitted == [("subscribe", {"channel": "USDTTMN@trade"})]
+    assert collector.records_written == 1
+    assert json.loads(output.read_text())["sequence"] is None
