@@ -125,7 +125,7 @@ def test_fetch_decodes_fractional_json_numbers_as_decimal(monkeypatch):
 
 @pytest.mark.parametrize("resolution", ["5", "15", "D"])
 def test_accepts_documented_wallex_resolutions(resolution):
-    ts = 1792232400
+    ts = 1792232100 if resolution == "15" else 1792232400
     candles = parse_history(
         payload(ts=(ts,), o=("100",), h=("102",), l=("99",), c=("101",), v=("1",)),
         symbol="BTCUSDT",
