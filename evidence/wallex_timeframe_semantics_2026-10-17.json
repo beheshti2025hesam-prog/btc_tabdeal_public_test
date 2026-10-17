@@ -139,5 +139,7 @@
     "execution": "OFF",
     "collector_enabled": false
   },
-  "raw_capture_format": "Each .json.gz.b64 file is base64-encoded gzip of the exact response body. Decode base64, gunzip, then compare SHA-256 with raw_sha256. Capture response bytes were retained on the VPS under /srv/hes-evidence/wallex."
+  "raw_capture_format": "Each .json.gz.b64 file is base64-encoded gzip of the exact response body. Decode base64, gunzip, then compare SHA-256 with raw_sha256. Capture response bytes were retained on the VPS under /srv/hes-evidence/wallex.",
+  "source_capture_manifest": "evidence/raw/wallex_timeframe_semantics_capture_20261017T134543Z.json",
+  "source_capture_manifest_sha256": "verified by evidence/raw/wallex_timeframe_semantics_capture_20261017T134543Z.json.sha256"
 }
