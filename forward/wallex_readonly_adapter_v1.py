@@ -1,8 +1,10 @@
-"""Read-only Wallex Spot Socket.IO collector.
+"""Read-only Wallex Spot raw-WebSocket trade collector.
 
-Wallex documents Socket.IO (v2-compatible client) and the Broadcaster event.
-This adapter uses the Python Socket.IO v4 client, preserves unknown trade
-sequence semantics, and performs no account or order operations.
+Wallex's official example opens wss://api.wallex.ir/ws and immediately sends
+["subscribe", {"channel": "SYMBOL@trade"}]. This module follows that documented
+raw-WebSocket protocol; it does not use Socket.IO or account/order APIs.
+Trade IDs/sequences are not present in the observed payload, so payload hashes
+are fingerprints only and cannot prove completeness or deduplicate equal trades.
 """
 from __future__ import annotations
 
@@ -16,9 +18,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-SOCKETIO_URL = "https://api.wallex.ir"
+WEBSOCKET_URL = "wss://api.wallex.ir/ws"
 SYMBOL = "BTCUSDT"
-SOURCE = "wallex_spot_socketio_v1"
+SOURCE = "wallex_spot_raw_websocket_v1"
 
 
 def _valid_symbol(symbol: str) -> bool:
@@ -44,7 +46,7 @@ def normalize_trade(
     symbol: str = SYMBOL,
     received_at: datetime | None = None,
 ) -> dict[str, Any]:
-    """Validate one documented Wallex Broadcaster trade event."""
+    """Validate one documented Wallex trade event without inventing identity."""
     if not _valid_symbol(symbol):
         raise ValueError("invalid configured symbol")
     if channel != f"{symbol}@trade":
@@ -91,7 +93,7 @@ def normalize_trade(
 
 
 class WallexReadOnlyCollectorV1:
-    """Bounded Socket.IO collector. It persists observations only."""
+    """Bounded raw-WebSocket collector; silent feeds fail closed."""
 
     def __init__(
         self,
@@ -100,7 +102,7 @@ class WallexReadOnlyCollectorV1:
         symbol: str = SYMBOL,
         enabled: bool = False,
         max_runtime_seconds: float = 60.0,
-        sio_factory: Callable[[], Any] | None = None,
+        ws_factory: Callable[[], Any] | None = None,
     ) -> None:
         if not _valid_symbol(symbol):
             raise ValueError("symbol must be an uppercase Wallex market symbol")
@@ -111,7 +113,7 @@ class WallexReadOnlyCollectorV1:
         self.channel = f"{symbol}@trade"
         self.enabled = enabled
         self.max_runtime_seconds = float(max_runtime_seconds)
-        self.sio_factory = sio_factory
+        self.ws_factory = ws_factory
         self.frames_seen = 0
         self.records_written = 0
         self.rejected = 0
@@ -126,8 +128,7 @@ class WallexReadOnlyCollectorV1:
             os.fsync(handle.fileno())
         self.records_written += 1
 
-    def _handle_event(self, channel: str, data: Any) -> None:
-        self.frames_seen += 1
+    def _record_event(self, channel: str, data: Any) -> None:
         try:
             if channel != self.channel:
                 self.ignored += 1
@@ -137,43 +138,86 @@ class WallexReadOnlyCollectorV1:
             self.rejected += 1
             self.last_error = type(exc).__name__
 
+    def _handle_event(self, channel: str, data: Any) -> None:
+        """Test seam for one already-decoded event."""
+        self.frames_seen += 1
+        self._record_event(channel, data)
+
+    def _consume_frame(self, frame: Any) -> None:
+        self.frames_seen += 1
+        if isinstance(frame, bytes):
+            raw = frame.decode("utf-8", "strict")
+        elif isinstance(frame, str):
+            raw = frame
+        else:
+            self.rejected += 1
+            self.last_error = "invalid_frame_type"
+            return
+        try:
+            payload = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self.rejected += 1
+            self.last_error = "malformed_json"
+            return
+        # The server's initial session/heartbeat frame is not a trade event.
+        if not isinstance(payload, list) or len(payload) != 2:
+            self.ignored += 1
+            return
+        channel, data = payload
+        if not isinstance(channel, str):
+            self.rejected += 1
+            self.last_error = "invalid_channel"
+            return
+        self._record_event(channel, data)
+
+    @staticmethod
+    def _is_timeout(exc: Exception) -> bool:
+        return isinstance(exc, TimeoutError) or type(exc).__name__ in {
+            "WebSocketTimeoutException", "timeout",
+        }
+
     def run_once(self) -> None:
         if not self.enabled:
             raise RuntimeError("Wallex collector is disabled by default")
-        if self.sio_factory is None:
-            import socketio
-            sio = socketio.Client(reconnection=False, logger=False, engineio_logger=False)
+        if self.ws_factory is None:
+            import websocket
+
+            ws = websocket.create_connection(
+                WEBSOCKET_URL,
+                timeout=min(5.0, self.max_runtime_seconds),
+                http_proxy_host=None,
+                http_no_proxy=["*"],
+            )
         else:
-            sio = self.sio_factory()
-
-        @sio.on("connect")
-        def _on_connect() -> None:
-            sio.emit("subscribe", {"channel": self.channel})
-
-        @sio.on("Broadcaster")
-        def _on_broadcaster(channel: str, data: Any) -> None:
-            self._handle_event(channel, data)
-
-        @sio.on("connect_error")
-        def _on_connect_error(_data: Any = None) -> None:
-            self.last_error = "connect_error"
+            ws = self.ws_factory()
 
         deadline = time.monotonic() + self.max_runtime_seconds
         try:
-            # Wallex's official examples use Socket.IO v2-compatible clients,
-            # emitting "subscribe" and receiving the "Broadcaster" event.
-            sio.connect(SOCKETIO_URL, transports=["websocket"])
+            # Per Wallex's official example, send on socket open; do not wait
+            # for or invent a separate subscription acknowledgement.
+            ws.send(json.dumps(["subscribe", {"channel": self.channel}], separators=(",", ":")))
             while time.monotonic() < deadline:
-                if not getattr(sio, "connected", True):
-                    self.last_error = self.last_error or "disconnected_before_deadline"
-                    raise RuntimeError("Wallex Socket.IO disconnected before the bounded run completed")
-                time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
-        except Exception as exc:
-            self.last_error = self.last_error or type(exc).__name__
-            raise RuntimeError("Wallex Socket.IO collection failed; refusing a success-shaped return") from exc
+                remaining = deadline - time.monotonic()
+                if hasattr(ws, "settimeout"):
+                    ws.settimeout(min(1.0, max(0.05, remaining)))
+                try:
+                    frame = ws.recv()
+                except Exception as exc:
+                    if self._is_timeout(exc):
+                        time.sleep(min(0.02, max(0.0, remaining)))
+                        continue
+                    self.last_error = type(exc).__name__
+                    raise RuntimeError("Wallex WebSocket disconnected during bounded collection") from exc
+                if frame is None:
+                    self.last_error = "connection_closed"
+                    raise RuntimeError("Wallex WebSocket closed during bounded collection")
+                self._consume_frame(frame)
+
+            if self.records_written == 0:
+                self.last_error = "no_trade_events_received"
+                raise RuntimeError("Wallex WebSocket produced no valid trade events; refusing success-shaped return")
         finally:
             try:
-                if getattr(sio, "connected", False):
-                    sio.disconnect()
+                ws.close()
             except Exception:
                 pass
