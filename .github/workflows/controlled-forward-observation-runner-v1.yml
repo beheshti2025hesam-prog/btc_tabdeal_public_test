@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   controlled-forward-runner:
+    name: "Controlled Forward Observation Runner v1"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
