@@ -121,7 +121,7 @@ class WallexReadOnlyCollectorV1:
     def _append(self, record: dict[str, Any]) -> None:
         self.output.parent.mkdir(parents=True, exist_ok=True)
         with self.output.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+            handle.write(json.dumps(record, sort_keys=True) + "\\n")
             handle.flush()
             os.fsync(handle.fileno())
         self.records_written += 1
@@ -163,10 +163,14 @@ class WallexReadOnlyCollectorV1:
             # Wallex's official examples use Socket.IO v2-compatible clients,
             # emitting "subscribe" and receiving the "Broadcaster" event.
             sio.connect(SOCKETIO_URL, transports=["websocket"])
-            while time.monotonic() < deadline and getattr(sio, "connected", True):
+            while time.monotonic() < deadline:
+                if not getattr(sio, "connected", True):
+                    self.last_error = self.last_error or "disconnected_before_deadline"
+                    raise RuntimeError("Wallex Socket.IO disconnected before the bounded run completed")
                 time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
         except Exception as exc:
-            self.last_error = type(exc).__name__
+            self.last_error = self.last_error or type(exc).__name__
+            raise RuntimeError("Wallex Socket.IO collection failed; refusing a success-shaped return") from exc
         finally:
             try:
                 if getattr(sio, "connected", False):
