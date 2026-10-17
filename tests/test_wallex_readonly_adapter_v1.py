@@ -77,106 +77,117 @@ def test_collector_is_disabled_by_default(tmp_path):
         collector.run_once()
 
 
-def test_collector_handles_and_persists_broadcaster_event(tmp_path):
-    output = tmp_path / "events.jsonl"
-    collector = WallexReadOnlyCollectorV1(output=str(output), symbol="USDTTMN", enabled=True)
-    collector._handle_event("USDTTMN@trade", valid())
-    collector._handle_event("OTHER@trade", valid())
-    lines = output.read_text().splitlines()
-    assert collector.frames_seen == 2
-    assert collector.records_written == 1
-    assert collector.ignored == 1
-    assert len(lines) == 1
-    saved = json.loads(lines[0])
-    assert saved["symbol"] == "USDTTMN"
-    assert saved["sequence"] is None
+class FakeWebSocket:
+    def __init__(self, frames=(), *, error=None):
+        self.frames = list(frames)
+        self.error = error
+        self.events = []
+        self.sent = []
+        self.closed = False
+
+    def send(self, payload):
+        self.events.append("send")
+        self.sent.append(payload)
+
+    def settimeout(self, _value):
+        pass
+
+    def recv(self):
+        self.events.append("recv")
+        if self.error is not None:
+            raise self.error
+        if self.frames:
+            return self.frames.pop(0)
+        raise TimeoutError("mock timeout")
+
+    def close(self):
+        self.closed = True
 
 
-def test_run_once_uses_socketio_subscribe_and_broadcaster(tmp_path):
-    class FakeSocketIO:
-        def __init__(self):
-            self.handlers = {}
-            self.connected = False
-            self.emitted = []
+def frame(value):
+    return json.dumps(value, separators=(",", ":"))
 
-        def on(self, event):
-            def register(callback):
-                self.handlers[event] = callback
-                return callback
-            return register
 
-        def connect(self, url, transports):
-            assert url == "https://api.wallex.ir"
-            assert transports == ["websocket"]
-            self.connected = True
-            self.handlers["connect"]()
-
-        def emit(self, event, payload):
-            self.emitted.append((event, payload))
-            self.handlers["Broadcaster"]("USDTTMN@trade", valid())
-
-        def disconnect(self):
-            self.connected = False
-
-    fake = FakeSocketIO()
+def test_run_once_subscribes_immediately_then_persists_trade(tmp_path):
+    fake = FakeWebSocket([
+        frame({"sid": "session-1", "pingInterval": 20000}),
+        frame(["USDTTMN@trade", valid()]),
+    ])
     output = tmp_path / "events.jsonl"
     collector = WallexReadOnlyCollectorV1(
         output=str(output), symbol="USDTTMN", enabled=True,
-        max_runtime_seconds=0.01, sio_factory=lambda: fake,
+        max_runtime_seconds=0.02, ws_factory=lambda: fake,
     )
     collector.run_once()
-    assert fake.emitted == [("subscribe", {"channel": "USDTTMN@trade"})]
+    assert fake.events[0] == "send"
+    assert fake.events[1] == "recv"
+    assert json.loads(fake.sent[0]) == ["subscribe", {"channel": "USDTTMN@trade"}]
+    assert collector.frames_seen == 2
     assert collector.records_written == 1
-    assert json.loads(output.read_text())["sequence"] is None
+    assert collector.ignored == 1
+    saved = json.loads(output.read_text().splitlines()[0])
+    assert saved["symbol"] == "USDTTMN"
+    assert saved["sequence"] is None
+    assert fake.closed
 
-def test_connection_failure_is_not_reported_as_success(tmp_path):
-    class BrokenSocketIO:
-        def on(self, event):
-            return lambda callback: callback
 
-        def connect(self, url, transports):
-            raise OSError("network down")
-
+def test_repeated_run_once_appends_durable_records_after_restart(tmp_path):
     output = tmp_path / "events.jsonl"
+    fakes = [
+        FakeWebSocket([frame(["BTCUSDT@trade", valid()])]),
+        FakeWebSocket([frame(["BTCUSDT@trade", valid()])]),
+    ]
     collector = WallexReadOnlyCollectorV1(
-        output=str(output), enabled=True, max_runtime_seconds=0.01,
-        sio_factory=BrokenSocketIO,
+        output=str(output), enabled=True, max_runtime_seconds=0.02,
+        ws_factory=lambda: fakes.pop(0),
     )
-    with pytest.raises(RuntimeError, match="collection failed"):
+    collector.run_once()
+    collector.run_once()
+    lines = output.read_text().splitlines()
+    assert len(lines) == 2
+    assert all(json.loads(line)["sequence"] is None for line in lines)
+
+
+def test_silent_feed_fails_closed_even_if_connection_opens(tmp_path):
+    fake = FakeWebSocket([frame({"sid": "session-silent"})])
+    collector = WallexReadOnlyCollectorV1(
+        output=str(tmp_path / "events.jsonl"), enabled=True,
+        max_runtime_seconds=0.02, ws_factory=lambda: fake,
+    )
+    with pytest.raises(RuntimeError, match="no valid trade events"):
         collector.run_once()
-    assert collector.last_error == "OSError"
+    assert collector.last_error == "no_trade_events_received"
     assert collector.records_written == 0
-    assert not output.exists()
+    assert not (tmp_path / "events.jsonl").exists()
+    assert fake.closed
 
 
 def test_unexpected_disconnect_fails_closed(tmp_path):
-    class DisconnectingSocketIO:
-        def __init__(self):
-            self.handlers = {}
-            self.connected = False
-
-        def on(self, event):
-            def register(callback):
-                self.handlers[event] = callback
-                return callback
-            return register
-
-        def connect(self, url, transports):
-            self.connected = True
-            self.handlers["connect"]()
-            self.connected = False
-
-        def emit(self, event, payload):
-            pass
-
-        def disconnect(self):
-            self.connected = False
-
-    fake = DisconnectingSocketIO()
+    fake = FakeWebSocket(error=OSError("network down"))
     collector = WallexReadOnlyCollectorV1(
         output=str(tmp_path / "events.jsonl"), enabled=True,
-        max_runtime_seconds=0.01, sio_factory=lambda: fake,
+        max_runtime_seconds=0.02, ws_factory=lambda: fake,
     )
-    with pytest.raises(RuntimeError, match="collection failed"):
+    with pytest.raises(RuntimeError, match="disconnected"):
         collector.run_once()
-    assert collector.last_error == "disconnected_before_deadline"
+    assert collector.last_error == "OSError"
+    assert collector.records_written == 0
+    assert not (tmp_path / "events.jsonl").exists()
+    assert fake.closed
+
+
+def test_malformed_frame_and_wrong_channel_are_not_written(tmp_path):
+    fake = FakeWebSocket([
+        "{not-json",
+        frame(["OTHER@trade", valid()]),
+        frame(["BTCUSDT@trade", {"price": "NaN"}]),
+    ])
+    collector = WallexReadOnlyCollectorV1(
+        output=str(tmp_path / "events.jsonl"), enabled=True,
+        max_runtime_seconds=0.02, ws_factory=lambda: fake,
+    )
+    with pytest.raises(RuntimeError, match="no valid trade events"):
+        collector.run_once()
+    assert collector.records_written == 0
+    assert collector.rejected >= 2
+    assert collector.ignored >= 1
