@@ -113,3 +113,13 @@ Read-only VPS diagnostics at 17:31 UTC showed:
 - IPv6 has no usable default route; no proxy environment variables were set.
 
 No DNS, route, firewall, SSH, or service configuration was changed. The network path currently blocks VPS-side live capture. **Gate remains OPEN / HOLD:** raw WebSocket frames, Spot snapshot bridge, Futures `U/u/pu` continuity, controlled disconnect/reconnect, reproducible frame hashes, and independent review are still outstanding.
+
+
+## Network follow-up: resolver comparison (2026-10-17 17:46 UTC)
+
+Additional read-only diagnostics compared UDP and TCP DNS queries against the configured resolvers and public resolver IPs:
+- Both configured resolvers (`217.218.155.155`, `217.218.127.127`) returned `10.10.34.34` for `api.binance.com` and `stream.binance.com`.
+- Direct queries to `1.1.1.1` and `8.8.8.8` returned the same `10.10.34.34` answer, including TCP DNS queries.
+- TCP connections to `1.1.1.1:53`, `8.8.8.8:53`, `1.1.1.1:443`, and `8.8.8.8:443` succeeded, but HTTPS DNS-over-HTTPS requests to Cloudflare and Google were reset during TLS/HTTPS setup. Ordinary HTTPS to GitHub continued to return HTTP 200 while Binance HTTPS timed out.
+
+This pattern is consistent with DNS/egress policy interception or filtering somewhere on the VPS network path, but it does not by itself identify the responsible network layer or prove malicious poisoning. No resolver, route, firewall, SSH, or service settings were changed. Do not try alternate IPs as a bypass or weaken host security; continue with authorized network-provider diagnostics or a permitted network path.
