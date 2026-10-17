@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -55,6 +54,7 @@ def normalize_trade(channel: str, data: dict[str, Any], *, received_at: datetime
     canonical = json.dumps(
         {"channel": channel, "data": data}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     ).encode("utf-8")
+    fingerprint = hashlib.sha256(canonical).hexdigest()
     return {
         "schema": "hes_normalized_trade_observation_v1",
         "source": SOURCE,
@@ -66,10 +66,10 @@ def normalize_trade(channel: str, data: dict[str, Any], *, received_at: datetime
         "side": "BUY" if is_buy else "SELL",
         "source_updated": source_updated,
         "observed_at": received.astimezone(timezone.utc).isoformat(),
-        "identity": {"kind": "raw_payload_sha256", "value": hashlib.sha256(canonical).hexdigest()},
+        "identity": {"kind": "raw_payload_sha256", "value": fingerprint},
         "sequence": None,
         "sequence_semantics": "NOT_DOCUMENTED_BY_VENUE",
-        "raw_payload_sha256": hashlib.sha256(canonical).hexdigest(),
+        "raw_payload_sha256": fingerprint,
     }
 
 
@@ -97,7 +97,7 @@ class WallexReadOnlyCollectorV1:
     def _append(self, record: dict[str, Any]) -> None:
         self.output.parent.mkdir(parents=True, exist_ok=True)
         with self.output.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\\n")
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
         self.records_written += 1
@@ -107,7 +107,11 @@ class WallexReadOnlyCollectorV1:
             raise RuntimeError("Wallex collector is disabled by default")
         if self.client_factory is None:
             import socketio
-            client = socketio.Client(reconnection=False, logger=False, engineio_logger=False)
+            # Wallex documents Socket.IO JS v2.x; python-socketio 4.x uses
+            # the compatible Engine.IO / Socket.IO protocol family.
+            client = socketio.Client(
+                reconnection=False, logger=False, engineio_logger=False, request_timeout=10
+            )
         else:
             client = self.client_factory()
 
@@ -124,7 +128,7 @@ class WallexReadOnlyCollectorV1:
                 self.rejected += 1
                 self.last_error = type(exc).__name__
 
-        client.connect(BASE_URL, transports=["websocket"], wait_timeout=10)
+        client.connect(BASE_URL, transports=["websocket"])
         try:
             client.sleep(self.max_runtime_seconds)
         finally:
