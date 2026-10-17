@@ -98,7 +98,9 @@ def parse_history(payload: Any, *, symbol: str, resolution: str,
         if isinstance(raw_ts, bool) or not isinstance(raw_ts, int):
             raise WallexCandleError(f"t[{i}] must be an integer Unix timestamp")
         ts = raw_ts
-        if ts % step != 0:
+        # Wallex documents the daily resolution but does not specify its UTC
+        # session boundary; do not assume daily bars start at Unix midnight.
+        if resolution != "1D" and ts % step != 0:
             raise WallexCandleError(f"t[{i}] is not aligned to resolution {resolution}")
         if previous_timestamp is not None and ts < previous_timestamp:
             raise WallexCandleError("source candle timestamps are not monotonic")
