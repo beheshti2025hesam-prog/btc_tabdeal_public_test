@@ -1,9 +1,95 @@
+import base64
+import hashlib
+import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
 
 from forward.controlled_forward_observation_runner_v1 import (
     ControlledForwardObservationRunnerV1,
 )
+
+
+def signed_gate_kwargs(tmp_path: Path, monkeypatch, *, ordered_within_scope=True):
+    """Build real synthetic Ed25519 evidence; never use a boolean as proof."""
+    running_commit = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    ).stdout.strip()
+    private_key = Ed25519PrivateKey.generate()
+    payload = json.dumps({
+        "schema": "hes_sequence_contract_v1",
+        "venue": "tabdeal",
+        "product": "futures_margin",
+        "endpoint": "special_margin/broadcast/",
+        "channel": "trade_broadcast",
+        "message_type": "trade",
+        "field_path": "trade.sequence",
+        "scope": "tabdeal:futures:BTC_USDT",
+        "protocol_version": "unknown",
+        "semantic_class": "message_sequence" if ordered_within_scope else "unknown",
+        "capabilities": {
+            "exact_replay_dedup": True,
+            "event_id_dedup": False,
+            "ordered_within_scope": ordered_within_scope,
+            "contiguous_within_scope": False,
+            "gap_detectable": False,
+            "cross_reconnect": False,
+        },
+    }, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    source_url = "https://docs.tabdeal.org/sequence-contract"
+    final_headers = b"Content-Type:application/json\r\n\r\n"
+    envelope = {
+        "expected_commit": running_commit,
+        "evidence_path": "evidence/sequence-contract.json",
+        "raw_sha256": hashlib.sha256(payload).hexdigest(),
+        "source_url": source_url,
+        "redirect_chain": [source_url],
+        "redirect_evidence_schema": "hes_http_redirect_hops_v1",
+        "initial_request_url": source_url,
+        "redirect_hops": [],
+        "final_response": {
+            "url": source_url,
+            "response_status": 200,
+            "response_headers_b64": base64.b64encode(final_headers).decode("ascii"),
+            "response_headers_sha256": hashlib.sha256(final_headers).hexdigest(),
+        },
+        "retrieved_at": "2026-10-07T13:00:00+00:00",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "key_id": "synthetic-test-key",
+        "signature_algorithm": "Ed25519",
+        "payload_b64": base64.b64encode(payload).decode("ascii"),
+    }
+    envelope["signature_b64"] = base64.b64encode(
+        private_key.sign(canonical_signed_bytes(envelope))
+    ).decode("ascii")
+    public_key = base64.b64encode(
+        private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    ).decode("ascii")
+    envelope_path = tmp_path / "signed-sequence-contract.json"
+    registry_path = tmp_path / "trusted-test-keys.json"
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+    registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    trusted_registry_sha256 = hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    # Synthetic test pin only; production must provision this through protected deployment config.
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", trusted_registry_sha256)
+    return {
+        "sequence_contract_envelope_path": envelope_path,
+        "sequence_contract_key_registry_path": registry_path,
+        "trusted_key_registry_sha256": trusted_registry_sha256,
+        "expected_commit": running_commit,
+        "expected_evidence_path": "evidence/sequence-contract.json",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "evidence_max_age_seconds": 3600,
+    }
 
 
 class FakeWS:
@@ -24,7 +110,7 @@ class FakeWS:
         pass
 
 
-def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
+def test_runner_uses_transport_and_writes_observation(tmp_path: Path, monkeypatch):
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
@@ -32,8 +118,7 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         session_path=session,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -41,10 +126,95 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     assert result.status == "WAITING"
     assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
     assert session.exists()
+    session_record = json.loads(session.read_text(encoding="utf-8").splitlines()[0])
+    evidence = session_record["sequence_contract_evidence"]
+    assert evidence["status"] == "VERIFIED"
+    assert evidence["expected_commit"] == subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    ).stdout.strip()
+    assert evidence["evidence_path"] == "evidence/sequence-contract.json"
+    assert evidence["market_scope"] == "tabdeal:futures:BTC_USDT"
+    assert evidence["key_id"] == "synthetic-test-key"
+    assert len(evidence["raw_sha256"]) == 64
+    assert len(evidence["envelope_sha256"]) == 64
+    assert len(evidence["key_registry_sha256"]) == 64
+    assert session_record["session_digest"]
     assert not journal.exists()
 
 
-def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
+def test_runner_blocks_replaced_registry_and_attacker_key_before_network_or_session(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed after registry substitution")
+
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
+    registry_path = kwargs["sequence_contract_key_registry_path"]
+    # Simulate replacement after the independently trusted digest was captured.
+    registry_path.write_text(json.dumps({"attacker-key": "YWNrZXI="}), encoding="utf-8")
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
+
+
+
+
+def test_runner_blocks_coordinated_registry_and_envelope_replacement_before_network_or_session(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed after coordinated trust substitution")
+
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
+    registry_path = kwargs["sequence_contract_key_registry_path"]
+    envelope_path = kwargs["sequence_contract_envelope_path"]
+    # Attacker replaces both the trust registry and the signed envelope, using an attacker key.
+    registry_path.write_text(json.dumps({"attacker-key": "YWNrZXI="}), encoding="utf-8")
+    envelope_path.write_text(json.dumps({
+        "key_id": "attacker-key",
+        "signature_algorithm": "Ed25519",
+        "signature_b64": "YXR0YWNrZXItc2lnbmF0dXJl",
+        "payload_b64": "YXR0YWNrZXItcGF5bG9hZA==",
+    }), encoding="utf-8")
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
+
+
+def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path, monkeypatch):
     class GapTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
@@ -60,8 +230,7 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         transport_factory=GapTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
@@ -69,7 +238,7 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     assert not (tmp_path / "journal.jsonl").exists()
 
 
-def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
+def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path, monkeypatch):
     class EmptyWS(FakeWS):
         def run_forever(self, **kwargs):
             self.on_open(self)
@@ -81,8 +250,7 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
         session_path=session,
         ws_factory=EmptyWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -92,7 +260,7 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_error(tmp_path: Path, monkeypatch):
     class BrokenTransport:
         def __init__(self, **kwargs):
             pass
@@ -108,8 +276,7 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -121,7 +288,7 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path, monkeypatch):
     class BrokenTransport:
         def __init__(self, **kwargs):
             raise RuntimeError("simulated construction failure")
@@ -134,8 +301,7 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -147,7 +313,7 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
+def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path, monkeypatch):
     class OverLimitTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
@@ -164,8 +330,7 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
         transport_factory=OverLimitTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
         max_records=3,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
@@ -192,26 +357,175 @@ def test_runner_blocks_before_network_or_session_without_verified_sequence_contr
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.reason.startswith("UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED")
     assert result.run_id == "NOT_STARTED"
     assert result.records_received == 0
     assert result.diagnostics == ({
         "network_started": False,
         "session_written": False,
+        "signature_verified": False,
         "sequence_contract_evidence_required": True,
+        "verification_error": "ValueError",
     },)
     assert not session.exists()
     assert not journal.exists()
 
 
-def test_runner_requires_evidence_reference_even_when_verified_flag_is_true(tmp_path: Path):
+def test_runner_blocks_missing_ws_factory_before_session_or_transport(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed without ws_factory")
+
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        **signed_gate_kwargs(tmp_path, monkeypatch),
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "WS_FACTORY_REQUIRED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics == ({
+        "network_started": False,
+        "session_written": False,
+        "signature_verified": True,
+        "ws_factory_required": True,
+    },)
+    assert not session.exists()
+    assert not (tmp_path / "journal.jsonl").exists()
+
+
+
+
+def test_runner_blocks_alternate_market_scope_before_network_or_session(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed for an alternate scope")
+
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
+    kwargs["market_scope"] = "tabdeal:spot:BTC_USDT"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
+
+def test_runner_blocks_signed_contract_without_consumer_capability_before_network_or_session(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed without signed ordering capability")
+
+    session = tmp_path / "session.jsonl"
+    journal = tmp_path / "journal.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **signed_gate_kwargs(tmp_path, monkeypatch, ordered_within_scope=False),
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
+
+
+def test_runner_blocks_when_signed_evidence_is_not_configured(tmp_path: Path):
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
         session_path=tmp_path / "session.jsonl",
-        sequence_contract_verified=True,
         ws_factory=FakeWS,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
+    assert result.reason.startswith("UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED")
     assert not (tmp_path / "session.jsonl").exists()
+
+
+def test_runner_rejects_signed_evidence_for_a_different_running_commit(tmp_path: Path, monkeypatch):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("transport must not be constructed for another commit")
+
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
+    kwargs["expected_commit"] = "f" * 40
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED:ValueError"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not (tmp_path / "journal.jsonl").exists()
+
+
+def test_runner_blocks_when_protected_registry_pin_is_missing_or_malformed(tmp_path: Path, monkeypatch):
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
+    monkeypatch.delenv("HES_TRUSTED_KEY_REGISTRY_SHA256", raising=False)
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not (tmp_path / "session.jsonl").exists()
+    assert not (tmp_path / "journal.jsonl").exists()
+
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", "not-a-sha256")
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert not (tmp_path / "session.jsonl").exists()
+
+
+def test_runner_rejects_registry_pin_mismatch_with_protected_environment(tmp_path: Path, monkeypatch):
+    kwargs = signed_gate_kwargs(tmp_path, monkeypatch)
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", "0" * 64)
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=tmp_path / "journal.jsonl",
+        session_path=tmp_path / "session.jsonl",
+        ws_factory=FakeWS,
+        max_runtime_seconds=1,
+        **kwargs,
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.run_id == "NOT_STARTED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not (tmp_path / "session.jsonl").exists()
+    assert not (tmp_path / "journal.jsonl").exists()

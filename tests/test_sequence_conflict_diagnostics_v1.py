@@ -1,17 +1,101 @@
+import base64
 import hashlib
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
 
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
 
 
+import base64
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
+
+def signed_gate_kwargs(tmp_path: Path, monkeypatch):
+    running_commit = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    ).stdout.strip()
+    private_key = Ed25519PrivateKey.generate()
+    payload = json.dumps({
+        "schema": "hes_sequence_contract_v1",
+        "venue": "tabdeal",
+        "product": "futures_margin",
+        "endpoint": "special_margin/broadcast/",
+        "channel": "trade_broadcast",
+        "message_type": "trade",
+        "field_path": "trade.sequence",
+        "scope": "tabdeal:futures:BTC_USDT",
+        "protocol_version": "unknown",
+        "semantic_class": "message_sequence",
+        "capabilities": {
+            "exact_replay_dedup": True,
+            "event_id_dedup": False,
+            "ordered_within_scope": True,
+            "contiguous_within_scope": False,
+            "gap_detectable": False,
+            "cross_reconnect": False,
+        },
+    }, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    source_url = "https://docs.tabdeal.org/sequence-contract"
+    final_headers = b"Content-Type:application/json\r\n\r\n"
+    envelope = {
+        "expected_commit": running_commit,
+        "evidence_path": "evidence/sequence-contract.json",
+        "raw_sha256": hashlib.sha256(payload).hexdigest(),
+        "source_url": source_url,
+        "redirect_chain": [source_url],
+        "redirect_evidence_schema": "hes_http_redirect_hops_v1",
+        "initial_request_url": source_url,
+        "redirect_hops": [],
+        "final_response": {
+            "url": source_url,
+            "response_status": 200,
+            "response_headers_b64": base64.b64encode(final_headers).decode("ascii"),
+            "response_headers_sha256": hashlib.sha256(final_headers).hexdigest(),
+        },
+        "retrieved_at": "2026-10-09T17:00:00+00:00",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "key_id": "synthetic-test-key",
+        "signature_algorithm": "Ed25519",
+        "payload_b64": base64.b64encode(payload).decode("ascii"),
+    }
+    envelope["signature_b64"] = base64.b64encode(private_key.sign(canonical_signed_bytes(envelope))).decode("ascii")
+    public_key = base64.b64encode(private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode("ascii")
+    envelope_path = tmp_path / "signed-sequence-contract.json"
+    registry_path = tmp_path / "trusted-test-keys.json"
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+    registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    trusted_registry_sha256 = hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    # Synthetic test pin only; production must provision this through protected deployment config.
+    monkeypatch.setenv("HES_TRUSTED_KEY_REGISTRY_SHA256", trusted_registry_sha256)
+    return {
+        "sequence_contract_envelope_path": envelope_path,
+        "sequence_contract_key_registry_path": registry_path,
+        "trusted_key_registry_sha256": trusted_registry_sha256,
+        "expected_commit": running_commit,
+        "expected_evidence_path": "evidence/sequence-contract.json",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "evidence_max_age_seconds": 3600,
+    }
+
+
+
 def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
-    guard = SequenceIntegrityV1()
+    guard = SequenceIntegrityV1(sequence_semantics_verified=True)
     first = {
         "source": "tabdeal_ws_forward_v1",
         "symbol": "BTC_USDT",
@@ -34,7 +118,7 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
 
 
-def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
+def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path, monkeypatch):
     class ConflictTransport:
         def __init__(self, on_record, on_frame_metadata, **kwargs):
             self.on_record = on_record
@@ -70,8 +154,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
         transport_factory=ConflictTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
@@ -81,16 +164,13 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     assert not (tmp_path / "observations.jsonl").exists()
     assert diagnostics_path.exists()
     record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
-    conflict = next(
+    ambiguous = next(
         event for event in record["sequence_events"]
-        if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+        if event.get("reason") == "AMBIGUOUS_TIMESTAMP_ORDER"
     )
-    assert conflict["diagnostic"]["differing_fields"] == ["price"]
-    fingerprints = conflict["transport_frame_fingerprints"]
-    assert len(fingerprints) == 2
-    assert fingerprints[0]["raw_frame_sha256"] != fingerprints[1]["raw_frame_sha256"]
-    assert all(item["sequence_field_path"] == "trade.sequence" for item in fingerprints)
-    assert all("price" not in item and "amount" not in item for item in fingerprints)
+    assert ambiguous["status"] == "REJECT_STREAM"
+    # Distinct raw frame fingerprints do not authorize sequence-based identity.
+    assert "transport_frame_fingerprints" not in ambiguous
     assert any(item.get("diagnostic_persistence") == "PERSISTED" for item in result.diagnostics)
 
 
@@ -132,7 +212,7 @@ def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path
 
  
 
-def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path: Path):
+def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path: Path, monkeypatch):
     class MetadataOverflowTransport:
         def __init__(self, on_record, on_frame_metadata, **kwargs):
             self.on_record = on_record
@@ -161,8 +241,7 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
         transport_factory=MetadataOverflowTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path, monkeypatch),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 

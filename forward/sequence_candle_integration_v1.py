@@ -1,4 +1,4 @@
-"""Sequence-aware boundary from fresh Tabdeal trades to closed 15m candles."""
+"""Boundary from fresh Tabdeal trades to closed 15m candles."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -28,10 +28,16 @@ class SequenceCandleResult:
 
 
 class SequenceAwareCandleIngestionV1:
-    """Sequence-check first; candle normalization only receives safe records."""
+    """Do not use an opaque sequence value as identity, order, or conflict key."""
 
-    def __init__(self, *, max_sequence_records: int = 100_000) -> None:
-        self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
+    def __init__(
+        self, *, max_sequence_records: int = 100_000,
+        sequence_ordering_authorized: bool = False,
+    ) -> None:
+        if type(sequence_ordering_authorized) is not bool:
+            raise ValueError("sequence_ordering_authorized must be bool")
+        self.sequence_ordering_authorized = sequence_ordering_authorized
+        self.sequence = SequenceIntegrityV1(max_records=max_sequence_records, sequence_semantics_verified=False)
 
     def ingest(
         self,
@@ -47,11 +53,25 @@ class SequenceAwareCandleIngestionV1:
             events.append(event)
             if event.status == "ACCEPTED":
                 safe.append(record)
-            elif event.status == "IDEMPOTENT_DUPLICATE":
+            elif event.status == "EXACT_REPLAY":
                 continue
             else:
-                # Never feed an ambiguous stream into candle formation.
                 return SequenceCandleResult((), (), tuple(events))
 
-        candles, gaps = ingest_closed_candles(safe, as_of=as_of)
+        # Candle normalization must not infer identity or ordering from sequence.
+        # It raises on same-timestamp ambiguity instead of manufacturing an order.
+        try:
+            candles, gaps = ingest_closed_candles(
+                safe, as_of=as_of,
+                sequence_ordering_authorized=self.sequence_ordering_authorized,
+            )
+        except ValueError as exc:
+            if "ambiguous timestamp tie" in str(exc):
+                events.append(SequenceEvent(
+                    sequence=-1,
+                    status="REJECT_STREAM",
+                    reason="AMBIGUOUS_TIMESTAMP_ORDER",
+                ))
+                return SequenceCandleResult((), (), tuple(events))
+            raise
         return SequenceCandleResult(candles, gaps, tuple(events))
