@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 
 BASE_URL = "https://api.wallex.ir"
 ENDPOINT = "/v1/udf/history"
-RESOLUTION_SECONDS = {"1": 60, "60": 3600, "180": 10800, "360": 21600, "720": 43200, "1D": 86400}
+RESOLUTION_SECONDS = {"1": 60, "5": 300, "15": 900, "60": 3600, "180": 10800, "360": 21600, "720": 43200, "D": 86400, "1D": 86400}
 
 
 class WallexCandleError(ValueError):
@@ -100,7 +100,7 @@ def parse_history(payload: Any, *, symbol: str, resolution: str,
         ts = raw_ts
         # Wallex documents the daily resolution but does not specify its UTC
         # session boundary; do not assume daily bars start at Unix midnight.
-        if resolution != "1D" and ts % step != 0:
+        if resolution not in ("D", "1D") and ts % step != 0:
             raise WallexCandleError(f"t[{i}] is not aligned to resolution {resolution}")
         if previous_timestamp is not None and ts < previous_timestamp:
             raise WallexCandleError("source candle timestamps are not monotonic")
