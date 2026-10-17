@@ -128,3 +128,55 @@ def test_run_once_uses_socketio_subscribe_and_broadcaster(tmp_path):
     assert fake.emitted == [("subscribe", {"channel": "USDTTMN@trade"})]
     assert collector.records_written == 1
     assert json.loads(output.read_text())["sequence"] is None
+
+def test_connection_failure_is_not_reported_as_success(tmp_path):
+    class BrokenSocketIO:
+        def on(self, event):
+            return lambda callback: callback
+
+        def connect(self, url, transports):
+            raise OSError("network down")
+
+    output = tmp_path / "events.jsonl"
+    collector = WallexReadOnlyCollectorV1(
+        output=str(output), enabled=True, max_runtime_seconds=0.01,
+        sio_factory=BrokenSocketIO,
+    )
+    with pytest.raises(RuntimeError, match="collection failed"):
+        collector.run_once()
+    assert collector.last_error == "OSError"
+    assert collector.records_written == 0
+    assert not output.exists()
+
+
+def test_unexpected_disconnect_fails_closed(tmp_path):
+    class DisconnectingSocketIO:
+        def __init__(self):
+            self.handlers = {}
+            self.connected = False
+
+        def on(self, event):
+            def register(callback):
+                self.handlers[event] = callback
+                return callback
+            return register
+
+        def connect(self, url, transports):
+            self.connected = True
+            self.handlers["connect"]()
+            self.connected = False
+
+        def emit(self, event, payload):
+            pass
+
+        def disconnect(self):
+            self.connected = False
+
+    fake = DisconnectingSocketIO()
+    collector = WallexReadOnlyCollectorV1(
+        output=str(tmp_path / "events.jsonl"), enabled=True,
+        max_runtime_seconds=0.01, sio_factory=lambda: fake,
+    )
+    with pytest.raises(RuntimeError, match="collection failed"):
+        collector.run_once()
+    assert collector.last_error == "disconnected_before_deadline"
