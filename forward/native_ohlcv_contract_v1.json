@@ -1,0 +1,75 @@
+{
+  "schema": "hes_native_ohlcv_contract_v1",
+  "status": "READ_ONLY_ADAPTER_REFERENCE",
+  "primary_market_data_path": "native_exchange_or_broker_ohlcv",
+  "secondary_path": "trade_aggregation_for_cross_check_only",
+  "initial_sources": [
+    {
+      "venue": "binance",
+      "product": "spot",
+      "endpoint": "https://data-api.binance.vision/api/v3/uiKlines",
+      "purpose": "chart-optimized Spot candles",
+      "credentials": "none"
+    },
+    {
+      "venue": "binance",
+      "product": "spot",
+      "endpoint": "https://data-api.binance.vision/api/v3/klines",
+      "purpose": "standard Spot candles for parity checks",
+      "credentials": "none"
+    },
+    {
+      "venue": "binance",
+      "product": "usdm_perpetual",
+      "endpoint": "https://fapi.binance.com/fapi/v1/klines",
+      "purpose": "USDⓈ-M Futures native candles",
+      "credentials": "none"
+    }
+  ],
+  "invariants": [
+    "Use venue-provided OHLCV rather than reconstructing primary candles from raw trades.",
+    "Preserve decimal values and source open/close timestamps.",
+    "Do not use unfinished candles for decisions.",
+    "Retain SHA-256 of the exact raw HTTP response bytes.",
+    "Reject malformed OHLC relationships, timestamp alignment errors, invalid wire types, and conflicting duplicate open times.",
+    "Report missing intervals between observed candles; never fabricate candles.",
+    "Never infer missing first/last intervals outside the returned range.",
+    "No private credentials, account endpoints, orders, deployment, or trading are used.",
+    "Other exchanges and brokers must implement this contract with their own official, versioned endpoint evidence; no cross-venue field semantics are assumed."
+  ],
+  "supported_fixed_intervals": [
+    "1s",
+    "1m",
+    "3m",
+    "5m",
+    "15m",
+    "30m",
+    "1h",
+    "2h",
+    "4h",
+    "6h",
+    "8h",
+    "12h",
+    "1d",
+    "3d"
+  ],
+  "monthly_and_weekly_intervals": "disabled until venue-specific calendar alignment is implemented",
+  "open_candle_policy": "exclude when close_time_ms >= as_of_ms",
+  "gap_policy": "explicit_between_returned_closed_candles_only",
+  "trading_authorized": false,
+  "candle_fields": [
+    "open_time_ms",
+    "close_time_ms",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "quote_volume",
+    "trade_count",
+    "taker_buy_volume",
+    "taker_buy_quote_volume",
+    "closed"
+  ],
+  "feature_pipeline": "NativeOHLCVFeaturePipelineV1; native-only descriptive features; gaps or insufficient history block decision readiness"
+}

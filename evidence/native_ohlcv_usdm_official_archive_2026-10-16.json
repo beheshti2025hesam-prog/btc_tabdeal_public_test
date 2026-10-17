@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "evidence_id": "BINANCE_USDM_BTCUSDT_1M_OFFICIAL_ARCHIVE_2026-10-16",
+  "observed_at_utc": "2026-10-17T08:19:13Z",
+  "source": {
+    "venue": "Binance",
+    "product": "USDⓈ-M Futures",
+    "kind": "official public historical market-data archive",
+    "archive_url": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-10-16.zip",
+    "checksum_url": "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-10-16.zip.CHECKSUM",
+    "http_status": 200,
+    "content_type": "binary/octet-stream",
+    "content_length_bytes": 60989,
+    "last_modified": "Sat, 17 Oct 2026 08:17:30 GMT",
+    "etag": "\"159623b77b7667664f65a9ef0a16ef13\"",
+    "raw_archive_sha256": "1fbdf8280fb215ee5ae637fff78073ff70b6c68af1d70140ead7e691133a49ff",
+    "published_checksum_sha256": "1fbdf8280fb215ee5ae637fff78073ff70b6c68af1d70140ead7e691133a49ff",
+    "published_checksum_match": true,
+    "extracted_csv_sha256": "09ebb5ba86c7fdccf25db6660ff0ed7ab60e4eb5967e6f28a31f85d63538fc2e"
+  },
+  "scope": {
+    "symbol": "BTCUSDT",
+    "interval": "1m",
+    "archive_date_utc": "2026-10-16",
+    "rows": 1440,
+    "header": ["open_time", "open", "high", "low", "close", "volume", "close_time", "quote_volume", "count", "taker_buy_volume", "taker_buy_quote_volume", "ignore"],
+    "all_rows_have_12_fields": true,
+    "open_time_strictly_increasing": true,
+    "first_open_time_utc": "2026-10-16T00:00:00+00:00",
+    "last_open_time_utc": "2026-10-16T23:59:00+00:00"
+  },
+  "retention": {
+    "raw_archive_bytes_retained": true,
+    "vps_path": "/srv/hes-evidence/binance-usdm/2026-10-16/BTCUSDT-1m-2026-10-16.zip",
+    "checksum_sidecar_retained": true,
+    "response_headers_retained": true,
+    "manifest_retained": true
+  },
+  "verdict": {
+    "status": "PASS_OFFICIAL_HISTORICAL_RAW_ARCHIVE",
+    "raw_archive_bytes_received": true,
+    "archive_sha256_matches_official_checksum": true,
+    "live_rest_api_verified": false,
+    "live_websocket_verified": false,
+    "equivalent_to_live_futures_feed": false,
+    "limitations": [
+      "This is official historical archive data, not a live REST/WebSocket response.",
+      "The direct fapi.binance.com REST probe from the VPS timed out with HTTP 000.",
+      "This archive route is a separate documented public data distribution service; it does not bypass or modify the restricted live API route.",
+      "The committed JSON records the raw archive hashes and VPS retention path; the ZIP payload is retained on the VPS rather than committed to Git."
+    ]
+  },
+  "security": {
+    "credentials_used": false,
+    "private_endpoints_used": false,
+    "orders_or_account_actions_performed": false,
+    "execution": "OFF"
+  }
+}

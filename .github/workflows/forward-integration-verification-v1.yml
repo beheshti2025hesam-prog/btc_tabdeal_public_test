@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   integration:
+    name: Forward Integration Verification v1
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -19,15 +20,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Verify repository revision
         run: |
           git status --short
           git rev-parse HEAD
-
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
-
       - name: Run forward integration and safety tests
         run: |
           python -m pytest -q \
@@ -51,12 +49,10 @@ jobs:
             tests/test_health_monitor_v1.py \
             tests/test_crash_safe_checkpoint_v1.py \
             tests/test_soak_health_v1.py
-
       - name: Explicit execution and historical firewall scan
         run: |
           python - <<'PY'
           from pathlib import Path
-
           required = [
               "forward/decision_gate_firewall_v1.py",
               "forward/integration_gate_v1.py",
@@ -66,12 +62,10 @@ jobs:
           missing = [p for p in required if not Path(p).is_file()]
           if missing:
               raise SystemExit("MISSING_REQUIRED_GUARD_FILES:" + ",".join(missing))
-
           print("FORWARD_INTEGRATION_SCOPE=PASS")
           print("EXECUTION_EXPECTED=OFF")
           print("HISTORICAL_INPUTS_EXPECTED=OFF")
           PY
-
       - name: Verify collector is never started by this workflow
         run: |
           echo "COLLECTOR_START=FORBIDDEN"

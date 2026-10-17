@@ -1,0 +1,60 @@
+name: Signed Source Evidence Contract v1
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-source-evidence-contract:
+    name: Signed Source Evidence Contract v1
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Validate native OHLCV evidence claims and source boundaries
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          spot = json.loads(Path("evidence/native_ohlcv_live_parity_2026-10-16.json").read_text())
+          futures = json.loads(Path("evidence/native_ohlcv_usdm_connector_2026-10-17.json").read_text())
+          supplemental = json.loads(Path("evidence/native_ohlcv_parity_spot_2026-10-17.json").read_text())
+
+          assert spot["schema_version"] == 1
+          assert spot["scope"]["venue"] == "binance"
+          assert spot["scope"]["product"] == "spot"
+          assert spot["comparison"]["common_closed_candles"] >= spot["comparison"]["minimum_required"]
+          assert spot["comparison"]["mismatch_count"] == 0
+          assert spot["comparison"]["closed_candle_parity"] is True
+          assert spot["security"]["credentials_used"] is False
+          assert spot["security"]["private_endpoints_used"] is False
+          assert spot["security"]["orders_or_account_actions"] is False
+          assert spot["security"]["execution"] == "OFF"
+          for endpoint in ("uiKlines", "klines"):
+              digest = spot["endpoint_hashes"][endpoint]["sha256"]
+              assert len(digest) == 64 and all(c in "0123456789abcdef" for c in digest)
+
+          assert futures["scope"]["product"] == "usdm_perpetual"
+          assert futures["source"]["raw_http_payload_preserved"] is False
+          assert futures["source"]["raw_response_sha256_available"] is False
+          assert futures["hash"]["raw_http_response_hash"] is None
+          assert futures["verdict"]["adapter_direct_capture_verified"] is False
+          assert futures["verdict"]["raw_http_integrity_verified"] is False
+
+          assert supplemental["source"]["raw_http_payload_preserved"] is False
+          assert supplemental["source"]["raw_response_sha256_available"] is False
+          assert supplemental["verdict"]["full_chart_parity_verified"] is False
+
+          print("SIGNED_SOURCE_EVIDENCE_CONTRACT=PASS")
+          print("SPOT_PARITY_SCOPE=BOUNDED_CLOSED_CANDLES_ONLY")
+          print("FUTURES_DIRECT_HTTP=UNVERIFIED")
+          print("RAW_HTTP_HASH_CLAIM=FAIL_CLOSED")
+          print("EXECUTION=OFF")
+          PY

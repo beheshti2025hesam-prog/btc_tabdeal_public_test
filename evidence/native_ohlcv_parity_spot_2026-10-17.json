@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "evidence_id": "NATIVE_OHLCV_BINANCE_SPOT_CHART_ENDPOINT_PARITY_2026-10-17",
+  "observed_session_utc_date": "2026-10-16",
+  "source": {
+    "kind": "structured responses from connected Binance public market-data tools",
+    "raw_http_payload_preserved": false,
+    "raw_response_sha256_available": false,
+    "provider_request_timestamp_returned": false,
+    "private_account_authentication_tested": false,
+    "orders_or_account_actions_performed": false
+  },
+  "scope": {
+    "venue": "binance",
+    "product": "spot",
+    "symbol": "BTCUSDT",
+    "interval": "15m",
+    "requested_window_open_time_utc": "2026-10-16T20:00:00Z",
+    "requested_window_last_close_time_utc": "2026-10-16T21:14:59.999Z",
+    "endpoints": ["GET /api/v3/klines", "GET /api/v3/uiKlines"]
+  },
+  "closed_candles": [
+    [1792180800000, 1792181699999, "81589.85000000", "81684.95000000", "81524.00000000", "81578.75000000", "165.26158000", "13484503.16931660", 25680],
+    [1792181700000, 1792182599999, "81578.76000000", "81700.10000000", "81578.75000000", "81648.90000000", "103.55797000", "8455795.93342380", 19961],
+    [1792182600000, 1792183499999, "81648.91000000", "81739.50000000", "81648.91000000", "81716.01000000", "86.20982000", "7043068.44429640", 22229],
+    [1792183500000, 1792184399999, "81716.00000000", "81784.01000000", "81664.00000000", "81727.84000000", "87.42365000", "7144739.47408730", 19067]
+  ],
+  "closed_candle_row_fields": ["open_time_ms", "close_time_ms", "open", "high", "low", "close", "base_volume", "quote_volume", "trade_count"],
+  "closed_candle_result": {
+    "count": 4,
+    "standard_klines_and_uiKlines_match_on_timestamps_ohlc_volume_and_trade_count": true
+  },
+  "unfinished_candle": {
+    "open_time_ms": 1792184400000,
+    "close_time_ms": 1792185299999,
+    "open_time_utc": "2026-10-16T21:00:00Z",
+    "scheduled_close_time_utc": "2026-10-16T21:14:59.999Z",
+    "status": "OPEN_CANDLE_EXCLUDED_FROM_PARITY",
+    "reason": "The source calls occurred before candle close and the candle changed between requests.",
+    "first_observed": {
+      "ohlc": ["81727.83000000", "81742.01000000", "81636.00000000", "81636.01000000"],
+      "standard_base_volume": "48.29596000",
+      "ui_base_volume": "48.29630000",
+      "standard_trade_count": 5246,
+      "ui_trade_count": 5247
+    },
+    "later_observed": {
+      "ohlc": ["81727.83000000", "81742.01000000", "81561.27000000", "81705.74000000"],
+      "standard_base_volume": "123.47175000",
+      "ui_base_volume": "123.47175000",
+      "standard_quote_volume": "10083676.46603210",
+      "ui_quote_volume": "10083349.64307210",
+      "standard_trade_count": 22770,
+      "ui_trade_count": 22768
+    },
+    "interpretation": "The previously noted final-bar differences are not evidence of a closed-candle discrepancy; this bar was still open and must be excluded until its close time is earlier than the observation cutoff."
+  },
+  "verdict": {
+    "closed_candles_compared": 4,
+    "closed_candle_timestamps_ohlc_volume_and_trade_count_match": true,
+    "open_candle_excluded": true,
+    "full_chart_parity_verified": false,
+    "limitations": [
+      "Only four closed Spot candles were compared.",
+      "Raw HTTP bytes and their hashes were not preserved by the connector.",
+      "Direct adapter capture with exact raw-response SHA-256 and a larger bounded sample remains required.",
+      "This does not verify broker feeds, history completeness, collector activation, or trading."
+    ]
+  },
+  "product_separation": {
+    "usdm_futures_candles_were_also_read": true,
+    "futures_data_is_not_compared_as_spot": true
+  }
+}
