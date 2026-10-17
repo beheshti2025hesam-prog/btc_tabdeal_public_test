@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   integration:
+    name: "Forward Integration Verification v1"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
