@@ -87,3 +87,37 @@ This section supersedes older “latest head” statements above, which were acc
 - Next action order: (1) resolve exact-head CI visibility/trigger and get tests to execute; (2) fix only evidenced failures and rerun on the exact resulting SHA; (3) extend destructive tests for hash-valid semantic invalidity, artifact mutation/deletion/reordering and protocol/order changes; (4) maintain source identity 42/42 artifacts without unnecessary reconstruction; (5) keep independent review, merge, live collection, and trading blocked until required gates pass.
 - Overall completion target remains 70%, but no defensible numeric percentage is established yet. Build a weighted deliverable/acceptance ledger first; only count verified accepted work.
 - Safety state remains **HOLD / NO TRADE**. No merge, live collection, or trade execution occurred in this session.
+
+
+## Continuation checkpoint — exchange semantics registry and exact-head CI (2026-10-18)
+
+This section is authoritative for resuming work after the preceding notes.
+
+### Exact source state
+- Repository: `beheshti2025hesam-prog/btc_tabdeal_public_test`
+- Branch: `research/binance-btcusdt-rest-schema-20261017`
+- PR #308: OPEN / DRAFT / NOT MERGED; no merge or release approval.
+- Code/contract change chain:
+  - `177d4af15db7406b4924b9be5a5c249b42d3ecec` — added `forward/exchange_sequence_semantics_registry_v1.json`.
+  - `0fb276a285aba14f19db1c1ad09a1b15ae6af1ac` — added `tests/test_exchange_sequence_semantics_registry_v1.py`.
+  - `870315bca42c3c64908f434011725b17aa5aa013` — added the registry regression test to `.github/workflows/forward-integration-verification-v1.yml`.
+- Registry is research-only and fail-closed. It explicitly leaves Tabdeal Spot depth, Tabdeal FAPI REST `sequence`, and Tabdeal `trade.sequence` semantics unknown/unsupported for gap detection; it does not infer WebSocket continuity from REST. Binance Spot `U/u` depth synchronization is registered as a distinct, channel-scoped documented capability, with no cross-reconnect comparability.
+- Registry regression tests check fail-closed defaults, unique records/evidence fields, Tabdeal trade-sequence unknown semantics, REST/WebSocket separation, and Binance Spot depth capability scoping.
+- Uploaded research source `HES_Trade_Agent__Exchange_Sequence_Semantics_and_C.md` supports the conservative semantics model; treat it as research evidence, not a substitute for current venue docs or raw fixtures.
+
+### CI status for the current head
+- Exact-head Actions lookup for `870315bca42c3c64908f434011725b17aa5aa013` observed 26 PR-triggered workflow runs starting.
+- At last poll, 4 completed successfully, 4 were in progress, and 18 were queued; Forward Integration Verification v1 was still queued. No failures had appeared at that poll.
+- **Do not call this head green yet.** Resume by polling Actions for the exact current PR head, inspect any failures, fix only evidenced failures, and rerun affected checks on the resulting exact SHA.
+
+### Next actions, in order
+1. Finish exact-head CI for the current PR head; verify the new registry test was executed by Forward Integration Verification.
+2. If the test or workflow fails, fix the observed failure and rerun; do not infer success from unrelated workflows.
+3. Add/verify property-based or deterministic tests that unknown sequence capabilities cannot trigger gap detection or conflict rejection; extend destructive source artifact tests (deletion, reordering, payload mutation, manifest tampering) without replacing the existing 42-record reconciliation/lock.
+4. Audit all `SequenceIntegrityV1.observe()` callers through candle ingestion, observation path, collector, risk and decision gates; prove out-of-order and conflict anomalies are blocked end-to-end.
+5. Update the weighted acceptance score only from evidence attached to exact tested commits. The previously recorded 42.5/100 is evidence maturity at its named baseline, not overall feature completion and not production readiness.
+6. Resolve official Tabdeal inner broadcast trade schema and sequence scope via authoritative documentation/support; until evidence arrives, `trade.sequence` must not act as identity, order, gap detector or cross-reconnect key.
+7. Keep `HOLD / NO TRADE`; do not merge, enable live collection, or trade based on CI success alone.
+
+### Continuity and no-duplication rule
+Memory = project map; GitHub = technical truth; Chat = conversation notebook. Begin from this section, fetch the live PR head before acting, and do not redo the already completed REST schema research, strict sequence parsing, or 42-record archive reconciliation absent contradictory evidence.
