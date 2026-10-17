@@ -58,3 +58,11 @@ Memory = map; GitHub = technical truth; Chat = conversation notebook. Start the 
 1. Do not redo the already-recorded 42-record/archive matching absent a contradiction.
 2. Continue with a project-wide deliverable inventory and explicit acceptance criteria to calculate defensible overall completion.
 3. Keep HOLD / NO TRADE. No merge, live collector activation, network-control bypass, or trading until the applicable release gates are independently satisfied.
+
+
+## Project-wide inventory update — 2026-10-18 00:05 local
+- Added `docs/audits/PROJECT_WIDE_DELIVERABLE_INVENTORY_2026-10-18.md` to the research branch.
+- Inventory baseline from main tree `4956cf519c445edd004fdd4e763bdb3347a7ada9`: 431 tracked files, 53 under `core/`, 98 test/QA-named paths by a broad filename rule, 37 workflow files, 8 under `docs/`, 17 under `evidence/`, and 21 under `archive/`. These are structural counts only, not completion percentages.
+- The inventory separates implementation artifacts from accepted end-to-end behavior and lists acceptance proof still required for data ingestion, sequence integrity, risk veto, strategy evaluation, source identity, live exchange protocol, deployment, learning loop, multi-agent transferability, and advisory-only UI.
+- PR #308 now points to commit `8d0830b66fc2252369125882b21f8cb626a9806b`, remains open/draft. A commit-specific workflow query returned zero runs so far; do not assume CI passed. Recheck exact-head CI before any acceptance statement.
+- Overall completion remains unquantified; 70% target remains unverified. Keep `HOLD / NO TRADE`.
