@@ -5,7 +5,17 @@ forward/wallex_native_candles_v1.py is an isolated read-only client for the docu
 
 The adapter accepts symbol, resolution, from, to; preserves numeric precision with Decimal; preserves the source Unix open timestamp; validates response shape, OHLC bounds, resolution alignment, duplicates and ordering; and returns only bars whose full interval has ended by the caller's as_of time. It never manufactures missing bars and never uses account credentials.
 
-Supported resolutions documented by Wallex: 1, 60, 180, 360, 720, 1D. 1 means one minute; 60 means 60 minutes (one hour), not one second.
+## Empirically verified resolution support
+A bounded direct/no-proxy BTCUSDT probe on 2026-10-17 tested resolution values 1, 5, 15, 60, 180, 360, 720, D and 1D over the same 24-hour range.
+
+- `1`: returned 1,439 bars with 60-second spacing.
+- `60`: returned 24 bars with 3,600-second spacing.
+- `1D` and `D`: returned the same one daily bar in this range.
+- `15`: returned the same 1-minute payload as `1` (1,439 bars; 60-second spacing). Do not treat it as 15-minute candles.
+- `720`: returned the same 1-hour payload as `60` (24 bars; 3,600-second spacing). Do not treat it as 12-hour candles.
+- `5`, `180`, and `360`: HTTP 200 with source status `error`, no bars.
+
+Therefore the adapter enables only `1` (1-minute), `60` (1-hour), and `1D` (daily). The other resolutions fail closed until verified in a new bounded live probe. This is an empirical observation for the tested request and date, not a permanent exchange guarantee.
 
 ## Boundaries / non-claims
 - The adapter is not wired into the live collector, strategy, decision runner, or execution path.
@@ -20,4 +30,4 @@ Supported resolutions documented by Wallex: 1, 60, 180, 360, 720, 1D. 1 means on
 ## Tests
     python -m pytest -q forward/test_wallex_native_candles_v1.py
 
-Live smoke evidence (read-only, bounded) is stored under evidence/. Raw HTTP response bytes were hashed and kept on the VPS in /tmp; the repository evidence records the SHA-256 and selected metadata, not a mutable market-data archive.
+Live smoke evidence is stored under evidence/. Raw response payloads are hashed and preserved on the VPS under /srv/hes-evidence/wallex. Chart parity remains unverified.
