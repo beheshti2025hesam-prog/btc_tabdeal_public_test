@@ -53,7 +53,11 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
 
 
 def ingest_closed_candles(
-    records: Iterable[dict[str, Any]], *, as_of: datetime
+    records: Iterable[dict[str, Any]], *, as_of: datetime,
+    sequence_ordering_authorized: bool = False,
 ) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
     trades = tuple(to_trade_observation(record, as_of=as_of) for record in records)
-    return normalize_trades(trades, as_of=as_of, expected_symbol="BTC_USDT")
+    return normalize_trades(
+        trades, as_of=as_of, expected_symbol="BTC_USDT",
+        sequence_ordering_authorized=sequence_ordering_authorized,
+    )
