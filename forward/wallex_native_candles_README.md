@@ -13,7 +13,7 @@ A bounded direct/no-proxy BTCUSDT probe on 2026-10-17 tested resolution values 1
 - `1D` and `D`: returned the same one daily bar in this range.
 - `15`: returned the same 1-minute payload as `1` (1,439 bars; 60-second spacing). Do not treat it as 15-minute candles.
 - `720`: returned the same 1-hour payload as `60` (24 bars; 3,600-second spacing). Do not treat it as 12-hour candles.
-- `5`, `180`, and `360`: HTTP 200 with source status `error`, no bars.
+- `5`, `30`, `180`, `360`, `1W`, and `1M`: HTTP 200 with source status `error`, no bars.
 
 Therefore the adapter enables only `1` (1-minute), `60` (1-hour), and `1D` (daily). The other resolutions fail closed until verified in a new bounded live probe. This is an empirical observation for the tested request and date, not a permanent exchange guarantee.
 
