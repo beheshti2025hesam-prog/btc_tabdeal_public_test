@@ -74,3 +74,19 @@ def test_unique_sequence_state_bound_fails_closed_without_growth():
     assert event.reason == "SEQUENCE_STATE_BOUND_EXCEEDED"
     assert event.diagnostic == {"max_records": 2}
     assert len(s._records) == 2
+
+
+def test_ascii_digit_string_sequence_is_supported_without_coercion():
+    s = SequenceIntegrityV1()
+    assert s.observe(rec("10")).status == "ACCEPTED"
+
+
+def test_boolean_fractional_and_non_finite_sequences_are_rejected():
+    s = SequenceIntegrityV1()
+    for invalid in (True, False, 1.9, float("nan"), float("inf"), -1, " 10", "1.0", ""):
+        try:
+            s.observe(rec(invalid))
+        except ValueError as exc:
+            assert str(exc) == "invalid sequence"
+        else:
+            raise AssertionError(f"invalid sequence accepted: {invalid!r}")
