@@ -107,6 +107,7 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     trusted_key_registry_sha256=trusted_current_digest,
                 )
 
+
     def test_empty_trust_registry_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -180,6 +181,36 @@ class SignedSequenceContractGateTests(unittest.TestCase):
             validate_sequence_contract_payload(
                 json.dumps(payload).encode(), market_scope="tabdeal:futures:BTC_USDT"
             )
+
+    def test_non_string_semantic_class_values_fail_closed_with_value_error(self):
+        base = {
+            "schema": "hes_sequence_contract_v1",
+            "venue": "tabdeal",
+            "product": "futures_margin",
+            "endpoint": "special_margin/broadcast/",
+            "channel": "trade_broadcast",
+            "message_type": "trade",
+            "field_path": "trade.sequence",
+            "scope": "tabdeal:futures:BTC_USDT",
+            "protocol_version": "unknown",
+            "semantic_class": "unknown",
+            "capabilities": {
+                "exact_replay_dedup": False,
+                "event_id_dedup": False,
+                "ordered_within_scope": False,
+                "contiguous_within_scope": False,
+                "gap_detectable": False,
+                "cross_reconnect": False,
+            },
+        }
+        for malformed in ([], {}, None, True, 7):
+            with self.subTest(semantic_class=malformed):
+                candidate = dict(base)
+                candidate["semantic_class"] = malformed
+                with self.assertRaisesRegex(ValueError, "invalid sequence contract semantic_class"):
+                    validate_sequence_contract_payload(
+                        json.dumps(candidate).encode(), market_scope="tabdeal:futures:BTC_USDT"
+                    )
 
 
 if __name__ == "__main__":
