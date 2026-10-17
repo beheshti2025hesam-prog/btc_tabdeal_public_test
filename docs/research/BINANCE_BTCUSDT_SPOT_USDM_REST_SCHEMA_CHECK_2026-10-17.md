@@ -84,3 +84,32 @@ Official sources checked:
 5. Commit capture files plus a manifest and have an independent reviewer recompute hashes.
 
 **Gate remains OPEN:** the schema cross-check is now documented, but live capture, gap/reconnect tests, hash reproduction, and independent review are still outstanding. No adapter capability is promoted by this documentation update.
+
+
+## Follow-up live REST sample via Binance connector (2026-10-17 17:32 UTC)
+
+A second read-only pull was performed through the connected Binance market-data connector while the VPS itself could not reach Binance over TCP/443. These are fresh REST observations, **not WebSocket frames**.
+
+| Product / endpoint class | Observed sample | Conservative interpretation |
+|---|---|---|
+| Spot BTCUSDT recent trades | IDs `6770949822–6770949826`; sample trade times `1792258324521–1792258324934` ms | Five consecutive IDs were returned in this response only. |
+| Spot BTCUSDT depth snapshot | `lastUpdateId=101567654554` | Snapshot marker only; no live diff-depth bridge tested. |
+| USDⓈ-M BTCUSDT recent trades | IDs `8181739538–8181739542`; sample trade times `1792258324318–1792258325102` ms | Five consecutive IDs were returned in this response only. |
+| USDⓈ-M BTCUSDT depth snapshot | `lastUpdateId=11846444730528`, `E=1792258325517`, `T=1792258325515` ms | Snapshot marker and event/transaction timestamps only; no WebSocket continuity claim. |
+| Spot exchange metadata | `serverTime=1792258325347` ms; `BTCUSDT` status `TRADING` | Timestamp was close to the sampled Spot trades/depth call. |
+| USDⓈ-M exchange metadata | `serverTime=1792137674761` ms | This is materially older than the contemporaneous Futures trades/depth sample. Preserve the freshness discrepancy; do not use this value as the capture clock. |
+
+### Limited replay/overlap check
+
+A second Spot historical-trades query beginning at ID `6770949824` returned IDs `6770949824–6770949826` with matching price, quantity, and timestamps to the overlapping tail of the recent-trades sample. This confirms that this specific REST overlap was reproduced; it does **not** establish WebSocket replay guarantees or reconnect completeness.
+
+The corresponding USDⓈ-M historical-trades lookup through the connector returned HTTP 401 with error `-2014` (“API-key format invalid”). This is recorded as a connector-call failure, not evidence that the exchange's public historical-trades endpoint inherently requires credentials. No credentials were changed or added.
+
+### Network and gate status
+
+Read-only VPS diagnostics at 17:31 UTC showed:
+- `github.com:443` reachable over IPv4.
+- `api.binance.com:443`, `stream.binance.com:443`, and `fstream.binance.com:443` resolve to `10.10.34.34` and fail to connect from the VPS.
+- IPv6 has no usable default route; no proxy environment variables were set.
+
+No DNS, route, firewall, SSH, or service configuration was changed. The network path currently blocks VPS-side live capture. **Gate remains OPEN / HOLD:** raw WebSocket frames, Spot snapshot bridge, Futures `U/u/pu` continuity, controlled disconnect/reconnect, reproducible frame hashes, and independent review are still outstanding.
