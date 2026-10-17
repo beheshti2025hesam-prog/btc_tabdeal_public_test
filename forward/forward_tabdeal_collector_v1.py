@@ -52,7 +52,9 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
     symbol = data.get("symbol") or data.get("s")
     price = data.get("price") or data.get("p")
     amount = data.get("amount") or data.get("q")
-    sequence = data.get("sequence") or data.get("seq")
+    sequence = data.get("sequence")
+    if sequence is None:
+        sequence = data.get("seq")
     side = data.get("side") or data.get("side_name") or data.get("S")
     source_updated = data.get("updated")
 
