@@ -54,3 +54,13 @@ Continuity rule: Memory = map; GitHub = technical truth; Chat = conversation not
 - No live collection, execution, network-control bypass, or trading was performed.
 - Status remains `HOLD / NO TRADE`.
 - Overall 70% completion remains unverified. The strict parsing changes are a bounded hardening step, not grounds to claim a project-wide completion percentage.
+
+
+## Adversarial containment tests added
+- New file: `tests/test_sequence_adversarial_followup_v1.py`.
+- Covers a conflicting duplicate followed by a later valid record in the same batch (the later record must not be processed and no candle may be created) and a duplicate ID whose non-market field changes.
+- Updated the sequence audit accordingly.
+- These tests are committed but remain unverified until the repository reports an exact-head CI run or they are executed in a trusted local checkout.
+
+Latest code/test commit before this checkpoint: `7c39447dfd1e92317af058f23700815040021538`.
+No CI run or combined status was returned for recent commits from the connector. Do not report tests as passing.
