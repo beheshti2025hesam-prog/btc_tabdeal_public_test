@@ -197,6 +197,20 @@ def test_silent_feed_fails_closed_even_if_connection_opens(tmp_path):
     assert fake.closed
 
 
+def test_connection_setup_failure_fails_closed(tmp_path):
+    def fail_connect():
+        raise OSError("handshake failed")
+
+    collector = WallexReadOnlyCollectorV1(
+        output=str(tmp_path / "events.jsonl"), enabled=True,
+        max_runtime_seconds=0.02, ws_factory=fail_connect,
+    )
+    with pytest.raises(RuntimeError, match="connection failed"):
+        collector.run_once()
+    assert collector.last_error == "OSError"
+    assert not (tmp_path / "events.jsonl").exists()
+
+
 def test_unexpected_disconnect_fails_closed(tmp_path):
     fake = FakeWebSocket(error=OSError("network down"))
     collector = WallexReadOnlyCollectorV1(
