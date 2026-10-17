@@ -53,7 +53,9 @@ def validate_sequence_contract_payload(payload: bytes, *, market_scope: str) -> 
             raise ValueError(f"sequence contract {key} mismatch")
 
     semantic_class = contract.get("semantic_class")
-    if semantic_class not in _SEMANTIC_CLASSES:
+    # Check the type before set membership: JSON arrays/objects are unhashable
+    # and must fail closed with the documented validation error, not TypeError.
+    if not isinstance(semantic_class, str) or semantic_class not in _SEMANTIC_CLASSES:
         raise ValueError("invalid sequence contract semantic_class")
     protocol_version = contract.get("protocol_version")
     if not isinstance(protocol_version, str) or not protocol_version.strip():
