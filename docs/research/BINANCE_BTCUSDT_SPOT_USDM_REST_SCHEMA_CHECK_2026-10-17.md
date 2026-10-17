@@ -123,3 +123,12 @@ Additional read-only diagnostics compared UDP and TCP DNS queries against the co
 - TCP connections to `1.1.1.1:53`, `8.8.8.8:53`, `1.1.1.1:443`, and `8.8.8.8:443` succeeded, but HTTPS DNS-over-HTTPS requests to Cloudflare and Google were reset during TLS/HTTPS setup. Ordinary HTTPS to GitHub continued to return HTTP 200 while Binance HTTPS timed out.
 
 This pattern is consistent with DNS/egress policy interception or filtering somewhere on the VPS network path, but it does not by itself identify the responsible network layer or prove malicious poisoning. No resolver, route, firewall, SSH, or service settings were changed. Do not try alternate IPs as a bypass or weaken host security; continue with authorized network-provider diagnostics or a permitted network path.
+
+
+## Follow-up: exact-commit CI and review gate check (2026-10-17 21:20 local)
+
+The exact network-diagnostics commit `ccb003ead7e6dc400c539f06ebc2e0d90739fa13` was re-queried from GitHub Actions: **26/26 PR-triggered workflow runs are completed successfully** for that commit. This validates the CI run set returned by the repository connector; it does not replace live WebSocket tests or prove the source-identity evidence gate has passed.
+
+PR #308 remains open and draft at this head SHA. The review and review-thread endpoints return no submitted reviews and no inline review threads. PR #282 remains open and draft at `e2f2c88075ea7856025f9d928b0abdbc8f9a9a50`; the connector returns 27/27 successful PR-triggered runs for that commit.
+
+Next gate remains: authorized network-path resolution; raw WebSocket capture with session and receive-time metadata; Spot snapshot bridge and deliberate gap recovery; Futures `U/u/pu` continuity and reconnect test; deterministic SHA-256 manifest verification; independent review. Until these are evidenced, do not merge, enable live collection/trading, or claim the overall project is 70% complete.
