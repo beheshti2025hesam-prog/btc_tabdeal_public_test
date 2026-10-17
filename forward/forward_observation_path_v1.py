@@ -57,11 +57,28 @@ class ForwardObservationPathV1:
                 "last_sequence": c.last_sequence}
 
     def observe(self, frames: Iterable[dict[str, Any]], *, as_of: datetime,
-                forward_run_id: str) -> ForwardObservationPathResult:
+                forward_run_id: str,
+                sequence_contract: dict[str, Any] | None = None) -> ForwardObservationPathResult:
         if as_of.tzinfo is None or as_of.utcoffset() is None:
             raise ValueError("as_of must be timezone-aware")
         if not forward_run_id.strip():
             raise ValueError("forward_run_id required")
+
+        # The live runner passes the exact contract object returned by signature,
+        # scope, structure, and capability verification. Re-check at the consumer
+        # boundary so a future caller cannot accidentally pass a different scope.
+        if sequence_contract is not None:
+            capabilities = sequence_contract.get("capabilities")
+            if (
+                sequence_contract.get("scope") != "tabdeal:futures:BTC_USDT"
+                or sequence_contract.get("field_path") != "trade.sequence"
+                or not isinstance(capabilities, dict)
+                or capabilities.get("ordered_within_scope") is not True
+            ):
+                return ForwardObservationPathResult(
+                    "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                    False, None, "SIGNED_SEQUENCE_CONTRACT_SCOPE_OR_CAPABILITY_MISMATCH",
+                )
 
         bounded_frames = list(islice(frames, self.max_records + 1))
         if len(bounded_frames) > self.max_records:
@@ -71,7 +88,14 @@ class ForwardObservationPathV1:
                 ({"max_records": self.max_records},),
             )
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
-        result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
+        sequence_ordering_authorized = (
+            sequence_contract is not None
+            and sequence_contract.get("capabilities", {}).get("ordered_within_scope") is True
+        )
+        result = SequenceAwareCandleIngestionV1(
+            max_sequence_records=self.max_records,
+            sequence_ordering_authorized=sequence_ordering_authorized,
+        ).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",

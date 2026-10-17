@@ -85,6 +85,8 @@ class TabdealReadOnlyTransportV1:
                     "sequence_value": safe_sequence_value,
                     "normalized_sequence": record.get("sequence"),
                 })
+            # Preserve transport-derived raw-payload identity for exact replay checks.
+            record["raw_payload_sha256"] = raw_frame_sha256
             self.on_record(record)
             self.records_emitted += 1
         except (ValueError, TypeError, json.JSONDecodeError, KeyError) as exc:
