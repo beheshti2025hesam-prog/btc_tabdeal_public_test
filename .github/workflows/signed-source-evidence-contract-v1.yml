@@ -9,6 +9,7 @@ permissions:
   contents: read
 jobs:
   adversarial-contract:
+    name: "Signed Source Evidence Contract v1"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
