@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from wallex_native_candles_v1 import WallexCandleError, parse_history
+from wallex_native_candles_v1 import WallexCandleError, RESOLUTION_SECONDS, parse_history
 
 UTC = timezone.utc
 AS_OF = datetime(2026, 10, 17, 13, 2, tzinfo=UTC)
@@ -17,6 +17,17 @@ def payload(ts=(1792232400, 1792232460), o=("100.00", "101"), h=("102", "103"),
 
 def parse(p, as_of=AS_OF):
     return parse_history(p, symbol="BTCUSDT", resolution="1", as_of=as_of, observed_at=OBSERVED)
+
+
+def test_only_empirically_verified_resolutions_are_enabled():
+    assert RESOLUTION_SECONDS == {"1": 60, "60": 3600, "1D": 86400}
+
+
+@pytest.mark.parametrize("resolution", ["5", "15", "180", "360", "720", "D"])
+def test_unverified_or_mislabelled_resolutions_fail_closed(resolution):
+    with pytest.raises(WallexCandleError, match="unsupported resolution"):
+        parse_history(payload(), symbol="BTCUSDT", resolution=resolution,
+                      as_of=datetime(2026, 10, 19, tzinfo=UTC), observed_at=OBSERVED)
 
 
 def test_preserves_decimal_precision_and_source_time():
@@ -98,6 +109,15 @@ def test_daily_candle_does_not_assume_utc_midnight_alignment():
     assert candles[0].close_time == candles[0].open_time + timedelta(days=1)
 
 
+def test_hourly_candle_alignment_uses_one_hour_buckets():
+    ts = 1792231200
+    p = payload(ts=(ts,), o=("100",), h=("102",), l=("99",), c=("101",), v=("1",))
+    candles = parse_history(p, symbol="BTCUSDT", resolution="60",
+                            as_of=datetime(2026, 10, 19, tzinfo=UTC), observed_at=OBSERVED)
+    assert len(candles) == 1
+    assert candles[0].close_time.timestamp() - candles[0].open_time.timestamp() == 3600
+
+
 def test_fetch_decodes_fractional_json_numbers_as_decimal(monkeypatch):
     import wallex_native_candles_v1 as adapter
 
@@ -121,17 +141,3 @@ def test_fetch_decodes_fractional_json_numbers_as_decimal(monkeypatch):
     )
     assert candles[0].open == Decimal("100.000000000000000001")
     assert candles[0].volume == Decimal("0.123456789012345678901")
-
-
-@pytest.mark.parametrize("resolution", ["5", "15", "D"])
-def test_accepts_documented_wallex_resolutions(resolution):
-    ts = 1792232100 if resolution == "15" else 1792232400
-    candles = parse_history(
-        payload(ts=(ts,), o=("100",), h=("102",), l=("99",), c=("101",), v=("1",)),
-        symbol="BTCUSDT",
-        resolution=resolution,
-        as_of=datetime(2026, 10, 19, tzinfo=UTC),
-        observed_at=OBSERVED,
-    )
-    assert len(candles) == 1
-    assert candles[0].resolution == resolution
