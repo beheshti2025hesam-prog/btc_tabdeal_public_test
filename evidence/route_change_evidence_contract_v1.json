@@ -1,0 +1,53 @@
+{
+  "schema": "hes_route_change_evidence_contract_v1",
+  "status": "ACTIVE_FAIL_CLOSED",
+  "purpose": "Require independently verifiable evidence for every route/adapter change and rerun the complete required safety suite on the exact candidate commit.",
+  "evidence_record_required_fields": [
+    "change_id",
+    "route_key",
+    "previous_route_revision",
+    "candidate_route_revision",
+    "change_reason",
+    "source_contract_ref",
+    "source_contract_sha256",
+    "candidate_commit_sha",
+    "before_fixture_sha256",
+    "after_fixture_sha256",
+    "sequence_semantics_classification",
+    "scope_key_fields",
+    "expected_behavior",
+    "tests_required",
+    "ci_run_url",
+    "ci_result",
+    "reviewed_at_utc"
+  ],
+  "sequence_semantics_allowed": [
+    "documented_identity",
+    "documented_ordering",
+    "documented_contiguity",
+    "opaque_unknown"
+  ],
+  "fail_closed_rules": [
+    "Missing evidence field blocks route promotion.",
+    "Unknown sequence semantics must not trigger gap detection or identity-conflict decisions.",
+    "A hash proves byte identity only; it does not prove source authenticity or protocol meaning.",
+    "CI must run against the exact candidate commit SHA.",
+    "Any required test failure or missing CI run blocks promotion."
+  ],
+  "required_test_groups": [
+    "route_change_evidence_schema",
+    "source_reference_and_hash_integrity",
+    "sequence_scope_isolation",
+    "opaque_sequence_no_inferred_gap",
+    "exact_replay_idempotency",
+    "documented_identity_conflict_only",
+    "reconnect_epoch_isolation",
+    "missing_or_type_changed_field_fails_closed",
+    "release_readiness_and_execution_firewall",
+    "all_existing_forward_integration_safety_tests"
+  ],
+  "promotion_policy": "FAIL_CLOSED",
+  "execution_enabled": false,
+  "live_collection_enabled": false,
+  "status_claims_require_exact_commit_and_ci_url": true
+}
