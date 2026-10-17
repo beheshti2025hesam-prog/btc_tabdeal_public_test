@@ -121,3 +121,17 @@ def test_fetch_decodes_fractional_json_numbers_as_decimal(monkeypatch):
     )
     assert candles[0].open == Decimal("100.000000000000000001")
     assert candles[0].volume == Decimal("0.123456789012345678901")
+
+
+@pytest.mark.parametrize("resolution", ["5", "15", "D"])
+def test_accepts_documented_wallex_resolutions(resolution):
+    ts = 1792232400
+    candles = parse_history(
+        payload(ts=(ts,), o=("100",), h=("102",), l=("99",), c=("101",), v=("1",)),
+        symbol="BTCUSDT",
+        resolution=resolution,
+        as_of=datetime(2026, 10, 19, tzinfo=UTC),
+        observed_at=OBSERVED,
+    )
+    assert len(candles) == 1
+    assert candles[0].resolution == resolution
