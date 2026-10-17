@@ -58,3 +58,29 @@ Capture requirements before enabling any adapter capability:
 ## Next evidence gate
 
 Retrieve the official Spot and USDⓈ-M WebSocket documentation and capture raw messages for trade and diff-depth channels. Verify fields, timestamps, update ranges, and reconnect behavior separately. Until those checks are committed and tested, no WebSocket continuity guarantee should be added to the HES adapter registry.
+
+## Official WebSocket documentation cross-check (2026-10-17)
+
+The official documentation pages were opened and their current schema sections inspected. This is **documentation verification only**; no live WebSocket frame capture or reconnect experiment has been performed.
+
+| Product / stream | Documented fields relevant to identity or ordering | Safe conclusion |
+|---|---|---|
+| Spot raw trade `<symbol>@trade` | `t` trade ID; `E` event time; `T` trade time | `t` is a trade identifier in this stream, not an order-book update sequence. Do not compare it to `U/u` or Futures IDs. |
+| Spot aggregate trade `<symbol>@aggTrade` | `a` aggregate trade ID; `f/l` first/last raw trade IDs; `E/T` timestamps | These identifiers describe aggregate-trade records and their underlying trade range; they are not interchangeable with raw trade `t` or depth update IDs. |
+| Spot diff-depth `<symbol>@depth` | `U` first update ID; `u` final update ID; REST snapshot `lastUpdateId` | The official snapshot-bridging and gap-reset procedure applies to this specific Spot book stream. A gap invalidates the local book and requires a fresh snapshot/bootstrap. |
+| USDⓈ-M Futures diff-depth `<symbol>@depth@<speed>` | `U` first update ID; `u` final update ID; `pu` final update ID of the previous stream event; `E/T` timestamps | Preserve and validate the Futures-specific linkage; do not substitute the Spot-only procedure for the documented `pu` relationship. |
+| USDⓈ-M Futures post-migration book payloads | Documentation says payloads may include `ps` (pair symbol) and `st` (symbol type: 1=UM, 2=CM) | Capture and validate these fields where present; never silently merge UM and CM records solely because their visible symbol/pair strings resemble one another. |
+
+Official sources checked:
+- Spot WebSocket streams: https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams
+- USDⓈ-M Futures WebSocket market streams: https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams
+
+### Updated next-step gate
+
+1. Capture raw Spot `trade`, `aggTrade`, and `depth` frames, plus USDⓈ-M Futures `aggTrade` and diff-depth frames, with endpoint/stream name, subscription request, connection/session ID, receive timestamps, and raw SHA-256.
+2. For Spot depth, reproduce the documented REST snapshot bridge and deliberate gap-triggered resync.
+3. For USDⓈ-M depth, validate the `U/u/pu` sequence relationship against the official procedure and force a controlled reconnect.
+4. Keep Spot trade `t`, Spot aggregate `a/f/l`, Futures aggregate IDs, and depth update IDs in separate typed fields.
+5. Commit capture files plus a manifest and have an independent reviewer recompute hashes.
+
+**Gate remains OPEN:** the schema cross-check is now documented, but live capture, gap/reconnect tests, hash reproduction, and independent review are still outstanding. No adapter capability is promoted by this documentation update.
