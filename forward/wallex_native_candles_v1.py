@@ -150,7 +150,7 @@ def fetch_history(symbol: str, resolution: str, start: datetime, end: datetime,
     except (HTTPError, URLError, TimeoutError) as exc:
         raise WallexCandleError(f"history request failed: {type(exc).__name__}") from None
     try:
-        payload = json.loads(raw)
+        # Decode JSON fractional numbers directly as Decimal; converting through\n        # binary float can silently lose source precision before validation.\n        payload = json.loads(raw, parse_float=Decimal)
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise WallexCandleError("history response is not valid JSON") from None
     return parse_history(payload, symbol=symbol, resolution=resolution,
