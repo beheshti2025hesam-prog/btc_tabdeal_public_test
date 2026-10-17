@@ -85,3 +85,14 @@ def test_identical_duplicate_timestamp_is_not_double_counted():
                 l=("99", "99"), c=("101", "101"), v=("1", "1"))
     candles = parse(p)
     assert len(candles) == 1
+
+
+def test_daily_candle_does_not_assume_utc_midnight_alignment():
+    ts = 1792232400
+    assert ts % 86400 != 0
+    p = payload(ts=(ts,), o=("100",), h=("102",), l=("99",), c=("101",), v=("1",))
+    candles = parse_history(p, symbol="BTCUSDT", resolution="1D",
+                            as_of=datetime(2026, 10, 19, tzinfo=UTC), observed_at=OBSERVED)
+    assert len(candles) == 1
+    from datetime import timedelta
+    assert candles[0].close_time == candles[0].open_time + timedelta(days=1)
