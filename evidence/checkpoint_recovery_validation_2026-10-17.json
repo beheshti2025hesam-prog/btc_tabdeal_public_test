@@ -1,0 +1,15 @@
+{
+  "all_passed": true,
+  "captured_at": "2026-10-17T13:45:30.290132+00:00",
+  "checks": {
+    "create_and_read_roundtrip": true,
+    "duplicate_id_rejected": true,
+    "process_restart_new_segment": true,
+    "reconnect_new_segment": true,
+    "tampered_digest_rejected": true,
+    "truncated_checkpoint_rejected": true
+  },
+  "orders_or_account_mutations": false,
+  "production_collector_started": false,
+  "scope": "isolated temporary directory; production journal untouched"
+}
