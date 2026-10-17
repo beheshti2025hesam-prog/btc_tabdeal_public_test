@@ -6,7 +6,7 @@ forward/wallex_native_candles_v1.py is an isolated read-only client for the docu
 The adapter accepts symbol, resolution, from, to; preserves numeric precision with Decimal; preserves the source Unix open timestamp; validates response shape, OHLC bounds, resolution alignment, duplicates and ordering; and returns only bars whose full interval has ended by the caller's as_of time. It never manufactures missing bars and never uses account credentials.
 
 ## Empirically verified resolution support
-A bounded direct/no-proxy BTCUSDT probe on 2026-10-17 tested resolution values 1, 5, 15, 60, 180, 360, 720, D and 1D over the same 24-hour range.
+The official API reference lists `1`, `60`, `180`, `360`, `720`, and `1D` as supported resolutions. The inspected official trading UI fallback advertises `1`, `5`, `15`, `30`, `60`, `1D`, `1W`, and `1M`. Bounded direct/no-proxy BTCUSDT probes on 2026-10-17 tested these values across appropriate ranges.
 
 - `1`: returned 1,439 bars with 60-second spacing.
 - `60`: returned 24 bars with 3,600-second spacing.
