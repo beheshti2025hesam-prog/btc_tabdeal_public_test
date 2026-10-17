@@ -31,10 +31,14 @@ jump is observable but is not, by itself, evidence of a missing market event.
 
     @staticmethod
     def _seq(value: Any) -> int:
-        try:
+        # Do not silently coerce booleans or fractional floats into identifiers.
+        # JSON integer fields arrive as int; some adapters may provide ASCII digit strings.
+        if type(value) is int:
+            seq = value
+        elif isinstance(value, str) and value.isascii() and value.isdigit():
             seq = int(value)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid sequence") from exc
+        else:
+            raise ValueError("invalid sequence")
         if seq < 0:
             raise ValueError("invalid sequence")
         return seq
