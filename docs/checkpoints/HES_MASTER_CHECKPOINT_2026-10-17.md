@@ -39,3 +39,22 @@ Source of truth: GitHub repository `beheshti2025hesam-prog/btc_tabdeal_public_te
 
 ## Continuity rule
 Memory = map; GitHub = technical truth; Chat = conversation notebook. Start the next chat by opening this checkpoint and the linked research note, verify the exact live PR head and CI, and continue from action 1. Do not redo completed REST schema/documentation checks unless new evidence invalidates them.
+
+
+## Follow-up audit — 2026-10-17 23:40 local
+
+### Exact PR head and CI
+- Current PR #308 head verified via GitHub: `ece097a0e6ac3e8928205a5bda05c5e354184ed2`; PR remains open/draft.
+- The connector returned 26/26 completed successful PR-triggered workflow runs for that exact head. Source Identity Reconciliation Lock workflow run `39055650970` completed successfully and uploaded artifact `12109631380`.
+- No submitted PR reviews or inline review threads are present. Do not describe this as a human independent review.
+
+### Source-identity evidence distinction
+- The branch contains `evidence/source_identity_reconciliation_v1.json` (42 records: 14 prior + 28 current) and `evidence/source_identity_reconciliation_v1.lock.json`. The current manifest SHA-256 is `db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd`; the lock's manifest Git blob SHA matches the current manifest blob.
+- The existing `evidence/source_identity_independent_verification_v1.json` dated 2026-10-13 reports full archive row matches (127,201/127,201 prior; 139,250/139,250 current) and reconstruction matches (14/14 prior, 28/28 current). Preserve and reuse this evidence; do not repeat the 42-record/archive matching without a specific contradiction.
+- Important limitation from inspecting workflow `.github/workflows/source-identity-reconciliation-lock-v1.yml`: the workflow checks manifest fields/counts/key uniqueness/disjointness and computes a SHA-256 lock over the manifest; it compares source blob SHA values to pinned literals but does not fetch and re-hash the original raw source blobs itself. Therefore a green workflow proves those checks and lock generation, not an independently reproduced raw-source hash check by that workflow. The dated verification artifact is supporting evidence, but the PR has no submitted human review.
+- Keep the claims separate: the 42-record identity manifest and lock exist; the workflow is green; no independent human PR review is recorded; and the Binance/Tabdeal live WebSocket sequence gate is still OPEN.
+
+### Next action
+1. Do not redo the already-recorded 42-record/archive matching absent a contradiction.
+2. Continue with a project-wide deliverable inventory and explicit acceptance criteria to calculate defensible overall completion.
+3. Keep HOLD / NO TRADE. No merge, live collector activation, network-control bypass, or trading until the applicable release gates are independently satisfied.
