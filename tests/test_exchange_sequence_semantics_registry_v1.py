@@ -79,3 +79,40 @@ def test_documented_binance_spot_depth_capability_is_channel_scoped():
     assert record["capabilities"]["snapshot_delta_bridge"] == "DOCUMENTED"
     assert record["capabilities"]["cross_reconnect_comparable"] == "UNSUPPORTED"
     assert record["decision_capability"] == "ADAPTER_SPECIFIC_BOOK_SYNC_ONLY"
+
+
+def test_unknown_tabdeal_capabilities_never_enable_gap_identity_or_reconnect_logic():
+    from forward.sequence_capabilities_v1 import (
+        can_compare_across_reconnect,
+        can_detect_gap,
+        can_reject_conflicting_identity,
+    )
+
+    record_id = "tabdeal.fapi.special_margin.broadcast.trade.v1"
+    assert can_detect_gap(record_id) is False
+    assert can_reject_conflicting_identity(record_id) is False
+    assert can_compare_across_reconnect(record_id) is False
+
+
+def test_only_exact_documented_capability_enables_gap_detection():
+    from forward.sequence_capabilities_v1 import can_detect_gap
+
+    assert can_detect_gap("binance.spot.depth.diff.v1") is True
+    assert can_detect_gap("tabdeal.fapi.aggDepth.rest.sequence.v1") is False
+    assert can_detect_gap("missing.adapter.record") is False
+
+
+def test_missing_or_malformed_capability_record_fails_closed():
+    from forward.sequence_capabilities_v1 import (
+        can_detect_gap,
+        can_reject_conflicting_identity,
+    )
+
+    malformed = {"schema": "hes_exchange_sequence_semantics_registry_v1",
+                 "status": "RESEARCH_ONLY", "records": [
+                     {"id": "broken", "capabilities": {"gap_detection": True,
+                                                       "event_identity": "DOCUMENTED"}}
+                 ]}
+    assert can_detect_gap("broken", registry=malformed) is False
+    assert can_reject_conflicting_identity("broken", registry=malformed) is True
+    assert can_detect_gap("missing", registry=malformed) is False
