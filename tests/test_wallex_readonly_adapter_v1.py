@@ -137,14 +137,20 @@ def test_repeated_run_once_appends_durable_records_after_restart(tmp_path):
         FakeWebSocket([frame(["BTCUSDT@trade", valid()])]),
         FakeWebSocket([frame(["BTCUSDT@trade", valid()])]),
     ]
-    collector = WallexReadOnlyCollectorV1(
+    first_process = WallexReadOnlyCollectorV1(
         output=str(output), enabled=True, max_runtime_seconds=0.02,
         ws_factory=lambda: fakes.pop(0),
     )
-    collector.run_once()
-    collector.run_once()
+    first_process.run_once()
+    # A new collector instance simulates a process restart against the same journal.
+    restarted_process = WallexReadOnlyCollectorV1(
+        output=str(output), enabled=True, max_runtime_seconds=0.02,
+        ws_factory=lambda: fakes.pop(0),
+    )
+    restarted_process.run_once()
     lines = output.read_text().splitlines()
     assert len(lines) == 2
+    assert first_process.records_written == restarted_process.records_written == 1
     assert all(json.loads(line)["sequence"] is None for line in lines)
 
 
