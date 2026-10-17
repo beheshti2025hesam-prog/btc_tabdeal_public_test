@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import hashlib
 import json
 
 import pytest
@@ -31,6 +30,11 @@ def test_normalizes_documented_wallex_trade_without_inventing_sequence():
     assert result["sequence_semantics"] == "NOT_DOCUMENTED_BY_VENUE"
     assert result["source_updated"] == "2026-10-17T09:59:59+00:00"
     assert len(result["raw_payload_sha256"]) == 64
+
+
+def test_normalizes_configured_non_default_symbol():
+    result = normalize_trade("USDTTMN@trade", valid(), symbol="USDTTMN", received_at=AS_OF)
+    assert result["symbol"] == "USDTTMN"
 
 
 def test_sell_side_is_normalized():
@@ -71,3 +75,18 @@ def test_collector_is_disabled_by_default(tmp_path):
     collector = WallexReadOnlyCollectorV1(output=str(tmp_path / "events.jsonl"))
     with pytest.raises(RuntimeError, match="disabled"):
         collector.run_once()
+
+
+def test_collector_handles_and_persists_trade_frame(tmp_path):
+    output = tmp_path / "events.jsonl"
+    collector = WallexReadOnlyCollectorV1(output=str(output), symbol="USDTTMN", enabled=True)
+    collector._handle_message(json.dumps(["USDTTMN@trade", valid()]))
+    collector._handle_message(json.dumps(["OTHER@trade", valid()]))
+    lines = output.read_text().splitlines()
+    assert collector.frames_seen == 2
+    assert collector.records_written == 1
+    assert collector.ignored == 1
+    assert len(lines) == 1
+    saved = json.loads(lines[0])
+    assert saved["symbol"] == "USDTTMN"
+    assert saved["sequence"] is None
