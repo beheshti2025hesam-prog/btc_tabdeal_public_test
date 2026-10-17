@@ -37,6 +37,7 @@ class ForwardObservationPathResult:
     snapshot_id: str | None
     reason: str
     diagnostics: tuple[dict[str, Any], ...] = ()
+    session_id: str | None = None
 
 class ForwardObservationPathV1:
     def __init__(self, journal_path: str | Path, *, max_records: int = 100_000):
@@ -57,38 +58,69 @@ class ForwardObservationPathV1:
                 "last_sequence": c.last_sequence}
 
     def observe(self, frames: Iterable[dict[str, Any]], *, as_of: datetime,
-                forward_run_id: str) -> ForwardObservationPathResult:
+                forward_run_id: str, session_id: str | None = None) -> ForwardObservationPathResult:
         if as_of.tzinfo is None or as_of.utcoffset() is None:
             raise ValueError("as_of must be timezone-aware")
         if not forward_run_id.strip():
             raise ValueError("forward_run_id required")
+        if session_id is not None and (not isinstance(session_id, str) or not session_id.strip()):
+            raise ValueError("session_id must be a non-empty string when supplied")
 
         bounded_frames = list(islice(frames, self.max_records + 1))
         if len(bounded_frames) > self.max_records:
             return ForwardObservationPathResult(
                 "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
                 False, None, "FORWARD_RECORD_BOUND_EXCEEDED",
-                ({"max_records": self.max_records},),
+                ({"max_records": self.max_records},), session_id,
             )
-        parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
+        parsed = []
+        for frame in bounded_frames:
+            supplied_session = frame.get("session_id")
+            supplied_run = frame.get("run_id")
+            if session_id is not None and supplied_session != session_id:
+                reason = "SESSION_ID_MISSING" if supplied_session is None else "SESSION_ID_MISMATCH"
+                return ForwardObservationPathResult(
+                    "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                    False, None, reason,
+                    ({"expected_session_id": session_id},), session_id,
+                )
+            if session_id is not None and supplied_run != forward_run_id:
+                reason = "RUN_ID_MISSING" if supplied_run is None else "RUN_ID_MISMATCH"
+                return ForwardObservationPathResult(
+                    "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                    False, None, reason,
+                    ({"expected_run_id": forward_run_id},), session_id,
+                )
+            if session_id is None and supplied_run not in (None, forward_run_id):
+                return ForwardObservationPathResult(
+                    "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                    False, None, "RUN_ID_MISMATCH",
+                    ({"expected_run_id": forward_run_id},), session_id,
+                )
+            parsed.append(parse_trade_frame(
+                frame, as_of=as_of, raw_payload=frame.get("raw_payload"),
+                session_id=session_id or supplied_session, run_id=forward_run_id,
+            ))
         result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",
                                                 tuple({
+                                                    "session_id": session_id,
+                                                    "run_id": forward_run_id,
                                                     "sequence": e.sequence,
                                                     "status": e.status,
                                                     "reason": e.reason,
                                                     **({"diagnostic": e.diagnostic} if e.diagnostic is not None else {}),
-                                                } for e in result.events))
+                                                } for e in result.events), session_id)
         if result.gaps:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed),
                                                 len(result.candles), len(result.gaps),
-                                                None, None, None, False, None, "CANDLE_INTERVAL_GAP")
+                                                None, None, None, False, None, "CANDLE_INTERVAL_GAP", (), session_id)
         if len(result.candles) < 2:
             return ForwardObservationPathResult("WAITING", forward_run_id, len(parsed),
                                                 len(result.candles), 0, None, None, None,
-                                                False, None, "INSUFFICIENT_CLOSED_CANDLES")
+                                                False, None, "INSUFFICIENT_CLOSED_CANDLES", (), session_id)
 
         candle_dicts = [{"symbol": c.symbol, "timeframe": c.timeframe,
                          "status": "CANDLE_CLOSED_OBSERVED", "open": str(c.open),
@@ -119,6 +151,8 @@ class ForwardObservationPathV1:
                                                   transition="NO_CHANGE")
         gate = CleanRegimeQualityGateV1().evaluate(quality.quality)
         payload = {
+            "session_id": session_id,
+            "run_id": forward_run_id,
             "sequence_events": [{"sequence": e.sequence, "status": e.status, "reason": e.reason}
                                 for e in result.events],
             "candles": [self._candle_payload(c) for c in result.candles],
@@ -141,4 +175,4 @@ class ForwardObservationPathV1:
                                             len(result.candles), 0, contexts[-1].bias,
                                             regime.regime, quality.quality,
                                             gate.safe_for_observation, snapshot.snapshot_id,
-                                            report.report_state)
+                                            report.report_state, (), session_id)

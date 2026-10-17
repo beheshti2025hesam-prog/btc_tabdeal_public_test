@@ -25,6 +25,7 @@ class ControlledObservationRunnerResult:
     reason: str
     snapshot_id: str | None
     diagnostics: tuple[dict[str, Any], ...] = ()
+    session_id: str | None = None
 
 
 class ControlledForwardObservationRunnerV1:
@@ -131,6 +132,8 @@ class ControlledForwardObservationRunnerV1:
 
         kwargs: dict[str, Any] = {
             "as_of_provider": lambda: datetime.now(timezone.utc),
+            "session_id": session.session_id,
+            "run_id": session.run_id,
             "on_record": collect,
             "on_frame_metadata": collect_frame_metadata,
             "max_runtime_seconds": self.max_runtime_seconds,
@@ -145,6 +148,7 @@ class ControlledForwardObservationRunnerV1:
         except Exception as exc:
             return ControlledObservationRunnerResult(
                 run_id=session.run_id,
+                session_id=session.session_id,
                 status="BLOCKED",
                 records_received=len(records),
                 journal_path=str(self.journal_path),
@@ -164,7 +168,10 @@ class ControlledForwardObservationRunnerV1:
                     "reason": "TRANSPORT_METADATA_BOUND_EXCEEDED",
                     "distinct_sequence_limit": 50000,
                     "observation_written": False,
+                    "session_id": session.session_id,
+                    "run_id": session.run_id,
                 },),
+                session_id=session.session_id,
             )
 
         if record_bound_exceeded:
@@ -175,7 +182,12 @@ class ControlledForwardObservationRunnerV1:
                 journal_path=str(self.journal_path),
                 reason="FORWARD_RECORD_BOUND_EXCEEDED",
                 snapshot_id=None,
-                diagnostics=({"max_records": self.max_records},),
+                diagnostics=({
+                    "max_records": self.max_records,
+                    "session_id": session.session_id,
+                    "run_id": session.run_id,
+                },),
+                session_id=session.session_id,
             )
 
         if not records:
@@ -186,6 +198,12 @@ class ControlledForwardObservationRunnerV1:
                 journal_path=str(self.journal_path),
                 reason="NO_FRESH_RECORDS",
                 snapshot_id=None,
+                diagnostics=({
+                    "session_id": session.session_id,
+                    "run_id": session.run_id,
+                    "records_received": 0,
+                },),
+                session_id=session.session_id,
             )
 
         observed_at = datetime.now(timezone.utc)
@@ -193,6 +211,7 @@ class ControlledForwardObservationRunnerV1:
             records,
             as_of=observed_at,
             forward_run_id=session.run_id,
+            session_id=session.session_id,
         )
         diagnostics = tuple(
             {
@@ -207,6 +226,7 @@ class ControlledForwardObservationRunnerV1:
             try:
                 persisted = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path).append_blocked_run(
                     run_id=session.run_id,
+                    session_id=session.session_id,
                     observed_at_utc=observed_at.isoformat(),
                     reason=result.reason,
                     diagnostics=diagnostics,
@@ -232,4 +252,5 @@ class ControlledForwardObservationRunnerV1:
             reason=result.reason,
             snapshot_id=result.snapshot_id,
             diagnostics=diagnostics,
+            session_id=session.session_id,
         )

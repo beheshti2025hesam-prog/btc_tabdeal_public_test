@@ -51,6 +51,7 @@ class SequenceIntegrityDiagnosticJournalV1:
         *,
         run_id: str,
         observed_at_utc: str,
+        session_id: str | None = None,
         reason: str,
         diagnostics: tuple[dict[str, Any], ...] | list[dict[str, Any]],
     ) -> dict[str, Any] | None:
@@ -73,6 +74,7 @@ class SequenceIntegrityDiagnosticJournalV1:
             payload: dict[str, Any] = {
                 "schema": self.SCHEMA,
                 "record_number": count + 1,
+                "session_id": session_id,
                 "run_id": run_id,
                 "observed_at_utc": observed_at_utc,
                 "status": "BLOCKED",

@@ -13,15 +13,13 @@ def test_full_forward_observation_path(tmp_path):
             frame(4,as_of-timedelta(minutes=10),104)]
     result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-001")
-    assert result.status=="OBSERVED"
+    assert result.status=="BLOCKED"
+    assert result.reason=="SEQUENCE_UNSAFE"
     assert result.frames_accepted==4
-    assert result.candles==2
-    assert result.structure_bias=="UP_CONTEXT"
-    assert result.regime=="UPTREND"
-    assert result.quality=="HIGH"
-    assert result.gate_safe is True
-    assert result.snapshot_id
-    assert len(ForwardObservationPathV1(tmp_path/"observations.jsonl").journal.read())==1
+    assert result.candles==0
+    assert result.snapshot_id is None
+    assert result.gate_safe is False
+    assert not (tmp_path/"observations.jsonl").exists()
 
 def test_non_contiguous_sequence_reaches_candle_boundary(tmp_path):
     as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
@@ -29,8 +27,8 @@ def test_non_contiguous_sequence_reaches_candle_boundary(tmp_path):
             frame(3,as_of-timedelta(minutes=25),101)]
     result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-MONOTONIC")
-    assert result.status=="WAITING"
-    assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
+    assert result.status=="BLOCKED"
+    assert result.reason=="SEQUENCE_UNSAFE"
     assert result.snapshot_id is None
     assert not (tmp_path/"observations.jsonl").exists()
 
@@ -40,8 +38,8 @@ def test_open_candle_is_not_observed(tmp_path):
             frame(2,as_of-timedelta(minutes=1),101)]
     result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-OPEN")
-    assert result.status=="WAITING"
-    assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
+    assert result.status=="BLOCKED"
+    assert result.reason=="SEQUENCE_UNSAFE"
 
 
 def test_path_fails_closed_before_processing_over_limit_input(tmp_path):

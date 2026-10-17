@@ -34,11 +34,13 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
 
 
-def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
+def test_runner_persists_opaque_sequence_diagnostic_and_still_blocks(tmp_path: Path):
     class ConflictTransport:
-        def __init__(self, on_record, on_frame_metadata, **kwargs):
+        def __init__(self, on_record, on_frame_metadata, session_id, run_id, **kwargs):
             self.on_record = on_record
             self.on_frame_metadata = on_frame_metadata
+            self.session_id = session_id
+            self.run_id = run_id
 
         def run_once(self):
             base = {
@@ -60,7 +62,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
                     "sequence_value_type": "int",
                     "sequence_value": 41627925358,
                 })
-                self.on_record({**base, "price": price})
+                self.on_record({**base, "price": price, "session_id": self.session_id, "run_id": self.run_id})
 
     diagnostics_path = tmp_path / "sequence_integrity_diagnostics_v1.jsonl"
     runner = ControlledForwardObservationRunnerV1(
@@ -81,16 +83,16 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     assert not (tmp_path / "observations.jsonl").exists()
     assert diagnostics_path.exists()
     record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
-    conflict = next(
+    unknown = next(
         event for event in record["sequence_events"]
-        if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+        if event.get("reason") == "UNKNOWN_SEQUENCE_SEMANTICS"
     )
-    assert conflict["diagnostic"]["differing_fields"] == ["price"]
-    fingerprints = conflict["transport_frame_fingerprints"]
-    assert len(fingerprints) == 2
-    assert fingerprints[0]["raw_frame_sha256"] != fingerprints[1]["raw_frame_sha256"]
-    assert all(item["sequence_field_path"] == "trade.sequence" for item in fingerprints)
-    assert all("price" not in item and "amount" not in item for item in fingerprints)
+    assert unknown["session_id"] == result.session_id
+    assert unknown["run_id"] == result.run_id
+    assert record["reason"] == "SEQUENCE_UNSAFE"
+    assert record["session_id"] == result.session_id
+    assert len(record["record_sha256"]) == 64
+    assert record["sequence_events"]
     assert any(item.get("diagnostic_persistence") == "PERSISTED" for item in result.diagnostics)
 
 

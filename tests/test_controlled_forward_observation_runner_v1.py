@@ -38,21 +38,24 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
     )
-    assert result.status == "WAITING"
-    assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
     assert session.exists()
     assert not journal.exists()
 
 
 def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     class GapTransport:
-        def __init__(self, on_record, **kwargs):
+        def __init__(self, on_record, session_id, run_id, **kwargs):
             self.on_record = on_record
+            self.session_id = session_id
+            self.run_id = run_id
 
         def run_once(self):
             for seq in (100, 102):
                 self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
-                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z"})
+                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z",
+                                "session_id":self.session_id,"run_id":self.run_id})
 
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
@@ -64,8 +67,8 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
-    assert result.status == "WAITING"
-    assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
     assert not (tmp_path / "journal.jsonl").exists()
 
 
@@ -89,6 +92,10 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
     )
     assert result.status == "WAITING"
     assert result.reason == "NO_FRESH_RECORDS"
+    assert result.session_id
+    assert result.run_id.startswith("OBS-")
+    assert result.diagnostics[0]["session_id"] == result.session_id
+    assert result.diagnostics[0]["run_id"] == result.run_id
     assert not journal.exists()
 
 
@@ -172,7 +179,13 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
     assert result.status == "BLOCKED"
     assert result.reason == "FORWARD_RECORD_BOUND_EXCEEDED"
     assert result.records_received == 3
-    assert result.diagnostics == ({"max_records": 3},)
+    assert result.session_id
+    assert result.run_id.startswith("OBS-")
+    assert result.diagnostics == ({
+        "max_records": 3,
+        "session_id": result.session_id,
+        "run_id": result.run_id,
+    },)
     assert not journal.exists()
 
 

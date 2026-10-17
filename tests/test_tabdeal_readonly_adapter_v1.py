@@ -12,8 +12,14 @@ def test_rejects_scope_and_incomplete():
  x=base(); x["symbol"]="ETH_USDT"
  with pytest.raises(ValueError): parse_trade_frame(x,as_of=ASOF)
  x=base(); del x["sequence"]
- with pytest.raises(ValueError): parse_trade_frame(x,as_of=ASOF)
+ r=parse_trade_frame(x,as_of=ASOF)
+ assert r["sequence"] is None
+ assert r["sequence_semantics"] == "UNKNOWN_OPAQUE"
 def test_rejects_bad_values():
- for key,val in [("price","0"),("amount","-1"),("side","hold"),("sequence",-1)]:
+ for key,val in [("price","0"),("amount","-1"),("side","hold")]:
   x=base(); x[key]=val
   with pytest.raises(ValueError): parse_trade_frame(x,as_of=ASOF)
+ x=base(); x["sequence"]=-1
+ r=parse_trade_frame(x,as_of=ASOF)
+ assert r["sequence"] == -1
+ assert r["sequence_semantics"] == "UNKNOWN_OPAQUE"

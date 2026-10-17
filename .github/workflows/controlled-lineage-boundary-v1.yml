@@ -1,0 +1,31 @@
+name: Controlled Lineage Boundary v1
+
+on:
+  push:
+    branches:
+      - integration/controlled-lineage-gate-20261013
+  pull_request:
+    branches:
+      - main
+      - integration/controlled-lineage-gate-20261013
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controlled-lineage-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Exercise actual adapter-to-consumer boundary
+        run: python -m pytest -q tests/test_controlled_lineage_boundary_v1.py tests/test_sequence_candle_integration_v1.py tests/test_lineage_id_propagation_v1.py tests/test_observation_session_manager_v1.py tests/test_tabdeal_transport_v1.py
+      - name: Assert fail-closed safety boundary
+        run: |
+          grep -q 'UNKNOWN_SEQUENCE_SEMANTICS' forward/sequence_candle_integration_v1.py
+          echo "UNKNOWN_SEQUENCE_CANDLE_USE=BLOCKED"
+          echo "NETWORK_COLLECTION=OFF"
+          echo "TRADING=OFF"
