@@ -1,7 +1,7 @@
 """Read-only Wallex Spot WebSocket adapter.
 
 Uses Wallex's documented raw WebSocket endpoint wss://api.wallex.ir/ws and
-JSON subscribe frame ["subscribe", {"channel": "BTCUSDT@trade"}]. No API key,
+JSON subscribe frame ["subscribe", {"channel": "SYMBOL@trade"}]. No API key,
 account access, order placement, or Git side effects. The venue documents no
 per-trade sequence ID; this adapter never fabricates one.
 """
@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -18,8 +19,11 @@ from typing import Any, Callable
 
 WS_URL = "wss://api.wallex.ir/ws"
 SYMBOL = "BTCUSDT"
-CHANNEL = f"{SYMBOL}@trade"
 SOURCE = "wallex_spot_websocket_v1"
+
+
+def _valid_symbol(symbol: str) -> bool:
+    return isinstance(symbol, str) and bool(re.fullmatch(r"[A-Z0-9]{3,24}", symbol))
 
 
 def _utc(value: Any) -> str:
@@ -34,9 +38,17 @@ def _utc(value: Any) -> str:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
-def normalize_trade(channel: str, data: dict[str, Any], *, received_at: datetime | None = None) -> dict[str, Any]:
+def normalize_trade(
+    channel: str,
+    data: dict[str, Any],
+    *,
+    symbol: str = SYMBOL,
+    received_at: datetime | None = None,
+) -> dict[str, Any]:
     """Validate one documented Wallex SYMBOL@trade WebSocket message."""
-    if channel != CHANNEL:
+    if not _valid_symbol(symbol):
+        raise ValueError("invalid configured symbol")
+    if channel != f"{symbol}@trade":
         raise ValueError("unexpected channel")
     if not isinstance(data, dict):
         raise ValueError("trade payload must be an object")
@@ -63,7 +75,7 @@ def normalize_trade(channel: str, data: dict[str, Any], *, received_at: datetime
         "source": SOURCE,
         "venue": "wallex",
         "product": "spot",
-        "symbol": SYMBOL,
+        "symbol": symbol,
         "price": str(p),
         "amount": str(q),
         "side": "BUY" if is_buy else "SELL",
@@ -83,13 +95,18 @@ class WallexReadOnlyCollectorV1:
         self,
         output: str = "data/forward/wallex_btcusdt_observations.jsonl",
         *,
+        symbol: str = SYMBOL,
         enabled: bool = False,
         max_runtime_seconds: float = 60.0,
         ws_factory: Callable[..., Any] | None = None,
     ) -> None:
+        if not _valid_symbol(symbol):
+            raise ValueError("symbol must be an uppercase Wallex market symbol")
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
         self.output = Path(output)
+        self.symbol = symbol
+        self.channel = f"{symbol}@trade"
         self.enabled = enabled
         self.max_runtime_seconds = float(max_runtime_seconds)
         self.ws_factory = ws_factory
@@ -115,10 +132,10 @@ class WallexReadOnlyCollectorV1:
                 self.ignored += 1
                 return
             channel, data = frame
-            if channel != CHANNEL:
+            if channel != self.channel:
                 self.ignored += 1
                 return
-            self._append(normalize_trade(channel, data))
+            self._append(normalize_trade(channel, data, symbol=self.symbol))
         except (ValueError, TypeError, KeyError) as exc:
             self.rejected += 1
             self.last_error = type(exc).__name__
@@ -134,15 +151,13 @@ class WallexReadOnlyCollectorV1:
 
         ws = factory(WS_URL, timeout=10)
         try:
-            ws.send(json.dumps(["subscribe", {"channel": CHANNEL}]))
+            ws.send(json.dumps(["subscribe", {"channel": self.channel}]))
             ws.settimeout(1.0)
             deadline = time.monotonic() + self.max_runtime_seconds
             while time.monotonic() < deadline:
                 try:
                     message = ws.recv()
                 except Exception as exc:
-                    # Socket timeout is a normal polling interval; other socket
-                    # errors terminate this bounded attempt.
                     try:
                         import websocket
                         if isinstance(exc, websocket.WebSocketTimeoutException):
