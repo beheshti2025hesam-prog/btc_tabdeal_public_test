@@ -1,22 +1,25 @@
-"""Read-only Wallex Spot market-data adapter.
+"""Read-only Wallex Spot WebSocket adapter.
 
-Public market data only. No API key, account access, order placement, or Git side effects.
-Wallex documents Socket.IO channels as SYMBOL@trade and Broadcaster(channel, data).
-Trade events do not document a per-trade sequence ID; this adapter never fabricates one.
+Uses Wallex's documented raw WebSocket endpoint wss://api.wallex.ir/ws and
+JSON subscribe frame ["subscribe", {"channel": "BTCUSDT@trade"}]. No API key,
+account access, order placement, or Git side effects. The venue documents no
+per-trade sequence ID; this adapter never fabricates one.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-BASE_URL = "https://api.wallex.ir"
+WS_URL = "wss://api.wallex.ir/ws"
 SYMBOL = "BTCUSDT"
-SOURCE = "wallex_spot_socketio_v1"
+CHANNEL = f"{SYMBOL}@trade"
+SOURCE = "wallex_spot_websocket_v1"
 
 
 def _utc(value: Any) -> str:
@@ -32,8 +35,8 @@ def _utc(value: Any) -> str:
 
 
 def normalize_trade(channel: str, data: dict[str, Any], *, received_at: datetime | None = None) -> dict[str, Any]:
-    """Validate one documented Wallex SYMBOL@trade message."""
-    if channel != f"{SYMBOL}@trade":
+    """Validate one documented Wallex SYMBOL@trade WebSocket message."""
+    if channel != CHANNEL:
         raise ValueError("unexpected channel")
     if not isinstance(data, dict):
         raise ValueError("trade payload must be an object")
@@ -74,7 +77,7 @@ def normalize_trade(channel: str, data: dict[str, Any], *, received_at: datetime
 
 
 class WallexReadOnlyCollectorV1:
-    """Bounded Socket.IO collector. It persists observations only; trading is impossible."""
+    """Bounded WebSocket collector. It persists observations only; trading is impossible."""
 
     def __init__(
         self,
@@ -82,16 +85,18 @@ class WallexReadOnlyCollectorV1:
         *,
         enabled: bool = False,
         max_runtime_seconds: float = 60.0,
-        client_factory: Callable[[], Any] | None = None,
+        ws_factory: Callable[..., Any] | None = None,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
         self.output = Path(output)
         self.enabled = enabled
         self.max_runtime_seconds = float(max_runtime_seconds)
-        self.client_factory = client_factory
+        self.ws_factory = ws_factory
+        self.frames_seen = 0
         self.records_written = 0
         self.rejected = 0
+        self.ignored = 0
         self.last_error: str | None = None
 
     def _append(self, record: dict[str, Any]) -> None:
@@ -102,34 +107,56 @@ class WallexReadOnlyCollectorV1:
             os.fsync(handle.fileno())
         self.records_written += 1
 
+    def _handle_message(self, message: str) -> None:
+        self.frames_seen += 1
+        try:
+            frame = json.loads(message)
+            if not isinstance(frame, list) or len(frame) != 2:
+                self.ignored += 1
+                return
+            channel, data = frame
+            if channel != CHANNEL:
+                self.ignored += 1
+                return
+            self._append(normalize_trade(channel, data))
+        except (ValueError, TypeError, KeyError) as exc:
+            self.rejected += 1
+            self.last_error = type(exc).__name__
+
     def run_once(self) -> None:
         if not self.enabled:
             raise RuntimeError("Wallex collector is disabled by default")
-        if self.client_factory is None:
-            import socketio
-            # Wallex documents Socket.IO JS v2.x; python-socketio 4.x uses
-            # the compatible Engine.IO / Socket.IO protocol family.
-            client = socketio.Client(
-                reconnection=False, logger=False, engineio_logger=False, request_timeout=10
-            )
+        if self.ws_factory is None:
+            import websocket
+            factory = websocket.create_connection
         else:
-            client = self.client_factory()
+            factory = self.ws_factory
 
-        @client.on("connect")
-        def _on_connect() -> None:
-            client.emit("subscribe", {"channel": f"{SYMBOL}@trade"})
-
-        @client.on("Broadcaster")
-        def _on_broadcaster(channel: str, data: dict[str, Any]) -> None:
-            try:
-                record = normalize_trade(channel, data)
-                self._append(record)
-            except (ValueError, TypeError, KeyError) as exc:
-                self.rejected += 1
-                self.last_error = type(exc).__name__
-
-        client.connect(BASE_URL, transports=["websocket"])
+        ws = factory(WS_URL, timeout=10)
         try:
-            client.sleep(self.max_runtime_seconds)
+            ws.send(json.dumps(["subscribe", {"channel": CHANNEL}]))
+            ws.settimeout(1.0)
+            deadline = time.monotonic() + self.max_runtime_seconds
+            while time.monotonic() < deadline:
+                try:
+                    message = ws.recv()
+                except Exception as exc:
+                    # Socket timeout is a normal polling interval; other socket
+                    # errors terminate this bounded attempt.
+                    try:
+                        import websocket
+                        if isinstance(exc, websocket.WebSocketTimeoutException):
+                            continue
+                    except ImportError:
+                        pass
+                    self.last_error = type(exc).__name__
+                    break
+                if not message:
+                    self.last_error = "empty_frame"
+                    break
+                self._handle_message(message)
         finally:
-            client.disconnect()
+            try:
+                ws.close()
+            except Exception:
+                pass
