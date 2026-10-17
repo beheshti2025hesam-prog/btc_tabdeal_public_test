@@ -29,6 +29,13 @@
     "first_open_time_utc": "2026-10-16T00:00:00+00:00",
     "last_open_time_utc": "2026-10-16T23:59:00+00:00"
   },
+  "retention": {
+    "raw_archive_bytes_retained": true,
+    "vps_path": "/srv/hes-evidence/binance-usdm/2026-10-16/BTCUSDT-1m-2026-10-16.zip",
+    "checksum_sidecar_retained": true,
+    "response_headers_retained": true,
+    "manifest_retained": true
+  },
   "verdict": {
     "status": "PASS_OFFICIAL_HISTORICAL_RAW_ARCHIVE",
     "raw_archive_bytes_received": true,
@@ -40,7 +47,7 @@
       "This is official historical archive data, not a live REST/WebSocket response.",
       "The direct fapi.binance.com REST probe from the VPS timed out with HTTP 000.",
       "This archive route is a separate documented public data distribution service; it does not bypass or modify the restricted live API route.",
-      "Raw archive bytes were hashed and validated on the VPS; this committed JSON records the hashes and metadata, not the 60,989-byte ZIP payload itself."
+      "The committed JSON records the raw archive hashes and VPS retention path; the ZIP payload is retained on the VPS rather than committed to Git."
     ]
   },
   "security": {
