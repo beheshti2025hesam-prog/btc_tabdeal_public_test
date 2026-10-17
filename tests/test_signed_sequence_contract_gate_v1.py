@@ -213,5 +213,83 @@ class SignedSequenceContractGateTests(unittest.TestCase):
                     )
 
 
+    def test_capability_implication_matrix_fails_closed(self):
+        base = {
+            "schema": "hes_sequence_contract_v1",
+            "venue": "tabdeal",
+            "product": "futures_margin",
+            "endpoint": "special_margin/broadcast/",
+            "channel": "trade_broadcast",
+            "message_type": "trade",
+            "field_path": "trade.sequence",
+            "scope": "tabdeal:futures:BTC_USDT",
+            "protocol_version": "unknown",
+            "semantic_class": "unknown",
+            "capabilities": {
+                "exact_replay_dedup": False,
+                "event_id_dedup": False,
+                "ordered_within_scope": False,
+                "contiguous_within_scope": False,
+                "gap_detectable": False,
+                "cross_reconnect": False,
+            },
+        }
+        invalid_overrides = (
+            ({"event_id_dedup": True}, "requires semantic_class=event_id"),
+            ({"gap_detectable": True}, "gap detection requires contiguous capability"),
+            ({"cross_reconnect": True}, "cross-reconnect capability requires ordered capability"),
+            ({"contiguous_within_scope": True}, "requires ordered capability"),
+            ({"ordered_within_scope": True}, "unknown semantic_class cannot authorize"),
+        )
+        for overrides, message in invalid_overrides:
+            with self.subTest(overrides=overrides):
+                candidate = json.loads(json.dumps(base))
+                candidate["capabilities"].update(overrides)
+                with self.assertRaisesRegex(ValueError, message):
+                    validate_sequence_contract_payload(
+                        json.dumps(candidate).encode(),
+                        market_scope="tabdeal:futures:BTC_USDT",
+                    )
+
+    def test_capability_values_must_be_exact_booleans(self):
+        base = {
+            "schema": "hes_sequence_contract_v1",
+            "venue": "tabdeal",
+            "product": "futures_margin",
+            "endpoint": "special_margin/broadcast/",
+            "channel": "trade_broadcast",
+            "message_type": "trade",
+            "field_path": "trade.sequence",
+            "scope": "tabdeal:futures:BTC_USDT",
+            "protocol_version": "unknown",
+            "semantic_class": "unknown",
+            "capabilities": {
+                "exact_replay_dedup": False,
+                "event_id_dedup": False,
+                "ordered_within_scope": False,
+                "contiguous_within_scope": False,
+                "gap_detectable": False,
+                "cross_reconnect": False,
+            },
+        }
+        for malformed in (0, 1, "false", "true", None, [], {}):
+            with self.subTest(capability=malformed):
+                candidate = json.loads(json.dumps(base))
+                candidate["capabilities"]["exact_replay_dedup"] = malformed
+                with self.assertRaisesRegex(ValueError, "capabilities must be booleans"):
+                    validate_sequence_contract_payload(
+                        json.dumps(candidate).encode(),
+                        market_scope="tabdeal:futures:BTC_USDT",
+                    )
+
+    def test_malformed_json_and_non_object_payloads_are_rejected(self):
+        for payload in (b"{", b"[]", b"null", b'"string"', b"42", b"\\xff"):
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValueError):
+                    validate_sequence_contract_payload(
+                        payload, market_scope="tabdeal:futures:BTC_USDT"
+                    )
+
+
 if __name__ == "__main__":
     unittest.main()
