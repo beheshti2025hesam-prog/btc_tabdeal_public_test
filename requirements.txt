@@ -1,2 +1,3 @@
 websocket-client
 git+https://github.com/Tabdeal-Exchange/tabdeal-python.git
+python-socketio[client]>=5.11,<6
