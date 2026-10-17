@@ -159,7 +159,6 @@ class WallexReadOnlyCollectorV1:
             self.rejected += 1
             self.last_error = "malformed_json"
             return
-        # The server's initial session/heartbeat frame is not a trade event.
         if not isinstance(payload, list) or len(payload) != 2:
             self.ignored += 1
             return
@@ -179,6 +178,7 @@ class WallexReadOnlyCollectorV1:
     def run_once(self) -> None:
         if not self.enabled:
             raise RuntimeError("Wallex collector is disabled by default")
+        records_before = self.records_written
         if self.ws_factory is None:
             import websocket
 
@@ -193,9 +193,12 @@ class WallexReadOnlyCollectorV1:
 
         deadline = time.monotonic() + self.max_runtime_seconds
         try:
-            # Per Wallex's official example, send on socket open; do not wait
-            # for or invent a separate subscription acknowledgement.
-            ws.send(json.dumps(["subscribe", {"channel": self.channel}], separators=(",", ":")))
+            try:
+                # Per Wallex's official example, send on socket open.
+                ws.send(json.dumps(["subscribe", {"channel": self.channel}], separators=(",", ":")))
+            except Exception as exc:
+                self.last_error = type(exc).__name__
+                raise RuntimeError("Wallex WebSocket subscription failed; refusing success-shaped return") from exc
             while time.monotonic() < deadline:
                 remaining = deadline - time.monotonic()
                 if hasattr(ws, "settimeout"):
@@ -213,7 +216,7 @@ class WallexReadOnlyCollectorV1:
                     raise RuntimeError("Wallex WebSocket closed during bounded collection")
                 self._consume_frame(frame)
 
-            if self.records_written == 0:
+            if self.records_written == records_before:
                 self.last_error = "no_trade_events_received"
                 raise RuntimeError("Wallex WebSocket produced no valid trade events; refusing success-shaped return")
         finally:
