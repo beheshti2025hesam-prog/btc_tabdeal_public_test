@@ -1,9 +1,8 @@
-"""Read-only Wallex Spot WebSocket adapter.
+"""Read-only Wallex Spot Socket.IO collector.
 
-Uses Wallex's documented raw WebSocket endpoint wss://api.wallex.ir/ws and
-JSON subscribe frame ["subscribe", {"channel": "SYMBOL@trade"}]. No API key,
-account access, order placement, or Git side effects. The venue documents no
-per-trade sequence ID; this adapter never fabricates one.
+Wallex documents Socket.IO (v2-compatible client) and the Broadcaster event.
+This adapter uses the Python Socket.IO v4 client, preserves unknown trade
+sequence semantics, and performs no account or order operations.
 """
 from __future__ import annotations
 
@@ -17,9 +16,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-WS_URL = "wss://api.wallex.ir/ws"
+SOCKETIO_URL = "https://api.wallex.ir"
 SYMBOL = "BTCUSDT"
-SOURCE = "wallex_spot_websocket_v1"
+SOURCE = "wallex_spot_socketio_v1"
 
 
 def _valid_symbol(symbol: str) -> bool:
@@ -45,7 +44,7 @@ def normalize_trade(
     symbol: str = SYMBOL,
     received_at: datetime | None = None,
 ) -> dict[str, Any]:
-    """Validate one documented Wallex SYMBOL@trade WebSocket message."""
+    """Validate one documented Wallex Broadcaster trade event."""
     if not _valid_symbol(symbol):
         raise ValueError("invalid configured symbol")
     if channel != f"{symbol}@trade":
@@ -67,7 +66,10 @@ def normalize_trade(
     if received.tzinfo is None or received.utcoffset() is None:
         raise ValueError("received_at must be timezone-aware")
     canonical = json.dumps(
-        {"channel": channel, "data": data}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        {"channel": channel, "data": data},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
     ).encode("utf-8")
     fingerprint = hashlib.sha256(canonical).hexdigest()
     return {
@@ -89,7 +91,7 @@ def normalize_trade(
 
 
 class WallexReadOnlyCollectorV1:
-    """Bounded WebSocket collector. It persists observations only; trading is impossible."""
+    """Bounded Socket.IO collector. It persists observations only."""
 
     def __init__(
         self,
@@ -98,7 +100,7 @@ class WallexReadOnlyCollectorV1:
         symbol: str = SYMBOL,
         enabled: bool = False,
         max_runtime_seconds: float = 60.0,
-        ws_factory: Callable[..., Any] | None = None,
+        sio_factory: Callable[[], Any] | None = None,
     ) -> None:
         if not _valid_symbol(symbol):
             raise ValueError("symbol must be an uppercase Wallex market symbol")
@@ -109,7 +111,7 @@ class WallexReadOnlyCollectorV1:
         self.channel = f"{symbol}@trade"
         self.enabled = enabled
         self.max_runtime_seconds = float(max_runtime_seconds)
-        self.ws_factory = ws_factory
+        self.sio_factory = sio_factory
         self.frames_seen = 0
         self.records_written = 0
         self.rejected = 0
@@ -124,14 +126,9 @@ class WallexReadOnlyCollectorV1:
             os.fsync(handle.fileno())
         self.records_written += 1
 
-    def _handle_message(self, message: str) -> None:
+    def _handle_event(self, channel: str, data: Any) -> None:
         self.frames_seen += 1
         try:
-            frame = json.loads(message)
-            if not isinstance(frame, list) or len(frame) != 2:
-                self.ignored += 1
-                return
-            channel, data = frame
             if channel != self.channel:
                 self.ignored += 1
                 return
@@ -143,35 +140,36 @@ class WallexReadOnlyCollectorV1:
     def run_once(self) -> None:
         if not self.enabled:
             raise RuntimeError("Wallex collector is disabled by default")
-        if self.ws_factory is None:
-            import websocket
-            factory = websocket.create_connection
+        if self.sio_factory is None:
+            import socketio
+            sio = socketio.Client(reconnection=False, logger=False, engineio_logger=False)
         else:
-            factory = self.ws_factory
+            sio = self.sio_factory()
 
-        ws = factory(WS_URL, timeout=10)
+        @sio.on("connect")
+        def _on_connect() -> None:
+            sio.emit("subscribe", {"channel": self.channel})
+
+        @sio.on("Broadcaster")
+        def _on_broadcaster(channel: str, data: Any) -> None:
+            self._handle_event(channel, data)
+
+        @sio.on("connect_error")
+        def _on_connect_error(_data: Any = None) -> None:
+            self.last_error = "connect_error"
+
+        deadline = time.monotonic() + self.max_runtime_seconds
         try:
-            ws.send(json.dumps(["subscribe", {"channel": self.channel}]))
-            ws.settimeout(1.0)
-            deadline = time.monotonic() + self.max_runtime_seconds
-            while time.monotonic() < deadline:
-                try:
-                    message = ws.recv()
-                except Exception as exc:
-                    try:
-                        import websocket
-                        if isinstance(exc, websocket.WebSocketTimeoutException):
-                            continue
-                    except ImportError:
-                        pass
-                    self.last_error = type(exc).__name__
-                    break
-                if not message:
-                    self.last_error = "empty_frame"
-                    break
-                self._handle_message(message)
+            # Wallex's official examples use Socket.IO v2-compatible clients,
+            # emitting "subscribe" and receiving the "Broadcaster" event.
+            sio.connect(SOCKETIO_URL, transports=["websocket"])
+            while time.monotonic() < deadline and getattr(sio, "connected", True):
+                time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+        except Exception as exc:
+            self.last_error = type(exc).__name__
         finally:
             try:
-                ws.close()
+                if getattr(sio, "connected", False):
+                    sio.disconnect()
             except Exception:
                 pass
