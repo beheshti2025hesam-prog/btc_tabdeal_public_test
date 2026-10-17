@@ -1,6 +1,6 @@
-# Wallex Read-Only Market Data Adapter v1
+# Wallex Read-Only Market Data Adapters v1
 
-Isolated, read-only integration for Wallex Spot `BTCUSDT`.
+Isolated, read-only integration for Wallex Spot markets.
 
 ## Official public endpoints
 
@@ -8,10 +8,10 @@ Isolated, read-only integration for Wallex Spot `BTCUSDT`.
 - REST depth snapshot: `GET https://api.wallex.ir/v1/depth?symbol=BTCUSDT`
 - REST recent-trade window: `GET https://api.wallex.ir/v1/trades?symbol=BTCUSDT`
 - Real-time WebSocket: `wss://api.wallex.ir/ws`
-- Subscribe frame: `["subscribe", {"channel": "BTCUSDT@trade"}]`
-- Trade event frame: `["BTCUSDT@trade", {"isBuyOrder": true, "quantity": "...", "price": "...", "timestamp": "..."}]`
+- Subscribe frame: `["subscribe", {"channel": "SYMBOL@trade"}]`
+- Trade frame: `["SYMBOL@trade", {"isBuyOrder": true, "quantity": "...", "price": "...", "timestamp": "..."}]`
 
-The raw WebSocket protocol is used; do not substitute the legacy Socket.IO client documentation.
+The raw WebSocket protocol is used; do not substitute the legacy Socket.IO client documentation. The WebSocket collector accepts a configured uppercase market symbol and is disabled by default.
 
 ## Sequence and coverage contract
 
@@ -29,21 +29,21 @@ The REST endpoint returns a latest-trades window, not a complete event log. The 
 - Bounded runtime, strict decimal/symbol/timezone validation, and exact payload fingerprinting.
 - Uses the existing `websocket-client` dependency; no extra Socket.IO dependency.
 
-## Verified in this change
+## Live verification evidence
 
-- Live public REST requests to markets, depth, and recent trades returned HTTP 200 with `success=true`.
-- BTCUSDT market metadata was present; depth returned 50 asks and 50 bids; latest trades returned 50 records, all 50 normalized successfully in the bounded check.
-- The focused automated suite passed before the raw-WebSocket transport correction; rerun CI after the correction.
-- A raw WebSocket handshake to `wss://api.wallex.ir/ws` succeeded and depth-channel subscription produced live frames. The trade channel must be validated separately by observing at least one actual trade frame.
+- REST markets, depth, and latest-trades endpoints returned HTTP 200 with `success=true`. BTCUSDT was present; depth returned 50 asks and 50 bids; the latest-trades endpoint returned 50 records, all 50 normalized successfully.
+- Raw WebSocket handshake succeeded. Subscriptions to BTCUSDT depth channels produced live frames.
+- A bounded 30-second run of `WallexReadOnlyCollectorV1(symbol="USDTTMN", enabled=True)` received 4 frames, persisted 3 valid trade observations, rejected 0, and ignored 1 non-trade/handshake frame. Persisted records retained `sequence: null`.
+- The BTCUSDT trade channel did not emit a trade frame during a separate 115-second bounded sample. The REST latest-trade window's newest timestamp was about 13 minutes old at the time of that check. Therefore the generic Wallex WebSocket transport and trade payload are verified, but **BTCUSDT trade-event freshness remains unverified**.
 
 ## Use
 
-For a bounded REST observation run, instantiate `WallexRestWindowCollectorV1(enabled=True, interval_seconds=15, max_runtime_seconds=60)`. For real-time trades, use `WallexReadOnlyCollectorV1(enabled=True, max_runtime_seconds=60)` only after a bounded live capture confirms trade frames. Neither collector can place orders.
+For a bounded REST observation run, instantiate `WallexRestWindowCollectorV1(enabled=True, interval_seconds=15, max_runtime_seconds=60)`. For real-time trades, instantiate `WallexReadOnlyCollectorV1(symbol="BTCUSDT", enabled=True, max_runtime_seconds=60)` only after confirming that the configured market emits fresh trade events. Neither collector can place orders.
 
 ## Production acceptance gates
 
 1. Focused CI is green on the final commit.
-2. Confirm at least one real `BTCUSDT@trade` frame and verify the payload fields.
-3. Verify freshness, bounded reconnect behavior, heartbeat handling, and durable JSONL records.
+2. Confirm fresh `BTCUSDT@trade` frames from the intended runtime network; investigate the quiet/stale symbol feed before treating it as strategy input.
+3. Verify freshness, disconnect/reconnect behavior, heartbeat handling, and durable JSONL records.
 4. Confirm downstream ingestion handles unknown sequence semantics without inventing IDs or treating timestamps as sequence.
 5. Keep execution disabled until source identity, coverage, and runtime safety gates are independently satisfied.
