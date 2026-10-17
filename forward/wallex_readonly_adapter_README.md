@@ -2,16 +2,16 @@
 
 Isolated, read-only integration for Wallex Spot markets.
 
-## Official public endpoints
+## Official public endpoints and protocol
 
 - REST market metadata: `GET https://api.wallex.ir/v1/markets`
 - REST depth snapshot: `GET https://api.wallex.ir/v1/depth?symbol=BTCUSDT`
 - REST recent-trade window: `GET https://api.wallex.ir/v1/trades?symbol=BTCUSDT`
-- Real-time WebSocket: `wss://api.wallex.ir/ws`
-- Subscribe frame: `["subscribe", {"channel": "SYMBOL@trade"}]`
-- Trade frame: `["SYMBOL@trade", {"isBuyOrder": true, "quantity": "...", "price": "...", "timestamp": "..."}]`
+- Official WebSocket usage: Socket.IO client connected to `https://api.wallex.ir`, with `transports=["websocket"]`
+- Subscribe event: `subscribe` with `{"channel":"SYMBOL@trade"}`
+- Trade events: `Broadcaster(channel, data)`, where channel is `SYMBOL@trade`
 
-The raw WebSocket protocol is used; do not substitute the legacy Socket.IO client documentation. The WebSocket collector accepts a configured uppercase market symbol and is disabled by default.
+Wallex's published API reference specifies a Socket.IO v2-compatible client. The Python adapter therefore uses `python-socketio==4.6.1`; it does not treat the endpoint as an arbitrary raw WebSocket or send a raw JSON array as a WebSocket frame. The collector accepts a configured uppercase market symbol and is disabled by default.
 
 ## Sequence and coverage contract
 
@@ -27,23 +27,24 @@ The REST endpoint returns a latest-trades window, not a complete event log. The 
 - Append-only JSONL with flush and fsync.
 - No Git operations, no pushes, no writes to `main`, no strategy execution.
 - Bounded runtime, strict decimal/symbol/timezone validation, and exact payload fingerprinting.
-- Uses the existing `websocket-client` dependency; no extra Socket.IO dependency.
+- Socket.IO client dependency is pinned; no private credentials are used.
 
 ## Live verification evidence
 
-- REST markets, depth, and latest-trades endpoints returned HTTP 200 with `success=true`. BTCUSDT was present; depth returned 50 asks and 50 bids; the latest-trades endpoint returned 50 records, all 50 normalized successfully.
-- Raw WebSocket handshake succeeded. Subscriptions to BTCUSDT depth channels produced live frames.
-- A bounded 30-second run of `WallexReadOnlyCollectorV1(symbol="USDTTMN", enabled=True)` received 4 frames, persisted 3 valid trade observations, rejected 0, and ignored 1 non-trade/handshake frame. Persisted records retained `sequence: null`.
-- The BTCUSDT trade channel did not emit a trade frame during a separate 115-second bounded sample. The REST latest-trade window's newest timestamp was about 13 minutes old at the time of that check. Therefore the generic Wallex WebSocket transport and trade payload are verified, but **BTCUSDT trade-event freshness remains unverified**.
+- REST markets, depth, and latest-trades endpoints returned HTTP 200 with `success=true`. BTCUSDT was present; depth returned 50 asks and 50 bids; the latest-trades endpoint returned 50 records.
+- A fresh REST check at 2026-10-17 10:01:58 UTC returned a newest BTCUSDT trade timestamp of 2026-10-17 10:01:54 UTC (about 4 seconds old).
+- A direct raw-WebSocket probe to `wss://api.wallex.ir/ws` returned a handshake-shaped JSON object but no trade events. This is not proof of a successful subscription.
+- A Socket.IO v2-compatible client attempt from the VPS did not establish a connection (websocket error); the standard `/socket.io/` path also returned HTTP 503 during the direct probe. Thus **live Socket.IO BTCUSDT trade delivery remains unverified from the intended runtime network**. Do not claim the real-time feed is connected until this is resolved and a fresh `Broadcaster` trade event is captured.
+- Focused unit tests exercise the documented `subscribe` / `Broadcaster` contract with a mock client; they do not replace live-network verification.
 
 ## Use
 
-For a bounded REST observation run, instantiate `WallexRestWindowCollectorV1(enabled=True, interval_seconds=15, max_runtime_seconds=60)`. For real-time trades, instantiate `WallexReadOnlyCollectorV1(symbol="BTCUSDT", enabled=True, max_runtime_seconds=60)` only after confirming that the configured market emits fresh trade events. Neither collector can place orders.
+For a bounded REST observation run, instantiate `WallexRestWindowCollectorV1(enabled=True, interval_seconds=15, max_runtime_seconds=60)`. For real-time trades, instantiate `WallexReadOnlyCollectorV1(symbol="BTCUSDT", enabled=True, max_runtime_seconds=60)` only after confirming that the Socket.IO connection and configured market emit fresh trade events. Neither collector can place orders.
 
 ## Production acceptance gates
 
 1. Focused CI is green on the final commit.
-2. Confirm fresh `BTCUSDT@trade` frames from the intended runtime network; investigate the quiet/stale symbol feed before treating it as strategy input.
+2. Establish a Socket.IO connection from the intended runtime network and capture fresh `BTCUSDT@trade` `Broadcaster` events.
 3. Verify freshness, disconnect/reconnect behavior, heartbeat handling, and durable JSONL records.
 4. Confirm downstream ingestion handles unknown sequence semantics without inventing IDs or treating timestamps as sequence.
 5. Keep execution disabled until source identity, coverage, and runtime safety gates are independently satisfied.
