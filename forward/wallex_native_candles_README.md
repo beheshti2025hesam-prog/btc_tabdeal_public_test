@@ -14,7 +14,7 @@ Supported resolutions documented by Wallex: 1, 60, 180, 360, 720, 1D. 1 means on
 - source_observed_at is the local response-receive timestamp; it is not an exchange-generated candle-finalization timestamp.
 - A candle is marked closed only by interval end <= as_of. This is a conservative client-side rule, not a claim about Wallex's internal finalization guarantee.
 - Native OHLCV has no trade IDs. WebSocket trade frames observed in the smoke test had no unique trade ID/sequence field; event ordering, replay, deduplication, and gap-recovery semantics remain UNKNOWN.
-- National-intranet availability and current specific regulatory authorization remain UNVERIFIED.
+- National-intranet availability is OUT OF SCOPE BY USER DECISION (2026-10-17); it is not a verified capability and is not an acceptance gate. Current specific regulatory authorization remains UNVERIFIED.
 - No orders, private endpoints, keys, deployment, collector activation, or trading were used.
 
 ## Tests
