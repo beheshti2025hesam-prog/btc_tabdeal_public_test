@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   identity-integrity:
+    name: "HES Trade Agent Identity Integrity"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact source revision
