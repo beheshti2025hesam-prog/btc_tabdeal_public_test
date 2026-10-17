@@ -29,3 +29,28 @@ Technical source of truth: GitHub repository `beheshti2025hesam-prog/btc_tabdeal
 7. Overall 70% completion remains unverified until deliverables, weights and acceptance criteria support a reproducible calculation.
 
 Continuity rule: Memory = map; GitHub = technical truth; Chat = conversation notebook. Start from this checkpoint, verify the exact live PR head and CI, and continue without repeating completed REST schema research.
+
+
+## Follow-up hardening — 2026-10-18
+
+### Changes committed
+- Strict sequence identifier validation added to:
+  - `forward/sequence_integrity_v1.py`
+  - `forward/forward_tabdeal_collector_v1.py`
+  - `forward/forward_tabdeal_ingestion_v1.py`
+- Accepted representations are non-negative Python integers and ASCII digit strings. Booleans, floats (including fractional/non-finite), negative values, whitespace-padded strings, and malformed numeric strings are rejected instead of silently coerced.
+- Collector fallback now distinguishes a missing sequence field from an explicitly invalid false/zero-like value.
+- Added regression tests in `tests/test_sequence_integrity_v1.py`, `tests/test_forward_tabdeal_ingestion_v1.py`, and new `tests/test_forward_tabdeal_collector_sequence.py`.
+- Updated static audit: [Sequence Integrity Review](../audits/SEQUENCE_INTEGRITY_ADVERSARIAL_REVIEW_2026-10-18.md).
+
+### Evidence status
+- Latest code commit checked: `9c2b0cf3900489426953313b870dfd09a1089a83`.
+- At the latest query, GitHub connector returned no PR-triggered workflow runs and no combined statuses for that exact SHA. Therefore these new tests are **PENDING execution**; no green result is claimed.
+- Existing tests already verify conflict handling in the controlled runner: a conflicting duplicate blocks the run and does not write the observation journal. The class itself does not latch a permanent rejected flag; callers in the inspected observation path return/block on anomaly or conflict.
+- Remaining adversarial gaps: a valid record after an invalid record in the same batch, hash-valid semantic invalidity, changed non-market fields policy, mutation/deletion/reordering of source artifacts, and protocol/order changes.
+
+### Safety and progress accounting
+- PR #308 remains open/draft; no merge.
+- No live collection, execution, network-control bypass, or trading was performed.
+- Status remains `HOLD / NO TRADE`.
+- Overall 70% completion remains unverified. The strict parsing changes are a bounded hardening step, not grounds to claim a project-wide completion percentage.
