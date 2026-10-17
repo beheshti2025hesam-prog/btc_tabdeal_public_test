@@ -148,6 +148,41 @@ def test_repeated_run_once_appends_durable_records_after_restart(tmp_path):
     assert all(json.loads(line)["sequence"] is None for line in lines)
 
 
+def test_silent_second_session_fails_even_after_previous_session_wrote_data(tmp_path):
+    output = tmp_path / "events.jsonl"
+    fakes = [
+        FakeWebSocket([frame(["BTCUSDT@trade", valid()])]),
+        FakeWebSocket([frame({"sid": "session-silent"})]),
+    ]
+    collector = WallexReadOnlyCollectorV1(
+        output=str(output), enabled=True, max_runtime_seconds=0.02,
+        ws_factory=lambda: fakes.pop(0),
+    )
+    collector.run_once()
+    assert collector.records_written == 1
+    with pytest.raises(RuntimeError, match="no valid trade events"):
+        collector.run_once()
+    assert collector.records_written == 1
+    assert len(output.read_text().splitlines()) == 1
+    assert collector.last_error == "no_trade_events_received"
+
+
+def test_subscription_send_failure_fails_closed(tmp_path):
+    class SendFailure(FakeWebSocket):
+        def send(self, payload):
+            raise OSError("subscribe send failed")
+
+    fake = SendFailure()
+    collector = WallexReadOnlyCollectorV1(
+        output=str(tmp_path / "events.jsonl"), enabled=True,
+        max_runtime_seconds=0.02, ws_factory=lambda: fake,
+    )
+    with pytest.raises(RuntimeError, match="subscription failed"):
+        collector.run_once()
+    assert collector.last_error == "OSError"
+    assert fake.closed
+
+
 def test_silent_feed_fails_closed_even_if_connection_opens(tmp_path):
     fake = FakeWebSocket([frame({"sid": "session-silent"})])
     collector = WallexReadOnlyCollectorV1(
