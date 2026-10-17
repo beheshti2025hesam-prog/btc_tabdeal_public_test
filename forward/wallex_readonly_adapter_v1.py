@@ -179,17 +179,21 @@ class WallexReadOnlyCollectorV1:
         if not self.enabled:
             raise RuntimeError("Wallex collector is disabled by default")
         records_before = self.records_written
-        if self.ws_factory is None:
-            import websocket
+        try:
+            if self.ws_factory is None:
+                import websocket
 
-            ws = websocket.create_connection(
-                WEBSOCKET_URL,
-                timeout=min(5.0, self.max_runtime_seconds),
-                http_proxy_host=None,
-                http_no_proxy=["*"],
-            )
-        else:
-            ws = self.ws_factory()
+                ws = websocket.create_connection(
+                    WEBSOCKET_URL,
+                    timeout=min(5.0, self.max_runtime_seconds),
+                    http_proxy_host=None,
+                    http_no_proxy=["*"],
+                )
+            else:
+                ws = self.ws_factory()
+        except Exception as exc:
+            self.last_error = type(exc).__name__
+            raise RuntimeError("Wallex WebSocket connection failed; refusing success-shaped return") from exc
 
         deadline = time.monotonic() + self.max_runtime_seconds
         try:
