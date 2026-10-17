@@ -16,6 +16,18 @@ REQUIRED = ("symbol", "price", "amount", "side", "source_updated", "sequence")
 SOURCE = "tabdeal_ws_forward_v1"
 
 
+def _sequence(value: Any) -> int:
+    if type(value) is int:
+        sequence = value
+    elif isinstance(value, str) and value.isascii() and value.isdigit():
+        sequence = int(value)
+    else:
+        raise ValueError("invalid sequence")
+    if sequence < 0:
+        raise ValueError("invalid sequence")
+    return sequence
+
+
 def _dt(value: Any) -> datetime:
     if not isinstance(value, str):
         raise ValueError("source_updated must be an ISO timestamp")
@@ -48,7 +60,7 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
         amount=Decimal(str(record["amount"])),
         side=str(record["side"]),
         updated=updated,
-        sequence=int(record["sequence"]),
+        sequence=_sequence(record["sequence"]),
     )
 
 
