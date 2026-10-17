@@ -132,3 +132,25 @@ The exact network-diagnostics commit `ccb003ead7e6dc400c539f06ebc2e0d90739fa13` 
 PR #308 remains open and draft at this head SHA. The review and review-thread endpoints return no submitted reviews and no inline review threads. PR #282 remains open and draft at `e2f2c88075ea7856025f9d928b0abdbc8f9a9a50`; the connector returns 27/27 successful PR-triggered runs for that commit.
 
 Next gate remains: authorized network-path resolution; raw WebSocket capture with session and receive-time metadata; Spot snapshot bridge and deliberate gap recovery; Futures `U/u/pu` continuity and reconnect test; deterministic SHA-256 manifest verification; independent review. Until these are evidenced, do not merge, enable live collection/trading, or claim the overall project is 70% complete.
+
+
+## Master checkpoint — 2026-10-17 21:25 local
+
+### Exact current commit verification
+The repository connector returned **26/26 completed successful PR-triggered workflow runs** for exact commit `0457239ebb7e3a0b0f6441c222c9c35a5c63e2d6`. This supersedes any earlier interim note in chat saying no CI run was visible for this SHA. PR #308 remains open and draft, with this exact head SHA. The PR review endpoint currently returns zero submitted reviews and the inline-thread endpoint returns zero threads.
+
+### Current verified state
+- REST schema samples exist for BTCUSDT Spot and USDⓈ-M Futures, plus a limited Spot REST overlap replay check.
+- Resolver/network diagnostics have been recorded. Binance direct access from the VPS remains blocked by the observed private-address DNS answer/HTTPS timeout pattern; no host networking/security settings were changed.
+- No raw WebSocket capture, Spot depth snapshot bridge, deliberate gap-resync run, Futures `U/u/pu` continuity test, controlled disconnect/reconnect capture, reproducible raw-frame hash manifest, or independent review is evidenced as passed.
+- The separate source-identity gate requiring byte-for-byte validation of all 42/42 evidence records and a valid hash lock is **not accepted** unless those exact checks are independently reproduced against the exact target commit.
+
+### Next actions, ordered to avoid rework
+1. Use the permitted network/provider path to resolve the VPS-to-Binance access issue; do not bypass network controls or weaken SSH/firewall/DNS security.
+2. Capture raw Spot `trade`, `aggTrade`, and `depth` frames plus USDⓈ-M `aggTrade` and diff-depth frames with endpoint, subscription, session ID, receive timestamp, and SHA-256.
+3. Implement/replay destructive sequence cases: valid-hash but invalid sequence, duplicate exact event, same ID with different content, missing range/gap, disconnect, deletion/tamper, and protocol/order change. Assert fail-closed behavior and no silent book continuation.
+4. Recompute the full 42-record registry hashes from the exact commit and compare bytes; verify lock integrity and negative cases.
+5. Run CI on the final exact candidate commit, then obtain independent review. Keep PRs draft and do not merge or enable live collection/trading before all gates pass.
+
+### Completion estimate
+Overall project completion is **not yet defensibly quantifiable as 70%** from this research PR alone. Treat 70% as unverified until a full project-wide deliverable inventory, acceptance criteria, and remaining-work denominator are reconciled. Operational state remains `HOLD / NO TRADE`.
