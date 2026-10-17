@@ -96,3 +96,28 @@ def test_daily_candle_does_not_assume_utc_midnight_alignment():
     assert len(candles) == 1
     from datetime import timedelta
     assert candles[0].close_time == candles[0].open_time + timedelta(days=1)
+
+
+def test_fetch_decodes_fractional_json_numbers_as_decimal(monkeypatch):
+    import wallex_native_candles_v1 as adapter
+
+    class FakeResponse:
+        status = 200
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self, limit):
+            return (b'{"s":"ok","t":[1792232400],"o":[100.000000000000000001],'
+                    b'"h":[102.000000000000000001],"l":[99.000000000000000001],'
+                    b'"c":[101.000000000000000001],"v":[0.123456789012345678901]}')
+
+    monkeypatch.setattr(adapter, "urlopen", lambda *args, **kwargs: FakeResponse())
+    candles = adapter.fetch_history(
+        "BTCUSDT", "1",
+        datetime(2026, 10, 17, 13, 0, tzinfo=UTC),
+        datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
+        as_of=datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
+    )
+    assert candles[0].open == Decimal("100.000000000000000001")
+    assert candles[0].volume == Decimal("0.123456789012345678901")
