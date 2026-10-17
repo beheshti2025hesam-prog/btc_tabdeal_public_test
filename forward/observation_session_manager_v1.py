@@ -22,15 +22,19 @@ class ObservationSessionV1:
     decision_mode: str = "NO_TRADE_ONLY"
     execution_enabled: bool = False
     historical_inputs_allowed: bool = False
+    sequence_contract_evidence: tuple[tuple[str, str], ...] | None = None
 
     def record(self) -> dict:
-        return {
+        payload = {
             "run_id": self.run_id, "started_at": self.started_at,
             "policy_id": self.policy_id, "policy_version": self.policy_version,
             "symbol": self.symbol, "timeframe": self.timeframe, "source": self.source,
             "mode": self.mode, "decision_mode": self.decision_mode,
             "execution_enabled": False, "historical_inputs_allowed": False,
         }
+        if self.sequence_contract_evidence is not None:
+            payload["sequence_contract_evidence"] = dict(self.sequence_contract_evidence)
+        return payload
 
     def digest(self) -> str:
         raw=json.dumps(self.record(),sort_keys=True,separators=(",",":"))
@@ -42,7 +46,30 @@ class ObservationSessionManagerV1:
         self.policy_id=policy_id; self.policy_version=policy_version
         self.symbol=symbol; self.timeframe=timeframe; self.source=source
 
-    def start(self, *, started_at: datetime) -> ObservationSessionV1:
+    def start(
+        self,
+        *,
+        started_at: datetime,
+        sequence_contract_evidence: dict | None = None,
+    ) -> ObservationSessionV1:
+        evidence_tuple = None
+        if sequence_contract_evidence is not None:
+            required = (
+                "status", "expected_commit", "evidence_path", "raw_sha256",
+                "source_url", "market_scope", "retrieved_at", "key_id",
+                "envelope_sha256", "key_registry_sha256", "sequence_contract_schema",
+                "sequence_contract_semantic_class", "sequence_contract_capabilities_json",
+                "source_snapshot_sha256",
+            )
+            if not isinstance(sequence_contract_evidence, dict) or any(
+                not isinstance(sequence_contract_evidence.get(key), str)
+                or not sequence_contract_evidence[key]
+                for key in required
+            ) or sequence_contract_evidence.get("status") != "VERIFIED":
+                raise ValueError("sequence contract evidence metadata is incomplete or unverified")
+            evidence_tuple = tuple(sorted(
+                (key, sequence_contract_evidence[key]) for key in required
+            ))
         if started_at.tzinfo is None or started_at.utcoffset() is None:
             raise ValueError("started_at must be timezone-aware")
         if self.symbol != "BTC_USDT" or self.timeframe != "15m":
@@ -53,7 +80,8 @@ class ObservationSessionManagerV1:
         run_id=f"OBS-{ts.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:12]}"
         return ObservationSessionV1(run_id=run_id,started_at=ts.isoformat(),
             policy_id=self.policy_id,policy_version=self.policy_version,
-            symbol=self.symbol,timeframe=self.timeframe,source=self.source)
+            symbol=self.symbol,timeframe=self.timeframe,source=self.source,
+            sequence_contract_evidence=evidence_tuple)
 
     def write_once(self, session: ObservationSessionV1, path: str|Path) -> str:
         """Append one immutable session record, rejecting duplicate run IDs."""

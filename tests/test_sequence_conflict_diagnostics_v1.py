@@ -1,13 +1,92 @@
+import base64
 import hashlib
 import json
+import os
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
 
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
+
+
+import base64
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from scripts.verify_signed_source_evidence_v1 import canonical_signed_bytes
+
+def signed_gate_kwargs(tmp_path: Path):
+    running_commit = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=5,
+    ).stdout.strip()
+    private_key = Ed25519PrivateKey.generate()
+    payload = b"Synthetic test fixture only; not production exchange evidence."
+    source_url = "https://docs.tabdeal.org/"
+    envelope = {
+        "expected_commit": running_commit,
+        "evidence_path": "evidence/sequence-contract.json",
+        "raw_sha256": hashlib.sha256(payload).hexdigest(),
+        "source_url": source_url,
+        "redirect_chain": [source_url],
+        "retrieved_at": "2026-10-09T17:00:00+00:00",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "key_id": "synthetic-test-key",
+        "signature_algorithm": "Ed25519",
+        "payload_b64": base64.b64encode(payload).decode("ascii"),
+        "sequence_contract": {
+            "schema": "hes_sequence_contract_attestation_v1",
+            "status": "verified",
+            "market_scope": "tabdeal:futures:BTC_USDT",
+            "venue": "tabdeal",
+            "product": "fapi-futures-margin",
+            "symbol": "BTC_USDT",
+            "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+            "channel_or_topic": "BTC_USDT raw-text subscription",
+            "message_type": "trade-envelope",
+            "field_path": "trade.sequence",
+            "protocol_version": "synthetic-test-protocol-v1",
+            "semantic_class": "message_sequence",
+            "capabilities": {
+                "unique": True, "ordered": True, "contiguous": True,
+                "comparable_across_reconnect": False,
+            },
+            "source_evidence": {
+                "source_kind": "primary",
+                "source_url": "https://docs.tabdeal.org/",
+                "retrieved_at": "2026-10-09T17:00:00+00:00",
+                "source_snapshot_sha256": hashlib.sha256(payload).hexdigest(),
+                "evidence_excerpt": payload.decode("utf-8"),
+            },
+        },
+    }
+    envelope["signature_b64"] = base64.b64encode(private_key.sign(canonical_signed_bytes(envelope))).decode("ascii")
+    public_key = base64.b64encode(private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode("ascii")
+    envelope_path = tmp_path / "signed-sequence-contract.json"
+    registry_path = tmp_path / "trusted-test-keys.json"
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+    registry_path.write_text(json.dumps({"synthetic-test-key": public_key}), encoding="utf-8")
+    # Synthetic test root; production must supply this digest from protected deployment config.
+    os.environ["HES_TRUSTED_KEY_REGISTRY_SHA256"] = hashlib.sha256(registry_path.read_bytes()).hexdigest()
+    return {
+        "sequence_contract_envelope_path": envelope_path,
+        "sequence_contract_key_registry_path": registry_path,
+        "expected_commit": running_commit,
+        "expected_evidence_path": "evidence/sequence-contract.json",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "evidence_max_age_seconds": 3600,
+    }
+
 
 
 def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
@@ -70,8 +149,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
         transport_factory=ConflictTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
@@ -161,8 +239,7 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
         transport_factory=MetadataOverflowTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        **signed_gate_kwargs(tmp_path),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 

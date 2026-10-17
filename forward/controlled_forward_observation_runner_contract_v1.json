@@ -3,7 +3,12 @@
   "status": "ACTIVE_FAIL_CLOSED",
   "purpose": "Prevent live observation from starting while upstream trade.sequence semantics are unverified",
   "sequence_contract_verified_default": false,
-  "sequence_contract_evidence_ref_required": true,
+  "sequence_contract_envelope_required": true,
+  "sequence_contract_key_registry_required": true,
+  "expected_commit_required": true,
+  "expected_evidence_path_required": true,
+  "market_scope_required": true,
+  "signature_algorithm": "Ed25519",
   "block_reason": "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
   "block_before_network": true,
   "block_before_session_write": true,
@@ -11,5 +16,16 @@
   "historical_inputs_allowed": false,
   "future_outcomes_allowed": false,
   "collector_autostart": false,
-  "fail_closed": true
+  "fail_closed": true,
+  "sequence_contract_payload_schema_required": true,
+  "source_snapshot_digest_must_match_raw_payload": true,
+  "protocol_version_must_be_pinned": true,
+  "required_sequence_capabilities": {
+    "unique": true,
+    "ordered": true,
+    "contiguous": true,
+    "comparable_across_reconnect": false
+  },
+  "source_evidence_host": "docs.tabdeal.org",
+  "session_records_verified_capabilities": true
 }
