@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-17",
+  "venue": "Wallex",
+  "symbol": "BTCUSDT",
+  "endpoint": "wss://api.wallex.ir/ws",
+  "channel": "BTCUSDT@trade",
+  "official_documentation": "https://developers.wallex.ir/socket/trade",
+  "started_at": "2026-10-17T13:10:41.894182+00:00",
+  "connected_at": "2026-10-17T13:10:41.989896+00:00",
+  "finished_at": "2026-10-17T13:11:04.427836+00:00",
+  "timeout_seconds": 20,
+  "handshake": "CONNECTED",
+  "subscription_sent": "[\"subscribe\",{\"channel\":\"BTCUSDT@trade\"}]",
+  "frame_count": 7,
+  "unique_frame_hashes": 7,
+  "raw_capture_file_sha256": "7ca9c780c6fc829b25f925f5ec63389c0998062c397ea02cb237956f423b12c7",
+  "frames": [
+    {
+      "received_at": "2026-10-17T13:10:41.990823+00:00",
+      "frame_sha256": "9630d9997a4c942145af442daf3992527277e7f74287d70107286312feb022a4",
+      "raw": "{\"sid\":\"f54f0975-bec0-477d-a108-d3daa4d03042\",\"upgrades\":[],\"pingInterval\":20000,\"pingTimeout\":30000,\"maxPayload\":1048576}\n"
+    },
+    {
+      "received_at": "2026-10-17T13:10:43.755230+00:00",
+      "frame_sha256": "1ab6be8edc8d8e9d910c16afc7b5e4edf9bc9040e6be7b0bbc4f8a4106e5e3e4",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.91\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:10:43Z\"}]"
+    },
+    {
+      "received_at": "2026-10-17T13:10:47.894357+00:00",
+      "frame_sha256": "b65f0ae4ea4fc66b4a5eb0b591717e78cff06137e004ca9caa0a2fcd6e1e455b",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.91\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:10:47Z\"}]"
+    },
+    {
+      "received_at": "2026-10-17T13:10:52.318984+00:00",
+      "frame_sha256": "fe3c51d18a975fed93ba77f31bfca08b4e9b03ee31e6926c30968bf92b630985",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.91\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:10:52Z\"}]"
+    },
+    {
+      "received_at": "2026-10-17T13:10:56.612141+00:00",
+      "frame_sha256": "2874aa942d456debaf51169a996f5414d6919a87caf8b057bb394c5d984da8b5",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.91\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:10:56Z\"}]"
+    },
+    {
+      "received_at": "2026-10-17T13:11:00.405927+00:00",
+      "frame_sha256": "2953c5f5f043b8cfaf5559e325bd56dcb811b14c9e664c57b1ff5d80e590fc00",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.91\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:11:00Z\"}]"
+    },
+    {
+      "received_at": "2026-10-17T13:11:04.421588+00:00",
+      "frame_sha256": "ed7412943fedc9091ff896d6fdfce3a38fad0163fb5cd03d4fd38a30c3f7553c",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.91\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:11:04Z\"}]"
+    }
+  ],
+  "findings": [
+    "WSS handshake succeeded and trade-shaped messages were received after the documented subscription message.",
+    "The first server message was an Engine.IO/Socket.IO-style handshake payload; no distinct subscription acknowledgement was observed in this bounded capture.",
+    "Trade frames include side, price, quantity and timestamp, but no unique trade ID or sequence field.",
+    "Six trade frames had distinct frame hashes; equal price/quantity values with different event timestamps do not prove duplicate delivery.",
+    "This short sample does not establish ordering guarantees, replay, gap recovery, reconnect behavior, or national-intranet access.",
+    "No credentials or orders were used."
+  ]
+}
