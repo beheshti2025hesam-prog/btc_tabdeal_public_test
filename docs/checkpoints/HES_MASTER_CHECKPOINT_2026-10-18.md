@@ -64,3 +64,10 @@ Continuity rule: Memory = map; GitHub = technical truth; Chat = conversation not
 
 Latest code/test commit before this checkpoint: `7c39447dfd1e92317af058f23700815040021538`.
 No CI run or combined status was returned for recent commits from the connector. Do not report tests as passing.
+
+
+## Final state of this work session
+- Current verified PR head before this checkpoint update: `3598dfc9c244a51e4cc2e5432cd7b18b0fa7fe7e` (the latest preceding code/test head was `7c39447dfd1e92317af058f23700815040021538`).
+- The GitHub connector still returned zero PR-triggered runs and no combined statuses for the checked recent head `9523d7363b61484f3fe35452f0939990cb46a942`. This is an evidence/CI visibility blocker; do not mark the new tests passed.
+- Added/updated tests are present in the branch, but need execution on an exact commit via GitHub Actions or a trusted local checkout before acceptance.
+- Next highest-value step: resolve why exact-head Actions/status results are absent for the newest commits, then run the affected sequence/collector/ingestion tests and full required CI on the exact head. Do not merge or activate collection while unresolved.
