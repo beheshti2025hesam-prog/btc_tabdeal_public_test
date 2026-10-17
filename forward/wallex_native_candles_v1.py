@@ -4,6 +4,11 @@ This module calls the documented public /v1/udf/history endpoint. It does not
 place orders, use account credentials, synthesize candles from trades, or infer
 missing candles. Only candles whose full interval has ended by as_of are
 returned. Unknown/malformed source data fails closed.
+
+Live resolution probes currently support only 1-minute, 1-hour and daily bars.
+The endpoint has returned minute bars for resolution=15, hourly bars for
+resolution=720, and error statuses for 5/180/360. Do not label those responses
+as their requested intervals.
 """
 from __future__ import annotations
 
@@ -18,7 +23,9 @@ from urllib.request import Request, urlopen
 
 BASE_URL = "https://api.wallex.ir"
 ENDPOINT = "/v1/udf/history"
-RESOLUTION_SECONDS = {"1": 60, "5": 300, "15": 900, "60": 3600, "180": 10800, "360": 21600, "720": 43200, "D": 86400, "1D": 86400}
+# Only empirically verified buckets. Never accept documented-but-misbehaving
+# resolutions until the returned bar spacing is independently verified.
+RESOLUTION_SECONDS = {"1": 60, "60": 3600, "1D": 86400}
 
 
 class WallexCandleError(ValueError):
@@ -81,7 +88,6 @@ def parse_history(payload: Any, *, symbol: str, resolution: str,
         raise WallexCandleError("history response must be a JSON object")
     status = payload.get("s")
     if status != "ok":
-        # UDF uses statuses such as no_data; don't silently treat these as bars.
         raise WallexCandleError(f"source status is not ok: {status!r}")
     fields = ("t", "o", "h", "l", "c", "v")
     arrays = {field: payload.get(field) for field in fields}
@@ -98,9 +104,9 @@ def parse_history(payload: Any, *, symbol: str, resolution: str,
         if isinstance(raw_ts, bool) or not isinstance(raw_ts, int):
             raise WallexCandleError(f"t[{i}] must be an integer Unix timestamp")
         ts = raw_ts
-        # Wallex documents the daily resolution but does not specify its UTC
-        # session boundary; do not assume daily bars start at Unix midnight.
-        if resolution not in ("D", "1D") and ts % step != 0:
+        # Wallex's daily session boundary is not specified as UTC midnight.
+        # The daily bucket length is used conservatively; alignment is not assumed.
+        if resolution != "1D" and ts % step != 0:
             raise WallexCandleError(f"t[{i}] is not aligned to resolution {resolution}")
         if previous_timestamp is not None and ts < previous_timestamp:
             raise WallexCandleError("source candle timestamps are not monotonic")
@@ -150,8 +156,6 @@ def fetch_history(symbol: str, resolution: str, start: datetime, end: datetime,
     except (HTTPError, URLError, TimeoutError) as exc:
         raise WallexCandleError(f"history request failed: {type(exc).__name__}") from None
     try:
-        # Decode JSON fractional numbers directly as Decimal; converting through
-        # binary float can silently lose source precision before validation.
         payload = json.loads(raw, parse_float=Decimal)
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise WallexCandleError("history response is not valid JSON") from None
