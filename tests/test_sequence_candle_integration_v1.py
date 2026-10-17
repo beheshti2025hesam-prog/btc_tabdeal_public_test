@@ -65,3 +65,24 @@ def test_reconnect_requires_explicit_reset_before_new_continuity():
     second = s.ingest([rec(100)], as_of=ASOF)
     assert second.safe_for_decision is True
     assert second.events[0].status == "ACCEPTED"
+
+
+def test_out_of_order_record_blocks_all_candle_output_until_reconciliation():
+    s = SequenceAwareCandleIngestionV1()
+    result = s.ingest(
+        [
+            rec(10, "2026-10-07T06:30:00+00:00", "100"),
+            rec(12, "2026-10-07T06:35:00+00:00", "105"),
+            rec(11, "2026-10-07T06:40:00+00:00", "103"),
+        ],
+        as_of=ASOF,
+    )
+    assert result.safe_for_decision is False
+    assert result.candles == ()
+    assert result.gaps == ()
+    assert [event.status for event in result.events] == [
+        "ACCEPTED",
+        "ACCEPTED",
+        "ANOMALY",
+    ]
+    assert result.events[-1].reason == "OUT_OF_ORDER_SEQUENCE"
