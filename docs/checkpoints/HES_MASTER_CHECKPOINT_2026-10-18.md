@@ -121,3 +121,16 @@ This section is authoritative for resuming work after the preceding notes.
 
 ### Continuity and no-duplication rule
 Memory = project map; GitHub = technical truth; Chat = conversation notebook. Begin from this section, fetch the live PR head before acting, and do not redo the already completed REST schema research, strict sequence parsing, or 42-record archive reconciliation absent contradictory evidence.
+
+
+## Latest continuation update — capability helper added (2026-10-18)
+
+This entry supersedes the immediately preceding section's head/CI state.
+
+- Latest implementation commit before this checkpoint edit: `afc86b273bed4304b8175c14fb4c00ae3b2b5763`.
+- Added `forward/sequence_capabilities_v1.py`: it loads the checked-in registry and only enables a capability when the exact record says `DOCUMENTED`. Unknown/missing/malformed registry data fails closed. Public helpers gate gap detection, conflicting-identity rejection and cross-reconnect comparison.
+- Extended `tests/test_exchange_sequence_semantics_registry_v1.py` with tests that unknown Tabdeal `trade.sequence` cannot enable gap detection, conflict rejection, or cross-reconnect comparison; only the exact Binance Spot depth record enables its documented gap capability; missing/malformed records fail closed.
+- The registry regression test was already added to Forward Integration Verification v1's pytest command. No live adapter has yet been migrated to call these helpers; do not claim the registry is fully integrated into all production/observation paths.
+- Current exact-head check-run lookup for `afc86b273bed4304b8175c14fb4c00ae3b2b5763`: 26 checks have been created and are moving through GitHub's queue. At the latest poll, 2 had succeeded, 13 were in progress, 11 queued; no failure was visible. Forward Integration Verification v1 was still queued. This is **PENDING**, not a green exact-head result.
+- Next: wait for all required runs on the final checkpoint commit, inspect Forward Integration logs/test count and any failures, correct only evidenced defects, and rerun. If another code fix is needed, update this checkpoint again after that fix.
+- No code path has been authorized for live collection or trading. PR #308 stays open/draft. Status remains `HOLD / NO TRADE`.
