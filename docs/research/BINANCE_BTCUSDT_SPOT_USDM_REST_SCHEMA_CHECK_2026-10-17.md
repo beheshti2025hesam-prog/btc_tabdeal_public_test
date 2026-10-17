@@ -36,6 +36,25 @@ Read-only Binance connector calls returned the following fields for `BTCUSDT`.
 - USDⓈ-M recent trades: https://fapi.binance.com/fapi/v1/trades?symbol=BTCUSDT&limit=5
 - USDⓈ-M depth snapshot: https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=5
 
+
+## WebSocket verification plan (not yet executed)
+
+Official documentation entry points for the next review:
+
+- Spot WebSocket streams: https://developers.binance.com/docs/binance-spot-api-docs/web-socket-streams
+- USDⓈ-M Futures WebSocket market streams: https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams
+
+Capture requirements before enabling any adapter capability:
+
+1. Save unmodified raw frames with local receive time, connection/session identifier, endpoint, subscription request, and a SHA-256 digest per frame or capture file.
+2. For Spot diff-depth, record the event update range `U` to `u` and bridge the initial REST snapshot using the documented `lastUpdateId` procedure. If a range indicates a gap, discard the local book and resynchronize; never silently continue.
+3. For USDⓈ-M diff-depth, record `U`, `u`, and `pu`; verify continuity using the official procedure for that stream. A REST snapshot's `lastUpdateId` alone is not evidence of a complete WebSocket book.
+4. For trade streams, preserve the exact product-specific event schema and trade identifiers. Do not conflate Spot trade IDs, Futures trade IDs, aggregate-trade IDs, and depth update IDs.
+5. Force a controlled disconnect/reconnect and compare captured events only where the official protocol provides a documented recovery mechanism. Do not infer guaranteed replay or completeness merely because IDs look consecutive.
+6. Have a second reviewer independently reproduce the capture and validate the raw evidence hashes before marking this research gate complete.
+
+**Current gate:** OPEN — this plan is a test specification, not evidence that WebSocket capture, reconnect recovery, or independent review has passed.
+
 ## Next evidence gate
 
 Retrieve the official Spot and USDⓈ-M WebSocket documentation and capture raw messages for trade and diff-depth channels. Verify fields, timestamps, update ranges, and reconnect behavior separately. Until those checks are committed and tested, no WebSocket continuity guarantee should be added to the HES adapter registry.
