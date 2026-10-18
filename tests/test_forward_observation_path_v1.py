@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+import pytest
 from forward.forward_observation_path_v1 import ForwardObservationPathV1
 
 def frame(seq, when, price):
@@ -105,7 +106,6 @@ def test_malformed_sequence_cannot_reach_candles_features_or_journal(tmp_path, b
               frame(2, as_of-timedelta(minutes=25), 101)]
     frames[1]["sequence"] = bad_sequence
     path = ForwardObservationPathV1(tmp_path / "observations.jsonl")
-    import pytest
     with pytest.raises(ValueError, match="sequence"):
         path.observe(frames, as_of=as_of, forward_run_id="OBS-E2E-BAD-SEQ")
     assert not (tmp_path / "observations.jsonl").exists()
