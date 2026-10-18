@@ -17,6 +17,12 @@ PARAMS = {"symbol": "BTCUSDT", "resolution": "1", "from": 1792240000, "to": 1792
 RAW = b'{ "s" : "ok", "t" : [], "o" : [], "h" : [], "l" : [], "c" : [], "v" : [] }\n'
 
 
+def resign_envelope(envelope):
+    envelope.pop("evidence_envelope_sha256", None)
+    canonical = json.dumps(envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    envelope["evidence_envelope_sha256"] = hashlib.sha256(canonical).hexdigest()
+
+
 def persist(path, raw=RAW):
     return persist_raw_http_response_v1(
         path,
@@ -53,6 +59,7 @@ def test_body_tampering_is_detected(tmp_path):
     persist(path)
     envelope = json.loads(path.read_text())
     envelope["raw_body_base64"] = "ZGlmZmVyZW50"
+    resign_envelope(envelope)
     path.write_text(json.dumps(envelope))
     with pytest.raises(RawResponseEvidenceError, match="SHA-256 mismatch"):
         verify_raw_http_response_v1(path)
@@ -63,6 +70,7 @@ def test_invalid_base64_is_rejected(tmp_path):
     persist(path)
     envelope = json.loads(path.read_text())
     envelope["raw_body_base64"] = "not base64!"
+    resign_envelope(envelope)
     path.write_text(json.dumps(envelope))
     with pytest.raises(RawResponseEvidenceError, match="base64 is invalid"):
         verify_raw_http_response_v1(path)
@@ -97,6 +105,7 @@ def test_recorded_byte_count_tampering_is_rejected(tmp_path):
     persist(path)
     envelope = json.loads(path.read_text())
     envelope["raw_body_bytes"] += 1
+    resign_envelope(envelope)
     path.write_text(json.dumps(envelope))
     with pytest.raises(RawResponseEvidenceError, match="byte count mismatch"):
         verify_raw_http_response_v1(path)
