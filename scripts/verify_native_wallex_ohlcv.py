@@ -45,6 +45,8 @@ def main() -> int:
         "requested_from_utc": start.isoformat(),
         "requested_to_utc": now.isoformat(),
         "retrieved_at_utc": evidence.retrieved_at.isoformat(),
+        "http_date_header": evidence.server_date_header,
+        "estimated_server_clock_offset_seconds": evidence.server_clock_offset_seconds,
         "raw_response_sha256": evidence.raw_sha256,
         "raw_response_bytes": len(evidence.raw_response),
         "returned_candle_count": len(candles),
@@ -60,8 +62,12 @@ def main() -> int:
 
     if len(candles) < 3:
         raise RuntimeError("fewer than three candles returned in the 10-minute probe window")
-    if latest_closed is None or age_seconds is None or age_seconds > 300:
-        raise RuntimeError("latest closed candle is stale (SLA: <= 300 seconds)")
+    if latest_closed is None or age_seconds is None or age_seconds < -5 or age_seconds > 300:
+        raise RuntimeError("latest closed candle is stale or future-dated (allowed age: -5..300 seconds)")
+    if evidence.server_date_header is None or evidence.server_clock_offset_seconds is None:
+        raise RuntimeError("HTTP Date header missing; server clock offset cannot be measured")
+    if abs(evidence.server_clock_offset_seconds) > 5:
+        raise RuntimeError("HTTP Date clock offset exceeds the 5-second acceptance threshold")
     if gaps:
         raise RuntimeError("gap detected in native OHLCV probe window; see manifest")
     return 0
