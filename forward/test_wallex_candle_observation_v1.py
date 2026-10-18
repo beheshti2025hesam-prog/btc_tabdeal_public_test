@@ -76,7 +76,7 @@ def test_open_candle_is_rejected(tmp_path):
 def test_mixed_resolution_or_symbol_is_rejected(tmp_path):
     with pytest.raises(WallexObservationError, match="mixed venue"):
         WallexCandleObservationV1(tmp_path / "mixed.jsonl").observe(
-            [candle(), candle(1792232460, symbol="ETHUSDT")],
+            [candle(), candle(BASE_TS + 60, symbol="ETHUSDT")],
             as_of=AS_OF, run_id="mixed", max_age_seconds=600,
         )
 
@@ -112,18 +112,18 @@ def test_hash_valid_payload_mutation_is_detected(tmp_path):
     row["candles"][0]["close"] = "999"
     path.write_text(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
     with pytest.raises(WallexObservationError, match="payload/hash mismatch"):
-        observer.observe([candle(1792232460)], as_of=AS_OF, run_id="second", max_age_seconds=600)
+        observer.observe([candle(BASE_TS + 60)], as_of=AS_OF, run_id="second", max_age_seconds=600)
 
 
 def test_row_deletion_or_reordering_is_detected(tmp_path):
     path = tmp_path / "chain.jsonl"
     observer = WallexCandleObservationV1(path)
     observer.observe([candle()], as_of=AS_OF, run_id="one", max_age_seconds=600)
-    observer.observe([candle(1792232460)], as_of=AS_OF, run_id="two", max_age_seconds=600)
+    observer.observe([candle(BASE_TS + 60)], as_of=AS_OF, run_id="two", max_age_seconds=600)
     rows = path.read_text().splitlines()
     path.write_text(rows[1] + "\n")
     with pytest.raises(WallexObservationError, match="chain mismatch"):
-        observer.observe([candle(1792232520)], as_of=AS_OF, run_id="three", max_age_seconds=600)
+        observer.observe([candle(BASE_TS + 120)], as_of=AS_OF, run_id="three", max_age_seconds=600)
 
 
 def test_truncated_final_line_is_detected(tmp_path):
@@ -132,7 +132,7 @@ def test_truncated_final_line_is_detected(tmp_path):
     observer.observe([candle()], as_of=AS_OF, run_id="one", max_age_seconds=600)
     path.write_bytes(path.read_bytes().rstrip(b"\n"))
     with pytest.raises(WallexObservationError, match="incomplete final line"):
-        observer.observe([candle(1792232460)], as_of=AS_OF, run_id="two", max_age_seconds=600)
+        observer.observe([candle(BASE_TS + 60)], as_of=AS_OF, run_id="two", max_age_seconds=600)
 
 
 def test_bad_hash_chain_is_not_extended(tmp_path):
@@ -143,7 +143,7 @@ def test_bad_hash_chain_is_not_extended(tmp_path):
     row["previous_record_sha256"] = "f" * 64
     path.write_text(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
     with pytest.raises(WallexObservationError, match="chain mismatch"):
-        observer.observe([candle(1792232460)], as_of=AS_OF, run_id="two", max_age_seconds=600)
+        observer.observe([candle(BASE_TS + 60)], as_of=AS_OF, run_id="two", max_age_seconds=600)
 
 
 def test_legacy_feature_consumer_rejects_native_wallex_scope():
