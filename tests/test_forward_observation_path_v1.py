@@ -97,3 +97,15 @@ def test_out_of_order_raw_frames_block_entire_raw_to_feature_chain(tmp_path):
     assert result.snapshot_id is None
     assert result.candles == 0
     assert not (tmp_path / "observations.jsonl").exists()
+
+@pytest.mark.parametrize("bad_sequence", [True, 1.5, float("nan"), float("inf"), " 7", "7.0", "٧"])
+def test_malformed_sequence_cannot_reach_candles_features_or_journal(tmp_path, bad_sequence):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    frames = [frame(1, as_of-timedelta(minutes=30), 100),
+              frame(2, as_of-timedelta(minutes=25), 101)]
+    frames[1]["sequence"] = bad_sequence
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl")
+    import pytest
+    with pytest.raises(ValueError, match="sequence"):
+        path.observe(frames, as_of=as_of, forward_run_id="OBS-E2E-BAD-SEQ")
+    assert not (tmp_path / "observations.jsonl").exists()
