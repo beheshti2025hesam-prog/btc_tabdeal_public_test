@@ -1,0 +1,52 @@
+{
+  "captured_at": "2026-10-17T13:55:30.325833+00:00",
+  "interpretation": "Resolution spacing is measured empirically for each bounded range; no unsupported interval is enabled solely because the UI advertises it.",
+  "probes": [
+    {
+      "bar_count": 0,
+      "first_timestamp": null,
+      "http_status": 200,
+      "last_timestamp": null,
+      "proxy_used": false,
+      "range_seconds": 86400,
+      "raw_path": "/srv/hes-evidence/wallex/timeframe_30_20261017T135530Z.json",
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=30&from=1792158930&to=1792245330",
+      "resolution": "30",
+      "response_bytes": 44,
+      "source_status": "error",
+      "unique_deltas_seconds": []
+    },
+    {
+      "bar_count": 0,
+      "first_timestamp": null,
+      "http_status": 200,
+      "last_timestamp": null,
+      "proxy_used": false,
+      "range_seconds": 15552000,
+      "raw_path": "/srv/hes-evidence/wallex/timeframe_1W_20261017T135530Z.json",
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1W&from=1776693330&to=1792245330",
+      "resolution": "1W",
+      "response_bytes": 44,
+      "source_status": "error",
+      "unique_deltas_seconds": []
+    },
+    {
+      "bar_count": 0,
+      "first_timestamp": null,
+      "http_status": 200,
+      "last_timestamp": null,
+      "proxy_used": false,
+      "range_seconds": 31536000,
+      "raw_path": "/srv/hes-evidence/wallex/timeframe_1M_20261017T135530Z.json",
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1M&from=1760709330&to=1792245330",
+      "resolution": "1M",
+      "response_bytes": 44,
+      "source_status": "error",
+      "unique_deltas_seconds": []
+    }
+  ],
+  "symbol": "BTCUSDT"
+}

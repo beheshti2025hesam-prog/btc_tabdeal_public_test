@@ -1,0 +1,79 @@
+{
+  "api_wrapper_bundle": {
+    "bytes": 334706,
+    "contains_chart_transform": false,
+    "contains_getBars": false,
+    "contains_tradingview_style": false,
+    "contains_udf_history": true,
+    "http_status": 200,
+    "sha256": "8f141e723e44e25e5536ccf2eeec1125096e655b1229aad5ed2b43a219a06b7d",
+    "url": "https://wallex.ir/_next/static/chunks/04h_i7nro62s_.js"
+  },
+  "captured_at": "2026-10-17T13:56:32.718594+00:00",
+  "captures": [
+    {
+      "at": "2026-10-17T13:56:30.698157+00:00",
+      "closed_bars": 23,
+      "http_status": 200,
+      "raw_path": "evidence/raw/wallex_chart_feed_raw_60m_20261017T135632Z.json",
+      "raw_sha256": "3af8d2fe3a40a70426fe882df52c5469327a1bba685c09be66720d956600e9e8",
+      "response_bytes": 1632
+    },
+    {
+      "at": "2026-10-17T13:56:31.713368+00:00",
+      "closed_bars": 23,
+      "http_status": 200,
+      "raw_path": "evidence/raw/wallex_chart_feed_raw_60m_20261017T135632Z.json",
+      "raw_sha256": "3af8d2fe3a40a70426fe882df52c5469327a1bba685c09be66720d956600e9e8",
+      "response_bytes": 1632
+    }
+  ],
+  "chart_bundle": {
+    "bytes": 32099,
+    "contains_chart_transform": false,
+    "contains_getBars": true,
+    "contains_tradingview_style": true,
+    "contains_udf_history": false,
+    "http_status": 200,
+    "interpretation": "The official chart bundle defines a TradingView-compatible getBars datafeed; the separate API wrapper calls v1/udf/history. This proves the endpoint route and client-side field mapping, not a visual screenshot.",
+    "mapping_note": "getBars maps source timestamp to milliseconds and converts OHLCV through parseFloat; open/high/low are overwritten from source arrays when present.",
+    "ohlcv_mapping_to_chart_bars_found": true,
+    "sha256": "333bac8e5b79e4188dbd764fd4d498940517e0420ced6cacf3f62a90c0f87d82",
+    "url": "https://wallex.ir/_next/static/chunks/21v8tx2u_2l_g.js",
+    "visual_screenshot_captured": false
+  },
+  "chart_page": {
+    "http_status": 200,
+    "sha256": "d3a222d468b5f3f83ef9deb0c398405b8f445a569d61172cbe55988457353163",
+    "url": "https://wallex.ir/app/trade/BTCUSDT?trade-type=spot&trade-history=spot"
+  },
+  "collector_started": false,
+  "comparison": {
+    "common_closed_candles": 23,
+    "compared_fields_per_candle": [
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume"
+    ],
+    "field_mismatch_count": 0,
+    "identical_closed_candle_values": true,
+    "interpretation": "23 common closed 1-hour candles matched across two identical official datafeed endpoint responses. The official frontend bundle calls this endpoint and maps its OHLCV arrays into chart bars. This is datafeed parity/stability evidence, not an independent visual screenshot comparison.",
+    "mismatches": []
+  },
+  "credentials_used": false,
+  "datafeed_request": {
+    "proxy_used": false,
+    "resolution": "60",
+    "symbol": "BTCUSDT",
+    "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=60&from=1792158990&to=1792245390"
+  },
+  "limits": {
+    "independent_visual_chart_parity_verified": false,
+    "reason": "The official chart bundle confirms this datafeed path and mapping; the two captures validate closed-bar stability from that endpoint, not an independently rendered UI screenshot.",
+    "visual_screenshot_captured": false
+  },
+  "orders_or_account_mutations": false,
+  "scope": "official Wallex TradingView-compatible datafeed endpoint, not a separate exchange feed"
+}
