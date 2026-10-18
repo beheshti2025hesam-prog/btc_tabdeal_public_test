@@ -175,6 +175,21 @@ jobs:
           print("PASS: 42/42 manifest records reproduce on their pinned raw lineage; 0 cross-lineage exact matches")
           PY
 
+      - name: Independently reproduce raw endpoints and gross returns for all 42 records
+        run: |
+          set -euo pipefail
+          python scripts/verify_source_identity_reconciliation_v1.py > evidence/source_lineage_record_replay_v1.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path("evidence/source_lineage_record_replay_v1.json").read_text())
+          assert d["status"] == "PASS_INDEPENDENT_RAW_RECORD_REPRODUCTION"
+          assert d["record_count"] == 42
+          assert d["exact_reproductions"] == 42
+          assert sum(s["records_reproduced_exactly"] for s in d["sources"]) == 42
+          print("PASS: independent raw endpoint/price/gross-return replay verified all 42 records")
+          PY
+
       - name: Validate record-level identity artifact
         run: |
           python - <<'PY'
@@ -236,4 +251,5 @@ jobs:
           path: |
             evidence/source_identity_reconciliation_v1.json
             evidence/source_identity_reconciliation_v1.lock.json
+            evidence/source_lineage_record_replay_v1.json
           if-no-files-found: error
