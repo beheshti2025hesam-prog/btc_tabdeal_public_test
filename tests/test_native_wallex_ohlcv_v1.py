@@ -66,6 +66,8 @@ def test_fetch_uses_native_endpoint_and_preserves_raw_hash():
     assert evidence.raw_response == json.dumps(PAYLOAD).encode()
     assert evidence.raw_sha256 == sha256(evidence.raw_response).hexdigest()
     assert evidence.retrieved_at == NOW
+    assert evidence.server_date_header is None  # injected transport intentionally has no HTTP headers
+    assert evidence.server_clock_offset_seconds is None
     assert len(evidence.candles) == 2
 
 
