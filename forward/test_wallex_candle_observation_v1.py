@@ -6,6 +6,7 @@ import json
 import pytest
 
 from forward.wallex_native_candles_v1 import NativeCandle
+from forward.clean_structure_context_v1 import CleanStructureContextV1
 from forward.wallex_candle_observation_v1 import (
     WallexCandleObservationV1, WallexObservationError,
 )
@@ -142,3 +143,10 @@ def test_bad_hash_chain_is_not_extended(tmp_path):
     path.write_text(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
     with pytest.raises(WallexObservationError, match="chain mismatch"):
         observer.observe([candle(1792232460)], as_of=AS_OF, run_id="two", max_age_seconds=600)
+
+
+def test_legacy_feature_consumer_rejects_native_wallex_scope():
+    native = {"symbol": "BTCUSDT", "timeframe": "1m", "status": "CLOSED",
+              "open": "100", "high": "102", "low": "99", "close": "101"}
+    with pytest.raises(ValueError, match="unsupported scope"):
+        CleanStructureContextV1().observe([native, native])
