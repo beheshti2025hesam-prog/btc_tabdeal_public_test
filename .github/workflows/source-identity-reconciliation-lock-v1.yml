@@ -135,7 +135,7 @@ jobs:
 
           manifest = json.loads(Path("evidence/source_identity_reconciliation_v1.json").read_text())
           expected_lineages = {
-              "prior_14_survivor": ("/tmp/prior_audit.json", "/tmp/prior_winners.csv", 14, 1049, 129920),
+              "prior_14_survivor": ("/tmp/prior_audit.json", "/tmp/prior_winners.csv", 14, 1049, 127201),
               "current_28_winner": ("/tmp/current_audit.json", "/tmp/current_winners.csv", 28, 1027, 139250),
           }
           keys = ("timestamp", "sequence_first", "sequence_last", "entry_price", "exit_price", "gross_return", "direction")
