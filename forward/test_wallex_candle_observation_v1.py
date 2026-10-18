@@ -38,6 +38,8 @@ def test_valid_closed_candles_are_journaled_and_feature_bridge_stays_blocked(tmp
     assert len(record["candles"]) == 2
     assert record["downstream_features"]["status"] == "BLOCKED_CONTRACT_MISMATCH"
     assert record["downstream_features"]["synthetic_candles_created"] is False
+    assert record["source_provenance"]["raw_response_bytes_retained"] is False
+    assert record["source_provenance"]["raw_response_sha256"] is None
     assert len(record["record_sha256"]) == 64
     assert path.read_bytes().endswith(b"\n")
 
@@ -54,8 +56,8 @@ def test_missing_interval_is_explicit_and_blocks_promotion(tmp_path):
 
 def test_stale_latest_candle_blocks(tmp_path):
     record = WallexCandleObservationV1(tmp_path / "stale.jsonl").observe(
-        [candle(observed=AS_OF - timedelta(seconds=601))],
-        as_of=AS_OF, run_id="stale", max_age_seconds=600,
+        [candle(observed=AS_OF)],
+        as_of=AS_OF + timedelta(minutes=20), run_id="stale", max_age_seconds=600,
     )
     assert record["status"] == "BLOCKED"
     assert "stale" in record["reason"].lower()
