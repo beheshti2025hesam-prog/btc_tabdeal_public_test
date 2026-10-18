@@ -100,3 +100,13 @@ def test_recorded_byte_count_tampering_is_rejected(tmp_path):
     path.write_text(json.dumps(envelope))
     with pytest.raises(RawResponseEvidenceError, match="byte count mismatch"):
         verify_raw_http_response_v1(path)
+
+
+def test_request_metadata_tampering_is_detected(tmp_path):
+    path = tmp_path / "raw-response.json"
+    persist(path)
+    envelope = json.loads(path.read_text())
+    envelope["request_params"]["resolution"] = "15"
+    path.write_text(json.dumps(envelope))
+    with pytest.raises(RawResponseEvidenceError, match="envelope SHA-256 mismatch"):
+        verify_raw_http_response_v1(path)
