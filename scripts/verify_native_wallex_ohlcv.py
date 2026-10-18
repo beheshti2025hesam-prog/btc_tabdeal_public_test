@@ -45,6 +45,7 @@ def main() -> int:
         "requested_from_utc": start.isoformat(),
         "requested_to_utc": now.isoformat(),
         "retrieved_at_utc": evidence.retrieved_at.isoformat(),
+        "attempt_count": evidence.attempt_count,
         "http_date_header": evidence.server_date_header,
         "estimated_server_clock_offset_seconds": evidence.server_clock_offset_seconds,
         "raw_response_sha256": evidence.raw_sha256,
