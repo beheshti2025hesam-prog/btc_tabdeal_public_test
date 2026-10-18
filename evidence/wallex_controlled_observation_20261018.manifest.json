@@ -9,7 +9,6 @@
   "credentials_used": false,
   "endpoint": "wss://api.wallex.ir/ws",
   "interpretation": "Bounded read-only observation only. Prior-epoch frames are injected through the collector API after a newer epoch is current. This does not prove the exchange delivered delayed frames or establish trade completeness, sequence semantics, or volume units.",
-  "manifest_sha256": "a982b8a888513a88b303d893317d88f38f86a8ae967c040e5285730476f049c1",
   "orders_sent": false,
   "raw_jsonl_path": "wallex_controlled_observation_20261018.jsonl",
   "raw_jsonl_sha256": "c8b53ef835f6949f3ffc695b8e97b68cde2d18e509669fce93c3616f8e5104fc",
