@@ -41,6 +41,9 @@ jobs:
             tests/test_controlled_observation_run_v1.py \
             tests/test_forward_tabdeal_ingestion_v1.py \
             tests/test_tabdeal_readonly_adapter_v1.py \
+            tests/test_forward_observation_path_v1.py \
+            tests/test_clean_evidence_collection_v1.py \
+            tests/evaluation/test_final_promotion_gate.py \
             tests/test_tabdeal_transport_v1.py \
             tests/test_tabdeal_transport_contract_v1.py \
             tests/test_sequence_integrity_v1.py \

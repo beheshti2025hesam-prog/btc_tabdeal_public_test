@@ -80,3 +80,20 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     # Preserve the public context count even though only the adjacent pair is inspected.
     assert [x.candles for x in prefix_contexts] == list(range(2, len(candles)+1))
     assert [x.candles for x in pair_contexts] == [x.candles for x in prefix_contexts]
+
+
+def test_out_of_order_raw_frames_block_entire_raw_to_feature_chain(tmp_path):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    frames = [
+        frame(10, as_of-timedelta(minutes=30), 100),
+        frame(12, as_of-timedelta(minutes=25), 101),
+        frame(11, as_of-timedelta(minutes=20), 102),
+        frame(13, as_of-timedelta(minutes=15), 103),
+    ]
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl")
+    result = path.observe(frames, as_of=as_of, forward_run_id="OBS-E2E-OUT-OF-ORDER")
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
+    assert result.snapshot_id is None
+    assert result.candles == 0
+    assert not (tmp_path / "observations.jsonl").exists()
