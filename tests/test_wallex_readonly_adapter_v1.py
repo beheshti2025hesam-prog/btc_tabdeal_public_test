@@ -29,7 +29,9 @@ def test_normalizes_documented_wallex_trade_without_inventing_sequence():
     assert result["sequence"] is None
     assert result["sequence_semantics"] == "NOT_DOCUMENTED_BY_VENUE"
     assert result["source_updated"] == "2026-10-17T09:59:59+00:00"
-    assert len(result["raw_payload_sha256"]) == 64
+    assert len(result["canonical_event_sha256"]) == 64
+    assert result["identity"]["kind"] == "canonical_event_sha256"
+    assert "raw_frame_sha256" not in result
 
 
 def test_normalizes_configured_non_default_symbol():
@@ -67,8 +69,8 @@ def test_same_payload_has_stable_hash_and_different_payload_changes_hash():
     changed = valid()
     changed["price"] = "62001"
     three = normalize_trade("BTCUSDT@trade", changed, received_at=AS_OF)
-    assert one["raw_payload_sha256"] == two["raw_payload_sha256"]
-    assert one["raw_payload_sha256"] != three["raw_payload_sha256"]
+    assert one["canonical_event_sha256"] == two["canonical_event_sha256"]
+    assert one["canonical_event_sha256"] != three["canonical_event_sha256"]
 
 
 def test_collector_is_disabled_by_default(tmp_path):
@@ -246,3 +248,21 @@ def test_malformed_frame_and_wrong_channel_are_not_written(tmp_path):
     assert collector.records_written == 0
     assert collector.rejected >= 2
     assert collector.ignored >= 1
+
+
+def test_exact_received_frame_hash_is_distinct_from_canonical_event_hash(tmp_path):
+    payload = ["BTCUSDT@trade", valid()]
+    compact = json.dumps(payload, separators=(",", ":"))
+    spaced = json.dumps(payload, indent=2)
+    fake = FakeWebSocket([compact, spaced])
+    output = tmp_path / "events.jsonl"
+    collector = WallexReadOnlyCollectorV1(
+        output=str(output), enabled=True, max_runtime_seconds=0.02,
+        ws_factory=lambda: fake,
+    )
+    collector.run_once()
+    records = [json.loads(line) for line in output.read_text().splitlines()]
+    assert len(records) == 2
+    assert records[0]["canonical_event_sha256"] == records[1]["canonical_event_sha256"]
+    assert records[0]["raw_frame_sha256"] != records[1]["raw_frame_sha256"]
+    assert all(len(record["raw_frame_sha256"]) == 64 for record in records)
