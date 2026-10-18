@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import base64
 import hashlib
 import json
 
@@ -58,7 +59,7 @@ def test_body_tampering_is_detected(tmp_path):
     path = tmp_path / "raw-response.json"
     persist(path)
     envelope = json.loads(path.read_text())
-    envelope["raw_body_base64"] = "ZGlmZmVyZW50"
+    envelope["raw_body_base64"] = base64.b64encode(b"X" * len(RAW)).decode("ascii")
     resign_envelope(envelope)
     path.write_text(json.dumps(envelope))
     with pytest.raises(RawResponseEvidenceError, match="SHA-256 mismatch"):
