@@ -74,3 +74,11 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Live read-only evidence: `evidence/wallex_collector_live_epoch_integration_20261018.json` plus its SHA-256 sidecar. The tested source commit is recorded inside that manifest. Three live server sessions had distinct SIDs; four public depth frames were captured in the first two sessions; a prior-epoch frame injected after a newer epoch was active was rejected before dispatch.
 - This proves the opt-in transport code path under controlled delayed-frame injection, not that Wallex delivered a delayed network frame, not that the collector is wired into the operational runner, and not trade-feed completeness. The collector is not activated automatically.
 - External acceptance blockers remain: authoritative explanation of the factor-of-two UDF volume discrepancy, approved independent clock/freshness/gap policy, and production-runner integration/review. Maintain `HOLD / NO_TRADE_ONLY`.
+
+
+## Bounded observation runner — live exact-source probe
+
+- Added `forward/wallex_controlled_observation_runner_v1.py` for explicitly requested, bounded public-data observation. It refuses to overwrite evidence, caps each session at 300 seconds and the run at 2–5 sessions, records raw event frames, hashes both JSONL and manifest, and can inject a captured prior-session frame after reconnect.
+- Added deterministic tests for event capture, hash verification, stale-epoch rejection, safe duration/session bounds, and no-overwrite behavior.
+- Live read-only probe evidence is pinned in `evidence/wallex_controlled_observation_20261018.jsonl`, `evidence/wallex_controlled_observation_20261018.jsonl.sha256`, `evidence/wallex_controlled_observation_20261018.manifest.json`, and its SHA-256 sidecar. The capture used source commit `56df29535d638661d6e2ee0f1fa3e993a0a22168`, opened two distinct server sessions, captured 8 depth events, and rejected one captured prior-session frame injected after the second epoch became current. No credentials, orders, account mutations, or runtime activation.
+- This is a controlled observation entry point, not a replacement for a reviewed production integration. It cannot prove the exchange sent delayed frames and does not establish trade event completeness or sequence semantics.
