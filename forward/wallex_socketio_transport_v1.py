@@ -149,13 +149,15 @@ class WallexSocketIOTransportV1:
             with self._lock:
                 if not self._connected or epoch != self._epoch:
                     raise RuntimeError("Socket.IO session was superseded during handshake")
-            for channel in self.channels:
-                packet = "42" + json.dumps(
-                    ["subscribe", {"channel": f"{self.symbol}@{channel}"}],
-                    separators=(",", ":"),
-                )
-                sock.send(packet)
-            return session
+                # Serialize subscriptions with epoch changes so a concurrent
+                # reconnect cannot supersede this session midway through setup.
+                for channel in self.channels:
+                    packet = "42" + json.dumps(
+                        ["subscribe", {"channel": f"{self.symbol}@{channel}"}],
+                        separators=(",", ":"),
+                    )
+                    sock.send(packet)
+                return session
         except Exception:
             if sock is not None:
                 try:
@@ -229,7 +231,10 @@ class WallexSocketIOTransportV1:
             if raw == "2":
                 session.socket.send("3")
                 return None
-            if raw in {"3", "6"} or raw.startswith("40") or raw.startswith("41"):
+            if raw == "1" or raw.startswith("41"):
+                self._connected = False
+                return None
+            if raw in {"3", "6"} or raw.startswith("40"):
                 return None
             if not raw.startswith("42"):
                 return None
