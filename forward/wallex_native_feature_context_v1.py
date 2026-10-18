@@ -53,7 +53,8 @@ def _decimal(value: Any, field: str) -> Decimal:
 
 
 def build_wallex_feature_context_v1(
-    record: dict[str, Any], *, as_of: datetime, expected_symbol: str = "BTCUSDT"
+    record: dict[str, Any], *, as_of: datetime, expected_symbol: str = "BTCUSDT",
+    expected_max_age_seconds: int = 600,
 ) -> dict[str, Any]:
     """Validate a hash-locked observation and derive descriptive context only."""
     if not isinstance(as_of, datetime) or as_of.tzinfo is None or as_of.utcoffset() is None:
@@ -76,8 +77,10 @@ def build_wallex_feature_context_v1(
     if record.get("timeframe") != timeframe:
         raise WallexFeatureContextError("resolution/timeframe mismatch")
     max_age = record.get("max_age_seconds")
-    if type(max_age) is not int or max_age < 0:
-        raise WallexFeatureContextError("invalid freshness policy")
+    if type(expected_max_age_seconds) is not int or expected_max_age_seconds <= 0:
+        raise WallexFeatureContextError("expected freshness policy must be a positive integer")
+    if type(max_age) is not int or max_age != expected_max_age_seconds:
+        raise WallexFeatureContextError("record freshness policy does not match consumer policy")
     observed_at = _aware(record.get("observed_at"), "observed_at")
     if observed_at > as_of:
         raise WallexFeatureContextError("record is from the future")
@@ -121,8 +124,8 @@ def build_wallex_feature_context_v1(
             raise WallexFeatureContextError(f"candles[{index}] source timestamp mismatch")
         if close_time.timestamp() - open_time.timestamp() != step:
             raise WallexFeatureContextError(f"candles[{index}] interval length mismatch")
-        if close_time > as_of or source_observed < close_time or source_observed > as_of:
-            raise WallexFeatureContextError(f"candles[{index}] is not causally closed/observed")
+        if close_time > observed_at or source_observed < close_time or source_observed > observed_at:
+            raise WallexFeatureContextError(f"candles[{index}] is not causally closed/observed at record time")
         if (previous_open is not None and
                 (open_time <= previous_open or previous_close != open_time)):
             raise WallexFeatureContextError("candles are unordered or contain missing intervals")
@@ -148,6 +151,8 @@ def build_wallex_feature_context_v1(
 
     latest = parsed[-1]
     prior = parsed[-2]
+    if record.get("latest_candle_close_time") != latest["close_time"].isoformat():
+        raise WallexFeatureContextError("latest candle close metadata does not match candle set")
     if as_of.timestamp() - latest["close_time"].timestamp() > max_age:
         raise WallexFeatureContextError("latest candle is stale")
 
