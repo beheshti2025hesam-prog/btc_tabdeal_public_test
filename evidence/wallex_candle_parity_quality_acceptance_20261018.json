@@ -12,8 +12,20 @@
     "Session epoch test validates proposed guard behavior, not production collector implementation.",
     "No production runtime or execution path was changed."
   ],
-  "manifest_sha256_excluding_this_field": "9c051965fd18063107de5438170cb54825bfb3e9cfa87957ce608cbb35e1d3ee",
+  "manifest_sha256_excluding_this_field": "688dafa82617b578c8dabb296de5408739b8a8893d9e11a1e0153dca399daa79",
+  "observed_data_quality_anomalies": [
+    {
+      "all_ohlc_values_identical": true,
+      "all_volumes_zero": true,
+      "blocks_acceptance_until_reconciled": true,
+      "interpretation": "Potential stale/placeholder or genuinely inactive source data; this bounded observation cannot distinguish the cause. Must be reconciled against an independent rendered chart candle export/screenshot before accepting data quality.",
+      "observed_closed_candles": 7,
+      "resolution": "1",
+      "same_value_candle_stasis_flag": true
+    }
+  ],
   "orders_or_account_mutations": false,
+  "overall_data_quality_disposition": "BLOCKED_PENDING_INDEPENDENT_CHART_RECONCILIATION_AND_PRODUCTION_RECONNECT_ISOLATION",
   "quality_thresholds_proposal_not_approved": {
     "clock_skew": "Compare HTTP Date with local UTC wall clock; absolute offset >2s warning, >5s block pending independent NTP/monotonic-clock validation; HTTP Date has 1-second granularity and is not independent clock attestation",
     "freshness": "Closed candle age must be >=0; for 1m use <=120s, for 1h use <=7200s; stale/future blocks use",
