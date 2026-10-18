@@ -109,3 +109,46 @@ def test_malformed_sequence_cannot_reach_candles_features_or_journal(tmp_path, b
     with pytest.raises(ValueError, match="sequence"):
         path.observe(frames, as_of=as_of, forward_run_id="OBS-E2E-BAD-SEQ")
     assert not (tmp_path / "observations.jsonl").exists()
+
+
+
+def test_sequence_anomaly_is_vetoed_before_candle_and_feature_generation(tmp_path, monkeypatch):
+    """An anomaly must stop the raw-to-feature path, not merely be journaled as a warning."""
+    import forward.sequence_candle_integration_v1 as candle_pipeline
+    from forward.clean_structure_context_v1 import CleanStructureContextV1
+    from forward.clean_structure_stability_v1 import CleanStructureStabilityV1
+    from forward.clean_regime_observation_v1 import CleanRegimeObservationV1
+    from forward.clean_regime_quality_v1 import CleanRegimeQualityV1
+    from forward.clean_regime_quality_gate_v1 import CleanRegimeQualityGateV1
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("downstream processing ran after sequence anomaly")
+
+    monkeypatch.setattr(candle_pipeline, "ingest_closed_candles", forbidden)
+    monkeypatch.setattr(CleanStructureContextV1, "observe", forbidden)
+    monkeypatch.setattr(CleanStructureStabilityV1, "observe", forbidden)
+    monkeypatch.setattr(CleanRegimeObservationV1, "observe", forbidden)
+    monkeypatch.setattr(CleanRegimeQualityV1, "observe", forbidden)
+    monkeypatch.setattr(CleanRegimeQualityGateV1, "evaluate", forbidden)
+
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    frames = [
+        frame(10, as_of-timedelta(minutes=30), 100),
+        frame(12, as_of-timedelta(minutes=25), 101),
+        frame(11, as_of-timedelta(minutes=20), 102),
+        frame(13, as_of-timedelta(minutes=15), 103),
+    ]
+    journal_path = tmp_path / "observations.jsonl"
+    result = ForwardObservationPathV1(journal_path).observe(
+        frames, as_of=as_of, forward_run_id="OBS-E2E-VETO-BEFORE-FEATURES"
+    )
+
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
+    assert result.candles == 0
+    assert result.structure_bias is None
+    assert result.regime is None
+    assert result.quality is None
+    assert result.gate_safe is False
+    assert result.snapshot_id is None
+    assert not journal_path.exists()
