@@ -235,8 +235,10 @@ def test_rejects_invalid_retry_configuration():
         {"max_attempts": 0},
         {"max_attempts": True},
         {"max_attempts": 1.5},
+        {"max_attempts": 6},
         {"retry_backoff_seconds": -0.1},
         {"retry_backoff_seconds": True},
+        {"retry_backoff_seconds": 11.0},
     ):
         with pytest.raises(ValueError):
             fetch_native_ohlcv_evidence(
