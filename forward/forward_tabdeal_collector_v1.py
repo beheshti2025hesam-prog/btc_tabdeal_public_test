@@ -25,7 +25,16 @@ def _now() -> str:
 
 
 def _sequence(value: Any) -> int:
-    return int(value)
+    # Preserve source identity: never coerce bools or fractional values.
+    if type(value) is int:
+        sequence = value
+    elif isinstance(value, str) and value.isascii() and value.isdigit():
+        sequence = int(value)
+    else:
+        raise ValueError("invalid sequence")
+    if sequence < 0:
+        raise ValueError("invalid sequence")
+    return sequence
 
 
 def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -43,7 +52,9 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
     symbol = data.get("symbol") or data.get("s")
     price = data.get("price") or data.get("p")
     amount = data.get("amount") or data.get("q")
-    sequence = data.get("sequence") or data.get("seq")
+    sequence = data.get("sequence")
+    if sequence is None:
+        sequence = data.get("seq")
     side = data.get("side") or data.get("side_name") or data.get("S")
     source_updated = data.get("updated")
 
@@ -77,6 +88,25 @@ class ForwardTabdealCollectorV1:
             handle.flush()
             os.fsync(handle.fileno())
 
+    def _persist_sequence_observation(self, record: dict[str, Any]) -> str:
+        """Persist sequence anomalies with diagnostics instead of silently dropping them.
+
+        Downstream sequence-integrity validation must fail closed before
+        candle or feature creation when it encounters these records.
+        """
+        seq = record["sequence"]
+        persisted = dict(record)
+        if self.last_sequence is not None and seq <= self.last_sequence:
+            persisted["collector_sequence_status"] = "REPEATED_OR_NON_INCREASING_SEQUENCE"
+            persisted["collector_last_accepted_sequence"] = self.last_sequence
+            self._append(persisted)
+            return "REPEATED_OR_NON_INCREASING_SEQUENCE"
+
+        persisted["collector_sequence_status"] = "INCREASING_SEQUENCE"
+        self._append(persisted)
+        self.last_sequence = seq
+        return "INCREASING_SEQUENCE"
+
     def run(self, *, run_seconds: int = 0) -> None:
         if not self.enabled:
             raise RuntimeError("Forward Tabdeal collector is disabled by default.")
@@ -103,12 +133,7 @@ class ForwardTabdealCollectorV1:
                     if record is None:
                         continue
 
-                    seq = record["sequence"]
-                    if self.last_sequence is not None and seq <= self.last_sequence:
-                        continue
-
-                    self._append(record)
-                    self.last_sequence = seq
+                    self._persist_sequence_observation(record)
             except Exception:
                 # Fail closed for the current connection; reconnect without
                 # inventing observations or changing persisted records.
