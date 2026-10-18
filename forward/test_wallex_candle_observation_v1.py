@@ -47,7 +47,7 @@ def test_valid_closed_candles_are_journaled_and_feature_bridge_stays_blocked(tmp
 
 def test_missing_interval_is_explicit_and_blocks_promotion(tmp_path):
     record = WallexCandleObservationV1(tmp_path / "gaps.jsonl").observe(
-        [candle(), candle(1792232580)], as_of=AS_OF, run_id="gap", max_age_seconds=600,
+        [candle(), candle(1792232520)], as_of=AS_OF, run_id="gap", max_age_seconds=600,
     )
     assert record["status"] == "BLOCKED"
     assert record["reason"] == "MISSING_INTERVALS"
