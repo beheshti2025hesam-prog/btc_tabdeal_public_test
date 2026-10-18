@@ -155,10 +155,10 @@ def fetch_native_ohlcv_evidence(
     _validate_resolution(timeframe_minutes)
     if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or not math.isfinite(float(timeout_seconds)) or timeout_seconds <= 0:
         raise ValueError("timeout must be a finite positive number")
-    if isinstance(max_attempts, bool) or not isinstance(max_attempts, int) or max_attempts < 1:
-        raise ValueError("max_attempts must be a positive integer")
-    if isinstance(retry_backoff_seconds, bool) or not isinstance(retry_backoff_seconds, (int, float)) or not math.isfinite(float(retry_backoff_seconds)) or retry_backoff_seconds < 0:
-        raise ValueError("retry_backoff_seconds must be a finite non-negative number")
+    if isinstance(max_attempts, bool) or not isinstance(max_attempts, int) or not 1 <= max_attempts <= 5:
+        raise ValueError("max_attempts must be an integer from 1 to 5")
+    if isinstance(retry_backoff_seconds, bool) or not isinstance(retry_backoff_seconds, (int, float)) or not math.isfinite(float(retry_backoff_seconds)) or not 0 <= retry_backoff_seconds <= 10:
+        raise ValueError("retry_backoff_seconds must be finite and between 0 and 10 seconds")
     for label, value in (("start", start), ("end", end), ("as_of", as_of)):
         if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
             raise ValueError(f"{label} must be timezone-aware")
