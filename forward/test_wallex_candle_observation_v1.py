@@ -14,9 +14,10 @@ from forward.wallex_candle_observation_v1 import (
 UTC = timezone.utc
 AS_OF = datetime(2026, 10, 17, 13, 5, tzinfo=UTC)
 OBSERVED = datetime(2026, 10, 17, 13, 4, 59, tzinfo=UTC)
+BASE_TS = int(datetime(2026, 10, 17, 13, 0, tzinfo=UTC).timestamp())
 
 
-def candle(ts=1792232400, *, resolution="1", observed=OBSERVED, close=None, symbol="BTCUSDT"):
+def candle(ts=BASE_TS, *, resolution="1", observed=OBSERVED, close=None, symbol="BTCUSDT"):
     step = {"1": 60, "60": 3600, "1D": 86400}[resolution]
     opened = datetime.fromtimestamp(ts, UTC)
     return NativeCandle(
@@ -30,7 +31,7 @@ def candle(ts=1792232400, *, resolution="1", observed=OBSERVED, close=None, symb
 
 def test_valid_closed_candles_are_journaled_and_feature_bridge_stays_blocked(tmp_path):
     path = tmp_path / "wallex.jsonl"
-    items = [candle(), candle(1792232460)]
+    items = [candle(), candle(BASE_TS + 60)]
     record = WallexCandleObservationV1(path).observe(
         items, as_of=AS_OF, run_id="run-1", max_age_seconds=600,
     )
@@ -47,7 +48,7 @@ def test_valid_closed_candles_are_journaled_and_feature_bridge_stays_blocked(tmp
 
 def test_missing_interval_is_explicit_and_blocks_promotion(tmp_path):
     record = WallexCandleObservationV1(tmp_path / "gaps.jsonl").observe(
-        [candle(), candle(1792232520)], as_of=AS_OF, run_id="gap", max_age_seconds=600,
+        [candle(), candle(BASE_TS + 120)], as_of=AS_OF, run_id="gap", max_age_seconds=600,
     )
     assert record["status"] == "BLOCKED"
     assert record["reason"] == "MISSING_INTERVALS"
@@ -99,7 +100,7 @@ def test_identical_duplicate_is_collapsed(tmp_path):
 def test_non_monotonic_input_is_rejected(tmp_path):
     with pytest.raises(WallexObservationError, match="not monotonic"):
         WallexCandleObservationV1(tmp_path / "order.jsonl").observe(
-            [candle(1792232460), candle()], as_of=AS_OF, run_id="order", max_age_seconds=600,
+            [candle(BASE_TS + 60), candle()], as_of=AS_OF, run_id="order", max_age_seconds=600,
         )
 
 
