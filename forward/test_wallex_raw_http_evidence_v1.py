@@ -12,7 +12,7 @@ from forward.wallex_raw_http_evidence_v1 import (
 
 UTC = timezone.utc
 CAPTURED = datetime(2026, 10, 17, 13, 45, tzinfo=UTC)
-URL = "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1"
+URL = "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792240000&to=1792243600"
 PARAMS = {"symbol": "BTCUSDT", "resolution": "1", "from": 1792240000, "to": 1792243600}
 RAW = b'{ "s" : "ok", "t" : [], "o" : [], "h" : [], "l" : [], "c" : [], "v" : [] }\n'
 
