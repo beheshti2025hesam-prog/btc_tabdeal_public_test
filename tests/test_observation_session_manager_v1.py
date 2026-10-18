@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 import pytest
 from forward.observation_session_manager_v1 import ObservationSessionManagerV1
 
@@ -36,3 +37,37 @@ def test_session_log_is_append_only_across_repeated_runs(tmp_path):
     assert len(path.read_text().splitlines()) == 2
     with pytest.raises(ValueError,match="duplicate observation session"):
         m.write_once(a,path)
+
+
+def test_verified_sequence_contract_evidence_is_bound_to_immutable_session(tmp_path):
+    m = ObservationSessionManagerV1(policy_id="P", policy_version="1")
+    evidence = {
+        "status": "VERIFIED",
+        "expected_commit": "a" * 40,
+        "evidence_path": "evidence/sequence.json",
+        "raw_sha256": "b" * 64,
+        "source_url": "https://exchange.example/sequence",
+        "market_scope": "tabdeal:futures:BTC_USDT",
+        "retrieved_at": "2026-10-07T13:00:00+00:00",
+        "key_id": "synthetic-test-key",
+        "envelope_sha256": "c" * 64,
+        "key_registry_sha256": "d" * 64,
+    }
+    session = m.start(
+        started_at=datetime(2026, 10, 7, 6, 0, tzinfo=timezone.utc),
+        sequence_contract_evidence=evidence,
+    )
+    path = tmp_path / "sessions.jsonl"
+    m.write_once(session, path)
+    record = json.loads(path.read_text().strip())
+    assert record["sequence_contract_evidence"] == evidence
+    assert record["session_digest"] == session.digest()
+
+
+def test_session_rejects_unverified_sequence_contract_metadata():
+    m = ObservationSessionManagerV1(policy_id="P", policy_version="1")
+    with pytest.raises(ValueError, match="incomplete or unverified"):
+        m.start(
+            started_at=datetime(2026, 10, 7, 6, 0, tzinfo=timezone.utc),
+            sequence_contract_evidence={"status": "UNVERIFIED"},
+        )

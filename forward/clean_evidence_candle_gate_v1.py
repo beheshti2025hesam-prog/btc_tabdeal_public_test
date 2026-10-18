@@ -27,6 +27,15 @@ class CleanEvidenceCandleGateV1:
                 False, (), (), sequence_result.reason or "SEQUENCE_UNSAFE"
             )
 
+        # A structurally acceptable opaque sequence is not an ordering contract.
+        # Candle construction is order-sensitive, so do not let an unverified
+        # sequence reach the ingestion boundary until a trusted, scope-bound
+        # contract explicitly grants the required ordering capability.
+        if sequence_result.reason == "SEQUENCE_SEMANTICS_UNVERIFIED":
+            return CleanEvidenceCandleResult(
+                False, (), (), "SEQUENCE_SEMANTICS_UNVERIFIED"
+            )
+
         integration = SequenceAwareCandleIngestionV1()
         try:
             result = integration.ingest(records, as_of=as_of)
@@ -35,7 +44,7 @@ class CleanEvidenceCandleGateV1:
 
         if not result.safe_for_decision:
             return CleanEvidenceCandleResult(
-                False, tuple(result.candles), tuple(result.gaps), "SEQUENCE_UNSAFE"
+                False, (), (), "SEQUENCE_UNSAFE"
             )
         return CleanEvidenceCandleResult(
             True, tuple(result.candles), tuple(result.gaps), "CANDLE_SAFE"
