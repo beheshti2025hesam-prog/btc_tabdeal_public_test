@@ -203,7 +203,7 @@ def fetch_native_ohlcv_evidence(
         except (URLError, TimeoutError, ConnectionError):
             if attempt_count >= max_attempts:
                 raise
-        sleeper(float(retry_backoff_seconds) * (2 ** (attempt_count - 1)))
+        sleeper(min(float(retry_backoff_seconds) * (2 ** (attempt_count - 1)), 10.0))
     if not isinstance(raw, bytes):
         raise ValueError("transport must return raw response bytes")
     retrieved_at = (clock or (lambda: datetime.now(timezone.utc)))()
