@@ -119,3 +119,15 @@ def test_request_metadata_tampering_is_detected(tmp_path):
     path.write_text(json.dumps(envelope))
     with pytest.raises(RawResponseEvidenceError, match="envelope SHA-256 mismatch"):
         verify_raw_http_response_v1(path)
+
+
+def test_non_200_response_is_not_accepted_as_candle_evidence(tmp_path):
+    with pytest.raises(RawResponseEvidenceError, match="only HTTP 200"):
+        persist_raw_http_response_v1(
+            tmp_path / "bad.json",
+            request_url=URL,
+            request_params=PARAMS,
+            http_status=503,
+            received_at=CAPTURED,
+            raw_body=RAW,
+        )
