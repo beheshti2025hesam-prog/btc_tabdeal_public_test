@@ -85,3 +85,19 @@ def test_normalizer_rejects_non_integer_or_negative_sequence(sequence):
     )
     with pytest.raises(ValueError, match="sequence"):
         normalize_trades([trade], as_of=AS_OF, expected_symbol="BTC_USDT")
+
+
+@pytest.mark.parametrize("sequence", [True, False, -1, 1.0, "1"])
+def test_ingestion_rejects_invalid_raw_sequence_before_integer_coercion(sequence):
+    record = rec(seq=sequence)
+    with pytest.raises(ValueError, match="sequence"):
+        to_trade_observation(record, as_of=AS_OF)
+
+
+@pytest.mark.parametrize("field", ["price", "amount"])
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+def test_ingestion_rejects_non_finite_raw_market_values(field, value):
+    record = rec()
+    record[field] = value
+    with pytest.raises(ValueError, match=field):
+        to_trade_observation(record, as_of=AS_OF)
