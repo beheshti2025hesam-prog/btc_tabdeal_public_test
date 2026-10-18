@@ -14,7 +14,7 @@ Candle-based strategies consume official native exchange/broker OHLCV candles wh
 Official source: https://api-docs.wallex.ir/ (section “کندل‌ها / OHLC market statistics”).
 
 ## Implementation
-- `forward/native_wallex_ohlcv_v1.py`: read-only adapter; immutable candles; Decimal precision; UTC-aware times; closed/open status from candle close time; strict OHLCV shape, timestamp, alignment and numeric validation; documented resolution allowlist; bounded retries for temporary network failures and HTTP 408/429/5xx.
+- `forward/native_wallex_ohlcv_v1.py`: read-only adapter; immutable candles; Decimal precision; UTC-aware times; closed/open status from candle close time; strict OHLCV shape, timestamp, alignment and numeric validation; documented resolution allowlist; bounded retries for temporary network failures and HTTP 408, 429, 500, 502, 503, 504.
 - `NativeFetchEvidence` retains exact response bytes, retrieval time, request URL, SHA-256, and HTTP Date / estimated server clock offset when provided.
 - `tests/test_native_wallex_ohlcv_v1.py`: deterministic positive/adversarial tests, including bounded retry and failure-injection coverage.
 - `scripts/verify_native_wallex_ohlcv.py`: read-only CI probe for BTCUSDT/1m; captures raw bytes + SHA-256, request/retrieval metadata and retry attempt count; checks freshness (<= 300s), gaps, and HTTP Date clock offset (<= 5s).
