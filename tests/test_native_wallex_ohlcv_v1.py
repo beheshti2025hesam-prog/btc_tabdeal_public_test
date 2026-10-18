@@ -6,7 +6,7 @@ import pytest
 from forward.native_wallex_ohlcv_v1 import fetch_native_ohlcv, parse_history
 
 
-NOW = datetime(2026, 10, 18, 12, 2, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 18, 12, 20, tzinfo=timezone.utc)
 PAYLOAD = {
     "s": "ok",
     "t": [1792324800, 1792325700],
