@@ -44,5 +44,5 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 
 ## Still not authorized / not yet proven
 - Exact candle-by-candle parity against the rendered external TradingView chart is **not verified**; the frontend code observation alone is not proof of rendered chart parity.
-- Reconnect/retry behavior and production freshness/gap/clock-offset SLAs remain unapproved/unverified.
+- Reconnect/session-epoch isolation and production freshness/gap/clock-offset SLAs remain unapproved/unverified; bounded retry behavior is covered by tests.
 - No collector activation, deployment, or trading. Maintain `HOLD / NO_TRADE_ONLY`.
