@@ -141,10 +141,13 @@ class WallexRestWindowCollectorV1:
             for line in self.output.read_text(encoding="utf-8").splitlines():
                 try:
                     saved = json.loads(line)
-                    # Read legacy field names while writing the corrected, explicit name.
-                    self.seen_hashes.add(
-                        saved.get("canonical_trade_sha256", saved.get("raw_payload_sha256"))
-                    )
+                    if isinstance(saved, dict):
+                        # Read legacy field names while writing the corrected, explicit name.
+                        fingerprint = saved.get(
+                            "canonical_trade_sha256", saved.get("raw_payload_sha256")
+                        )
+                        if isinstance(fingerprint, str) and fingerprint:
+                            self.seen_hashes.add(fingerprint)
                 except (ValueError, KeyError, TypeError):
                     continue
         self.records_written = 0
