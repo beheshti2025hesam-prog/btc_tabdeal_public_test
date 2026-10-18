@@ -17,10 +17,10 @@ class SequenceEvent:
 class SequenceIntegrityV1:
     """Tracks monotonic source sequence identifiers without repairing or reordering data.
 
-Tabdeal sequence values are treated as ordered identifiers, not contiguous counters.
-Continuity is enforced by rejecting regressions and conflicting duplicates; a numeric
-jump is observable but is not, by itself, evidence of a missing market event.
-"""
+    Tabdeal sequence values are treated as ordered identifiers, not contiguous counters.
+    Continuity is enforced by rejecting regressions and conflicting duplicates; a numeric
+    jump is observable but is not, by itself, evidence of a missing market event.
+    """
 
     def __init__(self, *, max_records: int = 100_000) -> None:
         if max_records <= 0:
@@ -31,10 +31,14 @@ jump is observable but is not, by itself, evidence of a missing market event.
 
     @staticmethod
     def _seq(value: Any) -> int:
-        try:
+        # Match the collector's strict source-identity rules. In particular, bool is
+        # an int subclass in Python and int(1.9) silently truncates; neither is valid.
+        if type(value) is int:
+            seq = value
+        elif isinstance(value, str) and value.isascii() and value.isdigit():
             seq = int(value)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid sequence") from exc
+        else:
+            raise ValueError("invalid sequence")
         if seq < 0:
             raise ValueError("invalid sequence")
         return seq
