@@ -1,15 +1,15 @@
-"""Read-only native Wallex OHLCV adapter (Candle-First, no trade-sequence dependency).
+"""Read-only native Wallex OHLCV adapter; candle path has no trade-sequence dependency.
 
-Official endpoint documented by Wallex:
-GET https://api.wallex.ir/v1/udf/history
-Query: symbol, resolution (minutes), from/to (Unix seconds).
-Response arrays: s, t, o, h, l, c, v.
+Official endpoint: GET https://api.wallex.ir/v1/udf/history
+Documented minute resolutions supported here: 1, 60, 180, 360, 720.
+Wallex also documents 1D, but daily-boundary/chart parity is deliberately deferred.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from hashlib import sha256
 from typing import Any, Callable, Mapping
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -17,6 +17,7 @@ import json
 
 
 WALLEX_HISTORY_URL = "https://api.wallex.ir/v1/udf/history"
+SUPPORTED_MINUTE_RESOLUTIONS = frozenset({1, 60, 180, 360, 720})
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,15 @@ class NativeCandle:
     source: str = "wallex_native_udf_history"
 
 
+@dataclass(frozen=True)
+class NativeFetchEvidence:
+    request_url: str
+    retrieved_at: datetime
+    raw_response: bytes
+    raw_sha256: str
+    candles: tuple[NativeCandle, ...]
+
+
 def _decimal(value: Any, field: str) -> Decimal:
     if isinstance(value, bool) or value is None:
         raise ValueError(f"invalid {field}")
@@ -46,6 +56,13 @@ def _decimal(value: Any, field: str) -> Decimal:
     return result
 
 
+def _validate_resolution(timeframe_minutes: int) -> None:
+    if isinstance(timeframe_minutes, bool) or not isinstance(timeframe_minutes, int):
+        raise ValueError("timeframe_minutes must be an integer")
+    if timeframe_minutes not in SUPPORTED_MINUTE_RESOLUTIONS:
+        raise ValueError("unsupported resolution; use a documented minute resolution: 1, 60, 180, 360, 720")
+
+
 def parse_history(
     payload: Mapping[str, Any],
     *,
@@ -54,9 +71,12 @@ def parse_history(
     as_of: datetime,
 ) -> tuple[NativeCandle, ...]:
     """Parse native endpoint data without fabricating gaps or reordering rows."""
-    if not symbol or timeframe_minutes <= 0:
-        raise ValueError("symbol and positive timeframe_minutes are required")
-    if as_of.tzinfo is None or as_of.utcoffset() is None:
+    if not isinstance(payload, Mapping):
+        raise ValueError("Wallex response must be a JSON object")
+    if not isinstance(symbol, str) or not symbol or any(ch.isspace() for ch in symbol):
+        raise ValueError("symbol is required and must not contain whitespace")
+    _validate_resolution(timeframe_minutes)
+    if not isinstance(as_of, datetime) or as_of.tzinfo is None or as_of.utcoffset() is None:
         raise ValueError("as_of must be timezone-aware")
     if payload.get("s") != "ok":
         raise ValueError(f"Wallex history status is not ok: {payload.get('s')!r}")
@@ -74,14 +94,11 @@ def parse_history(
     previous_open: int | None = None
 
     for i, raw_ts in enumerate(columns["t"]):
-        if isinstance(raw_ts, bool):
-            raise ValueError("invalid candle timestamp")
-        try:
-            timestamp = int(raw_ts)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid candle timestamp") from exc
-        if timestamp <= 0 or timestamp != raw_ts:
-            raise ValueError("invalid candle timestamp")
+        # UDF history defines t as Unix timestamps. Accept only integral JSON values;
+        # don't silently coerce booleans, floats, or strings into timestamps.
+        if isinstance(raw_ts, bool) or not isinstance(raw_ts, int) or raw_ts <= 0:
+            raise ValueError("candle timestamp must be a positive integer Unix timestamp")
+        timestamp = raw_ts
         if timestamp % duration_seconds != 0:
             raise ValueError("candle timestamp is not timeframe-aligned")
         if previous_open is not None and timestamp <= previous_open:
@@ -111,7 +128,7 @@ def parse_history(
     return tuple(result)
 
 
-def fetch_native_ohlcv(
+def fetch_native_ohlcv_evidence(
     *,
     symbol: str,
     timeframe_minutes: int,
@@ -120,14 +137,16 @@ def fetch_native_ohlcv(
     as_of: datetime,
     timeout_seconds: float = 10.0,
     transport: Callable[[str, float], bytes] | None = None,
-) -> tuple[NativeCandle, ...]:
-    """Fetch public native candles. Read-only; injectable transport supports tests."""
-    if not symbol or any(ch.isspace() for ch in symbol):
+    clock: Callable[[], datetime] | None = None,
+) -> NativeFetchEvidence:
+    """Fetch read-only history and retain exact response bytes plus SHA-256 evidence."""
+    if not isinstance(symbol, str) or not symbol or any(ch.isspace() for ch in symbol):
         raise ValueError("invalid symbol")
-    if timeframe_minutes <= 0 or timeout_seconds <= 0:
-        raise ValueError("timeframe and timeout must be positive")
+    _validate_resolution(timeframe_minutes)
+    if isinstance(timeout_seconds, bool) or timeout_seconds <= 0:
+        raise ValueError("timeout must be positive")
     for label, value in (("start", start), ("end", end), ("as_of", as_of)):
-        if value.tzinfo is None or value.utcoffset() is None:
+        if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
             raise ValueError(f"{label} must be timezone-aware")
     start_ts = int(start.astimezone(timezone.utc).timestamp())
     end_ts = int(end.astimezone(timezone.utc).timestamp())
@@ -142,14 +161,51 @@ def fetch_native_ohlcv(
     url = f"{WALLEX_HISTORY_URL}?{query}"
 
     def default_transport(request_url: str, timeout: float) -> bytes:
-        request = Request(request_url, headers={"Accept": "application/json", "User-Agent": "HES-Trade-Agent-readonly/1"})
+        request = Request(
+            request_url,
+            headers={"Accept": "application/json", "User-Agent": "HES-Trade-Agent-readonly/1"},
+        )
         with urlopen(request, timeout=timeout) as response:
             if response.status != 200:
                 raise RuntimeError(f"Wallex history HTTP status {response.status}")
             return response.read()
 
     raw = (transport or default_transport)(url, timeout_seconds)
+    if not isinstance(raw, bytes):
+        raise ValueError("transport must return raw response bytes")
+    retrieved_at = (clock or (lambda: datetime.now(timezone.utc)))()
+    if not isinstance(retrieved_at, datetime) or retrieved_at.tzinfo is None or retrieved_at.utcoffset() is None:
+        raise ValueError("retrieval clock must return a timezone-aware datetime")
     payload = json.loads(raw.decode("utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("Wallex response must be a JSON object")
-    return parse_history(payload, symbol=symbol, timeframe_minutes=timeframe_minutes, as_of=as_of)
+    candles = parse_history(payload, symbol=symbol, timeframe_minutes=timeframe_minutes, as_of=as_of)
+    return NativeFetchEvidence(
+        request_url=url,
+        retrieved_at=retrieved_at.astimezone(timezone.utc),
+        raw_response=raw,
+        raw_sha256=sha256(raw).hexdigest(),
+        candles=candles,
+    )
+
+
+def fetch_native_ohlcv(
+    *,
+    symbol: str,
+    timeframe_minutes: int,
+    start: datetime,
+    end: datetime,
+    as_of: datetime,
+    timeout_seconds: float = 10.0,
+    transport: Callable[[str, float], bytes] | None = None,
+) -> tuple[NativeCandle, ...]:
+    """Compatibility wrapper returning only parsed candles."""
+    return fetch_native_ohlcv_evidence(
+        symbol=symbol,
+        timeframe_minutes=timeframe_minutes,
+        start=start,
+        end=end,
+        as_of=as_of,
+        timeout_seconds=timeout_seconds,
+        transport=transport,
+    ).candles
