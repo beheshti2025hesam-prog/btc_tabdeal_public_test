@@ -90,6 +90,35 @@ def test_invalid_sequence_fails_closed():
             raise AssertionError(f"invalid sequence was accepted: {value!r}")
 
 
+def test_invalid_sequence_wire_types_reject_without_state_mutation():
+    invalid_values = [
+        True, False, 1.0, 1.5, float("nan"), float("inf"), -1,
+        " 1", "1 ", "1.0", "٧", "", None, [],
+    ]
+    for value in invalid_values:
+        s = SequenceIntegrityV1()
+        try:
+            s.observe(rec(value))
+        except ValueError as exc:
+            assert str(exc) == "invalid sequence"
+        else:
+            raise AssertionError(f"invalid sequence was accepted: {value!r}")
+        assert s.last_sequence is None
+        assert s._records == {}
+        assert s._opaque_payload_hashes == set()
+        assert s._opaque_record_count == 0
+
+
+def test_only_nonnegative_int_and_ascii_digit_strings_are_valid():
+    for value, expected in [(0, 0), (1, 1), (123, 123), ("0", 0), ("1", 1), ("123", 123)]:
+        s = SequenceIntegrityV1()
+        event = s.observe(rec(value))
+        assert event.status == "ACCEPTED"
+        assert event.sequence == expected
+        assert event.reason == "SEQUENCE_SEMANTICS_UNKNOWN"
+        assert s._opaque_record_count == 1
+
+
 def test_unique_sequence_state_bound_fails_closed_without_growth():
     s = SequenceIntegrityV1(max_records=2)
     assert s.observe(rec(10)).status == "ACCEPTED"
