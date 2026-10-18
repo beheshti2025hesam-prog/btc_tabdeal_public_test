@@ -102,6 +102,10 @@ def parse_history(payload: Any, *, symbol: str, resolution: str,
     lengths = {len(value) for value in arrays.values()}
     if len(lengths) != 1:
         raise WallexCandleError("history arrays have unequal lengths")
+    if not arrays["t"]:
+        # An empty success response is ambiguous: do not silently treat it as
+        # a verified no-data interval. The caller must handle it explicitly.
+        raise WallexCandleError("history response is empty despite status ok")
     step = RESOLUTION_SECONDS[resolution]
     candles: list[NativeCandle] = []
     previous_timestamp: int | None = None
@@ -177,5 +181,14 @@ def fetch_history(symbol: str, resolution: str, start: datetime, end: datetime,
         payload = json.loads(raw, parse_float=Decimal)
     except (json.JSONDecodeError, UnicodeDecodeError):
         raise WallexCandleError("history response is not valid JSON") from None
+    # Validate the complete raw timestamp set, including open candles that the
+    # parser will later omit. Otherwise an out-of-range open candle could evade
+    # the replay/request-boundary check merely because it is not yet closed.
+    if isinstance(payload, dict) and payload.get("s") == "ok":
+        source_times = payload.get("t")
+        if isinstance(source_times, list):
+            for ts in source_times:
+                if type(ts) is int and (ts < request_params["from"] or ts > request_params["to"]):
+                    raise WallexCandleError("source candle timestamp outside requested range")
     return parse_history(payload, symbol=symbol, resolution=resolution,
                          as_of=as_of or received_at, observed_at=received_at)
