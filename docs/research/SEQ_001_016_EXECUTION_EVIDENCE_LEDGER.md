@@ -2,7 +2,7 @@
 
 - Reviewed source contract: `HES_Trade_Agent__Exchange_Sequence_Semantics_and_C.md`, scenario definitions SEQ-001..SEQ-016 (lines 210-225 in the supplied research file).
 - Repository research note: [EXCHANGE_SEQUENCE_SEMANTICS_CROSS_VENUE_NOTE_2026-10-15.md](./EXCHANGE_SEQUENCE_SEMANTICS_CROSS_VENUE_NOTE_2026-10-15.md).
-- Audited source commit: `58fba6549dfa135da23be83ed5accb24b8d6e44d`.
+- Audited source commit: `5af1473c58f7518e5e295da7c6a83ba6d36be85b`.
 - Safety status: **HOLD / NO-TRADE**.
 - Interpretation rule: a related test is not a pass unless its assertions cover the scenario's exact expected outcome. CI workflow success is not, by itself, proof that every scenario below was executed.
 
@@ -17,6 +17,18 @@ The following PR workflow runs were returned for the exact audited commit and th
 - [Local Durable Collector Safety v1 #653](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39132215222)
 
 These establish workflow/job success on the audited commit; they do not establish that each of the 16 scenario-specific tests was run. The CI run listing also contained multiple unrelated successful workflows.
+
+## Latest exact-SHA workflow evidence (source commit `5af1473c58f7518e5e295da7c6a83ba6d36be85b`)
+
+The following workflow jobs were independently fetched and their test steps reported `success`:
+- [Forward Integration Verification v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39132368035): checkout exact revision, run forward integration and safety tests.
+- [HES Trade Agent Identity Integrity](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39132368053): checkout and assert exact source revision.
+- [Signed Source Evidence Contract v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39132368032): run combined hostile source-signature tests.
+- [Local Durable Collector Safety v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39132368133): run local-durable and collector checkpoint safety tests.
+- [Controlled Forward Observation Runner v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39132368149): run runner boundary tests.
+- [Clean Forward Evidence Verification v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39132368160): run clean evidence boundary tests.
+
+This is workflow-step evidence on the exact source commit. It still does not identify the individual `SEQ-001..SEQ-016` test IDs as having run; keep scenario-level execution status as shown below.
 
 ## Scenario ledger
 
