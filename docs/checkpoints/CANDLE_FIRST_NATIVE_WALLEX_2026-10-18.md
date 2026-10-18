@@ -26,7 +26,7 @@ Official source: https://api-docs.wallex.ir/ (section “کندل‌ها / OHLC 
 3. Supported symbol/resolution are confirmed against the current official API; only documented minute resolutions are enabled here.
 4. Candle gaps, freshness and server clock offset are measured and policy thresholds approved.
 5. Sample candles are compared against the official Wallex chart for the same symbol, interval and UTC timestamps; exact equality/tolerance is documented.
-6. Reconnect/retry behavior is covered before any collector uses this adapter.
+6. Bounded retry behavior is tested; reconnect/session-epoch isolation remains unverified before any collector uses this adapter.
 7. Security and repository identity gates pass.
 
 ## Safety
