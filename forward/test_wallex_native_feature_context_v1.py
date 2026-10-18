@@ -165,6 +165,22 @@ def test_historical_window_bars_are_not_mistaken_for_stale_latest_data(tmp_path)
     items = [candle(BASE_TS + i * 60, close=str(100 + i), observed=observed)
              for i in range(20)]
     record = observation(tmp_path, items, as_of=as_of, max_age=60)
-    context = build_wallex_feature_context_v1(record, as_of=as_of)
+    context = build_wallex_feature_context_v1(record, as_of=as_of, expected_max_age_seconds=60)
     assert context["input_candle_count"] == 20
     assert context["status"] == "FEATURE_CONTEXT_OBSERVED_RESEARCH_ONLY"
+
+
+def test_forged_latest_close_metadata_is_rejected(tmp_path):
+    record = observation(tmp_path)
+    record["latest_candle_close_time"] = (AS_OF + timedelta(minutes=1)).isoformat()
+    resign_record(record)
+    with pytest.raises(WallexFeatureContextError, match="metadata does not match"):
+        build_wallex_feature_context_v1(record, as_of=AS_OF)
+
+
+def test_forged_freshness_policy_is_rejected(tmp_path):
+    record = observation(tmp_path)
+    record["max_age_seconds"] = 86400
+    resign_record(record)
+    with pytest.raises(WallexFeatureContextError, match="does not match consumer policy"):
+        build_wallex_feature_context_v1(record, as_of=AS_OF)
