@@ -66,7 +66,7 @@ def test_valid_record_yields_descriptive_context_only(tmp_path):
 
 def test_record_hash_tampering_fails_closed(tmp_path):
     record = observation(tmp_path)
-    record["symbol"] = "ETHUSDT"
+    record["run_id"] = "tampered-run-id"
     with pytest.raises(WallexFeatureContextError, match="record hash mismatch"):
         build_wallex_feature_context_v1(record, as_of=AS_OF)
 
