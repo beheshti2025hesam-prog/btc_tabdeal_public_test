@@ -140,8 +140,6 @@ def build_wallex_feature_context_v1(
         if not isinstance(fingerprint, str) or _sha256(_canonical(candle_body).encode("utf-8")) != fingerprint:
             raise WallexFeatureContextError(f"candles[{index}] canonical hash mismatch")
 
-        if as_of.timestamp() - close_time.timestamp() > max_age:
-            raise WallexFeatureContextError("latest or included candle is stale")
         if as_of.timestamp() - source_observed.timestamp() > max_age:
             raise WallexFeatureContextError("source observation is stale")
 
