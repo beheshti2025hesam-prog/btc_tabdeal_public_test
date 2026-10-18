@@ -140,6 +140,8 @@ class WallexCandleObservationV1:
                 raise WallexObservationError("candle interval does not match verified resolution")
             if close_time > as_of:
                 raise WallexObservationError("open or future candle is forbidden")
+            if observed_at < close_time:
+                raise WallexObservationError("source observation predates candle close")
             if observed_at > as_of:
                 raise WallexObservationError("source observation time is in the future")
             if as_of.timestamp() - observed_at.timestamp() > max_age_seconds:
@@ -201,6 +203,12 @@ class WallexCandleObservationV1:
             "reason": "OK" if not reasons else "+".join(reasons),
             "max_age_seconds": max_age_seconds,
             "latest_candle_close_time": latest_close.isoformat(),
+            "source_provenance": {
+                "timestamps_and_canonical_candle_hashes": "RECORDED",
+                "raw_response_bytes_retained": False,
+                "raw_response_sha256": None,
+                "raw_response_capture_required_before_replay_claim": True,
+            },
             "candles": [payload for _, payload in normalized],
             "gaps": gaps,
             "downstream_features": {
