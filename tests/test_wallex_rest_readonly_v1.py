@@ -30,6 +30,8 @@ def test_normalizes_rest_trade_without_fabricating_sequence():
     assert record["sequence_semantics"] == "NOT_DOCUMENTED_BY_VENUE"
     assert record["coverage"] == "LATEST_WINDOW_ONLY"
     assert record["side"] == "BUY"
+    assert record["identity"]["kind"] == "canonical_trade_sha256"
+    assert len(record["canonical_trade_sha256"]) == 64
 
 
 def test_rejects_bad_timestamp_and_numeric_fields():
