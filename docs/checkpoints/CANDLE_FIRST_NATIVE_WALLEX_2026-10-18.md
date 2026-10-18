@@ -82,3 +82,10 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Added deterministic tests for event capture, hash verification, stale-epoch rejection, safe duration/session bounds, and no-overwrite behavior.
 - Live read-only probe evidence is pinned in `evidence/wallex_controlled_observation_20261018.jsonl`, `evidence/wallex_controlled_observation_20261018.jsonl.sha256`, `evidence/wallex_controlled_observation_20261018.manifest.json`, and its SHA-256 sidecar. The capture used source commit `56df29535d638661d6e2ee0f1fa3e993a0a22168`, opened two distinct server sessions, captured 8 depth events, and rejected one captured prior-session frame injected after the second epoch became current. No credentials, orders, account mutations, or runtime activation.
 - This is a controlled observation entry point, not a replacement for a reviewed production integration. It cannot prove the exchange sent delayed frames and does not establish trade event completeness or sequence semantics.
+
+
+## Independent clock source snapshot
+
+- `evidence/wallex_quality_clock_sync_20261018.json` records the observation host's `systemd-timesyncd` status at capture time, with SHA-256 sidecar. The host reported NTP active, system clock synchronized, stratum 2, and NTP offset `-5.659 ms` (root distance `22.216 ms`).
+- This is independent time-source evidence and is stronger than treating the exchange HTTP `Date` header as an independent clock. It is only a point-in-time check of the observation host; it does not attest every runtime host and does not approve the proposed freshness/gap/clock SLA.
+- Proposed policy remains proposal-only until project-owner acceptance and a production monitor is wired and tested. Do not promote volume-dependent features or enable trading based on this snapshot.
