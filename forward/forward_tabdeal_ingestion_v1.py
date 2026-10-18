@@ -42,13 +42,27 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
         raise ValueError("future source observation")
     if record["symbol"] != "BTC_USDT":
         raise ValueError("unsupported symbol")
+    sequence = record["sequence"]
+    if type(sequence) is not int or sequence < 0:
+        raise ValueError("sequence must be a non-negative integer")
+    try:
+        price = Decimal(str(record["price"]))
+        amount = Decimal(str(record["amount"]))
+    except Exception as exc:
+        raise ValueError("price and amount must be valid decimals") from exc
+    if not price.is_finite():
+        raise ValueError("price must be finite")
+    if not amount.is_finite():
+        raise ValueError("amount must be finite")
+    if price <= 0 or amount < 0:
+        raise ValueError("price must be > 0 and amount must be >= 0")
     return TradeObservation(
         symbol=record["symbol"],
-        price=Decimal(str(record["price"])),
-        amount=Decimal(str(record["amount"])),
+        price=price,
+        amount=amount,
         side=str(record["side"]),
         updated=updated,
-        sequence=int(record["sequence"]),
+        sequence=sequence,
     )
 
 

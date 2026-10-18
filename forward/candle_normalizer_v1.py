@@ -70,7 +70,7 @@ def normalize_trades(
     as_of is mandatory so an open 15m bucket can never be emitted as closed.
     expected_symbol prevents accidental multi-symbol aggregation.
     """
-    if as_of.tzinfo is None:
+    if as_of.tzinfo is None or as_of.utcoffset() is None:
         raise ValueError("as_of must be timezone-aware")
     as_of = as_of.astimezone(timezone.utc)
 
@@ -83,8 +83,14 @@ def normalize_trades(
         updated = trade.updated.astimezone(timezone.utc)
         if updated > as_of:
             raise ValueError("observation occurs after as_of")
+        if not isinstance(trade.price, Decimal) or not trade.price.is_finite():
+            raise ValueError("price must be a finite Decimal")
+        if not isinstance(trade.amount, Decimal) or not trade.amount.is_finite():
+            raise ValueError("amount must be a finite Decimal")
         if trade.price <= 0 or trade.amount < 0:
             raise ValueError("price must be > 0 and amount must be >= 0")
+        if type(trade.sequence) is not int or trade.sequence < 0:
+            raise ValueError("sequence must be a non-negative integer")
 
         if symbol is None:
             symbol = trade.symbol
