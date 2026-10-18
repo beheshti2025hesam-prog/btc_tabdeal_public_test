@@ -27,9 +27,9 @@ def _is_timeout(exc: Exception) -> bool:
 
 def _write_hash(path: Path) -> str:
     digest = sha256(path.read_bytes()).hexdigest()
-    path.with_name(path.name + ".sha256").write_text(
-        f"{digest}  {path.name}\n", encoding="utf-8"
-    )
+    sidecar = path.with_name(path.name + ".sha256")
+    with sidecar.open("x", encoding="utf-8") as handle:
+        handle.write(f"{digest}  {path.name}\n")
     return digest
 
 
@@ -52,8 +52,12 @@ def run_bounded_observation(
         raise ValueError("session_count must be between 2 and 5")
     out = Path(output_jsonl)
     out.parent.mkdir(parents=True, exist_ok=True)
-    if out.exists():
-        raise FileExistsError(f"refusing to overwrite evidence: {out}")
+    manifest_path = out.with_name(out.stem + ".manifest.json")
+    targets = (out, out.with_name(out.name + ".sha256"), manifest_path,
+               manifest_path.with_name(manifest_path.name + ".sha256"))
+    existing = [str(path) for path in targets if path.exists()]
+    if existing:
+        raise FileExistsError("refusing to overwrite evidence: " + ", ".join(existing))
     events: list[WallexMarketEvent] = []
     collector = WallexMarketDataCollector(
         symbol,
@@ -174,8 +178,8 @@ def run_bounded_observation(
             "completeness, sequence semantics, or volume units."
         ),
     }
-    manifest_path = out.with_name(out.stem + ".manifest.json")
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with manifest_path.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     manifest_digest = _write_hash(manifest_path)
     manifest["manifest_sha256"] = manifest_digest
     return manifest
