@@ -105,3 +105,12 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Added `docs/registry/wallex_spot_market_data_2026-10-18.yaml` as revision `2026-10-18.1`, keeping sequence/identity/order/contiguity/reconnect claims explicitly unknown unless the official contract supports them.
 - The record binds claims to exact venue/product/transport/channel/message type; it disables trade-ID deduplication and numeric gap detection, treats depth as observed data until snapshot/delta semantics are proven, and leaves UDF candle volume units unknown with no normalization.
 - This registry entry is conservative and research/evidence driven; the documented Socket.IO live endpoint remains unverified due the pinned 503 response. It does not authorize production ingestion or trading.
+
+
+## Vendor clarification submission — 2026-10-18
+
+- Sent the consolidated clarification request to `info@wallex.market` via the connected Outlook account at 2026-10-18 17:57:59 UTC.
+- Outlook search confirmed a sent copy addressed to that recipient. This confirms submission from the mailbox, not delivery receipt, acceptance by Wallex, or a reply.
+- The request asks for authoritative UDF `v` versus REST `quantity` semantics, volume-field relationships, complete trade history/replay, official Socket.IO endpoint/version, raw `/ws` support status, and sequence/order/reconnect guarantees.
+- Source-of-truth status note: `docs/support/WALLEX_API_CLARIFICATION_REQUEST_2026-10-18.md`.
+- Issues #322 and #323 were updated with the submission status. Both remain open. No volume normalization, production activation, deployment, or trading is authorized.
