@@ -93,3 +93,10 @@ def test_fetch_public_snapshot_validates_all_three_endpoints():
     assert snapshot["symbol"] == "BTCUSDT"
     assert len(snapshot["latest_trades"]) == 1
     assert snapshot["trade_window_coverage"] == "LATEST_WINDOW_ONLY"
+
+
+def test_collector_skips_malformed_legacy_journal_rows(tmp_path):
+    output = tmp_path / "events.jsonl"
+    output.write_text('null\n[]\n{"raw_payload_sha256":"legacy-hash"}\n', encoding="utf-8")
+    collector = WallexRestWindowCollectorV1(output=str(output), snapshot_provider=lambda: {"latest_trades": []})
+    assert "legacy-hash" in collector.seen_hashes
