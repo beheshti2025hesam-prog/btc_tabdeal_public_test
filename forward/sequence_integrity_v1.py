@@ -46,14 +46,15 @@ class SequenceIntegrityV1:
 
     @staticmethod
     def _seq(value: Any) -> int:
-        # bool is an int subclass in Python, but is not a valid wire sequence.
-        if type(value) not in (int, str):
-            raise ValueError("invalid sequence")
-        try:
+        # Reject bool (an int subclass), floats, whitespace, Unicode digits,
+        # and coercible non-wire values before any state can be mutated.
+        if type(value) is int:
+            seq = value
+        elif isinstance(value, str) and value.isascii() and value.isdigit():
             seq = int(value)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid sequence") from exc
-        if seq < 0 or (isinstance(value, str) and not value.strip()):
+        else:
+            raise ValueError("invalid sequence")
+        if seq < 0:
             raise ValueError("invalid sequence")
         return seq
 
