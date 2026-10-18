@@ -31,6 +31,48 @@ jobs:
           test "$(git rev-parse b9ebecf061dfe9a084797d77b48a2c7846d269e3:data/trades.csv)" = "58d21825e052dbaa42e7eb0695455c19997bff43"
           test "$(git rev-parse e5f85f06b19b8427f761b95ab56ad15ccd7053c0:evidence/protocol_reconciliation_v1.json)" = "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
 
+      - name: Pin exact reconciliation manifest bytes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:evidence/source_identity_reconciliation_v1.json)" = "d21a37bb239249ebe16678a1e21d698e0db68472"
+
+      - name: Prove historical manifest mutations invalidate the pin
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          expected = "d21a37bb239249ebe16678a1e21d698e0db68472"
+          raw = Path("evidence/source_identity_reconciliation_v1.json").read_bytes()
+          assert subprocess.run(
+              ["git", "hash-object", "--stdin"], input=raw, capture_output=True, check=True
+          ).stdout.decode().strip() == expected
+
+          data = json.loads(raw)
+          mutations = []
+          deleted = json.loads(raw)
+          deleted["records"].pop()
+          mutations.append(json.dumps(deleted, sort_keys=True).encode())
+          reordered = json.loads(raw)
+          reordered["records"] = list(reversed(reordered["records"]))
+          mutations.append(json.dumps(reordered, sort_keys=True).encode())
+          changed_payload = json.loads(raw)
+          changed_payload["records"][0]["gross_return"] += 0.000001
+          mutations.append(json.dumps(changed_payload, sort_keys=True).encode())
+          changed_count = json.loads(raw)
+          changed_count["counts"]["prior_survivor_records"] += 1
+          mutations.append(json.dumps(changed_count, sort_keys=True).encode())
+
+          for candidate in mutations:
+              observed = subprocess.run(
+                  ["git", "hash-object", "--stdin"], input=candidate,
+                  capture_output=True, check=True
+              ).stdout.decode().strip()
+              assert observed != expected, "mutated historical manifest retained pinned blob identity"
+          print("PASS: deletion, reorder, payload mutation, and count mutation invalidate the pinned manifest")
+          PY
+
       - name: Validate record-level identity artifact
         run: |
           python - <<'PY'
