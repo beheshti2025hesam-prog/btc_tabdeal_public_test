@@ -1,0 +1,105 @@
+{
+  "captured_at_utc": "2026-10-18T16:34:39.479917+00:00",
+  "chart_parity_scope": {
+    "api_to_api_same_official_udf_endpoint": "PASS for exact timestamp/OHLCV comparison of common closed bars",
+    "independent_rendered_chart_screenshot": "NOT VERIFIED",
+    "why": "Wallex frontend bundle maps this UDF endpoint into chart bars, but no independently captured rendered chart screenshot or exported chart candle dataset was compared."
+  },
+  "collector_started": false,
+  "limitations": [
+    "Endpoint is the same official UDF history route identified in Wallex frontend bundle; this is API-to-API stability, not independently captured rendered chart screenshot parity.",
+    "HTTP Date has coarse precision and does not establish trusted clock synchronization.",
+    "Session epoch test validates proposed guard behavior, not production collector implementation.",
+    "No production runtime or execution path was changed."
+  ],
+  "manifest_sha256_excluding_this_field": "9c051965fd18063107de5438170cb54825bfb3e9cfa87957ce608cbb35e1d3ee",
+  "orders_or_account_mutations": false,
+  "quality_thresholds_proposal_not_approved": {
+    "clock_skew": "Compare HTTP Date with local UTC wall clock; absolute offset >2s warning, >5s block pending independent NTP/monotonic-clock validation; HTTP Date has 1-second granularity and is not independent clock attestation",
+    "freshness": "Closed candle age must be >=0; for 1m use <=120s, for 1h use <=7200s; stale/future blocks use",
+    "gaps": "For closed candle series, each adjacent timestamp delta must equal interval; any gap blocks continuity/promotion, never synthesize",
+    "reconnect": "Increment session epoch before accepting frames after reconnect; reject all delayed prior-epoch events; reset per-session parser/subscription state and journal session id"
+  },
+  "read_only": true,
+  "reconnect_session_isolation": {
+    "accepts_current_epoch_event": true,
+    "deterministic_guard_harness": "PASS",
+    "interpretation": "The production reconnect/session isolation gate remains BLOCKED: the current evidence demonstrates separate handshakes but no post-reconnect trade frame in the bounded run; the harness tests the desired epoch guard only.",
+    "live_websocket_reconnect_delivered_trade_frames": false,
+    "production_collector_verified": false,
+    "rejects_delayed_event_from_previous_epoch": true
+  },
+  "results": [
+    {
+      "candidate_freshness_limit_seconds_not_yet_approved": 120,
+      "candidate_freshness_pass": true,
+      "capture_a": {
+        "bar_count": 7,
+        "closed_bar_count": 7,
+        "http_date": "Sun, 18 Oct 2026 16:34:35 GMT",
+        "http_date_minus_local_receive_seconds": -0.406,
+        "http_status": 200,
+        "raw_body_base64": "eyJzIjoib2siLCJ0IjpbMTc5MjM0MDgyMCwxNzkyMzQwODgwLDE3OTIzNDA5NDAsMTc5MjM0MTAwMCwxNzkyMzQxMDYwLDE3OTIzNDExMjAsMTc5MjM0MTE4MF0sImMiOlsiODEwNTkuNjEiLCI4MTA1OS42MSIsIjgxMDU5LjYxIiwiODEwNTkuNjEiLCI4MTA1OS42MSIsIjgxMDU5LjYxIiwiODEwNTkuNjEiXSwibyI6WyI4MTA1OS42MSIsIjgxMDU5LjYxIiwiODEwNTkuNjEiLCI4MTA1OS42MSIsIjgxMDU5LjYxIiwiODEwNTkuNjEiLCI4MTA1OS42MSJdLCJoIjpbIjgxMDU5LjYxIiwiODEwNTkuNjEiLCI4MTA1OS42MSIsIjgxMDU5LjYxIiwiODEwNTkuNjEiLCI4MTA1OS42MSIsIjgxMDU5LjYxIl0sImwiOlsiODEwNTkuNjEiLCI4MTA1OS42MSIsIjgxMDU5LjYxIiwiODEwNTkuNjEiLCI4MTA1OS42MSIsIjgxMDU5LjYxIiwiODEwNTkuNjEiXSwidiI6WyIwIiwiMCIsIjAiLCIwIiwiMCIsIjAiLCIwIl19",
+        "raw_body_sha256": "de565a396631e8f9723ea8a4db49c0291feabc08eaecca45948c6a61f34d5b4b",
+        "raw_bytes": 459,
+        "rtt_ms": 166.08
+      },
+      "capture_b": {
+        "bar_count": 7,
+        "closed_bar_count": 7,
+        "http_date": "Sun, 18 Oct 2026 16:34:37 GMT",
+        "http_date_minus_local_receive_seconds": -0.432,
+        "http_status": 200,
+        "raw_body_sha256": "de565a396631e8f9723ea8a4db49c0291feabc08eaecca45948c6a61f34d5b4b",
+        "raw_bytes": 459,
+        "rtt_ms": 24.82
+      },
+      "common_closed_candles": 7,
+      "field_mismatches": 0,
+      "gaps_in_capture_b": [],
+      "latest_closed_age_seconds": 37.432,
+      "latest_closed_candle_open_utc": "2026-10-18T16:33:00+00:00",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792340795&to=1792341275",
+      "requested_from_utc": "2026-10-18T16:26:35+00:00",
+      "requested_to_utc": "2026-10-18T16:34:35+00:00",
+      "resolution": "1"
+    },
+    {
+      "candidate_freshness_limit_seconds_not_yet_approved": 7200,
+      "candidate_freshness_pass": true,
+      "capture_a": {
+        "bar_count": 8,
+        "closed_bar_count": 7,
+        "http_date": "Sun, 18 Oct 2026 16:34:37 GMT",
+        "http_date_minus_local_receive_seconds": -0.457,
+        "http_status": 200,
+        "raw_body_base64": "eyJzIjoib2siLCJ0IjpbMTc5MjMxNDAwMCwxNzkyMzE3NjAwLDE3OTIzMjEyMDAsMTc5MjMyNDgwMCwxNzkyMzI4NDAwLDE3OTIzMzIwMDAsMTc5MjMzNTYwMCwxNzkyMzM5MjAwXSwiYyI6WyI4MjEyNC45MyIsIjgyMDM5Ljk4IiwiODE5NzAiLCI4MTgxNi4yMyIsIjgxNDYyLjc1IiwiODEwMzcuMTQiLCI4MTA1OS42IiwiODEwNTkuNjEiXSwibyI6WyI4MTY3OS42NCIsIjgyMTI0Ljg1IiwiODIwMjkuOTkiLCI4MTk5NC43IiwiODE4MTYuMjQiLCI4MTQ2Mi43NSIsIjgxMDc4IiwiODEwNTkuNTkiXSwiaCI6WyI4MjIyNiIsIjgyMTgxLjMiLCI4MjA1MCIsIjgyMTAwLjk5IiwiODE5MjUuOSIsIjgxNDYyLjc1IiwiODExNDEuMTMiLCI4MTE1OS4zIl0sImwiOlsiODE2NzkuNjQiLCI4MjAzOS45OCIsIjgxOTcwIiwiODE2NTIuODEiLCI4MTM5OS44IiwiODA5NjcuMTIiLCI4MDkyOC4wOCIsIjgxMDU5LjU5Il0sInYiOlsiMC41MzMzMDU2MiIsIjAuMDYzNzg4NTIiLCIwLjA3MTU2NzIyIiwiMC4wOTgyNDExIiwiMC4wMjc4Njk1NiIsIjAuNDI4NjEyODIiLCIwLjAyNzk4NjUyIiwiMC4wNTMzMjMyOCJdfQ==",
+        "raw_body_sha256": "dc2cef3bed9efc839fe3ce1b1b22581dda6230e3917b219c79a06f1ec8739437",
+        "raw_bytes": 568,
+        "rtt_ms": 24.13
+      },
+      "capture_b": {
+        "bar_count": 8,
+        "closed_bar_count": 7,
+        "http_date": "Sun, 18 Oct 2026 16:34:39 GMT",
+        "http_date_minus_local_receive_seconds": -0.479,
+        "http_status": 200,
+        "raw_body_sha256": "dc2cef3bed9efc839fe3ce1b1b22581dda6230e3917b219c79a06f1ec8739437",
+        "raw_bytes": 568,
+        "rtt_ms": 21.22
+      },
+      "common_closed_candles": 7,
+      "field_mismatches": 0,
+      "gaps_in_capture_b": [],
+      "latest_closed_age_seconds": 2079.479,
+      "latest_closed_candle_open_utc": "2026-10-18T15:00:00+00:00",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=60&from=1792312477&to=1792341277",
+      "requested_from_utc": "2026-10-18T08:34:37+00:00",
+      "requested_to_utc": "2026-10-18T16:34:37+00:00",
+      "resolution": "60"
+    }
+  ],
+  "schema": "HES_WALLEX_CANDLE_PARITY_QUALITY_ACCEPTANCE_EVIDENCE_V1",
+  "symbol": "BTCUSDT",
+  "venue": "Wallex"
+}
