@@ -1,30 +1,33 @@
 # Candle-First: native Wallex OHLCV path v1
 
 ## Decision
-Candle-based strategies consume official native exchange/broker OHLCV candles where available. They must not require individual-trade sequence identifiers or reconstruct the candle stream from trades. Trade-level sequence/order-flow validation remains a separate capability only for strategies that truly need individual trades.
+Candle-based strategies consume official native exchange/broker OHLCV candles where available. They must not require individual-trade sequence identifiers or reconstruct candles from trades. Trade-level sequence/order-flow validation remains separate for strategies that truly require individual trades.
 
-## Official source
-Wallex API documentation describes the public history endpoint:
-
-- `GET https://api.wallex.ir/v1/udf/history`
-- Query: `symbol`, `resolution` (minutes), `from`, `to` (Unix seconds)
+## Official contract verified from Wallex documentation
+- Endpoint: `GET https://api.wallex.ir/v1/udf/history`
+- Query: `symbol`, `resolution`, `from`, `to` (Unix timestamps)
 - Response arrays: `s`, `t`, `o`, `h`, `l`, `c`, `v`
+- Documented minute resolutions: `1`, `60`, `180`, `360`, `720`; documentation also lists `1D`.
+- The adapter currently enables only the five documented minute resolutions. The `1D` option is intentionally deferred until daily-boundary/timezone behavior is verified.
+- The official market docs use symbols such as `BTCUSDT`; validate requested symbols against the current market list.
 
-Official docs: https://api-docs.wallex.ir/ and https://developers.wallex.ir/
+Official source: https://api-docs.wallex.ir/ (section “کندل‌ها / OHLC market statistics”).
 
-## Implementation in this PR
-- `forward/native_wallex_ohlcv_v1.py` calls the native endpoint read-only and parses OHLCV into immutable candles.
-- Decimal values are preserved; source timestamps are UTC-aware; candle finality is derived from candle close time relative to a timezone-aware `as_of`.
-- Malformed response status, unequal arrays, non-monotonic/misaligned timestamps, invalid OHLC bounds, invalid numeric values, and naive timestamps fail closed.
-- Missing intervals are not fabricated. This adapter has no dependency on trade sequence IDs.
-- `tests/test_native_wallex_ohlcv_v1.py` covers parsing, transport URL construction, precision, candle finality, malformed data and ordering.
+## Implementation
+- `forward/native_wallex_ohlcv_v1.py`: read-only adapter; immutable candles; Decimal precision; UTC-aware times; closed/open status from candle close time; strict OHLCV shape, timestamp, alignment and numeric validation; documented resolution allowlist.
+- `NativeFetchEvidence` retains exact response bytes, retrieval time, request URL and SHA-256.
+- `tests/test_native_wallex_ohlcv_v1.py`: deterministic positive and adversarial tests.
+- `scripts/verify_native_wallex_ohlcv.py`: read-only CI probe for BTCUSDT/1m; captures raw bytes + SHA-256 + request/retrieval metadata; checks freshness (<= 300s) and gaps.
+- `.github/workflows/native-wallex-ohlcv-tests.yml`: runs deterministic tests and the live public-data probe on relevant PR commits; stores evidence artifact for 90 days.
 
-## Explicit limitations / acceptance gates
-- Unit tests and adapter construction do not prove live network access or live endpoint behavior from the authorized runner.
-- No raw production response bytes, SHA-256 evidence, official chart comparison, freshness SLA, gap policy approval, or endpoint clock-offset result is claimed by this PR.
-- Verify supported symbols/resolutions against the current official API, then run read-only controlled fetch and preserve raw response bytes + SHA-256 + request interval + retrieval timestamp.
-- Compare sampled candles against the official Wallex chart for identical symbol/timeframe/timezone and document exact match/tolerance.
-- Keep collector activation, deployment and trading disabled until these gates and applicable security checks pass.
+## Acceptance gates (do not silently mark these passed)
+1. Deterministic tests pass on the exact PR head.
+2. Live endpoint returns valid data from the authorized CI runner; raw bytes, SHA-256, request interval and retrieval timestamp are preserved.
+3. Supported symbol/resolution are confirmed against the current official API; only documented minute resolutions are enabled here.
+4. Candle gaps, freshness and server clock offset are measured and policy thresholds approved.
+5. Sample candles are compared against the official Wallex chart for the same symbol, interval and UTC timestamps; exact equality/tolerance is documented.
+6. Reconnect/retry behavior is covered before any collector uses this adapter.
+7. Security and repository identity gates pass.
 
-## Project disposition
-`HOLD / NO_TRADE_ONLY`. This PR establishes an independent native-candle path and tests; it does not authorize live trading or declare end-to-end parity complete.
+## Safety
+No collector activation, deployment or trading is authorized by this adapter. Project disposition remains `HOLD / NO_TRADE_ONLY`. Native candles remove sequence-ID dependence for candle-only strategies; they do not settle trade-sequence semantics for Order Flow strategies.
