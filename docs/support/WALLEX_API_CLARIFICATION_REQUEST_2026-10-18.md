@@ -41,4 +41,4 @@
 
 ## Sending status
 
-**Draft only — not sent.** The current connected integrations do not expose an authorized email-sending account. Do not mark this request as delivered until a sending action returns a message ID or Wallex replies through an official support channel.
+**Sent via connected Outlook account on 2026-10-18 at 17:57:59 UTC** to `info@wallex.market`. Outlook search confirmed a sent copy addressed to that recipient. This confirms submission by email only; it does not confirm delivery to Wallex or a support response. Message ID recorded in the project conversation/mailbox.
