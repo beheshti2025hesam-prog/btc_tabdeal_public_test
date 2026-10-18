@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 
 class RawResponseEvidenceError(ValueError):
@@ -103,6 +104,29 @@ def verify_raw_http_response_v1(path: str | Path) -> dict[str, Any]:
     actual_envelope_hash = hashlib.sha256(_canonical(envelope_body)).hexdigest()
     if not isinstance(claimed_envelope_hash, str) or claimed_envelope_hash != actual_envelope_hash:
         raise RawResponseEvidenceError("evidence envelope SHA-256 mismatch")
+    request_url = envelope.get("request_url")
+    request_params = envelope.get("request_params")
+    if not isinstance(request_url, str) or not isinstance(request_params, dict):
+        raise RawResponseEvidenceError("request provenance metadata is missing")
+    parsed_url = urlsplit(request_url)
+    if parsed_url.scheme != "https" or parsed_url.hostname != "api.wallex.ir" or parsed_url.path != "/v1/udf/history":
+        raise RawResponseEvidenceError("request URL is outside the approved public Wallex endpoint")
+    try:
+        query = parse_qs(parsed_url.query, strict_parsing=True)
+    except ValueError:
+        raise RawResponseEvidenceError("request URL query is invalid") from None
+    expected_query = {key: [str(value)] for key, value in request_params.items()}
+    if query != expected_query:
+        raise RawResponseEvidenceError("request URL and parameter metadata disagree")
+    if envelope.get("http_status") != 200:
+        raise RawResponseEvidenceError("only HTTP 200 response evidence is accepted")
+    received_at = envelope.get("received_at")
+    try:
+        parsed_received_at = datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        raise RawResponseEvidenceError("received_at timestamp is invalid") from None
+    if parsed_received_at.tzinfo is None or parsed_received_at.utcoffset() is None:
+        raise RawResponseEvidenceError("received_at timestamp must be timezone-aware")
     if envelope.get("raw_body_encoding") != "base64":
         raise RawResponseEvidenceError("unsupported raw body encoding")
     encoded = envelope.get("raw_body_base64")
