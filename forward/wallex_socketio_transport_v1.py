@@ -231,7 +231,7 @@ class WallexSocketIOTransportV1:
             if raw == "2":
                 session.socket.send("3")
                 return None
-            if raw == "1" or raw.startswith("41"):
+            if raw == "1" or raw.startswith("41") or raw.startswith("44"):
                 self._connected = False
                 return None
             if raw in {"3", "6"} or raw.startswith("40"):
