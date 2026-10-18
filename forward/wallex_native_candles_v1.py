@@ -17,6 +17,12 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import json
 from typing import Any
+from pathlib import Path
+
+try:
+    from .wallex_raw_http_evidence_v1 import persist_raw_http_response_v1
+except ImportError:  # Support the repository's PYTHONPATH=forward test mode.
+    from wallex_raw_http_evidence_v1 import persist_raw_http_response_v1
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -132,17 +138,20 @@ def parse_history(payload: Any, *, symbol: str, resolution: str,
 
 
 def fetch_history(symbol: str, resolution: str, start: datetime, end: datetime,
-                  *, timeout: float = 10.0, as_of: datetime | None = None) -> tuple[NativeCandle, ...]:
-    """Fetch a bounded public history range. No credentials or order methods."""
+                  *, timeout: float = 10.0, as_of: datetime | None = None,
+                  raw_evidence_path: str | Path | None = None) -> tuple[NativeCandle, ...]:
+    """Fetch bounded public history. Optional raw evidence is immutable and write-once."""
     start = _utc(start, "start")
     end = _utc(end, "end")
     if end <= start:
         raise WallexCandleError("end must be later than start")
     if resolution not in RESOLUTION_SECONDS:
         raise WallexCandleError(f"unsupported resolution: {resolution}")
-    params = urlencode({"symbol": symbol, "resolution": resolution,
-                        "from": int(start.timestamp()), "to": int(end.timestamp())})
-    request = Request(BASE_URL + ENDPOINT + "?" + params,
+    request_params = {"symbol": symbol, "resolution": resolution,
+                      "from": int(start.timestamp()), "to": int(end.timestamp())}
+    params = urlencode(request_params)
+    request_url = BASE_URL + ENDPOINT + "?" + params
+    request = Request(request_url,
                       headers={"Accept": "application/json", "User-Agent": "HES-readonly-candles/1.0"})
     received_at = datetime.now(timezone.utc)
     try:
@@ -155,6 +164,15 @@ def fetch_history(symbol: str, resolution: str, start: datetime, end: datetime,
             received_at = datetime.now(timezone.utc)
     except (HTTPError, URLError, TimeoutError) as exc:
         raise WallexCandleError(f"history request failed: {type(exc).__name__}") from None
+    if raw_evidence_path is not None:
+        persist_raw_http_response_v1(
+            raw_evidence_path,
+            request_url=request_url,
+            request_params=request_params,
+            http_status=200,
+            received_at=received_at,
+            raw_body=raw,
+        )
     try:
         payload = json.loads(raw, parse_float=Decimal)
     except (json.JSONDecodeError, UnicodeDecodeError):
