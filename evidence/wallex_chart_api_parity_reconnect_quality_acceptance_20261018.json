@@ -1,0 +1,1190 @@
+{
+  "captured_at_utc": "2026-10-18T16:48:27.942018+00:00",
+  "chart_source_verification": {
+    "chart_page": {
+      "bytes": 695408,
+      "date": "Sun, 18 Oct 2026 16:48:24 GMT",
+      "page_script_count": 57,
+      "server_rendered_current_price": "81059.61",
+      "sha256": "8ddb365a01ef19c15379dfa113fbb46d1aa137f4227ce1a43fcf38a80b153a29",
+      "status": 200,
+      "title": "81,059.61 | BTCUSDT | \u0648\u0627\u0644\u06a9\u0633",
+      "url": "https://wallex.ir/app/trade/BTCUSDT"
+    },
+    "conclusion": "The inspected official chart frontend has a UDF-compatible getBars implementation that requests symbol/resolution/from/to from the configured /v1/udf datafeed, whose history handler calls v1/udf/history; it maps t/o/h/l/c and v directly into chart candle time/OHLC/volume. This establishes source-level chart datafeed parity, not an independent pixel screenshot comparison.",
+    "relevant_frontend_chunks": [
+      {
+        "bytes": 334706,
+        "referenced_by_chart_page_html": true,
+        "sha256": "8f141e723e44e25e5536ccf2eeec1125096e655b1229aad5ed2b43a219a06b7d",
+        "snippets": {
+          "v1/udf/history": "ps.push(c);break}i[2]&&o.ops.pop(),o.trys.pop();continue}c=t.call(e,o)}catch(e){c=[6,e],r=0}finally{n=i=0}if(5&c[0])throw c[1];return{value:c[0]?c[1]:void 0,done:!0}}}},eZ=function(e){return T.f.get(\"v1/udf/history\",{params:e})};e.s([\"_\",0,function(){return(0,S.c)()?T.f.get(\"v1/udf/view-chart/1.0/charts\").then(function(e){return e.result.map(function(e){return e$(e$({},e),{timestamp:new Date(e.created_at).getTime()/1e3})})||[]}):(0,S.$)(\"\u0627\u0628\u062a\u062f\u0627 \u0648\u0627\u0631\u062f \u0634\u0648\u06cc\u062f.\")},\"o\",0,function(e){return T.f.get(\"v1/udf/view-chart/1.0/charts\",{params:{0:e}}).then(function(t){var n;return null==(n=t.result.find(function(t){return t.id===e}))?void 0:n.content})},\"C\",0,eZ,\"j\",0,function(e){return T.f.delete(\"v1/udf/view-chart/1.0/charts\",{params:{chart:e}})},\"$\",0,function(e){var t,n,r,i;return t=void 0,n=void 0,r=void 0,i=function(){return eX(this,function(t){ret"
+        },
+        "status": 200,
+        "url": "https://wallex.ir/_next/static/chunks/04h_i7nro62s_.js"
+      },
+      {
+        "bytes": 32099,
+        "referenced_by_chart_page_html": true,
+        "sha256": "333bac8e5b79e4188dbd764fd4d498940517e0420ced6cacf3f62a90c0f87d82",
+        "snippets": {
+          "/v1/udf": "ow.removeEventListener(\"message\",o,!0)}},unsubscribe(){s?.(),s=void 0},pushExternalData(t,r){e()?.contentWindow?.postMessage({message:\"pushExternalData\",value:{type:t,...r}},O)}},i=new A(`${(0,v.R)()}/v1/udf`),a=!1,t.subscribe(\"ExternalDatafeed\",e=>{let{value:{method:r,body:s={}}}=e;if(a)throw Error(\"Chart datafeed was disposed\");let o=s.symbolInfo,n=s.resolution;switch(r){case\"onReady\":return new Promise(e=>i.onReady(e));case\"searchSymbols\":return new Promise(e=>i.searchSymbols(String(s.userInput??\"\"),String(s.exchange??\"\"),String(s.symbolType??\"\"),e));case\"resolveSymbol\":return new Promise((e,t)=>i.resolveSymbol(String(s.symbolName),e,t));case\"getBars\":return new Promise((e,t)=>i.getBars(o,n,s.periodParams,(t,r)=>e({bars:t,meta:r}),t));case\"getMarks\":case\"getTimescaleMarks\":return new Promise(e=>i.onReady(t=>{\"getMarks\"===r&&t.supports_",
+          "getBars(e,t,r)": "var w=e.i(794551),x=e.i(641360);function P(e){}function S(e){return void 0===e?\"\":\"string\"==typeof e?e:e.message}class C{_datafeedUrl;_requester;constructor(e,t){this._datafeedUrl=e,this._requester=t}getBars(e,t,r){let s={symbol:e.ticker||\"\",resolution:t,from:r.from,to:r.to};return r.countBack,void 0!==e.currency_code&&(s.currencyCode=e.currency_code),new Promise((e,t)=>{this._requester.sendRequest(this._datafeedUrl,\"history\",s).then(r=>{if(\"ok\"!==r.s&&\"no_data\"!==r.s)return void t(r.errmsg);let s=[],i={noData:!1};if(\"no_data\"===r.s)i.noData=!0,i.nextTime=r.nextTime;else{let e=void 0!==r.v,t=void 0!==r.o;for(let i=0;i<r.t.length;++i){let o={time:1e3*r.t[i],close:parseFloat(r.c[i]),open:parseFloat(r.c[i]),high:parseFloat(r.c[i]),low:parseFloat(r.c[i])};t&&(o.open=parseFloat(r.o[i]),o.high=parseFloat(r.h[i]),o.low=parseFloat(r.l[i])),e&&(o.",
+          "volume=p": "ime:1e3*r.t[i],close:parseFloat(r.c[i]),open:parseFloat(r.c[i]),high:parseFloat(r.c[i]),low:parseFloat(r.c[i])};t&&(o.open=parseFloat(r.o[i]),o.high=parseFloat(r.h[i]),o.low=parseFloat(r.l[i])),e&&(o.volume=parseFloat(r.v[i])),s.push(o)}}e({bars:s,meta:i})}).catch(e=>{t(S(e))})})}}class q{_subscribers={};_requestsPending=0;_historyProvider;_timer;constructor(e,t){this._historyProvider=e,this._timer=setInterval(this._updateData.bind(this),t)}destroy(){clearInterval(this._timer),Object.keys(this._subscribers).forEach(e=>delete this._subscribers[e])}subscribeBars(e,t,r,s){this._subscribers.hasOwnProperty(s)?P(`DataPulseProvider: already has subscriber with id=${s}`):(this._subscribers[s]={lastBarTime:null,listener:r,resolution:t,symbolInfo:e},P(`DataPulseProvider: subscribed for #${s} - {${e.name}, ${t}}`))}unsubscribeBars(e){delete this._su"
+        },
+        "status": 200,
+        "url": "https://wallex.ir/_next/static/chunks/21v8tx2u_2l_g.js"
+      }
+    ]
+  },
+  "current_quote_crosscheck": {
+    "captured_at_utc": "2026-10-18T16:49:26.118702+00:00",
+    "current_1m_candle": {
+      "c": "81070.08",
+      "h": "81070.08",
+      "l": "81070.08",
+      "o": "81070.08",
+      "t": 1792342080,
+      "v": "0.00327798"
+    },
+    "current_1m_candle_open_utc": "2026-10-18T16:48:00+00:00",
+    "current_1m_udf_response": {
+      "bytes": 604,
+      "date": "Sun, 18 Oct 2026 16:49:26 GMT",
+      "date_minus_local_receive_s": -0.118,
+      "raw_body_sha256": "ed8b0da9246693b7e1912d9b184c507a336200c016c82652b4f5da8aa834b5eb",
+      "raw_bundle_member": "responses/current_udf_BTCUSDT_1m.json",
+      "raw_bytes": 604,
+      "rtt_ms": 25.573,
+      "sha256": "ed8b0da9246693b7e1912d9b184c507a336200c016c82652b4f5da8aa834b5eb",
+      "status": 200,
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792341566&to=1792342166"
+    },
+    "current_candle_volume_to_latest_trade_quantity_ratio": "2",
+    "latest_trade": {
+      "isBuyOrder": true,
+      "price": "81070.0800000000000000",
+      "quantity": "0.0016389900000000",
+      "sum": "132.8730504192000000",
+      "symbol": "BTCUSDT",
+      "timestamp": "2026-10-18T16:48:06Z"
+    },
+    "latest_trades_response": {
+      "bytes": 8475,
+      "date": "Sun, 18 Oct 2026 16:49:26 GMT",
+      "date_minus_local_receive_s": -0.092,
+      "raw_body_sha256": "626160a513d8d0cf84f54e02c1ab97688052046496bad60de2111979a1900f98",
+      "raw_bundle_member": "responses/current_trades_BTCUSDT.json",
+      "raw_bytes": 8475,
+      "rtt_ms": 32.558,
+      "sha256": "626160a513d8d0cf84f54e02c1ab97688052046496bad60de2111979a1900f98",
+      "status": 200,
+      "url": "https://api.wallex.ir/v1/trades?symbol=BTCUSDT"
+    },
+    "market_last_price": "81070.0800000000000000",
+    "market_response": {
+      "bytes": 444598,
+      "date": "Sun, 18 Oct 2026 16:49:25 GMT",
+      "date_minus_local_receive_s": -1.031,
+      "raw_body_sha256": "b1bc812b1b2808cebf6e305f46a46217d702f6960939c749dbdffaab8e09b174",
+      "raw_bundle_member": "responses/current_market_BTCUSDT.json",
+      "raw_bytes": 444598,
+      "rtt_ms": 101.723,
+      "sha256": "b1bc812b1b2808cebf6e305f46a46217d702f6960939c749dbdffaab8e09b174",
+      "status": 200,
+      "url": "https://api.wallex.ir/v1/markets"
+    },
+    "numeric_current_candle_close_equals_latest_trade": true,
+    "numeric_last_price_equals_latest_trade": true
+  },
+  "flat_zero_volume_reassessment": {
+    "new_assessment": "Flat zero-volume candles are not by themselves proof of stale data. In the fresh capture, public trades are sparse; in the inspected fully covered active bars, UDF OHLC matches trade-derived OHLC while UDF volume is exactly 2x trade quantity. Keep flat-zero bars as a freshness/market-inactivity observation, not a standalone failure, unless candle timestamps exceed the approved freshness threshold or a trade occurs without a candle update.",
+    "previous_observation_was_flagged_as_possible_stale_placeholder": "yes; retained in earlier evidence manifest without mutation",
+    "primary_blocker": "volume semantics mismatch across UDF candles, latest-trades API and market 24h volume remains unresolved."
+  },
+  "gate_disposition": {
+    "chart_datafeed_source_to_api_mapping": "PASS_SOURCE_VERIFIED",
+    "flat_zero_volume_candles": "NOT_A_STANDALONE_FAILURE; many align with minutes with no trade; retain freshness checks",
+    "freshness_and_gap_sample": "PASS_UNDER_UNAPPROVED_PROPOSED_THRESHOLDS",
+    "reconnect": "LIVE_TRANSPORT_RECONNECT_AND_DISTINCT_SESSIONS_OBSERVED; deterministic epoch guard PASS; production collector isolation NOT VERIFIED because no Wallex WS collector is wired/enabled",
+    "same_window_api_ohlcv_stability": "PASS",
+    "visual_render": "NO_INDEPENDENT_PIXEL_SCREENSHOT; source-level frontend mapping confirms chart uses the same UDF OHLCV payload",
+    "volume_semantics": "BLOCKED_UDF_V_IS_EXACTLY_2X_PUBLIC_TRADE_QUANTITY_IN_99_FULLY_COVERED_1M_BARS_ACROSS_5_SYMBOLS; rolling 24h UDF volume also near 2x market 24h_volume; requires exchange semantics clarification before volume-based feature promotion"
+  },
+  "manifest_sha256_excluding_self": "a89fd7724153f48a095a6080aa8334c23765604bfdbf53d1a3697b226a10fea5",
+  "market_snapshot": {
+    "btc_24h_volume": "1.4030057700000000",
+    "btc_askPrice": "81158.5700000000000000",
+    "btc_bidPrice": "81070.0900000000000000",
+    "btc_lastPrice": "81059.6100000000000000",
+    "bytes": 444599,
+    "date": "Sun, 18 Oct 2026 16:48:24 GMT",
+    "date_minus_local_receive_s": -1.02,
+    "raw_body_sha256": "630b678182861f21be58cebdd023f47956570ef193ec43f4b4d8f6c520e3bf08",
+    "raw_bundle_member": "responses/market_snapshot_BTCUSDT.json",
+    "raw_bytes": 444599,
+    "sha256": "630b678182861f21be58cebdd023f47956570ef193ec43f4b4d8f6c520e3bf08",
+    "status": 200,
+    "url": "https://api.wallex.ir/v1/markets"
+  },
+  "observed_volume_semantics": {
+    "crosschecked_symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BTCTMN",
+      "ETHTMN",
+      "SOLUSDT"
+    ],
+    "fully_covered_closed_1m_bars_with_trades": 99,
+    "interpretation": "Official docs describe UDF v as candle trading volume and trade quantity as amount traded. The consistent 2x difference is an unresolved upstream semantics/data-quality discrepancy. Do not silently halve v or treat it as normal without Wallex clarification; volume-dependent feature acceptance remains blocked.",
+    "numeric_ohlc_matches": 99,
+    "observed_ratio": "UDF v / sum(public trade quantity) = exactly 2 in every fully covered bar tested",
+    "volume_ratio_counts_by_symbol": {
+      "BTCTMN": {
+        "2": 18
+      },
+      "BTCUSDT": {
+        "2": 17
+      },
+      "ETHTMN": {
+        "2": 18
+      },
+      "ETHUSDT": {
+        "2": 26
+      },
+      "SOLUSDT": {
+        "2": 20
+      }
+    }
+  },
+  "quality_gate_policy_proposal_not_approved": {
+    "clock": "HTTP Date offset absolute >2 seconds warns and >5 seconds blocks pending independent NTP/monotonic-clock validation; Date granularity is 1 second",
+    "freshness": "Closed 1m candle age 0..120 seconds; closed 1h age 0..7200 seconds; future or stale data blocks promotion",
+    "gaps": "Every adjacent closed candle timestamp must differ by exact interval; any gap blocks promotion and no synthetic candles are created",
+    "reconnect": "Each socket session receives unique ID/epoch; parser/subscription state is session-scoped; reject any delayed prior-epoch event; log session ID on every accepted event"
+  },
+  "raw_evidence_bundle": {
+    "base64_chars": 370556,
+    "base64_file_sha256": "e2333b61a6c8555a5dd7fe61549013e272ce47dc0a2151a8cdab5b07ae036d22",
+    "bundle_sha256": "fa4242b962e8d7e86cacb6fc0f41ffc6b843927be7445363d997e51605f7c4b2",
+    "compressed_bytes": 277917,
+    "encoding": "base64-encoded gzip tar; decode then extract",
+    "entries": [
+      {
+        "bytes": 334706,
+        "member": "frontend/04h_i7nro62s_.js",
+        "sha256": "8f141e723e44e25e5536ccf2eeec1125096e655b1229aad5ed2b43a219a06b7d"
+      },
+      {
+        "bytes": 32099,
+        "member": "frontend/21v8tx2u_2l_g.js",
+        "sha256": "333bac8e5b79e4188dbd764fd4d498940517e0420ced6cacf3f62a90c0f87d82"
+      },
+      {
+        "bytes": 695493,
+        "member": "frontend/chart_page_supplementary.html",
+        "sha256": "0ca6392ee41497b4d62e8fc21a7e4a0931a94ea3632a0cdc57a1f3647096f5cb"
+      },
+      {
+        "bytes": 444598,
+        "member": "responses/current_market_BTCUSDT.json",
+        "sha256": "b1bc812b1b2808cebf6e305f46a46217d702f6960939c749dbdffaab8e09b174"
+      },
+      {
+        "bytes": 8475,
+        "member": "responses/current_trades_BTCUSDT.json",
+        "sha256": "626160a513d8d0cf84f54e02c1ab97688052046496bad60de2111979a1900f98"
+      },
+      {
+        "bytes": 604,
+        "member": "responses/current_udf_BTCUSDT_1m.json",
+        "sha256": "ed8b0da9246693b7e1912d9b184c507a336200c016c82652b4f5da8aa834b5eb"
+      },
+      {
+        "bytes": 444599,
+        "member": "responses/market_snapshot_BTCUSDT.json",
+        "sha256": "630b678182861f21be58cebdd023f47956570ef193ec43f4b4d8f6c520e3bf08"
+      },
+      {
+        "bytes": 8977,
+        "member": "responses/trades_BTCTMN.json",
+        "sha256": "bf7b2eeb88f64bb6a6d86316d518cd76013bdfcd89f10a0561470e1e267895bf"
+      },
+      {
+        "bytes": 8475,
+        "member": "responses/trades_BTCUSDT.json",
+        "sha256": "626160a513d8d0cf84f54e02c1ab97688052046496bad60de2111979a1900f98"
+      },
+      {
+        "bytes": 8858,
+        "member": "responses/trades_ETHTMN.json",
+        "sha256": "ec44d47fe44c7e0a5cc7de8b2329044804c125be32635b00891e5f1050c92736"
+      },
+      {
+        "bytes": 8411,
+        "member": "responses/trades_ETHUSDT.json",
+        "sha256": "22f6ea86cff80048fa8452ecaa4e3f871d35ed4406ac9cbf772087b9825a90e2"
+      },
+      {
+        "bytes": 8366,
+        "member": "responses/trades_SOLUSDT.json",
+        "sha256": "8b2774754138ba3bd00998f2744716a9918cbb88ab68b12ef652ba63515d7b6e"
+      },
+      {
+        "bytes": 2628,
+        "member": "responses/udf_1m_BTCTMN.json",
+        "sha256": "f9ebbfd01b0e2d6c7e781cf0d4c3f91637577d0daddd93ec65a1c20c9fc3ee4b"
+      },
+      {
+        "bytes": 8042,
+        "member": "responses/udf_1m_BTCUSDT.json",
+        "sha256": "44e54ca2115ad93b8fa67e39ae2e722c868fe68f518609989a54942ffd174a99"
+      },
+      {
+        "bytes": 2806,
+        "member": "responses/udf_1m_ETHTMN.json",
+        "sha256": "ebdffd770a0e97d1e022cc3a12344bd7489fef46f69791c9aed34f2b56c05bc6"
+      },
+      {
+        "bytes": 3926,
+        "member": "responses/udf_1m_ETHUSDT.json",
+        "sha256": "f8981ca0410f86d086d2eccc7833cc207a3f214bd882ce7d180f2a14956bdf13"
+      },
+      {
+        "bytes": 5795,
+        "member": "responses/udf_1m_SOLUSDT.json",
+        "sha256": "d81fa2f121507db3ce2ca611148c699ca94ad09ebfa8ae82443490c27d48a173"
+      },
+      {
+        "bytes": 10784,
+        "member": "responses/udf_BTCUSDT_res1_capture_a.json",
+        "sha256": "5e52208f65ea5ac1bda3abe2eca79029d3b29c77ec2e2055bcc4f6ad98c3aaf1"
+      },
+      {
+        "bytes": 10784,
+        "member": "responses/udf_BTCUSDT_res1_capture_b.json",
+        "sha256": "5e52208f65ea5ac1bda3abe2eca79029d3b29c77ec2e2055bcc4f6ad98c3aaf1"
+      },
+      {
+        "bytes": 1638,
+        "member": "responses/udf_BTCUSDT_res60_capture_a.json",
+        "sha256": "b9f31e0e555d33223b3d61f2c93b74991323088ae1601b3309d6b61d382eb5c6"
+      },
+      {
+        "bytes": 1638,
+        "member": "responses/udf_BTCUSDT_res60_capture_b.json",
+        "sha256": "b9f31e0e555d33223b3d61f2c93b74991323088ae1601b3309d6b61d382eb5c6"
+      },
+      {
+        "bytes": 85688,
+        "member": "responses/udf_BTCUSDT_rolling24h_1m.json",
+        "sha256": "c497c2a8f706287892510785b7ad9ea0b19a7d0e88c522fc38964c34ddbce4a4"
+      },
+      {
+        "bytes": 11217,
+        "member": "websocket/wallex_ws_reconnect_session_isolation_20261018.json",
+        "sha256": "2c39b75090398d980dd2ef0df483054bca3d05b66fdf2a29d1c4493e90499238"
+      },
+      {
+        "bytes": 118431,
+        "member": "websocket/wallex_ws_reconnect_session_isolation_20261018.jsonl",
+        "sha256": "9e5b9d723d53c6280d467927b6636dc25da69cfd4eaba64410fdbaf299be806f"
+      }
+    ],
+    "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.tar.gz.b64"
+  },
+  "reconnect_evidence": {
+    "current_epoch_event_accepted_in_harness": true,
+    "interpretation": "Two live WebSocket sessions connected and received depth frames; server session IDs differ. No trade frames arrived during these short windows, consistent with the REST trade snapshot showing no new trade since 16:15:34Z. The epoch guard rejects delayed prior-session events in a deterministic harness. This is not a production collector integration test because no Wallex WS collector is wired/enabled. Raw received frames are retained in adjacent JSONL.",
+    "manifest_path": "/srv/hes-evidence/wallex/wallex_ws_reconnect_session_isolation_20261018.json",
+    "manifest_sha256": "2c39b75090398d980dd2ef0df483054bca3d05b66fdf2a29d1c4493e90499238",
+    "prior_epoch_event_rejected_in_harness": true,
+    "production_collector_verified": false,
+    "raw_frames_path": "/srv/hes-evidence/wallex/wallex_ws_reconnect_session_isolation_20261018.json.jsonl",
+    "raw_frames_sha256": "9e5b9d723d53c6280d467927b6636dc25da69cfd4eaba64410fdbaf299be806f",
+    "server_session_ids_distinct": true,
+    "sessions": [
+      {
+        "channel_counts": {
+          "BTCUSDT@buyDepth": 13,
+          "BTCUSDT@sellDepth": 13,
+          "BTCUSDT@trade": 0,
+          "unknown": 0,
+          "unparsed": 0
+        },
+        "closed_at": "2026-10-18T16:47:11.988691+00:00",
+        "frame_count": 26,
+        "frames": [
+          {
+            "at": "2026-10-18T16:47:07.004613+00:00",
+            "bytes": 2880,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "f9dc09c53861cb3f6dde850522e7ccd04a9f450f72865ded3017bd9f3753fc39"
+          },
+          {
+            "at": "2026-10-18T16:47:07.006056+00:00",
+            "bytes": 2925,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "54440e44dfc32ad511ca3edc6e44e035d2f71d51473ee4b126639fc0346c29c9"
+          },
+          {
+            "at": "2026-10-18T16:47:08.332736+00:00",
+            "bytes": 2919,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "4b4caf45437565f9c7b6440b0ba71341a6e2faefe18dc919f2fce827be7714f1"
+          },
+          {
+            "at": "2026-10-18T16:47:08.450264+00:00",
+            "bytes": 2922,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "f4f7aa7906deb69c79275d3ee85187ac9dec18539de54770c9dcd89699e54035"
+          },
+          {
+            "at": "2026-10-18T16:47:08.563819+00:00",
+            "bytes": 2874,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "ec814708b857aa53bc98893d16182bbb6675c91efa3966a22e0ad04dc8b856b8"
+          },
+          {
+            "at": "2026-10-18T16:47:08.647570+00:00",
+            "bytes": 2881,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "f6509fc59d68d5a4bb49f56acd64d669efe2e80e5cbef0aa60adecd7abb22881"
+          },
+          {
+            "at": "2026-10-18T16:47:08.707021+00:00",
+            "bytes": 2880,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "532772e76eb0bd69cb59ced72665cbe4696c1814dd651ebfd6be91e64de04c21"
+          },
+          {
+            "at": "2026-10-18T16:47:08.709864+00:00",
+            "bytes": 2922,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "f4f7aa7906deb69c79275d3ee85187ac9dec18539de54770c9dcd89699e54035"
+          },
+          {
+            "at": "2026-10-18T16:47:10.120564+00:00",
+            "bytes": 2920,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "7ff1e8d2acf29d4ffc2aa67ec0f9075ba1e4d36184e3508a3779d80623af65cb"
+          },
+          {
+            "at": "2026-10-18T16:47:10.135673+00:00",
+            "bytes": 2920,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "babdcc466343139d2f98ffcef099002c4df59db38edf63f09ce5ece3b139aa02"
+          },
+          {
+            "at": "2026-10-18T16:47:10.170236+00:00",
+            "bytes": 2918,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "627ed8dfd8d8d5dd4f2cb9caa4e9183c1d78b5b36a8da8369ba0344bb2edbe0e"
+          },
+          {
+            "at": "2026-10-18T16:47:10.222462+00:00",
+            "bytes": 2889,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "c1d3760928c522a65260520404442d0a88e42b005decab19ab19039c0b7bcfb0"
+          },
+          {
+            "at": "2026-10-18T16:47:10.278689+00:00",
+            "bytes": 2896,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "5e6225ab4c9a19a41e835a9c5eeed82f2097abc8e3504d555882972546ef8109"
+          },
+          {
+            "at": "2026-10-18T16:47:10.340600+00:00",
+            "bytes": 2902,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "d4fbd229beb3fe259550f2bf9ef43f5628e7865d74aa53c95a46f0c6338ac5c1"
+          },
+          {
+            "at": "2026-10-18T16:47:11.056114+00:00",
+            "bytes": 2902,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "d4fbd229beb3fe259550f2bf9ef43f5628e7865d74aa53c95a46f0c6338ac5c1"
+          },
+          {
+            "at": "2026-10-18T16:47:11.058728+00:00",
+            "bytes": 2920,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "18396cb9a6d45b2edcaeb8ded442da6ef72967ff42e219f3f56119e91c62eb6e"
+          },
+          {
+            "at": "2026-10-18T16:47:11.072105+00:00",
+            "bytes": 2900,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "6f14c92e9d24139b28e21fca33fbbf2747bcbfece63e5405fa0b02f88a39af4c"
+          },
+          {
+            "at": "2026-10-18T16:47:11.074240+00:00",
+            "bytes": 2920,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "18396cb9a6d45b2edcaeb8ded442da6ef72967ff42e219f3f56119e91c62eb6e"
+          },
+          {
+            "at": "2026-10-18T16:47:11.104499+00:00",
+            "bytes": 2900,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "6f14c92e9d24139b28e21fca33fbbf2747bcbfece63e5405fa0b02f88a39af4c"
+          },
+          {
+            "at": "2026-10-18T16:47:11.106500+00:00",
+            "bytes": 2920,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "166fce75919847655ccf5f193ea8a804e2cc52f6a85974f62b219639911ca060"
+          },
+          {
+            "at": "2026-10-18T16:47:11.221328+00:00",
+            "bytes": 2891,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "dc356dbfaf6ffe924b0686ac741b215eb7dc1b2f372fd9416939d5189ea18953"
+          },
+          {
+            "at": "2026-10-18T16:47:11.223981+00:00",
+            "bytes": 2922,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "221cb3210119b8a78c354d02cce16926886e023af550e33ed07dc4e9c3b9e147"
+          },
+          {
+            "at": "2026-10-18T16:47:11.228092+00:00",
+            "bytes": 2900,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "6f14c92e9d24139b28e21fca33fbbf2747bcbfece63e5405fa0b02f88a39af4c"
+          },
+          {
+            "at": "2026-10-18T16:47:11.230243+00:00",
+            "bytes": 2922,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "221cb3210119b8a78c354d02cce16926886e023af550e33ed07dc4e9c3b9e147"
+          },
+          {
+            "at": "2026-10-18T16:47:11.267606+00:00",
+            "bytes": 2880,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "c56bdfde21f9a83fa90449d2fdc649e5578b3e6b3753d58f2d4ce3b8a6e9e343"
+          },
+          {
+            "at": "2026-10-18T16:47:11.271032+00:00",
+            "bytes": 2922,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "221cb3210119b8a78c354d02cce16926886e023af550e33ed07dc4e9c3b9e147"
+          }
+        ],
+        "handshake_sha256": "5544e3ae73ed340d20929d86530ad53ac9657520b41c84e6a4659a3feb2bb5b6",
+        "local_session": 1,
+        "server_sid": "cc0a3225-f0db-48e6-8ab0-f63ce551d986",
+        "started_at": "2026-10-18T16:47:06.981632+00:00"
+      },
+      {
+        "channel_counts": {
+          "BTCUSDT@buyDepth": 4,
+          "BTCUSDT@sellDepth": 4,
+          "BTCUSDT@trade": 0,
+          "unknown": 0,
+          "unparsed": 0
+        },
+        "closed_at": "2026-10-18T16:47:17.762006+00:00",
+        "frame_count": 8,
+        "frames": [
+          {
+            "at": "2026-10-18T16:47:16.608053+00:00",
+            "bytes": 2925,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "f6ef1bd47e1e779ffd8288b74594ca341eb715ad77b3c6abd21dac33087d15c8"
+          },
+          {
+            "at": "2026-10-18T16:47:16.968911+00:00",
+            "bytes": 2880,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "c56bdfde21f9a83fa90449d2fdc649e5578b3e6b3753d58f2d4ce3b8a6e9e343"
+          },
+          {
+            "at": "2026-10-18T16:47:16.970911+00:00",
+            "bytes": 2922,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "43b3b58443a07be2d751c9b590b0fa0dec520cd9d4fb9de5c402ca8099f37cbd"
+          },
+          {
+            "at": "2026-10-18T16:47:17.376406+00:00",
+            "bytes": 2881,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "f2c5817176bded08b085ed4738ef303b643480948f04e95378fca7a4b297fd70"
+          },
+          {
+            "at": "2026-10-18T16:47:17.517319+00:00",
+            "bytes": 2881,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "f2c5817176bded08b085ed4738ef303b643480948f04e95378fca7a4b297fd70"
+          },
+          {
+            "at": "2026-10-18T16:47:17.519529+00:00",
+            "bytes": 2920,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "fb83cd5ea880aa3e10d61c3b4851ca0c5b2a12a6169824069e8dfa568d457cfe"
+          },
+          {
+            "at": "2026-10-18T16:47:17.649947+00:00",
+            "bytes": 2881,
+            "channel": "BTCUSDT@sellDepth",
+            "payload_items": 50,
+            "raw_sha256": "f2c5817176bded08b085ed4738ef303b643480948f04e95378fca7a4b297fd70"
+          },
+          {
+            "at": "2026-10-18T16:47:17.652283+00:00",
+            "bytes": 2925,
+            "channel": "BTCUSDT@buyDepth",
+            "payload_items": 50,
+            "raw_sha256": "d21b2e9a5cf632b00bdd506cf1bd2d87713ef9ce94bcb72fe8aaea0d2342eb96"
+          }
+        ],
+        "handshake_sha256": "3377c526093b29c5a0a84c94d3e654a0bc4d8228c9eb976d59e60e6b8f6d1c87",
+        "local_session": 2,
+        "server_sid": "2a5efb31-24ba-457e-930f-6ab7e533d7a1",
+        "started_at": "2026-10-18T16:47:12.673415+00:00"
+      }
+    ]
+  },
+  "rolling_24h_volume_crosscheck": {
+    "closed_minute_bars": 1439,
+    "first_closed_bar_utc": "2026-10-17T16:49:00+00:00",
+    "interpretation": "Window boundaries differ from the rolling 24h stats window, so the ratio is supporting evidence only; it is near 2x and consistent with the exact trade/candle volume ratio observed in fully covered bars.",
+    "last_closed_bar_utc": "2026-10-18T16:47:00+00:00",
+    "market_24h_volume": "1.4030057700000000",
+    "ratio_udf_closed_1m_volume_to_market_24h_volume": 1.9857519188962423,
+    "raw_body_sha256": "c497c2a8f706287892510785b7ad9ea0b19a7d0e88c522fc38964c34ddbce4a4",
+    "raw_bundle_member": "responses/udf_BTCUSDT_rolling24h_1m.json",
+    "raw_bytes": 85688,
+    "returned_minute_bars": 1440,
+    "sum_of_closed_1m_udf_volumes": "2.78602140",
+    "udf_bytes": 85688,
+    "udf_date": "Sun, 18 Oct 2026 16:48:27 GMT",
+    "udf_sha256": "c497c2a8f706287892510785b7ad9ea0b19a7d0e88c522fc38964c34ddbce4a4",
+    "udf_status": 200,
+    "udf_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792255707&to=1792342107"
+  },
+  "same_window_candle_stability": [
+    {
+      "bars_a": 180,
+      "bars_b": 180,
+      "capture_a": {
+        "bytes": 10784,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "date_minus_local_receive_s": -0.398,
+        "raw_body_sha256": "5e52208f65ea5ac1bda3abe2eca79029d3b29c77ec2e2055bcc4f6ad98c3aaf1",
+        "raw_bundle_member": "responses/udf_BTCUSDT_res1_capture_a.json",
+        "raw_bytes": 10784,
+        "rtt_ms": 26.906,
+        "sha256": "5e52208f65ea5ac1bda3abe2eca79029d3b29c77ec2e2055bcc4f6ad98c3aaf1",
+        "status": 200
+      },
+      "capture_b": {
+        "bytes": 10784,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "date_minus_local_receive_s": -1.617,
+        "raw_body_sha256": "5e52208f65ea5ac1bda3abe2eca79029d3b29c77ec2e2055bcc4f6ad98c3aaf1",
+        "raw_bundle_member": "responses/udf_BTCUSDT_res1_capture_b.json",
+        "raw_bytes": 10784,
+        "rtt_ms": 18.106,
+        "sha256": "5e52208f65ea5ac1bda3abe2eca79029d3b29c77ec2e2055bcc4f6ad98c3aaf1",
+        "status": 200
+      },
+      "closed_bar_count": 179,
+      "closed_bar_gaps": [],
+      "closed_flat_zero_volume_count": 150,
+      "common_timestamps": 180,
+      "field_level_ohlcv_mismatches": 0,
+      "interval_seconds": 60,
+      "latest_closed_age_s": 26.617,
+      "latest_closed_bar": {
+        "c": "81070.08",
+        "h": "81070.08",
+        "l": "81070.08",
+        "o": "81070.08",
+        "t": 1792342020,
+        "v": "0.00251634"
+      },
+      "mismatch_examples": [],
+      "raw_response_hash_equal": true,
+      "resolution": "1",
+      "symbol": "BTCUSDT",
+      "window_from_utc": "2026-10-18T13:48:24+00:00",
+      "window_to_utc": "2026-10-18T16:48:24+00:00"
+    },
+    {
+      "bars_a": 24,
+      "bars_b": 24,
+      "capture_a": {
+        "bytes": 1638,
+        "date": "Sun, 18 Oct 2026 16:48:26 GMT",
+        "date_minus_local_receive_s": -0.644,
+        "raw_body_sha256": "b9f31e0e555d33223b3d61f2c93b74991323088ae1601b3309d6b61d382eb5c6",
+        "raw_bundle_member": "responses/udf_BTCUSDT_res60_capture_a.json",
+        "raw_bytes": 1638,
+        "rtt_ms": 24.34,
+        "sha256": "b9f31e0e555d33223b3d61f2c93b74991323088ae1601b3309d6b61d382eb5c6",
+        "status": 200
+      },
+      "capture_b": {
+        "bytes": 1638,
+        "date": "Sun, 18 Oct 2026 16:48:26 GMT",
+        "date_minus_local_receive_s": -1.863,
+        "raw_body_sha256": "b9f31e0e555d33223b3d61f2c93b74991323088ae1601b3309d6b61d382eb5c6",
+        "raw_bundle_member": "responses/udf_BTCUSDT_res60_capture_b.json",
+        "raw_bytes": 1638,
+        "rtt_ms": 18.4,
+        "sha256": "b9f31e0e555d33223b3d61f2c93b74991323088ae1601b3309d6b61d382eb5c6",
+        "status": 200
+      },
+      "closed_bar_count": 23,
+      "closed_bar_gaps": [],
+      "closed_flat_zero_volume_count": 0,
+      "common_timestamps": 24,
+      "field_level_ohlcv_mismatches": 0,
+      "interval_seconds": 3600,
+      "latest_closed_age_s": 2907.863,
+      "latest_closed_bar": {
+        "c": "81059.6",
+        "h": "81141.13",
+        "l": "80928.08",
+        "o": "81078",
+        "t": 1792335600,
+        "v": "0.02798652"
+      },
+      "mismatch_examples": [],
+      "raw_response_hash_equal": true,
+      "resolution": "60",
+      "symbol": "BTCUSDT",
+      "window_from_utc": "2026-10-17T16:48:24+00:00",
+      "window_to_utc": "2026-10-18T16:48:24+00:00"
+    }
+  ],
+  "schema": "HES_WALLEX_CHART_API_PARITY_RECONNECT_QUALITY_ACCEPTANCE_V3",
+  "scope": "read-only public market APIs and official Wallex chart frontend source; no credentials, order/account mutations, production collector activation, or runtime changes",
+  "symbol_under_test": "BTCUSDT",
+  "trade_to_candle_crosscheck": [
+    {
+      "bar_examples": [
+        {
+          "bar_open_utc": "2026-10-18T15:51:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0000937800000000",
+          "udf_volume": "0.00018756",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T15:54:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 4,
+          "trade_quantity_sum": "0.0023593700000000",
+          "udf_volume": "0.00471874",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T15:56:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 4,
+          "trade_quantity_sum": "0.0018370000000000",
+          "udf_volume": "0.003674",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:05:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0020000000000000",
+          "udf_volume": "0.004",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:08:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0025098800000000",
+          "udf_volume": "0.00501976",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:15:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 6,
+          "trade_quantity_sum": "0.0221517600000000",
+          "udf_volume": "0.04430352",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:46:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0010370800000000",
+          "udf_volume": "0.00207416",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:47:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0012581700000000",
+          "udf_volume": "0.00251634",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        }
+      ],
+      "earliest_trade_timestamp_in_50_record_snapshot": "2026-10-18T14:35:26Z",
+      "fully_covered_closed_minute_bars_with_trade": 17,
+      "latest_trade_timestamp": "2026-10-18T16:48:06Z",
+      "latest_trades_count": 50,
+      "market_24h_volume": "1.4030057700000000",
+      "numeric_ohlc_matches": 17,
+      "symbol": "BTCUSDT",
+      "trades_response": {
+        "bytes": 8475,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "626160a513d8d0cf84f54e02c1ab97688052046496bad60de2111979a1900f98",
+        "raw_bundle_member": "responses/trades_BTCUSDT.json",
+        "raw_bytes": 8475,
+        "sha256": "626160a513d8d0cf84f54e02c1ab97688052046496bad60de2111979a1900f98",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/trades?symbol=BTCUSDT"
+      },
+      "udf_1m_response": {
+        "bytes": 8042,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "44e54ca2115ad93b8fa67e39ae2e722c868fe68f518609989a54942ffd174a99",
+        "raw_bundle_member": "responses/udf_1m_BTCUSDT.json",
+        "raw_bytes": 8042,
+        "sha256": "44e54ca2115ad93b8fa67e39ae2e722c868fe68f518609989a54942ffd174a99",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792334006&to=1792342104"
+      },
+      "volume_ratio_counts": {
+        "2": 17
+      }
+    },
+    {
+      "bar_examples": [
+        {
+          "bar_open_utc": "2026-10-18T16:24:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0004884900000000",
+          "udf_volume": "0.00097698",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:25:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0021000000000000",
+          "udf_volume": "0.0042",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:31:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0147700000000000",
+          "udf_volume": "0.02954",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:32:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0597900000000000",
+          "udf_volume": "0.11958",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:41:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0021100000000000",
+          "udf_volume": "0.00422",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:42:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0819200000000000",
+          "udf_volume": "0.16384",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:43:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0000600000000000",
+          "udf_volume": "0.00012",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:44:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 5,
+          "trade_quantity_sum": "0.0844900000000000",
+          "udf_volume": "0.16898",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        }
+      ],
+      "earliest_trade_timestamp_in_50_record_snapshot": "2026-10-18T15:38:56Z",
+      "fully_covered_closed_minute_bars_with_trade": 26,
+      "latest_trade_timestamp": "2026-10-18T16:44:20Z",
+      "latest_trades_count": 50,
+      "market_24h_volume": "22.6097131200000000",
+      "numeric_ohlc_matches": 26,
+      "symbol": "ETHUSDT",
+      "trades_response": {
+        "bytes": 8411,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "22f6ea86cff80048fa8452ecaa4e3f871d35ed4406ac9cbf772087b9825a90e2",
+        "raw_bundle_member": "responses/trades_ETHUSDT.json",
+        "raw_bytes": 8411,
+        "sha256": "22f6ea86cff80048fa8452ecaa4e3f871d35ed4406ac9cbf772087b9825a90e2",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/trades?symbol=ETHUSDT"
+      },
+      "udf_1m_response": {
+        "bytes": 3926,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "f8981ca0410f86d086d2eccc7833cc207a3f214bd882ce7d180f2a14956bdf13",
+        "raw_bundle_member": "responses/udf_1m_ETHUSDT.json",
+        "raw_bytes": 3926,
+        "sha256": "f8981ca0410f86d086d2eccc7833cc207a3f214bd882ce7d180f2a14956bdf13",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/udf/history?symbol=ETHUSDT&resolution=1&from=1792337816&to=1792342104"
+      },
+      "volume_ratio_counts": {
+        "2": 26
+      }
+    },
+    {
+      "bar_examples": [
+        {
+          "bar_open_utc": "2026-10-18T16:37:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0009421900000000",
+          "udf_volume": "0.00188438",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:38:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 4,
+          "trade_quantity_sum": "0.0022191700000000",
+          "udf_volume": "0.00443834",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:40:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 5,
+          "trade_quantity_sum": "0.0100802600000000",
+          "udf_volume": "0.02016052",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:41:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0000066000000000",
+          "udf_volume": "0.0000132",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:42:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0000093900000000",
+          "udf_volume": "0.00001878",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:43:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0005277500000000",
+          "udf_volume": "0.0010555",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:44:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0042659700000000",
+          "udf_volume": "0.00853194",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:47:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 3,
+          "trade_quantity_sum": "0.0010302900000000",
+          "udf_volume": "0.00206058",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        }
+      ],
+      "earliest_trade_timestamp_in_50_record_snapshot": "2026-10-18T16:15:28Z",
+      "fully_covered_closed_minute_bars_with_trade": 18,
+      "latest_trade_timestamp": "2026-10-18T16:47:18Z",
+      "latest_trades_count": 50,
+      "market_24h_volume": "3.1018456300000000",
+      "numeric_ohlc_matches": 18,
+      "symbol": "BTCTMN",
+      "trades_response": {
+        "bytes": 8977,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "bf7b2eeb88f64bb6a6d86316d518cd76013bdfcd89f10a0561470e1e267895bf",
+        "raw_bundle_member": "responses/trades_BTCTMN.json",
+        "raw_bytes": 8977,
+        "sha256": "bf7b2eeb88f64bb6a6d86316d518cd76013bdfcd89f10a0561470e1e267895bf",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/trades?symbol=BTCTMN"
+      },
+      "udf_1m_response": {
+        "bytes": 2628,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "f9ebbfd01b0e2d6c7e781cf0d4c3f91637577d0daddd93ec65a1c20c9fc3ee4b",
+        "raw_bundle_member": "responses/udf_1m_BTCTMN.json",
+        "raw_bytes": 2628,
+        "sha256": "f9ebbfd01b0e2d6c7e781cf0d4c3f91637577d0daddd93ec65a1c20c9fc3ee4b",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCTMN&resolution=1&from=1792340008&to=1792342104"
+      },
+      "volume_ratio_counts": {
+        "2": 18
+      }
+    },
+    {
+      "bar_examples": [
+        {
+          "bar_open_utc": "2026-10-18T16:33:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.1414900000000000",
+          "udf_volume": "0.28298",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:34:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 3,
+          "trade_quantity_sum": "0.0929700000000000",
+          "udf_volume": "0.18594",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:35:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0104500000000000",
+          "udf_volume": "0.0209",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:36:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 3,
+          "trade_quantity_sum": "0.0079800000000000",
+          "udf_volume": "0.01596",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:41:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.1610000000000000",
+          "udf_volume": "0.322",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:42:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0168400000000000",
+          "udf_volume": "0.03368",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:43:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 6,
+          "trade_quantity_sum": "0.3370100000000000",
+          "udf_volume": "0.67402",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:47:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0115400000000000",
+          "udf_volume": "0.02308",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        }
+      ],
+      "earliest_trade_timestamp_in_50_record_snapshot": "2026-10-18T16:07:24Z",
+      "fully_covered_closed_minute_bars_with_trade": 18,
+      "latest_trade_timestamp": "2026-10-18T16:47:23Z",
+      "latest_trades_count": 50,
+      "market_24h_volume": "70.2802837700000000",
+      "numeric_ohlc_matches": 18,
+      "symbol": "ETHTMN",
+      "trades_response": {
+        "bytes": 8858,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "ec44d47fe44c7e0a5cc7de8b2329044804c125be32635b00891e5f1050c92736",
+        "raw_bundle_member": "responses/trades_ETHTMN.json",
+        "raw_bytes": 8858,
+        "sha256": "ec44d47fe44c7e0a5cc7de8b2329044804c125be32635b00891e5f1050c92736",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/trades?symbol=ETHTMN"
+      },
+      "udf_1m_response": {
+        "bytes": 2806,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "ebdffd770a0e97d1e022cc3a12344bd7489fef46f69791c9aed34f2b56c05bc6",
+        "raw_bundle_member": "responses/udf_1m_ETHTMN.json",
+        "raw_bytes": 2806,
+        "sha256": "ebdffd770a0e97d1e022cc3a12344bd7489fef46f69791c9aed34f2b56c05bc6",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/udf/history?symbol=ETHTMN&resolution=1&from=1792339524&to=1792342104"
+      },
+      "volume_ratio_counts": {
+        "2": 18
+      }
+    },
+    {
+      "bar_examples": [
+        {
+          "bar_open_utc": "2026-10-18T16:10:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.2782600000000000",
+          "udf_volume": "0.55652",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:11:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.2035900000000000",
+          "udf_volume": "0.40718",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:13:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 4,
+          "trade_quantity_sum": "0.4499000000000000",
+          "udf_volume": "0.8998",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:14:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 3,
+          "trade_quantity_sum": "0.4329900000000000",
+          "udf_volume": "0.86598",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:16:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.2999100000000000",
+          "udf_volume": "0.59982",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:17:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 1,
+          "trade_quantity_sum": "0.0190800000000000",
+          "udf_volume": "0.03816",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:27:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "0.0373500000000000",
+          "udf_volume": "0.0747",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        },
+        {
+          "bar_open_utc": "2026-10-18T16:41:00+00:00",
+          "ohlc_numeric_match": true,
+          "trade_count": 2,
+          "trade_quantity_sum": "1.9984900000000000",
+          "udf_volume": "3.99698",
+          "udf_volume_to_trade_quantity_ratio": "2"
+        }
+      ],
+      "earliest_trade_timestamp_in_50_record_snapshot": "2026-10-18T14:54:57Z",
+      "fully_covered_closed_minute_bars_with_trade": 20,
+      "latest_trade_timestamp": "2026-10-18T16:41:24Z",
+      "latest_trades_count": 50,
+      "market_24h_volume": "257.9732800000000000",
+      "numeric_ohlc_matches": 20,
+      "symbol": "SOLUSDT",
+      "trades_response": {
+        "bytes": 8366,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "8b2774754138ba3bd00998f2744716a9918cbb88ab68b12ef652ba63515d7b6e",
+        "raw_bundle_member": "responses/trades_SOLUSDT.json",
+        "raw_bytes": 8366,
+        "sha256": "8b2774754138ba3bd00998f2744716a9918cbb88ab68b12ef652ba63515d7b6e",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/trades?symbol=SOLUSDT"
+      },
+      "udf_1m_response": {
+        "bytes": 5795,
+        "date": "Sun, 18 Oct 2026 16:48:25 GMT",
+        "raw_body_sha256": "d81fa2f121507db3ce2ca611148c699ca94ad09ebfa8ae82443490c27d48a173",
+        "raw_bundle_member": "responses/udf_1m_SOLUSDT.json",
+        "raw_bytes": 5795,
+        "sha256": "d81fa2f121507db3ce2ca611148c699ca94ad09ebfa8ae82443490c27d48a173",
+        "status": 200,
+        "url": "https://api.wallex.ir/v1/udf/history?symbol=SOLUSDT&resolution=1&from=1792335177&to=1792342104"
+      },
+      "volume_ratio_counts": {
+        "2": 20
+      }
+    }
+  ]
+}
