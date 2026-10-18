@@ -53,6 +53,7 @@ def persist_raw_http_response_v1(
         "raw_body_bytes": len(raw_body),
         "raw_body_sha256": raw_hash,
     }
+    envelope["evidence_envelope_sha256"] = hashlib.sha256(_canonical(envelope)).hexdigest()
     serialized = _canonical(envelope) + b"\n"
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -97,6 +98,11 @@ def verify_raw_http_response_v1(path: str | Path) -> dict[str, Any]:
         raise RawResponseEvidenceError("evidence envelope is unreadable or invalid JSON") from None
     if not isinstance(envelope, dict) or envelope.get("schema") != "HES_WALLEX_RAW_HTTP_RESPONSE_V1":
         raise RawResponseEvidenceError("unsupported raw-response evidence schema")
+    claimed_envelope_hash = envelope.get("evidence_envelope_sha256")
+    envelope_body = {key: value for key, value in envelope.items() if key != "evidence_envelope_sha256"}
+    actual_envelope_hash = hashlib.sha256(_canonical(envelope_body)).hexdigest()
+    if not isinstance(claimed_envelope_hash, str) or claimed_envelope_hash != actual_envelope_hash:
+        raise RawResponseEvidenceError("evidence envelope SHA-256 mismatch")
     if envelope.get("raw_body_encoding") != "base64":
         raise RawResponseEvidenceError("unsupported raw body encoding")
     encoded = envelope.get("raw_body_base64")
@@ -119,5 +125,6 @@ def verify_raw_http_response_v1(path: str | Path) -> dict[str, Any]:
         "received_at": envelope.get("received_at"),
         "raw_body_bytes": len(raw_body),
         "raw_body_sha256": actual,
+        "evidence_envelope_sha256": actual_envelope_hash,
         "raw_body": raw_body,
     }
