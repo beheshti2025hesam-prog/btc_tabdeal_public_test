@@ -42,7 +42,6 @@ def load_raw(lineage: str) -> list[dict[str, str]]:
     import hashlib
     # Git blob identity is separately pinned above; this also guards accidental
     # text decoding or newline normalization before CSV parsing.
-    assert git("hash-object", "--stdin") == actual_blob if False else True
     text = raw.decode("utf-8")
     rows = list(csv.DictReader(text.splitlines()))
     assert rows, f"{lineage}: raw CSV is empty"
