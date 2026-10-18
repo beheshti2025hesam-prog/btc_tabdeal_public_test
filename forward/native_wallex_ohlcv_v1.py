@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 from hashlib import sha256
 from typing import Any, Callable, Mapping
 from urllib.parse import urlencode
@@ -41,6 +42,8 @@ class NativeFetchEvidence:
     retrieved_at: datetime
     raw_response: bytes
     raw_sha256: str
+    server_date_header: str | None
+    server_clock_offset_seconds: float | None
     candles: tuple[NativeCandle, ...]
 
 
@@ -160,6 +163,8 @@ def fetch_native_ohlcv_evidence(
     })
     url = f"{WALLEX_HISTORY_URL}?{query}"
 
+    response_headers: dict[str, str] = {}
+
     def default_transport(request_url: str, timeout: float) -> bytes:
         request = Request(
             request_url,
@@ -168,6 +173,9 @@ def fetch_native_ohlcv_evidence(
         with urlopen(request, timeout=timeout) as response:
             if response.status != 200:
                 raise RuntimeError(f"Wallex history HTTP status {response.status}")
+            date_header = response.headers.get("Date")
+            if date_header:
+                response_headers["Date"] = date_header
             return response.read()
 
     raw = (transport or default_transport)(url, timeout_seconds)
@@ -180,11 +188,20 @@ def fetch_native_ohlcv_evidence(
     if not isinstance(payload, dict):
         raise ValueError("Wallex response must be a JSON object")
     candles = parse_history(payload, symbol=symbol, timeframe_minutes=timeframe_minutes, as_of=as_of)
+    server_date_header = response_headers.get("Date")
+    server_clock_offset_seconds = None
+    if server_date_header:
+        server_date = parsedate_to_datetime(server_date_header)
+        if server_date.tzinfo is None:
+            server_date = server_date.replace(tzinfo=timezone.utc)
+        server_clock_offset_seconds = (server_date.astimezone(timezone.utc) - retrieved_at.astimezone(timezone.utc)).total_seconds()
     return NativeFetchEvidence(
         request_url=url,
         retrieved_at=retrieved_at.astimezone(timezone.utc),
         raw_response=raw,
         raw_sha256=sha256(raw).hexdigest(),
+        server_date_header=server_date_header,
+        server_clock_offset_seconds=server_clock_offset_seconds,
         candles=candles,
     )
 
