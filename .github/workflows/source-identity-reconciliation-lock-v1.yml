@@ -23,6 +23,178 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 1
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch and verify exact historical source blobs
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --filter=blob:none --depth=1 origin b8c4fe4fa054dbfa4fca17d2f307d269c16335e1 b9ebecf061dfe9a084797d77b48a2c7846d269e3 e5f85f06b19b8427f761b95ab56ad15ccd7053c0 bb308905d75ec5cbff80572c0746c7521ddab9a0
+          test "$(git rev-parse b8c4fe4fa054dbfa4fca17d2f307d269c16335e1:data/trades.csv)" = "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+          test "$(git rev-parse b9ebecf061dfe9a084797d77b48a2c7846d269e3:data/trades.csv)" = "58d21825e052dbaa42e7eb0695455c19997bff43"
+          test "$(git rev-parse e5f85f06b19b8427f761b95ab56ad15ccd7053c0:evidence/protocol_reconciliation_v1.json)" = "a84dafbc09c72ac37ebbbb0706b43d23f7681e12"
+          test "$(git rev-parse bb308905d75ec5cbff80572c0746c7521ddab9a0:scripts/protocol_reconciliation_independent_snapshot_v1.py)" = "406319c52cc36d9d549d6f29b170d184fac90859"
+          test "$(git rev-parse HEAD:scripts/protocol_reconciliation_independent_snapshot_v1.py)" = "406319c52cc36d9d549d6f29b170d184fac90859"
+
+      - name: Pin exact reconciliation manifest bytes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:evidence/source_identity_reconciliation_v1.json)" = "d21a37bb239249ebe16678a1e21d698e0db68472"
+
+      - name: Prove historical manifest mutations invalidate the pin
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          expected = "d21a37bb239249ebe16678a1e21d698e0db68472"
+          raw = Path("evidence/source_identity_reconciliation_v1.json").read_bytes()
+          assert subprocess.run(
+              ["git", "hash-object", "--stdin"], input=raw, capture_output=True, check=True
+          ).stdout.decode().strip() == expected
+
+          data = json.loads(raw)
+          mutations = []
+          deleted = json.loads(raw)
+          deleted["records"].pop()
+          mutations.append(json.dumps(deleted, sort_keys=True).encode())
+          reordered = json.loads(raw)
+          reordered["records"] = list(reversed(reordered["records"]))
+          mutations.append(json.dumps(reordered, sort_keys=True).encode())
+          changed_payload = json.loads(raw)
+          changed_payload["records"][0]["gross_return"] += 0.000001
+          mutations.append(json.dumps(changed_payload, sort_keys=True).encode())
+          changed_count = json.loads(raw)
+          changed_count["counts"]["prior_survivor_records"] += 1
+          mutations.append(json.dumps(changed_count, sort_keys=True).encode())
+
+          for candidate in mutations:
+              observed = subprocess.run(
+                  ["git", "hash-object", "--stdin"], input=candidate,
+                  capture_output=True, check=True
+              ).stdout.decode().strip()
+              assert observed != expected, "mutated historical manifest retained pinned blob identity"
+          print("PASS: deletion, reorder, payload mutation, and count mutation invalidate the pinned manifest")
+          PY
+
+      - name: Recompute both immutable raw lineages through final-commit features
+        env:
+          HES_PRIOR_RAW: /tmp/hes_prior_trades.csv
+          HES_CURRENT_RAW: /tmp/hes_current_trades.csv
+          PROTOCOL_CONTRACT_PATH: /tmp/protocol_reconciliation_v1_contract.json
+        run: |
+          set -euo pipefail
+          git show b8c4fe4fa054dbfa4fca17d2f307d269c16335e1:data/trades.csv > "$HES_PRIOR_RAW"
+          git show b9ebecf061dfe9a084797d77b48a2c7846d269e3:data/trades.csv > "$HES_CURRENT_RAW"
+          git show e5f85f06b19b8427f761b95ab56ad15ccd7053c0:evidence/protocol_reconciliation_v1.json > "$PROTOCOL_CONTRACT_PATH"
+          python - <<'PY'
+          import hashlib, os, subprocess
+          from pathlib import Path
+
+          pins = {
+              "HES_PRIOR_RAW": ("1a44d52a0588deb765bbbea04bfb5783dcb1050b", "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"),
+              "HES_CURRENT_RAW": ("58d21825e052dbaa42e7eb0695455c19997bff43", "b9ebecf061dfe9a084797d77b48a2c7846d269e3"),
+          }
+          for env_name, (expected_blob, source_commit) in pins.items():
+              raw = Path(os.environ[env_name]).read_bytes()
+              observed = subprocess.run(
+                  ["git", "hash-object", "--stdin"], input=raw, capture_output=True, check=True
+              ).stdout.decode().strip()
+              assert observed == expected_blob, (env_name, observed, expected_blob)
+              assert raw, f"{env_name} is empty"
+              print(f"{env_name}: git_blob={observed} sha256={hashlib.sha256(raw).hexdigest()} bytes={len(raw)} source={source_commit}")
+
+          raw = Path(os.environ["HES_CURRENT_RAW"]).read_bytes()
+          mutations = [raw[:-1], raw[1:], raw.replace(b"BTC_USDT", b"XTC_USDT", 1)]
+          lines = raw.splitlines(keepends=True)
+          assert len(lines) > 3
+          mutations.append(b"".join([lines[0], *lines[2:], lines[1]]))
+          expected = pins["HES_CURRENT_RAW"][0]
+          for i, candidate in enumerate(mutations):
+              got = subprocess.run(
+                  ["git", "hash-object", "--stdin"], input=candidate, capture_output=True, check=True
+              ).stdout.decode().strip()
+              assert got != expected, f"raw mutation {i} retained the pinned blob identity"
+          print("PASS: truncation, leading-byte deletion, source-symbol mutation, and row reorder invalidate the raw-data pin")
+          PY
+
+          # Both snapshots are replayed using the feature/strategy modules from this exact checked-out commit.
+          HES_FROZEN_CSV="$HES_PRIOR_RAW" LOCKED_RAW_BLOB_SHA=1a44d52a0588deb765bbbea04bfb5783dcb1050b LOCKED_RAW_SOURCE_COMMIT=b8c4fe4fa054dbfa4fca17d2f307d269c16335e1 PROTOCOL_CONTRACT_SOURCE_COMMIT=e5f85f06b19b8427f761b95ab56ad15ccd7053c0 PROTOCOL_CONTRACT_BLOB_SHA=a84dafbc09c72ac37ebbbb0706b43d23f7681e12 python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json /tmp/prior_audit.json
+          mv protocol_reconciliation_winners.csv /tmp/prior_winners.csv
+
+          HES_FROZEN_CSV="$HES_CURRENT_RAW" LOCKED_RAW_BLOB_SHA=58d21825e052dbaa42e7eb0695455c19997bff43 LOCKED_RAW_SOURCE_COMMIT=b9ebecf061dfe9a084797d77b48a2c7846d269e3 PROTOCOL_CONTRACT_SOURCE_COMMIT=e5f85f06b19b8427f761b95ab56ad15ccd7053c0 PROTOCOL_CONTRACT_BLOB_SHA=a84dafbc09c72ac37ebbbb0706b43d23f7681e12 python scripts/protocol_reconciliation_independent_snapshot_v1.py
+          mv protocol_reconciliation_full_population_audit.json /tmp/current_audit.json
+          mv protocol_reconciliation_winners.csv /tmp/current_winners.csv
+
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+
+          manifest = json.loads(Path("evidence/source_identity_reconciliation_v1.json").read_text())
+          expected_lineages = {
+              "prior_14_survivor": ("/tmp/prior_audit.json", "/tmp/prior_winners.csv", 14, 1049, 127201),
+              "current_28_winner": ("/tmp/current_audit.json", "/tmp/current_winners.csv", 28, 1027, 139250),
+          }
+          keys = ("timestamp", "sequence_first", "sequence_last", "entry_price", "exit_price", "gross_return", "direction")
+          for lineage, (audit_path, csv_path, expected_winners, expected_oos, expected_rows) in expected_lineages.items():
+              audit = json.loads(Path(audit_path).read_text())
+              assert audit["population"]["rows_read"] == expected_rows, (lineage, audit["population"])
+              assert audit["population"]["rows_invalid"] == 0, (lineage, audit["population"])
+              assert audit["population"]["evaluated_oos"] == expected_oos, (lineage, audit["population"])
+              assert audit["counts"]["winners_gt_14bps"] == expected_winners, (lineage, audit["counts"])
+              generated = list(csv.DictReader(Path(csv_path).open(newline="", encoding="utf-8")))
+              assert len(generated) == expected_winners, (lineage, len(generated))
+              recorded = [r for r in manifest["records"] if r["lineage"] == lineage]
+              assert len(recorded) == expected_winners, (lineage, len(recorded))
+              def normalized_generated(row):
+                  out = {k: row[k] for k in keys}
+                  for k in ("sequence_first", "sequence_last"):
+                      out[k] = int(out[k])
+                  for k in ("entry_price", "exit_price", "gross_return"):
+                      out[k] = float(out[k])
+                  out["evaluated"] = row["evaluated"].lower() == "true"
+                  out["fold_index"] = int(row["fold_index"])
+                  return out
+              def normalized_record(row):
+                  out = {k: row[k] for k in keys}
+                  out["evaluated"] = row["evaluated"]
+                  out["fold_index"] = row["fold_index"]
+                  return out
+              actual = sorted((normalized_generated(r) for r in generated), key=lambda r: tuple(r[k] for k in keys))
+              expected = sorted((normalized_record(r) for r in recorded), key=lambda r: tuple(r[k] for k in keys))
+              assert actual == expected, f"{lineage}: raw-to-feature winners do not exactly match locked manifest"
+              print(f"PASS {lineage}: {expected_rows} raw rows -> {audit['population']['candles']} candles -> {audit['population']['observations']} observations -> {expected_oos} evaluated OOS -> {expected_winners} exact winner records")
+
+          prior = {tuple(r[k] for k in keys) for r in manifest["records"] if r["lineage"] == "prior_14_survivor"}
+          current = {tuple(r[k] for k in keys) for r in manifest["records"] if r["lineage"] == "current_28_winner"}
+          assert prior.isdisjoint(current), "cross-lineage historical records must never be upgraded into current winners"
+          assert len(prior) == 14 and len(current) == 28
+          print("PASS: 42/42 manifest records reproduce on their pinned raw lineage; 0 cross-lineage exact matches")
+          PY
+          mkdir -p evidence/source_lineage_replay
+          cp /tmp/prior_audit.json evidence/source_lineage_replay/prior_full_population_audit.json
+          cp /tmp/prior_winners.csv evidence/source_lineage_replay/prior_winners.csv
+          cp /tmp/current_audit.json evidence/source_lineage_replay/current_full_population_audit.json
+          cp /tmp/current_winners.csv evidence/source_lineage_replay/current_winners.csv
+
+      - name: Independently reproduce raw endpoints and gross returns for all 42 records
+        run: |
+          set -euo pipefail
+          python scripts/verify_source_identity_reconciliation_v1.py > evidence/source_lineage_record_replay_v1.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path("evidence/source_lineage_record_replay_v1.json").read_text())
+          assert d["status"] == "PASS_INDEPENDENT_RAW_RECORD_REPRODUCTION"
+          assert d["record_count"] == 42
+          assert d["exact_reproductions"] == 42
+          assert sum(s["records_reproduced_exactly"] for s in d["sources"]) == 42
+          print("PASS: independent raw endpoint/price/gross-return replay verified all 42 records")
+          PY
+
       - name: Validate record-level identity artifact
         run: |
           python - <<'PY'
@@ -84,4 +256,6 @@ jobs:
           path: |
             evidence/source_identity_reconciliation_v1.json
             evidence/source_identity_reconciliation_v1.lock.json
+            evidence/source_lineage_record_replay_v1.json
+            evidence/source_lineage_replay/
           if-no-files-found: error

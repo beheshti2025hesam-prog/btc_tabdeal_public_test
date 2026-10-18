@@ -25,7 +25,16 @@ def _now() -> str:
 
 
 def _sequence(value: Any) -> int:
-    return int(value)
+    # Preserve source identity: never truncate floats or convert bool to 0/1.
+    if type(value) is int:
+        sequence = value
+    elif isinstance(value, str) and value.isascii() and value.isdigit():
+        sequence = int(value)
+    else:
+        raise ValueError("invalid sequence")
+    if sequence < 0:
+        raise ValueError("invalid sequence")
+    return sequence
 
 
 def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -43,7 +52,9 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
     symbol = data.get("symbol") or data.get("s")
     price = data.get("price") or data.get("p")
     amount = data.get("amount") or data.get("q")
-    sequence = data.get("sequence") or data.get("seq")
+    sequence = data.get("sequence")
+    if sequence is None:
+        sequence = data.get("seq")
     side = data.get("side") or data.get("side_name") or data.get("S")
     source_updated = data.get("updated")
 

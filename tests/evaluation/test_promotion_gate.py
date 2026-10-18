@@ -25,6 +25,14 @@ class PromotionGateTests(unittest.TestCase):
         self.assertFalse(result.eligible)
         self.assertEqual(result.missing, ("live_safety_verified",))
 
+
+    def test_missing_historical_validation_blocks_promotion(self):
+        result = PromotionGate().evaluate(
+            self.base(historical_validation_verified=False, live_safety_verified=True)
+        )
+        self.assertFalse(result.eligible)
+        self.assertIn("historical_validation_verified", result.missing)
+
     def test_complete_evidence_is_eligible(self):
         result = PromotionGate().evaluate(self.base(live_safety_verified=True))
         self.assertTrue(result.eligible)

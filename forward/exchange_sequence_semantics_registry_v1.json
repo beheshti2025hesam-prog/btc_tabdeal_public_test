@@ -1,0 +1,147 @@
+{
+  "schema": "hes_exchange_sequence_semantics_registry_v1",
+  "registry_revision": 1,
+  "status": "RESEARCH_ONLY",
+  "policy": {
+    "default_capability": "UNKNOWN",
+    "unknown_semantics_may_drive_gap_detection": false,
+    "unknown_semantics_may_drive_conflict_rejection": false,
+    "cross_reconnect_comparison_default": false,
+    "timestamps_are_sequence_evidence": false,
+    "trade_identity_implies_book_continuity": false,
+    "source_change_requires_new_revision": true,
+    "fail_closed_for_decision_use": true
+  },
+  "records": [
+    {
+      "id": "tabdeal.spot.depth.depthUpdate.v1",
+      "venue": "tabdeal",
+      "product": "spot",
+      "endpoint": "WebSocket",
+      "channel": "depth",
+      "message_type": "depthUpdate",
+      "field_path": "data",
+      "sequence_field_paths": [],
+      "capabilities": {
+        "event_identity": "UNKNOWN",
+        "ordered": "UNKNOWN",
+        "contiguous": "UNKNOWN",
+        "gap_detection": "UNSUPPORTED",
+        "cross_reconnect_comparable": "UNSUPPORTED",
+        "snapshot_delta_bridge": "UNKNOWN"
+      },
+      "evidence": {
+        "source_url": "https://docs.tabdeal.org/",
+        "claim": "Published sample includes timestamp and bid/ask arrays; no depth sequence/update range is specified in the reviewed contract.",
+        "retrieved_on": "2026-10-10",
+        "evidence_class": "DOCUMENTATION_REVIEW",
+        "raw_fixture_sha256": null
+      },
+      "decision_capability": "OBSERVATION_ONLY"
+    },
+    {
+      "id": "tabdeal.fapi.aggDepth.rest.sequence.v1",
+      "venue": "tabdeal",
+      "product": "futures_margin",
+      "endpoint": "REST",
+      "channel": "aggDepth",
+      "message_type": "snapshot",
+      "field_path": "sequence",
+      "sequence_field_paths": ["sequence"],
+      "capabilities": {
+        "event_identity": "UNKNOWN",
+        "ordered": "UNKNOWN",
+        "contiguous": "UNKNOWN",
+        "gap_detection": "UNSUPPORTED",
+        "cross_reconnect_comparable": "UNKNOWN",
+        "snapshot_delta_bridge": "UNSUPPORTED"
+      },
+      "evidence": {
+        "source_url": "https://docs.tabdeal.org/",
+        "claim": "The REST example contains sequence, but uniqueness, monotonicity, continuity and relation to WebSocket channels are not specified.",
+        "retrieved_on": "2026-10-10",
+        "evidence_class": "DOCUMENTATION_REVIEW",
+        "raw_fixture_sha256": null
+      },
+      "decision_capability": "OBSERVATION_ONLY"
+    },
+    {
+      "id": "tabdeal.fapi.special_margin.broadcast.trade.v1",
+      "venue": "tabdeal",
+      "product": "futures_margin",
+      "endpoint": "WebSocket",
+      "channel": "special_margin/broadcast",
+      "message_type": "trade",
+      "field_path": "trade.sequence",
+      "sequence_field_paths": ["trade.sequence"],
+      "capabilities": {
+        "event_identity": "UNKNOWN",
+        "ordered": "UNKNOWN",
+        "contiguous": "UNKNOWN",
+        "gap_detection": "UNSUPPORTED",
+        "cross_reconnect_comparable": "UNSUPPORTED",
+        "snapshot_delta_bridge": "UNSUPPORTED"
+      },
+      "evidence": {
+        "source_url": "https://docs.tabdeal.org/",
+        "claim": "Public docs describe a trade envelope but do not define the inner trade schema or trade.sequence semantics.",
+        "retrieved_on": "2026-10-10",
+        "evidence_class": "DOCUMENTATION_REVIEW",
+        "raw_fixture_sha256": null
+      },
+      "decision_capability": "OBSERVATION_ONLY"
+    },
+    {
+      "id": "tabdeal.fapi.special_margin.stream.depth.v1",
+      "venue": "tabdeal",
+      "product": "futures_margin",
+      "endpoint": "WebSocket",
+      "channel": "special_margin/stream/depth",
+      "message_type": "depthUpdate",
+      "field_path": "e",
+      "sequence_field_paths": [],
+      "capabilities": {
+        "event_identity": "UNSUPPORTED",
+        "ordered": "UNKNOWN",
+        "contiguous": "UNSUPPORTED",
+        "gap_detection": "UNSUPPORTED",
+        "cross_reconnect_comparable": "UNSUPPORTED",
+        "snapshot_delta_bridge": "UNKNOWN"
+      },
+      "evidence": {
+        "source_url": "https://docs.tabdeal.org/",
+        "claim": "Reviewed sample has event/time/symbol/bids/asks but no sequence or update-range field.",
+        "retrieved_on": "2026-10-10",
+        "evidence_class": "DOCUMENTATION_REVIEW",
+        "raw_fixture_sha256": null
+      },
+      "decision_capability": "OBSERVATION_ONLY"
+    },
+    {
+      "id": "binance.spot.depth.diff.v1",
+      "venue": "binance",
+      "product": "spot",
+      "endpoint": "WebSocket",
+      "channel": "depth",
+      "message_type": "diffDepth",
+      "field_path": "U..u",
+      "sequence_field_paths": ["U", "u"],
+      "capabilities": {
+        "event_identity": "UNSUPPORTED",
+        "ordered": "DOCUMENTED",
+        "contiguous": "DOCUMENTED",
+        "gap_detection": "DOCUMENTED",
+        "cross_reconnect_comparable": "UNSUPPORTED",
+        "snapshot_delta_bridge": "DOCUMENTED"
+      },
+      "evidence": {
+        "source_url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md",
+        "claim": "Spot depth synchronization uses REST lastUpdateId and WebSocket U/u update ranges; restart synchronization on a detected gap.",
+        "retrieved_on": "2026-10-10",
+        "evidence_class": "OFFICIAL_DOCUMENTATION",
+        "raw_fixture_sha256": null
+      },
+      "decision_capability": "ADAPTER_SPECIFIC_BOOK_SYNC_ONLY"
+    }
+  ]
+}

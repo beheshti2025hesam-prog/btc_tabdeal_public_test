@@ -1,4 +1,5 @@
 from datetime import datetime, timezone, timedelta
+import pytest
 from forward.forward_observation_path_v1 import ForwardObservationPathV1
 
 def frame(seq, when, price):
@@ -80,3 +81,74 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     # Preserve the public context count even though only the adjacent pair is inspected.
     assert [x.candles for x in prefix_contexts] == list(range(2, len(candles)+1))
     assert [x.candles for x in pair_contexts] == [x.candles for x in prefix_contexts]
+
+
+def test_out_of_order_raw_frames_block_entire_raw_to_feature_chain(tmp_path):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    frames = [
+        frame(10, as_of-timedelta(minutes=30), 100),
+        frame(12, as_of-timedelta(minutes=25), 101),
+        frame(11, as_of-timedelta(minutes=20), 102),
+        frame(13, as_of-timedelta(minutes=15), 103),
+    ]
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl")
+    result = path.observe(frames, as_of=as_of, forward_run_id="OBS-E2E-OUT-OF-ORDER")
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
+    assert result.snapshot_id is None
+    assert result.candles == 0
+    assert not (tmp_path / "observations.jsonl").exists()
+
+@pytest.mark.parametrize("bad_sequence", [True, 1.5, float("nan"), float("inf"), " 7", "7.0", "٧"])
+def test_malformed_sequence_cannot_reach_candles_features_or_journal(tmp_path, bad_sequence):
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    frames = [frame(1, as_of-timedelta(minutes=30), 100),
+              frame(2, as_of-timedelta(minutes=25), 101)]
+    frames[1]["sequence"] = bad_sequence
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl")
+    with pytest.raises(ValueError, match="sequence"):
+        path.observe(frames, as_of=as_of, forward_run_id="OBS-E2E-BAD-SEQ")
+    assert not (tmp_path / "observations.jsonl").exists()
+
+
+
+def test_sequence_anomaly_is_vetoed_before_candle_and_feature_generation(tmp_path, monkeypatch):
+    """An anomaly must stop the raw-to-feature path, not merely be journaled as a warning."""
+    import forward.sequence_candle_integration_v1 as candle_pipeline
+    from forward.clean_structure_context_v1 import CleanStructureContextV1
+    from forward.clean_structure_stability_v1 import CleanStructureStabilityV1
+    from forward.clean_regime_observation_v1 import CleanRegimeObservationV1
+    from forward.clean_regime_quality_v1 import CleanRegimeQualityV1
+    from forward.clean_regime_quality_gate_v1 import CleanRegimeQualityGateV1
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("downstream processing ran after sequence anomaly")
+
+    monkeypatch.setattr(candle_pipeline, "ingest_closed_candles", forbidden)
+    monkeypatch.setattr(CleanStructureContextV1, "observe", forbidden)
+    monkeypatch.setattr(CleanStructureStabilityV1, "observe", forbidden)
+    monkeypatch.setattr(CleanRegimeObservationV1, "observe", forbidden)
+    monkeypatch.setattr(CleanRegimeQualityV1, "observe", forbidden)
+    monkeypatch.setattr(CleanRegimeQualityGateV1, "evaluate", forbidden)
+
+    as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
+    frames = [
+        frame(10, as_of-timedelta(minutes=30), 100),
+        frame(12, as_of-timedelta(minutes=25), 101),
+        frame(11, as_of-timedelta(minutes=20), 102),
+        frame(13, as_of-timedelta(minutes=15), 103),
+    ]
+    journal_path = tmp_path / "observations.jsonl"
+    result = ForwardObservationPathV1(journal_path).observe(
+        frames, as_of=as_of, forward_run_id="OBS-E2E-VETO-BEFORE-FEATURES"
+    )
+
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_UNSAFE"
+    assert result.candles == 0
+    assert result.structure_bias is None
+    assert result.regime is None
+    assert result.quality is None
+    assert result.gate_safe is False
+    assert result.snapshot_id is None
+    assert not journal_path.exists()

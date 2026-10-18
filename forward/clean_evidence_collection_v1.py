@@ -28,7 +28,7 @@ class ForwardEvidenceRecord:
             raise ValueError("unsupported symbol")
         if self.timeframe != "15m":
             raise ValueError("unsupported timeframe")
-        if not self.source.startswith("tabdeal_ws_forward_v1"):
+        if self.source != "tabdeal_ws_forward_v1":
             raise ValueError("non-forward source")
         forbidden = {"winner", "survivor", "legacy", "historical"}
         if any(x in self.source.lower() for x in forbidden):

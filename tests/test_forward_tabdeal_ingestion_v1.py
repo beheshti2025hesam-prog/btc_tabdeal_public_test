@@ -50,3 +50,14 @@ def test_ingestion_emits_only_closed_candles():
     assert len(candles) == 1
     assert candles[0].close_time == datetime(2026, 10, 7, 1, 15, tzinfo=timezone.utc)
     assert gaps == ()
+
+
+@pytest.mark.parametrize("sequence", [True, False, 1.9, float("nan"), float("inf"), -1, " 1", "1.0"])
+def test_ingestion_rejects_coerced_sequence_values(sequence):
+    with pytest.raises(ValueError, match="sequence"):
+        to_trade_observation(rec(seq=sequence), as_of=AS_OF)
+
+
+def test_ingestion_accepts_ascii_digit_string_sequence():
+    trade = to_trade_observation(rec(seq="123"), as_of=AS_OF)
+    assert trade.sequence == 123

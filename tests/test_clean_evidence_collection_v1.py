@@ -65,3 +65,15 @@ def test_invalid_status_rejected():
     data=base(); data["status"]="WIN"
     with pytest.raises(ValueError):
         ForwardEvidenceRecord(**data)
+
+@pytest.mark.parametrize("source", [
+    "tabdeal_ws_forward_v1:historical",
+    "tabdeal_ws_forward_v1:replay",
+    "tabdeal_ws_forward_v1-extra",
+    "tabdeal_ws_forward_v1.winner",
+])
+def test_forward_source_must_match_exact_contract(source):
+    data = base()
+    data["source"] = source
+    with pytest.raises(ValueError, match="non-forward source"):
+        ForwardEvidenceRecord(**data)
