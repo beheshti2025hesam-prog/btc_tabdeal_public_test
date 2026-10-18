@@ -157,3 +157,14 @@ def test_raw_response_hash_cannot_be_claimed_without_raw_capture(tmp_path):
     resign_record(record)
     with pytest.raises(WallexFeatureContextError, match="raw-response hash claim"):
         build_wallex_feature_context_v1(record, as_of=AS_OF)
+
+
+def test_historical_window_bars_are_not_mistaken_for_stale_latest_data(tmp_path):
+    as_of = datetime(2026, 10, 17, 13, 20, tzinfo=UTC)
+    observed = as_of
+    items = [candle(BASE_TS + i * 60, close=str(100 + i), observed=observed)
+             for i in range(20)]
+    record = observation(tmp_path, items, as_of=as_of, max_age=60)
+    context = build_wallex_feature_context_v1(record, as_of=as_of)
+    assert context["input_candle_count"] == 20
+    assert context["status"] == "FEATURE_CONTEXT_OBSERVED_RESEARCH_ONLY"
