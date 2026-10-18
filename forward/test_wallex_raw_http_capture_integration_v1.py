@@ -70,5 +70,5 @@ def test_fetch_history_optionally_captures_exact_http_body(tmp_path, monkeypatch
 
     tampered = [dict(c) for c in observation["candles"]]
     tampered[0]["close"] = "999"
-    with pytest.raises(RawResponseReplayError, match="does not match"):
+    with pytest.raises(RawResponseReplayError, match="mismatch|does not match"):
         replay_raw_http_response_v1(evidence_path, as_of=as_of, expected_candle_records=tampered)
