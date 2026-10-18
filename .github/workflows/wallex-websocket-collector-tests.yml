@@ -5,8 +5,10 @@ on:
     branches: ["main"]
     paths:
       - "forward/wallex_market_data_collector_v1.py"
+      - "forward/wallex_controlled_observation_runner_v1.py"
       - "forward/session_epoch_gate_v1.py"
       - "tests/test_wallex_market_data_collector_v1.py"
+      - "tests/test_wallex_controlled_observation_runner_v1.py"
       - "tests/test_session_epoch_gate_v1.py"
       - "evidence/wallex_collector_live_epoch_integration_20261018.json"
       - "evidence/wallex_collector_live_epoch_integration_20261018.json.sha256"
@@ -42,6 +44,6 @@ jobs:
       - name: Run session-isolation and Wallex transport tests
         env:
           PYTHONPATH: .
-        run: python -m pytest -q tests/test_wallex_market_data_collector_v1.py tests/test_session_epoch_gate_v1.py tests/test_native_wallex_ohlcv_v1.py
+        run: python -m pytest -q tests/test_wallex_market_data_collector_v1.py tests/test_wallex_controlled_observation_runner_v1.py tests/test_session_epoch_gate_v1.py tests/test_native_wallex_ohlcv_v1.py
       - name: Verify pinned live evidence
         run: (cd evidence && sha256sum -c wallex_collector_live_epoch_integration_20261018.json.sha256)
