@@ -1,0 +1,87 @@
+registry_revision: "2026-10-18.1"
+status: "active-but-conservative"
+venue: "wallex"
+product: "spot"
+transport: "websocket"
+official_reference: "https://api-docs.wallex.ir/"
+retrieved_at: "2026-10-18"
+live_wire_verified: false
+live_verification_note: "The documented Socket.IO polling handshake returned HTTP 503 from the observation host; pinned response evidence is evidence/wallex_official_socketio_reachability_20261018.json."
+records:
+  - record_id: "wallex.spot.socketio.trade.v1"
+    endpoint: "https://api.wallex.ir"
+    channel_or_topic: "SYMBOL@trade"
+    message_type: "Broadcaster trade event"
+    field_contract:
+      event_name: "Broadcaster"
+      arguments: ["channel", "data"]
+      data_fields:
+        isBuyOrder: "boolean"
+        quantity: "number string"
+        price: "number string"
+        timestamp: "ISO-8601 datetime"
+      sequence_like_field: "not documented in the official trade sample"
+    claims:
+      unique: "unknown"
+      monotonic: "unknown"
+      contiguous: "unknown"
+      ordered: "unknown"
+      comparable_across_reconnect: "unknown"
+      comparable_across_symbols: "unknown"
+      comparable_across_channels: "unknown"
+      gap_detection_supported: false
+      duplicate_identity_supported: false
+    bootstrap_rule: "No documented trade snapshot/replay cursor found in the reviewed public contract."
+    gap_rule: "Never infer missing trades from timestamps, numeric quantity, or undocumented fields."
+    duplicate_rule: "Do not deduplicate by timestamp/price/quantity; exact-payload replay may be separately recorded, but no trade identity is established."
+    reconnect_rule: "Create a new local session epoch; do not compare undocumented identifiers across reconnects."
+    adapter_rule: "Validate documented fields; preserve raw frame and hash; expose no trade sequence or identity capability."
+    confidence: "high for fields in the documented sample; live delivery and completeness remain unverified"
+  - record_id: "wallex.spot.socketio.depth.v1"
+    endpoint: "https://api.wallex.ir"
+    channel_or_topic: "SYMBOL@buyDepth and SYMBOL@sellDepth"
+    message_type: "Broadcaster depth event"
+    field_contract:
+      event_name: "Broadcaster"
+      arguments: ["channel", "data"]
+      data_shape: "indexed object of price/quantity/sum levels in the official sample"
+      sequence_like_field: "not documented in the reviewed depth sample"
+    claims:
+      unique: "unknown"
+      monotonic: "unknown"
+      contiguous: "unknown"
+      ordered: "unknown"
+      comparable_across_reconnect: "unknown"
+      gap_detection_supported: false
+      duplicate_identity_supported: false
+    bootstrap_rule: "REST depth exists, but a documented snapshot-to-WebSocket sequence/linkage contract was not found in the reviewed source."
+    gap_rule: "No numeric gap detection; do not claim a synchronized order book without a proven snapshot/delta contract."
+    reconnect_rule: "Invalidate local state and create a new epoch; no cross-session sequence comparison."
+    adapter_rule: "Treat each message as observed depth data only; do not assume delta/full-replacement semantics without evidence."
+    confidence: "high for the documented sample shape; state synchronization semantics remain unknown"
+  - record_id: "wallex.udf.history.candle-volume.v1"
+    endpoint: "GET https://api.wallex.ir/v1/udf/history"
+    channel_or_topic: "symbol + resolution + from/to"
+    message_type: "OHLCV history response"
+    field_contract:
+      fields: ["s", "t", "o", "h", "l", "c", "v"]
+      volume_field: "v"
+      volume_unit_and_aggregation: "unknown; exact 2x discrepancy against sampled public trade quantity remains unresolved"
+    claims:
+      equivalent_to_sum_of_public_trade_quantity: "not established"
+      normalized_factor: "none"
+      volume_feature_acceptance: false
+    adapter_rule: "Preserve source v exactly; no divide-by-two or other normalization without authoritative written semantics and complete hash-pinned replay evidence."
+    confidence: "high that v is present; low/unknown for its unit and aggregation semantics"
+sources:
+  - url: "https://api-docs.wallex.ir/"
+    source_kind: "primary"
+    note: "Official reference documents Socket.IO v2.5-compatible usage, subscribe/Broadcaster events, trade fields, and buyDepth/sellDepth channels."
+  - url: "https://developers.wallex.ir/socket"
+    source_kind: "primary"
+    note: "Official developer socket page describes real-time market channels and connection limitations; retrieved search snapshot dated 2026-10-18."
+known_limitations:
+  - "Documented Socket.IO endpoint returned HTTP 503 from the observation host at the pinned capture time."
+  - "The observed raw WebSocket /ws route is not substituted for the documented Socket.IO contract without live verification or written exchange confirmation."
+  - "The public trade REST endpoint returned a bounded latest-trades sample and is not a complete historical ledger."
+  - "No authoritative explanation for the candle volume factor-of-two discrepancy has been obtained."
