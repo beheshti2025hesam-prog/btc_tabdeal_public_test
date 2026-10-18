@@ -117,7 +117,16 @@ def verify_lineage(records: list[dict], lineage: str) -> dict:
             "records_reproduced_exactly": exact, "raw_blob": source["blob"]}
 
 
+def fetch_pinned_sources() -> None:
+    commits = [source["commit"] for source in SOURCES.values()]
+    subprocess.run(
+        ["git", "fetch", "--no-tags", "--filter=blob:none", "--depth=1", "origin", *commits],
+        check=True, capture_output=True, text=True,
+    )
+
+
 def main() -> None:
+    fetch_pinned_sources()
     manifest_bytes = MANIFEST.read_bytes()
     manifest = json.loads(manifest_bytes)
     assert manifest["status"] == "SOURCE_IDENTITY_LOCKED"
