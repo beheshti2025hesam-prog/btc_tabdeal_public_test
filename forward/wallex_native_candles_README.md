@@ -39,3 +39,5 @@ Live smoke evidence is stored under evidence/. Raw response payloads are hashed 
 - `verify_raw_http_response_v1(path)` verifies the byte count and raw-body SHA-256, then returns the exact decoded bytes for replay.
 - Capture is opt-in and must use a unique evidence path for each response. The default adapter call still does not retain raw response bytes.
 - This capability does **not** yet attach raw evidence identity to `HES_WALLEX_CANDLE_OBSERVATION_V1`; therefore end-to-end source-to-feature provenance and replay are not yet accepted. Do not set `raw_source_replay_verified=true` based on this helper alone.
+
+- `replay_raw_http_response_v1(path, as_of=..., expected_candle_records=...)` verifies the envelope and raw body, re-parses the exact body with the same native parser, enforces the requested range, and requires exact candle hashes/fields to match the observation. Its `RAW_REPLAY_VERIFIED` result applies only to that specific evidence file and expected candle set; it does not by itself prove source-to-feature lineage or chart parity.
