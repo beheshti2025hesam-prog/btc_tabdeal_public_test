@@ -11,10 +11,10 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from .candle_normalizer_v1 import TradeObservation, Candle15m, IntervalGap, normalize_trades
+from .legacy_forward_contract_boundary_v1 import require_forward_evidence_record
 
 REQUIRED = ("symbol", "price", "amount", "side", "source_updated", "sequence")
 SOURCE = "tabdeal_ws_forward_v1"
-
 
 def _dt(value: Any) -> datetime:
     if not isinstance(value, str):
@@ -27,13 +27,14 @@ def _dt(value: Any) -> datetime:
         raise ValueError("source_updated must be timezone-aware")
     return dt.astimezone(timezone.utc)
 
-
 def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObservation:
     missing = [key for key in REQUIRED if key not in record]
     if missing:
         raise ValueError("missing ingestion fields:" + ",".join(missing))
-    if record.get("source") != SOURCE:
-        raise ValueError("unsupported ingestion source")
+    try:
+        require_forward_evidence_record(record)
+    except ValueError as exc:
+        raise ValueError("legacy/forward contract boundary rejected record") from exc
     updated = _dt(record["source_updated"])
     if as_of.tzinfo is None or as_of.utcoffset() is None:
         raise ValueError("as_of must be timezone-aware")
@@ -54,9 +55,6 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
         sequence=sequence,
     )
 
-
-def ingest_closed_candles(
-    records: Iterable[dict[str, Any]], *, as_of: datetime
-) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
+def ingest_closed_candles(records: Iterable[dict[str, Any]], *, as_of: datetime) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
     trades = tuple(to_trade_observation(record, as_of=as_of) for record in records)
     return normalize_trades(trades, as_of=as_of, expected_symbol="BTC_USDT")
