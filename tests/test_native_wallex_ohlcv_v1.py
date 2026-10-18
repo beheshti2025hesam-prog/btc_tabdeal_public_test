@@ -244,3 +244,27 @@ def test_rejects_invalid_retry_configuration():
             fetch_native_ohlcv_evidence(
                 **_fetch_kwargs(lambda _url, _timeout: json.dumps(PAYLOAD).encode(), **kwargs)
             )
+
+
+
+def test_exponential_retry_delay_is_capped_at_ten_seconds():
+    calls = []
+    delays = []
+
+    def fail_twice_then_ok(url, timeout):
+        calls.append(url)
+        if len(calls) < 3:
+            raise URLError("temporary network failure")
+        return json.dumps(PAYLOAD).encode()
+
+    evidence = fetch_native_ohlcv_evidence(
+        **_fetch_kwargs(
+            fail_twice_then_ok,
+            max_attempts=3,
+            retry_backoff_seconds=10,
+            sleep=delays.append,
+        )
+    )
+    assert len(calls) == 3
+    assert delays == [10.0, 10.0]
+    assert evidence.attempt_count == 3
