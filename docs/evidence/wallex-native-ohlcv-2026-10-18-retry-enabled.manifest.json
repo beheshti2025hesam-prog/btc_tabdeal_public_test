@@ -27,7 +27,7 @@
         504
       ],
       "base_backoff_seconds": 0.25,
-      "maximum_backoff_configuration_seconds": 10
+      "maximum_base_backoff_configuration_seconds": 10
     }
   },
   "raw_response": {
