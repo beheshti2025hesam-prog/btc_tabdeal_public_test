@@ -63,3 +63,14 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Latest BTCUSDT/1m sample: 9 candles, no observed gaps/duplicates, latest closed candle age 22.537193 seconds, estimated HTTP Date offset `-0.620855s`, one attempt.
 - Raw response SHA-256: `be1e452b72e9f039dc025effec6bdde4e68413d3c05023e14c16435de8e12133`. Durable raw bytes and manifest are stored in `docs/evidence/wallex-native-ohlcv-2026-10-18-latest.raw.json` and `docs/evidence/wallex-native-ohlcv-2026-10-18-latest.manifest.json`.
 - The final-head GitHub Actions run must pass on the commit that includes these evidence records before the branch can be treated as CI-verified.
+
+
+## Opt-in Wallex WebSocket collector and session-epoch verification — 2026-10-18
+
+- Added `forward/wallex_market_data_collector_v1.py`, a caller-driven, no-autostart transport for the observed public endpoint `wss://api.wallex.ir/ws`.
+- It validates the initial server session frame (`sid`), sends observed JSON subscriptions, validates the observed trade/depth payload shape, preserves exact raw frame SHA-256 plus UTC and monotonic receive times, and serializes event dispatch against epoch changes.
+- No trade ID, sequence, ordering, completeness, deduplication, or volume semantics are inferred from this wire format.
+- Deterministic transport, malformed-frame, and stale-session tests are in `tests/test_wallex_market_data_collector_v1.py`. The focused suite is expected to run through `.github/workflows/wallex-websocket-collector-tests.yml` on the exact PR head.
+- Live read-only evidence: `evidence/wallex_collector_live_epoch_integration_20261018.json` plus its SHA-256 sidecar. The tested source commit is recorded inside that manifest. Three live server sessions had distinct SIDs; four public depth frames were captured in the first two sessions; a prior-epoch frame injected after a newer epoch was active was rejected before dispatch.
+- This proves the opt-in transport code path under controlled delayed-frame injection, not that Wallex delivered a delayed network frame, not that the collector is wired into the operational runner, and not trade-feed completeness. The collector is not activated automatically.
+- External acceptance blockers remain: authoritative explanation of the factor-of-two UDF volume discrepancy, approved independent clock/freshness/gap policy, and production-runner integration/review. Maintain `HOLD / NO_TRADE_ONLY`.
