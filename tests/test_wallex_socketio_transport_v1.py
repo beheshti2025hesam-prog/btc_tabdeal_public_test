@@ -165,6 +165,18 @@ def test_socketio_disconnect_frame_marks_current_session_disconnected():
     transport.close(session)
 
 
+
+def test_socketio_connect_error_marks_session_disconnected():
+    sock = FakeSocket(open_frames())
+    events = []
+    transport = make_transport([sock], events)
+    session = transport.connect()
+    assert transport.process_frame(session, '44{"message":"unavailable"}') is None
+    assert not transport.connected
+    assert events == []
+    transport.close(session)
+
+
 def test_invalid_engineio_handshake_closes_socket():
     sock = FakeSocket(["not-open-packet"])
     transport = WallexSocketIOTransportV1(
