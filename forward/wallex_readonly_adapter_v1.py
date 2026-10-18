@@ -3,8 +3,9 @@
 Wallex's official example opens wss://api.wallex.ir/ws and immediately sends
 ["subscribe", {"channel": "SYMBOL@trade"}]. This module follows that documented
 raw-WebSocket protocol; it does not use Socket.IO or account/order APIs.
-Trade IDs/sequences are not present in the observed payload, so payload hashes
-are fingerprints only and cannot prove completeness or deduplicate equal trades.
+Trade IDs/sequences are not present in the observed payload. The canonical event
+fingerprint is not a raw-byte hash and cannot prove completeness or deduplicate
+equal trades. The collector separately records the exact received frame hash.
 """
 from __future__ import annotations
 
@@ -45,6 +46,7 @@ def normalize_trade(
     *,
     symbol: str = SYMBOL,
     received_at: datetime | None = None,
+    raw_frame_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Validate one documented Wallex trade event without inventing identity."""
     if not _valid_symbol(symbol):
@@ -85,10 +87,11 @@ def normalize_trade(
         "side": "BUY" if is_buy else "SELL",
         "source_updated": source_updated,
         "observed_at": received.astimezone(timezone.utc).isoformat(),
-        "identity": {"kind": "raw_payload_sha256", "value": fingerprint},
+        "identity": {"kind": "canonical_event_sha256", "value": fingerprint},
         "sequence": None,
         "sequence_semantics": "NOT_DOCUMENTED_BY_VENUE",
-        "raw_payload_sha256": fingerprint,
+        "canonical_event_sha256": fingerprint,
+        **({"raw_frame_sha256": raw_frame_sha256} if raw_frame_sha256 is not None else {}),
     }
 
 
@@ -128,12 +131,16 @@ class WallexReadOnlyCollectorV1:
             os.fsync(handle.fileno())
         self.records_written += 1
 
-    def _record_event(self, channel: str, data: Any) -> None:
+    def _record_event(
+        self, channel: str, data: Any, *, raw_frame_sha256: str | None = None
+    ) -> None:
         try:
             if channel != self.channel:
                 self.ignored += 1
                 return
-            self._append(normalize_trade(channel, data, symbol=self.symbol))
+            self._append(normalize_trade(
+                channel, data, symbol=self.symbol, raw_frame_sha256=raw_frame_sha256
+            ))
         except (ValueError, TypeError, KeyError) as exc:
             self.rejected += 1
             self.last_error = type(exc).__name__
@@ -153,6 +160,8 @@ class WallexReadOnlyCollectorV1:
             self.rejected += 1
             self.last_error = "invalid_frame_type"
             return
+        raw_frame = frame if isinstance(frame, bytes) else raw.encode("utf-8")
+        raw_frame_sha256 = hashlib.sha256(raw_frame).hexdigest()
         try:
             payload = json.loads(raw)
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -167,7 +176,7 @@ class WallexReadOnlyCollectorV1:
             self.rejected += 1
             self.last_error = "invalid_channel"
             return
-        self._record_event(channel, data)
+        self._record_event(channel, data, raw_frame_sha256=raw_frame_sha256)
 
     @staticmethod
     def _is_timeout(exc: Exception) -> bool:
