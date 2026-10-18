@@ -23,7 +23,7 @@ def candle(ts=BASE_TS, *, close="101", symbol="BTCUSDT", observed=OBSERVED):
     return NativeCandle(
         venue="wallex", symbol=symbol, resolution="1",
         open_time=opened, close_time=opened + timedelta(minutes=1),
-        open=Decimal("100"), high=Decimal("102"), low=Decimal("99"),
+        open=Decimal("100"), high=max(Decimal("102"), Decimal(close) + Decimal("1")), low=Decimal("99"),
         close=Decimal(close), volume=Decimal("0.1"),
         source_timestamp=ts, source_observed_at=observed,
     )
