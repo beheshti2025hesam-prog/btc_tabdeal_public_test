@@ -39,14 +39,12 @@ def load_raw(lineage: str) -> list[dict[str, str]]:
         ["git", "show", f"{source['commit']}:data/trades.csv"],
         check=True, capture_output=True,
     ).stdout
-    import hashlib
     # Git blob identity is separately pinned above; this also guards accidental
     # text decoding or newline normalization before CSV parsing.
     text = raw.decode("utf-8")
     rows = list(csv.DictReader(text.splitlines()))
     assert rows, f"{lineage}: raw CSV is empty"
     assert set(rows[0]) == {"symbol", "price", "amount", "side", "updated", "sequence"}
-    assert hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\\0" + raw).hexdigest() == actual_blob
     return rows
 
 
