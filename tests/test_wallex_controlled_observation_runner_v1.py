@@ -85,3 +85,11 @@ def test_bounded_runner_refuses_to_overwrite_existing_evidence(tmp_path):
     out.write_text("keep\n")
     with pytest.raises(FileExistsError):
         run_bounded_observation(output_jsonl=out, session_seconds=0.01, session_count=2)
+
+
+def test_bounded_runner_refuses_to_overwrite_existing_manifest(tmp_path):
+    manifest = tmp_path / "capture.manifest.json"
+    manifest.write_text("preserve\n")
+    with pytest.raises(FileExistsError):
+        run_bounded_observation(output_jsonl=tmp_path / "capture.jsonl", session_seconds=0.01, session_count=2)
+    assert manifest.read_text() == "preserve\n"
