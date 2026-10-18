@@ -74,3 +74,16 @@ def test_unique_sequence_state_bound_fails_closed_without_growth():
     assert event.reason == "SEQUENCE_STATE_BOUND_EXCEEDED"
     assert event.diagnostic == {"max_records": 2}
     assert len(s._records) == 2
+
+
+def test_boolean_sequence_values_fail_closed():
+    for value in (True, False):
+        s = SequenceIntegrityV1()
+        try:
+            s.observe(rec(value))
+        except ValueError as exc:
+            assert str(exc) == "invalid sequence"
+        else:
+            raise AssertionError(f"boolean sequence {value!r} was accepted")
+        assert s.last_sequence is None
+        assert s._records == {}
