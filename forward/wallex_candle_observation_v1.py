@@ -123,6 +123,7 @@ class WallexCandleObservationV1:
         normalized: list[tuple[NativeCandle, dict[str, Any]]] = []
         seen: dict[int, str] = {}
         previous_ts: int | None = None
+        stale_source_observation = False
 
         for index, candle in enumerate(items):
             if not isinstance(candle, NativeCandle):
@@ -142,7 +143,7 @@ class WallexCandleObservationV1:
             if observed_at > as_of:
                 raise WallexObservationError("source observation time is in the future")
             if as_of.timestamp() - observed_at.timestamp() > max_age_seconds:
-                raise WallexObservationError("stale source observation")
+                stale_source_observation = True
             op, high, low, close, volume = (Decimal(str(getattr(candle, key)))
                                             for key in ("open", "high", "low", "close", "volume"))
             if any(not x.is_finite() for x in (op, high, low, close, volume)):
@@ -177,12 +178,14 @@ class WallexCandleObservationV1:
 
         latest_close = max(_utc(c.close_time, "close_time") for c, _ in normalized)
         stale_latest = as_of.timestamp() - latest_close.timestamp() > max_age_seconds
-        status = "BLOCKED" if gaps or stale_latest else "OBSERVED"
+        status = "BLOCKED" if gaps or stale_latest or stale_source_observation else "OBSERVED"
         reasons = []
         if gaps:
             reasons.append("MISSING_INTERVALS")
         if stale_latest:
             reasons.append("LATEST_CANDLE_STALE")
+        if stale_source_observation:
+            reasons.append("STALE_SOURCE_OBSERVATION")
 
         # The legacy feature path is deliberately not called: it hard-requires
         # BTC_USDT/15m plus trade sequence IDs, which this native feed does not supply.
