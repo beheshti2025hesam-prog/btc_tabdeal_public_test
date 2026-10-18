@@ -33,8 +33,10 @@ def persist_raw_http_response_v1(
     target = Path(path)
     if not isinstance(raw_body, bytes):
         raise RawResponseEvidenceError("raw_body must be bytes")
-    if not isinstance(http_status, int) or isinstance(http_status, bool) or not 100 <= http_status <= 599:
-        raise RawResponseEvidenceError("invalid HTTP status")
+    if type(http_status) is not int or http_status != 200:
+        raise RawResponseEvidenceError("only HTTP 200 responses can be captured as successful candle evidence")
+    if not isinstance(received_at, datetime):
+        raise RawResponseEvidenceError("received_at must be a datetime")
     if received_at.tzinfo is None or received_at.utcoffset() is None:
         raise RawResponseEvidenceError("received_at must be timezone-aware")
     if not isinstance(request_url, str) or not request_url.startswith("https://api.wallex.ir/"):
