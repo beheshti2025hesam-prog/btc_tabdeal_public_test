@@ -198,9 +198,9 @@ def test_fetch_decodes_fractional_json_numbers_as_decimal(monkeypatch):
     monkeypatch.setattr(adapter, "urlopen", lambda *args, **kwargs: FakeResponse())
     candles = adapter.fetch_history(
         "BTCUSDT", "1",
-        datetime(2026, 10, 17, 13, 0, tzinfo=UTC),
-        datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
-        as_of=datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
+        datetime(2026, 10, 17, 10, 20, tzinfo=UTC),
+        datetime(2026, 10, 17, 10, 23, tzinfo=UTC),
+        as_of=datetime(2026, 10, 17, 10, 23, tzinfo=UTC),
     )
     assert candles[0].open == Decimal("100.000000000000000001")
     assert candles[0].volume == Decimal("0.123456789012345678901")
