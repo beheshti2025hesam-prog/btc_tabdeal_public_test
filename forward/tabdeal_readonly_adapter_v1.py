@@ -5,8 +5,10 @@ persist data, start services, or execute trades. Network transport remains an
 external boundary so this adapter is independently testable and fail-closed.
 """
 from __future__ import annotations
+
 from datetime import datetime, timezone
 from decimal import Decimal
+import math
 from typing import Any
 
 SOURCE = "tabdeal_ws_forward_v1"
@@ -17,13 +19,23 @@ def _timestamp(value: Any) -> str:
     if isinstance(value, bool):
         raise ValueError("invalid timestamp")
     if isinstance(value, (int, float)):
-        # Tabdeal-style millisecond timestamps are normalized to UTC ISO.
-        value = float(value)
-        if value > 1e11:
-            value /= 1000
-        dt = datetime.fromtimestamp(value, tz=timezone.utc)
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            raise ValueError("invalid timestamp")
+        # Numeric wire timestamps are interpreted by explicit magnitude bands:
+        # epoch seconds, milliseconds, or microseconds. This normalization is
+        # for timestamp parsing only and never grants ordering capability.
+        magnitude = abs(numeric)
+        if magnitude >= 1e14:
+            numeric /= 1_000_000
+        elif magnitude >= 1e11:
+            numeric /= 1_000
+        dt = datetime.fromtimestamp(numeric, tz=timezone.utc)
     elif isinstance(value, str):
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("invalid timestamp") from exc
         if dt.tzinfo is None or dt.utcoffset() is None:
             raise ValueError("timestamp must be timezone-aware")
         dt = dt.astimezone(timezone.utc)
@@ -55,14 +67,13 @@ def parse_trade_frame(frame: dict[str, Any], *, as_of: datetime) -> dict[str, An
         raise ValueError("price and amount must be positive")
     if str(side).lower() not in {"buy", "sell", "b", "s"}:
         raise ValueError("unsupported side")
-    # bool is an int subclass, and floats can be silently truncated by int().
-    # Preserve the wire type boundary before normalizing an opaque identifier.
-    if type(sequence) not in (int, str):
-        raise ValueError("invalid sequence")
-    try:
+    # Do not coerce booleans/floats or Unicode/whitespace digit strings.
+    if type(sequence) is int:
+        seq = sequence
+    elif isinstance(sequence, str) and sequence.isascii() and sequence.isdigit():
         seq = int(sequence)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("invalid sequence") from exc
+    else:
+        raise ValueError("invalid sequence")
     if seq < 0:
         raise ValueError("invalid sequence")
     record = {
@@ -75,8 +86,8 @@ def parse_trade_frame(frame: dict[str, Any], *, as_of: datetime) -> dict[str, An
         "sequence": seq,
     }
     # The trusted transport computes this digest from its received callback
-    # payload. Preserve it across normalization so the downstream sequence
-    # observer can distinguish exact replay from a repeated opaque sequence.
+    # payload. Preserve it across normalization so the downstream observer can
+    # distinguish exact replay from a repeated opaque sequence.
     if "raw_payload_sha256" in frame:
         record["raw_payload_sha256"] = frame["raw_payload_sha256"]
     return record
