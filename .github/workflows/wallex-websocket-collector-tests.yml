@@ -20,6 +20,8 @@ on:
       - "evidence/wallex_controlled_observation_20261018.manifest.json.sha256"
       - "evidence/wallex_quality_clock_sync_20261018.json"
       - "evidence/wallex_quality_clock_sync_20261018.json.sha256"
+      - "evidence/wallex_official_socketio_reachability_20261018.json"
+      - "evidence/wallex_official_socketio_reachability_20261018.json.sha256"
       - ".github/workflows/wallex-websocket-collector-tests.yml"
   push:
     branches: ["fix/wallex-session-epoch-gate"]
@@ -36,6 +38,8 @@ on:
       - "evidence/wallex_controlled_observation_20261018.manifest.json.sha256"
       - "evidence/wallex_quality_clock_sync_20261018.json"
       - "evidence/wallex_quality_clock_sync_20261018.json.sha256"
+      - "evidence/wallex_official_socketio_reachability_20261018.json"
+      - "evidence/wallex_official_socketio_reachability_20261018.json.sha256"
       - ".github/workflows/wallex-websocket-collector-tests.yml"
 
 permissions:
@@ -60,4 +64,4 @@ jobs:
           PYTHONPATH: .
         run: python -m pytest -q tests/test_wallex_market_data_collector_v1.py tests/test_wallex_socketio_transport_v1.py tests/test_wallex_controlled_observation_runner_v1.py tests/test_session_epoch_gate_v1.py tests/test_native_wallex_ohlcv_v1.py
       - name: Verify pinned live evidence
-        run: (cd evidence && sha256sum -c wallex_collector_live_epoch_integration_20261018.json.sha256 && sha256sum -c wallex_controlled_observation_20261018.jsonl.sha256 && sha256sum -c wallex_controlled_observation_20261018.manifest.json.sha256 && sha256sum -c wallex_quality_clock_sync_20261018.json.sha256)
+        run: (cd evidence && sha256sum -c wallex_collector_live_epoch_integration_20261018.json.sha256 && sha256sum -c wallex_controlled_observation_20261018.jsonl.sha256 && sha256sum -c wallex_controlled_observation_20261018.manifest.json.sha256 && sha256sum -c wallex_quality_clock_sync_20261018.json.sha256 && sha256sum -c wallex_official_socketio_reachability_20261018.json.sha256)
