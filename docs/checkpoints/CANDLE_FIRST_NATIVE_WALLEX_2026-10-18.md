@@ -46,3 +46,11 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Exact candle-by-candle parity against the rendered external TradingView chart is **not verified**; the frontend code observation alone is not proof of rendered chart parity.
 - Reconnect/session-epoch isolation and production freshness/gap/clock-offset SLAs remain unapproved/unverified; bounded retry behavior is covered by tests.
 - No collector activation, deployment, or trading. Maintain `HOLD / NO_TRADE_ONLY`.
+
+
+## Bounded-retry probe sample — 2026-10-18 16:10 UTC
+- Source commit used for this sample: `3390dfd05226520b09b0e451677da8a220c183c5`.
+- Clean-checkout targeted suite: `30 passed in 0.18s`; read-only live probe: exit code 0, `attempt_count=1`.
+- BTCUSDT/1m returned 8 candles, no observed gaps or duplicates; latest closed candle age 63.320854 seconds; estimated HTTP Date offset `-0.441112s`.
+- Raw SHA-256: `d21d45c7a19cb5d6264c10b6590977c850b0ae16ef84f18792b468c0bde86b58`; raw response and manifest are preserved in `docs/evidence/wallex-native-ohlcv-2026-10-18-retry-enabled.raw.json` and `docs/evidence/wallex-native-ohlcv-2026-10-18-retry-enabled.manifest.json`.
+- The later source change caps each computed exponential retry delay at 10 seconds and adds a dedicated test; the final-head CI run must verify that revision before treating the retry-enabled implementation as accepted.
