@@ -42,6 +42,7 @@ jobs:
             tests/test_forward_tabdeal_ingestion_v1.py \
             forward/test_wallex_native_candles_v1.py \
             forward/test_wallex_candle_observation_v1.py \
+            forward/test_wallex_native_feature_context_v1.py \
             tests/test_tabdeal_readonly_adapter_v1.py \
             tests/test_tabdeal_transport_v1.py \
             tests/test_tabdeal_transport_contract_v1.py \
