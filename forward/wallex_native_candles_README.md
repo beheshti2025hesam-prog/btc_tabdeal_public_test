@@ -31,3 +31,11 @@ Therefore the adapter enables only `1` (1-minute), `60` (1-hour), and `1D` (dail
     python -m pytest -q forward/test_wallex_native_candles_v1.py
 
 Live smoke evidence is stored under evidence/. Raw response payloads are hashed and preserved on the VPS under /srv/hes-evidence/wallex. Chart parity remains unverified.
+
+
+## Exact raw HTTP response capture (opt-in, v1)
+- `fetch_history(..., raw_evidence_path=...)` can preserve the exact response body bytes before JSON parsing in a write-once evidence envelope.
+- The envelope records the public request URL/parameters, HTTP status, local receive time, byte count, Base64 body, and SHA-256 over the exact body bytes. Existing target paths are never overwritten; file contents are fsynced before return.
+- `verify_raw_http_response_v1(path)` verifies the byte count and raw-body SHA-256, then returns the exact decoded bytes for replay.
+- Capture is opt-in and must use a unique evidence path for each response. The default adapter call still does not retain raw response bytes.
+- This capability does **not** yet attach raw evidence identity to `HES_WALLEX_CANDLE_OBSERVATION_V1`; therefore end-to-end source-to-feature provenance and replay are not yet accepted. Do not set `raw_source_replay_verified=true` based on this helper alone.
