@@ -147,6 +147,24 @@ def test_wrong_event_name_and_channel_are_ignored():
     transport.close(session)
 
 
+
+def test_socketio_disconnect_frame_marks_current_session_disconnected():
+    sock = FakeSocket(open_frames())
+    events = []
+    transport = make_transport([sock], events)
+    session = transport.connect()
+    assert transport.process_frame(session, "41") is None
+    assert not transport.connected
+    assert transport.process_frame(session, "42" + json.dumps([
+        "Broadcaster", "BTCUSDT@trade", {
+            "isBuyOrder": True, "price": "1", "quantity": "1",
+            "timestamp": "2026-10-18T10:00:00Z"
+        }
+    ])) is None
+    assert events == []
+    transport.close(session)
+
+
 def test_invalid_engineio_handshake_closes_socket():
     sock = FakeSocket(["not-open-packet"])
     transport = WallexSocketIOTransportV1(
