@@ -111,7 +111,7 @@
     "visual_render": "NO_INDEPENDENT_PIXEL_SCREENSHOT; source-level frontend mapping confirms chart uses the same UDF OHLCV payload",
     "volume_semantics": "BLOCKED_UDF_V_IS_EXACTLY_2X_PUBLIC_TRADE_QUANTITY_IN_99_FULLY_COVERED_1M_BARS_ACROSS_5_SYMBOLS; rolling 24h UDF volume also near 2x market 24h_volume; requires exchange semantics clarification before volume-based feature promotion"
   },
-  "manifest_sha256_excluding_self": "a89fd7724153f48a095a6080aa8334c23765604bfdbf53d1a3697b226a10fea5",
+  "manifest_sha256_excluding_self": "98d04e146c1ce5ef89a8f00c1a8ad7483d2123786cfbb2cee7e653010d39db51",
   "market_snapshot": {
     "btc_24h_volume": "1.4030057700000000",
     "btc_askPrice": "81158.5700000000000000",
@@ -164,7 +164,9 @@
     "reconnect": "Each socket session receives unique ID/epoch; parser/subscription state is session-scoped; reject any delayed prior-epoch event; log session ID on every accepted event"
   },
   "raw_evidence_bundle": {
+    "assembly": "Concatenate the part files in ascending numeric order without separators, then base64-decode the concatenated text to obtain the gzip tar archive.",
     "base64_chars": 370556,
+    "base64_concatenated_sha256": "e8cce2051fe17be67bd1e15b7ac31981e254d1839e1514933ab0870efc331d3e",
     "base64_file_sha256": "e2333b61a6c8555a5dd7fe61549013e272ce47dc0a2151a8cdab5b07ae036d22",
     "bundle_sha256": "fa4242b962e8d7e86cacb6fc0f41ffc6b843927be7445363d997e51605f7c4b2",
     "compressed_bytes": 277917,
@@ -291,7 +293,59 @@
         "sha256": "9e5b9d723d53c6280d467927b6636dc25da69cfd4eaba64410fdbaf299be806f"
       }
     ],
-    "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.tar.gz.b64"
+    "parts": [
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part01.b64",
+        "sha256": "0aadc28472c44be6a235801b1f1055602279d09a99613e985b56617183cc10b2"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part02.b64",
+        "sha256": "3c52bb4bb58a3490be062870e1ef7412c175e6ca1410c88e1e428bd97271edff"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part03.b64",
+        "sha256": "f0614234cf19d7b5cd4300053db12842ac2185b943b13a4237773f5664810bbe"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part04.b64",
+        "sha256": "7349e42832ce5e0ab2e6784b79b3e0b790c57dd7c37dab4c6668012fb7a691e4"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part05.b64",
+        "sha256": "5e6ede551dab22998eaddfc7e40f01ec98722edecefba8a16f5cc5320da373f8"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part06.b64",
+        "sha256": "4f796010431060baeff5167a4b3f3c6e1a647d7cab35543fa391d5d2992712f6"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part07.b64",
+        "sha256": "c8f7efa9381266c91bd1daee81e766de202b9284c71cb545cadbc0049d328b62"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part08.b64",
+        "sha256": "3beab4586114a54aba774ea57c3ffb20814d96b3950447c0069190b27d8fcc6f"
+      },
+      {
+        "chars": 40000,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part09.b64",
+        "sha256": "29ce2919d27731e6fe4b0a5e92232498a02f137abfad0cdfdbb8d758e888fac7"
+      },
+      {
+        "chars": 10556,
+        "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.part10.b64",
+        "sha256": "f165092cd7a3deecea16694a0508152972ab782239010b565ce855abace2486f"
+      }
+    ],
+    "path": "evidence/raw/wallex_chart_api_parity_raw_bundle_20261018.partNN.b64"
   },
   "reconnect_evidence": {
     "current_epoch_event_accepted_in_harness": true,
