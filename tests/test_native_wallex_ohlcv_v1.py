@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from hashlib import sha256
 import json
+from urllib.error import HTTPError, URLError
 import pytest
 
 from forward.native_wallex_ohlcv_v1 import (
@@ -68,6 +69,7 @@ def test_fetch_uses_native_endpoint_and_preserves_raw_hash():
     assert evidence.retrieved_at == NOW
     assert evidence.server_date_header is None  # injected transport intentionally has no HTTP headers
     assert evidence.server_clock_offset_seconds is None
+    assert evidence.attempt_count == 1
     assert len(evidence.candles) == 2
 
 
@@ -146,3 +148,97 @@ def test_rejects_bad_status_and_naive_datetime():
         parse_history(payload, symbol="BTCUSDT", timeframe_minutes=1, as_of=NOW)
     with pytest.raises(ValueError, match="timezone-aware"):
         parse_history(PAYLOAD, symbol="BTCUSDT", timeframe_minutes=1, as_of=datetime(2026, 10, 18))
+
+
+
+def _fetch_kwargs(transport, **extra):
+    return {
+        "symbol": "BTCUSDT",
+        "timeframe_minutes": 1,
+        "start": datetime(2026, 10, 18, 11, 59, tzinfo=timezone.utc),
+        "end": datetime(2026, 10, 18, 12, 2, tzinfo=timezone.utc),
+        "as_of": NOW,
+        "transport": transport,
+        **extra,
+    }
+
+
+def test_retries_transient_transport_error_with_bounded_backoff():
+    calls = []
+    delays = []
+
+    def transport(url, timeout):
+        calls.append((url, timeout))
+        if len(calls) == 1:
+            raise URLError("temporary network failure")
+        return json.dumps(PAYLOAD).encode()
+
+    evidence = fetch_native_ohlcv_evidence(
+        **_fetch_kwargs(transport, sleep=delays.append)
+    )
+    assert len(calls) == 2
+    assert delays == [0.25]
+    assert evidence.attempt_count == 2
+    assert len(evidence.candles) == 2
+
+
+def test_retries_transient_http_503_but_not_permanent_http_404():
+    calls = []
+    delays = []
+
+    def temporary_then_ok(url, timeout):
+        calls.append(url)
+        if len(calls) == 1:
+            raise HTTPError(url, 503, "service unavailable", None, None)
+        return json.dumps(PAYLOAD).encode()
+
+    evidence = fetch_native_ohlcv_evidence(
+        **_fetch_kwargs(temporary_then_ok, sleep=delays.append)
+    )
+    assert len(calls) == 2
+    assert delays == [0.25]
+    assert evidence.attempt_count == 2
+
+    calls.clear()
+    delays.clear()
+
+    def permanent_404(url, timeout):
+        calls.append(url)
+        raise HTTPError(url, 404, "not found", None, None)
+
+    with pytest.raises(HTTPError):
+        fetch_native_ohlcv_evidence(
+            **_fetch_kwargs(permanent_404, sleep=delays.append)
+        )
+    assert len(calls) == 1
+    assert delays == []
+
+
+def test_retry_budget_is_bounded_and_exhaustion_fails_closed():
+    calls = []
+    delays = []
+
+    def always_fail(url, timeout):
+        calls.append(url)
+        raise URLError("network unavailable")
+
+    with pytest.raises(URLError):
+        fetch_native_ohlcv_evidence(
+            **_fetch_kwargs(always_fail, max_attempts=3, sleep=delays.append)
+        )
+    assert len(calls) == 3
+    assert delays == [0.25, 0.5]
+
+
+def test_rejects_invalid_retry_configuration():
+    for kwargs in (
+        {"max_attempts": 0},
+        {"max_attempts": True},
+        {"max_attempts": 1.5},
+        {"retry_backoff_seconds": -0.1},
+        {"retry_backoff_seconds": True},
+    ):
+        with pytest.raises(ValueError):
+            fetch_native_ohlcv_evidence(
+                **_fetch_kwargs(lambda _url, _timeout: json.dumps(PAYLOAD).encode(), **kwargs)
+            )
