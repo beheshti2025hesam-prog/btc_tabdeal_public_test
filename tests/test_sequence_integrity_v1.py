@@ -1,3 +1,5 @@
+import pytest
+
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
 
 
@@ -55,14 +57,27 @@ def test_reconnect_resets_continuity_without_fabrication():
     assert s.observe(rec(100)).status == "ACCEPTED"
 
 
-def test_invalid_sequence_fails_closed():
+@pytest.mark.parametrize(
+    "sequence",
+    [
+        True, False, 1.9, float("nan"), float("inf"), -1,
+        " 1", "1.0", "٧", None,
+    ],
+)
+def test_invalid_sequence_rejects_without_state_mutation(sequence):
     s = SequenceIntegrityV1()
-    try:
-        s.observe(rec("bad"))
-    except ValueError as exc:
-        assert str(exc) == "invalid sequence"
-    else:
-        raise AssertionError("invalid sequence was accepted")
+    with pytest.raises(ValueError, match="invalid sequence"):
+        s.observe(rec(sequence))
+    assert s.last_sequence is None
+    assert s._records == {}
+
+
+@pytest.mark.parametrize("sequence", [0, 1, 123, "0", "1", "123"])
+def test_valid_integer_and_ascii_digit_sequences_are_accepted(sequence):
+    s = SequenceIntegrityV1()
+    event = s.observe(rec(sequence))
+    assert event.status == "ACCEPTED"
+    assert s.last_sequence == int(sequence)
 
 
 def test_unique_sequence_state_bound_fails_closed_without_growth():
