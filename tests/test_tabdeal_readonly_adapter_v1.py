@@ -14,6 +14,12 @@ def test_rejects_scope_and_incomplete():
  x=base(); del x["sequence"]
  with pytest.raises(ValueError): parse_trade_frame(x,as_of=ASOF)
 def test_rejects_bad_values():
- for key,val in [("price","0"),("amount","-1"),("side","hold"),("sequence",-1)]:
+ for key,val in [("price","0"),("amount","-1"),("side","hold")]:
   x=base(); x[key]=val
   with pytest.raises(ValueError): parse_trade_frame(x,as_of=ASOF)
+
+def test_preserves_opaque_sequence_values_without_numeric_assumptions():
+ x=base(); x["sequence"]=-1
+ assert parse_trade_frame(x,as_of=ASOF)["sequence"] == -1
+ x=base(); x["sequence"]="0007"
+ assert parse_trade_frame(x,as_of=ASOF)["sequence"] == "0007"
