@@ -77,9 +77,6 @@ sources:
   - url: "https://api-docs.wallex.ir/"
     source_kind: "primary"
     note: "Official reference documents Socket.IO v2.5-compatible usage, subscribe/Broadcaster events, trade fields, and buyDepth/sellDepth channels."
-  - url: "https://developers.wallex.ir/socket"
-    source_kind: "primary"
-    note: "Official developer socket page describes real-time market channels and connection limitations; retrieved search snapshot dated 2026-10-18."
 known_limitations:
   - "Documented Socket.IO endpoint returned HTTP 503 from the observation host at the pinned capture time."
   - "The observed raw WebSocket /ws route is not substituted for the documented Socket.IO contract without live verification or written exchange confirmation."
