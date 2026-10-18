@@ -75,6 +75,14 @@ def replay_raw_http_response_v1(
 
     try:
         payload = json.loads(evidence["raw_body"], parse_float=Decimal)
+        # Match fetch_history's request-boundary check over the full raw source
+        # timestamp set, including open candles that parse_history omits.
+        if isinstance(payload, dict) and payload.get("s") == "ok":
+            source_times = payload.get("t")
+            if isinstance(source_times, list):
+                for ts in source_times:
+                    if type(ts) is int and (ts < params["from"] or ts > params["to"]):
+                        raise RawResponseReplayError("raw response contains source timestamps outside the requested time range")
         observed_at = datetime.fromisoformat(evidence["received_at"].replace("Z", "+00:00"))
         candles = parse_history(
             payload,
@@ -83,6 +91,8 @@ def replay_raw_http_response_v1(
             as_of=as_of,
             observed_at=observed_at,
         )
+    except RawResponseReplayError:
+        raise
     except (ValueError, TypeError, json.JSONDecodeError) as exc:
         raise RawResponseReplayError(f"raw response replay rejected: {type(exc).__name__}") from None
 
