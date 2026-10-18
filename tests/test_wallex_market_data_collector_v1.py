@@ -128,6 +128,36 @@ def test_malformed_trade_frames_fail_closed(frame):
     collector.close(session)
 
 
+def test_valid_depth_frame_is_dispatched():
+    sock = FakeSocket("sid-1")
+    events = []
+    collector = make_collector([sock], events)
+    session = collector.connect()
+    raw = json.dumps(["BTCUSDT@buyDepth", [{"price": 81000.1, "quantity": 0.2, "sum": 16200.02}]])
+    event = collector.process_frame(session, raw)
+    assert event is events[0]
+    assert event.kind == "buyDepth"
+    assert event.data[0]["price"] == 81000.1
+    collector.close(session)
+
+
+@pytest.mark.parametrize("item", [
+    {"price": 0, "quantity": 1, "sum": 1},
+    {"price": 1, "quantity": -1, "sum": 1},
+    {"price": 1, "quantity": 1, "sum": "NaN"},
+    {"price": 1, "quantity": 1},
+])
+def test_malformed_depth_items_fail_closed(item):
+    sock = FakeSocket("sid-1")
+    events = []
+    collector = make_collector([sock], events)
+    session = collector.connect()
+    with pytest.raises(ValueError):
+        collector.process_frame(session, json.dumps(["BTCUSDT@buyDepth", [item]]))
+    assert events == []
+    collector.close(session)
+
+
 def test_initial_frame_without_sid_fails_closed():
     class BadInitialSocket(FakeSocket):
         def recv(self):
