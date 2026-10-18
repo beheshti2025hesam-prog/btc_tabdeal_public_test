@@ -103,3 +103,22 @@ def test_transport_payload_digest_survives_normalization_and_exact_replay_is_det
     assert [event.status for event in result.events] == ["ACCEPTED", "EXACT_REPLAY"]
     assert len(result.candles) == 1
     assert result.candles[0].trade_count == 1
+
+
+def test_boolean_false_zero_and_missing_sequence_are_distinct_wire_cases():
+    # JSON false must never be coerced to integer 0. Numeric zero is valid
+    # under this parser's non-negative integer contract; missing is incomplete.
+    frame = base()
+    frame["sequence"] = False
+    with pytest.raises(ValueError, match="invalid sequence"):
+        parse_trade_frame(frame, as_of=ASOF)
+
+    frame = base()
+    frame["sequence"] = 0
+    record = parse_trade_frame(frame, as_of=ASOF)
+    assert record["sequence"] == 0
+
+    frame = base()
+    del frame["sequence"]
+    with pytest.raises(ValueError, match="incomplete trade frame"):
+        parse_trade_frame(frame, as_of=ASOF)
