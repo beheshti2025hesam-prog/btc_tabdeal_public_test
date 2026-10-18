@@ -31,6 +31,9 @@ jump is observable but is not, by itself, evidence of a missing market event.
 
     @staticmethod
     def _seq(value: Any) -> int:
+        # bool is a subclass of int in Python; reject it before int() coercion.
+        if isinstance(value, bool):
+            raise ValueError("invalid sequence")
         try:
             seq = int(value)
         except (TypeError, ValueError) as exc:
