@@ -31,3 +31,18 @@ Official source: https://api-docs.wallex.ir/ (section “کندل‌ها / OHLC 
 
 ## Safety
 No collector activation, deployment or trading is authorized by this adapter. Project disposition remains `HOLD / NO_TRADE_ONLY`. Native candles remove sequence-ID dependence for candle-only strategies; they do not settle trade-sequence semantics for Order Flow strategies.
+
+
+## First live read-only evidence — 2026-10-18
+- Exact source commit tested: `37e0b5c9211333849a9910f12f1f8f52b96bed08`.
+- GitHub Actions run `39143105580`: deterministic suite **26 passed**; live read-only probe **PASS**.
+- BTCUSDT/1m returned 9 candles over the requested 10-minute window; no timestamp gaps or duplicates; latest closed candle age was 43.153282 seconds.
+- HTTP `Date` header: `Sun, 18 Oct 2026 16:03:43 GMT`; estimated offset against runner retrieval time: `-0.836194s` (within the probe's provisional 5-second smoke threshold).
+- Raw response SHA-256: `fd829ff1fab225ce6775151f98da032b8b07503c1acdf40814adfdd873a1b27c`; byte-for-byte verification against the downloaded CI artifact passed.
+- Durable evidence is stored in `docs/evidence/wallex-native-ohlcv-2026-10-18.manifest.json` and `docs/evidence/wallex-native-ohlcv-2026-10-18.raw.json`.
+- Official frontend asset inspection found `T.f.get("v1/udf/history",{params:e})` in the fetched Wallex frontend bundle, with the production API base `https://api.wallex.ir`. Asset hashes and retrieval metadata are pinned in the evidence manifest.
+
+## Still not authorized / not yet proven
+- Exact candle-by-candle parity against the rendered external TradingView chart is **not verified**; the frontend code observation alone is not proof of rendered chart parity.
+- Reconnect/retry behavior and production freshness/gap/clock-offset SLAs remain unapproved/unverified.
+- No collector activation, deployment, or trading. Maintain `HOLD / NO_TRADE_ONLY`.
