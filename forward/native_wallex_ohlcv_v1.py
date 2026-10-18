@@ -13,8 +13,10 @@ from email.utils import parsedate_to_datetime
 from hashlib import sha256
 from typing import Any, Callable, Mapping
 from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import json
+import time
 
 
 WALLEX_HISTORY_URL = "https://api.wallex.ir/v1/udf/history"
@@ -44,6 +46,7 @@ class NativeFetchEvidence:
     raw_sha256: str
     server_date_header: str | None
     server_clock_offset_seconds: float | None
+    attempt_count: int
     candles: tuple[NativeCandle, ...]
 
 
@@ -141,13 +144,20 @@ def fetch_native_ohlcv_evidence(
     timeout_seconds: float = 10.0,
     transport: Callable[[str, float], bytes] | None = None,
     clock: Callable[[], datetime] | None = None,
+    max_attempts: int = 3,
+    retry_backoff_seconds: float = 0.25,
+    sleep: Callable[[float], None] | None = None,
 ) -> NativeFetchEvidence:
     """Fetch read-only history and retain exact response bytes plus SHA-256 evidence."""
     if not isinstance(symbol, str) or not symbol or any(ch.isspace() for ch in symbol):
         raise ValueError("invalid symbol")
     _validate_resolution(timeframe_minutes)
-    if isinstance(timeout_seconds, bool) or timeout_seconds <= 0:
+    if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or timeout_seconds <= 0:
         raise ValueError("timeout must be positive")
+    if isinstance(max_attempts, bool) or not isinstance(max_attempts, int) or max_attempts < 1:
+        raise ValueError("max_attempts must be a positive integer")
+    if isinstance(retry_backoff_seconds, bool) or not isinstance(retry_backoff_seconds, (int, float)) or retry_backoff_seconds < 0:
+        raise ValueError("retry_backoff_seconds must be non-negative")
     for label, value in (("start", start), ("end", end), ("as_of", as_of)):
         if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
             raise ValueError(f"{label} must be timezone-aware")
@@ -178,7 +188,21 @@ def fetch_native_ohlcv_evidence(
                 response_headers["Date"] = date_header
             return response.read()
 
-    raw = (transport or default_transport)(url, timeout_seconds)
+    active_transport = transport or default_transport
+    sleeper = sleep or time.sleep
+    attempt_count = 0
+    while True:
+        attempt_count += 1
+        try:
+            raw = active_transport(url, timeout_seconds)
+            break
+        except HTTPError as exc:
+            if exc.code not in {408, 429, 500, 502, 503, 504} or attempt_count >= max_attempts:
+                raise
+        except (URLError, TimeoutError, ConnectionError):
+            if attempt_count >= max_attempts:
+                raise
+        sleeper(float(retry_backoff_seconds) * (2 ** (attempt_count - 1)))
     if not isinstance(raw, bytes):
         raise ValueError("transport must return raw response bytes")
     retrieved_at = (clock or (lambda: datetime.now(timezone.utc)))()
@@ -202,6 +226,7 @@ def fetch_native_ohlcv_evidence(
         raw_sha256=sha256(raw).hexdigest(),
         server_date_header=server_date_header,
         server_clock_offset_seconds=server_clock_offset_seconds,
+        attempt_count=attempt_count,
         candles=candles,
     )
 
@@ -215,6 +240,9 @@ def fetch_native_ohlcv(
     as_of: datetime,
     timeout_seconds: float = 10.0,
     transport: Callable[[str, float], bytes] | None = None,
+    max_attempts: int = 3,
+    retry_backoff_seconds: float = 0.25,
+    sleep: Callable[[float], None] | None = None,
 ) -> tuple[NativeCandle, ...]:
     """Compatibility wrapper returning only parsed candles."""
     return fetch_native_ohlcv_evidence(
@@ -225,4 +253,7 @@ def fetch_native_ohlcv(
         as_of=as_of,
         timeout_seconds=timeout_seconds,
         transport=transport,
+        max_attempts=max_attempts,
+        retry_backoff_seconds=retry_backoff_seconds,
+        sleep=sleep,
     ).candles
