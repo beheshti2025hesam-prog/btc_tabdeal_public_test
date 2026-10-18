@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "evidence_id": "WALLEX_NATIVE_OHLCV_BTCUSDT_1M_RETRY_ENABLED_2026-10-18T161003Z",
+  "source": "wallex_native_udf_history",
+  "endpoint": "https://api.wallex.ir/v1/udf/history",
+  "request": {
+    "symbol": "BTCUSDT",
+    "resolution": "1",
+    "from_unix_seconds": 1792339203,
+    "to_unix_seconds": 1792339803,
+    "from_utc": "2026-10-18T16:00:03.320854+00:00",
+    "to_utc": "2026-10-18T16:10:03.320854+00:00"
+  },
+  "retrieval": {
+    "retrieved_at_utc": "2026-10-18T16:10:03.441112+00:00",
+    "http_date_header": "Sun, 18 Oct 2026 16:10:03 GMT",
+    "estimated_server_clock_offset_seconds": -0.441112,
+    "attempt_count": 1,
+    "retry_policy": {
+      "max_attempts": 5,
+      "transient_http_statuses": [
+        408,
+        429,
+        500,
+        502,
+        503,
+        504
+      ],
+      "base_backoff_seconds": 0.25,
+      "maximum_backoff_configuration_seconds": 10
+    }
+  },
+  "raw_response": {
+    "path": "docs/evidence/wallex-native-ohlcv-2026-10-18-retry-enabled.raw.json",
+    "byte_length": 515,
+    "sha256": "d21d45c7a19cb5d6264c10b6590977c850b0ae16ef84f18792b468c0bde86b58",
+    "status": "ok"
+  },
+  "observed_quality": {
+    "returned_candle_count": 8,
+    "first_open_time_utc": "2026-10-18T16:01:00+00:00",
+    "last_open_time_utc": "2026-10-18T16:08:00+00:00",
+    "latest_closed_candle_close_utc": "2026-10-18T16:09:00+00:00",
+    "latest_closed_candle_age_seconds": 63.320854,
+    "observed_gaps": [],
+    "duplicate_timestamps": false,
+    "parser_result": "PASS"
+  },
+  "code_and_test_provenance": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "branch": "feat/native-wallex-ohlcv-candle-first",
+    "source_commit_sha": "3390dfd05226520b09b0e451677da8a220c183c5",
+    "execution_host": "vps-second-261930",
+    "targeted_test_command": "PYTHONPATH=. python -m pytest -q tests/test_native_wallex_ohlcv_v1.py",
+    "targeted_test_result": "PASS — 30 passed in 0.18s",
+    "live_probe_command": "PYTHONPATH=. python scripts/verify_native_wallex_ohlcv.py",
+    "live_probe_result": "PASS — exit code 0",
+    "workflow_run_id": null,
+    "note": "This evidence was collected from a clean Git checkout at the exact source commit; a subsequent exact-head GitHub Actions run is still required."
+  },
+  "acceptance": {
+    "bounded_retry_failure_injection_tests": "PASS",
+    "live_native_endpoint_read_only_fetch": "PASS",
+    "raw_sha256_recomputed_on_execution_host": "PASS",
+    "freshness_and_gap_smoke_check": "PASS",
+    "http_date_clock_offset_smoke_check": "PASS",
+    "exact_rendered_chart_value_parity": "NOT VERIFIED",
+    "reconnect_session_epoch_isolation": "NOT VERIFIED",
+    "production_sla_approval": "NOT APPROVED",
+    "deployment_or_trading_authorized": false,
+    "disposition": "HOLD / NO_TRADE_ONLY"
+  }
+}
