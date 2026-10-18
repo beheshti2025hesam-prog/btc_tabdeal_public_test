@@ -54,3 +54,12 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - BTCUSDT/1m returned 8 candles, no observed gaps or duplicates; latest closed candle age 63.320854 seconds; estimated HTTP Date offset `-0.441112s`.
 - Raw SHA-256: `d21d45c7a19cb5d6264c10b6590977c850b0ae16ef84f18792b468c0bde86b58`; raw response and manifest are preserved in `docs/evidence/wallex-native-ohlcv-2026-10-18-retry-enabled.raw.json` and `docs/evidence/wallex-native-ohlcv-2026-10-18-retry-enabled.manifest.json`.
 - The later source change caps each computed exponential retry delay at 10 seconds and adds a dedicated test; the final-head CI run must verify that revision before treating the retry-enabled implementation as accepted.
+
+
+## Retry-capped exact-source verification — 2026-10-18 16:11 UTC
+- Source commit: `9df6813b99071d61c598a5748102e9a8650b86ab`.
+- Clean Git checkout at that exact SHA: `31 passed in 0.16s`; live read-only probe exited `0`.
+- Retry policy: retry transient network failures and HTTP 408/429/5xx; maximum 5 attempts; exponential delays capped at 10 seconds; permanent HTTP 404 is not retried. Failure-injection tests cover retry success, permanent error, exhaustion, configuration limits, and the delay cap.
+- Latest BTCUSDT/1m sample: 9 candles, no observed gaps/duplicates, latest closed candle age 22.537193 seconds, estimated HTTP Date offset `-0.620855s`, one attempt.
+- Raw response SHA-256: `be1e452b72e9f039dc025effec6bdde4e68413d3c05023e14c16435de8e12133`. Durable raw bytes and manifest are stored in `docs/evidence/wallex-native-ohlcv-2026-10-18-latest.raw.json` and `docs/evidence/wallex-native-ohlcv-2026-10-18-latest.manifest.json`.
+- The final-head GitHub Actions run must pass on the commit that includes these evidence records before the branch can be treated as CI-verified.
