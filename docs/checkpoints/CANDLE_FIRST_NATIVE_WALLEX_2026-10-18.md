@@ -89,3 +89,12 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - `evidence/wallex_quality_clock_sync_20261018.json` records the observation host's `systemd-timesyncd` status at capture time, with SHA-256 sidecar. The host reported NTP active, system clock synchronized, stratum 2, and NTP offset `-5.659 ms` (root distance `22.216 ms`).
 - This is independent time-source evidence and is stronger than treating the exchange HTTP `Date` header as an independent clock. It is only a point-in-time check of the observation host; it does not attest every runtime host and does not approve the proposed freshness/gap/clock SLA.
 - Proposed policy remains proposal-only until project-owner acceptance and a production monitor is wired and tested. Do not promote volume-dependent features or enable trading based on this snapshot.
+
+
+## Official Socket.IO transport implementation — 2026-10-18
+
+- Official API reference reviewed: https://api-docs.wallex.ir/ documents Socket.IO client v2.5.0-compatible usage, subscribe, Broadcaster, SYMBOL@trade, and depth channels. This is distinct from the separately observed raw WebSocket /ws framing.
+- Added `forward/wallex_socketio_transport_v1.py`, an explicitly invoked Socket.IO v2 / Engine.IO v3 transport that validates the open and namespace-ack packets, sends Socket.IO event packets for subscriptions, responds to Engine.IO ping frames, validates the documented trade fields and indexed depth-level object shape, preserves raw frame hashes and receive clocks, and rejects stale session epochs. It never opens a socket at import time and does not place orders.
+- Added deterministic protocol, malformed-payload, disconnect, heartbeat, and reconnect-epoch tests. Focused suite passed 71 tests before the final disconnect-frame hardening; rerun is required on the latest head.
+- Live reachability is NOT verified: a read-only probe to the documented path wss://api.wallex.ir/socket.io/?EIO=3&transport=websocket returned HTTP 503 from the observation VPS. Do not treat deterministic tests as live endpoint acceptance. The observed raw wss://api.wallex.ir/ws route remains a separate, not-officially-documented protocol.
+- No runtime integration/activation, deployment, account mutation, or trading. Production ingestion remains blocked until the documented Socket.IO endpoint is reachable and live-verified (or Wallex confirms the alternate endpoint), and an independent reviewer accepts the session-isolation evidence.
