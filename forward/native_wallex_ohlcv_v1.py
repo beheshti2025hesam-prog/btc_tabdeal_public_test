@@ -16,6 +16,7 @@ from urllib.parse import urlencode
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import json
+import math
 import time
 
 
@@ -152,12 +153,12 @@ def fetch_native_ohlcv_evidence(
     if not isinstance(symbol, str) or not symbol or any(ch.isspace() for ch in symbol):
         raise ValueError("invalid symbol")
     _validate_resolution(timeframe_minutes)
-    if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or timeout_seconds <= 0:
-        raise ValueError("timeout must be positive")
+    if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)) or not math.isfinite(float(timeout_seconds)) or timeout_seconds <= 0:
+        raise ValueError("timeout must be a finite positive number")
     if isinstance(max_attempts, bool) or not isinstance(max_attempts, int) or max_attempts < 1:
         raise ValueError("max_attempts must be a positive integer")
-    if isinstance(retry_backoff_seconds, bool) or not isinstance(retry_backoff_seconds, (int, float)) or retry_backoff_seconds < 0:
-        raise ValueError("retry_backoff_seconds must be non-negative")
+    if isinstance(retry_backoff_seconds, bool) or not isinstance(retry_backoff_seconds, (int, float)) or not math.isfinite(float(retry_backoff_seconds)) or retry_backoff_seconds < 0:
+        raise ValueError("retry_backoff_seconds must be a finite non-negative number")
     for label, value in (("start", start), ("end", end), ("as_of", as_of)):
         if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
             raise ValueError(f"{label} must be timezone-aware")
