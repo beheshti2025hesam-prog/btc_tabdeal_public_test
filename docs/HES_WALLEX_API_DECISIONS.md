@@ -1,56 +1,76 @@
 # HES Trade Agent — Wallex API Evidence & Decisions
 
-Status: documentation-derived; live API behavior and integration are NOT verified by this document.
+Status: documentation and repository evidence reviewed on 2026-10-18; live API behavior is only verified where pinned read-only evidence explicitly says so. This document does not authorize runtime integration or trading.
 
 ## Governing decision
 Use exchange-provided capabilities first, with minimum complexity. Do not rebuild exchange functionality or impose checks without a demonstrated HES decision/safety requirement.
 
-## Evidence supplied from Wallex documentation by the project owner
+## Current official base URL and documented contracts
+
+The current official Wallex API reference states that API endpoints are available through `https://api.wallex.ir`. The newer developer documentation says the same. Therefore, use `api.wallex.ir` as the documented canonical base for new requests, while retaining the older `api.wallex.com` references below as a recorded documentation discrepancy—not as an approved operational alternative.
+
+Sources:
+- Official API reference: https://api-docs.wallex.ir/
+- Official developer documentation: https://developers.wallex.ir/intro
+- Market-list example on the developer documentation: https://developers.wallex.ir/
 
 ### Candles / OHLCV
-- Endpoint documented: `GET /v1/udf/history`.
-- Query fields shown: `symbol`, `resolution`, `from`, `to` (one supplied page marks them optional; the earlier Swagger excerpt marks them required, so requiredness must be confirmed against the current endpoint contract before implementation).
-- Response arrays: `t` (time), `o` (open), `h` (high), `l` (low), `c` (close), `v` (volume), and `s` (status).
-- Resolutions listed in the supplied page: `1, 15, 60, 240, 480, 720, 1D, 2D, 3D`.
-- Decision: make the exchange's official candles the primary market-data path where consistent with the existing HES design. Do not reconstruct candles from raw trades unless a concrete requirement demonstrates it is necessary.
+- Endpoint: `GET https://api.wallex.ir/v1/udf/history`.
+- Required query fields in the current official API reference: `symbol`, `resolution`, `from`, `to`; timestamps are Unix seconds.
+- Response fields: `s`, `t`, `o`, `h`, `l`, `c`, `v`.
+- Current official reference lists minute resolutions `1`, `60`, `180`, `360`, `720` and daily `1D`. The current adapter deliberately enables only the five minute resolutions; daily boundary/timezone behavior remains deferred.
+- An older supplied documentation excerpt listed a different set (`15`, `240`, `480`, `2D`, `3D`) and marked some query fields optional. This conflicts with the current official reference and is retained as historical discrepancy only. Do not enable these additional resolutions without confirming the current contract.
+- Decision: use native exchange candles as the primary path where consistent with HES architecture. Do not reconstruct candles from trades unless a concrete requirement demonstrates it is necessary.
 
 ### Market list
-- Endpoint documented: `GET https://api.wallex.com/hector/web/v1/markets`.
-- Auth shown: `x-api-key`.
-- Response fields shown: `success`, `message`, `result`; internal `result` schema was not visible in the supplied page.
-- Decision: use the market-list endpoint only if the existing code needs market metadata; do not assume undocumented fields.
+- Current official API reference documents `GET https://api.wallex.ir/v1/markets`.
+- The developer documentation also shows `GET https://api.wallex.ir/hector/web/v1/markets` as a market-list example. Treat these as distinct documented paths; use the exact path needed by the existing consumer and verify its response schema before depending on it.
+- A previously supplied page cited `https://api.wallex.com/hector/web/v1/markets`. This host conflicts with the current official documentation's canonical base URL. Do not use the `.com` host unless Wallex explicitly confirms it.
+- Use the market-list endpoint only when the code needs market metadata; validate requested symbols against its actual current response.
 
 ### Market depth
-- Endpoint documented: `GET https://api.wallex.com/v1/depth`.
-- Query parameter: required `symbol`.
-- Auth shown: `x-api-key`.
-- Response overview: `result`, `message`, `success`; the earlier supplied basic-services content describes `result.ask` and `result.bid`, each with `price`, `quantity`, `sum`.
-- The supplied documentation warns that frequent REST polling may encounter rate limits and points to WebSocket for frequent depth updates.
-- Decision: do not poll depth unless HES actually needs it; if frequent updates are needed, assess the exchange-provided WebSocket rather than building a parallel polling system.
+- Endpoint: `GET https://api.wallex.ir/v1/depth?symbol=BTCUSDT`.
+- The documented response includes `result.ask` and `result.bid` levels with `price`, `quantity`, and `sum`.
+- A previously supplied page cited `https://api.wallex.com/v1/depth`; this is a recorded host discrepancy, not an approved alternative.
+- The official docs caution against frequent REST polling and point to WebSocket for frequent updates.
+- Decision: do not poll depth unless HES actually needs it. If frequent updates are required, assess the documented Socket.IO interface rather than creating a parallel polling system.
 
 ### Latest trades
-- Endpoint documented: `GET /v1/trades`.
-- Query field shown: `symbol` (one page marks optional).
-- Fields shown in `result.latestTrades`: `symbol`, `quantity`, `price`, `sum`, `isBuyOrder`, `timestamp`.
-- The supplied page warns that frequent REST polling may encounter rate limits and points to a WebSocket feed.
-- The supplied REST example/schema does not show a trade ID or sequence number. This means only that the supplied page does not document them; it does NOT prove the exchange lacks such identifiers in other interfaces.
+- Endpoint: `GET https://api.wallex.ir/v1/trades?symbol=BTCUSDT`; the current official reference marks `symbol` as required.
+- Documented fields include `symbol`, `quantity`, `price`, `sum`, `isBuyOrder`, and `timestamp`.
+- The public REST example does not document a trade ID or sequence number. This does not prove such identifiers are absent from every interface.
+- The official docs warn that frequent REST polling may encounter rate limits and point to a WebSocket feed.
 - Decision: latest trades and sequence reconstruction are not prerequisites for the candle path unless the current HES code or strategy has a specific dependency on them.
 
-### Account fees
-- Endpoint documented: `GET /v1/account/fee`.
-- Example fields: `makerFeeRate`, `takerFeeRate`, `recent_days_sum`.
-- Decision: consume only if HES needs account-specific fee inputs for net-profit/risk calculations. Confirm units and interpretation from authoritative current documentation or actual response before relying on them.
+### Socket.IO and observed raw WebSocket
+- Official documentation demonstrates Socket.IO usage against `https://api.wallex.ir`, with `subscribe` and `Broadcaster` events.
+- Pinned read-only evidence on 2026-10-18 records HTTP 503 for both documented Engine.IO polling handshake URLs from the observation host. This means live reachability was not verified from that host/time; it does not establish a global outage.
+- The raw `wss://api.wallex.ir/ws` route is a separate observed protocol. Do not treat it as interchangeable with the documented Socket.IO contract without successful verification or written Wallex confirmation.
+- Trade identity/order/contiguity and depth snapshot/delta semantics remain unknown unless supported by new authoritative evidence.
 
-## Cross-cutting cautions
-- Supplied pages use both `api.wallex.ir` and `api.wallex.com`. Do not silently assume these hosts are interchangeable; use the endpoint's current official base URL and verify the configured environment.
-- Examples and schemas are documentation evidence, not proof of live availability, freshness, completeness, or successful authentication.
-- Keep requests read-only during initial integration. Never request or store API secrets in chat or commit them to the repository.
-- Minimal decision-relevant checks for the candle path: response/schema validity, consistent OHLCV array lengths, valid timestamps and numeric values, sane OHLC relationships, and freshness relative to the strategy's decision horizon. Do not add exhaustive trade sequence validation unless required by an explicit HES dependency.
-- Preserve HOLD / NO-TRADE until the existing required gates pass on evidence. This document alone does not pass any runtime gate.
+### Account fees
+- Endpoint: `GET https://api.wallex.ir/v1/account/fee`.
+- Example fields include `makerFeeRate`, `takerFeeRate`, and `recent_days_sum`.
+- Consume only if HES needs account-specific fee inputs for net-profit/risk calculations. Confirm units and interpretation from authoritative current documentation or an actual response before relying on them.
+
+## Known unresolved semantic discrepancy: candle volume
+Pinned read-only evidence recorded exact numeric OHLC agreement between sampled closed candles and public-trade aggregates, while UDF `v` was exactly 2x the summed public `/v1/trades.quantity` in 99 covered bars across five symbols. The reason is not established.
+- Preserve the source `v` exactly.
+- Do not halve, normalize, or use it to promote volume-dependent features until Wallex provides authoritative semantics and replay evidence supports the interpretation.
+- Candle-only OHLC use does not require trade-sequence reconstruction; volume-dependent use remains blocked by this discrepancy.
+
+## Cross-cutting safety rules
+- Do not silently treat `api.wallex.ir` and `api.wallex.com` as interchangeable. Current official documentation supports `api.wallex.ir`; the older `.com` references are preserved only as a discrepancy record.
+- Documentation/examples are not proof of live availability, freshness, completeness, authentication success, or operational SLA.
+- Keep initial integration read-only. Never request or store API secrets in chat or commit them to the repository.
+- Validate only decision-relevant integrity: response schema, equal OHLCV array lengths, timestamp validity/alignment, numeric values, OHLC relationships, freshness and failure behavior.
+- Do not require exhaustive trade-sequence validation for candle-only strategies absent an explicit dependency.
+- Preserve `HOLD / NO-TRADE` until the actual required gates pass on evidence. This document alone does not pass any runtime gate.
 
 ## Implementation workflow
-1. Inspect current repository and existing tests before coding; reuse existing components.
-2. Map the documented endpoint to the existing market-data adapter and current configuration.
-3. Run read-only integration tests using the supported environment; record sanitized response evidence and test results.
-4. Add only the smallest necessary changes for demonstrated gaps.
-5. Recompute project progress only from verified implementation/test evidence, not from documentation review alone.
+1. Inspect the current repository and existing tests before coding; reuse existing components.
+2. Map each endpoint to the existing adapter and configuration; avoid the older `.com` host unless officially confirmed.
+3. Run read-only integration tests in the supported environment and preserve sanitized raw evidence plus SHA-256.
+4. Add only the smallest change needed for a demonstrated gap.
+5. Verify the exact commit and its CI results; do not infer acceptance from another commit's green checks.
+6. Recompute project progress only from verified implementation/test evidence, not from documentation review alone.
