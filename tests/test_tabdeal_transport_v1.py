@@ -97,3 +97,64 @@ def test_transport_emits_sanitized_frame_fingerprint_for_normalized_trade():
     assert "amount" not in fingerprint
     assert "raw_frame" not in fingerprint
     assert fingerprint["receive_monotonic_ns"] > 0
+
+
+def test_transport_hash_is_sha256_of_exact_received_raw_frame_bytes():
+    # Whitespace and key order are deliberately part of the exact wire bytes.
+    raw = (
+        '{"trade": {"symbol":"BTC_USDT","price":"100","amount":"0.1",'
+        '"side_name":"buy","sequence":7,"updated":"2026-10-07T06:30:00Z"}}'
+    )
+    records = []
+    metadata = []
+
+    class RawFrameWS(FakeWS):
+        def run_forever(self, **kwargs):
+            self.kwargs = kwargs
+            self.on_open(self)
+            self.on_message(self, raw)
+
+    transport = TabdealReadOnlyTransportV1(
+        as_of_provider=lambda: ASOF,
+        on_record=records.append,
+        on_frame_metadata=metadata.append,
+        ws_factory=RawFrameWS,
+        max_runtime_seconds=1,
+    )
+    transport.run_once()
+
+    expected = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    assert len(records) == 1
+    assert records[0]["raw_payload_sha256"] == expected
+    assert metadata[0]["raw_frame_sha256"] == expected
+    assert transport.records_emitted == 1
+
+
+def test_whitespace_change_changes_raw_payload_hash_and_is_not_false_replay():
+    frame = {
+        "trade": {
+            "symbol": "BTC_USDT", "price": "100", "amount": "0.1",
+            "side_name": "buy", "sequence": 7, "updated": "2026-10-07T06:30:00Z",
+        }
+    }
+    raw_a = json.dumps(frame, separators=(",", ":"))
+    raw_b = json.dumps(frame, indent=2)
+    records = []
+
+    class TwoFramesWS(FakeWS):
+        def run_forever(self, **kwargs):
+            self.kwargs = kwargs
+            self.on_open(self)
+            self.on_message(self, raw_a)
+            self.on_message(self, raw_b)
+
+    transport = TabdealReadOnlyTransportV1(
+        as_of_provider=lambda: ASOF,
+        on_record=records.append,
+        ws_factory=TwoFramesWS,
+        max_runtime_seconds=1,
+    )
+    transport.run_once()
+
+    assert len(records) == 2
+    assert records[0]["raw_payload_sha256"] != records[1]["raw_payload_sha256"]
