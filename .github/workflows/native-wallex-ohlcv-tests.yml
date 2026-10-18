@@ -1,0 +1,62 @@
+name: Native Wallex OHLCV Candle-First Verification
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "forward/native_wallex_ohlcv_v1.py"
+      - "tests/test_native_wallex_ohlcv_v1.py"
+      - "scripts/verify_native_wallex_ohlcv.py"
+      - ".github/workflows/native-wallex-ohlcv-tests.yml"
+      - "docs/checkpoints/CANDLE_FIRST_NATIVE_WALLEX_2026-10-18.md"
+  push:
+    branches: ["feat/native-wallex-ohlcv-candle-first"]
+    paths:
+      - "forward/native_wallex_ohlcv_v1.py"
+      - "tests/test_native_wallex_ohlcv_v1.py"
+      - "scripts/verify_native_wallex_ohlcv.py"
+      - ".github/workflows/native-wallex-ohlcv-tests.yml"
+      - "docs/checkpoints/CANDLE_FIRST_NATIVE_WALLEX_2026-10-18.md"
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact PR commit
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+      - name: Run deterministic adapter tests
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q tests/test_native_wallex_ohlcv_v1.py
+
+  live-read-only-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout exact PR commit
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run read-only public endpoint probe and preserve evidence
+        env:
+          PYTHONPATH: .
+        run: python scripts/verify_native_wallex_ohlcv.py
+      - name: Upload raw response and SHA-256 manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-wallex-ohlcv-evidence
+          path: artifacts/native-wallex-ohlcv/
+          if-no-files-found: warn
+          retention-days: 90
