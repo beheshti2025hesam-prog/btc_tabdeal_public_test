@@ -61,3 +61,38 @@ def test_ingestion_rejects_coerced_sequence_values(sequence):
 def test_ingestion_accepts_ascii_digit_string_sequence():
     trade = to_trade_observation(rec(seq="123"), as_of=AS_OF)
     assert trade.sequence == 123
+
+
+from decimal import Decimal
+
+from forward.candle_normalizer_v1 import TradeObservation, normalize_trades
+
+
+@pytest.mark.parametrize("bad_value", [Decimal("NaN"), Decimal("Infinity"), Decimal("-Infinity")])
+@pytest.mark.parametrize("field", ["price", "amount"])
+def test_normalizer_rejects_non_finite_market_values(bad_value, field):
+    values = {
+        "symbol": "BTC_USDT",
+        "price": Decimal("100"),
+        "amount": Decimal("1"),
+        "side": "Buy",
+        "updated": datetime(2026, 10, 7, 1, 1, tzinfo=timezone.utc),
+        "sequence": 1,
+    }
+    values[field] = bad_value
+    with pytest.raises(ValueError, match=field):
+        normalize_trades([TradeObservation(**values)], as_of=AS_OF, expected_symbol="BTC_USDT")
+
+
+@pytest.mark.parametrize("sequence", [True, False, -1, 1.0, "1"])
+def test_normalizer_rejects_non_integer_or_negative_sequence(sequence):
+    trade = TradeObservation(
+        symbol="BTC_USDT",
+        price=Decimal("100"),
+        amount=Decimal("1"),
+        side="Buy",
+        updated=datetime(2026, 10, 7, 1, 1, tzinfo=timezone.utc),
+        sequence=sequence,
+    )
+    with pytest.raises(ValueError, match="sequence"):
+        normalize_trades([trade], as_of=AS_OF, expected_symbol="BTC_USDT")
