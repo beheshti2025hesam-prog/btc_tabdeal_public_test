@@ -111,7 +111,7 @@
     "visual_render": "NO_INDEPENDENT_PIXEL_SCREENSHOT; source-level frontend mapping confirms chart uses the same UDF OHLCV payload",
     "volume_semantics": "BLOCKED_UDF_V_IS_EXACTLY_2X_PUBLIC_TRADE_QUANTITY_IN_99_FULLY_COVERED_1M_BARS_ACROSS_5_SYMBOLS; rolling 24h UDF volume also near 2x market 24h_volume; requires exchange semantics clarification before volume-based feature promotion"
   },
-  "manifest_sha256_excluding_self": "98d04e146c1ce5ef89a8f00c1a8ad7483d2123786cfbb2cee7e653010d39db51",
+  "manifest_sha256_excluding_self": "dc7d143ac0664198ba9bc0e87e6836a70f9f34f1a6fff4ab1b807b7b10fdb664",
   "market_snapshot": {
     "btc_24h_volume": "1.4030057700000000",
     "btc_askPrice": "81158.5700000000000000",
@@ -157,11 +157,230 @@
       }
     }
   },
+  "quality_gate_boundary_tests": {
+    "cases": [
+      {
+        "actual_pass": true,
+        "age_seconds": 0,
+        "expected_pass": true,
+        "gate": "freshness",
+        "interval_seconds": 60,
+        "limit_seconds": 120,
+        "pass": true
+      },
+      {
+        "actual_pass": true,
+        "age_seconds": 120,
+        "expected_pass": true,
+        "gate": "freshness",
+        "interval_seconds": 60,
+        "limit_seconds": 120,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "age_seconds": 120.001,
+        "expected_pass": false,
+        "gate": "freshness",
+        "interval_seconds": 60,
+        "limit_seconds": 120,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "age_seconds": -0.001,
+        "expected_pass": false,
+        "gate": "freshness",
+        "interval_seconds": 60,
+        "limit_seconds": 120,
+        "pass": true
+      },
+      {
+        "actual_pass": true,
+        "age_seconds": 0,
+        "expected_pass": true,
+        "gate": "freshness",
+        "interval_seconds": 3600,
+        "limit_seconds": 7200,
+        "pass": true
+      },
+      {
+        "actual_pass": true,
+        "age_seconds": 7200,
+        "expected_pass": true,
+        "gate": "freshness",
+        "interval_seconds": 3600,
+        "limit_seconds": 7200,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "age_seconds": 7200.001,
+        "expected_pass": false,
+        "gate": "freshness",
+        "interval_seconds": 3600,
+        "limit_seconds": 7200,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "age_seconds": -0.001,
+        "expected_pass": false,
+        "gate": "freshness",
+        "interval_seconds": 3600,
+        "limit_seconds": 7200,
+        "pass": true
+      },
+      {
+        "actual_pass": true,
+        "expected_pass": true,
+        "gate": "gap_continuity",
+        "interval_seconds": 60,
+        "observed_delta_seconds": 60,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "expected_pass": false,
+        "gate": "gap_continuity",
+        "interval_seconds": 60,
+        "observed_delta_seconds": 0,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "expected_pass": false,
+        "gate": "gap_continuity",
+        "interval_seconds": 60,
+        "observed_delta_seconds": 61,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "expected_pass": false,
+        "gate": "gap_continuity",
+        "interval_seconds": 60,
+        "observed_delta_seconds": 59,
+        "pass": true
+      },
+      {
+        "actual_pass": true,
+        "expected_pass": true,
+        "gate": "gap_continuity",
+        "interval_seconds": 3600,
+        "observed_delta_seconds": 3600,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "expected_pass": false,
+        "gate": "gap_continuity",
+        "interval_seconds": 3600,
+        "observed_delta_seconds": 0,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "expected_pass": false,
+        "gate": "gap_continuity",
+        "interval_seconds": 3600,
+        "observed_delta_seconds": 3601,
+        "pass": true
+      },
+      {
+        "actual_pass": false,
+        "expected_pass": false,
+        "gate": "gap_continuity",
+        "interval_seconds": 3600,
+        "observed_delta_seconds": 3599,
+        "pass": true
+      },
+      {
+        "actual_block": false,
+        "actual_warning": false,
+        "expected_block": false,
+        "expected_warning": false,
+        "gate": "clock_offset",
+        "offset_seconds": 0,
+        "pass": true
+      },
+      {
+        "actual_block": false,
+        "actual_warning": false,
+        "expected_block": false,
+        "expected_warning": false,
+        "gate": "clock_offset",
+        "offset_seconds": 2,
+        "pass": true
+      },
+      {
+        "actual_block": false,
+        "actual_warning": true,
+        "expected_block": false,
+        "expected_warning": true,
+        "gate": "clock_offset",
+        "offset_seconds": 2.001,
+        "pass": true
+      },
+      {
+        "actual_block": false,
+        "actual_warning": true,
+        "expected_block": false,
+        "expected_warning": true,
+        "gate": "clock_offset",
+        "offset_seconds": 5,
+        "pass": true
+      },
+      {
+        "actual_block": true,
+        "actual_warning": true,
+        "expected_block": true,
+        "expected_warning": true,
+        "gate": "clock_offset",
+        "offset_seconds": 5.001,
+        "pass": true
+      },
+      {
+        "actual_block": true,
+        "actual_warning": true,
+        "expected_block": true,
+        "expected_warning": true,
+        "gate": "clock_offset",
+        "offset_seconds": -5.1,
+        "pass": true
+      }
+    ],
+    "failed": 0,
+    "note": "These deterministic tests validate the stated threshold rules, not a production runtime clock monitor. HTTP Date remains coarse and is not independent NTP/monotonic attestation.",
+    "passed": 22,
+    "policy_status": "PROPOSAL_ONLY_NOT_APPROVED_SLA"
+  },
   "quality_gate_policy_proposal_not_approved": {
     "clock": "HTTP Date offset absolute >2 seconds warns and >5 seconds blocks pending independent NTP/monotonic-clock validation; Date granularity is 1 second",
     "freshness": "Closed 1m candle age 0..120 seconds; closed 1h age 0..7200 seconds; future or stale data blocks promotion",
     "gaps": "Every adjacent closed candle timestamp must differ by exact interval; any gap blocks promotion and no synthetic candles are created",
     "reconnect": "Each socket session receives unique ID/epoch; parser/subscription state is session-scoped; reject any delayed prior-epoch event; log session ID on every accepted event"
+  },
+  "quality_gate_sample_evaluation": {
+    "clock_offset_samples_seconds": {
+      "1h": -1.863,
+      "1m": -1.617
+    },
+    "clock_offset_within_warning_threshold": true,
+    "freshness": {
+      "1h_latest_closed_age_seconds": 2907.863,
+      "1h_limit_seconds": 7200,
+      "1h_pass": true,
+      "1m_latest_closed_age_seconds": 26.617,
+      "1m_limit_seconds": 120,
+      "1m_pass": true
+    },
+    "gaps": {
+      "1h_gap_count": 0,
+      "1m_gap_count": 0,
+      "pass": true
+    },
+    "interpretation": "The sampled values pass the proposed rules, but thresholds remain unapproved and HTTP Date is coarse."
   },
   "raw_evidence_bundle": {
     "assembly": "Concatenate the part files in ascending numeric order without separators, then base64-decode the concatenated text to obtain the gzip tar archive.",
@@ -350,6 +569,41 @@
   "reconnect_evidence": {
     "current_epoch_event_accepted_in_harness": true,
     "interpretation": "Two live WebSocket sessions connected and received depth frames; server session IDs differ. No trade frames arrived during these short windows, consistent with the REST trade snapshot showing no new trade since 16:15:34Z. The epoch guard rejects delayed prior-session events in a deterministic harness. This is not a production collector integration test because no Wallex WS collector is wired/enabled. Raw received frames are retained in adjacent JSONL.",
+    "live_trade_reconnect_followup": {
+      "epoch_guard_harness": {
+        "accepted_events": [
+          "old-session-before-reconnect",
+          "new-session-event"
+        ],
+        "current_session_event_accepted": true,
+        "delayed_old_session_event_rejected": true
+      },
+      "interpretation": "Two 45-second live trade-only sessions had distinct server session IDs but no @trade frames. This cannot validate stale trade-frame rejection because no trade event arrived; retain the prior depth-frame reconnect evidence and keep production collector isolation unverified.",
+      "path": "evidence/wallex_ws_reconnect_trade_reconciliation_20261018.json",
+      "server_session_ids_distinct": true,
+      "sessions": [
+        {
+          "closed_at_utc": "2026-10-18T16:54:05.972448+00:00",
+          "handshake_sha256": "9869e666645c64a8f12d96bf158a0b107e2b399cf86a5161597a6ee4afeef618",
+          "local_session": 1,
+          "server_sid": "5e349573-2a90-46b1-9485-f86d4b693156",
+          "started_at_utc": "2026-10-18T16:53:20.964097+00:00",
+          "trade_frame_count": 0,
+          "trade_frames": []
+        },
+        {
+          "closed_at_utc": "2026-10-18T16:54:51.633584+00:00",
+          "handshake_sha256": "65a83cd759941b081d6c24f3228666b92b4136a9fadf59d8716b30040a861be3",
+          "local_session": 2,
+          "server_sid": "1f0abee1-f71b-4793-a29c-41d5190ad533",
+          "started_at_utc": "2026-10-18T16:54:06.624334+00:00",
+          "trade_frame_count": 0,
+          "trade_frames": []
+        }
+      ],
+      "sha256": "48a8e8d6bc815da3abcd5a9a8e3b198039b4b3c4a6f2b30fdf304998f7ee5076",
+      "total_trade_frames": 0
+    },
     "manifest_path": "/srv/hes-evidence/wallex/wallex_ws_reconnect_session_isolation_20261018.json",
     "manifest_sha256": "2c39b75090398d980dd2ef0df483054bca3d05b66fdf2a29d1c4493e90499238",
     "prior_epoch_event_rejected_in_harness": true,
