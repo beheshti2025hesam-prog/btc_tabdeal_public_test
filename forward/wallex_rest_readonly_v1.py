@@ -3,6 +3,8 @@
 The official REST endpoint returns only a latest-trades window, not a guaranteed
 complete event log. This collector is deliberately rate-limited and marks coverage
 as LATEST_WINDOW_ONLY; it does not infer missing trades or sequence semantics.
+The per-trade hash is a canonicalized-object fingerprint, not the exact raw HTTP
+response bytes; the source response bytes are not retained by this adapter.
 """
 from __future__ import annotations
 
@@ -105,8 +107,8 @@ def normalize_rest_trade(data: dict[str, Any], *, received_at: datetime | None =
         "side": "BUY" if is_buy else "SELL",
         "source_updated": source_updated,
         "observed_at": received.astimezone(timezone.utc).isoformat(),
-        "identity": {"kind": "raw_payload_sha256", "value": fingerprint},
-        "raw_payload_sha256": fingerprint,
+        "identity": {"kind": "canonical_trade_sha256", "value": fingerprint},
+        "canonical_trade_sha256": fingerprint,
         "sequence": None,
         "sequence_semantics": "NOT_DOCUMENTED_BY_VENUE",
         "coverage": "LATEST_WINDOW_ONLY",
@@ -138,7 +140,11 @@ class WallexRestWindowCollectorV1:
         if self.output.exists():
             for line in self.output.read_text(encoding="utf-8").splitlines():
                 try:
-                    self.seen_hashes.add(json.loads(line)["raw_payload_sha256"])
+                    saved = json.loads(line)
+                    # Read legacy field names while writing the corrected, explicit name.
+                    self.seen_hashes.add(
+                        saved.get("canonical_trade_sha256", saved.get("raw_payload_sha256"))
+                    )
                 except (ValueError, KeyError, TypeError):
                     continue
         self.records_written = 0
@@ -148,7 +154,7 @@ class WallexRestWindowCollectorV1:
         new_records = 0
         for trade in snapshot["latest_trades"]:
             record = normalize_rest_trade(trade)
-            fingerprint = record["raw_payload_sha256"]
+            fingerprint = record["canonical_trade_sha256"]
             if fingerprint in self.seen_hashes:
                 continue
             self.output.parent.mkdir(parents=True, exist_ok=True)
