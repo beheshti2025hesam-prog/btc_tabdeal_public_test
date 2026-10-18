@@ -88,6 +88,27 @@ class ForwardTabdealCollectorV1:
             handle.flush()
             os.fsync(handle.fileno())
 
+    def _persist_sequence_observation(self, record: dict[str, Any]) -> str:
+        """Persist every normalized trade; annotate non-increasing IDs instead of dropping them.
+
+        The downstream sequence-integrity gate remains authoritative and must
+        quarantine ambiguous/out-of-order records before candle/feature creation.
+        """
+        seq = record["sequence"]
+        persisted = dict(record)
+        if self.last_sequence is not None and seq <= self.last_sequence:
+            persisted["collector_sequence_status"] = (
+                "REPEATED_OR_NON_INCREASING_SEQUENCE"
+            )
+            persisted["collector_last_accepted_sequence"] = self.last_sequence
+            self._append(persisted)
+            return "REPEATED_OR_NON_INCREASING_SEQUENCE"
+
+        persisted["collector_sequence_status"] = "INCREASING_SEQUENCE"
+        self._append(persisted)
+        self.last_sequence = seq
+        return "INCREASING_SEQUENCE"
+
     def run(self, *, run_seconds: int = 0) -> None:
         if not self.enabled:
             raise RuntimeError("Forward Tabdeal collector is disabled by default.")
@@ -114,12 +135,7 @@ class ForwardTabdealCollectorV1:
                     if record is None:
                         continue
 
-                    seq = record["sequence"]
-                    if self.last_sequence is not None and seq <= self.last_sequence:
-                        continue
-
-                    self._append(record)
-                    self.last_sequence = seq
+                    self._persist_sequence_observation(record)
             except Exception:
                 # Fail closed for the current connection; reconnect without
                 # inventing observations or changing persisted records.
