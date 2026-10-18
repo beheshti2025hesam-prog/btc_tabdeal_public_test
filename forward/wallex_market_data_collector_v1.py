@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
+from decimal import Decimal, InvalidOperation
 import json
 import threading
 import time
@@ -165,8 +166,35 @@ class WallexMarketDataCollector:
                 for key in ("price", "quantity", "timestamp"):
                     if not isinstance(data[key], str) or not data[key]:
                         raise ValueError(f"{key} must be a non-empty string")
+                try:
+                    price = Decimal(data["price"])
+                    quantity = Decimal(data["quantity"])
+                except (InvalidOperation, ValueError) as exc:
+                    raise ValueError("trade price and quantity must be decimal strings") from exc
+                if not price.is_finite() or price <= 0 or not quantity.is_finite() or quantity <= 0:
+                    raise ValueError("trade price and quantity must be finite and positive")
+                try:
+                    stamp = datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
+                except ValueError as exc:
+                    raise ValueError("trade timestamp must be ISO-8601") from exc
+                if stamp.tzinfo is None or stamp.utcoffset() is None:
+                    raise ValueError("trade timestamp must include a timezone")
             elif not isinstance(data, list):
                 raise ValueError("Wallex depth frame data must be an array")
+            else:
+                for item in data:
+                    if not isinstance(item, dict) or not {"price", "quantity", "sum"}.issubset(item):
+                        raise ValueError("each Wallex depth item must contain price, quantity, and sum")
+                    try:
+                        price = Decimal(str(item["price"]))
+                        quantity = Decimal(str(item["quantity"]))
+                        total = Decimal(str(item["sum"]))
+                    except (InvalidOperation, ValueError) as exc:
+                        raise ValueError("depth price, quantity, and sum must be numeric") from exc
+                    if not all(value.is_finite() for value in (price, quantity, total)):
+                        raise ValueError("depth values must be finite")
+                    if price <= 0 or quantity < 0 or total < 0:
+                        raise ValueError("depth price must be positive and quantity/sum non-negative")
             received = self.clock()
             if received.tzinfo is None or received.utcoffset() is None:
                 raise ValueError("clock must return a timezone-aware datetime")
