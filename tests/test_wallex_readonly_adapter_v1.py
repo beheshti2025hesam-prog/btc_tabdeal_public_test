@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import base64
 import json
 
 import pytest
@@ -266,3 +267,5 @@ def test_exact_received_frame_hash_is_distinct_from_canonical_event_hash(tmp_pat
     assert records[0]["canonical_event_sha256"] == records[1]["canonical_event_sha256"]
     assert records[0]["raw_frame_sha256"] != records[1]["raw_frame_sha256"]
     assert all(len(record["raw_frame_sha256"]) == 64 for record in records)
+    assert base64.b64decode(records[0]["raw_frame_b64"]) == compact.encode("utf-8")
+    assert base64.b64decode(records[1]["raw_frame_b64"]) == spaced.encode("utf-8")
