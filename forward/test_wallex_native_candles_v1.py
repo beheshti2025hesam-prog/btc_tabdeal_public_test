@@ -81,6 +81,69 @@ def test_no_data_status_is_not_misread_as_candles():
         parse({"s":"no_data"})
 
 
+def test_empty_success_response_is_rejected_as_ambiguous():
+    with pytest.raises(WallexCandleError, match="empty despite status ok"):
+        parse({"s": "ok", "t": [], "o": [], "h": [], "l": [], "c": [], "v": []})
+
+
+def test_non_finite_numeric_value_is_rejected():
+    with pytest.raises(WallexCandleError, match="finite"):
+        parse(payload(ts=(1792232400,), o=("NaN",), h=("102",), l=("99",), c=("101",), v=("1",)))
+
+
+def test_negative_volume_is_rejected():
+    with pytest.raises(WallexCandleError, match="negative volume"):
+        parse(payload(ts=(1792232400,), o=("100",), h=("102",), l=("99",), c=("101",), v=("-0.1",)))
+
+
+def test_fetch_rejects_malformed_json(monkeypatch):
+    import wallex_native_candles_v1 as adapter
+
+    class FakeResponse:
+        status = 200
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self, limit):
+            return b"not-json"
+
+    monkeypatch.setattr(adapter, "urlopen", lambda *args, **kwargs: FakeResponse())
+    with pytest.raises(WallexCandleError, match="not valid JSON"):
+        adapter.fetch_history(
+            "BTCUSDT", "1",
+            datetime(2026, 10, 17, 13, 0, tzinfo=UTC),
+            datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
+            as_of=datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
+        )
+
+
+def test_fetch_rejects_out_of_range_timestamp_even_if_candle_would_be_closed(monkeypatch):
+    import json
+    import wallex_native_candles_v1 as adapter
+
+    class FakeResponse:
+        status = 200
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self, limit):
+            return json.dumps({
+                "s": "ok", "t": [1792232340],
+                "o": ["100"], "h": ["102"], "l": ["99"], "c": ["101"], "v": ["1"],
+            }).encode()
+
+    monkeypatch.setattr(adapter, "urlopen", lambda *args, **kwargs: FakeResponse())
+    with pytest.raises(WallexCandleError, match="outside requested range"):
+        adapter.fetch_history(
+            "BTCUSDT", "1",
+            datetime(2026, 10, 17, 13, 0, tzinfo=UTC),
+            datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
+            as_of=datetime(2026, 10, 17, 13, 3, tzinfo=UTC),
+        )
+
+
 def test_future_observation_as_of_must_be_aware():
     with pytest.raises(WallexCandleError, match="as_of must be timezone-aware"):
         parse_history(payload(), symbol="BTCUSDT", resolution="1", as_of=datetime(2026,10,17), observed_at=OBSERVED)
