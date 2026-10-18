@@ -98,3 +98,10 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Added deterministic protocol, malformed-payload, disconnect, heartbeat, and reconnect-epoch tests. Focused suite passed 71 tests before the final disconnect-frame hardening; rerun is required on the latest head.
 - Live reachability is NOT verified: a read-only probe to the documented path wss://api.wallex.ir/socket.io/?EIO=3&transport=websocket returned HTTP 503 from the observation VPS. Do not treat deterministic tests as live endpoint acceptance. The observed raw wss://api.wallex.ir/ws route remains a separate, not-officially-documented protocol.
 - No runtime integration/activation, deployment, account mutation, or trading. Production ingestion remains blocked until the documented Socket.IO endpoint is reachable and live-verified (or Wallex confirms the alternate endpoint), and an independent reviewer accepts the session-isolation evidence.
+
+
+## Append-only Wallex capability registry record
+
+- Added `docs/registry/wallex_spot_market_data_2026-10-18.yaml` as revision `2026-10-18.1`, keeping sequence/identity/order/contiguity/reconnect claims explicitly unknown unless the official contract supports them.
+- The record binds claims to exact venue/product/transport/channel/message type; it disables trade-ID deduplication and numeric gap detection, treats depth as observed data until snapshot/delta semantics are proven, and leaves UDF candle volume units unknown with no normalization.
+- This registry entry is conservative and research/evidence driven; the documented Socket.IO live endpoint remains unverified due the pinned 503 response. It does not authorize production ingestion or trading.
