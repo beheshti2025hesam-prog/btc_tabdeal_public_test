@@ -22,3 +22,9 @@ Allow the existing forward-only Market Structure observer to consume a normalize
 - Official Tabdeal native 15m OHLCV parity is not yet established. Do not substitute another venue silently.
 - This PR is an integration contract only. No collector activation, evidence-registry pin, deployment, merge, or trading authorization. Overall status remains `HOLD / NO-TRADE`.
 - TradingView/chart source integration remains a high-priority separate gate: first identify the approved market-data source and licensing/access, then map this bridge to the documented datafeed API. Do not create a parallel chart frontend merely to claim integration.
+
+## Read-only chart projection contract
+- `to_lightweight_chart_payload()` projects canonical closed candles into UTC epoch-second OHLC bars for a future Lightweight Charts datafeed; this is a projection helper, not a frontend, HTTP server, or production integration.
+- Source identity is carried with the payload, and gaps/open-candle counts remain explicit. No candle is synthesized.
+- Volume is omitted by default. Requesting Wallex UDF volume fails closed while its 2x discrepancy remains unresolved; any opt-in volume is explicitly labeled raw source-reported.
+- Contract tests use pinned parser implementations and no live market requests. The rendered chart, approved Tabdeal source, and independent visual parity are still not established.
