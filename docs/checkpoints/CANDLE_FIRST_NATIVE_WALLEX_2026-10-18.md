@@ -99,3 +99,14 @@ Evidence: [`evidence/wallex_tabdeal_volume_crosscheck_20261019.md`](../../eviden
 - Tabdeal serverTime was about +4.072s relative to the VPS host clock in this capture. Keep timestamps timezone-aware UTC; do not hard-code Iran/New York offsets.
 - A fresh same-venue Wallex reconciliation using its 50-row latest-trades response found exact 2x candle `v` / summed `quantity` in seven complete minute buckets. The earliest bucket at the 50-row truncation boundary was partial (~4.004x), so it is excluded from complete-bucket conclusions. The 2x discrepancy remains observed, not explained.
 - Decision unchanged: preserve Wallex UDF `v` verbatim for chart parity; do not divide by two. Volume-dependent strategy remains gated; `HOLD / NO_TRADE_ONLY`; PR #320 Draft/unmerged; no sequence workaround, new adapter, deployment, collector activation, account changes, or trading.
+
+
+## Master checkpoint continuation — 2026-10-19 23:18 UTC
+
+- Resume architecture: prioritize Convert/Tabdeal as the main independent development path and implement/reuse a venue-neutral comparison core; do not block progress on the unresolved Wallex volume discrepancy.
+- Ordinary candle construction is Candle-First and does not require individual-trade `sequence`. Preserve venue-specific source contracts, UTC-aware time alignment, finality/freshness checks and source provenance.
+- Latest audit: [HES Progress & Run Audit 2026-10-19](../reports/HES_PROGRESS_AND_RUN_AUDIT_2026-10-19.md).
+- Current verified PR heads: #320 `af4241146ca64cc94a7f576188eb5efe71f5a537` (Draft/open/unmerged); #321 `033fa7e849188ec49911ffb7b76933e75732b0e2` (Ready for Review/open/unmerged); #328 `606e3916e7d46b5121fae61b8ec5b926cfe73ef9` (Ready for Review/open/unmerged).
+- Run audit correction: 27 PR-triggered GitHub Actions runs associated with the current #320 head were queued and had no conclusion at audit time. Prior successful CI belonged to an earlier head and must not be reused as proof for `af424...`. No rerun was initiated because no failed run existed.
+- Last-24-hour work and impact are detailed in the report. Provisional overall project estimate: 52%; provisional direct 24-hour impact: +1 percentage point. These are planning estimates, not objective acceptance metrics, until the roadmap's workstream weights and done criteria are normalized.
+- Safety remains `HOLD / NO_TRADE_ONLY`. Do not divide Wallex `v` by two; keep volume-dependent features gated. No invented Tabdeal kline endpoint, adapter, deployment, collector activation, account change or trade.
