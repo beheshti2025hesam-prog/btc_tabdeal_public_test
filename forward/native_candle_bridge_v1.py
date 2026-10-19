@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from math import isfinite
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
+
+if TYPE_CHECKING:
+    from forward.candle_normalizer_v1 import Candle15m
 
 from core.data_engine.candles import Candle
 
@@ -211,7 +214,7 @@ def to_feature_candles(batch: NativeCandleBatch) -> tuple[Candle, ...]:
         ))
     return tuple(result)
 
-def to_structure_candles(batch: NativeCandleBatch):
+def to_structure_candles(batch: NativeCandleBatch) -> tuple["Candle15m", ...]:
     """Convert a normalized 15m native batch to the existing causal structure input.
 
     Native OHLCV does not contain trade counts, trade sequences, or trade-observed
