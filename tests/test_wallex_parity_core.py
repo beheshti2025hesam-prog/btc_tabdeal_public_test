@@ -1,0 +1,65 @@
+import json
+import sys
+import tempfile
+import unittest
+from decimal import Decimal
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "wallex_parity"))
+from compare_ohlcv import InputError, compare_candles, load_candles
+
+
+def candle(ts, volume="3"):
+    return {
+        "timestamp": ts, "open": "100", "high": "110",
+        "low": "90", "close": "105", "volume": volume,
+    }
+
+
+class CompareOhlcvTests(unittest.TestCase):
+    def test_identical_candles_pass(self):
+        report = compare_candles([candle(60)], [candle(60)])
+        self.assertTrue(report["pass"])
+        self.assertEqual(report["ohlcv_mismatch_count"], 0)
+
+    def test_volume_exactly_twice_is_reported_not_corrected(self):
+        report = compare_candles([candle(60, "0.5")], [candle(60, "1.0")])
+        self.assertFalse(report["pass"])
+        self.assertEqual(report["exact_2x_volume_mismatch_timestamps"], [60])
+        self.assertEqual(report["ohlcv_mismatches"][0]["fields"]["volume"]["source_b"], "1.0")
+
+    def test_missing_timestamp_fails_without_alignment_guess(self):
+        report = compare_candles([candle(60)], [candle(120)])
+        self.assertFalse(report["pass"])
+        self.assertEqual(report["source_a_only_timestamps"], [60])
+        self.assertEqual(report["source_b_only_timestamps"], [120])
+        self.assertEqual(report["matched_timestamp_count"], 0)
+
+    def test_duplicate_timestamp_fails(self):
+        report = compare_candles([candle(60), candle(60)], [candle(60)])
+        self.assertFalse(report["pass"])
+        self.assertEqual(report["duplicate_timestamps"]["source_a"], [60])
+
+    def test_udf_parallel_array_length_mismatch_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.json"
+            path.write_text(json.dumps({
+                "s": "ok", "t": [60], "o": ["1"], "h": ["1"],
+                "l": ["1"], "c": ["1"], "v": []
+            }), encoding="utf-8")
+            with self.assertRaises(InputError):
+                load_candles(str(path))
+
+    def test_decimal_comparison_is_not_float_based(self):
+        a = candle(60, "0.1000000000000000001")
+        b = candle(60, "0.1000000000000000002")
+        report = compare_candles([a], [b])
+        self.assertFalse(report["pass"])
+        self.assertEqual(
+            report["ohlcv_mismatches"][0]["fields"]["volume"]["absolute_delta"],
+            "1E-19"
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
