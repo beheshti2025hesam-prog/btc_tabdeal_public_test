@@ -108,6 +108,10 @@ def test_delayed_previous_session_callback_is_rejected_after_reconnect():
         def run_forever(self, **kwargs):
             self.kwargs = kwargs
             self.on_open(self)
+            if len(sockets) == 2:
+                # Deliver callbacks from session 1 while session 2 is active.
+                sockets[0].on_message(sockets[0], VALID_MESSAGE)
+                sockets[0].on_open(sockets[0])
 
     def factory(*args, **kwargs):
         ws = SilentWS(*args, **kwargs)
@@ -127,10 +131,8 @@ def test_delayed_previous_session_callback_is_rejected_after_reconnect():
     transport.run_once()
     new_ws = sockets[1]
     assert new_ws.sent == ["BTC_USDT"]
-    assert transport._active_ws is new_ws
-
-    old_ws.on_message(old_ws, VALID_MESSAGE)
-    old_ws.on_open(old_ws)
+    # Session 2 was active when the old callbacks were injected above.
+    assert transport._active_ws is None
 
     assert records == []
     assert transport.records_emitted == 0
