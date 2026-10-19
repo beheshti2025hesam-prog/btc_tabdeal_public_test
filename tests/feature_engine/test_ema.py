@@ -27,6 +27,29 @@ class EMACalculatorTests(unittest.TestCase):
         self.assertAlmostEqual(snapshots[1].value, 4.0)
         self.assertEqual(snapshots[0].timestamp.tzinfo, timezone.utc)
 
+
+    def test_future_candles_do_not_change_historical_ema_snapshots(self):
+        candles = self._candles([1.0, 2.0, 3.0, 6.0])
+        baseline = EMACalculator(period=3).calculate(candles)
+        # Rebuild the extension with timestamps continuing after the original window.
+        start = candles[-1].end
+        future = [
+            Candle(
+                symbol="BTC_USDT", timeframe_seconds=60,
+                start=start + timedelta(minutes=i),
+                end=start + timedelta(minutes=i + 1),
+                open=value, high=value, low=value, close=value,
+                volume=1.0, trade_count=1,
+            )
+            for i, value in enumerate([9.0, 10.0])
+        ]
+        extended = EMACalculator(period=3).calculate(candles + future)
+        self.assertEqual(len(extended), 4)
+        self.assertEqual(
+            [(item.timestamp, item.value) for item in extended[:len(baseline)]],
+            [(item.timestamp, item.value) for item in baseline],
+        )
+
     def test_insufficient_history_returns_no_snapshot(self):
         self.assertEqual(EMACalculator(period=4).calculate(self._candles([1.0, 2.0, 3.0])), [])
 

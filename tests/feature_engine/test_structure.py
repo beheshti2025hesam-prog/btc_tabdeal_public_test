@@ -17,8 +17,10 @@ class StructureCalculatorTests(unittest.TestCase):
             self._candles([10, 12, 15, 13, 11], [8, 9, 10, 7, 9]))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].swing_high, 15)
+        self.assertEqual(result[0].timestamp, datetime(2026, 1, 1, 0, 4, tzinfo=timezone.utc))
         self.assertIsNone(result[0].swing_low)
         self.assertEqual(result[1].swing_low, 7)
+        self.assertEqual(result[1].timestamp, datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc))
         self.assertEqual(result[1].swing_high, 15)
 
     def test_insufficient_history_returns_no_snapshot(self):
@@ -45,6 +47,11 @@ class StructureCalculatorTests(unittest.TestCase):
                              c.open, 6, 7, c.close, c.volume, c.trade_count)
         with self.assertRaises(ValueError):
             StructureCalculator(1, 1).calculate(candles)
+
+    def test_confirmation_timestamp_moves_with_right_window(self):
+        candles = self._candles([10, 15, 12, 11], [8, 9, 10, 7])
+        result = StructureCalculator(1, 1).calculate(candles)
+        self.assertEqual(result[0].timestamp, candles[2].end)
 
 
 if __name__ == "__main__":

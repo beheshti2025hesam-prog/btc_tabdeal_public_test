@@ -30,6 +30,20 @@ class MomentumCalculatorTests(unittest.TestCase):
         self.assertAlmostEqual(snapshots[1].value, -1.0)
         self.assertAlmostEqual(snapshots[1].value_pct, -0.9803921569)
 
+    def test_future_candle_does_not_change_existing_snapshot(self):
+        base = self._candles([100.0, 102.0, 105.0, 101.0])
+        last = base[-1]
+        extended = base + [Candle(
+            symbol="BTC_USDT", timeframe_seconds=60,
+            start=last.end, end=last.end + timedelta(minutes=1),
+            open=999.0, high=999.0, low=999.0, close=999.0,
+            volume=1.0, trade_count=1,
+        )]
+        calc = MomentumCalculator(period=2)
+        before = calc.calculate(base)
+        after = calc.calculate(extended)
+        self.assertEqual(before[:2], after[:2])
+
     def test_insufficient_history_returns_no_snapshot(self):
         self.assertEqual(
             MomentumCalculator(period=3).calculate(self._candles([1.0, 2.0, 3.0])),

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Iterable, Sequence
 
 from core.backtest.validation import HistoricalObservation
-from core.backtest.walk_forward import WalkForwardConfig, walk_forward
+from core.backtest.walk_forward import WalkForwardResult, WalkForwardValidation
 from core.paper.robustness import PaperRobustnessResult, PaperRobustness
 from core.paper.performance import PaperPerformanceResult, PaperPerformance
 
@@ -22,21 +22,21 @@ class PaperOOSResult:
 
 
 class PaperOOS:
-    """Run chronological OOS folds and measure only the unseen test portions."""
+    """Run canonical walk-forward folds and measure only unseen test portions."""
 
     def run(
         self,
         observations: Sequence[HistoricalObservation],
-        config: WalkForwardConfig,
+        validator: WalkForwardValidation,
     ) -> PaperOOSResult:
-        folds = walk_forward(observations, config)
-        if not folds:
+        result: WalkForwardResult = validator.run(observations)
+        if not result.folds:
             raise ValueError("paper OOS requires at least one fold")
 
         paper_folds: list[PaperOOSFold] = []
         tests: list[Iterable[HistoricalObservation]] = []
 
-        for fold in folds:
+        for fold in result.folds:
             test = tuple(fold.test)
             if not test:
                 raise ValueError("paper OOS test folds must not be empty")

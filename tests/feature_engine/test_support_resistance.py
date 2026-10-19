@@ -25,6 +25,18 @@ class SupportResistanceTests(unittest.TestCase):
     def test_insufficient_history_produces_no_snapshot(self):
         self.assertEqual(SupportResistanceCalculator(5).calculate(self._candles()), [])
 
+    def test_future_candle_does_not_change_existing_snapshot(self):
+        base = self._candles()
+        extended = base + [
+            Candle("BTC_USDT", 60, base[-1].end, base[-1].end + timedelta(minutes=1),
+                   1, 999, 1, 999, 1.0, 1)
+        ]
+        calc = SupportResistanceCalculator(3)
+        before = calc.calculate(base)
+        after = calc.calculate(extended)
+        self.assertEqual(before[0], after[0])
+        self.assertEqual(before[1], after[1])
+
     def test_invalid_lookback_is_rejected(self):
         with self.assertRaises(ValueError):
             SupportResistanceCalculator(0)
