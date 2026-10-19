@@ -4,7 +4,8 @@
 **Operating model:** Memory = project map; GitHub = technical source of truth; Chat = conversation log.
 
 ## Governing project DNA
-- Use official exchange capabilities first; prefer native OHLCV candles when they match the target venue/product/chart.
+- Reuse existing official exchange, broker, and chart-platform capabilities first (native candles/OHLCV, chart APIs, TradingView-compatible feeds where appropriate); optimize or integrate only when a demonstrated requirement is unmet. Do not rebuild an existing capability without evidence of a material gap.
+- Candlestick/chart availability is independent of trade-sequence semantics. Do not make sequence research a blocker for ordinary chart/candle use; investigate sequence only when a required feature actually depends on event identity, replay, loss detection, or ordering.
 - Keep the design simple and add only decision-critical checks.
 - Treat sequence-like fields as opaque unless evidence defines exact venue/product/endpoint/channel/message scope and the required identity/order/continuity guarantees.
 - Separate exact-payload replay from repeated opaque values; never infer missing events from numeric gaps without an explicit continuity contract.
@@ -34,7 +35,7 @@ The combined commit-status endpoint returned no status entries for these heads; 
 ## Remaining blockers (do not silently close)
 - No independent human review is recorded for PRs #245, #327, or #328.
 - PR #245 is 19 commits behind current main and must be synchronized; then rerun exact-head tests and review the resulting diff.
-- Production evidence-registry pin remains unset/empty; source-completeness and ordering/recovery semantics for Tabdeal `trade.sequence` remain unproven.
+- Production evidence-registry pin remains unset/empty; source-completeness and ordering/recovery semantics for Tabdeal `trade.sequence` remain unproven. This blocks only features that rely on those semantics, not ordinary candle/chart use.
 - Additional source inspection found `SourceEvidenceRegistryV1.resolve()` currently raises `SOURCE_EVIDENCE_REVIEW_PROVENANCE_UNVERIFIABLE` unconditionally after byte/scope checks; there is no authenticated review-record verifier/happy path. This is fail-closed (safe), but means a future registry pin alone cannot enable acceptance. Do not remove the guard without implementing and independently reviewing authenticated reviewer provenance.
 - The SEQ-001…016 ledger on the research branch marks only some vectors mapped, many blocked, and scenario-level execution unverified; generic green workflows must not be counted as complete vector coverage.
 - The exact-head workflow list for PR #245 did not include its dedicated `Opaque Tabdeal Sequence Evidence v1` job. Run 38420800963 passed that workflow on an older SHA (`f4bf19cb48c86a1f8fbaef7ea4afeb811773c9fd`), which is not transferable to current PR head `e5e7e657af43ddb8b6e8152cf08d51850f01d687`.
@@ -43,9 +44,9 @@ The combined commit-status endpoint returned no status entries for these heads; 
 - No production-like crash/restart proof, forward observation acceptance, deployment authorization, or execution authorization is established by these CI runs.
 
 ## Next actions, forward-only
-1. Synchronize PR #245 with current main in a dedicated branch/PR; preserve its current branch and evidence without force-resetting user work.
-2. Map SEQ-001…016 from the uploaded exchange-semantics contract to named deterministic/property tests and record the exact test mapping; specifically distinguish opaque repeats, exact replay, documented identity conflicts, scope changes, reconnect epochs, timestamp units, and corrupt checkpoints.
-3. Obtain authoritative Tabdeal clarification or official endpoint/schema evidence for the actual target chart; compare closed candles over matching symbol/timeframe/timezone and retain exact raw bytes and SHA-256.
+1. Identify the exact target chart/product/timeframe and inspect existing official/native candle endpoints or supported chart feeds first; compare closed candles only where parity is required, matching symbol/timeframe/timezone and retaining raw bytes plus SHA-256.
+2. Treat PR #245 and SEQ-001…016 as a separate, conditional workstream: map vectors to named deterministic/property tests only for features that genuinely depend on sequence semantics. Do not let this workstream block ordinary candle/chart integration.
+3. Synchronize PR #245 with current main only when its sequence-dependent functionality is needed; preserve its current branch and evidence without force-resetting user work.
 4. Request independent review for #245, #327, and #328; do not self-approve.
 5. Preserve `HOLD / NO_TRADE_ONLY`; no collector activation, deployment, account mutation, orders, or trading until all required gates pass.
 
