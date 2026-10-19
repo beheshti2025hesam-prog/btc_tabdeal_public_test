@@ -84,3 +84,13 @@ The combined commit-status endpoint returned no status entries for these heads; 
 - **Sequence workstream disposition:** no sequence dependency is demonstrated for ordinary OHLCV/chart availability, so PR #245 is intentionally **not synchronized or expanded in this pass**. This preserves its existing branch/evidence and avoids turning sequence semantics into an artificial candle blocker. Revisit PR #245 only if a specific required feature needs trade identity, replay, loss detection, or event ordering.
 - **Independent review request status:** PRs #245, #327, and #328 remain without submitted reviews. No independent reviewer identity was established from the available PR metadata; no reviewer was guessed, self-requested, or self-approved. The review gate remains open and requires a real eligible human reviewer.
 - **Safety posture unchanged:** `HOLD / NO_TRADE_ONLY`; no production registry pin, collector activation, deployment, account mutation, or trading. Wallex's unresolved 2x UDF-volume discrepancy continues to gate only volume-dependent features, not ordinary price/OHLC candles.
+
+
+## Explicit continuation checkpoint (2026-10-19)
+- Resume from this exact state; do not restart completed discovery or re-create existing components.
+- **Repository truth:** `beheshti2025hesam-prog/btc_tabdeal_public_test`. Prior recorded checkpoint commit: `bf6266ea059d1167a2c5dec4a24c9d08b7b829d9`.
+- **Next concrete task:** verify the actual Tabdeal website chart's network datafeed (symbol, market/product, timeframe, timestamps, OHLCV schema) and compare it with an authoritative/native source if available. Do not infer a public candle endpoint from missing docs; do not build candles from individual trades as a workaround unless a specific, evidenced requirement makes that necessary.
+- **Reuse-first rule:** prefer existing exchange/broker/chart-platform capabilities and already-built adapters. Optimize only demonstrated gaps. Keep Wallex and Binance adapters scoped to their own venues; neither proves Tabdeal parity.
+- **Sequence is conditional:** ordinary chart/candle/OHLC access does not require solving trade-sequence semantics. Resume sequence investigation only for a named requirement involving trade identity, ordering, replay, or loss detection.
+- **Open gates:** Tabdeal chart-feed/parity evidence; independent eligible review for PRs #245, #327, #328; clarify Wallex's 2x UDF volume discrepancy before enabling volume-dependent logic. Do not guess a reviewer or silently normalize volume.
+- **Safety:** maintain `HOLD / NO_TRADE_ONLY`; no merge/deploy/production collector activation/trading without the required evidence and independent review.
