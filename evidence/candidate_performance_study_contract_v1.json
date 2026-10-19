@@ -1,0 +1,44 @@
+{
+  "status": "CANDIDATE_PERFORMANCE_STUDY_CONTRACT_V1",
+  "candidate_id": "CANDIDATE_RESEARCH_V1",
+  "scope": "Execution-free out-of-sample descriptive performance study of the pre-declared candidate inputs.",
+  "candidate_features": ["Buy Ratio", "Delta", "Trade Count"],
+  "excluded_features": ["EMA", "VWAP"],
+  "lineage": {
+    "source_ref": "main",
+    "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+    "data_git_blob_sha": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+    "frozen_boundary_sequence": 38586238655,
+    "first_independent_sequence": 38710284291,
+    "first_independent_timestamp": "2026-09-28T19:08:56.951Z",
+    "coverage_gap_seconds": 38478.772
+  },
+  "evaluation": {
+    "unit": "temporally ordered observations after the frozen boundary",
+    "outcome": "next-observation outcome under the existing frozen cost boundary",
+    "embargo_observations": 1,
+    "cost_boundary": "frozen prior 14bps gross threshold; not tuned here",
+    "metrics": [
+      "sample count",
+      "winner/control counts",
+      "feature-wise descriptive separation",
+      "feature-wise rank association",
+      "temporal fold coverage",
+      "fold-level sign consistency"
+    ],
+    "no_random_shuffle": true,
+    "no_cross_fold_leakage": true,
+    "no_parameter_selection": true,
+    "no_threshold_search": true,
+    "no_model_fitting": true,
+    "no_reinvestment": true
+  },
+  "decision_boundary": {
+    "status": "REVIEW_ONLY",
+    "performance_claim": false,
+    "signal_created": false,
+    "promotion_decision": false,
+    "live_execution": false,
+    "next_gate": "Human review of candidate performance evidence before any Signal research."
+  }
+}
