@@ -1,0 +1,37 @@
+name: Immutable Forward Snapshot Builder v3
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/build_immutable_forward_snapshot_v3.py"
+      - "core/backtest/**"
+      - "core/data_engine/**"
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: "Exact immutable Git commit containing the forward source blob"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  build-snapshot-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Run snapshot builder
+        env:
+          SOURCE_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || inputs.source_commit }}
+        run: python scripts/build_immutable_forward_snapshot_v3.py
+      - name: Upload candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: immutable-forward-snapshot-candidate-v3
+          path: immutable_forward_snapshot_candidate_v3.json

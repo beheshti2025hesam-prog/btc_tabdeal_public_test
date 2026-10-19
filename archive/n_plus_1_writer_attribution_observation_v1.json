@@ -1,0 +1,46 @@
+{
+  "artifact": "N_PLUS_1_WRITER_ATTRIBUTION_OBSERVATION_V1",
+  "status": "OBSERVED_FAIL_CLOSED",
+  "purpose": "Durable provenance observation for the active post-handoff collector; not a historical outcome or performance artifact.",
+  "captured_via": "Gateway bounded SSH inspection",
+  "capture_job": "job_01M46TTR0E00C9G53E9M96H6K5",
+  "service": "hes-trade-agent-collector.service",
+  "service_state": "active/running",
+  "main_pid": 74839,
+  "exec_main_pid": 74839,
+  "exec_start": "/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/tabdeal_futures_ws_test.py",
+  "fragment_path": "/etc/systemd/system/hes-trade-agent-collector.service",
+  "unit_file_state": "enabled",
+  "legacy_github_collector": "retired",
+  "journal_observation": {
+    "process_pid": 74839,
+    "observed_saved_trade_sequences": [
+      40578281185,
+      40578317043,
+      40578322615,
+      40578328407,
+      40578334907,
+      40578355099,
+      40578458550,
+      40578502626,
+      40578648513,
+      40578733749,
+      40578738152,
+      40578746297
+    ],
+    "observation_interpretation": "The sampled SAVED events are emitted by the active service process PID 74839. ORDER EVENT IGNORED entries are not trade rows and are not counted as writer identities."
+  },
+  "data_tail_observation": {
+    "path": "/opt/hes-trade-agent/data/trades.csv",
+    "last_sequence_observed": 40578746297,
+    "last_timestamp_observed": "2026-10-05 20:07:30.340000+00:00",
+    "last_rows_observed_are_emitted_by_pid": 74839
+  },
+  "scope_limitations": [
+    "This artifact proves the active writer identity at capture time, not that PID 74839 existed for every historical row.",
+    "PID-level identity is not portable across restarts.",
+    "A future immutable forward source lock must bind the exact source blob/commit to durable writer lineage and must fail closed if that binding cannot be demonstrated.",
+    "No outcome inspection, tuning, winner reselection, observation deletion, protocol mutation, live execution, or promotion is authorized by this artifact."
+  ],
+  "decision": "DURABLE_N_PLUS_1_ACTIVE_WRITER_OBSERVED_BUT_HISTORICAL_BLOB_BINDING_PENDING"
+}
