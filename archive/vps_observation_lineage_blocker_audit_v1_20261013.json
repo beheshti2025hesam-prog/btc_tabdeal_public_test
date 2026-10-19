@@ -1,0 +1,163 @@
+{
+  "schema": "hes.vps_observation_lineage_blocker_audit.v1",
+  "artifact_id": "HES-VPS-OBSERVATION-LINEAGE-BLOCKER-AUDIT-20261013",
+  "snapshot_date_utc": "2026-10-13",
+  "status": "BLOCKED_MANIFEST_RUN_LEDGER_SYNTAX_SESSION_PROBE_JOIN_AND_SINGLE_WRITER_ATTRIBUTION_OPEN",
+  "scope": {
+    "mode": "READ_ONLY_SENTINELX_VPS_INSPECTION",
+    "host_label": "vps-second-261930",
+    "project_root": "/opt/hes-trade-agent",
+    "source_files_modified": false,
+    "collector_started_or_enabled": false,
+    "stale_lock_removed": false,
+    "historical_evidence_modified": false,
+    "feature_extraction_performed": false,
+    "effective_evidence_calculated": false
+  },
+  "operational_state": {
+    "local_git_head": "2cdcd10647797fb3f9e908c052ec2139116456f7",
+    "branch": "main",
+    "worktree_dirty": true,
+    "untracked_paths": 28,
+    "remote_main_ahead_of_local": 7,
+    "collector_service": "hes-trade-agent-collector.service",
+    "service_state": "FAILED",
+    "service_failed_since_utc": "2026-10-06T14:12:37Z",
+    "service_enabled": "DISABLED",
+    "matching_collector_process_found": false,
+    "data_trades_csv": {
+      "path": "data/trades.csv",
+      "bytes": 9104261,
+      "sha256": "ad80644bf22a89d0dc5abda1d45f2202de1c1fd56f29eaad8156a91dd495f735"
+    }
+  },
+  "files": {
+    "manifest": {
+      "path": "data/forward/observation_artifact_manifest_v1.json",
+      "bytes": 678,
+      "sha256": "1bab9a35dde633107a3dfaa394067260645e110a62cd53355838853c63b89095",
+      "raw_parse": "FAIL_EXTRA_DATA_TRAILING_LITERAL_BACKSLASH_N",
+      "tail_hex": "0a20205d0a7d5c6e",
+      "declared_run_id": "FORWARD_OBS_20261007T014726Z",
+      "declared_record_count": 10,
+      "declared_observation_sha256": "ef050fcf90fb43032527f121f13e2ed4c66a661080d772b4b3056fcd4f1416eb"
+    },
+    "run_ledger": {
+      "path": "data/forward/observation_runs.jsonl",
+      "bytes": 353,
+      "sha256": "04acbe65cd589bc4cbe5eaa375dab19ca433fe02ad94083a44667ebf0ac661cd",
+      "raw_parse": "FAIL_TRAILING_LITERAL_BACKSLASH_N",
+      "tail_hex": "2231356d227d5c6e",
+      "run_ids": [
+        "FORWARD_OBS_20261007T014726Z"
+      ]
+    },
+    "observations": {
+      "path": "data/forward/observations.jsonl",
+      "bytes": 2400,
+      "sha256": "ef050fcf90fb43032527f121f13e2ed4c66a661080d772b4b3056fcd4f1416eb",
+      "records": 10,
+      "sequences": [
+        40910874723,
+        40910881210,
+        40910887475,
+        40910893477,
+        40910905207,
+        40910918047,
+        40910935359,
+        40910942219,
+        40910954090,
+        40910965933
+      ]
+    },
+    "session_ledger": {
+      "path": "data/forward/observation_sessions_v1.jsonl",
+      "bytes": 1311,
+      "sha256": "e8fa23e2aba609f9cf0937c10ca552155c91bd5dae04870403e3cbdab38bd050",
+      "records": 3,
+      "run_ids": [
+        "OBS-20261007T154238Z-0ea8e61be07a",
+        "OBS-20261007T154746Z-0f49be0272ae",
+        "OBS-20261009T163045Z-9d53227e7b20"
+      ],
+      "parse": "PASS"
+    },
+    "live_session": {
+      "path": "data/forward/live_observation_session.json",
+      "bytes": 437,
+      "sha256": "96ebf38812a73ab7bc59628637d1b398f1bee13ab844ea3fd3344c705fb075f6",
+      "run_id": "OBS-20261007T144740Z-7dd0ba7739de",
+      "parse": "PASS"
+    },
+    "probe": {
+      "path": "data/forward/live_probe_20261007.jsonl",
+      "bytes": 2645,
+      "sha256": "26044fec93bbb501e2c1eb46174a0bfd74f670b77e4adb304c049eeeca4d009d",
+      "records": 11,
+      "explicit_run_id_present": false,
+      "sequence_intersection_with_observations": 0,
+      "sequence_semantics": "UNKNOWN; no gap/continuity inference permitted"
+    },
+    "single_writer_proof": {
+      "path": "data/forward/single_writer_proof_v1.json",
+      "bytes": 866,
+      "sha256": "05fb44120791ac5f033ecfb80699e4c19ca8ee970bb1d050b67afce9f3cf9e2d",
+      "declared_status": "LOCKED",
+      "proof_created_at_utc": "2026-10-07T06:10:15.501326Z",
+      "declared_lock_path": "data/.collector.lock",
+      "declared_lock_pid": 105156,
+      "declared_lock_sha256": "a3e01f9029392427749becb83a037c64341b47b4153a82a620d03d97899f46b1"
+    },
+    "current_collector_lock": {
+      "path": "data/.collector.lock",
+      "bytes": 11,
+      "content": "pid=119699\\n",
+      "sha256": "6a29a7759fcaec52bfef34a3102feb513b89fd78c5e20da1948728db9b7f0dfc",
+      "pid": 119699,
+      "pid_alive": false,
+      "lsof_open_holder_found": false
+    },
+    "session_lock": {
+      "path": "data/forward/observation_sessions_v1.jsonl.lock",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "open_holder_found": false
+    },
+    "reconciliation_closure": {
+      "path": "data/forward/reconciliation_closure_v1.json",
+      "bytes": 781,
+      "sha256": "adca74b652626853207fbd0b9a7c1f6633deec5bc337d52be19d16cb58d6e181",
+      "declared_status": "CLOSED",
+      "declared_commit": "cc670183408e96f22ba7d3d0e0e6eccc39cfe673",
+      "declared_single_writer_proof": "LOCKED",
+      "declared_evidence_gate_status": "LOCKED_NOT_EVALUATED"
+    }
+  },
+  "findings": [
+    "Manifest and run ledger remain byte-for-byte unchanged and invalid as stored; removing exactly the final bytes 0x5c 0x6e in memory permits diagnostic parsing only.",
+    "Manifest/run ledger identify FORWARD_OBS_20261007T014726Z and 10 observations, but the three session-ledger IDs and separate live-session ID are a different ID family with no explicit join.",
+    "The 11 probe rows have no run_id field and zero exact sequence overlap with the 10 manifest observations. This does not prove data loss because sequence semantics and capture continuity are not established.",
+    "The single-writer proof is stale relative to the current lock file: proof says PID 105156 and SHA-256 a3e01f..., while current data/.collector.lock contains PID 119699 and SHA-256 6a29a.... Both PIDs are not alive now; no process holds the lock. Do not delete the lock or infer who wrote it.",
+    "A zero-byte observation_sessions_v1.jsonl.lock exists. No current collector-related process was found; systemd collector remains failed and disabled.",
+    "An earlier reconciliation_closure_v1.json says CLOSED, but its evidence gate is explicitly LOCKED_NOT_EVALUATED and its single-writer claim does not resolve the current lock mismatch."
+  ],
+  "gates": {
+    "raw_manifest_run_ledger_syntax": "FAIL",
+    "session_to_run_lineage": "OPEN",
+    "probe_to_run_lineage": "OPEN",
+    "single_writer_attribution": "OPEN_MISMATCHED_LOCK_PROOF",
+    "source_identity_for_42_records": "RAW_ANCHORS_PASS_EXIT_LINK_INFERRED; independent live attestation open",
+    "final_evidence_gate": "BLOCKED",
+    "feature_extraction_allowed": false,
+    "effective_evidence_allowed": false,
+    "collector_allowed": false,
+    "trading_allowed": false
+  },
+  "next_actions": [
+    "Preserve original files and lock; do not normalize, rewrite, delete, or restart collector.",
+    "Use existing logs/manifests/process evidence to establish explicit session/run/probe joins; do not synthesize identifiers or infer continuity from sequence gaps.",
+    "Reconcile the current lock file against historical process/journal evidence and produce a new independent single-writer attribution artifact only if the evidence supports it.",
+    "Obtain independently trusted live source attestation and an authoritative exit-event identifier before claiming full source identity.",
+    "Keep the final Evidence Gate fail-closed."
+  ]
+}

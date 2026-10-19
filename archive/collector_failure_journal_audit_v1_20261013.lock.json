@@ -1,0 +1,25 @@
+{
+  "lock_id": "HES-COLLECTOR-FAILURE-JOURNAL-AUDIT-20261013-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "artifact_path": "archive/collector_failure_journal_audit_v1_20261013.json",
+  "artifact_commit": "ca36ffbfb6d9a55e27c8b9500a37a16563c77d64",
+  "artifact_git_blob_sha1": "44a784e24e056ad6ef8e55848598c4daa32f203e",
+  "artifact_sha256": "3e1f61f61779b17096efe267691f1e91a514563dd8d132e7f87d05b36df8e160",
+  "artifact_bytes": 3850,
+  "verification": {
+    "content_read_back_from_github": true,
+    "sha256_recomputed_from_read_back_utf8_content": true,
+    "git_blob_sha1_read_back_from_github": true
+  },
+  "claim_boundary": {
+    "collector_checkpoint_failure_cause": "CONFIRMED",
+    "remote_batch_persistence": "NOT_PROVEN",
+    "current_lock_writer_attribution": "OPEN",
+    "collector_restart_authorized": false,
+    "feature_extraction_allowed": false,
+    "effective_evidence_allowed": false,
+    "trading_allowed": false
+  },
+  "mutation_scope": "Only a new journal-derived diagnostic artifact and its lock were added on an isolated audit branch; no VPS state, service, source record, main branch, threshold, Winner selection, or evidence logic was changed."
+}

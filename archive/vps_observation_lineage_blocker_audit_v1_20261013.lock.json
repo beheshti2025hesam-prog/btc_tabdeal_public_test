@@ -1,0 +1,27 @@
+{
+  "lock_id": "HES-VPS-OBSERVATION-LINEAGE-BLOCKER-AUDIT-20261013-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "artifact_path": "archive/vps_observation_lineage_blocker_audit_v1_20261013.json",
+  "artifact_commit": "9c5862f5b44c4707c55bab3f63c7f6044e70ef72",
+  "artifact_git_blob_sha1": "ae1050489e35c34f6bd554e888e2c7075f6af6a8",
+  "artifact_sha256": "0ec80aab6136291cb1147a79ca4c31d6233f66ebed5af8aca41059f791bb5806",
+  "artifact_bytes": 7451,
+  "verification": {
+    "content_read_back_from_github": true,
+    "sha256_recomputed_from_read_back_utf8_content": true,
+    "git_blob_sha1_read_back_from_github": true
+  },
+  "claim_boundary": {
+    "vps_manifest_run_ledger_syntax": "FAIL",
+    "session_probe_lineage": "OPEN",
+    "single_writer_attribution": "OPEN",
+    "independent_live_source_attestation": "OPEN",
+    "final_evidence_gate": "BLOCKED",
+    "feature_extraction_allowed": false,
+    "effective_evidence_allowed": false,
+    "collector_allowed": false,
+    "trading_allowed": false
+  },
+  "mutation_scope": "Only a new versioned VPS blocker audit and its lock were added on an isolated audit branch. No VPS file, lock, service, historical record, main branch, threshold, winner selection, or evidence logic was changed."
+}
