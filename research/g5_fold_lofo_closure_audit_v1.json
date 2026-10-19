@@ -1,0 +1,56 @@
+{
+  "document": "G5 Fold/LOFO Closure Audit v1",
+  "status": "RESEARCH_ONLY__FAIL_CLOSED",
+  "purpose": "Audit whether the existing Promotion Contract contains a pre-registered, executable PASS criterion for fold/LOFO stability. This artifact does not create a new performance threshold and does not alter the Promotion Contract.",
+  "locked_protocol": {
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "gross_threshold_bps": 14
+  },
+  "locked_populations": {
+    "prior_survivors": 14,
+    "current_winners": 28
+  },
+  "checks": [
+    {
+      "id": "G5_REQUIREMENT_PRESENT",
+      "result": "PASS",
+      "detail": "Promotion Contract v1 explicitly requires fixed LOFO and top-fold exclusion stress."
+    },
+    {
+      "id": "G5_EXECUTABLE_PASS_CRITERION_PRESENT",
+      "result": "FAIL",
+      "detail": "Promotion Contract v1 does not specify a numeric or otherwise executable pre-registered PASS criterion for acceptable fold concentration/LOFO stability."
+    },
+    {
+      "id": "POST_HOC_CRITERION_INVENTION",
+      "result": "BLOCKED",
+      "detail": "No new threshold or acceptance rule is introduced after observing the evidence."
+    },
+    {
+      "id": "EXISTING_EVIDENCE_REUSED",
+      "result": "PASS",
+      "detail": "Previously computed LOFO and top-fold stress remain descriptive evidence only."
+    }
+  ],
+  "claim_boundary": {
+    "threshold_tuned": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "protocol_mutation": false,
+    "independence_proven": false,
+    "predictive_validity": false,
+    "causality": false,
+    "market_generalization": false,
+    "promotion": false,
+    "live_execution": false
+  },
+  "verdict": {
+    "status": "G5_CANNOT_BE_CLOSED_WITHOUT_PRE_REGISTERED_CRITERION",
+    "promotion": "BLOCKED",
+    "reason": "The current contract requires fold/LOFO stability but does not contain an executable pre-registered acceptance criterion. Inventing one now would be post-hoc tuning. Therefore this audit intentionally leaves G5 blocked."
+  },
+  "next_allowed_action": "A separately versioned, pre-registered amendment may define an acceptance criterion only before any new G5 decision is made; until then G5 remains blocking."
+}

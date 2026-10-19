@@ -1,0 +1,33 @@
+name: HES Trade Agent — G5 Fold LOFO Closure Audit v1
+on:
+  push:
+    branches:
+      - research/g5-fold-lofo-closure-20261005
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate fail-closed G5 artifact
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("research/g5_fold_lofo_closure_audit_v1.json")
+          d=json.loads(p.read_text())
+          assert d["locked_protocol"] == {"train":800,"test":400,"step":400,"folds":8,"gross_threshold_bps":14}
+          assert d["locked_populations"] == {"prior_survivors":14,"current_winners":28}
+          assert d["claim_boundary"]["threshold_tuned"] is False
+          assert d["claim_boundary"]["protocol_mutation"] is False
+          assert d["claim_boundary"]["promotion"] is False
+          assert d["verdict"]["promotion"] == "BLOCKED"
+          assert d["verdict"]["status"] == "G5_CANNOT_BE_CLOSED_WITHOUT_PRE_REGISTERED_CRITERION"
+          print("G5_FAIL_CLOSED_VALID")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g5-fold-lofo-closure-audit-v1
+          path: research/g5_fold_lofo_closure_audit_v1.json
