@@ -3,7 +3,10 @@ from decimal import Decimal
 from hashlib import sha256
 import json
 from urllib.error import HTTPError, URLError
+from zoneinfo import ZoneInfo
 import pytest
+
+from forward.tabdeal_readonly_adapter_v1 import parse_trade_frame
 
 from forward.native_wallex_ohlcv_v1 import (
     SUPPORTED_MINUTE_RESOLUTIONS,
@@ -35,6 +38,37 @@ def test_native_history_preserves_decimal_and_closed_state():
     assert candles[0].source == "wallex_native_udf_history"
     assert candles[0].open_time.tzinfo is timezone.utc
 
+
+
+def test_tabdeal_and_wallex_normalize_iran_and_us_wall_clocks_to_same_utc_instant():
+    # 2026-10-19 is during US daylight time (New York UTC-04:00);
+    # Tehran is UTC+03:30. Local display clocks differ by 7h30m, not the instant.
+    instant = datetime(2026, 10, 19, 15, 0, tzinfo=timezone.utc)
+    iran_text = instant.astimezone(ZoneInfo("Asia/Tehran")).isoformat()
+    new_york_text = instant.astimezone(ZoneInfo("America/New_York")).isoformat()
+    assert iran_text.endswith("+03:30")
+    assert new_york_text.endswith("-04:00")
+
+    common = {
+        "type": "trade", "symbol": "BTC_USDT", "price": "100",
+        "amount": "0.01", "side": "buy", "sequence": 7,
+    }
+    tabdeal_iran = parse_trade_frame({**common, "timestamp": iran_text}, as_of=instant)
+    tabdeal_us = parse_trade_frame({**common, "timestamp": new_york_text}, as_of=instant)
+    assert tabdeal_iran["source_updated"] == tabdeal_us["source_updated"]
+    assert datetime.fromisoformat(tabdeal_iran["source_updated"]) == instant
+
+    payload = {
+        "s": "ok", "t": [int(instant.timestamp())],
+        "o": ["100"], "h": ["101"], "l": ["99"], "c": ["100.5"], "v": ["2"],
+    }
+    wallex = parse_history(
+        payload, symbol="BTCUSDT", timeframe_minutes=1,
+        as_of=instant.replace(minute=2),
+    )[0]
+    assert wallex.open_time == instant
+    assert wallex.open_time == datetime.fromisoformat(tabdeal_iran["source_updated"])
+    assert wallex.open_time.tzinfo is timezone.utc
 
 def test_only_runtime_verified_resolutions_are_enabled():
     assert SUPPORTED_MINUTE_RESOLUTIONS == {1, 60}
