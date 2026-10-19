@@ -5,6 +5,7 @@ import importlib.util
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -58,7 +59,7 @@ def test_real_binance_15m_parser_output_reaches_existing_structure_observer():
     assert len(structure_rows) == 7
     assert structure_rows[0].open_time == START
     assert structure_rows[0].close_time == START + timedelta(minutes=15)
-    assert structure_rows[0].open == pytest.approx(100)  # Decimal compares numerically
+    assert structure_rows[0].open == Decimal("100")
     assert structure_rows[0].volume == source_rows[0].volume
     assert structure_rows[0].trade_count is None
     assert structure_rows[0].first_sequence is None
