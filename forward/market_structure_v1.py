@@ -21,7 +21,8 @@ class SwingPoint:
     kind: Literal["SWING_HIGH","SWING_LOW"]
     price: Decimal
     candle_time: object
-    sequence: int
+    # Sequence is optional because native OHLCV candles have no trade sequence.
+    sequence: int | None
 
 @dataclass(frozen=True)
 class StructureEvent:
