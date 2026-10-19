@@ -1,7 +1,7 @@
 """Read-only native Wallex OHLCV adapter; candle path has no trade-sequence dependency.
 
 Official endpoint: GET https://api.wallex.ir/v1/udf/history
-Documented minute resolutions supported here: 1, 60, 180, 360, 720.
+Runtime-verified resolutions supported here: 1 (1m) and 60 (1h). Other documented values remain disabled until live responses honor their requested interval.
 Wallex also documents 1D, but daily-boundary/chart parity is deliberately deferred.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ import time
 
 
 WALLEX_HISTORY_URL = "https://api.wallex.ir/v1/udf/history"
-SUPPORTED_MINUTE_RESOLUTIONS = frozenset({1, 60, 180, 360, 720})
+SUPPORTED_MINUTE_RESOLUTIONS = frozenset({1, 60})
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ def _validate_resolution(timeframe_minutes: int) -> None:
     if isinstance(timeframe_minutes, bool) or not isinstance(timeframe_minutes, int):
         raise ValueError("timeframe_minutes must be an integer")
     if timeframe_minutes not in SUPPORTED_MINUTE_RESOLUTIONS:
-        raise ValueError("unsupported resolution; use a documented minute resolution: 1, 60, 180, 360, 720")
+        raise ValueError("unsupported resolution; use a runtime-verified resolution: 1 or 60")
 
 
 def parse_history(
