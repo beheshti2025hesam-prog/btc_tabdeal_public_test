@@ -9,6 +9,18 @@ High-priority required roadmap item. Integrate HES's existing native-candle/data
 - TradingView states that Advanced Charts and Trading Platform are not available for personal/internal projects; those licenses are for companies operating public web projects/apps: https://www.tradingview.com/free-charting-libraries/
 - TradingView Lightweight Charts is publicly available under Apache 2.0 and supports custom candlestick series fed by application data. Attribution is required: https://github.com/tradingview/lightweight-charts
 
+## Native Tabdeal Futures endpoint probe (2026-10-19)
+
+Read-only checks against the official `api1.tabdeal.org` host add the following evidence:
+
+- `GET /r/fapi/v1/time` returned JSON with `serverTime` (the public time endpoint is reachable).
+- `GET /r/fapi/v1/exchangeInfo` returned live symbols using the underscore form, including `BTC_USDT`; querying `symbol=BTCUSDT` returned an empty symbols list.
+- `GET /r/fapi/v1/depth?symbol=BTC_USDT&limit=5` returned a live order book for the exact `BTC_USDT` Futures identity.
+- Candidate `GET /r/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=3` returned HTTP 404; repeating with the verified symbol `BTC_USDT` also returned HTTP 404. This is evidence against those exact public route candidates, not proof that no chart-specific endpoint exists.
+- The official [Tabdeal Python SDK](https://github.com/Tabdeal-Exchange/tabdeal-python), including `tabdeal/future.py`, exposes public ping/time/exchangeInfo/depth methods but no kline/candlestick method in the inspected current source.
+
+**Conclusion:** native Tabdeal Futures candles are still not available through a verified documented/public REST route. Do not build a fake Binance-compatible adapter, synthesize OHLCV from sequence, or assume the website's chart is sourced from this REST path. Next source-discovery step is inspect the existing official Futures chart's own datafeed/network contract (read-only) and verify its schema before implementing any thin adapter. Candle-based analysis remains sequence-independent.
+
 ## Current repository fit
 The repository currently has no verified frontend/chart application to extend. Therefore, do not copy proprietary Advanced Charts files into this public repository, do not claim a TradingView Advanced Charts integration without approved access and eligible licensing, and do not create an unrelated parallel frontend just to check a box.
 
