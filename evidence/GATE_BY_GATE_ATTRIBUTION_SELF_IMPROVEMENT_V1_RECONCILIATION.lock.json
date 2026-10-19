@@ -1,0 +1,24 @@
+{
+  "artifact": "evidence/GATE_BY_GATE_ATTRIBUTION_SELF_IMPROVEMENT_V1_RECONCILIATION.json",
+  "artifact_sha256": "ad7721fa8ebb746ee9b3db3abc6929e97094deec7b7b8d2cfff5280d63626cb7",
+  "status": "HASH_LOCKED",
+  "workflow_run_id": 37555000351,
+  "workflow_artifact_id": 11454174123,
+  "workflow_artifact_zip_sha256": "79cb3d00b890d1fda0971a7f4ac880c01b8c605a8c6af9f207c8693c242270db",
+  "population": {
+    "oos_opportunities": 3200,
+    "oos_evaluated": 1027,
+    "oos_rejected": 2173,
+    "winner_gt_14bps": 28,
+    "losses_le_0": 508
+  },
+  "mutation_block": {
+    "threshold_changed": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "tuning": false,
+    "promotion": false,
+    "live_execution": false,
+    "causal_claims": false
+  }
+}

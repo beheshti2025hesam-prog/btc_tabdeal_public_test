@@ -1,0 +1,14 @@
+{
+  "artifact": "evidence/GATE_CONFIRMATION_REASON_GRANULARITY_V1.json",
+  "artifact_sha256": "9fd720d0c8b1e01b490c8628402a2ce48d52d0c49080fe4cfa9b1ab351de3eda",
+  "status": "HASH_LOCKED",
+  "source_json_sha256": "08ddaaee277c342d01ee8a3363238cf36a5e342d0243a111d0ed5542f9291632",
+  "workflow_run_id": 37555000351,
+  "workflow_artifact_id": 11454174123,
+  "mutation_block": {
+    "threshold_change": false,
+    "parameter_tuning": false,
+    "selection_change": false,
+    "promotion": false
+  }
+}

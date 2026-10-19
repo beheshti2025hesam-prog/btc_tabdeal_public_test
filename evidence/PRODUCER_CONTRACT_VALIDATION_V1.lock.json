@@ -1,0 +1,7 @@
+{
+  "artifact": "evidence/PRODUCER_CONTRACT_VALIDATION_V1.json",
+  "artifact_sha256": "0cf256d1504ee4cf6829d15357b41d8b0c1584c885df6a5e893f63f6b84446c1",
+  "status": "HASH_LOCKED",
+  "verdict": "CURRENT_EMA_VWAP_BUY_RATIO_ATTRIBUTION_IS_CONTRACT_ALIGNED;_DO_NOT_TUNE",
+  "next_validation": "fold_regime_attribution_contract_and_exact_observation_provenance"
+}
