@@ -22,6 +22,13 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
 
+      - name: Checkout exact bridge source under test
+        uses: actions/checkout@v4
+        with:
+          ref: 70a3949a2b512dead8b00ec57c92c91d2c103862
+          path: bridge
+          fetch-depth: 1
+
       - name: Checkout pinned Wallex adapter source
         uses: actions/checkout@v4
         with:
@@ -39,13 +46,16 @@ jobs:
       - name: Assert exact source revisions
         env:
           EXPECTED_TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_BRIDGE_SHA: 70a3949a2b512dead8b00ec57c92c91d2c103862
           EXPECTED_WALLEX_SHA: b490611636cca6d133ba9f9cc08d5d9d6333628b
           EXPECTED_BINANCE_SHA: 264ad62f51dee485c8ab9e1053631929c6379e4b
         run: |
           test "$(git rev-parse HEAD)" = "$EXPECTED_TEST_SHA"
+          test "$(git -C bridge rev-parse HEAD)" = "$EXPECTED_BRIDGE_SHA"
           test "$(git -C adapters/wallex rev-parse HEAD)" = "$EXPECTED_WALLEX_SHA"
           test "$(git -C adapters/binance rev-parse HEAD)" = "$EXPECTED_BINANCE_SHA"
           echo "TEST_SOURCE_SHA=$EXPECTED_TEST_SHA"
+          echo "BRIDGE_SOURCE_SHA=$EXPECTED_BRIDGE_SHA"
           echo "WALLEX_ADAPTER_SHA=$EXPECTED_WALLEX_SHA"
           echo "BINANCE_ADAPTER_SHA=$EXPECTED_BINANCE_SHA"
 
@@ -53,6 +63,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Install exact bridge source under test
+        run: cp bridge/forward/native_candle_bridge_v1.py forward/native_candle_bridge_v1.py
 
       - name: Run offline adapter-to-bridge contract tests
         env:
