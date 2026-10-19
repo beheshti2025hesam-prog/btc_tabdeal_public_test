@@ -16,7 +16,7 @@ import websocket
 # ============================================================
 # CONFIGURATION
 #
-# Application: Hes Trade Agent
+# Application: HES Trade Agent
 # Owner: Seyed Hesameddin Beheshti Shirazi
 # ============================================================
 
