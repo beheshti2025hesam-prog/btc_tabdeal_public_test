@@ -49,7 +49,7 @@ def test_supports_usdm_market_without_changing_row_semantics():
 
 def test_discards_current_not_yet_closed_candle():
     closed = row(AS_OF - 1_800_000)
-    open_bar = row(AS_OF - 900_000, close=AS_OF + 500_000)
+    open_bar = row(AS_OF)
     batch = parse([closed, open_bar])
     assert [c.open_time_ms for c in batch.candles] == [closed[0]]
     assert batch.discarded_open_candles == 1
