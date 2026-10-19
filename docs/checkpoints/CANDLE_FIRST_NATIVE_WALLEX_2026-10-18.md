@@ -104,7 +104,7 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 
 - Added `docs/registry/wallex_spot_market_data_2026-10-18.yaml` as revision `2026-10-18.1`, keeping sequence/identity/order/contiguity/reconnect claims explicitly unknown unless the official contract supports them.
 - The record binds claims to exact venue/product/transport/channel/message type; it disables trade-ID deduplication and numeric gap detection, treats depth as observed data until snapshot/delta semantics are proven, and leaves UDF candle volume units unknown with no normalization.
-- This registry entry is conservative and research/evidence driven; the documented Socket.IO live endpoint remains unverified due the pinned 503 response. It does not authorize production ingestion or trading.
+- This registry entry is conservative and research/evidence driven. The newer official developer page documents the raw WebSocket endpoint `wss://api.wallex.ir/ws` and its `["subscribe", {"channel": "MARKET@trade"}]` frame. The legacy Socket.IO route returned HTTP 503 from the observation host, but that result does not invalidate the separately documented raw `/ws` route. The controlled raw `/ws` captures prove limited reachability and observed depth frames only—not trade completeness, ordering, replay, sequence semantics, or volume units. No production ingestion or trading is authorized.
 
 
 ## Vendor clarification submission — 2026-10-18
@@ -114,3 +114,13 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - The request asks for authoritative UDF `v` versus REST `quantity` semantics, volume-field relationships, complete trade history/replay, official Socket.IO endpoint/version, raw `/ws` support status, and sequence/order/reconnect guarantees.
 - Source-of-truth status note: `docs/support/WALLEX_API_CLARIFICATION_REQUEST_2026-10-18.md`.
 - Issues #322 and #323 were updated with the submission status. Both remain open. No volume normalization, production activation, deployment, or trading is authorized.
+
+
+## Official transport documentation reconciliation — 2026-10-19
+
+- Current official developer documentation for trade events explicitly specifies `wss://api.wallex.ir/ws`, the JSON subscribe frame `["subscribe", {"channel": "MARKET@trade"}]`, and fields `isBuyOrder`, `quantity`, `price`, and `timestamp`: https://developers.wallex.ir/socket/trade
+- This supersedes the earlier wording that treated raw `/ws` as undocumented. The older reference at https://api-docs.wallex.ir/ separately describes a Socket.IO v2.5-compatible client and `Broadcaster` event; these are distinct wire contracts and must not be conflated.
+- Existing hash-pinned controlled observations of raw `/ws` recorded two distinct server session IDs and accepted depth frames; the stale-session injection was rejected by the collector. These observations support endpoint reachability and session isolation in the tested collector path, but do not prove complete trade delivery or any undocumented sequence/identity/order guarantees.
+- The official Socket.IO probe's HTTP 503 remains host- and time-specific. It is not evidence that the documented raw `/ws` endpoint is unavailable.
+- Volume semantics remain unresolved: preserve candle `v` exactly, do not divide by two, and keep volume-dependent acceptance disabled until authoritative clarification and complete hash-pinned replay evidence exist.
+- Runtime remains `HOLD / NO_TRADE_ONLY`; no activation, deployment, or orders are authorized.
