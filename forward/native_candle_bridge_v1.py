@@ -194,23 +194,37 @@ def normalize_native_candles(
     return NativeCandleBatch(identity, tuple(normalized), tuple(gaps), discarded_open)
 
 
-def to_feature_candles(batch: NativeCandleBatch) -> tuple[Candle, ...]:
-    """Explicit Decimal-to-float boundary for the existing feature engine.
+def to_feature_candles(
+    batch: NativeCandleBatch, *, include_volume: bool = False
+) -> tuple[Candle, ...]:
+    """Convert Decimal OHLC into the existing feature engine's float contract.
 
-    Decimal records remain available in batch for evidence; unknown trade count
-    is represented as None, never fabricated as zero.
+    Native volume is omitted by default because its source semantics may be
+    unverified. Wallex UDF volume is fail-closed even when explicitly requested.
+    The original Decimal records remain available in batch for evidence.
     """
+    if not isinstance(include_volume, bool):
+        raise ValueError("include_volume_must_be_boolean")
+    identity = batch.identity
+    if include_volume and (
+        identity.venue.lower() == "wallex"
+        or "wallex" in identity.source.lower()
+    ):
+        raise ValueError("wallex_volume_semantics_unresolved")
+
     result: list[Candle] = []
     for row in batch.candles:
-        values = tuple(float(v) for v in (row.open, row.high, row.low, row.close, row.volume))
-        if not all(isfinite(value) for value in values):
+        ohlc = tuple(float(v) for v in (row.open, row.high, row.low, row.close))
+        if not all(isfinite(value) for value in ohlc):
             raise ValueError("feature_float_conversion_not_finite")
+        volume: float | None = None
+        if include_volume:
+            volume = float(row.volume)
+            if not isfinite(volume) or volume < 0:
+                raise ValueError("feature_volume_conversion_invalid")
         result.append(Candle(
-            symbol=batch.identity.symbol,
-            timeframe_seconds=batch.identity.timeframe_seconds,
-            start=row.start, end=row.end,
-            open=values[0], high=values[1], low=values[2],
-            close=values[3], volume=values[4], trade_count=None,
+            identity.symbol, identity.timeframe_seconds, row.start, row.end,
+            ohlc[0], ohlc[1], ohlc[2], ohlc[3], volume, None,
         ))
     return tuple(result)
 
