@@ -8,7 +8,7 @@ retrieved_at: "2026-10-18"
 live_wire_verified: true
 live_verification_note: "The official developer page documents the raw WebSocket endpoint wss://api.wallex.ir/ws and subscribe frame; live read-only captures on 2026-10-18 recorded two distinct server sessions and accepted depth frames on this endpoint. The separate legacy Socket.IO endpoint probe returned HTTP 503 from the observation host; that does not invalidate the independently documented and observed raw /ws route."
 records:
-  - record_id: "wallex.spot.socketio.trade.v1"
+  - record_id: "wallex.spot.raw_websocket.trade.v1"
     endpoint: "https://api.wallex.ir"
     channel_or_topic: "SYMBOL@trade"
     message_type: "Broadcaster trade event"
@@ -37,7 +37,7 @@ records:
     reconnect_rule: "Create a new local session epoch; do not compare undocumented identifiers across reconnects."
     adapter_rule: "Validate documented fields; preserve raw frame and hash; expose no trade sequence or identity capability."
     confidence: "high for fields in the documented sample; live delivery and completeness remain unverified"
-  - record_id: "wallex.spot.socketio.depth.v1"
+  - record_id: "wallex.spot.raw_websocket.depth.v1"
     endpoint: "https://api.wallex.ir"
     channel_or_topic: "SYMBOL@buyDepth and SYMBOL@sellDepth"
     message_type: "Broadcaster depth event"
@@ -76,7 +76,7 @@ records:
 sources:
   - url: "https://developers.wallex.ir/socket/trade"
     source_kind: "primary"
-    note: "Official developer page documents wss://api.wallex.ir/ws, JSON subscribe frame [\"subscribe\", {\"channel\": \"MARKET@trade\"}], and trade fields isBuyOrder/quantity/price/timestamp."
+    note: 'Official developer page documents wss://api.wallex.ir/ws, JSON subscribe frame ["subscribe", {"channel": "MARKET@trade"}], and trade fields isBuyOrder/quantity/price/timestamp.'
   - url: "https://api-docs.wallex.ir/"
     source_kind: "primary-legacy"
     note: "Legacy reference describes Socket.IO v2.5-compatible usage and Broadcaster events. Its endpoint differs from the newer official raw-WebSocket page; do not conflate the two wire protocols."
