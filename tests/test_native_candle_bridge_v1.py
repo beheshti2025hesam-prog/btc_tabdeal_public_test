@@ -72,6 +72,7 @@ def test_binance_shape_normalizes_millisecond_fields():
     batch = normalize_native_candles([candle], venue="binance",
                                      market="spot", as_of=AS_OF)
     assert batch.candles[0].start == start
+    assert batch.candles[0].end == start + timedelta(minutes=1)
     assert batch.identity.timeframe_seconds == 60
 
 
@@ -143,4 +144,27 @@ def test_binance_market_identity_must_match_requested_market():
     )
     with pytest.raises(ValueError, match="mixed_market"):
         normalize_native_candles([candle], venue="binance",
+                                 market="spot", as_of=AS_OF)
+
+
+
+def test_binance_inclusive_close_time_is_canonicalized_to_exclusive_end():
+    start = AS_OF - timedelta(minutes=3)
+    candle = BinanceLike(
+        "spot", "BTCUSDT", "1m", int(start.timestamp() * 1000),
+        int((start + timedelta(minutes=1)).timestamp() * 1000) - 1,
+        Decimal("100"), Decimal("101"), Decimal("99"),
+        Decimal("100.5"), Decimal("5.25"),
+    )
+    batch = normalize_native_candles([candle], venue="binance",
+                                     market="spot", as_of=AS_OF)
+    assert batch.candles[0].end - batch.candles[0].start == timedelta(minutes=1)
+
+
+def test_inconsistent_candle_duration_is_rejected():
+    start = AS_OF - timedelta(minutes=3)
+    candle = wallex(start)
+    candle.close_time = start + timedelta(seconds=59)
+    with pytest.raises(ValueError, match="candle_duration_mismatch"):
+        normalize_native_candles([candle], venue="wallex",
                                  market="spot", as_of=AS_OF)
