@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Capture the official Wallex chart's public UDF history response in Chromium,
-then compare closed candles with a separate direct HTTP fetch of the same request.
-Read-only; no credentials, account endpoints, or trading actions.
+"""Capture the official Wallex chart's UDF response and independently refetch
+that exact URL; delegate all candle comparison to compare_ohlcv.py's core.
+Read-only: no credentials, account endpoints, or trading actions.
 """
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ import hashlib
 import json
 import os
 import time
-from decimal import Decimal
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse, parse_qs
 
 from playwright.async_api import async_playwright
+from compare_ohlcv import compare_candles, load_candles
 
 OUT = Path(os.environ.get("HES_PARITY_OUT", "artifacts/wallex-chart-parity"))
 CHART_URL = "https://wallex.ir/app/trade/BTCUSDT"
@@ -26,7 +26,7 @@ def digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def rows(payload: dict) -> dict[int, dict[str, Decimal]]:
+def closed_payload(payload: dict, now: int) -> list[dict]:
     if payload.get("s") != "ok":
         raise ValueError(f"UDF status is not ok: {payload.get('s')!r}")
     arrays = {key: payload.get(key) for key in ("t", *FIELDS)}
@@ -35,13 +35,19 @@ def rows(payload: dict) -> dict[int, dict[str, Decimal]]:
     lengths = {len(v) for v in arrays.values()}
     if len(lengths) != 1:
         raise ValueError(f"UDF array lengths differ: { {k: len(v) for k, v in arrays.items()} }")
-    result: dict[int, dict[str, Decimal]] = {}
+    result = []
+    seen = set()
     for i, ts in enumerate(arrays["t"]):
         if isinstance(ts, bool) or not isinstance(ts, int):
             raise ValueError(f"non-integer timestamp at index {i}")
-        if ts in result:
+        if ts in seen:
             raise ValueError(f"duplicate timestamp {ts}")
-        result[ts] = {field: Decimal(str(arrays[field][i])) for field in FIELDS}
+        seen.add(ts)
+        if ts + 60 > now:
+            continue
+        row = {"timestamp": ts, "open": arrays["o"][i], "high": arrays["h"][i],
+               "low": arrays["l"][i], "close": arrays["c"][i], "volume": arrays["v"][i]}
+        result.append(row)
     return result
 
 
@@ -79,17 +85,15 @@ async def main() -> int:
         manifest = {
             "schema": "hes.wallex.chart_browser_parity.v1",
             "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "chart_url": CHART_URL,
-            "navigation_error": navigation_error,
-            "canvas_count": canvas_count,
-            "status": "BLOCKED_NO_CHART_UDF_RESPONSE",
+            "chart_url": CHART_URL, "navigation_error": navigation_error,
+            "canvas_count": canvas_count, "status": "BLOCKED_NO_CHART_UDF_RESPONSE",
             "note": "No matching public 1m BTCUSDT UDF response was observed in the browser. Screenshot retained; no parity claim.",
         }
-        (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(manifest, indent=2))
         return 1
 
-    # Prefer the largest observed history window; retain the browser response bytes unchanged.
+    # Retain the largest observed browser response byte-for-byte, then refetch its exact URL.
     browser_url, browser_raw = max(captured, key=lambda item: len(item[1]))
     (OUT / "browser-chart-udf.raw.json").write_bytes(browser_raw)
     req = Request(browser_url, headers={"Accept": "application/json", "User-Agent": "HES-Trade-Agent-readonly/1"})
@@ -99,52 +103,41 @@ async def main() -> int:
         direct_date = response.headers.get("Date")
     (OUT / "direct-api.raw.json").write_bytes(direct_raw)
 
-    browser_payload = json.loads(browser_raw.decode("utf-8"))
-    direct_payload = json.loads(direct_raw.decode("utf-8"))
-    browser_rows, direct_rows = rows(browser_payload), rows(direct_payload)
     now = int(time.time())
-    # Ignore any still-forming candle. UDF timestamps are Unix seconds at candle open.
-    closed_a = {ts: val for ts, val in browser_rows.items() if ts + 60 <= now}
-    closed_b = {ts: val for ts, val in direct_rows.items() if ts + 60 <= now}
-    common = sorted(set(closed_a) & set(closed_b))
-    mismatches = []
-    for ts in common:
-        fields = {
-            field: {"browser_chart_datafeed": str(closed_a[ts][field]), "direct_api": str(closed_b[ts][field])}
-            for field in FIELDS if closed_a[ts][field] != closed_b[ts][field]
-        }
-        if fields:
-            mismatches.append({"timestamp": ts, "fields": fields})
+    browser_rows = closed_payload(json.loads(browser_raw.decode("utf-8")), now)
+    direct_rows = closed_payload(json.loads(direct_raw.decode("utf-8")), now)
+    browser_closed_path = OUT / "browser-chart-closed.json"
+    direct_closed_path = OUT / "direct-api-closed.json"
+    browser_closed_path.write_text(json.dumps(browser_rows, separators=(",", ":")) + "\n", encoding="utf-8")
+    direct_closed_path.write_text(json.dumps(direct_rows, separators=(",", ":")) + "\n", encoding="utf-8")
+    normalized_a, _ = load_candles(str(browser_closed_path))
+    normalized_b, _ = load_candles(str(direct_closed_path))
+    comparison = compare_candles(normalized_a, normalized_b, abs_tolerance=__import__("decimal").Decimal("0"))
+    comparison["source_a_label"] = "official_wallex_chart_browser_udf"
+    comparison["source_b_label"] = "direct_http_refetch_of_same_url"
+    comparison["symbol"] = "BTCUSDT"
+    comparison["resolution"] = "1"
+    (OUT / "comparison.json").write_text(json.dumps(comparison, indent=2) + "\n", encoding="utf-8")
+
     manifest = {
         "schema": "hes.wallex.chart_browser_parity.v1",
         "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "read_only": True,
-        "no_api_key_used": True,
+        "read_only": True, "no_api_key_used": True,
         "no_account_or_order_endpoint_called": True,
-        "chart_url": CHART_URL,
-        "navigation_error": navigation_error,
-        "canvas_count": canvas_count,
-        "browser_history_request_url": browser_url,
-        "direct_api_status": direct_status,
-        "direct_api_date_header": direct_date,
-        "browser_raw_sha256": digest(browser_raw),
-        "browser_raw_bytes": len(browser_raw),
-        "direct_raw_sha256": digest(direct_raw),
-        "direct_raw_bytes": len(direct_raw),
-        "browser_candle_count": len(browser_rows),
-        "direct_candle_count": len(direct_rows),
-        "browser_closed_count": len(closed_a),
-        "direct_closed_count": len(closed_b),
-        "common_closed_timestamp_count": len(common),
-        "common_closed_timestamps": common,
-        "ohlcv_mismatch_count": len(mismatches),
-        "ohlcv_mismatches": mismatches,
-        "status": "PASS_CAPTURED_FEED_EQUALS_DIRECT_API" if len(common) >= 3 and not mismatches else "BLOCKED_PARITY_NOT_ESTABLISHED",
-        "interpretation": "This compares the chart page's observed UDF datafeed response to a separate direct request for the exact same URL. It verifies the chart datafeed path, not independent volume semantics or pixel-level candle values. The chart and API may share a backend.",
+        "chart_url": CHART_URL, "navigation_error": navigation_error,
+        "canvas_count": canvas_count, "browser_history_request_url": browser_url,
+        "direct_api_status": direct_status, "direct_api_date_header": direct_date,
+        "browser_raw_sha256": digest(browser_raw), "browser_raw_bytes": len(browser_raw),
+        "direct_raw_sha256": digest(direct_raw), "direct_raw_bytes": len(direct_raw),
+        "browser_closed_count": len(browser_rows), "direct_closed_count": len(direct_rows),
+        "comparison_report": "comparison.json",
+        "comparison_pass": comparison["pass"] and comparison["matched_timestamp_count"] >= 3,
+        "status": "PASS_CAPTURED_FEED_EQUALS_DIRECT_API" if comparison["pass"] and comparison["matched_timestamp_count"] >= 3 else "BLOCKED_PARITY_NOT_ESTABLISHED",
+        "interpretation": "The core comparator compares the chart page's observed UDF response with a separate direct request to the exact same URL. This verifies the chart datafeed path only; the chart and API may share a backend, so it does not establish independent volume semantics or pixel-level value parity.",
     }
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2))
-    return 0 if len(common) >= 3 and not mismatches else 1
+    return 0 if manifest["comparison_pass"] else 1
 
 
 if __name__ == "__main__":
