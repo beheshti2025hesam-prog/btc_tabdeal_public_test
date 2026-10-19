@@ -108,3 +108,11 @@ def test_native_adapter_output_keeps_closed_bar_boundary_contract():
     binance_row = binance_candles()[0]
     assert wallex_row.close_time == AS_OF
     assert binance_row.close_time_ms == int(AS_OF.timestamp() * 1000) - 1
+
+
+def test_wallex_spot_adapter_cannot_be_relabelled_as_futures():
+    rows = wallex_candles()
+    with pytest.raises(ValueError, match="source_market_mismatch"):
+        normalize_native_candles(
+            rows, venue="wallex", market="usdm_futures", as_of=AS_OF
+        )
