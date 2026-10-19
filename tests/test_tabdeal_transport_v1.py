@@ -149,8 +149,12 @@ def test_delayed_previous_session_callback_is_rejected_after_reconnect():
 
 def test_transport_budget_or_disconnect_invalidates_callback_epoch():
     sockets = []
+    class SilentWS(FakeWS):
+        def run_forever(self, **kwargs):
+            self.kwargs = kwargs
+            self.on_open(self)
     def factory(*args, **kwargs):
-        ws = FakeWS(*args, **kwargs)
+        ws = SilentWS(*args, **kwargs)
         sockets.append(ws)
         return ws
     transport = TabdealReadOnlyTransportV1(
