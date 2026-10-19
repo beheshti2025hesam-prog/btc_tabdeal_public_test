@@ -1,0 +1,119 @@
+{
+  "artifact_id": "HES-VPS-GITHUB-IDENTITY-RECONCILIATION-V3",
+  "schema": "hes.vps_github_identity_reconciliation.v3",
+  "version": 3,
+  "snapshot_at_utc": "2026-10-12T10:50:26Z",
+  "status": "CURRENT_SNAPSHOT_LOCKED_OBSERVATION_AND_SINGLE_WRITER_GATES_OPEN",
+  "repository": {
+    "full_name": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "vps_path": "/opt/hes-trade-agent",
+    "vps_head_sha": "2cdcd10647797fb3f9e908c052ec2139116456f7",
+    "vps_actual_remote_main_sha": "c3cefc1e891894f5b8d495a4e30a5e160e5e6b30",
+    "vps_cached_origin_main_sha": "c3cefc1e891894f5b8d495a4e30a5e160e5e6b30",
+    "head_behind_origin_main": 6,
+    "tracked_worktree_changes": 0,
+    "untracked_paths": 2459,
+    "untracked_virtualenv_paths": 2261,
+    "untracked_other_paths": 198,
+    "safety_note": "Do not clean, stage wholesale, reset, overwrite, or pull until untracked paths and ref divergence are reconciled."
+  },
+  "trade_csv": {
+    "path": "data/trades.csv",
+    "bytes": 9104261,
+    "rows_excluding_header": 120685,
+    "sha256": "ad80644bf22a89d0dc5abda1d45f2202de1c1fd56f29eaad8156a91dd495f735",
+    "git_blob_sha1": "b6e8c7aa6baa6eae64c76959d6cb08c3fdbeb2b6",
+    "last_timestamp_utc": "2026-10-06T14:12:24.145Z",
+    "last_sequence": "40780604187",
+    "local_head_equals_remote_main_bytes": true,
+    "checkpoint_commit": "0d82d8c81b19bd3138fbd8624e1f9950e604709f",
+    "result": "PASS_FOR_BYTE_IDENTITY_ONLY"
+  },
+  "collector": {
+    "service": "hes-trade-agent-collector.service",
+    "state": "failed",
+    "enabled": false,
+    "failed_since_utc": "2026-10-06T14:12:37Z",
+    "last_pid": 85871,
+    "failure": "Final Git checkpoint refused because origin/main advanced since collector startup (base=3660812b97e75dcf90f87911237a6d287d2dce41; current=b1c8bfbcd4f6fa92441ddbbae468edd8533e4fec).",
+    "subsequent_persistence": "The current data/trades.csv bytes are present identically in local HEAD, remote main, and checkpoint commit 0d82d8c81b19bd3138fbd8624e1f9950e604709f.",
+    "current_lock_content": "pid=119699",
+    "current_lock_sha256": "6a29a7759fcaec52bfef34a3102feb513b89fd78c5e20da1948728db9b7f0dfc",
+    "current_lock_pid_alive": false,
+    "prior_proof_pid": 105156,
+    "prior_proof_sha256": "a3e01f9029392427749becb83a037c64341b47b4153a82a620d03d97899f46b1",
+    "lock_hash_matches_proof": false,
+    "journal_access": "READABLE_WITH_AUTHORIZED_READ_ONLY_COMMAND"
+  },
+  "observation_artifacts": {
+    "observations_jsonl": {
+      "path": "data/forward/observations.jsonl",
+      "bytes": 2400,
+      "sha256": "ef050fcf90fb43032527f121f13e2ed4c66a661080d772b4b3056fcd4f1416eb",
+      "records": 10,
+      "parse": "PASS"
+    },
+    "manifest_json": {
+      "path": "data/forward/observation_artifact_manifest_v1.json",
+      "bytes": 678,
+      "sha256": "1bab9a35dde633107a3dfaa394067260645e110a62cd53355838853c63b89095",
+      "parse": "FAIL_TRAILING_LITERAL_BACKSLASH_N"
+    },
+    "run_ledger_jsonl": {
+      "path": "data/forward/observation_runs.jsonl",
+      "bytes": 353,
+      "sha256": "04acbe65cd589bc4cbe5eaa375dab19ca433fe02ad94083a44667ebf0ac661cd",
+      "parse": "FAIL_TRAILING_LITERAL_BACKSLASH_N"
+    },
+    "session_ledger_jsonl": {
+      "path": "data/forward/observation_sessions_v1.jsonl",
+      "bytes": 1311,
+      "sha256": "e8fa23e2aba609f9cf0937c10ca552155c91bd5dae04870403e3cbdab38bd050",
+      "records": 3,
+      "parse": "PASS",
+      "lineage": "OPEN"
+    },
+    "probe_jsonl": {
+      "path": "data/forward/live_probe_20261007.jsonl",
+      "bytes": 2645,
+      "sha256": "26044fec93bbb501e2c1eb46174a0bfd74f670b77e4adb304c049eeeca4d009d",
+      "records": 11,
+      "parse": "PASS",
+      "lineage": "OPEN"
+    },
+    "live_session_json": {
+      "path": "data/forward/live_observation_session.json",
+      "bytes": 437,
+      "sha256": "96ebf38812a73ab7bc59628637d1b398f1bee13ab844ea3fd3344c705fb075f6",
+      "parse": "PASS",
+      "run_id": "OBS-20261007T144740Z-7dd0ba7739de",
+      "lineage": "OPEN"
+    },
+    "historical_files_modified": false,
+    "next_action": "Create a new versioned normalization/reconciliation artifact; preserve all historical source bytes unchanged."
+  },
+  "evidence_gate": {
+    "source_identity": "OPEN_LIVE_SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+    "exact_historical_record_identity": "PASS_FOR_42_RECORD_ARTIFACTS_ONLY",
+    "lineage": "OPEN",
+    "immutable_reconciliation_artifact": "V3_SNAPSHOT_LOCKED; OBSERVATION_LINEAGE_RECONCILIATION_PENDING",
+    "hash_lock": "V3_AUDIT_ARTIFACT_LOCKED; SOURCE_OBSERVATION_ARTIFACTS_NOT_ALL_LOCKED",
+    "feature_extraction": false,
+    "effective_evidence_calculation": false,
+    "threshold_tuning": false,
+    "winner_selection_changes": false,
+    "record_deletion": false,
+    "collector_started_or_enabled": false,
+    "trading_authorized": false
+  },
+  "sequence_semantics": "UNKNOWN; NO_NUMERIC_GAP_INFERENCE",
+  "continuous_48h_observation": "NOT_VERIFIED",
+  "safety_boundary": {
+    "source_data_modified": false,
+    "historical_artifacts_modified": false,
+    "collector_started_or_enabled": false,
+    "feature_extraction": false,
+    "effective_evidence_calculation": false,
+    "trading_authorized": false
+  }
+}

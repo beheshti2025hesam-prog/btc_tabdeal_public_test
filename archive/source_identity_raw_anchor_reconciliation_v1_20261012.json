@@ -1,0 +1,1908 @@
+{
+  "schema": "hes.source_identity_raw_anchor_reconciliation.v1",
+  "artifact_id": "HES-SOURCE-IDENTITY-RAW-ANCHOR-RECONCILIATION-V1",
+  "status": "RAW_ANCHORS_PASS_EXIT_LINK_INFERRED_SOURCE_IDENTITY_OPEN",
+  "method": {
+    "mode": "READ_ONLY_GITHUB_RAW_BLOB_RECONCILIATION",
+    "exact_sources": "Git blob IDs resolved from the source commits' recursive trees; data/trades.csv only",
+    "exit_link_rule": "For diagnostic linkage only, select the first later raw row after sequence_last whose price equals exit_price. The source record does not declare an exit sequence, so this match is inferred and does not close source identity.",
+    "source_bytes_modified": false,
+    "historical_records_modified": false
+  },
+  "source_identity_artifact": {
+    "path": "evidence/source_identity_reconciliation_v1.json",
+    "sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
+    "record_count": 42
+  },
+  "sources": {
+    "prior": {
+      "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+      "blob": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+      "bytes": 9592808,
+      "sha256": "2c0013ad64aa3fa400a9c66e646382b34b0c1d1ac640a440353d31a78ca346e8",
+      "rows": 127201
+    },
+    "current": {
+      "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+      "blob": "58d21825e052dbaa42e7eb0695455c19997bff43",
+      "bytes": 10501596,
+      "sha256": "c6c20f30fc6cbf6934c81e7b5e0495f952b7bab5fe2978baca6fdd78c68b90e6",
+      "rows": 139250
+    }
+  },
+  "counts": {
+    "records": 42,
+    "prior_survivors": 14,
+    "current_winners": 28,
+    "sequence_bounds_present": 42,
+    "entry_price_matches_raw_sequence_last": 42,
+    "inferred_exit_price_matches_after_entry": 42,
+    "inferred_exit_match_within_record_minute": 42,
+    "gross_return_formula_consistent": 42
+  },
+  "records": [
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-24T09:22:00+00:00",
+      "sequence_first": 37513209440,
+      "sequence_last": 37513397341,
+      "entry_price": 83451.4,
+      "exit_price": 83323.2,
+      "gross_return": 0.0015362234785755195,
+      "direction": "SHORT",
+      "fold_index": 0,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37513209440,
+          "price": 83486.8,
+          "updated": "2026-09-24 09:21:01.199000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37513397341,
+          "price": 83451.4,
+          "updated": "2026-09-24 09:21:59.151000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37513577468,
+          "price": 83323.2,
+          "updated": "2026-09-24 09:22:55.352000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 55352
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-24T09:43:00+00:00",
+      "sequence_first": 37517314534,
+      "sequence_last": 37517492765,
+      "entry_price": 83227.6,
+      "exit_price": 83095.4,
+      "gross_return": 0.0015884153814361057,
+      "direction": "SHORT",
+      "fold_index": 0,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37517314534,
+          "price": 83220.4,
+          "updated": "2026-09-24 09:42:01.374000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37517492765,
+          "price": 83227.6,
+          "updated": "2026-09-24 09:42:58.139000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37517658450,
+          "price": 83095.4,
+          "updated": "2026-09-24 09:43:48.359000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 48359
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-24T10:49:00+00:00",
+      "sequence_first": 37529903462,
+      "sequence_last": 37530083404,
+      "entry_price": 83340.7,
+      "exit_price": 83500,
+      "gross_return": 0.0019114310294970275,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37529903462,
+          "price": 83318.7,
+          "updated": "2026-09-24 10:48:01.176000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37530083404,
+          "price": 83340.7,
+          "updated": "2026-09-24 10:48:58.915000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37530259576,
+          "price": 83500,
+          "updated": "2026-09-24 10:49:52.573000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 52573
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-24T13:38:00+00:00",
+      "sequence_first": 37562235391,
+      "sequence_last": 37562411228,
+      "entry_price": 84035.7,
+      "exit_price": 84171.7,
+      "gross_return": 0.0016183598161257657,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37562235391,
+          "price": 83964.9,
+          "updated": "2026-09-24 13:37:00.159000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37562411228,
+          "price": 84035.7,
+          "updated": "2026-09-24 13:37:57.335000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37562596557,
+          "price": 84171.7,
+          "updated": "2026-09-24 13:38:54.961000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 54961
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-24T13:55:00+00:00",
+      "sequence_first": 37565502102,
+      "sequence_last": 37565686788,
+      "entry_price": 84002.3,
+      "exit_price": 84139.9,
+      "gross_return": 0.0016380503867154978,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37565502102,
+          "price": 83863.8,
+          "updated": "2026-09-24 13:54:00.446000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 37565686788,
+          "price": 84002.3,
+          "updated": "2026-09-24 13:54:58.555000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37565878115,
+          "price": 84139.9,
+          "updated": "2026-09-24 13:55:58.717000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 58717
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T02:46:00+00:00",
+      "sequence_first": 37712006454,
+      "sequence_last": 37712192141,
+      "entry_price": 84408.4,
+      "exit_price": 84280.2,
+      "gross_return": 0.0015188061851663709,
+      "direction": "SHORT",
+      "fold_index": 2,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37712006454,
+          "price": 84441.6,
+          "updated": "2026-09-25 02:45:00.452000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37712192141,
+          "price": 84408.4,
+          "updated": "2026-09-25 02:45:59.855000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37712377110,
+          "price": 84280.2,
+          "updated": "2026-09-25 02:46:59.128000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59128
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T07:08:00+00:00",
+      "sequence_first": 37761031810,
+      "sequence_last": 37761206737,
+      "entry_price": 83938.2,
+      "exit_price": 83722.4,
+      "gross_return": 0.002570939095668038,
+      "direction": "SHORT",
+      "fold_index": 2,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37761031810,
+          "price": 83981.2,
+          "updated": "2026-09-25 07:07:02.700000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37761206737,
+          "price": 83938.2,
+          "updated": "2026-09-25 07:07:58.075000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37761404881,
+          "price": 83722.4,
+          "updated": "2026-09-25 07:08:57.774000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 57774
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T11:06:00+00:00",
+      "sequence_first": 37805498755,
+      "sequence_last": 37805678036,
+      "entry_price": 84743.3,
+      "exit_price": 84900,
+      "gross_return": 0.0018491137352451119,
+      "direction": "LONG",
+      "fold_index": 3,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37805498755,
+          "price": 84737.7,
+          "updated": "2026-09-25 11:05:01.486000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37805678036,
+          "price": 84743.3,
+          "updated": "2026-09-25 11:05:59.528000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37805868481,
+          "price": 84900,
+          "updated": "2026-09-25 11:06:59.370000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59370
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T11:07:00+00:00",
+      "sequence_first": 37805685189,
+      "sequence_last": 37805868481,
+      "entry_price": 84900,
+      "exit_price": 85073.1,
+      "gross_return": 0.0020388692579505984,
+      "direction": "LONG",
+      "fold_index": 3,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37805685189,
+          "price": 84742,
+          "updated": "2026-09-25 11:06:01.885000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37805868481,
+          "price": 84900,
+          "updated": "2026-09-25 11:06:59.370000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37806063063,
+          "price": 85073.1,
+          "updated": "2026-09-25 11:07:59.244000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59244
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T12:16:00+00:00",
+      "sequence_first": 37818739565,
+      "sequence_last": 37818910979,
+      "entry_price": 84171,
+      "exit_price": 84040.1,
+      "gross_return": 0.0015551674567249312,
+      "direction": "SHORT",
+      "fold_index": 3,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37818739565,
+          "price": 84327.8,
+          "updated": "2026-09-25 12:15:00.457000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37818910979,
+          "price": 84171,
+          "updated": "2026-09-25 12:15:50.246000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37819164859,
+          "price": 84040.1,
+          "updated": "2026-09-25 12:16:59.939000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59939
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T13:46:00+00:00",
+      "sequence_first": 37836128930,
+      "sequence_last": 37836321328,
+      "entry_price": 83986.8,
+      "exit_price": 83663,
+      "gross_return": 0.003855367748265238,
+      "direction": "SHORT",
+      "fold_index": 3,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37836128930,
+          "price": 83983.2,
+          "updated": "2026-09-25 13:45:02.642000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37836321328,
+          "price": 83986.8,
+          "updated": "2026-09-25 13:45:59.357000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37836526424,
+          "price": 83663,
+          "updated": "2026-09-25 13:46:59.308000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59308
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T14:03:00+00:00",
+      "sequence_first": 37839483074,
+      "sequence_last": 37839693173,
+      "entry_price": 83721,
+      "exit_price": 83476.6,
+      "gross_return": 0.0029192197895389948,
+      "direction": "SHORT",
+      "fold_index": 3,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37839483074,
+          "price": 83935.6,
+          "updated": "2026-09-25 14:02:01.481000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37839693173,
+          "price": 83721,
+          "updated": "2026-09-25 14:02:59.551000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37839919014,
+          "price": 83476.6,
+          "updated": "2026-09-25 14:03:59.677000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59677
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T14:04:00+00:00",
+      "sequence_first": 37839696019,
+      "sequence_last": 37839919014,
+      "entry_price": 83476.6,
+      "exit_price": 83252.1,
+      "gross_return": 0.00268937642405177,
+      "direction": "SHORT",
+      "fold_index": 3,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37839696019,
+          "price": 83726.1,
+          "updated": "2026-09-25 14:03:00.382000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 37839919014,
+          "price": 83476.6,
+          "updated": "2026-09-25 14:03:59.677000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37840138061,
+          "price": 83252.1,
+          "updated": "2026-09-25 14:04:59.584000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59584
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "prior_14_survivor",
+      "timestamp": "2026-09-25T15:39:00+00:00",
+      "sequence_first": 37858233843,
+      "sequence_last": 37858398678,
+      "entry_price": 83630.5,
+      "exit_price": 83475.7,
+      "gross_return": 0.0018509993363665519,
+      "direction": "SHORT",
+      "fold_index": 3,
+      "source": {
+        "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+        "raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 37858233843,
+          "price": 83691,
+          "updated": "2026-09-25 15:38:08.378000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 37858398678,
+          "price": 83630.5,
+          "updated": "2026-09-25 15:38:59.594000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 37858593647,
+          "price": 83475.7,
+          "updated": "2026-09-25 15:39:59.145000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59145
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T09:32:00+00:00",
+      "sequence_first": 39143643078,
+      "sequence_last": 39143816017,
+      "entry_price": 83462.1,
+      "exit_price": 83721.6,
+      "gross_return": 0.0031091956708494033,
+      "direction": "LONG",
+      "fold_index": 0,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39143643078,
+          "price": 83393.2,
+          "updated": "2026-09-30 09:31:01.365000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39143816017,
+          "price": 83462.1,
+          "updated": "2026-09-30 09:31:56.873000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39144005760,
+          "price": 83721.6,
+          "updated": "2026-09-30 09:32:56.483000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 56483
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T12:30:00+00:00",
+      "sequence_first": 39175786602,
+      "sequence_last": 39175968261,
+      "entry_price": 83847,
+      "exit_price": 84179.9,
+      "gross_return": 0.003970326904957771,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39175786602,
+          "price": 83863.6,
+          "updated": "2026-09-30 12:29:00.239000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39175968261,
+          "price": 83847,
+          "updated": "2026-09-30 12:29:59.641000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39176191434,
+          "price": 84179.9,
+          "updated": "2026-09-30 12:30:59.752000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59752
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T12:31:00+00:00",
+      "sequence_first": 39175971262,
+      "sequence_last": 39176191434,
+      "entry_price": 84179.9,
+      "exit_price": 84409.1,
+      "gross_return": 0.002722740226586295,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39175971262,
+          "price": 83845.3,
+          "updated": "2026-09-30 12:30:00.523000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39176191434,
+          "price": 84179.9,
+          "updated": "2026-09-30 12:30:59.752000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39176393507,
+          "price": 84409.1,
+          "updated": "2026-09-30 12:31:58.975000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 58975
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T12:35:00+00:00",
+      "sequence_first": 39176810785,
+      "sequence_last": 39176991344,
+      "entry_price": 84424.8,
+      "exit_price": 84655.8,
+      "gross_return": 0.0027361628336697273,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39176810785,
+          "price": 84239.2,
+          "updated": "2026-09-30 12:34:03.930000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39176991344,
+          "price": 84424.8,
+          "updated": "2026-09-30 12:34:56.337000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39177187264,
+          "price": 84655.8,
+          "updated": "2026-09-30 12:35:54.020000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 54020
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T12:48:00+00:00",
+      "sequence_first": 39179315356,
+      "sequence_last": 39179511117,
+      "entry_price": 84843.5,
+      "exit_price": 85055.5,
+      "gross_return": 0.002498718228267339,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39179315356,
+          "price": 84846.3,
+          "updated": "2026-09-30 12:47:00.040000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39179511117,
+          "price": 84843.5,
+          "updated": "2026-09-30 12:47:59.394000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39179701620,
+          "price": 85055.5,
+          "updated": "2026-09-30 12:48:59.646000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59646
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T13:28:00+00:00",
+      "sequence_first": 39186808153,
+      "sequence_last": 39186987429,
+      "entry_price": 85249.4,
+      "exit_price": 85092.5,
+      "gross_return": 0.0018404821617512169,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39186808153,
+          "price": 85286.9,
+          "updated": "2026-09-30 13:27:00.279000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39186987429,
+          "price": 85249.4,
+          "updated": "2026-09-30 13:27:58.661000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39187172332,
+          "price": 85092.5,
+          "updated": "2026-09-30 13:28:57.696000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 57696
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T13:31:00+00:00",
+      "sequence_first": 39187464785,
+      "sequence_last": 39187557955,
+      "entry_price": 85260.1,
+      "exit_price": 85453.2,
+      "gross_return": 0.0022648343128848225,
+      "direction": "LONG",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39187464785,
+          "price": 85105,
+          "updated": "2026-09-30 13:30:30.067000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39187557955,
+          "price": 85260.1,
+          "updated": "2026-09-30 13:30:58.170000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39187757785,
+          "price": 85453.2,
+          "updated": "2026-09-30 13:31:59.884000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59884
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T13:38:00+00:00",
+      "sequence_first": 39188798858,
+      "sequence_last": 39189006365,
+      "entry_price": 84614,
+      "exit_price": 84368.9,
+      "gross_return": 0.0028966837639162056,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39188798858,
+          "price": 84717.1,
+          "updated": "2026-09-30 13:37:00.395000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39189006365,
+          "price": 84614,
+          "updated": "2026-09-30 13:37:57.389000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39189219373,
+          "price": 84368.9,
+          "updated": "2026-09-30 13:38:56.511000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 56511
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T13:39:00+00:00",
+      "sequence_first": 39189018322,
+      "sequence_last": 39189229376,
+      "entry_price": 84368.9,
+      "exit_price": 84201,
+      "gross_return": 0.0019900698006018115,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39189018322,
+          "price": 84564.1,
+          "updated": "2026-09-30 13:38:01.167000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39189229376,
+          "price": 84368.9,
+          "updated": "2026-09-30 13:38:59.598000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39189435733,
+          "price": 84201,
+          "updated": "2026-09-30 13:39:57.572000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 57572
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T13:40:00+00:00",
+      "sequence_first": 39189239871,
+      "sequence_last": 39189440234,
+      "entry_price": 84201,
+      "exit_price": 84050.8,
+      "gross_return": 0.0017838267954061958,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39189239871,
+          "price": 84365.8,
+          "updated": "2026-09-30 13:39:02.803000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39189440234,
+          "price": 84201,
+          "updated": "2026-09-30 13:39:58.812000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39189646864,
+          "price": 84050.8,
+          "updated": "2026-09-30 13:40:57.423000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 57423
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T14:16:00+00:00",
+      "sequence_first": 39196278748,
+      "sequence_last": 39196473004,
+      "entry_price": 84268.8,
+      "exit_price": 84129.7,
+      "gross_return": 0.001650670236196621,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39196278748,
+          "price": 84316.3,
+          "updated": "2026-09-30 14:15:01.982000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39196473004,
+          "price": 84268.8,
+          "updated": "2026-09-30 14:15:59.605000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39196667285,
+          "price": 84129.7,
+          "updated": "2026-09-30 14:16:59.575000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59575
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T14:22:00+00:00",
+      "sequence_first": 39197477907,
+      "sequence_last": 39197660779,
+      "entry_price": 84097.2,
+      "exit_price": 83856,
+      "gross_return": 0.0028681097587077466,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39197477907,
+          "price": 84123.4,
+          "updated": "2026-09-30 14:21:02.361000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39197660779,
+          "price": 84097.2,
+          "updated": "2026-09-30 14:21:58.967000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39197871262,
+          "price": 83856,
+          "updated": "2026-09-30 14:22:59.837000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59837
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T14:27:00+00:00",
+      "sequence_first": 39198478099,
+      "sequence_last": 39198667465,
+      "entry_price": 83902.9,
+      "exit_price": 83735,
+      "gross_return": 0.0020011227263896027,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39198478099,
+          "price": 83931.2,
+          "updated": "2026-09-30 14:26:00.503000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39198667465,
+          "price": 83902.9,
+          "updated": "2026-09-30 14:26:58.483000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39198858657,
+          "price": 83735,
+          "updated": "2026-09-30 14:27:59.615000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59615
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T14:28:00+00:00",
+      "sequence_first": 39198673495,
+      "sequence_last": 39198858657,
+      "entry_price": 83735,
+      "exit_price": 83616.8,
+      "gross_return": 0.001411596106765356,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39198673495,
+          "price": 83905.3,
+          "updated": "2026-09-30 14:27:00.680000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39198858657,
+          "price": 83735,
+          "updated": "2026-09-30 14:27:59.615000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39199056176,
+          "price": 83616.8,
+          "updated": "2026-09-30 14:28:58.938000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 58938
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T17:15:00+00:00",
+      "sequence_first": 39229875233,
+      "sequence_last": 39230050087,
+      "entry_price": 84281.3,
+      "exit_price": 84143.4,
+      "gross_return": 0.001636187386763241,
+      "direction": "SHORT",
+      "fold_index": 1,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39229875233,
+          "price": 84272.9,
+          "updated": "2026-09-30 17:14:00.361000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39230050087,
+          "price": 84281.3,
+          "updated": "2026-09-30 17:14:58.485000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39230236284,
+          "price": 84143.4,
+          "updated": "2026-09-30 17:15:59.505000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59505
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T19:17:00+00:00",
+      "sequence_first": 39252333765,
+      "sequence_last": 39252493246,
+      "entry_price": 83700.4,
+      "exit_price": 83575.4,
+      "gross_return": 0.0014934217757621231,
+      "direction": "SHORT",
+      "fold_index": 2,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39252333765,
+          "price": 83710.1,
+          "updated": "2026-09-30 19:16:05.395000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39252493246,
+          "price": 83700.4,
+          "updated": "2026-09-30 19:16:59.780000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39252676469,
+          "price": 83575.4,
+          "updated": "2026-09-30 19:17:58.225000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 58225
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-09-30T19:51:00+00:00",
+      "sequence_first": 39258568662,
+      "sequence_last": 39258747596,
+      "entry_price": 83627.2,
+      "exit_price": 83510,
+      "gross_return": 0.0014014578988654062,
+      "direction": "SHORT",
+      "fold_index": 2,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39258568662,
+          "price": 83682.9,
+          "updated": "2026-09-30 19:50:01.779000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39258747596,
+          "price": 83627.2,
+          "updated": "2026-09-30 19:50:59.608000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39258828597,
+          "price": 83510,
+          "updated": "2026-09-30 19:51:24.173000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 24173
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-01T07:40:00+00:00",
+      "sequence_first": 39388988249,
+      "sequence_last": 39389161075,
+      "entry_price": 83512.9,
+      "exit_price": 83359.1,
+      "gross_return": 0.001841631652115881,
+      "direction": "SHORT",
+      "fold_index": 3,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39388988249,
+          "price": 83540.8,
+          "updated": "2026-10-01 07:39:02.199000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39389161075,
+          "price": 83512.9,
+          "updated": "2026-10-01 07:39:59.637000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39389352340,
+          "price": 83359.1,
+          "updated": "2026-10-01 07:40:58.882000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 58882
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-01T15:31:00+00:00",
+      "sequence_first": 39476367801,
+      "sequence_last": 39476544818,
+      "entry_price": 83931.4,
+      "exit_price": 83811,
+      "gross_return": 0.001434504845623857,
+      "direction": "SHORT",
+      "fold_index": 5,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39476367801,
+          "price": 84047.3,
+          "updated": "2026-10-01 15:30:01.343000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39476544818,
+          "price": 83931.4,
+          "updated": "2026-10-01 15:30:58.209000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39476629389,
+          "price": 83811,
+          "updated": "2026-10-01 15:31:24.202000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 24202
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-01T15:48:00+00:00",
+      "sequence_first": 39479570413,
+      "sequence_last": 39479729594,
+      "entry_price": 84027.2,
+      "exit_price": 84151.7,
+      "gross_return": 0.001481663080526306,
+      "direction": "LONG",
+      "fold_index": 5,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39479570413,
+          "price": 83927,
+          "updated": "2026-10-01 15:47:03.586000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39479729594,
+          "price": 84027.2,
+          "updated": "2026-10-01 15:47:55.567000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39479938267,
+          "price": 84151.7,
+          "updated": "2026-10-01 15:48:59.723000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59723
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-01T17:02:00+00:00",
+      "sequence_first": 39493303253,
+      "sequence_last": 39493479701,
+      "entry_price": 84175.5,
+      "exit_price": 84369.5,
+      "gross_return": 0.0023047086147394433,
+      "direction": "LONG",
+      "fold_index": 5,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39493303253,
+          "price": 84160.8,
+          "updated": "2026-10-01 17:01:02.938000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39493479701,
+          "price": 84175.5,
+          "updated": "2026-10-01 17:01:59.251000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39493671471,
+          "price": 84369.5,
+          "updated": "2026-10-01 17:02:58.026000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 58026
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-01T17:30:00+00:00",
+      "sequence_first": 39498490805,
+      "sequence_last": 39498670269,
+      "entry_price": 84845.1,
+      "exit_price": 84966.9,
+      "gross_return": 0.0014355572684808947,
+      "direction": "LONG",
+      "fold_index": 5,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39498490805,
+          "price": 84838.7,
+          "updated": "2026-10-01 17:29:00.772000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39498670269,
+          "price": 84845.1,
+          "updated": "2026-10-01 17:29:59.669000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39498867140,
+          "price": 84966.9,
+          "updated": "2026-10-01 17:30:59.714000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 59714
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-01T18:35:00+00:00",
+      "sequence_first": 39510516926,
+      "sequence_last": 39510698158,
+      "entry_price": 84868.5,
+      "exit_price": 85000,
+      "gross_return": 0.0015494559229867384,
+      "direction": "LONG",
+      "fold_index": 5,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39510516926,
+          "price": 84827.7,
+          "updated": "2026-10-01 18:34:02.696000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39510698158,
+          "price": 84868.5,
+          "updated": "2026-10-01 18:34:59.899000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39510814291,
+          "price": 85000,
+          "updated": "2026-10-01 18:35:35.538000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 35538
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-02T01:51:00+00:00",
+      "sequence_first": 39590127838,
+      "sequence_last": 39590304980,
+      "entry_price": 84701.4,
+      "exit_price": 84839.7,
+      "gross_return": 0.0016327947353881153,
+      "direction": "LONG",
+      "fold_index": 6,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39590127838,
+          "price": 84592.2,
+          "updated": "2026-10-02 01:50:02.836000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39590304980,
+          "price": 84701.4,
+          "updated": "2026-10-02 01:50:59.991000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39590496920,
+          "price": 84839.7,
+          "updated": "2026-10-02 01:51:59.826000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59826
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-02T03:01:00+00:00",
+      "sequence_first": 39603082298,
+      "sequence_last": 39603250430,
+      "entry_price": 85181.5,
+      "exit_price": 85391.8,
+      "gross_return": 0.0024688459348567813,
+      "direction": "LONG",
+      "fold_index": 6,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39603082298,
+          "price": 85169.6,
+          "updated": "2026-10-02 03:00:03.526000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39603250430,
+          "price": 85181.5,
+          "updated": "2026-10-02 03:00:58.686000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39603436551,
+          "price": 85391.8,
+          "updated": "2026-10-02 03:01:58.365000+00:00",
+          "side": "Sell",
+          "delta_ms_from_record_timestamp": 58365
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-02T04:19:00+00:00",
+      "sequence_first": 39617476628,
+      "sequence_last": 39617652639,
+      "entry_price": 85562.2,
+      "exit_price": 85877.7,
+      "gross_return": 0.0036873759674248678,
+      "direction": "LONG",
+      "fold_index": 7,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39617476628,
+          "price": 85524.4,
+          "updated": "2026-10-02 04:18:00.918000+00:00",
+          "side": "Sell"
+        },
+        "entry": {
+          "sequence": 39617652639,
+          "price": 85562.2,
+          "updated": "2026-10-02 04:18:59.452000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39617843310,
+          "price": 85877.7,
+          "updated": "2026-10-02 04:19:59.805000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59805
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-02T04:20:00+00:00",
+      "sequence_first": 39617677045,
+      "sequence_last": 39617843310,
+      "entry_price": 85877.7,
+      "exit_price": 86348.3,
+      "gross_return": 0.0054798859308063195,
+      "direction": "LONG",
+      "fold_index": 7,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39617677045,
+          "price": 85568.5,
+          "updated": "2026-10-02 04:19:07.464000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39617843310,
+          "price": 85877.7,
+          "updated": "2026-10-02 04:19:59.805000+00:00",
+          "side": "Buy"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39618053070,
+          "price": 86348.3,
+          "updated": "2026-10-02 04:20:59.458000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 59458
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    },
+    {
+      "lineage": "current_28_winner",
+      "timestamp": "2026-10-02T09:31:00+00:00",
+      "sequence_first": 39674898963,
+      "sequence_last": 39675065759,
+      "entry_price": 86202.8,
+      "exit_price": 86325.9,
+      "gross_return": 0.0014280278598838003,
+      "direction": "LONG",
+      "fold_index": 7,
+      "source": {
+        "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+        "raw_blob_sha": "58d21825e052dbaa42e7eb0695455c19997bff43",
+        "path": "data/trades.csv"
+      },
+      "raw_anchors": {
+        "first": {
+          "sequence": 39674898963,
+          "price": 86197.5,
+          "updated": "2026-10-02 09:30:01.457000+00:00",
+          "side": "Buy"
+        },
+        "entry": {
+          "sequence": 39675065759,
+          "price": 86202.8,
+          "updated": "2026-10-02 09:30:56.661000+00:00",
+          "side": "Sell"
+        },
+        "exit_price_first_match_after_entry": {
+          "sequence": 39675250796,
+          "price": 86325.9,
+          "updated": "2026-10-02 09:31:58.022000+00:00",
+          "side": "Buy",
+          "delta_ms_from_record_timestamp": 58022
+        }
+      },
+      "checks": {
+        "sequence_bounds_present": true,
+        "entry_price_equals_raw_sequence_last": true,
+        "exit_price_match_is_inferred_not_explicit": true,
+        "inferred_exit_match_within_record_minute": true,
+        "gross_return_formula_consistent": true
+      }
+    }
+  ],
+  "claim_boundary": {
+    "raw_sequence_and_entry_anchor_checks": "PASS_42_OF_42",
+    "exit_sequence_identity": "NOT_EXPLICIT_IN_SOURCE_RECORD; MATCH IS INFERRED",
+    "live_source_attestation": "NOT_VERIFIED",
+    "vps_archive_lineage": "OPEN",
+    "single_writer_proof": "OPEN",
+    "feature_extraction": false,
+    "effective_evidence_calculation": false,
+    "threshold_tuning": false,
+    "winner_selection_changes": false,
+    "record_deletion": false,
+    "collector_started_or_enabled": false,
+    "trading_authorized": false
+  },
+  "snapshot_date_utc": "2026-10-12"
+}

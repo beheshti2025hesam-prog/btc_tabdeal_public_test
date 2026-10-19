@@ -1,0 +1,89 @@
+{
+  "schema": "hes.independent_provenance_gate_audit.v1",
+  "artifact_id": "HES-INDEPENDENT-PROVENANCE-GATE-AUDIT-V1",
+  "snapshot_date_utc": "2026-10-13",
+  "status": "BLOCKED_INDEPENDENT_SOURCE_PROOF_AND_SESSION_LINEAGE_OPEN",
+  "scope": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "reviewed_pull_requests": [260, 262],
+    "mode": "READ_ONLY_REVIEW_OF_GITHUB_ARTIFACTS_AND_CI_METADATA",
+    "vps_accessed": false,
+    "live_exchange_capture_performed": false,
+    "historical_source_bytes_modified": false,
+    "collector_started_or_enabled": false,
+    "trading_authorized": false
+  },
+  "evidence": {
+    "record_set": {
+      "winner_count": 28,
+      "prior_survivor_count": 14,
+      "total_records": 42,
+      "raw_anchor_reconciliation": "42_OF_42_REPORTED_MATCHING_SEQUENCE_BOUNDS_ENTRY_PRICE_AND_RETURN_FORMULA",
+      "exit_linkage": "INFERRED_PRICE_MATCH_NOT_EXPLICIT_EXIT_SEQUENCE",
+      "source_identity_gate": "OPEN"
+    },
+    "observation_lineage": {
+      "manifest_raw_parse": "FAIL_TRAILING_LITERAL_BACKSLASH_N",
+      "run_ledger_raw_parse": "FAIL_TRAILING_LITERAL_BACKSLASH_N",
+      "in_memory_normalization": "DIAGNOSTIC_ONLY_ORIGINAL_BYTES_UNCHANGED",
+      "declared_run_id": "FORWARD_OBS_20261007T014726Z",
+      "session_run_ids": [
+        "OBS-20261007T154238Z-0ea8e61be07a",
+        "OBS-20261007T154746Z-0f49be0272ae",
+        "OBS-20261009T163045Z-9d53227e7b20"
+      ],
+      "separate_live_session_run_id": "OBS-20261007T144740Z-7dd0ba7739de",
+      "session_join_to_run_ledger": "NO_MATCH",
+      "probe_record_count": 11,
+      "exact_probe_observation_sequence_intersection": 0,
+      "probe_lineage": "OPEN_NO_EXPLICIT_RUN_ID",
+      "sequence_semantics": "UNKNOWN_NO_NUMERIC_GAP_INFERENCE"
+    },
+    "detached_attestation_verifier": {
+      "pull_request": 262,
+      "head_commit": "ff4de94f8eee775655ab82f851714b37427844ee",
+      "workflow_run_id": 38246066836,
+      "workflow_conclusion": "SUCCESS",
+      "test_job": "attestation-verifier-tests",
+      "test_job_conclusion": "SUCCESS",
+      "test_scope": "ADVERSARIAL_UNIT_TESTS_USING_GENERATED_TEST_KEYS",
+      "external_trusted_key_provisioning": "NOT_INDEPENDENTLY_VERIFIED",
+      "real_exchange_source_attestation": "NOT_PRODUCED_OR_VERIFIED",
+      "production_provenance_gate": "OPEN"
+    }
+  },
+  "independent_assessment": {
+    "what_is_proven": [
+      "The reviewed GitHub PR metadata reports 42 of 42 raw-anchor checks passing against declared Git blobs.",
+      "The supplemental exit-price association is explicitly inferred and is not an authoritative exit event identity.",
+      "The observation lineage diagnostic reports the original manifest and run ledger remain invalid JSON, while in-memory normalization is diagnostic only.",
+      "The verifier unit-test workflow passed on the cited commit."
+    ],
+    "what_is_not_proven": [
+      "That a trusted independent party attested the actual live exchange payload or the historical capture bytes.",
+      "That the externally trusted Ed25519 public key and key ID are provisioned out-of-band in protected configuration.",
+      "That OBS session IDs, the declared forward run, live session, probe records, and VPS process logs form one explicit unbroken lineage.",
+      "That only one writer owned the active output/lock over the full relevant interval.",
+      "That exit events are authoritatively linked to all 42 records."
+    ]
+  },
+  "required_next_actions": [
+    "Obtain source attestation from a separately trusted signer/fetcher; pin its public key and key ID through a documented out-of-band trust procedure.",
+    "Verify the attestation against exact immutable source bytes and the exact source commit; preserve signer identity, retrieval metadata, raw SHA-256, and signature verification output.",
+    "Reconcile each OBS session ID and the live session to explicit run IDs using existing manifests, probe records, and VPS process/log evidence; do not synthesize joins.",
+    "Resolve the 11 probe records against observation records using documented field semantics; with zero exact sequence intersection and unknown semantics, do not infer gaps or continuity.",
+    "Prove single-writer attribution from process identity, lock ownership, and journal evidence; stale lock mismatch remains unresolved.",
+    "Keep all evidence analysis, feature extraction, Effective Evidence calculation, threshold tuning, Winner changes, record deletion, collector activation, and trading disabled until independent gates pass."
+  ],
+  "gate_decision": {
+    "raw_anchor_reconciliation": "PARTIAL_PASS",
+    "independent_source_attestation": "BLOCKED",
+    "session_probe_lineage": "BLOCKED",
+    "single_writer_proof": "BLOCKED",
+    "immutable_independent_reconciliation_lock": "NOT_CREATED_BY_THIS_AUDIT",
+    "feature_extraction_allowed": false,
+    "effective_evidence_allowed": false,
+    "collector_allowed": false,
+    "trading_allowed": false
+  }
+}

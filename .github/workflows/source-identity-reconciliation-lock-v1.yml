@@ -77,6 +77,9 @@ jobs:
           print(json.dumps(lock, indent=2))
           PY
 
+      - name: Validate raw source anchor reconciliation against exact Git blobs
+        run: python scripts/validate_source_identity_raw_anchor_reconciliation_v1.py
+
       - name: Upload immutable reconciliation artifact
         uses: actions/upload-artifact@v4
         with:

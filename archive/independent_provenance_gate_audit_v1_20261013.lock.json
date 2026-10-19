@@ -1,0 +1,28 @@
+{
+  "lock_id": "HES-INDEPENDENT-PROVENANCE-GATE-AUDIT-V1-LOCK",
+  "version": 1,
+  "status": "LOCKED",
+  "artifact_path": "archive/independent_provenance_gate_audit_v1_20261013.json",
+  "artifact_commit": "4021faae0b2cf7ed891c4e4ea64e2eaa3e37da7e",
+  "artifact_git_blob_sha1": "6784fe654a543bf77e922ab036b26ebdd7c36e37",
+  "artifact_sha256": "a0e6d99d8e9f2d1375f491ca6a7fa62f8f1aaa312fbb7bbf37c0fbbfaee3ddd3",
+  "artifact_bytes": 4961,
+  "verification": {
+    "content_read_back_from_github": true,
+    "sha256_recomputed_from_read_back_utf8_content": true,
+    "git_blob_sha1_read_back_from_github": true
+  },
+  "claim_boundary": {
+    "audit_scope": "GITHUB_ARTIFACTS_AND_CI_METADATA_ONLY",
+    "vps_independently_accessed": false,
+    "live_exchange_source_attestation_verified": false,
+    "external_trusted_key_provisioning_verified": false,
+    "session_probe_lineage_closed": false,
+    "single_writer_proof_closed": false,
+    "feature_extraction_allowed": false,
+    "effective_evidence_allowed": false,
+    "collector_allowed": false,
+    "trading_allowed": false
+  },
+  "mutation_scope": "Only the new versioned audit artifact and this lock were added to the existing draft audit branch; historical source bytes and operational services were not changed."
+}
