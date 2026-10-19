@@ -1,0 +1,40 @@
+name: Native Binance OHLCV Adapter v1
+
+on:
+  push:
+    branches:
+      - feat/native-binance-ohlcv-adapter-v1-20261019
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  native-ohlcv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact PR head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Assert exact checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          echo "EXACT_CHECKOUT_SHA=$actual"
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run offline OHLCV parser and boundary tests
+        run: python -m pytest -q tests/test_native_binance_ohlcv_v1.py
+      - name: Assert no credentials or execution APIs in adapter
+        run: |
+          ! grep -Eiq 'api_secret|api_key|new_order|cancel_order|create_order' forward/native_binance_ohlcv_v1.py
+          echo "PRIVATE_AUTH=OFF"
+          echo "ORDER_EXECUTION=OFF"
+          echo "NETWORK_IO=EXPLICIT_CALL_ONLY"
