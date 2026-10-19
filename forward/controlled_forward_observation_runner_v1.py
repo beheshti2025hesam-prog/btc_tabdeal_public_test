@@ -54,9 +54,10 @@ class ControlledForwardObservationRunnerV1:
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
-        self.sequence_contract_verified = sequence_contract_verified is True and bool(
-            isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
-        )
+        # Fail closed until an artifact parser/hash verifier and scoped capability
+        # policy are implemented. Caller booleans and non-empty refs are not proof.
+        # Keep legacy parameters for compatibility, but deliberately ignore them.
+        self.sequence_contract_verified = False
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -85,12 +86,14 @@ class ControlledForwardObservationRunnerV1:
                 status="BLOCKED",
                 records_received=0,
                 journal_path=str(self.journal_path),
-                reason="UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
+                reason="AUTHORITATIVE_SEQUENCE_EVIDENCE_VERIFIER_NOT_IMPLEMENTED",
                 snapshot_id=None,
                 diagnostics=({
                     "network_started": False,
                     "session_written": False,
                     "sequence_contract_evidence_required": True,
+                    "caller_assertions_ignored": True,
+                    "authoritative_verifier_implemented": False,
                 },),
             )
 
