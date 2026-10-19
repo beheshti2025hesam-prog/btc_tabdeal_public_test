@@ -21,6 +21,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
+      - name: Checkout pinned Wallex adapter
+        uses: actions/checkout@v4
+        with:
+          ref: b490611636cca6d133ba9f9cc08d5d9d6333628b
+          path: adapters/wallex
+          fetch-depth: 1
       - name: Checkout pinned Binance adapter
         uses: actions/checkout@v4
         with:
@@ -30,11 +36,14 @@ jobs:
       - name: Assert exact source revisions
         env:
           EXPECTED_TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_WALLEX_SHA: b490611636cca6d133ba9f9cc08d5d9d6333628b
           EXPECTED_BINANCE_SHA: 264ad62f51dee485c8ab9e1053631929c6379e4b
         run: |
           test "$(git rev-parse HEAD)" = "$EXPECTED_TEST_SHA"
+          test "$(git -C adapters/wallex rev-parse HEAD)" = "$EXPECTED_WALLEX_SHA"
           test "$(git -C adapters/binance rev-parse HEAD)" = "$EXPECTED_BINANCE_SHA"
           echo "TEST_SOURCE_SHA=$EXPECTED_TEST_SHA"
+          echo "WALLEX_ADAPTER_SHA=$EXPECTED_WALLEX_SHA"
           echo "BINANCE_ADAPTER_SHA=$EXPECTED_BINANCE_SHA"
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,6 +52,7 @@ jobs:
       - name: Run native bridge and causal structure tests
         env:
           PYTHONPATH: .
+          HES_WALLEX_ADAPTER_PATH: adapters/wallex/forward/native_wallex_ohlcv_v1.py
           HES_BINANCE_ADAPTER_PATH: adapters/binance/forward/native_binance_ohlcv_v1.py
         run: |
           python -m pip install --disable-pip-version-check pytest
