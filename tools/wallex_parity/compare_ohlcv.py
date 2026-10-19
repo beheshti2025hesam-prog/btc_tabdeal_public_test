@@ -107,11 +107,17 @@ def compare_candles(left: list[dict], right: list[dict],
         by_time: dict[int, dict] = {}
         duplicates = []
         for row in rows:
-            ts = row["timestamp"]
+            ts_value = _decimal(row["timestamp"], f"{label} timestamp")
+            if ts_value != ts_value.to_integral_value():
+                raise InputError(f"{label}: timestamp must be integer Unix seconds")
+            ts = int(ts_value)
+            normalized = {"timestamp": ts}
+            for field in FIELDS:
+                normalized[field] = _decimal(row[field], f"{label} {field} at {ts}")
             if ts in by_time:
                 duplicates.append(ts)
             else:
-                by_time[ts] = row
+                by_time[ts] = normalized
         return by_time, sorted(set(duplicates))
 
     a, dup_a = index(left, "A")
