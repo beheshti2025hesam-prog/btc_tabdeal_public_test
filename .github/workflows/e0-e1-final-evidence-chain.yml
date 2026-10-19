@@ -1,0 +1,68 @@
+name: HES Trade Agent — Final E0/E1 Evidence Chain
+
+on:
+  push:
+    branches:
+      - e0-e1-final-evidence-chain-v1
+      - e0-e1-final-evidence-chain-clean-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  final-evidence-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+      HES_FROZEN_CSV: /tmp/hes_frozen_trades.csv
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements.txt
+      - run: python -m pip install pytest
+      - name: Materialize frozen OOS snapshot
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${{ github.token }}" https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/1a44d52a0588deb765bbbea04bfb5783dcb1050b > /tmp/hes_blob.json
+          python -c 'import base64,json; d=json.load(open("/tmp/hes_blob.json")); assert d["sha"]=="1a44d52a0588deb765bbbea04bfb5783dcb1050b"; open("/tmp/hes_frozen_trades.csv","wb").write(base64.b64decode(d["content"]))'
+          test -s /tmp/hes_frozen_trades.csv
+      - name: Build E0 frozen contrast
+        run: python scripts/contrast_audit_14_vs_1035.py
+      - name: Build E1 embargo-adjusted evidence
+        run: python scripts/embargo_adjusted_fold_regime_independence.py
+      - name: Build final chained evidence
+        run: python scripts/e0_e1_final_evidence_chain.py
+      - name: Validate final evidence
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("e0_e1_final_evidence_chain.json"))
+          assert d["status"]=="evidence-only"
+          assert d["E0"]["winners"]==14 and d["E0"]["controls"]==1035
+          assert d["E1"]["winners"]==14 and d["E1"]["controls"]==1035
+          assert d["E1"]["reconciles_with_E0"] is True
+          assert d["LOO_Winner"]["all_14_evaluated"] is True
+          assert d["claim_boundary"]["signal_created"] is False
+          assert d["claim_boundary"]["live_execution"] is False
+          assert d["claim_boundary"]["promotion_decision"] is False
+          print("FINAL_EVIDENCE_CHAIN_VALID")
+          PY
+      - name: Upload final evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: e0-e1-final-evidence-chain
+          path: |
+            14_vs_1035_contrast_audit.json
+            14_vs_1035_winners.csv
+            embargo_adjusted_fold_regime_independence.json
+            e0_e1_final_evidence_chain.json
+          if-no-files-found: error
