@@ -249,7 +249,8 @@ def to_structure_candles(batch: NativeCandleBatch) -> tuple["Candle15m", ...]:
             high=row.high,
             low=row.low,
             close=row.close,
-            volume=row.volume,
+            # Structure observation is price-only; keep unverified volume in batch only.
+            volume=None,
             trade_count=None,
             first_sequence=None,
             last_sequence=None,
