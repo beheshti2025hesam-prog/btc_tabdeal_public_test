@@ -1,0 +1,91 @@
+registry_revision: "2026-10-18.1"
+status: "active-but-conservative"
+venue: "wallex"
+product: "spot"
+transport: "websocket"
+official_reference: "https://developers.wallex.ir/socket/trade"
+retrieved_at: "2026-10-18"
+live_wire_verified: true
+live_verification_note: "The official developer page documents the raw WebSocket endpoint wss://api.wallex.ir/ws and subscribe frame; live read-only captures on 2026-10-18 recorded two distinct server sessions and accepted depth frames on this endpoint. The separate legacy Socket.IO endpoint probe returned HTTP 503 from the observation host; that does not invalidate the independently documented and observed raw /ws route."
+records:
+  - record_id: "wallex.spot.raw_websocket.trade.v1"
+    endpoint: "https://api.wallex.ir"
+    channel_or_topic: "SYMBOL@trade"
+    message_type: "Broadcaster trade event"
+    field_contract:
+      event_name: "Broadcaster"
+      arguments: ["channel", "data"]
+      data_fields:
+        isBuyOrder: "boolean"
+        quantity: "number string"
+        price: "number string"
+        timestamp: "ISO-8601 datetime"
+      sequence_like_field: "not documented in the official trade sample"
+    claims:
+      unique: "unknown"
+      monotonic: "unknown"
+      contiguous: "unknown"
+      ordered: "unknown"
+      comparable_across_reconnect: "unknown"
+      comparable_across_symbols: "unknown"
+      comparable_across_channels: "unknown"
+      gap_detection_supported: false
+      duplicate_identity_supported: false
+    bootstrap_rule: "No documented trade snapshot/replay cursor found in the reviewed public contract."
+    gap_rule: "Never infer missing trades from timestamps, numeric quantity, or undocumented fields."
+    duplicate_rule: "Do not deduplicate by timestamp/price/quantity; exact-payload replay may be separately recorded, but no trade identity is established."
+    reconnect_rule: "Create a new local session epoch; do not compare undocumented identifiers across reconnects."
+    adapter_rule: "Validate documented fields; preserve raw frame and hash; expose no trade sequence or identity capability."
+    confidence: "high for fields in the documented sample; live delivery and completeness remain unverified"
+  - record_id: "wallex.spot.raw_websocket.depth.v1"
+    endpoint: "https://api.wallex.ir"
+    channel_or_topic: "SYMBOL@buyDepth and SYMBOL@sellDepth"
+    message_type: "Broadcaster depth event"
+    field_contract:
+      event_name: "Broadcaster"
+      arguments: ["channel", "data"]
+      data_shape: "array of price/quantity/sum level objects in the hash-pinned raw /ws captures; the legacy Socket.IO reference shows an indexed object, so the shapes must remain protocol-specific"
+      sequence_like_field: "not documented in the reviewed depth sample"
+    claims:
+      unique: "unknown"
+      monotonic: "unknown"
+      contiguous: "unknown"
+      ordered: "unknown"
+      comparable_across_reconnect: "unknown"
+      gap_detection_supported: false
+      duplicate_identity_supported: false
+    bootstrap_rule: "REST depth exists, but a documented snapshot-to-WebSocket sequence/linkage contract was not found in the reviewed source."
+    gap_rule: "No numeric gap detection; do not claim a synchronized order book without a proven snapshot/delta contract."
+    reconnect_rule: "Invalidate local state and create a new epoch; no cross-session sequence comparison."
+    adapter_rule: "Treat each message as observed depth data only; do not assume delta/full-replacement semantics without evidence."
+    confidence: "high for the captured raw /ws array shape; official raw /ws depth schema and state synchronization semantics remain unverified"
+  - record_id: "wallex.udf.history.candle-volume.v1"
+    endpoint: "GET https://api.wallex.ir/v1/udf/history"
+    channel_or_topic: "symbol + resolution + from/to"
+    message_type: "OHLCV history response"
+    field_contract:
+      fields: ["s", "t", "o", "h", "l", "c", "v"]
+      volume_field: "v"
+      volume_unit_and_aggregation: "unknown; exact 2x discrepancy against sampled public trade quantity remains unresolved"
+    claims:
+      equivalent_to_sum_of_public_trade_quantity: "not established"
+      normalized_factor: "none"
+      volume_feature_acceptance: false
+    adapter_rule: "Preserve source v exactly; no divide-by-two or other normalization without authoritative written semantics and complete hash-pinned replay evidence."
+    confidence: "high that v is present; low/unknown for its unit and aggregation semantics"
+sources:
+  - url: "https://developers.wallex.ir/socket/trade"
+    source_kind: "primary"
+    note: 'Official developer page documents wss://api.wallex.ir/ws, JSON subscribe frame ["subscribe", {"channel": "MARKET@trade"}], and trade fields isBuyOrder/quantity/price/timestamp.'
+  - url: "https://developers.wallex.ir/socket"
+    source_kind: "primary"
+    note: "Official raw-WebSocket overview documents connection lifetime limits and server PING/client PONG behavior; exact control-frame wire payload remains unverified in this registry."
+  - url: "https://api-docs.wallex.ir/"
+    source_kind: "primary-legacy"
+    note: "Legacy reference describes Socket.IO v2.5-compatible usage and Broadcaster events. Its endpoint differs from the newer official raw-WebSocket page; do not conflate the two wire protocols."
+known_limitations:
+  - "The legacy Socket.IO route returned HTTP 503 from the observation host at the pinned capture time; raw /ws is separately documented and was live-observed."
+  - "Live samples establish endpoint reachability and observed payload shape, not delivery completeness, ordering, replay, or trade identity guarantees."
+  - "The current official raw-WebSocket overview documents a server PING every 20 seconds, a PONG response that extends connection lifetime, and a maximum of 100 PONGs; the exact control-frame wire shape is not captured in the pinned short observations. Long-running production use must not be enabled until this control contract is verified and tested."
+  - "The public trade REST endpoint returned a bounded latest-trades sample and is not a complete historical ledger."
+  - "No authoritative explanation for the candle volume factor-of-two discrepancy has been obtained."

@@ -1,0 +1,44 @@
+{
+  "account_mutations": false,
+  "all_stale_injections_rejected": true,
+  "captured_at_utc": "2026-10-18T17:27:21.852070+00:00",
+  "channels": [
+    "buyDepth",
+    "sellDepth"
+  ],
+  "credentials_used": false,
+  "endpoint": "wss://api.wallex.ir/ws",
+  "interpretation": "Bounded read-only observation only. Prior-epoch frames are injected through the collector API after a newer epoch is current. This does not prove the exchange delivered delayed frames or establish trade completeness, sequence semantics, or volume units.",
+  "orders_sent": false,
+  "raw_jsonl_path": "wallex_controlled_observation_20261018.jsonl",
+  "raw_jsonl_sha256": "c8b53ef835f6949f3ffc695b8e97b68cde2d18e509669fce93c3616f8e5104fc",
+  "runtime_activated": false,
+  "schema": "HES_WALLEX_BOUNDED_OBSERVATION_V1",
+  "server_session_ids_distinct": true,
+  "session_count": 2,
+  "session_seconds": 2.0,
+  "sessions": [
+    {
+      "accepted_event_count": 2,
+      "epoch": 1,
+      "server_sid": "d7e7dce5-126f-4f19-99c2-1e29a4a33904"
+    },
+    {
+      "accepted_event_count": 6,
+      "epoch": 2,
+      "server_sid": "457ff6a2-060a-4a7d-a071-0e36c3a9b796"
+    }
+  ],
+  "source_commit": "56df29535d638661d6e2ee0f1fa3e993a0a22168",
+  "stale_frame_injections": [
+    {
+      "accepted": false,
+      "after_current_epoch": 2,
+      "prior_epoch": 1,
+      "raw_sha256": "0a856bea0a2010e90c8f537ff7228718af60ec2efff3edbee6e05c8d558a1482",
+      "source": "captured_prior_session_frame"
+    }
+  ],
+  "symbol": "BTCUSDT",
+  "total_accepted_events": 8
+}
