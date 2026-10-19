@@ -35,11 +35,12 @@ class Candle15m:
     low: Decimal
     close: Decimal
     volume: Decimal
-    trade_count: int
-    first_sequence: int
-    last_sequence: int
-    source_first_observed_at: datetime
-    source_last_observed_at: datetime
+    # Native OHLCV candles do not expose trade-level metadata; None means unknown.
+    trade_count: int | None
+    first_sequence: int | None
+    last_sequence: int | None
+    source_first_observed_at: datetime | None
+    source_last_observed_at: datetime | None
 
 
 @dataclass(frozen=True)
