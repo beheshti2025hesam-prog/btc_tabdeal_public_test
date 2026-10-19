@@ -132,6 +132,12 @@ def normalize_native_candles(
     for row in rows:
         if getattr(row, "symbol", None) != identity.symbol or _timeframe_seconds(row) != timeframe:
             raise ValueError("mixed_symbol_or_timeframe")
+        row_market = getattr(row, "market", None)
+        if row_market is not None and str(row_market).strip().lower() != identity.market:
+            raise ValueError("mixed_market")
+        row_source = getattr(row, "source", None)
+        if row_source is not None and str(row_source) != identity.source:
+            raise ValueError("mixed_source")
         start = _read_time(row, "open_time", "open_time_ms", "start")
         end = _read_time(row, "close_time", "close_time_ms", "end")
         if end <= start:
@@ -143,7 +149,7 @@ def normalize_native_candles(
         seen.add(start)
         previous_start = start
         explicitly_closed = getattr(row, "is_closed", None)
-        if end >= cutoff or explicitly_closed is False:
+        if explicitly_closed is False or end > cutoff or (explicitly_closed is None and end >= cutoff):
             discarded_open += 1
             continue
         op = _decimal(getattr(row, "open", None), "open")
