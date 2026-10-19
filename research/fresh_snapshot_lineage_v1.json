@@ -1,0 +1,29 @@
+{
+  "artifact": "HES Trade Agent Fresh Snapshot Lineage Lock v1",
+  "status": "locked-for-controlled-evaluation",
+  "source": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "source_ref": "main",
+    "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+    "trades_blob_sha": "b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+  },
+  "frozen_boundary": {
+    "first_independent_sequence": 38710284291,
+    "first_independent_timestamp_utc": "2026-09-28T19:08:56.951Z"
+  },
+  "lineage_rule": {
+    "sequence_monotonicity_required": true,
+    "timestamp_monotonicity_by_sequence_required": true,
+    "event_id_uniqueness_required": true,
+    "frozen_evidence_reuse": false,
+    "construction_data": "fresh out-of-evidence data only"
+  },
+  "evaluation_boundary": {
+    "candidate_evaluation_allowed": true,
+    "signal_creation": false,
+    "signal_validation": false,
+    "promotion_decision": false,
+    "live_execution": false
+  },
+  "note": "This lock is aligned with the Boundary-Proof fresh snapshot lineage already registered by PR #112. Snapshot head statistics are intentionally derived by the separate raw-replay gate from the immutable blob; they are not duplicated as manually copied constants here."
+}
