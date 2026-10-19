@@ -23,8 +23,8 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     entries = [
         {"evidence_ref": ref, "evidence_type": kind,
          "source_scope": "tabdeal-futures:BTC_USDT", "evidence_path": artifact.name,
-         "evidence_sha256": artifact_sha, "review_status": "INDEPENDENTLY_REVIEWED",
-         "review_record_ref": "test-fixture:independent-review"}
+         "evidence_sha256": artifact_sha, "review_status": "PAIR_AUDITED_OWNER_ACCEPTED",
+         "review_record_ref": "test-fixture:pair-audit-owner-acceptance"}
         for ref, kind in rows
     ]
     payload = {"schema": "hes_source_evidence_registry_v1", "status": "REVIEWED_PINNED",
