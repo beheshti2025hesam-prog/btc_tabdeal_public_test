@@ -24,6 +24,17 @@ class EvidenceSnapshot:
         return cls(project_name, owner, source_commit, normalized, digest)
 
     def verify(self) -> bool:
+        if not self.project_name.strip() or not self.owner.strip() or not self.source_commit.strip():
+            return False
+        if not self.evidence or any(not key.strip() or not isinstance(value, bool) for key, value in self.evidence):
+            return False
+        if len(self.digest) != 64:
+            return False
+        try:
+            int(self.digest, 16)
+        except ValueError:
+            return False
+
         payload = json.dumps(
             {
                 "project_name": self.project_name,
