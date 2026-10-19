@@ -1,0 +1,62 @@
+{
+  "schema": "hes.g2_effective_evidence_synthesis.v1",
+  "status": "RESEARCH_ONLY_FAIL_CLOSED",
+  "population": {
+    "current_winner": 28,
+    "prior_survivor": 14,
+    "total": 42,
+    "exact_cross_lineage_matches": 0
+  },
+  "locked_protocol": {
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "gross_threshold_bps": 14
+  },
+  "independence_diagnostics": {
+    "deep_temporal_sequence_audit": {
+      "current_28_at_60min": {
+        "largest_cluster": 13,
+        "effective_cluster_count": 4.0833
+      },
+      "prior_14_at_60min": {
+        "largest_cluster": 3,
+        "effective_cluster_count": 7.5385
+      },
+      "cross_lineage_nearest_time_hours": 113.88333333333334,
+      "cross_lineage_nearest_sequence_gap": 1285244400,
+      "same_lineage_sequence_interval_overlaps": 0
+    },
+    "locked_concentration_sensitivity": {
+      "current_28_effective_cluster_count_range": [1.7422222222222221, 28.0],
+      "current_28_effective_cluster_ratio_range": [0.06222222222222222, 1.0],
+      "current_28_largest_cluster_share_range": [0.03571428571428571, 0.75],
+      "prior_14_effective_cluster_count_range": [2.227272727272727, 14.0],
+      "prior_14_effective_cluster_ratio_range": [0.1590909090909091, 1.0],
+      "prior_14_largest_cluster_share_range": [0.07142857142857142, 0.6428571428571429]
+    }
+  },
+  "effective_evidence_readout": {
+    "headline": "The nominal 28 Winner observations cannot be treated as 28 independent confirmations.",
+    "robust_direction": "Temporal/cluster concentration is materially stronger in the current 28 than in the prior 14 under the locked sensitivity analysis.",
+    "conservative_read": "At the most concentrated locked sensitivity point, the current 28 collapse to 1.7422 effective clusters and a 75% largest-cluster share.",
+    "important_boundary": "This is a dependence/concentration diagnostic, not a replacement sample size and not a claim that exactly 1.7422 independent trades exist.",
+    "cross_lineage": "The current 28 and prior 14 remain temporally and sequentially separated; the concern is within-lineage dependence, not cross-lineage identity contamination."
+  },
+  "decision": {
+    "g2_status": "DEPENDENCE_RISK_CONFIRMED",
+    "effective_evidence_sufficient_for_promotion": false,
+    "promotion": "BLOCKED",
+    "next_gate": "Forward Data Capacity -> G6 Closure Condition -> Evidence Gate"
+  },
+  "claim_boundary": {
+    "records_deleted": false,
+    "winner_reselected": false,
+    "threshold_changed": false,
+    "protocol_changed": false,
+    "sensitivity_point_selected_as_winner": false,
+    "independence_proven": false,
+    "predictive_validity_proven": false
+  }
+}
