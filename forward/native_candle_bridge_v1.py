@@ -1,9 +1,9 @@
-"A single, fail-closed boundary from native venue OHLCV into HES features.
+"""A single, fail-closed boundary from native venue OHLCV into HES features.
 
 This module does not fetch data, aggregate trades, infer sequence semantics, or
 execute trades. Venue adapters remain responsible for transport and evidence.
 Decimal values are retained until the explicit legacy feature-engine boundary.
-"
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
