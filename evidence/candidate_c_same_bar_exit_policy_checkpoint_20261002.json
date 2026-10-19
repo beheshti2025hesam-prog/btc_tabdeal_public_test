@@ -1,0 +1,44 @@
+{
+  "artifact_id": "CANDIDATE_C_SAME_BAR_EXIT_POLICY_EVIDENCE_CHECKPOINT_2026-10-02",
+  "status": "OOS_BLOCKED_PENDING_EXPLICIT_SAME_BAR_EXIT_POLICY",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "candidate_version": "C-v1",
+  "research_only": true,
+  "oos_started": false,
+  "production_signal": false,
+  "promotion": false,
+  "live_execution": false,
+  "wallet_operations": false,
+  "rule_a_reuse": false,
+  "candidate_b_reuse": false,
+  "data_engine_v1_sync": false,
+  "source": {
+    "workflow_run_id": 36921087827,
+    "workflow_run_number": 17,
+    "tested_commit": "1650515a2f0c4ca262b1a12bb415d07d8aea5fa3",
+    "merge_ref": "d43e01cfcfb99bfaefd2d944331fbefe38dd1bc5",
+    "audit_artifact": "CANDIDATE_C_PRE_OOS_PATH_AMBIGUITY_AUDIT_2026-10-01"
+  },
+  "findings": {
+    "bars_1m": 4977,
+    "candidate_signals_scanned": 552,
+    "ambiguous_same_bar_sl_tp_count": 7,
+    "holding_window_bars": 30,
+    "ambiguity_scope": "full eligible holding path from entry through the frozen 30-bar maximum holding window",
+    "interpretation": "OHLC alone does not establish whether SL or TP was touched first within an ambiguous bar."
+  },
+  "decision_boundary": {
+    "candidate_definition_unchanged": true,
+    "evaluator_does_not_start_oos": true,
+    "oos_must_remain_blocked": true,
+    "policy_must_be_explicitly_selected_and_frozen_before_oos": true,
+    "no_silent_precedence": true
+  },
+  "policy_resolution_options": [
+    "Reconstruct finer-granularity raw trade path where feasible and use it as evidence for touch ordering.",
+    "Freeze a deterministic conservative/worst-case same-bar precedence.",
+    "Freeze a deterministic target-first/optimistic precedence.",
+    "Freeze another deterministic precedence rule with explicit documented rationale."
+  ],
+  "note": "This checkpoint records an evidence boundary, not a policy choice. No same-bar exit precedence is selected by this artifact."
+}
