@@ -168,3 +168,11 @@ def test_inconsistent_candle_duration_is_rejected():
     with pytest.raises(ValueError, match="candle_duration_mismatch"):
         normalize_native_candles([candle], venue="wallex",
                                  market="spot", as_of=AS_OF)
+
+
+def test_wallex_spot_adapter_cannot_be_relabelled_as_futures():
+    start = AS_OF - timedelta(minutes=3)
+    with pytest.raises(ValueError, match="source_market_mismatch"):
+        normalize_native_candles([wallex(start)], venue="wallex",
+                                 market="usdm_futures", as_of=AS_OF)
+
