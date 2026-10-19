@@ -1,0 +1,116 @@
+{
+  "artifact": "HES Trade Agent — 1049 Observation Feature Snapshot Lineage Check v1",
+  "status": "BLOCKED_LINEAGE_COVERAGE",
+  "purpose": "Fail-closed verification before constructing the exact locked 1,049-row Observation Feature Snapshot.",
+  "reference_population": {
+    "source_run_id": 36489452534,
+    "evaluated_oos": 1049,
+    "folds": 8,
+    "train_size": 800,
+    "test_size": 400,
+    "step_size": 400,
+    "embargo_size": 0,
+    "expected_fold_evaluated": [
+      120,
+      132,
+      135,
+      137,
+      138,
+      127,
+      126,
+      134
+    ]
+  },
+  "source": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "source_commit": "583dfeb3e7cd09b2cdfdbabcd18604d3d6e608f6",
+    "trades_blob_sha": "b0e6667df6c9bfcbffffd04229702a9c6c694964",
+    "raw_rows": 108806,
+    "min_sequence": 38212993838,
+    "max_sequence": 39334652373,
+    "min_timestamp_utc": "2026-09-26T23:20:53.398Z",
+    "max_timestamp_utc": "2026-10-01T02:43:19.465Z",
+    "duplicate_sequence": 0,
+    "sequence_backward": 0,
+    "timestamp_backward_by_sequence": 0
+  },
+  "reference_fold_windows": [
+    {
+      "fold": 0,
+      "test_start": "2026-09-24T02:27:00Z",
+      "test_end": "2026-09-24T10:45:00Z",
+      "expected_evaluated": 120,
+      "source_available_evaluated": 0
+    },
+    {
+      "fold": 1,
+      "test_start": "2026-09-24T10:46:00Z",
+      "test_end": "2026-09-24T21:26:00Z",
+      "expected_evaluated": 132,
+      "source_available_evaluated": 0
+    },
+    {
+      "fold": 2,
+      "test_start": "2026-09-24T21:27:00Z",
+      "test_end": "2026-09-25T07:26:00Z",
+      "expected_evaluated": 135,
+      "source_available_evaluated": 0
+    },
+    {
+      "fold": 3,
+      "test_start": "2026-09-25T07:27:00Z",
+      "test_end": "2026-09-25T16:26:00Z",
+      "expected_evaluated": 137,
+      "source_available_evaluated": 0
+    },
+    {
+      "fold": 4,
+      "test_start": "2026-09-25T16:27:00Z",
+      "test_end": "2026-09-26T02:51:00Z",
+      "expected_evaluated": 138,
+      "source_available_evaluated": 0
+    },
+    {
+      "fold": 5,
+      "test_start": "2026-09-26T02:52:00Z",
+      "test_end": "2026-09-26T10:04:00Z",
+      "expected_evaluated": 127,
+      "source_available_evaluated": 0
+    },
+    {
+      "fold": 6,
+      "test_start": "2026-09-26T10:05:00Z",
+      "test_end": "2026-09-27T00:54:00Z",
+      "expected_evaluated": 126,
+      "source_available_evaluated": 29
+    },
+    {
+      "fold": 7,
+      "test_start": "2026-09-27T00:55:00Z",
+      "test_end": "2026-09-27T17:30:00Z",
+      "expected_evaluated": 134,
+      "source_available_evaluated": 134
+    }
+  ],
+  "reconciliation": {
+    "reference_population": 1049,
+    "source_time_window_available_evaluated": 163,
+    "missing_reference_population": 886,
+    "exact_1049_reconstructible": false
+  },
+  "gate_boundary": {
+    "snapshot_integrity": "PASS",
+    "raw_replay": "PASS",
+    "exact_1049_snapshot": "BLOCKED",
+    "candidate_performance_study": "BLOCKED",
+    "signal_research_review": "BLOCKED"
+  },
+  "reason": "The locked 1,049 population belongs to test windows 2026-09-24 through 2026-09-27. The requested source blob begins at 2026-09-26T23:20:53.398Z, so 886 of the 1,049 reference observations are outside the immutable source coverage. Constructing replacement rows would change the locked population and violate lineage.",
+  "claim_boundary": {
+    "signal_created": false,
+    "threshold_tuned": false,
+    "model_fitting": false,
+    "promotion_decision": false,
+    "live_execution": false
+  }
+}
