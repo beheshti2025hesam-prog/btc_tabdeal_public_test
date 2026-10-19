@@ -1,0 +1,22 @@
+name: Collector Continuity Contract Audit
+
+on:
+  push:
+    branches:
+      - "audit/collector-continuity-contract"
+  pull_request:
+    paths:
+      - ".github/workflows/run.yml"
+      - "tests/collector/test_schedule_contract.py"
+
+jobs:
+  collector-continuity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: PYTHONPATH=. pytest -q tests/collector/test_schedule_contract.py
