@@ -11,5 +11,7 @@
   "historical_inputs_allowed": false,
   "future_outcomes_allowed": false,
   "collector_autostart": false,
-  "fail_closed": true
+  "fail_closed": true,
+  "sequence_contract_evidence_ref_must_match_reviewed_pin": true,
+  "reviewed_sequence_contract_evidence_ref": null
 }

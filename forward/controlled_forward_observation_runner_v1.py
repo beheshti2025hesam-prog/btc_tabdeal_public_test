@@ -16,6 +16,14 @@ from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosti
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
 
 
+# Intentionally unset until authoritative upstream documentation or written
+# exchange confirmation proves the semantics of trade.sequence for this exact
+# feed. A caller-supplied boolean plus an arbitrary non-empty string is not
+# evidence. Populate this constant only in a reviewed change that cites the
+# verified, immutable evidence artifact.
+VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF: str | None = None
+
+
 @dataclass(frozen=True)
 class ControlledObservationRunnerResult:
     run_id: str
@@ -54,8 +62,16 @@ class ControlledForwardObservationRunnerV1:
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
-        self.sequence_contract_verified = sequence_contract_verified is True and bool(
-            isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
+        # Fail closed unless the reference matches the reviewed, repository-pinned
+        # evidence reference. The default is deliberately None: no authoritative
+        # evidence currently establishes this feed's semantics.
+        approved_ref = VERIFIED_UPSTREAM_SEQUENCE_CONTRACT_EVIDENCE_REF
+        self.sequence_contract_verified = (
+            sequence_contract_verified is True
+            and isinstance(approved_ref, str)
+            and bool(approved_ref.strip())
+            and isinstance(sequence_contract_evidence_ref, str)
+            and sequence_contract_evidence_ref == approved_ref
         )
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
