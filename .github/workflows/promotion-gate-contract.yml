@@ -1,0 +1,25 @@
+name: Promotion Gate Contract Validation
+
+on:
+  push:
+    branches:
+      - "main"
+      - "promotion-gate-contract-v1"
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  promotion-gate-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: pytest -q tests/evaluation/test_promotion.py tests/evaluation/test_registry.py tests/evaluation/test_boundary.py
+        env:
+          PYTHONPATH: .
