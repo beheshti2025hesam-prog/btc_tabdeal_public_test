@@ -28,3 +28,8 @@ Allow the existing forward-only Market Structure observer to consume a normalize
 - Source identity is carried with the payload, and gaps/open-candle counts remain explicit. No candle is synthesized.
 - Volume is omitted by default. Requesting Wallex UDF volume fails closed while its 2x discrepancy remains unresolved; any opt-in volume is explicitly labeled raw source-reported.
 - Contract tests use pinned parser implementations and no live market requests. The rendered chart, approved Tabdeal source, and independent visual parity are still not established.
+
+## Volume semantics safety
+- The core feature-engine Candle contract permits `volume=None` so price-only features can continue without inventing a zero.
+- `to_feature_candles()` omits native volume by default. Explicit `include_volume=True` is required for source-reported volume, and Wallex UDF volume is rejected while its 2x discrepancy remains unresolved.
+- `to_structure_candles()` is price-only and sets structure-input volume to `None`; exact Decimal volume remains available only in the normalized native batch for evidence. This prevents unverified volume from silently entering the legacy feature or structure path.
