@@ -1,4 +1,4 @@
-"""Fail-closed verification of independently reviewed source evidence."""
+"""Fail-closed verification of source evidence and pair-audit provenance."""
 from __future__ import annotations
 import hashlib
 import json
