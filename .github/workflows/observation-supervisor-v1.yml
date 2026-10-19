@@ -18,7 +18,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact PR head commit (or dispatched commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Assert checkout is the exact requested SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          printf 'EXACT_CHECKOUT_SHA=%s\\n' "$actual"
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run isolated supervisor tests and static safety guardrails
