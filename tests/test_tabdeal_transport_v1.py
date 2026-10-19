@@ -44,15 +44,22 @@ def test_transport_rejects_non_positive_runtime():
 def test_transport_budget_closes_socket():
     started=threading.Event(); closed=threading.Event()
     class BlockingWS(FakeWS):
-        def close(self): super().close(); closed.set()
+        def close(self):
+            super().close()
+            # Simulate a callback racing with asynchronous socket shutdown.
+            self.on_message(self, VALID_MESSAGE)
+            closed.set()
         def run_forever(self, **kwargs):
             self.kwargs=kwargs; self.on_open(self); started.set(); closed.wait(timeout=1.0)
     holder={}
     def factory(*args, **kwargs):
         holder["ws"]=BlockingWS(*args, **kwargs); return holder["ws"]
-    t=TabdealReadOnlyTransportV1(as_of_provider=lambda:ASOF,on_record=lambda _:None,ws_factory=factory,max_runtime_seconds=0.02)
+    records=[]
+    t=TabdealReadOnlyTransportV1(as_of_provider=lambda:ASOF,on_record=records.append,ws_factory=factory,max_runtime_seconds=0.02)
     t.run_once()
     assert started.is_set(); assert closed.is_set(); assert holder["ws"].closed is True; assert t.closed_by_budget is True
+    assert records == []
+    assert t.stale_session_frames == 1
 
 def test_transport_emits_sanitized_frame_fingerprint_for_normalized_trade():
     message = json.dumps({
