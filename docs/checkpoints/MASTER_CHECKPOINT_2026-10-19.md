@@ -104,3 +104,17 @@ This marker records the exact stopping point requested by the project owner. It 
 - **Still open:** Tabdeal chart-feed/parity verification; eligible independent reviews for PRs #245, #327, and #328; authoritative explanation of Wallex's observed 2× UDF-volume discrepancy before any volume-dependent feature is enabled.
 - **Hard safety boundary:** `HOLD / NO_TRADE_ONLY`. No production activation, deployment, account mutation, orders, or trading without the applicable evidence and independent review.
 - **Project DNA reminder:** reuse existing capability first; integrate/optimize only a proven gap. GitHub is technical truth, this Master Checkpoint is the project map, and chat is the conversation log.
+
+
+## Follow-up execution review — 2026-10-19 15:20 UTC+03:30
+
+### Reuse-first native candle integration review
+- Reviewed the existing stacked implementation rather than creating another adapter or candle engine:
+  - PR #329 bridge head `70a3949a2b512dead8b00ec57c92c91d2c103862`: its returned Actions runs completed successfully; the bridge reuses the existing candle model and native adapter-shaped contract.
+  - PR #330 adapter-to-bridge contract head `ec76f51dc6511603ad429e21ebea874d51238cd0`: exact-head run `39238891378` succeeded. The PR records 6 offline parser-to-bridge tests against pinned Wallex and Binance adapter revisions.
+  - PR #331 native candle-to-structure bridge head `948ff5fb267b62a732fbcf5b54c925215e5373cb`: exact-head run `39241690905` succeeded. It reuses the existing causal structure observer and produces a Lightweight Charts-compatible OHLC projection; it is not a frontend, HTTP server, or completed TradingView integration.
+- Confirmed roadmap gate `docs/roadmap/TRADINGVIEW_COMPARABLE_CHART_DATAFEED_GATE_V1_2026-10-19.md` is already present on PR #331. Do not create another chart renderer or another adapter merely to duplicate these components.
+- The official Tabdeal docs and official SDK surface reviewed in this pass still do not document a native OHLCV/kline endpoint. The recorded candidate route probes returned 404 for the tested symbol forms. This does not prove the website chart has no private datafeed; the actual chart network contract remains the next unresolved source-discovery task.
+- No sequence dependency is demonstrated for ordinary OHLCV availability. Do not expand or synchronize PR #245 just to unblock candle/chart work.
+- No repository runtime code, live collector, account, deployment, or trading behavior was changed by this review. No new live network probe was run in this pass.
+- Status remains `HOLD / NO_TRADE_ONLY`. Native adapter bridge tests passing do not establish approved production venue, Tabdeal chart parity, rendered-chart parity, or release authorization.
