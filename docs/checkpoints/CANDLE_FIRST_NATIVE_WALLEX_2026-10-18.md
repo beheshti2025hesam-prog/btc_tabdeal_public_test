@@ -86,3 +86,16 @@ The evidence-bounded scope is now explicit: **native candle data-path parity is 
 - Final reviewed head at this checkpoint: `82c2810054660016bdcaea8625dd5dde213ea89a`; targeted tests 33 passed, full repository tests 474 passed; live read-only probe passed with 10 candles, no gaps, latest closed age 56.75 seconds and estimated HTTP Date offset −0.84 seconds.
 - Only live-verified resolutions `1` and `60` are enabled; other resolutions fail closed. Sequence IDs are not used for candle construction or timestamp alignment.
 - Status remains `HOLD / NO_TRADE_ONLY` for execution and volume-dependent strategy promotion. This adapter/evidence work does not authorize collector activation, deployment, account changes, or trading.
+
+
+## Tabdeal public-trade volume cross-check — 2026-10-19 15:37 UTC
+
+Evidence: [`evidence/wallex_tabdeal_volume_crosscheck_20261019.md`](../../evidence/wallex_tabdeal_volume_crosscheck_20261019.md).
+
+- Read-only requests to Wallex UDF 1m candles, Tabdeal Spot public trades (`/r/api/v1/trades`), Tabdeal Spot market metadata, and Tabdeal server time all returned HTTP 200. Tabdeal market metadata confirms `BTCUSDT` / `BTC_USDT` is Spot `TRADING`.
+- Tabdeal returned 1,000 recent public trades, but the 10-minute overlap checked had only two returned trades in 15:19Z and none in the other nine minutes. Cross-venue volumes are not expected to match; this sparse sample cannot explain Wallex volume semantics.
+- Four likely Tabdeal kline paths returned HTTP 404 and are not documented as supported by the public docs reviewed. No kline adapter was invented or added.
+- Tabdeal `quoteQty` equalled `price * qty` in only 32/1,000 rows; do not use `quoteQty` as a reliable quote-volume comparator absent contract evidence. Base `qty` was used for trade aggregation.
+- Tabdeal serverTime was about +4.072s relative to the VPS host clock in this capture. Keep timestamps timezone-aware UTC; do not hard-code Iran/New York offsets.
+- A fresh same-venue Wallex reconciliation using its 50-row latest-trades response found exact 2x candle `v` / summed `quantity` in seven complete minute buckets. The earliest bucket at the 50-row truncation boundary was partial (~4.004x), so it is excluded from complete-bucket conclusions. The 2x discrepancy remains observed, not explained.
+- Decision unchanged: preserve Wallex UDF `v` verbatim for chart parity; do not divide by two. Volume-dependent strategy remains gated; `HOLD / NO_TRADE_ONLY`; PR #320 Draft/unmerged; no sequence workaround, new adapter, deployment, collector activation, account changes, or trading.
