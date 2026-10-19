@@ -30,7 +30,7 @@ The chart mapper must remain a thin presentation boundary. It must not fetch fro
 
 - **Wallex:** the 2x volume discrepancy is unresolved. Price/OHLC charting may proceed only with source identity visible; volume-based indicators, signals, and comparisons remain blocked or explicitly marked unverified. Daily 1D remains deferred pending timezone/boundary verification.
 - **Binance:** Spot and USDⓈ-M Futures are distinct identities. A Binance chart is not evidence of Tabdeal Futures parity.
-- **Tabdeal Futures:** official native OHLCV endpoint/schema and clock evidence remain unverified. Do not substitute Binance silently; capture exact endpoint, parameters, raw response bytes, retrieval timestamps, headers/status, and SHA-256 before claiming parity.
+- **Tabdeal Futures:** official docs confirm the FAPI family and document public `/r/fapi/v1/time`, `/r/fapi/v1/exchangeInfo`, and `/r/fapi/v1/depth`; however, the published docs search did not identify a kline/candle endpoint. A direct live endpoint read was not verifiable through the current web retrieval path. Therefore the exact native OHLCV endpoint/schema and clock-offset evidence remain unverified—do not infer `/klines` solely from Binance compatibility. Do not substitute Binance silently; capture the exact endpoint, parameters, raw response bytes, retrieval timestamps, headers/status, and SHA-256 before claiming parity. Official docs: https://docs.tabdeal.org/ (FAPI section).
 - **All sources:** retain raw response evidence and retrieval timestamps; no collector activation, evidence-registry pin, deployment, or live orders as part of chart work.
 
 ## Acceptance gates
