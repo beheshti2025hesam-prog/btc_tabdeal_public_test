@@ -25,6 +25,12 @@ Repository default branch inspected at `4956cf519c445edd004fdd4e763bdb3347a7ada9
 
 The combined commit-status endpoint returned no status entries for these heads; the counts above refer to completed GitHub Actions runs returned by the workflow-runs endpoint. For #328, the exact-head Forward Integration job completed successfully; the separately named Wallex session-isolation workflow run 39211895824 is from an earlier commit and is not misrepresented as exact-head evidence.
 
+## Latest verified rerun (2026-10-19)
+- On PR #320 exact evidence commit `b490611636cca6d133ba9f9cc08d5d9d6333628b`, reran the read-only live probe and deterministic adapter tests. Both jobs completed successfully.
+- Fresh probe at 08:48 UTC: `GET /v1/udf/history?symbol=BTCUSDT&resolution=1`; 9 candles covering 08:39–08:47 UTC, latest closed candle age 17.13 seconds, no observed timestamp gaps, one request attempt.
+- Raw response SHA-256: `27be8fc0917be0f94f83c8be33542a7db7c071eefe8917ec2d74fdfaee89998d`. Evidence artifact ID `12172749525`; artifact SHA-256 `fbb98056b12d4c3e6bae1034e13f466791f3034a725e084b15b0f69cd402f462`.
+- Interpretation remains narrow: current public endpoint reachability and closed-candle delivery only. It does not establish a production freshness SLA, independent rendered-pixel parity, volume semantics, or trading readiness.
+
 ## Native-candle-first decision update (2026-10-19)
 - Repository audit found an existing read-only native Wallex OHLCV adapter in PR #320 at exact head `b490611636cca6d133ba9f9cc08d5d9d6333628b`, using the official `GET /v1/udf/history` endpoint and the same UDF-style datafeed that the inspected Wallex chart frontend calls for `getBars`.
 - PR #320's exact-head GitHub Actions list returned 27 completed runs with success and zero reported failures, including `Native Wallex OHLCV Candle-First Verification` run 39147253717. This is CI evidence, not deployment authorization.
