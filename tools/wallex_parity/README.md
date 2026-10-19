@@ -43,3 +43,17 @@ Run tests:
 ```sh
 python3 -m unittest discover -s tests -p 'test_wallex_parity_core.py' -v
 ```
+
+## Browser-backed Wallex chart/API probe
+
+The separate `tools/wallex_parity/capture_wallex_chart.py` script opens the official Wallex BTCUSDT chart in headless Chromium, retains a screenshot and the raw UDF history response observed by the browser, then issues a separate direct HTTP request to the exact same public request URL. It compares only common closed 1-minute candles using exact Decimal values and timestamps. It records raw SHA-256 hashes and an explicit status in `artifacts/wallex-chart-parity/manifest.json`.
+
+Run in an environment with Playwright Chromium installed:
+
+```sh
+python -m pip install playwright
+python -m playwright install chromium
+python tools/wallex_parity/capture_wallex_chart.py
+```
+
+A passing result proves that the chart page's observed UDF datafeed and a separate direct request returned equal values for the compared closed candles. It does **not** prove independent chart-vs-exchange volume semantics: the chart and API may share the same backend. It does not compare pixel values or make `/v1/trades` complete. Any 2x volume relationship is reported only as an observation and must not be corrected without authoritative evidence. The workflow uploads raw captures, screenshot, and manifest as a 90-day artifact.
