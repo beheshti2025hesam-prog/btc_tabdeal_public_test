@@ -174,7 +174,7 @@ async def main() -> int:
         "read_only": True, "no_api_key_used": True,
         "no_account_or_order_endpoint_called": True,
         "chart_url": CHART_URL, "navigation_error": navigation_error,
-        "canvas_count": canvas_count, "screenshot_error": screenshot_error, "screenshot_sha256": (digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()) if (OUT / "wallex-chart-BTCUSDT.png").exists() else None),
+        "canvas_count": canvas_count, "screenshot_error": screenshot_error,\n        "screenshot_captured": (OUT / "wallex-chart-BTCUSDT.png").exists(),\n        "screenshot_sha256": (digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()) if (OUT / "wallex-chart-BTCUSDT.png").exists() else None),
         "screenshot_bytes": (OUT / "wallex-chart-BTCUSDT.png").stat().st_size,
         "screenshot_path": "wallex-chart-BTCUSDT.png", "browser_history_request_url": browser_url,
         "direct_api_status": direct_status, "direct_api_date_header": direct_date,
@@ -182,8 +182,8 @@ async def main() -> int:
         "direct_raw_sha256": digest(direct_raw), "direct_raw_bytes": len(direct_raw),
         "browser_closed_count": len(browser_rows), "direct_closed_count": len(direct_rows),
         "comparison_report": "comparison.json",
-        "comparison_pass": canvas_count > 0 and comparison["pass"] and comparison["matched_timestamp_count"] >= 3,
-        "status": "PASS_CAPTURED_FEED_EQUALS_DIRECT_API" if canvas_count > 0 and comparison["pass"] and comparison["matched_timestamp_count"] >= 3 else "BLOCKED_PARITY_NOT_ESTABLISHED",
+        "comparison_pass": (OUT / "wallex-chart-BTCUSDT.png").exists() and canvas_count > 0 and comparison["pass"] and comparison["matched_timestamp_count"] >= 3,
+        "status": "PASS_CAPTURED_FEED_EQUALS_DIRECT_API" if (OUT / "wallex-chart-BTCUSDT.png").exists() and canvas_count > 0 and comparison["pass"] and comparison["matched_timestamp_count"] >= 3 else "BLOCKED_PARITY_NOT_ESTABLISHED",
         "interpretation": "The core comparator compares the chart page's observed UDF response with a separate direct request to the exact same URL. This verifies the chart datafeed path only; the chart and API may share a backend, so it does not establish independent volume semantics or pixel-level value parity.",
     }
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
