@@ -35,6 +35,8 @@ The combined commit-status endpoint returned no status entries for these heads; 
 - No independent human review is recorded for PRs #245, #327, or #328.
 - PR #245 is 19 commits behind current main and must be synchronized; then rerun exact-head tests and review the resulting diff.
 - Production evidence-registry pin remains unset/empty; source-completeness and ordering/recovery semantics for Tabdeal `trade.sequence` remain unproven.
+- Additional source inspection found `SourceEvidenceRegistryV1.resolve()` currently raises `SOURCE_EVIDENCE_REVIEW_PROVENANCE_UNVERIFIABLE` unconditionally after byte/scope checks; there is no authenticated review-record verifier/happy path. This is fail-closed (safe), but means a future registry pin alone cannot enable acceptance. Do not remove the guard without implementing and independently reviewing authenticated reviewer provenance.
+- The SEQ-001…016 ledger on the research branch marks only some vectors mapped, many blocked, and scenario-level execution unverified; generic green workflows must not be counted as complete vector coverage.
 - Official Tabdeal native OHLCV endpoint/schema and same-chart parity remain unverified. Binance adapter is not a substitute.
 - Wallex OHLCV research remains blocked for volume-dependent promotion: UDF volume was observed at exactly 2x summed public trade quantities across 99 closed bars; do not halve/normalize without authoritative clarification. Official Socket.IO transport reachability and production collector integration also remain unverified.
 - No production-like crash/restart proof, forward observation acceptance, deployment authorization, or execution authorization is established by these CI runs.
