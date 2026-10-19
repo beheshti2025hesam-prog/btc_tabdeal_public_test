@@ -1,0 +1,113 @@
+name: HES Trade Agent — Controlled Candidate Performance Study v1
+
+on:
+  push:
+    branches:
+      - signal-construction-research-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-controlled-candidate-performance-study-v1
+  cancel-in-progress: false
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate research-only protocol
+        run: |
+          python -m json.tool research/controlled_candidate_performance_study_v1.json >/dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path("research/controlled_candidate_performance_study_v1.json").read_text())
+          assert p["status"]=="research-only"
+          assert p["frozen_evidence_reuse"] is False
+          assert p["candidate_definition"]["threshold_tuning"] is False
+          assert p["candidate_definition"]["model_fitting"] is False
+          assert p["candidate_definition"]["selection_from_E0_E1_winners"] is False
+          assert p["claim_boundary"]["signal_created"] is False
+          assert p["claim_boundary"]["promotion_decision"] is False
+          assert p["claim_boundary"]["live_execution"] is False
+          print("CONTROLLED_CANDIDATE_PROTOCOL_VALID")
+          PY
+
+  study:
+    needs: protocol
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: .
+      HES_FROZEN_CSV: /tmp/hes_fresh_trades.csv
+      FRESH_BLOB_SHA: b296b1c95f075518bea0b56fd11bbf5f0f613a04
+      FRESH_SOURCE_COMMIT: 86631f2522aa74a38cfa21fa28afe8d49fbc5f20
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install research dependencies
+        run: pip install -r requirements.txt
+      - name: Materialize exact locked snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/${FRESH_BLOB_SHA}" > /tmp/fresh_blob.json
+          python - <<'PY'
+          import base64, hashlib, json, os
+          d=json.load(open("/tmp/fresh_blob.json", encoding="utf-8"))
+          expected=os.environ["FRESH_BLOB_SHA"]
+          assert d["sha"] == expected
+          raw=base64.b64decode(d["content"])
+          actual=hashlib.sha1(f"blob {len(raw)}\0".encode()+raw).hexdigest()
+          assert actual == expected
+          open("/tmp/hes_fresh_trades.csv","wb").write(raw)
+          print("FRESH_SNAPSHOT_LOCK_VALID", expected)
+          print("FRESH_SNAPSHOT_SOURCE_COMMIT", os.environ["FRESH_SOURCE_COMMIT"])
+          PY
+      - name: Run registered Candidate Rule A on fresh OOS
+        run: python scripts/candidate_rule_a_performance_study_v1.py
+      - name: Validate Candidate Rule A artifact
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("candidate_rule_a_performance_study_v1.json",encoding="utf-8"))
+          assert d["status"]=="CANDIDATE_RULE_A_PERFORMANCE_STUDY_REVIEW_ONLY"
+          assert d["candidate_id"]=="CANDIDATE_RESEARCH_V1_RULE_A"
+          assert d["lineage"]["snapshot_data_blob_sha"]=="b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+          assert d["lineage"]["snapshot_source_commit"]=="86631f2522aa74a38cfa21fa28afe8d49fbc5f20"
+          assert d["protocol"] == {"train":800,"test":400,"step":400,"folds":8,"shuffle":False,"threshold_tuning":False,"model_fitting":False}
+          assert d["population"]["oos"] == 3200
+          assert d["population"]["long"] + d["population"]["short"] + d["population"]["no_trade"] == 3200
+          assert len(d["folds"]) == 8
+          assert len(d["cost_matrix"]) == 3
+          assert d["claim_boundary"]["signal_created"] is False
+          assert d["claim_boundary"]["promotion_decision"] is False
+          assert d["claim_boundary"]["live_execution"] is False
+          print("CANDIDATE_RULE_A_ARTIFACT_VALID")
+          print(json.dumps({"population":d["population"],"cost_matrix":[{k:r[k] for k in ("transaction_cost_bps_per_side","slippage_bps_per_side","evaluated","wins","losses","total_net_return")} for r in d["cost_matrix"]]},indent=2))
+          PY
+      - name: Upload Candidate Rule A evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-rule-a-performance-study-v1
+          path: candidate_rule_a_performance_study_v1.json
+          if-no-files-found: error
