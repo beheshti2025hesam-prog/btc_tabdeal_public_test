@@ -40,14 +40,26 @@ def test_native_history_preserves_decimal_and_closed_state():
 
 
 
-def test_tabdeal_and_wallex_normalize_iran_and_us_wall_clocks_to_same_utc_instant():
-    # 2026-10-19 is during US daylight time (New York UTC-04:00);
-    # Tehran is UTC+03:30. Local display clocks differ by 7h30m, not the instant.
-    instant = datetime(2026, 10, 19, 15, 0, tzinfo=timezone.utc)
+@pytest.mark.parametrize(
+    ("instant", "expected_new_york_offset", "expected_difference_minutes"),
+    [
+        (datetime(2026, 10, 19, 15, 0, tzinfo=timezone.utc), "-04:00", 450),
+        (datetime(2026, 1, 19, 15, 0, tzinfo=timezone.utc), "-05:00", 510),
+    ],
+)
+def test_tabdeal_and_wallex_normalize_iran_and_us_wall_clocks_to_same_utc_instant(
+    instant, expected_new_york_offset, expected_difference_minutes
+):
+    # Tehran is UTC+03:30; New York switches between UTC-04:00 and UTC-05:00.
+    # Display-clock differences vary by date, but the absolute instant must not.
     iran_text = instant.astimezone(ZoneInfo("Asia/Tehran")).isoformat()
     new_york_text = instant.astimezone(ZoneInfo("America/New_York")).isoformat()
     assert iran_text.endswith("+03:30")
-    assert new_york_text.endswith("-04:00")
+    assert new_york_text.endswith(expected_new_york_offset)
+    assert int((
+        instant.astimezone(ZoneInfo("Asia/Tehran")).utcoffset()
+        - instant.astimezone(ZoneInfo("America/New_York")).utcoffset()
+    ).total_seconds() / 60) == expected_difference_minutes
 
     common = {
         "type": "trade", "symbol": "BTC_USDT", "price": "100",
