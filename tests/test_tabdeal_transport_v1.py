@@ -9,6 +9,8 @@ from forward.tabdeal_transport_v1 import TabdealReadOnlyTransportV1
 
 ASOF = datetime(2026, 10, 7, 7, 0, tzinfo=timezone.utc)
 
+VALID_MESSAGE = json.dumps({"trade": {"symbol":"BTC_USDT","price":"100","amount":"1","side_name":"buy","sequence":1,"updated":"2026-10-07T06:59:00+00:00"}})
+
 class FakeWS:
     def __init__(self, url, on_open, on_message):
         self.url = url; self.on_open = on_open; self.on_message = on_message
@@ -18,7 +20,7 @@ class FakeWS:
     def run_forever(self, **kwargs):
         self.kwargs = kwargs
         self.on_open(self)
-        self.on_message(self, json.dumps({"trade": {"symbol":"BTC_USDT","price":"100","amount":"1","side_name":"buy","sequence":1,"updated":"2026-10-07T06:59:00+00:00"}}))
+        self.on_message(self, VALID_MESSAGE)
         self.on_message(self, json.dumps({"order": {"x":1}}))
         self.on_message(self, json.dumps({"trade": {"symbol":"ETH_USDT","price":"100","amount":"1","side_name":"buy","sequence":2,"updated":"2026-10-07T06:59:01+00:00"}}))
 
@@ -33,6 +35,7 @@ def test_transport_only_handoffs_records():
     assert t.ignored==1; assert t.frames_seen==3
     assert holder["ws"].sent==["BTC_USDT"]
     assert holder["ws"].kwargs=={"ping_interval":20,"ping_timeout":10}
+    assert t.stale_session_frames == 0
 
 def test_transport_rejects_non_positive_runtime():
     with pytest.raises(ValueError, match="max_runtime_seconds"):
@@ -50,7 +53,6 @@ def test_transport_budget_closes_socket():
     t=TabdealReadOnlyTransportV1(as_of_provider=lambda:ASOF,on_record=lambda _:None,ws_factory=factory,max_runtime_seconds=0.02)
     t.run_once()
     assert started.is_set(); assert closed.is_set(); assert holder["ws"].closed is True; assert t.closed_by_budget is True
-
 
 def test_transport_emits_sanitized_frame_fingerprint_for_normalized_trade():
     message = json.dumps({
@@ -97,3 +99,59 @@ def test_transport_emits_sanitized_frame_fingerprint_for_normalized_trade():
     assert "amount" not in fingerprint
     assert "raw_frame" not in fingerprint
     assert fingerprint["receive_monotonic_ns"] > 0
+
+def test_delayed_previous_session_callback_is_rejected_after_reconnect():
+    sockets = []
+    records = []
+
+    class SilentWS(FakeWS):
+        def run_forever(self, **kwargs):
+            self.kwargs = kwargs
+            self.on_open(self)
+
+    def factory(*args, **kwargs):
+        ws = SilentWS(*args, **kwargs)
+        sockets.append(ws)
+        return ws
+
+    transport = TabdealReadOnlyTransportV1(
+        as_of_provider=lambda: ASOF,
+        on_record=records.append,
+        ws_factory=factory,
+        max_runtime_seconds=1,
+    )
+    transport.run_once()
+    old_ws = sockets[0]
+    assert old_ws.sent == ["BTC_USDT"]
+
+    transport.run_once()
+    new_ws = sockets[1]
+    assert new_ws.sent == ["BTC_USDT"]
+    assert transport._active_ws is new_ws
+
+    old_ws.on_message(old_ws, VALID_MESSAGE)
+    old_ws.on_open(old_ws)
+
+    assert records == []
+    assert transport.records_emitted == 0
+    assert transport.frames_seen == 0
+    assert transport.stale_session_frames == 2
+    assert new_ws.sent == ["BTC_USDT"]
+
+def test_transport_budget_or_disconnect_invalidates_callback_epoch():
+    sockets = []
+    def factory(*args, **kwargs):
+        ws = FakeWS(*args, **kwargs)
+        sockets.append(ws)
+        return ws
+    transport = TabdealReadOnlyTransportV1(
+        as_of_provider=lambda: ASOF,
+        on_record=lambda _: pytest.fail("inactive session must not hand off records"),
+        ws_factory=factory,
+    )
+    transport.run_once()
+    old_ws = sockets[0]
+    assert transport._active_ws is None
+    old_ws.on_message(old_ws, VALID_MESSAGE)
+    assert transport.stale_session_frames == 1
+    assert transport.frames_seen == 0
