@@ -55,6 +55,7 @@ def closed_payload(payload: dict, now: int) -> list[dict]:
 async def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     captured: list[tuple[str, bytes]] = []
+    screenshot_error = None
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(viewport={"width": 1440, "height": 1000}, device_scale_factor=1)
@@ -74,11 +75,14 @@ async def main() -> int:
         page.on("response", lambda response: asyncio.create_task(on_response(response)))
         navigation_error = None
         try:
-            await page.goto(CHART_URL, wait_until="domcontentloaded", timeout=60000)
-            await page.wait_for_timeout(15000)
+            await page.goto(CHART_URL, wait_until="domcontentloaded", timeout=25000)
+            await page.wait_for_timeout(10000)
         except Exception as exc:
             navigation_error = f"{type(exc).__name__}: {exc}"
-        await page.screenshot(path=str(OUT / "wallex-chart-BTCUSDT.png"), full_page=True)
+        try:
+            await page.screenshot(path=str(OUT / "wallex-chart-BTCUSDT.png"), full_page=False, timeout=15000)
+        except Exception as exc:
+            screenshot_error = f"{type(exc).__name__}: {exc}"
         canvas_count = sum([await frame.locator("canvas").count() for frame in page.frames])
         await browser.close()
 
@@ -86,9 +90,9 @@ async def main() -> int:
         manifest = {
             "schema": "hes.wallex.chart_browser_parity.v1",
             "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "chart_url": CHART_URL, "navigation_error": navigation_error,
-            "canvas_count": canvas_count, "screenshot_sha256": digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()),
-            "screenshot_bytes": (OUT / "wallex-chart-BTCUSDT.png").stat().st_size,
+            "chart_url": CHART_URL, "navigation_error": navigation_error, "screenshot_error": screenshot_error,
+            "canvas_count": canvas_count, "screenshot_sha256": (digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()) if (OUT / "wallex-chart-BTCUSDT.png").exists() else None),
+            "screenshot_bytes": ((OUT / "wallex-chart-BTCUSDT.png").stat().st_size if (OUT / "wallex-chart-BTCUSDT.png").exists() else 0),
             "status": "BLOCKED_NO_CHART_UDF_RESPONSE",
             "note": "No matching public 1m BTCUSDT UDF response was observed in the browser. Screenshot retained; no parity claim.",
         }
@@ -116,7 +120,7 @@ async def main() -> int:
             "browser_history_request_url": browser_url,
             "browser_raw_sha256": digest(browser_raw),
             "browser_raw_bytes": len(browser_raw),
-            "screenshot_sha256": digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()),
+            "screenshot_error": screenshot_error, "screenshot_sha256": (digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()) if (OUT / "wallex-chart-BTCUSDT.png").exists() else None),
             "status": "BLOCKED_DIRECT_API_REFETCH_FAILED",
             "error": f"{type(exc).__name__}: {exc}",
             "note": "Browser response retained; direct refetch failed, so parity is not claimed."
@@ -170,7 +174,7 @@ async def main() -> int:
         "read_only": True, "no_api_key_used": True,
         "no_account_or_order_endpoint_called": True,
         "chart_url": CHART_URL, "navigation_error": navigation_error,
-        "canvas_count": canvas_count, "screenshot_sha256": digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()),
+        "canvas_count": canvas_count, "screenshot_error": screenshot_error, "screenshot_sha256": (digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()) if (OUT / "wallex-chart-BTCUSDT.png").exists() else None),
         "screenshot_bytes": (OUT / "wallex-chart-BTCUSDT.png").stat().st_size,
         "screenshot_path": "wallex-chart-BTCUSDT.png", "browser_history_request_url": browser_url,
         "direct_api_status": direct_status, "direct_api_date_header": direct_date,
