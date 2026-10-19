@@ -99,27 +99,69 @@ async def main() -> int:
     browser_url, browser_raw = max(captured, key=lambda item: len(item[1]))
     (OUT / "browser-chart-udf.raw.json").write_bytes(browser_raw)
     req = Request(browser_url, headers={"Accept": "application/json", "User-Agent": "HES-Trade-Agent-readonly/1"})
-    with urlopen(req, timeout=20) as response:
-        direct_raw = response.read()
-        direct_status = response.status
-        direct_date = response.headers.get("Date")
-    (OUT / "direct-api.raw.json").write_bytes(direct_raw)
+    try:
+        with urlopen(req, timeout=20) as response:
+            direct_raw = response.read()
+            direct_status = response.status
+            direct_date = response.headers.get("Date")
+        (OUT / "direct-api.raw.json").write_bytes(direct_raw)
+    except Exception as exc:
+        manifest = {
+            "schema": "hes.wallex.chart_browser_parity.v1",
+            "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "chart_url": CHART_URL,
+            "navigation_error": navigation_error,
+            "canvas_count": canvas_count,
+            "browser_history_request_url": browser_url,
+            "browser_raw_sha256": digest(browser_raw),
+            "browser_raw_bytes": len(browser_raw),
+            "screenshot_sha256": digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()),
+            "status": "BLOCKED_DIRECT_API_REFETCH_FAILED",
+            "error": f"{type(exc).__name__}: {exc}",
+            "note": "Browser response retained; direct refetch failed, so parity is not claimed."
+        }
+        (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(manifest, indent=2))
+        return 1
 
-    now = int(time.time())
-    browser_rows = closed_payload(json.loads(browser_raw.decode("utf-8")), now)
-    direct_rows = closed_payload(json.loads(direct_raw.decode("utf-8")), now)
-    browser_closed_path = OUT / "browser-chart-closed.json"
-    direct_closed_path = OUT / "direct-api-closed.json"
-    browser_closed_path.write_text(json.dumps(browser_rows, separators=(",", ":")) + "\n", encoding="utf-8")
-    direct_closed_path.write_text(json.dumps(direct_rows, separators=(",", ":")) + "\n", encoding="utf-8")
-    normalized_a, _ = load_candles(str(browser_closed_path))
-    normalized_b, _ = load_candles(str(direct_closed_path))
-    comparison = compare_candles(normalized_a, normalized_b, abs_tolerance=Decimal("0"))
-    comparison["source_a_label"] = "official_wallex_chart_browser_udf"
-    comparison["source_b_label"] = "direct_http_refetch_of_same_url"
-    comparison["symbol"] = "BTCUSDT"
-    comparison["resolution"] = "1"
-    (OUT / "comparison.json").write_text(json.dumps(comparison, indent=2) + "\n", encoding="utf-8")
+    try:
+        now = int(time.time())
+        browser_rows = closed_payload(json.loads(browser_raw.decode("utf-8")), now)
+        direct_rows = closed_payload(json.loads(direct_raw.decode("utf-8")), now)
+        browser_closed_path = OUT / "browser-chart-closed.json"
+        direct_closed_path = OUT / "direct-api-closed.json"
+        browser_closed_path.write_text(json.dumps(browser_rows, separators=(",", ":")) + "\n", encoding="utf-8")
+        direct_closed_path.write_text(json.dumps(direct_rows, separators=(",", ":")) + "\n", encoding="utf-8")
+        normalized_a, _ = load_candles(str(browser_closed_path))
+        normalized_b, _ = load_candles(str(direct_closed_path))
+        comparison = compare_candles(normalized_a, normalized_b, abs_tolerance=Decimal("0"))
+        comparison["source_a_label"] = "official_wallex_chart_browser_udf"
+        comparison["source_b_label"] = "direct_http_refetch_of_same_url"
+        comparison["symbol"] = "BTCUSDT"
+        comparison["resolution"] = "1"
+        (OUT / "comparison.json").write_text(json.dumps(comparison, indent=2) + "\n", encoding="utf-8")
+    except Exception as exc:
+        manifest = {
+            "schema": "hes.wallex.chart_browser_parity.v1",
+            "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "chart_url": CHART_URL,
+            "navigation_error": navigation_error,
+            "canvas_count": canvas_count,
+            "browser_history_request_url": browser_url,
+            "browser_raw_sha256": digest(browser_raw),
+            "browser_raw_bytes": len(browser_raw),
+            "direct_api_status": direct_status,
+            "direct_api_date_header": direct_date,
+            "direct_raw_sha256": digest(direct_raw),
+            "direct_raw_bytes": len(direct_raw),
+            "screenshot_sha256": digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()),
+            "status": "BLOCKED_COMPARISON_ERROR",
+            "error": f"{type(exc).__name__}: {exc}",
+            "note": "Raw browser and direct API responses retained; comparator did not establish parity."
+        }
+        (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(manifest, indent=2))
+        return 1
 
     manifest = {
         "schema": "hes.wallex.chart_browser_parity.v1",
