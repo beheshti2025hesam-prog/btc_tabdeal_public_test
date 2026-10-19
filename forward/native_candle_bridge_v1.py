@@ -289,6 +289,7 @@ def to_lightweight_chart_payload(
         raise ValueError("wallex_volume_semantics_unresolved")
 
     bars: list[dict[str, Any]] = []
+    volume_bars: list[dict[str, Any]] = []
     previous_time: int | None = None
     for row in batch.candles:
         if row.start.tzinfo is None or row.start.utcoffset() is None:
@@ -304,19 +305,20 @@ def to_lightweight_chart_payload(
         converted = tuple(float(value) for value in values)
         if not all(isfinite(value) for value in converted):
             raise ValueError("chart_ohlc_conversion_not_finite")
-        bar: dict[str, Any] = {
+        bars.append({
             "time": chart_time,
             "open": converted[0],
             "high": converted[1],
             "low": converted[2],
             "close": converted[3],
-        }
+        })
         if include_volume:
             volume = float(row.volume)
             if not isfinite(volume) or volume < 0:
                 raise ValueError("chart_volume_conversion_invalid")
-            bar["volume"] = volume
-        bars.append(bar)
+            # Lightweight Charts candlestick and histogram series use distinct
+            # data contracts: OHLC bars stay pure, volume uses {time, value}.
+            volume_bars.append({"time": chart_time, "value": volume})
 
     gaps = [
         {
@@ -337,6 +339,7 @@ def to_lightweight_chart_payload(
         "volume_included": include_volume,
         "volume_semantics": "RAW_SOURCE_REPORTED" if include_volume else "OMITTED",
         "bars": bars,
+        "volume_bars": volume_bars,
         "gaps": gaps,
         "discarded_open_candles": batch.discarded_open_candles,
     }
