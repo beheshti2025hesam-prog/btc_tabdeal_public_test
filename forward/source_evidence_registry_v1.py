@@ -67,7 +67,7 @@ class SourceEvidenceRegistryV1:
             if not isinstance(ref, str) or not ref.strip() or ref in entries:
                 raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_REF_INVALID_OR_DUPLICATE")
             if item.get("review_status") != "PAIR_AUDITED_OWNER_ACCEPTED":
-                raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_NOT_PAIR_AUDITED_OWNER_ACCEPTED")
+                raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_NOT_PAIR_AUDITED")
             for key, code in (
                 ("review_record_ref", "SOURCE_EVIDENCE_REVIEW_RECORD_MISSING"),
                 ("evidence_path", "SOURCE_EVIDENCE_ARTIFACT_PATH_MISSING"),
