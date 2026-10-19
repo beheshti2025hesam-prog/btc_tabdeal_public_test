@@ -41,6 +41,15 @@ class CompareOhlcvTests(unittest.TestCase):
         self.assertFalse(report["pass"])
         self.assertEqual(report["duplicate_timestamps"]["source_a"], [60])
 
+    def test_nonpositive_timestamp_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad-ts.json"
+            path.write_text(json.dumps([{
+                "timestamp": 0, "open": "1", "high": "1", "low": "1", "close": "1", "volume": "0"
+            }]), encoding="utf-8")
+            with self.assertRaises(InputError):
+                load_candles(str(path))
+
     def test_udf_parallel_array_length_mismatch_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.json"
@@ -50,6 +59,16 @@ class CompareOhlcvTests(unittest.TestCase):
             }), encoding="utf-8")
             with self.assertRaises(InputError):
                 load_candles(str(path))
+
+    def test_empty_sources_cannot_pass_vacuously(self):
+        with self.assertRaises(InputError):
+            compare_candles([], [])
+        with self.assertRaises(InputError):
+            compare_candles([candle(60)], [])
+
+    def test_negative_tolerance_is_rejected_by_core(self):
+        with self.assertRaises(InputError):
+            compare_candles([candle(60)], [candle(60)], Decimal("-0.01"))
 
     def test_decimal_comparison_is_not_float_based(self):
         a = candle(60, "0.1000000000000000001")
