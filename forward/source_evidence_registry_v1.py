@@ -26,7 +26,7 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 class SourceEvidenceRegistryV1:
-    """Verify registry pin, independent-review metadata, scope, and artifact bytes."""
+    """Verify registry pin, pair-audit provenance metadata, scope, and artifact bytes."""
     def __init__(self, path: Path, entries: dict[str, dict[str, Any]]):
         self.path = path
         self.root = path.parent.resolve()
@@ -66,8 +66,8 @@ class SourceEvidenceRegistryV1:
             ref = item.get("evidence_ref")
             if not isinstance(ref, str) or not ref.strip() or ref in entries:
                 raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_REF_INVALID_OR_DUPLICATE")
-            if item.get("review_status") != "INDEPENDENTLY_REVIEWED":
-                raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_NOT_INDEPENDENTLY_REVIEWED")
+            if item.get("review_status") != "PAIR_AUDITED_OWNER_ACCEPTED":
+                raise SourceEvidenceRegistryError("SOURCE_EVIDENCE_NOT_PAIR_AUDITED_OWNER_ACCEPTED")
             for key, code in (
                 ("review_record_ref", "SOURCE_EVIDENCE_REVIEW_RECORD_MISSING"),
                 ("evidence_path", "SOURCE_EVIDENCE_ARTIFACT_PATH_MISSING"),
