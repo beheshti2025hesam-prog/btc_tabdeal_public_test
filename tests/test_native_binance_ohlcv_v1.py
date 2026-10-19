@@ -96,6 +96,12 @@ def test_rejects_bad_scope_and_naive_times():
                      retrieved_at=datetime(2026, 10, 19), raw_payload=b"[]")
 
 
+def test_calendar_anchored_intervals_fail_closed_until_alignment_is_supported():
+    for interval in ("3d", "1w"):
+        with pytest.raises(KlineDataError, match="unsupported interval"):
+            parse([row(AS_OF - 900_000)], interval=interval)
+
+
 def test_fetch_is_explicit_and_rejects_invalid_limits_before_network():
     with pytest.raises(KlineDataError, match="limit"):
         fetch_klines(market="spot", limit=0)
