@@ -1,0 +1,31 @@
+name: HES Trade Agent — Protocol Reconciliation v1
+
+on:
+  push:
+    branches:
+      - protocol-reconciliation-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-protocol-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate review-only reconciliation
+        run: python scripts/validate_protocol_reconciliation_v1.py
