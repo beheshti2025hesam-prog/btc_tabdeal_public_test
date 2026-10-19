@@ -8,6 +8,8 @@ on:
       - "forward/wallex_socketio_transport_v1.py"
       - "forward/wallex_controlled_observation_runner_v1.py"
       - "forward/session_epoch_gate_v1.py"
+      - "docs/registry/wallex_spot_market_data_2026-10-18.yaml"
+      - "docs/checkpoints/CANDLE_FIRST_NATIVE_WALLEX_2026-10-18.md"
       - "tests/test_wallex_market_data_collector_v1.py"
       - "tests/test_wallex_socketio_transport_v1.py"
       - "tests/test_wallex_controlled_observation_runner_v1.py"
