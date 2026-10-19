@@ -34,7 +34,8 @@ class Candle15m:
     high: Decimal
     low: Decimal
     close: Decimal
-    volume: Decimal
+    # Price-only structure observations do not carry unverified source volume.
+    volume: Decimal | None
     # Native OHLCV candles do not expose trade-level metadata; None means unknown.
     trade_count: int | None
     first_sequence: int | None
