@@ -18,7 +18,7 @@ Allow the existing forward-only Market Structure observer to consume a normalize
 
 ## Scope and limitations
 - The contract test invokes the pinned Binance parser offline. It proves parser-to-observer compatibility, **not** that Binance is the approved production source for Tabdeal BTC_USDT Futures.
-- Wallex native UDF adapter currently supports minute resolutions `1, 60, 180, 360, 720`; it does not provide native 15m candles in the pinned adapter. Its volume discrepancy remains unresolved, so volume-dependent Wallex features remain blocked.
+- **Wallex runtime-verified native UDF resolutions are only `1` (1m) and `60` (1h)** in the pinned adapter. Live probes found `15` returning 1m spacing, `240/480/720` returning hourly spacing, and `5/180/360` returning errors. Do not claim native Wallex 15m support, synthesize it from trades, or treat Binance 15m parser tests as Wallex-source evidence. Its volume discrepancy remains unresolved, so volume-dependent Wallex features remain blocked.
 - Official Tabdeal native 15m OHLCV parity is not yet established. Do not substitute another venue silently.
 - This PR is an integration contract only. No collector activation, evidence-registry pin, deployment, merge, or trading authorization. Overall status remains `HOLD / NO-TRADE`.
 - TradingView/chart source integration remains a high-priority separate gate: first identify the approved market-data source and licensing/access, then map this bridge to the documented datafeed API. Do not create a parallel chart frontend merely to claim integration.
