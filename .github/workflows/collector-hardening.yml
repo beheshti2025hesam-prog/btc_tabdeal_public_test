@@ -1,0 +1,33 @@
+name: Collector Hardening Tests
+
+on:
+  push:
+    branches:
+      - "hardening/collector-data-foundation"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run collector hardening tests
+        run: |
+          pytest -q tests/collector
