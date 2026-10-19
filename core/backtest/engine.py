@@ -37,16 +37,18 @@ class BacktestEngine:
     """Replay deterministic historical observations without execution."""
 
     def run(self, samples: Iterable[BacktestSample]) -> BacktestResult:
-        rows = sorted(
-            list(samples),
-            key=lambda item: item.timestamp,
-        )
+        # Preserve caller order; sorting here could mask upstream chronology errors.
+        rows = list(samples)
         wins = losses = evaluated = vetoed = no_trade = 0
+        previous_timestamp: datetime | None = None
         total_return = 0.0
 
         for row in rows:
             if row.timestamp.tzinfo is None or row.timestamp.utcoffset() is None:
                 raise ValueError("sample timestamp must be timezone-aware")
+            if previous_timestamp is not None and row.timestamp < previous_timestamp:
+                raise ValueError("backtest samples must be chronological")
+            previous_timestamp = row.timestamp
             if not all(math.isfinite(value) for value in (row.entry_price, row.exit_price)):
                 raise ValueError("prices must be finite")
             if row.entry_price <= 0 or row.exit_price <= 0:
