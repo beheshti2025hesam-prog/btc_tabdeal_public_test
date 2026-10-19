@@ -25,6 +25,14 @@ Repository default branch inspected at `4956cf519c445edd004fdd4e763bdb3347a7ada9
 
 The combined commit-status endpoint returned no status entries for these heads; the counts above refer to completed GitHub Actions runs returned by the workflow-runs endpoint. For #328, the exact-head Forward Integration job completed successfully; the separately named Wallex session-isolation workflow run 39211895824 is from an earlier commit and is not misrepresented as exact-head evidence.
 
+## Native-candle-first decision update (2026-10-19)
+- Repository audit found an existing read-only native Wallex OHLCV adapter in PR #320 at exact head `b490611636cca6d133ba9f9cc08d5d9d6333628b`, using the official `GET /v1/udf/history` endpoint and the same UDF-style datafeed that the inspected Wallex chart frontend calls for `getBars`.
+- PR #320's exact-head GitHub Actions list returned 27 completed runs with success and zero reported failures, including `Native Wallex OHLCV Candle-First Verification` run 39147253717. This is CI evidence, not deployment authorization.
+- The pinned 2026-10-18 evidence records source-level chart datafeed parity and numeric OHLC parity for BTCUSDT at 1m (180 common timestamps) and 1h (24 common timestamps), with zero OHLCV mismatches/no gaps and identical raw response hashes for the cited same-window captures. No independent rendered-pixel screenshot was captured.
+- The unresolved UDF volume discrepancy is decision-critical only for volume-dependent features: across 99 covered closed bars, UDF `v` was exactly 2x summed public trade quantities. Do not normalize/halve it without authoritative clarification. Price/OHLC candle availability itself does not require trade-sequence reconstruction.
+- Therefore use the existing native candle path for candle-dependent HES work; keep sequence semantics as a separate conditional gate only for features requiring trade-level event identity/replay/loss detection/order. Do not rebuild candles from individual trades just to solve sequence semantics.
+- PR #320 remains Draft/unmerged, with no submitted independent review. Do not wire it into production or lift HOLD based on CI alone.
+
 ## Technical conclusions
 1. **Stale callback isolation:** PR #328 ties callbacks to the exact active socket object, revokes the active session before close, and guards frame normalization/handoff under a lock. Its deterministic tests inject prior-session `on_message` and `on_open` callbacks while a newer session is active and callbacks after disconnect; expected result is rejection with no downstream record.
 2. **Sequence semantics:** PR #245 preserves native integer/string identity and requires a reviewed three-part evidence bundle (sequence contract, source completeness, source ordering). The code may stay fail-closed, but this PR must be synchronized with current main and independently reviewed before any promotion. Never pin a production registry using CI fixtures or self-attested evidence.
