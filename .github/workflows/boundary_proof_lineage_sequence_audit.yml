@@ -1,0 +1,87 @@
+name: HES Trade Agent — Boundary-Proof Lineage Sequence Audit
+
+on:
+  push:
+    branches:
+      - boundary-proof-lineage-sequence-audit-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-boundary-proof-lineage-sequence
+  cancel-in-progress: false
+
+jobs:
+  boundary-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned audit snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Materialize frozen snapshot by immutable blob SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL             -H "Authorization: Bearer ${GH_TOKEN}"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/1a44d52a0588deb765bbbea04bfb5783dcb1050b"             > /tmp/frozen_blob.json
+          python - <<'PY'
+          import base64, json
+          d = json.load(open("/tmp/frozen_blob.json"))
+          assert d["sha"] == "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
+          open("audit_frozen_trades.csv", "wb").write(base64.b64decode(d["content"]))
+          PY
+          test -s audit_frozen_trades.csv
+
+      - name: Verify pinned data lineage
+        run: |
+          python - <<'PY'
+          import hashlib, pathlib
+          p = pathlib.Path("audit_frozen_trades.csv")
+          b = p.read_bytes()
+          git_sha = hashlib.sha1(b"blob " + str(len(b)).encode() + b"\0" + b).hexdigest()
+          assert git_sha == "1a44d52a0588deb765bbbea04bfb5783dcb1050b", git_sha
+          print("FROZEN_GIT_BLOB_SHA_VERIFIED", git_sha)
+          print("FROZEN_SHA256", hashlib.sha256(b).hexdigest())
+          PY
+
+      - name: Run boundary-proof audit
+        run: python scripts/boundary_proof_lineage_sequence_audit.py
+
+      - name: Validate fresh snapshot lock
+        run: |
+          python - <<'PY'
+          import json
+          d = json.load(open("boundary_proof_lineage_sequence_audit.json"))
+          assert d["status"] == "BOUNDARY_PROOF_GREEN"
+          first = d["first_independent_record"]
+          assert first is not None
+          assert first["sequence"] > d["frozen_boundary"]["max_sequence"]
+          assert first["updated"] > d["frozen_boundary"]["last_timestamp"]
+          assert d["integrity"]["overlap_sequence_boundary_count"] == 0
+          assert d["integrity"]["overlap_timestamp_boundary_count"] == 0
+          assert d["claim_boundary"]["signal_created"] is False
+          assert d["claim_boundary"]["threshold_tuned"] is False
+          assert d["claim_boundary"]["model_fitting"] is False
+          assert d["claim_boundary"]["promotion_decision"] is False
+          assert d["claim_boundary"]["live_execution"] is False
+          print("FRESH_SNAPSHOT_BOUNDARY_LOCK_VALID")
+          print("FIRST_INDEPENDENT_SEQUENCE", first["sequence"])
+          print("FIRST_INDEPENDENT_TIMESTAMP", first["updated"])
+          print("CURRENT_DATA_GIT_BLOB_SHA", d["lineage"]["current_data_git_blob_sha"])
+          print("CURRENT_DATA_SHA256", d["lineage"]["current_data_sha256"])
+          PY
+
+      - name: Upload boundary-proof evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: boundary-proof-lineage-sequence-audit
+          path: boundary_proof_lineage_sequence_audit.json
+          if-no-files-found: error
