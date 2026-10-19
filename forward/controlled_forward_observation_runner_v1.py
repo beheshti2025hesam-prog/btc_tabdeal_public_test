@@ -13,7 +13,24 @@ from typing import Any, Callable
 from .forward_observation_path_v1 import ForwardObservationPathV1
 from .observation_session_manager_v1 import ObservationSessionManagerV1
 from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
-from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
+from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1, WS_URL, SYMBOL
+from .sequence_capability_registry_v1 import RegistryError, load_verified_contract
+
+# Trust paths are code-owned, not caller-selectable. The checked-in Tabdeal
+# record is conservative, so production remains blocked until reviewed evidence
+# and a new pinned registry revision explicitly authorize sequence gap detection.
+_SEQUENCE_REGISTRY_PATH = Path(__file__).with_name("sequence_capability_registry_v1.json")
+_SEQUENCE_REGISTRY_LOCK_PATH = Path(__file__).with_name("sequence_capability_registry_v1.lock.json")
+_SEQUENCE_SCOPE = {
+    "venue": "tabdeal",
+    "product": "fapi-futures-margin",
+    "transport": "websocket",
+    "endpoint": WS_URL,
+    "channel_or_topic": f"{SYMBOL} raw-text subscription",
+    "message_type": "trade-envelope",
+    "field_path": "trade.sequence",
+    "protocol_version": "unknown",
+}
 
 
 @dataclass(frozen=True)
@@ -46,6 +63,8 @@ class ControlledForwardObservationRunnerV1:
         max_runtime_seconds: float = 60.0,
         diagnostics_path: str | Path | None = None,
         max_records: int = 100_000,
+        # Deprecated compatibility inputs: deliberately ignored. Trust is read
+        # only from the code-owned, hash-pinned registry and exact adapter scope.
         sequence_contract_verified: bool = False,
         sequence_contract_evidence_ref: str | None = None,
     ) -> None:
@@ -54,9 +73,8 @@ class ControlledForwardObservationRunnerV1:
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
-        self.sequence_contract_verified = sequence_contract_verified is True and bool(
-            isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
-        )
+        # Do not let caller-supplied booleans or evidence-reference strings grant trust.
+        self.sequence_contract_verified = False
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -79,7 +97,15 @@ class ControlledForwardObservationRunnerV1:
 
         # Do not open a socket or create even a session record until the upstream
         # sequence semantics are verified against an authoritative evidence reference.
-        if not self.sequence_contract_verified:
+        try:
+            sequence_contract = load_verified_contract(
+                _SEQUENCE_REGISTRY_PATH, _SEQUENCE_REGISTRY_LOCK_PATH, _SEQUENCE_SCOPE
+            )
+            sequence_contract_authorized = sequence_contract.gap_detection_authorized
+        except (OSError, RegistryError, ValueError):
+            sequence_contract_authorized = False
+
+        if not sequence_contract_authorized:
             return ControlledObservationRunnerResult(
                 run_id="NOT_STARTED",
                 status="BLOCKED",
