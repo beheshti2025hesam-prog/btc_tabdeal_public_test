@@ -77,6 +77,9 @@ sources:
   - url: "https://developers.wallex.ir/socket/trade"
     source_kind: "primary"
     note: 'Official developer page documents wss://api.wallex.ir/ws, JSON subscribe frame ["subscribe", {"channel": "MARKET@trade"}], and trade fields isBuyOrder/quantity/price/timestamp.'
+  - url: "https://developers.wallex.ir/socket"
+    source_kind: "primary"
+    note: "Official raw-WebSocket overview documents connection lifetime limits and server PING/client PONG behavior; exact control-frame wire payload remains unverified in this registry."
   - url: "https://api-docs.wallex.ir/"
     source_kind: "primary-legacy"
     note: "Legacy reference describes Socket.IO v2.5-compatible usage and Broadcaster events. Its endpoint differs from the newer official raw-WebSocket page; do not conflate the two wire protocols."
