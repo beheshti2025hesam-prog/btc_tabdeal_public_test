@@ -129,3 +129,45 @@ This marker records the exact stopping point requested by the project owner. It 
 - Current chart path remains an integration task, not a new market-data engine: select/verify an eligible frontend entry point, use the existing canonical candle boundary, and prefer the approved Lightweight Charts route unless the project becomes eligible for TradingView Advanced Charts licensing/access. Do not create a duplicate frontend merely to claim progress.
 - The public Tabdeal chart page could not be extracted by the available web extraction service in this pass. No chart network request, collector activation, code/runtime change, deployment, or live-trading action was performed.
 - Safety disposition remains `HOLD / NO_TRADE_ONLY`. Existing exact-head offline CI results remain bounded evidence; they do not establish live Tabdeal chart parity, deployment, or trading readiness.
+
+
+## Master checkpoint addendum — run audit and progress baseline (2026-10-19 15:37 +03:30)
+
+### Run audit
+- Exact checkpoint commit `4db30da80aad4e2c494ac0b2b8e202f7dfc89479`: 26/26 observed PR-triggered workflow runs completed with `success`; combined commit status endpoint returned no status entries, so the run list—not the empty combined-status response—is the evidence here.
+- Previous checkpoint commit `33127133880d5750c5792cc14f76b2c9a99cb75d`: 26/26 observed PR-triggered workflow runs completed with `success`.
+- Native candle bridge PR #329 head `70a3949a2b512dead8b00ec57c92c91d2c103862`: 26 observed runs, all successful.
+- Adapter contract PR #330 head `ec76f51dc6511603ad429e21ebea874d51238cd0`: 2 observed runs, both successful.
+- Structure bridge PR #331 head `948ff5fb267b62a732fbcf5b54c925215e5373cb`: 3 observed runs, all successful. An earlier head `54a954a50f065e0f38df41a6977b48e34cab7b0e` had two failures; a later head has green runs. Do not rerun obsolete failures against the old SHA unless reproducing the regression is specifically needed.
+- The Effective Evidence Audit workflow was observed as `skipped` on the current default-branch SHA `4956cf519c445edd004fdd4e763bdb3347a7ada9` in the workflow_run-triggered run. This is not a failed test; its gate condition/trigger behavior still merits inspection. No current failing run was found in the latest 100 returned Actions runs.
+- Combined status API returned an empty statuses array for all five inspected SHAs. Do not interpret that as green by itself; use the exact-head Actions runs above.
+- No CI workflow was rerun because current target-head runs were green and no active failing job was identified. Avoid spending runs on superseded commits.
+
+### Last-24-hours activity window
+Window: 2026-10-18 15:37 through 2026-10-19 15:37, UTC+03:30.
+- Refined issue #317 into separate Futures-clock, native OHLCV/chart-parity, and conditional trade-sequence gates.
+- Reviewed the chart roadmap and PRs #320, #329, #330, #331, and #245 to avoid duplicate candle engines, duplicate adapters, and unnecessary coupling of Sequence to chart display.
+- Reconfirmed public Tabdeal Futures `/r/fapi/v1/time`, `exchangeInfo`, and `depth` evidence, plus 404s for only the two tested `/r/fapi/v1/klines` candidates (`BTCUSDT`, `BTC_USDT`). The website chart's actual datafeed remains unknown.
+- Added and verified checkpoint documentation. PR #318 remains open/draft; documentation being committed is not equivalent to merging it into main.
+- Exact-head offline CI remained green for the currently reviewed checkpoint and native-candle bridge heads; no live chart capture, production deployment, or trading activation occurred.
+
+### Whole-project progress baseline (engineering estimate, not a GitHub-native metric)
+Percentages are approximate completion estimates for the defined workstream, not a claim that all release criteria are met. Workstreams overlap, so do not sum them.
+- Core architecture, existing engines, and reuse-first integration: 76%.
+- Data-source identity, provenance, and raw-evidence integrity: 62%.
+- Native OHLCV adapters and candle-to-feature bridge: 58%.
+- Exchange clock, sequence semantics, and event-ordering safety: 43%.
+- Strategy/backtest/feature validation automation: 70%.
+- Chart UI / TradingView-compatible datafeed and source parity: 28%.
+- Operational resilience, supervised collection, and recovery proof: 52%.
+- Security, independent/legal acceptance, and release readiness: 24%.
+- **Overall project estimate: 53%** (weighted planning estimate; uncertainty about ±8 percentage points because there is no frozen, fully enumerated requirements denominator).
+
+### Highest-impact blockers / next actions
+1. Discover the official Tabdeal Futures chart's actual network/datafeed contract in a browser that can inspect the chart; capture raw request/response evidence and hash it.
+2. Select/verify the real HES frontend entry point. Prefer existing components; use Lightweight Charts if an eligible frontend is established. TradingView Advanced Charts requires approved access and an eligible license.
+3. Verify the Futures clock offset using repeatable raw samples and an explicit tolerance.
+4. Inspect why Effective Evidence Audit is skipped on default-branch workflow_run events and add a safe test for intended trigger conditions if a real defect is confirmed.
+5. Keep Wallex volume-dependent features blocked until volume semantics are authoritatively reconciled.
+6. Keep sequence vectors independent from ordinary OHLCV/candlestick work; sequence remains a gate only for event-ordering-dependent features.
+7. Preserve `HOLD / NO_TRADE_ONLY`; no deployment, collector activation, or live trading authorized.
