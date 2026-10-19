@@ -1,0 +1,54 @@
+name: HES Trade Agent — Controlled Signal Research Gate
+
+on:
+  push:
+    branches:
+      - controlled-signal-research-gate-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate research-only protocol
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = json.loads(Path("research/controlled_signal_research_protocol_v1.json").read_text())
+          assert p["status"] == "research-only"
+          assert p["evidence_baseline"]["nominal_winners"] == 14
+          assert p["evidence_baseline"]["controls"] == 1035
+          assert p["evidence_baseline"]["winner_kish_effective_sample_size"] < 14
+          assert p["claim_boundary"] == {
+              "signal_created": False,
+              "signal_validated": False,
+              "promotion_decision": False,
+              "live_execution": False,
+          }
+          forbidden = set(p["forbidden"])
+          required = {
+              "live execution",
+              "promotion",
+              "parameter tuning against E0/E1 outcomes",
+              "threshold selection using the 14 nominal winners",
+              "reusing E0/E1 winner rows as independent confirmations",
+              "retroactive alteration of the locked evidence matrix",
+          }
+          assert required.issubset(forbidden)
+          assert p["required_research_split"]["construction_data"] == "new data outside the frozen E0/E1 snapshot"
+          assert p["required_research_split"]["validation_data"] == "separate later/out-of-evidence period"
+          assert p["required_research_split"]["test_data"] == "untouched until protocol is frozen"
+          print("CONTROLLED_SIGNAL_RESEARCH_PROTOCOL_VALID")
+          PY

@@ -1,0 +1,69 @@
+{
+  "artifact": "HES Trade Agent Controlled Signal Research Protocol v1",
+  "status": "research-only",
+  "evidence_baseline": {
+    "source": "E0/E1 final evidence chain",
+    "snapshot_data_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "snapshot_source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "snapshot_source_run_id": 36489452534,
+    "nominal_winners": 14,
+    "controls": 1035,
+    "supported_folds": [0, 1, 2, 3],
+    "winner_kish_effective_sample_size": 2.9696969696969697
+  },
+  "objective": "Explore whether a reproducible candidate signal specification can be defined without treating E0/E1 winners as independent confirmations.",
+  "allowed": [
+    "pre-registered descriptive hypotheses",
+    "feature combinations using the frozen feature contract",
+    "out-of-evidence validation on data not used to construct E0/E1",
+    "walk-forward evaluation with explicit embargo",
+    "cost and slippage sensitivity",
+    "negative-result recording"
+  ],
+  "forbidden": [
+    "live execution",
+    "promotion",
+    "parameter tuning against E0/E1 outcomes",
+    "threshold selection using the 14 nominal winners",
+    "reusing E0/E1 winner rows as independent confirmations",
+    "model fitting whose target or hyperparameters are selected from E0/E1 results",
+    "retroactive alteration of the locked evidence matrix"
+  ],
+  "feature_guidance": {
+    "temporally_sign_stable": ["Buy Ratio", "Delta", "Trade Count"],
+    "fold_sensitive": ["EMA", "VWAP"],
+    "interpretation": "These labels are descriptive research context, not feature rankings or selection decisions."
+  },
+  "required_research_split": {
+    "construction_data": "new data outside the frozen E0/E1 snapshot",
+    "validation_data": "separate later/out-of-evidence period",
+    "test_data": "untouched until protocol is frozen",
+    "independence_unit": "temporal fold"
+  },
+  "required_outputs": [
+    "protocol_version_and_commit",
+    "data_lineage_and_hash",
+    "feature_contract_version",
+    "embargo_definition",
+    "cost_slippage_matrix",
+    "fold_level_results",
+    "negative_results",
+    "explicit_claim_boundary"
+  ],
+  "gate_sequence": [
+    "protocol_freeze",
+    "out_of_evidence_data_snapshot",
+    "candidate_definition",
+    "walk_forward_evaluation",
+    "cost_slippage_check",
+    "independence_review",
+    "human_review",
+    "only_then_consider_signal_validation"
+  ],
+  "claim_boundary": {
+    "signal_created": false,
+    "signal_validated": false,
+    "promotion_decision": false,
+    "live_execution": false
+  }
+}
