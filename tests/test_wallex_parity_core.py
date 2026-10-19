@@ -10,9 +10,10 @@ from compare_ohlcv import InputError, compare_candles, load_candles
 
 
 def candle(ts, volume="3"):
+    # compare_candles consumes the normalized records returned by load_candles.
     return {
-        "timestamp": ts, "open": "100", "high": "110",
-        "low": "90", "close": "105", "volume": volume,
+        "timestamp": ts, "open": Decimal("100"), "high": Decimal("110"),
+        "low": Decimal("90"), "close": Decimal("105"), "volume": Decimal(volume),
     }
 
 
