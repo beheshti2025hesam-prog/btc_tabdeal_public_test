@@ -49,14 +49,14 @@ def wallex_candles():
     )
 
 
-def binance_candles():
+def binance_candles(market="spot"):
     open_ms = int(START.timestamp() * 1000)
     row = [
         open_ms, "100.10", "103.00", "99.50", "102.20", "12.3400",
         open_ms + 59_999, "1260.00", 17, "7.0000", "714.00", "0",
     ]
     return binance.parse_klines(
-        [row], market="spot", symbol="BTCUSDT", interval="1m",
+        [row], market=market, symbol="BTCUSDT", interval="1m",
         as_of_ms=open_ms + 60_000, retrieved_at=AS_OF,
         raw_payload=b'[[native fixture]]',
     ).candles
@@ -66,7 +66,8 @@ def binance_candles():
     ("adapter_rows", "venue", "market"),
     [
         (wallex_candles, "wallex", "spot"),
-        (binance_candles, "binance", "spot"),
+        (lambda: binance_candles("spot"), "binance", "spot"),
+        (lambda: binance_candles("usdm_futures"), "binance", "usdm_futures"),
     ],
 )
 def test_real_adapter_output_normalizes_into_hes_features(adapter_rows, venue, market):
@@ -95,7 +96,7 @@ def test_real_adapter_output_normalizes_into_hes_features(adapter_rows, venue, m
 
 
 def test_binance_market_identity_mismatch_fails_closed():
-    rows = binance_candles()
+    rows = binance_candles("spot")
     with pytest.raises(ValueError, match="mixed_market"):
         normalize_native_candles(
             rows, venue="binance", market="usdm_futures", as_of=AS_OF
