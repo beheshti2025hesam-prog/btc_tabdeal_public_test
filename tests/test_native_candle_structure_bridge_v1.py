@@ -76,7 +76,7 @@ def test_real_binance_15m_parser_output_reaches_existing_structure_observer():
     assert structure_rows[0].open_time == START
     assert structure_rows[0].close_time == START + timedelta(minutes=15)
     assert structure_rows[0].open == Decimal("100")
-    assert structure_rows[0].volume == source_rows[0].volume
+    assert structure_rows[0].volume is None  # structure is price-only; raw volume stays in batch
     assert structure_rows[0].trade_count is None
     assert structure_rows[0].first_sequence is None
     assert structure_rows[0].last_sequence is None
