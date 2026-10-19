@@ -25,7 +25,7 @@ Official source: https://api-docs.wallex.ir/ (section “کندل‌ها / OHLC 
 2. Live endpoint returns valid data from the authorized CI runner; raw bytes, SHA-256, request interval and retrieval timestamp are preserved.
 3. Supported symbol/resolution are confirmed against the current official API; only documented minute resolutions are enabled here.
 4. Candle gaps, freshness and server clock offset are measured and policy thresholds approved.
-5. Sample candles are compared against the official Wallex chart for the same symbol, interval and UTC timestamps; exact equality/tolerance is documented.
+5. Candle data parity is verified by comparing raw native UDF candles with trade-derived OHLC on complete same-symbol UTC intervals and by verifying the official chart frontend maps the same UDF fields directly to chart bars. A rendered screenshot is required only for a claim about pixel/rendering parity, not for the native data-path contract.
 6. Bounded retry behavior is tested; reconnect/session-epoch isolation remains unverified before any collector uses this adapter.
 7. Security and repository identity gates pass.
 
@@ -43,7 +43,7 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Official frontend asset inspection found `T.f.get("v1/udf/history",{params:e})` in the fetched Wallex frontend bundle, with the production API base `https://api.wallex.ir`. Asset hashes and retrieval metadata are pinned in the evidence manifest.
 
 ## Still not authorized / not yet proven
-- Exact candle-by-candle parity against the rendered external TradingView chart is **not verified**; the frontend code observation alone is not proof of rendered chart parity.
+- Pixel-level parity against an independently rendered chart screenshot is **not verified**. This is not a blocker for the native candle data-path contract once raw UDF candles and the official frontend's direct field mapping are verified. Do not claim pixel-level parity.
 - Reconnect/session-epoch isolation and production freshness/gap/clock-offset SLAs remain unapproved/unverified; bounded retry behavior is covered by tests.
 - No collector activation, deployment, or trading. Maintain `HOLD / NO_TRADE_ONLY`.
 
@@ -72,3 +72,17 @@ No collector activation, deployment or trading is authorized by this adapter. Pr
 - Official Wallex frontend source inspection maps UDF `t/o/h/l/c/v` directly to chart bars. TradingView's BTCUSDT market list did not include Wallex, so its other-exchange volume is not a valid same-market comparator. Independent rendered screenshot parity remains NOT VERIFIED; browser download via Puppeteer was denied (HTTP 403), and external screenshot retrieval timed out.
 - Local clean checkout at final evidence-only head `c2f11b3b56fa24e49a7badc83a2cc3327b3960c1`: targeted suite 31 passed; live read-only probe passed. GitHub Actions run [39275572903](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39275572903) has both deterministic-tests and live-read-only-probe successful.
 - Disposition remains `HOLD / NO_TRADE_ONLY`; no trading, deployment, or collector activation. Volume semantics and independent rendered chart verification remain blockers.
+
+
+## Final-head parity and scope correction — 2026-10-19 15:26 UTC
+
+The evidence-bounded scope is now explicit: **native candle data-path parity is separate from rendered-pixel parity and trade-sequence semantics**. Do not expand this task into generic sequence research or build candles from trades.
+
+- Fresh live evidence is in [`evidence/wallex_chart_volume_live_review_20261019_followup.md`](../../evidence/wallex_chart_volume_live_review_20261019_followup.md).
+- Across BTCUSDT, ETHUSDT, BTCTMN, ETHTMN and SOLUSDT, 80/80 fully overlapping closed 1-minute bars matched exact OHLC between UDF candles and OHLC reconstructed from the public trade endpoint after sorting by timezone-aware UTC timestamps. No sequence field was used.
+- The official Wallex chart page's referenced frontend code maps UDF `t/o/h/l/c/v` directly into chart bars. This and raw API evidence verify the chart's data path. Pixel-level screenshot parity remains unverified and is not required to accept the native data-path adapter.
+- UDF `v` was exactly 2x the sum of public trade `quantity` in those same 80 bars. This is a difference between two API fields, not a mismatch between the chart frontend and its UDF candle source. Preserve UDF `v` verbatim for chart parity; do not divide by two. Keep volume-dependent strategy features gated until the field semantics are documented or otherwise independently established.
+- UTC is the canonical comparison timeline for both adapters. Iran/New York daylight and standard-time tests pass. Never apply a fixed timezone offset.
+- Final reviewed head at this checkpoint: `82c2810054660016bdcaea8625dd5dde213ea89a`; targeted tests 33 passed, full repository tests 474 passed; live read-only probe passed with 10 candles, no gaps, latest closed age 56.75 seconds and estimated HTTP Date offset −0.84 seconds.
+- Only live-verified resolutions `1` and `60` are enabled; other resolutions fail closed. Sequence IDs are not used for candle construction or timestamp alignment.
+- Status remains `HOLD / NO_TRADE_ONLY` for execution and volume-dependent strategy promotion. This adapter/evidence work does not authorize collector activation, deployment, account changes, or trading.
