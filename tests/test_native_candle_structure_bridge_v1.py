@@ -157,3 +157,15 @@ def test_chart_projection_fails_closed_on_wallex_volume():
     assert "volume" not in payload["bars"][0]
     with pytest.raises(ValueError, match="wallex_volume_semantics_unresolved"):
         to_lightweight_chart_payload(batch, include_volume=True)
+
+
+def test_wallex_spot_parser_output_cannot_be_relabelled_as_futures():
+    start = START + timedelta(minutes=60)
+    as_of = start + timedelta(minutes=1)
+    rows = wallex.parse_history(
+        {"s": "ok", "t": [int(start.timestamp())], "o": ["100.10"],
+         "h": ["103.00"], "l": ["99.50"], "c": ["102.20"], "v": ["12.3400"]},
+        symbol="BTCUSDT", timeframe_minutes=1, as_of=as_of,
+    )
+    with pytest.raises(ValueError, match="source_market_mismatch"):
+        normalize_native_candles(rows, venue="wallex", market="usdm_futures", as_of=as_of)
