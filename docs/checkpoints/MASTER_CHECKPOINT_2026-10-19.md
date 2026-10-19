@@ -118,3 +118,14 @@ This marker records the exact stopping point requested by the project owner. It 
 - No sequence dependency is demonstrated for ordinary OHLCV availability. Do not expand or synchronize PR #245 just to unblock candle/chart work.
 - No repository runtime code, live collector, account, deployment, or trading behavior was changed by this review. No new live network probe was run in this pass.
 - Status remains `HOLD / NO_TRADE_ONLY`. Native adapter bridge tests passing do not establish approved production venue, Tabdeal chart parity, rendered-chart parity, or release authorization.
+
+
+## Continuation update — Sequence-independent candle path (2026-10-19)
+
+- Re-checked PRs #320 and #329–#331 plus the TradingView/comparable chart roadmap before taking further action; existing adapters, bridge, causal structure observer, and chart-payload projection are reused rather than rebuilt.
+- Updated issue #317 to split the work into independent gates: (A) Futures clock evidence, (B) native OHLCV/official-chart parity, and a separate conditional Sequence workstream.
+- Explicit rule now recorded in issue #317: trade-sequence vectors are **not** prerequisites for ordinary OHLCV retrieval, candlestick rendering, or price-only causal structure observation. Sequence work only gates features that need trade-event identity, replay protection, loss detection, or ordering.
+- Tabdeal chart-feed discovery remains the actual candle/chart blocker: the two tested public `/r/fapi/v1/klines` candidates returned 404 for `BTCUSDT` and `BTC_USDT`, while the official website chart's own datafeed contract has not yet been verified. These 404s rule out only those tested routes; they do not prove that no chart-specific feed exists.
+- Current chart path remains an integration task, not a new market-data engine: select/verify an eligible frontend entry point, use the existing canonical candle boundary, and prefer the approved Lightweight Charts route unless the project becomes eligible for TradingView Advanced Charts licensing/access. Do not create a duplicate frontend merely to claim progress.
+- The public Tabdeal chart page could not be extracted by the available web extraction service in this pass. No chart network request, collector activation, code/runtime change, deployment, or live-trading action was performed.
+- Safety disposition remains `HOLD / NO_TRADE_ONLY`. Existing exact-head offline CI results remain bounded evidence; they do not establish live Tabdeal chart parity, deployment, or trading readiness.
