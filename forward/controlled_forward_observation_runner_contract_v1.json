@@ -19,7 +19,7 @@
   "source_ordering_evidence_ref_required": true,
   "source_ordering_block_reason": "SOURCE_ORDERING_UNVERIFIED",
   "production_observation_authorized": false,
-  "production_blocker": "SOURCE_EVIDENCE_REGISTRY_PIN_UNSET_AND_NO_INDEPENDENT_REVIEW",
+  "production_blocker": "SOURCE_EVIDENCE_REGISTRY_PIN_UNSET_AND_REVIEW_PROVENANCE_UNVERIFIABLE",
   "source_evidence_registry": {
     "schema": "hes_source_evidence_registry_v1",
     "path": "evidence/source_evidence_registry_v1.json",
@@ -35,7 +35,7 @@
     ],
     "required_scope": "tabdeal-futures:BTC_USDT",
     "artifact_sha256_required": true,
-    "independent_review_record_required": true,
+    "pair_audit_record_required": true,
     "failure_mode": "BLOCKED",
     "production_observation_authorized": false
   }
