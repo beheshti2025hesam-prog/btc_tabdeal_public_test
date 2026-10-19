@@ -247,3 +247,74 @@ def to_structure_candles(batch: NativeCandleBatch) -> tuple["Candle15m", ...]:
         )
         for row in batch.candles
     )
+
+def to_lightweight_chart_payload(
+    batch: NativeCandleBatch, *, include_volume: bool = False
+) -> dict[str, Any]:
+    """Project normalized bars to a read-only Lightweight Charts-compatible payload.
+
+    This is a rendering projection, not a data source or HTTP server. Decimal values
+    remain authoritative in the batch; numeric conversion happens only at the chart
+    boundary. Volume is omitted by default and Wallex UDF volume is fail-closed.
+    """
+    if not isinstance(include_volume, bool):
+        raise ValueError("include_volume_must_be_boolean")
+    identity = batch.identity
+    if include_volume and (
+        identity.venue.lower() == "wallex"
+        or "wallex" in identity.source.lower()
+    ):
+        raise ValueError("wallex_volume_semantics_unresolved")
+
+    bars: list[dict[str, Any]] = []
+    previous_time: int | None = None
+    for row in batch.candles:
+        if row.start.tzinfo is None or row.start.utcoffset() is None:
+            raise ValueError("chart_bar_time_must_be_timezone_aware")
+        timestamp = row.start.astimezone(timezone.utc).timestamp()
+        if not timestamp.is_integer():
+            raise ValueError("chart_bar_time_must_be_whole_second")
+        chart_time = int(timestamp)
+        if previous_time is not None and chart_time <= previous_time:
+            raise ValueError("chart_bar_times_must_be_strictly_increasing")
+        previous_time = chart_time
+        values = (row.open, row.high, row.low, row.close)
+        converted = tuple(float(value) for value in values)
+        if not all(isfinite(value) for value in converted):
+            raise ValueError("chart_ohlc_conversion_not_finite")
+        bar: dict[str, Any] = {
+            "time": chart_time,
+            "open": converted[0],
+            "high": converted[1],
+            "low": converted[2],
+            "close": converted[3],
+        }
+        if include_volume:
+            volume = float(row.volume)
+            if not isfinite(volume) or volume < 0:
+                raise ValueError("chart_volume_conversion_invalid")
+            bar["volume"] = volume
+        bars.append(bar)
+
+    gaps = [
+        {
+            "expected_start": int(gap.expected_start.timestamp()),
+            "observed_start": int(gap.observed_start.timestamp()),
+        }
+        for gap in batch.gaps
+    ]
+    return {
+        "identity": {
+            "venue": identity.venue,
+            "market": identity.market,
+            "symbol": identity.symbol,
+            "timeframe_seconds": identity.timeframe_seconds,
+            "source": identity.source,
+        },
+        "timezone": "UTC",
+        "volume_included": include_volume,
+        "volume_semantics": "RAW_SOURCE_REPORTED" if include_volume else "OMITTED",
+        "bars": bars,
+        "gaps": gaps,
+        "discarded_open_candles": batch.discarded_open_candles,
+    }
