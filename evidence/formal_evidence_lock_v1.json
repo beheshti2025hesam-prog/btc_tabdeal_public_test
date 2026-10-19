@@ -1,0 +1,62 @@
+{
+  "artifact": "HES Trade Agent — Formal Evidence Lock v1",
+  "status": "EVIDENCE_LOCKED",
+  "locked_at": "2026-10-02T10:56:24Z",
+  "scope": "Immutable lock of the verified 1049-observation evaluator population and its lineage, fold mapping, Fold-7 raw gap, and coverage assertions.",
+  "gate": {
+    "workflow_run_id": 36998216883,
+    "workflow_job_id": 110809693633,
+    "workflow_conclusion": "success",
+    "test": "tests/evidence/test_evidence_lock_gate.py",
+    "test_result": "1 passed"
+  },
+  "source": {
+    "source_pr": 129,
+    "source_head_commit": "4553af53df047674ea030477ff978fd199e7787c",
+    "immutable_workflow_run": 36773191085,
+    "workflow_run_number": 181,
+    "immutable_artifact_id": 11162212837,
+    "immutable_artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "gate_artifact_git_blob_sha": "e0103b0c1953ee7c128db3757d2a728152a4d506"
+  },
+  "population": {
+    "evaluated_observations": 1049,
+    "fold_count": 8,
+    "fold_evaluated": [
+      120,
+      132,
+      135,
+      137,
+      138,
+      127,
+      126,
+      134
+    ],
+    "fold_sum": 1049,
+    "wins": 528,
+    "losses": 479,
+    "unlabeled_evaluated": 42
+  },
+  "gap": {
+    "affected_folds": [
+      7
+    ],
+    "start": "2026-09-27T12:03:19.239Z",
+    "end": "2026-09-27T17:16:54.102Z",
+    "duration_seconds": 18814.863,
+    "duration_hours": 5.226350833333333,
+    "observation_coverage_loss_pct": 0,
+    "excluded_observation_count": 0,
+    "synthetic_fill": false,
+    "replacement_rows": false,
+    "causal_reassignment": false
+  },
+  "safety": {
+    "main_untouched": true,
+    "data_engine_v1_untouched": true,
+    "live_execution_disabled": true,
+    "promotion_disabled": true,
+    "pr_129_unmerged": true
+  },
+  "lock_rule": "Do not alter, fill, delete, reinterpret, or causally attribute the locked population or Fold-7 gap without new immutable evidence and a new lock revision."
+}

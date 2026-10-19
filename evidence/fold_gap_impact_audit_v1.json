@@ -1,0 +1,68 @@
+{
+  "artifact": "HES Trade Agent — Evidence Lock / Fold-Gap Impact Audit v1",
+  "status": "EVIDENCE_LOCK_CANDIDATE",
+  "scope": "Forensic evidence only. No signal construction, tuning, promotion, execution, wallet operation, or data-engine-v1 sync.",
+  "lineage": {
+    "source_pr": 129,
+    "head_commit": "d70ba6aa3dac4d53352eccf0a44eae870d51b9b8",
+    "immutable_workflow_artifact_id": 11162212837,
+    "immutable_workflow_artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f"
+  },
+  "locked_population": {
+    "evaluated_observations": 1049,
+    "fold_count": 8,
+    "fold_evaluated": [120,132,135,137,138,127,126,134],
+    "fold_sum_check": 1049,
+    "exact_match_to_locked_evidence": true,
+    "synthetic_rows_added": false
+  },
+  "gap": {
+    "fold_affected": [7],
+    "start": "2026-09-27T12:03:19.239Z",
+    "end": "2026-09-27T17:16:54.102Z",
+    "duration_seconds": 18814.863,
+    "duration_hours": 5.226350833333333,
+    "fold7_window_hours": 16.583333333333334,
+    "share_of_fold7_time_pct": 31.52166365140704,
+    "share_of_locked_1049_observations_pct": 0.0,
+    "evaluated_observations_removed_by_gap": 0
+  },
+  "coverage_impact": {
+    "locked_window_start": "2026-09-24T02:27:00Z",
+    "locked_window_end": "2026-09-27T17:30:00Z",
+    "locked_window_hours": 63.05,
+    "gap_share_of_locked_window_time_pct": 8.290832673989,
+    "observation_coverage_loss_pct": 0.0,
+    "interpretation": "The gap is a real raw-lineage coverage condition inside Fold 7, but deterministic continuity/replay yields the complete locked 1049 evaluator population without synthetic observations."
+  },
+  "fold_impact": [
+    {"fold":0,"evaluated":120,"gap_intersects":false,"observations_removed":0},
+    {"fold":1,"evaluated":132,"gap_intersects":false,"observations_removed":0},
+    {"fold":2,"evaluated":135,"gap_intersects":false,"observations_removed":0},
+    {"fold":3,"evaluated":137,"gap_intersects":false,"observations_removed":0},
+    {"fold":4,"evaluated":138,"gap_intersects":false,"observations_removed":0},
+    {"fold":5,"evaluated":127,"gap_intersects":false,"observations_removed":0},
+    {"fold":6,"evaluated":126,"gap_intersects":false,"observations_removed":0},
+    {"fold":7,"evaluated":134,"gap_intersects":true,"observations_removed":0}
+  ],
+  "outcome_reconciliation": {
+    "wins": 528,
+    "losses": 479,
+    "wins_plus_losses": 1007,
+    "remaining_evaluated_without_win_loss_label": 42,
+    "remaining_label_share_pct": 4.003813155386082,
+    "note": "The 42 observations are not attributed to the raw gap; no causal reassignment is made."
+  },
+  "integrity_assertions": {
+    "all_eight_fold_counts_reconciled": true,
+    "exact_1049_replay_reproduced": true,
+    "gap_explicitly_preserved": true,
+    "no_synthetic_fill": true,
+    "main_untouched": true,
+    "data_engine_v1_untouched": true,
+    "live_execution_disabled": true,
+    "pr_129_unmerged_at_creation": true
+  },
+  "evidence_lock_rule": "Lock the 1049 evaluator population and its lineage. Preserve the Fold-7 raw gap as an observed condition. Do not fill, delete, reinterpret, or attribute the gap to evaluator observations without new immutable evidence.",
+  "next_gate": "CI validation of this audit artifact, then Evidence Lock."
+}
