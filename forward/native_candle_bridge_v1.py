@@ -131,6 +131,13 @@ def normalize_native_candles(
     inferred_source = source or getattr(first, "source", None) or f"{venue}_native_ohlcv"
     identity = NativeMarketIdentity(venue.strip().lower(), market.strip().lower(),
                                     symbol.strip(), timeframe, str(inferred_source))
+    # The pinned Wallex UDF-history adapter has no row-level market field and is
+    # the Spot chart path. Caller metadata must not relabel its bars as Futures.
+    adapter_source = getattr(first, "source", None)
+    if adapter_source == "wallex_native_udf_history" and (
+        identity.venue != "wallex" or identity.market != "spot"
+    ):
+        raise ValueError("source_market_mismatch")
 
     normalized: list[NativeCandleRecord] = []
     discarded_open = 0
