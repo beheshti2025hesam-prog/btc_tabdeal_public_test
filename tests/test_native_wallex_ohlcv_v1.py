@@ -36,9 +36,11 @@ def test_native_history_preserves_decimal_and_closed_state():
     assert candles[0].open_time.tzinfo is timezone.utc
 
 
-def test_only_documented_minute_resolutions_are_enabled():
-    assert SUPPORTED_MINUTE_RESOLUTIONS == {1, 60, 180, 360, 720}
-    for unsupported in (0, 15, 30, 1440, True, "1"):
+def test_only_runtime_verified_resolutions_are_enabled():
+    assert SUPPORTED_MINUTE_RESOLUTIONS == {1, 60}
+    # Live 2026-10-19 probes showed 15 returns 1-minute timestamps, 240/480/720
+    # return hourly timestamps, and 180/360 are rejected by Wallex. Fail closed.
+    for unsupported in (0, 5, 15, 30, 180, 240, 360, 480, 720, 1440, True, "1"):
         with pytest.raises(ValueError, match="resolution|timeframe_minutes"):
             parse_history(PAYLOAD, symbol="BTCUSDT", timeframe_minutes=unsupported, as_of=NOW)
 
