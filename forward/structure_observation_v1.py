@@ -19,6 +19,9 @@ class StructureObservationV1:
     closed_candle_count: int
     status: str
     snapshot: StructureSnapshot
+    venue: str | None = None
+    market: str | None = None
+    source: str | None = None
 
     def as_record(self) -> dict:
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
@@ -26,6 +29,7 @@ class StructureObservationV1:
         return {
             "observed_at": self.observed_at.astimezone(timezone.utc).isoformat(),
             "symbol": self.symbol, "timeframe": self.timeframe,
+            "venue": self.venue, "market": self.market, "source": self.source,
             "closed_candle_count": self.closed_candle_count,
             "status": self.status, "regime": self.snapshot.regime,
             "labels": list(self.snapshot.labels),
@@ -41,7 +45,10 @@ def observe_closed_candles(candles: Sequence[Candle15m], *, observed_at: datetim
     ordered = sorted(candles, key=lambda candle: candle.close_time)
     symbol = ordered[0].symbol if ordered else ""
     timeframe = ordered[0].timeframe if ordered else "15m"
+    identity = (ordered[0].venue, ordered[0].market, ordered[0].source) if ordered else (None, None, None)
     for candle in ordered:
+        if (candle.venue, candle.market, candle.source) != identity:
+            raise ValueError("mixed venue/market/source is not allowed")
         if candle.close_time > observed_at:
             raise ValueError("closed candle occurs after observed_at")
         if candle.symbol != symbol:
@@ -59,4 +66,7 @@ def observe_closed_candles(candles: Sequence[Candle15m], *, observed_at: datetim
     events = build_structure_events_v1(swings, observed_at=observed_at)
     snapshot = build_snapshot(observed_at=observed_at, swings=swings, labels=labels, events=events)
     status = "STRUCTURE_OBSERVED" if swings else "UNKNOWN_NO_CONFIRMED_SWINGS"
-    return StructureObservationV1(observed_at, symbol, timeframe, len(ordered), status, snapshot)
+    return StructureObservationV1(
+        observed_at, symbol, timeframe, len(ordered), status, snapshot,
+        venue=identity[0], market=identity[1], source=identity[2],
+    )
