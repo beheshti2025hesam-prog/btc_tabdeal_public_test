@@ -11,8 +11,22 @@ from pathlib import Path
 
 import pytest
 
-from forward.native_candle_bridge_v1 import normalize_native_candles, to_structure_candles
+from forward.native_candle_bridge_v1 import (
+    normalize_native_candles,
+    to_lightweight_chart_payload,
+    to_structure_candles,
+)
 from forward.structure_observation_v1 import observe_closed_candles
+
+
+def load_wallex():
+    path = Path(os.environ["HES_WALLEX_ADAPTER_PATH"])
+    spec = importlib.util.spec_from_file_location("chart_contract_wallex", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def load_binance():
@@ -26,6 +40,7 @@ def load_binance():
 
 
 binance = load_binance()
+wallex = load_wallex()
 START = datetime(2026, 10, 19, 9, 0, tzinfo=timezone.utc)
 AS_OF = START + timedelta(minutes=105)
 
@@ -104,3 +119,41 @@ def test_structure_observer_rejects_mixed_native_market_identity():
     structure_rows[1] = replace(structure_rows[1], market="spot")
     with pytest.raises(ValueError, match="mixed venue/market/source"):
         observe_closed_candles(structure_rows, observed_at=AS_OF)
+
+
+def test_chart_projection_is_read_only_utc_and_omits_volume_by_default():
+    rows = actual_binance_15m_rows()
+    batch = normalize_native_candles(rows, venue="binance", market="usdm_futures", as_of=AS_OF)
+    payload = to_lightweight_chart_payload(batch)
+    assert payload["identity"] == {
+        "venue": "binance",
+        "market": "usdm_futures",
+        "symbol": "BTCUSDT",
+        "timeframe_seconds": 900,
+        "source": "binance_native_ohlcv",
+    }
+    assert payload["timezone"] == "UTC"
+    assert payload["volume_included"] is False
+    assert payload["bars"][0]["time"] == int(START.timestamp())
+    assert "volume" not in payload["bars"][0]
+    assert payload["gaps"] == []
+
+    with_volume = to_lightweight_chart_payload(batch, include_volume=True)
+    assert with_volume["bars"][0]["volume"] == 12.34
+    assert with_volume["volume_semantics"] == "RAW_SOURCE_REPORTED"
+
+
+def test_chart_projection_fails_closed_on_wallex_volume():
+    start = START + timedelta(minutes=60)
+    as_of = start + timedelta(minutes=1)
+    rows = wallex.parse_history(
+        {"s": "ok", "t": [int(start.timestamp())], "o": ["100.10"],
+         "h": ["103.00"], "l": ["99.50"], "c": ["102.20"], "v": ["12.3400"]},
+        symbol="BTCUSDT", timeframe_minutes=1, as_of=as_of,
+    )
+    batch = normalize_native_candles(rows, venue="wallex", market="spot", as_of=as_of)
+    payload = to_lightweight_chart_payload(batch)
+    assert payload["volume_included"] is False
+    assert "volume" not in payload["bars"][0]
+    with pytest.raises(ValueError, match="wallex_volume_semantics_unresolved"):
+        to_lightweight_chart_payload(batch, include_volume=True)
