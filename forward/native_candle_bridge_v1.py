@@ -238,6 +238,9 @@ def to_structure_candles(batch: NativeCandleBatch):
             last_sequence=None,
             source_first_observed_at=None,
             source_last_observed_at=None,
+            venue=batch.identity.venue,
+            market=batch.identity.market,
+            source=batch.identity.source,
         )
         for row in batch.candles
     )
