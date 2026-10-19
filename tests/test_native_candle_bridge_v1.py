@@ -5,6 +5,7 @@ from decimal import Decimal
 import pytest
 
 from forward.native_candle_bridge_v1 import normalize_native_candles, to_feature_candles
+from core.feature_engine.ema import EMACalculator
 
 UTC = timezone.utc
 AS_OF = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
@@ -119,3 +120,27 @@ def test_invalid_ohlc_rejected():
     bad = wallex(start, close="105")
     with pytest.raises(ValueError, match="invalid_ohlc_range"):
         normalize_native_candles([bad], venue="wallex", market="spot", as_of=AS_OF)
+
+
+
+def test_bridge_output_feeds_existing_ema_consumer():
+    start = AS_OF - timedelta(minutes=3)
+    batch = normalize_native_candles([wallex(start)], venue="wallex",
+                                     market="spot", as_of=AS_OF)
+    snapshots = EMACalculator(period=1).calculate(to_feature_candles(batch))
+    assert len(snapshots) == 1
+    assert snapshots[0].symbol == "BTCUSDT"
+    assert snapshots[0].value == 100.2
+
+
+def test_binance_market_identity_must_match_requested_market():
+    start = AS_OF - timedelta(minutes=3)
+    candle = BinanceLike(
+        "usdm_futures", "BTCUSDT", "1m", int(start.timestamp() * 1000),
+        int((start + timedelta(minutes=1)).timestamp() * 1000) - 1,
+        Decimal("100"), Decimal("101"), Decimal("99"),
+        Decimal("100.5"), Decimal("5.25"),
+    )
+    with pytest.raises(ValueError, match="mixed_market"):
+        normalize_native_candles([candle], venue="binance",
+                                 market="spot", as_of=AS_OF)
