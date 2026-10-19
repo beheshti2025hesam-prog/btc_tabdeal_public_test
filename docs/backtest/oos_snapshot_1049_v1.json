@@ -1,0 +1,40 @@
+{
+  "snapshot_id": "btc-usdt-oos-1049-v1",
+  "status": "immutable-reference",
+  "source_path": "data/trades.csv",
+  "source_blob_sha1": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+  "source_commit_sha": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+  "reference_pr": 86,
+  "reference_workflow_run_id": 36489452534,
+  "reference_workflow_run_number": 41,
+  "reference_merge_commit_sha": "3247bf37f4f80e01916180ed0dd5594f81701752",
+  "reference_artifact_id": 11000741523,
+  "protocol_id": "oos-real-btcusdt-v1-800x400x400-e0",
+  "expected_folds": 8,
+  "expected_evaluated": 1049,
+  "expected_gross_distribution": {
+    "negative_below_0bps": 479,
+    "zero_to_14bps_inclusive": 556,
+    "above_14bps": 14,
+    "exact_zero": 42
+  },
+  "expected_fold_evaluated": [
+    120,
+    132,
+    135,
+    137,
+    138,
+    127,
+    126,
+    134
+  ],
+  "raw_snapshot_observed": {
+    "rows": 127201,
+    "bytes": 9592808,
+    "first_timestamp": "2026-09-22T22:26:16.640000+00:00",
+    "first_sequence": "37111333321",
+    "last_timestamp": "2026-09-28T08:27:38.179000+00:00",
+    "last_sequence": "38586238655"
+  },
+  "note": "The Git blob SHA is the immutable raw-data identity. The workflow reference is preserved because the original 1,049 evidence artifact was produced from a pull_request merge checkout; subsequent audits must verify this exact blob before interpreting results."
+}
