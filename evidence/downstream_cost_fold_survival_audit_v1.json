@@ -1,0 +1,193 @@
+{
+  "artifact": "HES Trade Agent — Downstream Cost-Boundary + Fold-Survival Audit v1",
+  "status": "DOWNSTREAM_AUDIT_COMPLETE",
+  "scope": "Independent downstream audit only. The locked 1,049 evaluator population is referenced, not modified, recomputed, reweighted, or re-labeled.",
+  "upstream_lock": {
+    "evidence_lock_status": "EVIDENCE_LOCKED",
+    "locked_population": 1049,
+    "fold_count": 8,
+    "fold_evaluated": [
+      120,
+      132,
+      135,
+      137,
+      138,
+      127,
+      126,
+      134
+    ],
+    "fold_sum": 1049,
+    "source_pr": 129,
+    "immutable_workflow_run": 36773191085,
+    "immutable_artifact_id": 11162212837,
+    "immutable_artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "exact_1049_replay": true,
+    "gap_affected_fold": [
+      7
+    ],
+    "gap_duration_seconds": 18814.863,
+    "gap_duration_hours": 5.226350833333333,
+    "gap_share_of_fold7_time_pct": 31.52166365140704,
+    "observation_coverage_delta": 0,
+    "synthetic_fill": false,
+    "replacement_rows": false,
+    "causal_reassignment": false
+  },
+  "cost_matrix_provenance": {
+    "artifact_id": 11000741523,
+    "artifact_name": "real-btcusdt-oos-cost-matrix-evidence",
+    "artifact_digest": "sha256:2d6417289b3ddbc5befb622f8e64d1259dd6eea73a7c24d6abc37e64de85addc",
+    "snapshot_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "snapshot_source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "snapshot_run_id": 36489452534,
+    "protocol_id": "oos-real-btcusdt-v1-800x400x400-e0"
+  },
+  "population_reconciliation": {
+    "evaluated": 1049,
+    "wins_at_zero_cost": 528,
+    "losses_at_zero_cost": 479,
+    "unlabeled_at_zero_cost": 42,
+    "gross_return_bins": {
+      "below_zero": 479,
+      "zero_to_14bps": 556,
+      "above_14bps": 14,
+      "total": 1049
+    },
+    "bucket_sum_check": true
+  },
+  "cost_survival": {
+    "zero_cost": {
+      "tx_bps_per_side": 0,
+      "slippage_bps_per_side": 0,
+      "round_trip_bps": 0,
+      "positive_net_count": 528,
+      "positive_net_fraction_pct": 50.33365014299333
+    },
+    "fourteen_bps_round_trip": {
+      "tx_bps_per_side": 5,
+      "slippage_bps_per_side": 2,
+      "round_trip_bps": 14,
+      "positive_net_count": 14,
+      "positive_net_fraction_pct": 1.334604385128694,
+      "net_return": -1.4407601335310767
+    },
+    "thirty_bps_round_trip": {
+      "tx_bps_per_side": 10,
+      "slippage_bps_per_side": 5,
+      "round_trip_bps": 30,
+      "positive_net_count": 1,
+      "positive_net_fraction_pct": 0.09532888465109629,
+      "net_return": -3.119160133531077
+    }
+  },
+  "fold_audit": [
+    {
+      "fold": 0,
+      "evaluated": 120,
+      "zero_cost_return": 0.003714827698641958,
+      "zero_cost_wins": 59,
+      "zero_cost_losses": 59,
+      "gt14bps_survivors": 2,
+      "gt14bps_survival_pct": 1.6666666666666667,
+      "gt30bps_survivors": 0
+    },
+    {
+      "fold": 1,
+      "evaluated": 132,
+      "zero_cost_return": 0.0033867421019111647,
+      "zero_cost_wins": 68,
+      "zero_cost_losses": 61,
+      "gt14bps_survivors": 3,
+      "gt14bps_survival_pct": 2.272727272727273,
+      "gt30bps_survivors": 0
+    },
+    {
+      "fold": 2,
+      "evaluated": 135,
+      "zero_cost_return": 0.007373195874071503,
+      "zero_cost_wins": 66,
+      "zero_cost_losses": 68,
+      "gt14bps_survivors": 2,
+      "gt14bps_survival_pct": 1.4814814814814816,
+      "gt30bps_survivors": 0
+    },
+    {
+      "fold": 3,
+      "evaluated": 137,
+      "zero_cost_return": 0.014016310862902571,
+      "zero_cost_wins": 77,
+      "zero_cost_losses": 60,
+      "gt14bps_survivors": 7,
+      "gt14bps_survival_pct": 5.109489051094891,
+      "gt30bps_survivors": 1,
+      "gt30bps_survival_pct": 0.7299270072992701
+    },
+    {
+      "fold": 4,
+      "evaluated": 138,
+      "zero_cost_return": -0.003365815138776131,
+      "zero_cost_wins": 66,
+      "zero_cost_losses": 69,
+      "gt14bps_survivors": 0,
+      "gt14bps_survival_pct": 0,
+      "gt30bps_survivors": 0
+    },
+    {
+      "fold": 5,
+      "evaluated": 127,
+      "zero_cost_return": 0.00576935433688134,
+      "zero_cost_wins": 71,
+      "zero_cost_losses": 44,
+      "gt14bps_survivors": 0,
+      "gt14bps_survival_pct": 0,
+      "gt30bps_survivors": 0
+    },
+    {
+      "fold": 6,
+      "evaluated": 126,
+      "zero_cost_return": -0.000777416903097259,
+      "zero_cost_wins": 52,
+      "zero_cost_losses": 59,
+      "gt14bps_survivors": 0,
+      "gt14bps_survival_pct": 0,
+      "gt30bps_survivors": 0
+    },
+    {
+      "fold": 7,
+      "evaluated": 134,
+      "zero_cost_return": -0.0022773323636118047,
+      "zero_cost_wins": 69,
+      "zero_cost_losses": 59,
+      "gt14bps_survivors": 0,
+      "gt14bps_survival_pct": 0,
+      "gt30bps_survivors": 0
+    }
+  ],
+  "fold_reconciliation": {
+    "evaluated_sum": 1049,
+    "gt14bps_survivor_sum": 14,
+    "gt30bps_survivor_sum": 1,
+    "gap_intersects_only_fold7": true
+  },
+  "gap_impact_boundary": {
+    "affected_fold": 7,
+    "excluded_evaluator_observations": 0,
+    "observation_coverage_loss_pct": 0,
+    "raw_time_coverage_loss_hours": 5.226350833333333,
+    "raw_time_coverage_loss_pct_of_locked_window": 8.290832673989,
+    "direct_cost_survivor_loss_at_14bps": 0,
+    "direct_cost_survivor_loss_at_30bps": 0,
+    "interpretation": "The raw gap intersects Fold 7, but the locked evaluator population loses zero observations and Fold 7 contains zero positive-net survivors at both the 14 bps and 30 bps round-trip boundaries. This is a descriptive intersection only; it does not establish that the gap caused or did not cause any performance effect."
+  },
+  "scientific_boundary": {
+    "signal_construction": false,
+    "threshold_tuning": false,
+    "parameter_tuning": false,
+    "model_fitting": false,
+    "execution": false,
+    "promotion": false,
+    "data_engine_v1_sync": false,
+    "evidence_lock_modified": false,
+    "conclusion": "The 1,049 Evidence Lock remains immutable. This artifact is downstream measurement only."
+  }
+}
