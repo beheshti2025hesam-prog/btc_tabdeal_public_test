@@ -109,6 +109,11 @@ class TabdealReadOnlyTransportV1:
 
     def _close_for_budget(self, ws: Any) -> None:
         self.closed_by_budget = True
+        # Revoke the epoch before asking the socket to close: close() can be
+        # asynchronous, and late callbacks must not remain eligible meanwhile.
+        with self._callback_lock:
+            if self._active_ws is ws:
+                self._active_ws = None
         close = getattr(ws, "close", None)
         if callable(close):
             close()
