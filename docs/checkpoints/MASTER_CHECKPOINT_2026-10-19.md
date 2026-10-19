@@ -94,3 +94,13 @@ The combined commit-status endpoint returned no status entries for these heads; 
 - **Sequence is conditional:** ordinary chart/candle/OHLC access does not require solving trade-sequence semantics. Resume sequence investigation only for a named requirement involving trade identity, ordering, replay, or loss detection.
 - **Open gates:** Tabdeal chart-feed/parity evidence; independent eligible review for PRs #245, #327, #328; clarify Wallex's 2x UDF volume discrepancy before enabling volume-dependent logic. Do not guess a reviewer or silently normalize volume.
 - **Safety:** maintain `HOLD / NO_TRADE_ONLY`; no merge/deploy/production collector activation/trading without the required evidence and independent review.
+
+## Resume marker — saved 2026-10-19
+This marker records the exact stopping point requested by the project owner. It does not claim any additional technical investigation was performed after the preceding checkpoint.
+
+- **Stop point:** official Tabdeal API documentation has been checked; it does not document a candle-history/OHLCV endpoint in the inspected surface. This does **not** establish that the live Tabdeal website chart lacks an undocumented/private feed.
+- **Next action on resume:** inspect the real Tabdeal website chart's network requests/datafeed for the exact market/product and timeframe; capture endpoint, request parameters, response schema, timestamps, and raw evidence/hash. Reuse a native or existing chart feed if one is verified. Do not invent an endpoint or reconstruct candles from trades without a demonstrated requirement.
+- **Do not repeat completed work:** do not restart the documented API search, re-create the existing Wallex/Binance adapters, or expand sequence research as a prerequisite for ordinary candles. Wallex and Binance evidence is venue-specific and cannot prove Tabdeal parity.
+- **Still open:** Tabdeal chart-feed/parity verification; eligible independent reviews for PRs #245, #327, and #328; authoritative explanation of Wallex's observed 2× UDF-volume discrepancy before any volume-dependent feature is enabled.
+- **Hard safety boundary:** `HOLD / NO_TRADE_ONLY`. No production activation, deployment, account mutation, orders, or trading without the applicable evidence and independent review.
+- **Project DNA reminder:** reuse existing capability first; integrate/optimize only a proven gap. GitHub is technical truth, this Master Checkpoint is the project map, and chat is the conversation log.
