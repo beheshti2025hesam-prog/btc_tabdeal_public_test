@@ -1,0 +1,44 @@
+name: Candidate C Same-Bar Policy Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'evidence/candidate_c_same_bar_exit_policy_frozen_20261002.json'
+      - 'scripts/candidate_c_evaluator.py'
+  workflow_dispatch:
+jobs:
+  policy-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate frozen Candidate C same-bar policy
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("evidence/candidate_c_same_bar_exit_policy_frozen_20261002.json")
+          d = json.loads(p.read_text())
+          assert d["candidate_version"] == "C-v1"
+          assert d["policy_id"] == "CONSERVATIVE_WORST_CASE_SL_FIRST"
+          assert d["policy_definition"]
+          assert d["frozen_before_oos"] is True
+          assert d["candidate_definition_changed"] is False
+          assert d["oos_started"] is False
+          assert d["research_only"] is True
+          assert d["live_execution"] is False
+          assert d["wallet_operations"] is False
+          assert d["promotion"] is False
+          assert d["rule_a_reuse"] is False
+          assert d["candidate_b_reuse"] is False
+          assert d["data_engine_v1_sync"] is False
+          assert d["no_performance_based_selection"] is True
+          assert d["no_silent_precedence"] is True
+          print("Candidate C same-bar policy gate: PASS")
+          PY
