@@ -8,7 +8,7 @@ Candle-based strategies consume official native exchange/broker OHLCV candles wh
 - Query: `symbol`, `resolution`, `from`, `to` (Unix timestamps)
 - Response arrays: `s`, `t`, `o`, `h`, `l`, `c`, `v`
 - Documented minute resolutions: `1`, `60`, `180`, `360`, `720`; documentation also lists `1D`.
-- The adapter currently enables only the five documented minute resolutions. The `1D` option is intentionally deferred until daily-boundary/timezone behavior is verified.
+- The adapter currently enables only the two resolutions verified to return matching timestamp spacing. The `1D` option is intentionally deferred until daily-boundary/timezone behavior is verified.
 - The official market docs use symbols such as `BTCUSDT`; validate requested symbols against the current market list.
 
 Official source: https://api-docs.wallex.ir/ (section “کندل‌ها / OHLC market statistics”).
