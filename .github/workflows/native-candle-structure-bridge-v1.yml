@@ -56,4 +56,4 @@ jobs:
           HES_BINANCE_ADAPTER_PATH: adapters/binance/forward/native_binance_ohlcv_v1.py
         run: |
           python -m pip install --disable-pip-version-check pytest
-          python -m pytest -q tests/test_native_candle_bridge_v1.py tests/test_native_adapter_bridge_contracts_v1.py tests/test_native_candle_structure_bridge_v1.py forward/test_structure_observation_v1.py
+          python -m pytest -q tests/test_native_candle_bridge_v1.py tests/test_native_adapter_bridge_contracts_v1.py tests/test_native_candle_structure_bridge_v1.py forward/test_candle_normalizer_v1.py forward/test_market_structure_v1.py forward/test_structure_observation_v1.py tests/test_clean_structure_observation_v1.py tests/test_clean_structure_context_v1.py tests/test_clean_structure_stability_v1.py tests/test_clean_regime_observation_v1.py tests/test_forward_observation_path_v1.py
