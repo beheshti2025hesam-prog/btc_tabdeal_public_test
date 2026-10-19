@@ -210,3 +210,34 @@ def to_feature_candles(batch: NativeCandleBatch) -> tuple[Candle, ...]:
             close=values[3], volume=values[4], trade_count=None,
         ))
     return tuple(result)
+
+def to_structure_candles(batch: NativeCandleBatch):
+    """Convert a normalized 15m native batch to the existing causal structure input.
+
+    Native OHLCV does not contain trade counts, trade sequences, or trade-observed
+    timestamps. Those fields stay None; no synthetic sequence or zero count is made.
+    The caller must choose and validate the venue/market before invoking this adapter.
+    """
+    if batch.identity.timeframe_seconds != 900:
+        raise ValueError("structure_observation_requires_15m_candles")
+    from forward.candle_normalizer_v1 import Candle15m
+
+    return tuple(
+        Candle15m(
+            symbol=batch.identity.symbol,
+            timeframe="15m",
+            open_time=row.start,
+            close_time=row.end,
+            open=row.open,
+            high=row.high,
+            low=row.low,
+            close=row.close,
+            volume=row.volume,
+            trade_count=None,
+            first_sequence=None,
+            last_sequence=None,
+            source_first_observed_at=None,
+            source_last_observed_at=None,
+        )
+        for row in batch.candles
+    )
