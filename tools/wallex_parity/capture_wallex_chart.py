@@ -84,13 +84,17 @@ async def main() -> int:
         except Exception as exc:
             screenshot_error = f"{type(exc).__name__}: {exc}"
         canvas_count = sum([await frame.locator("canvas").count() for frame in page.frames])
-        await browser.close()
+        browser_close_error = None
+        try:
+            await asyncio.wait_for(browser.close(), timeout=10)
+        except Exception as exc:
+            browser_close_error = f"{type(exc).__name__}: {exc}"
 
     if not captured:
         manifest = {
             "schema": "hes.wallex.chart_browser_parity.v1",
             "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "chart_url": CHART_URL, "navigation_error": navigation_error, "screenshot_error": screenshot_error,
+            "chart_url": CHART_URL, "navigation_error": navigation_error, "screenshot_error": screenshot_error, "browser_close_error": browser_close_error,
             "canvas_count": canvas_count, "screenshot_sha256": (digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()) if (OUT / "wallex-chart-BTCUSDT.png").exists() else None),
             "screenshot_bytes": ((OUT / "wallex-chart-BTCUSDT.png").stat().st_size if (OUT / "wallex-chart-BTCUSDT.png").exists() else 0),
             "status": "BLOCKED_NO_CHART_UDF_RESPONSE",
@@ -115,7 +119,7 @@ async def main() -> int:
             "schema": "hes.wallex.chart_browser_parity.v1",
             "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "chart_url": CHART_URL,
-            "navigation_error": navigation_error,
+            "navigation_error": navigation_error, "browser_close_error": browser_close_error,
             "canvas_count": canvas_count,
             "browser_history_request_url": browser_url,
             "browser_raw_sha256": digest(browser_raw),
