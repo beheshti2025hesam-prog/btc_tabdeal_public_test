@@ -1,0 +1,38 @@
+{
+  "artifact_id": "CANDIDATE_C_SAME_BAR_POLICY_COMPARISON_AUDIT_2026-10-02",
+  "status": "DECISION_SUPPORT_ONLY_POLICY_NOT_FROZEN",
+  "candidate_id": "CANDIDATE_RESEARCH_INDEPENDENT_C",
+  "candidate_version": "C-v1",
+  "research_only": true,
+  "oos_started": false,
+  "production_signal": false,
+  "promotion": false,
+  "live_execution": false,
+  "wallet_operations": false,
+  "rule_a_reuse": false,
+  "candidate_b_reuse": false,
+  "data_engine_v1_sync": false,
+  "ambiguity_population": {
+    "bars_1m": 4977,
+    "candidate_signals_scanned": 552,
+    "ambiguous_same_bar_sl_tp_count": 7,
+    "holding_window_bars": 30
+  },
+  "purpose": "Compare admissible same-bar resolution families before freezing one policy. Decision support only; must not be used to tune toward a preferred OOS result.",
+  "policies": [
+    {"id":"RAW_TRADE_PATH","definition":"Use verified finer-granularity trade-path evidence when available to establish SL/TP touch order.","leakage_risk":"LOW_IF_STRICTLY_BOUNDED","reproducibility":"HIGH_IF_EXACT_WINDOW_AND_RULE_FROZEN","assumption_level":"LOWEST_WHEN_VERIFIABLE","current_status":"NOT_AVAILABLE_FROM_CURRENT_BOUNDED_GITHUB_RETRIEVAL_PATH"},
+    {"id":"FIXED_DETERMINISTIC_PRECEDENCE","definition":"Apply one identical precedence to every ambiguous bar, independent of outcome, fold, future information, or performance.","leakage_risk":"LOW","reproducibility":"HIGH","assumption_level":"EXPLICIT_ARTIFICIAL_ASSUMPTION","current_status":"REQUIRES_EXACT_RULE_DEFINITION"},
+    {"id":"CONSERVATIVE_WORST_CASE","definition":"For ambiguity, account for the adverse exit first.","leakage_risk":"LOW","reproducibility":"HIGH","assumption_level":"EXPLICIT_CONSERVATIVE_ASSUMPTION","current_status":"AVAILABLE_IF_EXPLICITLY_FROZEN"},
+    {"id":"TARGET_FIRST_OPTIMISTIC","definition":"For ambiguity, account for the favorable target exit first.","leakage_risk":"LOW","reproducibility":"HIGH","assumption_level":"EXPLICIT_OPTIMISTIC_ASSUMPTION","current_status":"AVAILABLE_IF_EXPLICITLY_FROZEN"}
+  ],
+  "selection_constraints":[
+    "Do not select by maximizing win rate, return, or another OOS performance metric.",
+    "Do not inspect OOS outcomes to choose the policy.",
+    "Do not use future information, fold identity, or candidate performance as a tie-breaker.",
+    "Selected policy must be deterministic and frozen before OOS.",
+    "Candidate C-v1 definition remains unchanged.",
+    "If raw trade ordering becomes verifiable before freeze, it may replace an assumed precedence only through a separately reviewed evidence update."
+  ],
+  "decision_boundary":{"policy_frozen":false,"oos_blocked":true,"next_action":"Select and freeze one explicit policy, then run fail-closed CI before OOS."},
+  "note":"No policy is recommended or selected by this audit."
+}
