@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+from dataclasses import replace
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -71,6 +72,9 @@ def test_real_binance_15m_parser_output_reaches_existing_structure_observer():
     record = observation.as_record()
     assert record["symbol"] == "BTCUSDT"
     assert record["timeframe"] == "15m"
+    assert record["venue"] == "binance"
+    assert record["market"] == "usdm_futures"
+    assert record["source"] == "binance_native_ohlcv"
     assert record["closed_candle_count"] == 7
     assert record["observed_at"] == AS_OF.isoformat()
     assert record["status"] in {"STRUCTURE_OBSERVED", "UNKNOWN_NO_CONFIRMED_SWINGS"}
@@ -91,3 +95,12 @@ def test_structure_bridge_rejects_non_15m_native_batch():
     )
     with pytest.raises(ValueError, match="requires_15m"):
         to_structure_candles(batch)
+
+
+def test_structure_observer_rejects_mixed_native_market_identity():
+    rows = actual_binance_15m_rows()
+    batch = normalize_native_candles(rows, venue="binance", market="usdm_futures", as_of=AS_OF)
+    structure_rows = list(to_structure_candles(batch))
+    structure_rows[1] = replace(structure_rows[1], market="spot")
+    with pytest.raises(ValueError, match="mixed venue/market/source"):
+        observe_closed_candles(structure_rows, observed_at=AS_OF)
