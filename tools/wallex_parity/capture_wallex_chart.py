@@ -88,7 +88,8 @@ async def main() -> int:
             "captured_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "chart_url": CHART_URL, "navigation_error": navigation_error,
             "canvas_count": canvas_count, "screenshot_sha256": digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()),
-            "screenshot_bytes": (OUT / "wallex-chart-BTCUSDT.png").stat().st_size,\n            "status": "BLOCKED_NO_CHART_UDF_RESPONSE",
+            "screenshot_bytes": (OUT / "wallex-chart-BTCUSDT.png").stat().st_size,
+            "status": "BLOCKED_NO_CHART_UDF_RESPONSE",
             "note": "No matching public 1m BTCUSDT UDF response was observed in the browser. Screenshot retained; no parity claim.",
         }
         (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
