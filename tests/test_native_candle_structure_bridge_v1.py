@@ -136,10 +136,14 @@ def test_chart_projection_is_read_only_utc_and_omits_volume_by_default():
     assert payload["volume_included"] is False
     assert payload["bars"][0]["time"] == int(START.timestamp())
     assert "volume" not in payload["bars"][0]
+    assert payload["volume_bars"] == []
     assert payload["gaps"] == []
 
     with_volume = to_lightweight_chart_payload(batch, include_volume=True)
-    assert with_volume["bars"][0]["volume"] == 12.34
+    assert "volume" not in with_volume["bars"][0]
+    assert with_volume["volume_bars"][0] == {
+        "time": int(START.timestamp()), "value": 12.34
+    }
     assert with_volume["volume_semantics"] == "RAW_SOURCE_REPORTED"
 
 
