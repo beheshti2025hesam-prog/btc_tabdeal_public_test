@@ -1,0 +1,34 @@
+name: HES Trade Agent — 14 vs 1035 Contrast Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contrast-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout frozen audit branch
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          python -m pip install pytest
+      - name: Run 14-vs-1035 contrast audit
+        run: |
+          python scripts/contrast_audit_14_vs_1035.py
+      - name: Upload contrast evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: 14-vs-1035-contrast-audit
+          path: |
+            14_vs_1035_contrast_audit.json
+            14_vs_1035_winners.csv
+          if-no-files-found: error
