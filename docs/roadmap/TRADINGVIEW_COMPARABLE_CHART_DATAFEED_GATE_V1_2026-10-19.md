@@ -3,13 +3,20 @@
 ## Priority
 High-priority required roadmap item. Integrate HES's existing native-candle/data boundary with a charting layer; do not create a second market-data engine or silently substitute venues.
 
+## Active source constraint — project DNA (2026-10-19)
+
+- **Wallex is the currently approved active exchange for market-data/WebSocket work.** Implement and validate the chart datafeed against the existing Wallex native OHLCV adapter first, preserving source/market identity and the known volume-semantic gate.
+- Tabdeal and Nobitex references below are research/history or future candidate sources only; they are **not authorization to switch the active target**. Do not probe, prioritize, or label them as active production sources unless the user explicitly changes the venue decision or a separately documented contingency is approved.
+- This charting work is independent of trade `sequence`: candle-only display consumes native OHLCV through the existing bridge. Sequence research remains separate and conditional on features that need individual-trade identity/order guarantees.
+- Resource-first rule: reuse the existing native adapters, normalizer, bridge and a supported chart library. Do not create another candle engine, invent undocumented endpoints, or build a parallel frontend without a verified frontend entry point and a documented gap.
+
 ## Findings from official documentation
 - TradingView Advanced Charts / Trading Platform libraries do not provide market data; HES must supply its own datafeed: https://www.tradingview.com/charting-library-docs/latest/connecting_data/
 - The official Advanced Charts library is hosted in a private GitHub repository, requires access approval, and is not redistributable or permitted in public code repositories: https://www.tradingview.com/charting-library-docs/latest/quick-start/
 - TradingView states that Advanced Charts and Trading Platform are not available for personal/internal projects; those licenses are for companies operating public web projects/apps: https://www.tradingview.com/free-charting-libraries/
 - TradingView Lightweight Charts is publicly available under Apache 2.0 and supports custom candlestick series fed by application data. Attribution is required: https://github.com/tradingview/lightweight-charts
 
-## Native Tabdeal Futures endpoint probe (2026-10-19)
+## Historical / non-active Tabdeal Futures endpoint probe (2026-10-19; not the current source target)
 
 Read-only checks against the official `api1.tabdeal.org` host add the following evidence:
 
@@ -19,7 +26,7 @@ Read-only checks against the official `api1.tabdeal.org` host add the following 
 - Candidate `GET /r/fapi/v1/klines?symbol=BTCUSDT&interval=15m&limit=3` returned HTTP 404; repeating with the verified symbol `BTC_USDT` also returned HTTP 404. This is evidence against those exact public route candidates, not proof that no chart-specific endpoint exists.
 - The official [Tabdeal Python SDK](https://github.com/Tabdeal-Exchange/tabdeal-python), including `tabdeal/future.py`, exposes public ping/time/exchangeInfo/depth methods but no kline/candlestick method in the inspected current source.
 
-**Conclusion:** native Tabdeal Futures candles are still not available through a verified documented/public REST route. Do not build a fake Binance-compatible adapter, synthesize OHLCV from sequence, or assume the website's chart is sourced from this REST path. Next source-discovery step is inspect the existing official Futures chart's own datafeed/network contract (read-only) and verify its schema before implementing any thin adapter. Candle-based analysis remains sequence-independent.
+**Historical conclusion (Tabdeal is not the active source):** native Tabdeal Futures candles were not available through a verified documented/public REST route in this probe. Do not build a fake Binance-compatible adapter, synthesize OHLCV from sequence, or assume the website's chart is sourced from this REST path. Next source-discovery step is inspect the existing official Futures chart's own datafeed/network contract (read-only) and verify its schema before implementing any thin adapter. Candle-based analysis remains sequence-independent.
 
 ## Current repository fit
 The repository currently has no verified frontend/chart application to extend. Therefore, do not copy proprietary Advanced Charts files into this public repository, do not claim a TradingView Advanced Charts integration without approved access and eligible licensing, and do not create an unrelated parallel frontend just to check a box.
