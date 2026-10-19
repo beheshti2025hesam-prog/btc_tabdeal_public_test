@@ -91,8 +91,8 @@ def load_candles(path: str) -> tuple[list[dict], dict]:
             stamp_decimal = _decimal(stamp, f"{path} candle[{i}] timestamp")
         except InputError:
             raise
-        if stamp_decimal != stamp_decimal.to_integral_value():
-            raise InputError(f"{path}: candle[{i}] timestamp must be integer Unix seconds")
+        if stamp_decimal != stamp_decimal.to_integral_value() or stamp_decimal <= 0:
+            raise InputError(f"{path}: candle[{i}] timestamp must be a positive integer Unix timestamp in seconds")
         candle = {"timestamp": int(stamp_decimal)}
         for field in FIELDS:
             candle[field] = _decimal(_first(row, ALIASES[field], f"{path} candle[{i}] {field}"),
@@ -103,6 +103,11 @@ def load_candles(path: str) -> tuple[list[dict], dict]:
 
 def compare_candles(left: list[dict], right: list[dict],
                     abs_tolerance: Decimal = Decimal("0")) -> dict:
+    if not left or not right:
+        raise InputError("both sources must contain at least one candle; empty-input equality is not a valid pass")
+    if not isinstance(abs_tolerance, Decimal) or not abs_tolerance.is_finite() or abs_tolerance < 0:
+        raise InputError("absolute tolerance must be a finite non-negative Decimal")
+
     def index(rows: list[dict], label: str) -> tuple[dict[int, dict], list[int]]:
         by_time: dict[int, dict] = {}
         duplicates = []
@@ -197,7 +202,12 @@ def main(argv: list[str] | None = None) -> int:
         for key, requested in (("symbol", args.symbol), ("resolution", args.resolution)):
             if requested is not None:
                 for side, meta in (("a", meta_a), ("b", meta_b)):
-                    if key in meta and str(meta[key]) != str(requested):
+                    if key not in meta:
+                        report["pass"] = False
+                        report.setdefault("metadata_errors", []).append(
+                            f"source {side} metadata is missing required {key!r}; cannot verify market/timeframe identity"
+                        )
+                    elif str(meta[key]) != str(requested):
                         report["pass"] = False
                         report.setdefault("metadata_errors", []).append(
                             f"source {side} metadata {key}={meta[key]!r} differs from requested {requested!r}"
