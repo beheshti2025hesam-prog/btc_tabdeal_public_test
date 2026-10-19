@@ -11,6 +11,7 @@ import json
 import os
 import time
 from pathlib import Path
+from decimal import Decimal
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse, parse_qs
 
@@ -78,7 +79,7 @@ async def main() -> int:
         except Exception as exc:
             navigation_error = f"{type(exc).__name__}: {exc}"
         await page.screenshot(path=str(OUT / "wallex-chart-BTCUSDT.png"), full_page=True)
-        canvas_count = await page.locator("canvas").count()
+        canvas_count = sum([await frame.locator("canvas").count() for frame in page.frames])
         await browser.close()
 
     if not captured:
@@ -112,7 +113,7 @@ async def main() -> int:
     direct_closed_path.write_text(json.dumps(direct_rows, separators=(",", ":")) + "\n", encoding="utf-8")
     normalized_a, _ = load_candles(str(browser_closed_path))
     normalized_b, _ = load_candles(str(direct_closed_path))
-    comparison = compare_candles(normalized_a, normalized_b, abs_tolerance=__import__("decimal").Decimal("0"))
+    comparison = compare_candles(normalized_a, normalized_b, abs_tolerance=Decimal("0"))
     comparison["source_a_label"] = "official_wallex_chart_browser_udf"
     comparison["source_b_label"] = "direct_http_refetch_of_same_url"
     comparison["symbol"] = "BTCUSDT"
@@ -125,14 +126,14 @@ async def main() -> int:
         "read_only": True, "no_api_key_used": True,
         "no_account_or_order_endpoint_called": True,
         "chart_url": CHART_URL, "navigation_error": navigation_error,
-        "canvas_count": canvas_count, "browser_history_request_url": browser_url,
+        "canvas_count": canvas_count, "screenshot_sha256": digest((OUT / "wallex-chart-BTCUSDT.png").read_bytes()),\n        "screenshot_bytes": (OUT / "wallex-chart-BTCUSDT.png").stat().st_size,\n        "screenshot_path": "wallex-chart-BTCUSDT.png", "browser_history_request_url": browser_url,
         "direct_api_status": direct_status, "direct_api_date_header": direct_date,
         "browser_raw_sha256": digest(browser_raw), "browser_raw_bytes": len(browser_raw),
         "direct_raw_sha256": digest(direct_raw), "direct_raw_bytes": len(direct_raw),
         "browser_closed_count": len(browser_rows), "direct_closed_count": len(direct_rows),
         "comparison_report": "comparison.json",
-        "comparison_pass": comparison["pass"] and comparison["matched_timestamp_count"] >= 3,
-        "status": "PASS_CAPTURED_FEED_EQUALS_DIRECT_API" if comparison["pass"] and comparison["matched_timestamp_count"] >= 3 else "BLOCKED_PARITY_NOT_ESTABLISHED",
+        "comparison_pass": canvas_count > 0 and comparison["pass"] and comparison["matched_timestamp_count"] >= 3,
+        "status": "PASS_CAPTURED_FEED_EQUALS_DIRECT_API" if canvas_count > 0 and comparison["pass"] and comparison["matched_timestamp_count"] >= 3 else "BLOCKED_PARITY_NOT_ESTABLISHED",
         "interpretation": "The core comparator compares the chart page's observed UDF response with a separate direct request to the exact same URL. This verifies the chart datafeed path only; the chart and API may share a backend, so it does not establish independent volume semantics or pixel-level value parity.",
     }
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
