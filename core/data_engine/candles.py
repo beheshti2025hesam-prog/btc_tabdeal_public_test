@@ -17,7 +17,8 @@ class Candle:
     high: float
     low: float
     close: float
-    volume: float
+    # None means the source volume is unavailable or not approved for feature use.
+    volume: float | None
     trade_count: int | None
 
 class TradeCandleAggregator:
