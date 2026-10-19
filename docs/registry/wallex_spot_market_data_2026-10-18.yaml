@@ -3,10 +3,10 @@ status: "active-but-conservative"
 venue: "wallex"
 product: "spot"
 transport: "websocket"
-official_reference: "https://api-docs.wallex.ir/"
+official_reference: "https://developers.wallex.ir/socket/trade"
 retrieved_at: "2026-10-18"
-live_wire_verified: false
-live_verification_note: "The documented Socket.IO polling handshake returned HTTP 503 from the observation host; pinned response evidence is evidence/wallex_official_socketio_reachability_20261018.json."
+live_wire_verified: true
+live_verification_note: "The official developer page documents the raw WebSocket endpoint wss://api.wallex.ir/ws and subscribe frame; live read-only captures on 2026-10-18 recorded two distinct server sessions and accepted depth frames on this endpoint. The separate legacy Socket.IO endpoint probe returned HTTP 503 from the observation host; that does not invalidate the independently documented and observed raw /ws route."
 records:
   - record_id: "wallex.spot.socketio.trade.v1"
     endpoint: "https://api.wallex.ir"
@@ -74,11 +74,14 @@ records:
     adapter_rule: "Preserve source v exactly; no divide-by-two or other normalization without authoritative written semantics and complete hash-pinned replay evidence."
     confidence: "high that v is present; low/unknown for its unit and aggregation semantics"
 sources:
-  - url: "https://api-docs.wallex.ir/"
+  - url: "https://developers.wallex.ir/socket/trade"
     source_kind: "primary"
-    note: "Official reference documents Socket.IO v2.5-compatible usage, subscribe/Broadcaster events, trade fields, and buyDepth/sellDepth channels."
+    note: "Official developer page documents wss://api.wallex.ir/ws, JSON subscribe frame [\"subscribe\", {\"channel\": \"MARKET@trade\"}], and trade fields isBuyOrder/quantity/price/timestamp."
+  - url: "https://api-docs.wallex.ir/"
+    source_kind: "primary-legacy"
+    note: "Legacy reference describes Socket.IO v2.5-compatible usage and Broadcaster events. Its endpoint differs from the newer official raw-WebSocket page; do not conflate the two wire protocols."
 known_limitations:
-  - "Documented Socket.IO endpoint returned HTTP 503 from the observation host at the pinned capture time."
-  - "The observed raw WebSocket /ws route is not substituted for the documented Socket.IO contract without live verification or written exchange confirmation."
+  - "The legacy Socket.IO route returned HTTP 503 from the observation host at the pinned capture time; raw /ws is separately documented and was live-observed."
+  - "Live samples establish endpoint reachability and observed payload shape, not delivery completeness, ordering, replay, or trade identity guarantees."
   - "The public trade REST endpoint returned a bounded latest-trades sample and is not a complete historical ledger."
   - "No authoritative explanation for the candle volume factor-of-two discrepancy has been obtained."
