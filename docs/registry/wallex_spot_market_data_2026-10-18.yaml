@@ -44,7 +44,7 @@ records:
     field_contract:
       event_name: "Broadcaster"
       arguments: ["channel", "data"]
-      data_shape: "indexed object of price/quantity/sum levels in the official sample"
+      data_shape: "array of price/quantity/sum level objects in the hash-pinned raw /ws captures; the legacy Socket.IO reference shows an indexed object, so the shapes must remain protocol-specific"
       sequence_like_field: "not documented in the reviewed depth sample"
     claims:
       unique: "unknown"
@@ -58,7 +58,7 @@ records:
     gap_rule: "No numeric gap detection; do not claim a synchronized order book without a proven snapshot/delta contract."
     reconnect_rule: "Invalidate local state and create a new epoch; no cross-session sequence comparison."
     adapter_rule: "Treat each message as observed depth data only; do not assume delta/full-replacement semantics without evidence."
-    confidence: "high for the documented sample shape; state synchronization semantics remain unknown"
+    confidence: "high for the captured raw /ws array shape; official raw /ws depth schema and state synchronization semantics remain unverified"
   - record_id: "wallex.udf.history.candle-volume.v1"
     endpoint: "GET https://api.wallex.ir/v1/udf/history"
     channel_or_topic: "symbol + resolution + from/to"
@@ -83,5 +83,6 @@ sources:
 known_limitations:
   - "The legacy Socket.IO route returned HTTP 503 from the observation host at the pinned capture time; raw /ws is separately documented and was live-observed."
   - "Live samples establish endpoint reachability and observed payload shape, not delivery completeness, ordering, replay, or trade identity guarantees."
+  - "The current official raw-WebSocket overview documents a server PING every 20 seconds, a PONG response that extends connection lifetime, and a maximum of 100 PONGs; the exact control-frame wire shape is not captured in the pinned short observations. Long-running production use must not be enabled until this control contract is verified and tested."
   - "The public trade REST endpoint returned a bounded latest-trades sample and is not a complete historical ledger."
   - "No authoritative explanation for the candle volume factor-of-two discrepancy has been obtained."
