@@ -1,0 +1,41 @@
+name: Evidence Canonicalization Compatibility Validation
+
+on:
+  push:
+    branches:
+      - "compat/evidence-pr67-pr71-integration-proof"
+  pull_request:
+    paths:
+      - "core/evaluation/producer.py"
+      - "core/evaluation/data_*_producer.py"
+      - "core/evaluation/canonicalization.py"
+      - "core/evaluation/evidence.py"
+      - "core/evaluation/registry.py"
+      - "core/evaluation/final_promotion_gate.py"
+      - "core/evaluation/operational_safety.py"
+      - "core/evaluation/promotion_gate.py"
+      - "tests/evaluation/test_*producer.py"
+      - "tests/evaluation/test_canonicalization.py"
+      - "tests/evaluation/test_evidence_promotion_compatibility.py"
+      - ".github/workflows/evidence-compatibility-validation.yml"
+
+jobs:
+  evidence-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest
+      - name: Run producer and canonicalization contract tests
+        run: >-
+          PYTHONPATH=. pytest -q
+          tests/evaluation/test_producer.py
+          tests/evaluation/test_data_quality_producer.py
+          tests/evaluation/test_data_integrity_producer.py
+          tests/evaluation/test_data_coverage_producer.py
+          tests/evaluation/test_canonicalization.py
+          tests/evaluation/test_evidence_promotion_compatibility.py
