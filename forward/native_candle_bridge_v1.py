@@ -7,7 +7,7 @@ Decimal values are retained until the explicit legacy feature-engine boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from math import isfinite
 from typing import Any, Iterable
@@ -74,10 +74,10 @@ def _read_time(candle: Any, datetime_name: str, millis_name: str, fallback_name:
     if value is not None:
         return _aware_utc(value, datetime_name)
     millis = getattr(candle, millis_name, None)
-    if millis is None or isinstance(millis, bool):
-        raise ValueError(f"missing_{datetime_name}")
+    if isinstance(millis, bool) or not isinstance(millis, int):
+        raise ValueError(f"missing_or_invalid_{datetime_name}")
     try:
-        return datetime.fromtimestamp(int(millis) / 1000, tz=timezone.utc)
+        return datetime.fromtimestamp(millis / 1000, tz=timezone.utc)
     except (ValueError, TypeError, OverflowError, OSError) as exc:
         raise ValueError(f"invalid_{datetime_name}") from exc
 
@@ -85,11 +85,15 @@ def _read_time(candle: Any, datetime_name: str, millis_name: str, fallback_name:
 def _timeframe_seconds(candle: Any) -> int:
     seconds = getattr(candle, "timeframe_seconds", None)
     if seconds is not None:
-        result = int(seconds)
+        if isinstance(seconds, bool) or not isinstance(seconds, int):
+            raise ValueError("invalid_timeframe")
+        result = seconds
     else:
         minutes = getattr(candle, "timeframe_minutes", None)
         if minutes is not None:
-            result = int(minutes) * 60
+            if isinstance(minutes, bool) or not isinstance(minutes, int):
+                raise ValueError("invalid_timeframe")
+            result = minutes * 60
         else:
             interval = getattr(candle, "interval", None)
             if not isinstance(interval, str) or not interval:
@@ -142,6 +146,16 @@ def normalize_native_candles(
         end = _read_time(row, "close_time", "close_time_ms", "end")
         if end <= start:
             raise ValueError("invalid_candle_bounds")
+        # Wallex uses an exclusive close boundary; Binance's close_time_ms is
+        # the final millisecond inside the candle. Canonicalize both to an
+        # exclusive end boundary after validating the adapter representation.
+        millis_close = getattr(row, "close_time_ms", None)
+        exclusive_end = start + timedelta(seconds=timeframe)
+        if millis_close is not None:
+            if end != exclusive_end - timedelta(milliseconds=1):
+                raise ValueError("candle_duration_mismatch")
+        elif end != exclusive_end:
+            raise ValueError("candle_duration_mismatch")
         if start in seen:
             raise ValueError("duplicate_candle_open_time")
         if previous_start is not None and start <= previous_start:
@@ -161,7 +175,7 @@ def normalize_native_candles(
             raise ValueError("nonpositive_ohlc_or_negative_volume")
         if high < max(op, close, low) or low > min(op, close, high):
             raise ValueError("invalid_ohlc_range")
-        normalized.append(NativeCandleRecord(start, end, op, high, low, close, volume))
+        normalized.append(NativeCandleRecord(start, exclusive_end, op, high, low, close, volume))
 
     if not normalized:
         raise ValueError("no_fully_closed_candles")
