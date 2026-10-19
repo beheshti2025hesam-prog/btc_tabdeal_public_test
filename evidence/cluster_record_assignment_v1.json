@@ -1,0 +1,1320 @@
+{
+  "schema": "hes.cluster_record_assignment.v1",
+  "status": "CLUSTER_ASSIGNMENT_READY_FOR_HASH_LOCK",
+  "purpose": "Immutable record-level lineage: canonical Prior Survivor identity to deterministic frozen cluster assignment. No threshold selection, feature engineering, tuning, deletion, or promotion.",
+  "source": {
+    "prior_raw_blob_sha": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+    "prior_source_commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+    "source_identity_artifact": "evidence/source_identity_reconciliation_v1.json",
+    "source_identity_artifact_status": "SOURCE_IDENTITY_LOCKED"
+  },
+  "protocol": {
+    "train": 800,
+    "test": 400,
+    "step": 400,
+    "folds": 8,
+    "gross_threshold": 0.0014,
+    "record_key": [
+      "timestamp",
+      "sequence_first",
+      "sequence_last",
+      "entry_price",
+      "exit_price",
+      "gross_return",
+      "direction"
+    ]
+  },
+  "population_reconciliation": {
+    "raw_trades": 127201,
+    "observations": 4487,
+    "evaluated_reconstructed": 1050,
+    "winners_reconstructed": 14,
+    "canonical_prior_survivors": 14,
+    "match_status": "14/14 UNIQUE MATCH",
+    "missing": 0,
+    "duplicate": 0,
+    "field_mismatch": 0
+  },
+  "clustering": {
+    "features": [
+      "ema_distance_pct",
+      "vwap_distance_pct",
+      "buy_ratio",
+      "buy_sell_delta",
+      "trade_count"
+    ],
+    "standardization": "pooled frozen Winner+Control moments from prior/current protocol snapshots",
+    "pooled_mean": {
+      "ema_distance_pct": 0.000040956191640110125,
+      "vwap_distance_pct": 9.527168723871421e-7,
+      "buy_ratio": 0.4983660356191099,
+      "buy_sell_delta": 0.0017240615976900854,
+      "trade_count": 28.090471607314726
+    },
+    "pooled_population_sd": {
+      "ema_distance_pct": 0.0012624525889875706,
+      "vwap_distance_pct": 0.00031977040764481215,
+      "buy_ratio": 0.19996762931663722,
+      "buy_sell_delta": 0.0965203596237899,
+      "trade_count": 11.042637449326104
+    },
+    "metric": "standardized Euclidean distance",
+    "rule": "edge when distance <= threshold; clusters are connected components",
+    "thresholds": [
+      0.5,
+      1,
+      1.5,
+      2
+    ],
+    "threshold_selection": "fixed pre-registered sensitivity set; no threshold selected"
+  },
+  "assignments": {
+    "1": [
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:22:00+00:00",
+          "sequence_first": 37513209440,
+          "sequence_last": 37513397341,
+          "entry_price": 83451.4,
+          "exit_price": 83323.2,
+          "gross_return": 0.0015362234785755195,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0002473283668077897,
+          "vwap_distance_pct": -0.00016027051505294884,
+          "buy_ratio": 0.010250496508424623,
+          "buy_sell_delta": -0.15289,
+          "trade_count": 26
+        },
+        "cluster_id": "C01",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:43:00+00:00",
+          "sequence_first": 37517314534,
+          "sequence_last": 37517492765,
+          "entry_price": 83227.6,
+          "exit_price": 83095.4,
+          "gross_return": 0.0015884153814361057,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.00008561765379206751,
+          "vwap_distance_pct": -0.00016632578312284594,
+          "buy_ratio": 0.39815967898159677,
+          "buy_sell_delta": -0.029439999999999987,
+          "trade_count": 38
+        },
+        "cluster_id": "C02",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T10:49:00+00:00",
+          "sequence_first": 37529903462,
+          "sequence_last": 37530083404,
+          "entry_price": 83340.7,
+          "exit_price": 83500,
+          "gross_return": 0.0019114310294970275,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0008840422382699564,
+          "vwap_distance_pct": 0.00030585558901385473,
+          "buy_ratio": 0.9348022162092514,
+          "buy_sell_delta": 0.06749000000000001,
+          "trade_count": 24
+        },
+        "cluster_id": "C03",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:38:00+00:00",
+          "sequence_first": 37562235391,
+          "sequence_last": 37562411228,
+          "entry_price": 84035.7,
+          "exit_price": 84171.7,
+          "gross_return": 0.0016183598161257657,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0014965450091670985,
+          "vwap_distance_pct": 0.0004880372192896935,
+          "buy_ratio": 0.540413611271319,
+          "buy_sell_delta": 0.00981,
+          "trade_count": 35
+        },
+        "cluster_id": "C04",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:55:00+00:00",
+          "sequence_first": 37565502102,
+          "sequence_last": 37565686788,
+          "entry_price": 84002.3,
+          "exit_price": 84139.9,
+          "gross_return": 0.0016380503867154978,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0007974010383608696,
+          "vwap_distance_pct": 0.0008769043852135245,
+          "buy_ratio": 0.5676758682101513,
+          "buy_sell_delta": 0.01823999999999998,
+          "trade_count": 35
+        },
+        "cluster_id": "C05",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T02:46:00+00:00",
+          "sequence_first": 37712006454,
+          "sequence_last": 37712192141,
+          "entry_price": 84408.4,
+          "exit_price": 84280.2,
+          "gross_return": 0.0015188061851663709,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.001279806256675494,
+          "vwap_distance_pct": -0.0002057203113453806,
+          "buy_ratio": 0.41724442203453915,
+          "buy_sell_delta": -0.013130000000000003,
+          "trade_count": 26
+        },
+        "cluster_id": "C06",
+        "cluster_size": 2
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T07:08:00+00:00",
+          "sequence_first": 37761031810,
+          "sequence_last": 37761206737,
+          "entry_price": 83938.2,
+          "exit_price": 83722.4,
+          "gross_return": 0.002570939095668038,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0008688570801816844,
+          "vwap_distance_pct": -0.0004065440023338741,
+          "buy_ratio": 0.44484973435889297,
+          "buy_sell_delta": -0.013909999999999999,
+          "trade_count": 32
+        },
+        "cluster_id": "C06",
+        "cluster_size": 2
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:06:00+00:00",
+          "sequence_first": 37805498755,
+          "sequence_last": 37805678036,
+          "entry_price": 84743.3,
+          "exit_price": 84900,
+          "gross_return": 0.0018491137352451119,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0009846256647246662,
+          "vwap_distance_pct": 0.00004057396892672383,
+          "buy_ratio": 0.5622479622479623,
+          "buy_sell_delta": 0.014509999999999995,
+          "trade_count": 26
+        },
+        "cluster_id": "C07",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:07:00+00:00",
+          "sequence_first": 37805685189,
+          "sequence_last": 37805868481,
+          "entry_price": 84900,
+          "exit_price": 85073.1,
+          "gross_return": 0.0020388692579505984,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0025648141067803718,
+          "vwap_distance_pct": 0.0012095802842463166,
+          "buy_ratio": 0.8370296179710975,
+          "buy_sell_delta": 0.23555000000000004,
+          "trade_count": 44
+        },
+        "cluster_id": "C08",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T12:16:00+00:00",
+          "sequence_first": 37818739565,
+          "sequence_last": 37818910979,
+          "entry_price": 84171,
+          "exit_price": 84040.1,
+          "gross_return": 0.0015551674567249312,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004138596261417447,
+          "vwap_distance_pct": -0.0013463116318714148,
+          "buy_ratio": 0.49989861439675565,
+          "buy_sell_delta": -0.000030000000000016125,
+          "trade_count": 37
+        },
+        "cluster_id": "C09",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T13:46:00+00:00",
+          "sequence_first": 37836128930,
+          "sequence_last": 37836321328,
+          "entry_price": 83986.8,
+          "exit_price": 83663,
+          "gross_return": 0.003855367748265238,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.000890488012607239,
+          "vwap_distance_pct": -0.00016058915866313077,
+          "buy_ratio": 0.16343199094290797,
+          "buy_sell_delta": -0.08324000000000001,
+          "trade_count": 38
+        },
+        "cluster_id": "C10",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:03:00+00:00",
+          "sequence_first": 37839483074,
+          "sequence_last": 37839693173,
+          "entry_price": 83721,
+          "exit_price": 83476.6,
+          "gross_return": 0.0029192197895389948,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.002183382410866623,
+          "vwap_distance_pct": -0.0011938732586443828,
+          "buy_ratio": 0.43016496465043197,
+          "buy_sell_delta": -0.026670000000000013,
+          "trade_count": 39
+        },
+        "cluster_id": "C11",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:04:00+00:00",
+          "sequence_first": 37839696019,
+          "sequence_last": 37839919014,
+          "entry_price": 83476.6,
+          "exit_price": 83252.1,
+          "gross_return": 0.00268937642405177,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004613112336498253,
+          "vwap_distance_pct": -0.0015701434830189564,
+          "buy_ratio": 0.2783411017526645,
+          "buy_sell_delta": -0.32528,
+          "trade_count": 76
+        },
+        "cluster_id": "C12",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T15:39:00+00:00",
+          "sequence_first": 37858233843,
+          "sequence_last": 37858398678,
+          "entry_price": 83630.5,
+          "exit_price": 83475.7,
+          "gross_return": 0.0018509993363665519,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.0006587411838519798,
+          "vwap_distance_pct": -0.0003507111337879951,
+          "buy_ratio": 0.017230844433581815,
+          "buy_sell_delta": -0.07901000000000002,
+          "trade_count": 24
+        },
+        "cluster_id": "C13",
+        "cluster_size": 1
+      }
+    ],
+    "2": [
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:22:00+00:00",
+          "sequence_first": 37513209440,
+          "sequence_last": 37513397341,
+          "entry_price": 83451.4,
+          "exit_price": 83323.2,
+          "gross_return": 0.0015362234785755195,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0002473283668077897,
+          "vwap_distance_pct": -0.00016027051505294884,
+          "buy_ratio": 0.010250496508424623,
+          "buy_sell_delta": -0.15289,
+          "trade_count": 26
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:43:00+00:00",
+          "sequence_first": 37517314534,
+          "sequence_last": 37517492765,
+          "entry_price": 83227.6,
+          "exit_price": 83095.4,
+          "gross_return": 0.0015884153814361057,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.00008561765379206751,
+          "vwap_distance_pct": -0.00016632578312284594,
+          "buy_ratio": 0.39815967898159677,
+          "buy_sell_delta": -0.029439999999999987,
+          "trade_count": 38
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T10:49:00+00:00",
+          "sequence_first": 37529903462,
+          "sequence_last": 37530083404,
+          "entry_price": 83340.7,
+          "exit_price": 83500,
+          "gross_return": 0.0019114310294970275,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0008840422382699564,
+          "vwap_distance_pct": 0.00030585558901385473,
+          "buy_ratio": 0.9348022162092514,
+          "buy_sell_delta": 0.06749000000000001,
+          "trade_count": 24
+        },
+        "cluster_id": "C01",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:38:00+00:00",
+          "sequence_first": 37562235391,
+          "sequence_last": 37562411228,
+          "entry_price": 84035.7,
+          "exit_price": 84171.7,
+          "gross_return": 0.0016183598161257657,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0014965450091670985,
+          "vwap_distance_pct": 0.0004880372192896935,
+          "buy_ratio": 0.540413611271319,
+          "buy_sell_delta": 0.00981,
+          "trade_count": 35
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:55:00+00:00",
+          "sequence_first": 37565502102,
+          "sequence_last": 37565686788,
+          "entry_price": 84002.3,
+          "exit_price": 84139.9,
+          "gross_return": 0.0016380503867154978,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0007974010383608696,
+          "vwap_distance_pct": 0.0008769043852135245,
+          "buy_ratio": 0.5676758682101513,
+          "buy_sell_delta": 0.01823999999999998,
+          "trade_count": 35
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T02:46:00+00:00",
+          "sequence_first": 37712006454,
+          "sequence_last": 37712192141,
+          "entry_price": 84408.4,
+          "exit_price": 84280.2,
+          "gross_return": 0.0015188061851663709,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.001279806256675494,
+          "vwap_distance_pct": -0.0002057203113453806,
+          "buy_ratio": 0.41724442203453915,
+          "buy_sell_delta": -0.013130000000000003,
+          "trade_count": 26
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T07:08:00+00:00",
+          "sequence_first": 37761031810,
+          "sequence_last": 37761206737,
+          "entry_price": 83938.2,
+          "exit_price": 83722.4,
+          "gross_return": 0.002570939095668038,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0008688570801816844,
+          "vwap_distance_pct": -0.0004065440023338741,
+          "buy_ratio": 0.44484973435889297,
+          "buy_sell_delta": -0.013909999999999999,
+          "trade_count": 32
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:06:00+00:00",
+          "sequence_first": 37805498755,
+          "sequence_last": 37805678036,
+          "entry_price": 84743.3,
+          "exit_price": 84900,
+          "gross_return": 0.0018491137352451119,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0009846256647246662,
+          "vwap_distance_pct": 0.00004057396892672383,
+          "buy_ratio": 0.5622479622479623,
+          "buy_sell_delta": 0.014509999999999995,
+          "trade_count": 26
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:07:00+00:00",
+          "sequence_first": 37805685189,
+          "sequence_last": 37805868481,
+          "entry_price": 84900,
+          "exit_price": 85073.1,
+          "gross_return": 0.0020388692579505984,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0025648141067803718,
+          "vwap_distance_pct": 0.0012095802842463166,
+          "buy_ratio": 0.8370296179710975,
+          "buy_sell_delta": 0.23555000000000004,
+          "trade_count": 44
+        },
+        "cluster_id": "C03",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T12:16:00+00:00",
+          "sequence_first": 37818739565,
+          "sequence_last": 37818910979,
+          "entry_price": 84171,
+          "exit_price": 84040.1,
+          "gross_return": 0.0015551674567249312,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004138596261417447,
+          "vwap_distance_pct": -0.0013463116318714148,
+          "buy_ratio": 0.49989861439675565,
+          "buy_sell_delta": -0.000030000000000016125,
+          "trade_count": 37
+        },
+        "cluster_id": "C04",
+        "cluster_size": 2
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T13:46:00+00:00",
+          "sequence_first": 37836128930,
+          "sequence_last": 37836321328,
+          "entry_price": 83986.8,
+          "exit_price": 83663,
+          "gross_return": 0.003855367748265238,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.000890488012607239,
+          "vwap_distance_pct": -0.00016058915866313077,
+          "buy_ratio": 0.16343199094290797,
+          "buy_sell_delta": -0.08324000000000001,
+          "trade_count": 38
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:03:00+00:00",
+          "sequence_first": 37839483074,
+          "sequence_last": 37839693173,
+          "entry_price": 83721,
+          "exit_price": 83476.6,
+          "gross_return": 0.0029192197895389948,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.002183382410866623,
+          "vwap_distance_pct": -0.0011938732586443828,
+          "buy_ratio": 0.43016496465043197,
+          "buy_sell_delta": -0.026670000000000013,
+          "trade_count": 39
+        },
+        "cluster_id": "C04",
+        "cluster_size": 2
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:04:00+00:00",
+          "sequence_first": 37839696019,
+          "sequence_last": 37839919014,
+          "entry_price": 83476.6,
+          "exit_price": 83252.1,
+          "gross_return": 0.00268937642405177,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004613112336498253,
+          "vwap_distance_pct": -0.0015701434830189564,
+          "buy_ratio": 0.2783411017526645,
+          "buy_sell_delta": -0.32528,
+          "trade_count": 76
+        },
+        "cluster_id": "C05",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T15:39:00+00:00",
+          "sequence_first": 37858233843,
+          "sequence_last": 37858398678,
+          "entry_price": 83630.5,
+          "exit_price": 83475.7,
+          "gross_return": 0.0018509993363665519,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.0006587411838519798,
+          "vwap_distance_pct": -0.0003507111337879951,
+          "buy_ratio": 0.017230844433581815,
+          "buy_sell_delta": -0.07901000000000002,
+          "trade_count": 24
+        },
+        "cluster_id": "C02",
+        "cluster_size": 9
+      }
+    ],
+    "0.5": [
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:22:00+00:00",
+          "sequence_first": 37513209440,
+          "sequence_last": 37513397341,
+          "entry_price": 83451.4,
+          "exit_price": 83323.2,
+          "gross_return": 0.0015362234785755195,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0002473283668077897,
+          "vwap_distance_pct": -0.00016027051505294884,
+          "buy_ratio": 0.010250496508424623,
+          "buy_sell_delta": -0.15289,
+          "trade_count": 26
+        },
+        "cluster_id": "C01",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:43:00+00:00",
+          "sequence_first": 37517314534,
+          "sequence_last": 37517492765,
+          "entry_price": 83227.6,
+          "exit_price": 83095.4,
+          "gross_return": 0.0015884153814361057,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.00008561765379206751,
+          "vwap_distance_pct": -0.00016632578312284594,
+          "buy_ratio": 0.39815967898159677,
+          "buy_sell_delta": -0.029439999999999987,
+          "trade_count": 38
+        },
+        "cluster_id": "C02",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T10:49:00+00:00",
+          "sequence_first": 37529903462,
+          "sequence_last": 37530083404,
+          "entry_price": 83340.7,
+          "exit_price": 83500,
+          "gross_return": 0.0019114310294970275,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0008840422382699564,
+          "vwap_distance_pct": 0.00030585558901385473,
+          "buy_ratio": 0.9348022162092514,
+          "buy_sell_delta": 0.06749000000000001,
+          "trade_count": 24
+        },
+        "cluster_id": "C03",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:38:00+00:00",
+          "sequence_first": 37562235391,
+          "sequence_last": 37562411228,
+          "entry_price": 84035.7,
+          "exit_price": 84171.7,
+          "gross_return": 0.0016183598161257657,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0014965450091670985,
+          "vwap_distance_pct": 0.0004880372192896935,
+          "buy_ratio": 0.540413611271319,
+          "buy_sell_delta": 0.00981,
+          "trade_count": 35
+        },
+        "cluster_id": "C04",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:55:00+00:00",
+          "sequence_first": 37565502102,
+          "sequence_last": 37565686788,
+          "entry_price": 84002.3,
+          "exit_price": 84139.9,
+          "gross_return": 0.0016380503867154978,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0007974010383608696,
+          "vwap_distance_pct": 0.0008769043852135245,
+          "buy_ratio": 0.5676758682101513,
+          "buy_sell_delta": 0.01823999999999998,
+          "trade_count": 35
+        },
+        "cluster_id": "C05",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T02:46:00+00:00",
+          "sequence_first": 37712006454,
+          "sequence_last": 37712192141,
+          "entry_price": 84408.4,
+          "exit_price": 84280.2,
+          "gross_return": 0.0015188061851663709,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.001279806256675494,
+          "vwap_distance_pct": -0.0002057203113453806,
+          "buy_ratio": 0.41724442203453915,
+          "buy_sell_delta": -0.013130000000000003,
+          "trade_count": 26
+        },
+        "cluster_id": "C06",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T07:08:00+00:00",
+          "sequence_first": 37761031810,
+          "sequence_last": 37761206737,
+          "entry_price": 83938.2,
+          "exit_price": 83722.4,
+          "gross_return": 0.002570939095668038,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0008688570801816844,
+          "vwap_distance_pct": -0.0004065440023338741,
+          "buy_ratio": 0.44484973435889297,
+          "buy_sell_delta": -0.013909999999999999,
+          "trade_count": 32
+        },
+        "cluster_id": "C07",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:06:00+00:00",
+          "sequence_first": 37805498755,
+          "sequence_last": 37805678036,
+          "entry_price": 84743.3,
+          "exit_price": 84900,
+          "gross_return": 0.0018491137352451119,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0009846256647246662,
+          "vwap_distance_pct": 0.00004057396892672383,
+          "buy_ratio": 0.5622479622479623,
+          "buy_sell_delta": 0.014509999999999995,
+          "trade_count": 26
+        },
+        "cluster_id": "C08",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:07:00+00:00",
+          "sequence_first": 37805685189,
+          "sequence_last": 37805868481,
+          "entry_price": 84900,
+          "exit_price": 85073.1,
+          "gross_return": 0.0020388692579505984,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0025648141067803718,
+          "vwap_distance_pct": 0.0012095802842463166,
+          "buy_ratio": 0.8370296179710975,
+          "buy_sell_delta": 0.23555000000000004,
+          "trade_count": 44
+        },
+        "cluster_id": "C09",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T12:16:00+00:00",
+          "sequence_first": 37818739565,
+          "sequence_last": 37818910979,
+          "entry_price": 84171,
+          "exit_price": 84040.1,
+          "gross_return": 0.0015551674567249312,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004138596261417447,
+          "vwap_distance_pct": -0.0013463116318714148,
+          "buy_ratio": 0.49989861439675565,
+          "buy_sell_delta": -0.000030000000000016125,
+          "trade_count": 37
+        },
+        "cluster_id": "C10",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T13:46:00+00:00",
+          "sequence_first": 37836128930,
+          "sequence_last": 37836321328,
+          "entry_price": 83986.8,
+          "exit_price": 83663,
+          "gross_return": 0.003855367748265238,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.000890488012607239,
+          "vwap_distance_pct": -0.00016058915866313077,
+          "buy_ratio": 0.16343199094290797,
+          "buy_sell_delta": -0.08324000000000001,
+          "trade_count": 38
+        },
+        "cluster_id": "C11",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:03:00+00:00",
+          "sequence_first": 37839483074,
+          "sequence_last": 37839693173,
+          "entry_price": 83721,
+          "exit_price": 83476.6,
+          "gross_return": 0.0029192197895389948,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.002183382410866623,
+          "vwap_distance_pct": -0.0011938732586443828,
+          "buy_ratio": 0.43016496465043197,
+          "buy_sell_delta": -0.026670000000000013,
+          "trade_count": 39
+        },
+        "cluster_id": "C12",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:04:00+00:00",
+          "sequence_first": 37839696019,
+          "sequence_last": 37839919014,
+          "entry_price": 83476.6,
+          "exit_price": 83252.1,
+          "gross_return": 0.00268937642405177,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004613112336498253,
+          "vwap_distance_pct": -0.0015701434830189564,
+          "buy_ratio": 0.2783411017526645,
+          "buy_sell_delta": -0.32528,
+          "trade_count": 76
+        },
+        "cluster_id": "C13",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T15:39:00+00:00",
+          "sequence_first": 37858233843,
+          "sequence_last": 37858398678,
+          "entry_price": 83630.5,
+          "exit_price": 83475.7,
+          "gross_return": 0.0018509993363665519,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.0006587411838519798,
+          "vwap_distance_pct": -0.0003507111337879951,
+          "buy_ratio": 0.017230844433581815,
+          "buy_sell_delta": -0.07901000000000002,
+          "trade_count": 24
+        },
+        "cluster_id": "C14",
+        "cluster_size": 1
+      }
+    ],
+    "1.5": [
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:22:00+00:00",
+          "sequence_first": 37513209440,
+          "sequence_last": 37513397341,
+          "entry_price": 83451.4,
+          "exit_price": 83323.2,
+          "gross_return": 0.0015362234785755195,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0002473283668077897,
+          "vwap_distance_pct": -0.00016027051505294884,
+          "buy_ratio": 0.010250496508424623,
+          "buy_sell_delta": -0.15289,
+          "trade_count": 26
+        },
+        "cluster_id": "C01",
+        "cluster_size": 2
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T09:43:00+00:00",
+          "sequence_first": 37517314534,
+          "sequence_last": 37517492765,
+          "entry_price": 83227.6,
+          "exit_price": 83095.4,
+          "gross_return": 0.0015884153814361057,
+          "direction": "SHORT"
+        },
+        "fold_index": 0,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.00008561765379206751,
+          "vwap_distance_pct": -0.00016632578312284594,
+          "buy_ratio": 0.39815967898159677,
+          "buy_sell_delta": -0.029439999999999987,
+          "trade_count": 38
+        },
+        "cluster_id": "C02",
+        "cluster_size": 4
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T10:49:00+00:00",
+          "sequence_first": 37529903462,
+          "sequence_last": 37530083404,
+          "entry_price": 83340.7,
+          "exit_price": 83500,
+          "gross_return": 0.0019114310294970275,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0008840422382699564,
+          "vwap_distance_pct": 0.00030585558901385473,
+          "buy_ratio": 0.9348022162092514,
+          "buy_sell_delta": 0.06749000000000001,
+          "trade_count": 24
+        },
+        "cluster_id": "C03",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:38:00+00:00",
+          "sequence_first": 37562235391,
+          "sequence_last": 37562411228,
+          "entry_price": 84035.7,
+          "exit_price": 84171.7,
+          "gross_return": 0.0016183598161257657,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0014965450091670985,
+          "vwap_distance_pct": 0.0004880372192896935,
+          "buy_ratio": 0.540413611271319,
+          "buy_sell_delta": 0.00981,
+          "trade_count": 35
+        },
+        "cluster_id": "C04",
+        "cluster_size": 2
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-24T13:55:00+00:00",
+          "sequence_first": 37565502102,
+          "sequence_last": 37565686788,
+          "entry_price": 84002.3,
+          "exit_price": 84139.9,
+          "gross_return": 0.0016380503867154978,
+          "direction": "LONG"
+        },
+        "fold_index": 1,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": 0.0007974010383608696,
+          "vwap_distance_pct": 0.0008769043852135245,
+          "buy_ratio": 0.5676758682101513,
+          "buy_sell_delta": 0.01823999999999998,
+          "trade_count": 35
+        },
+        "cluster_id": "C04",
+        "cluster_size": 2
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T02:46:00+00:00",
+          "sequence_first": 37712006454,
+          "sequence_last": 37712192141,
+          "entry_price": 84408.4,
+          "exit_price": 84280.2,
+          "gross_return": 0.0015188061851663709,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.001279806256675494,
+          "vwap_distance_pct": -0.0002057203113453806,
+          "buy_ratio": 0.41724442203453915,
+          "buy_sell_delta": -0.013130000000000003,
+          "trade_count": 26
+        },
+        "cluster_id": "C02",
+        "cluster_size": 4
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T07:08:00+00:00",
+          "sequence_first": 37761031810,
+          "sequence_last": 37761206737,
+          "entry_price": 83938.2,
+          "exit_price": 83722.4,
+          "gross_return": 0.002570939095668038,
+          "direction": "SHORT"
+        },
+        "fold_index": 2,
+        "fold_regime": "range",
+        "features": {
+          "ema_distance_pct": -0.0008688570801816844,
+          "vwap_distance_pct": -0.0004065440023338741,
+          "buy_ratio": 0.44484973435889297,
+          "buy_sell_delta": -0.013909999999999999,
+          "trade_count": 32
+        },
+        "cluster_id": "C02",
+        "cluster_size": 4
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:06:00+00:00",
+          "sequence_first": 37805498755,
+          "sequence_last": 37805678036,
+          "entry_price": 84743.3,
+          "exit_price": 84900,
+          "gross_return": 0.0018491137352451119,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0009846256647246662,
+          "vwap_distance_pct": 0.00004057396892672383,
+          "buy_ratio": 0.5622479622479623,
+          "buy_sell_delta": 0.014509999999999995,
+          "trade_count": 26
+        },
+        "cluster_id": "C05",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T11:07:00+00:00",
+          "sequence_first": 37805685189,
+          "sequence_last": 37805868481,
+          "entry_price": 84900,
+          "exit_price": 85073.1,
+          "gross_return": 0.0020388692579505984,
+          "direction": "LONG"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": 0.0025648141067803718,
+          "vwap_distance_pct": 0.0012095802842463166,
+          "buy_ratio": 0.8370296179710975,
+          "buy_sell_delta": 0.23555000000000004,
+          "trade_count": 44
+        },
+        "cluster_id": "C06",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T12:16:00+00:00",
+          "sequence_first": 37818739565,
+          "sequence_last": 37818910979,
+          "entry_price": 84171,
+          "exit_price": 84040.1,
+          "gross_return": 0.0015551674567249312,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004138596261417447,
+          "vwap_distance_pct": -0.0013463116318714148,
+          "buy_ratio": 0.49989861439675565,
+          "buy_sell_delta": -0.000030000000000016125,
+          "trade_count": 37
+        },
+        "cluster_id": "C07",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T13:46:00+00:00",
+          "sequence_first": 37836128930,
+          "sequence_last": 37836321328,
+          "entry_price": 83986.8,
+          "exit_price": 83663,
+          "gross_return": 0.003855367748265238,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.000890488012607239,
+          "vwap_distance_pct": -0.00016058915866313077,
+          "buy_ratio": 0.16343199094290797,
+          "buy_sell_delta": -0.08324000000000001,
+          "trade_count": 38
+        },
+        "cluster_id": "C02",
+        "cluster_size": 4
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:03:00+00:00",
+          "sequence_first": 37839483074,
+          "sequence_last": 37839693173,
+          "entry_price": 83721,
+          "exit_price": 83476.6,
+          "gross_return": 0.0029192197895389948,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.002183382410866623,
+          "vwap_distance_pct": -0.0011938732586443828,
+          "buy_ratio": 0.43016496465043197,
+          "buy_sell_delta": -0.026670000000000013,
+          "trade_count": 39
+        },
+        "cluster_id": "C08",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T14:04:00+00:00",
+          "sequence_first": 37839696019,
+          "sequence_last": 37839919014,
+          "entry_price": 83476.6,
+          "exit_price": 83252.1,
+          "gross_return": 0.00268937642405177,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.004613112336498253,
+          "vwap_distance_pct": -0.0015701434830189564,
+          "buy_ratio": 0.2783411017526645,
+          "buy_sell_delta": -0.32528,
+          "trade_count": 76
+        },
+        "cluster_id": "C09",
+        "cluster_size": 1
+      },
+      {
+        "record_key": {
+          "timestamp": "2026-09-25T15:39:00+00:00",
+          "sequence_first": 37858233843,
+          "sequence_last": 37858398678,
+          "entry_price": 83630.5,
+          "exit_price": 83475.7,
+          "gross_return": 0.0018509993363665519,
+          "direction": "SHORT"
+        },
+        "fold_index": 3,
+        "fold_regime": "uptrend",
+        "features": {
+          "ema_distance_pct": -0.0006587411838519798,
+          "vwap_distance_pct": -0.0003507111337879951,
+          "buy_ratio": 0.017230844433581815,
+          "buy_sell_delta": -0.07901000000000002,
+          "trade_count": 24
+        },
+        "cluster_id": "C01",
+        "cluster_size": 2
+      }
+    ]
+  },
+  "claim_boundary": {
+    "independence_proven": false,
+    "predictive_validity": false,
+    "causality": false,
+    "market_generalization": false,
+    "promotion": "BLOCKED"
+  }
+}
