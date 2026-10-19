@@ -1,0 +1,100 @@
+{
+  "artifact": "HES Trade Agent — Producer Failure Semantics / Artifact Integrity Audit v1",
+  "status": "PROVENANCE_EXCEPTION_RECONCILED",
+  "scope": "Metadata/provenance audit only. No change to the locked 1049 population, raw gap, evaluator metrics, main, data-engine-v1, live execution, promotion, or PR #129.",
+  "producer_run": {
+    "workflow_run": 36773191085,
+    "workflow_run_number": 181,
+    "workflow_name": "Hes Trade Agent — Tabdeal BTC Futures Collector",
+    "workflow_head_sha": "42de09ce97a71e0924975024c0936aa1fb4a8f61",
+    "workflow_head_ref": "main",
+    "workflow_conclusion": "failure",
+    "collector_job_conclusion": "failure",
+    "artifact_upload_step_conclusion": "success",
+    "artifact_id": 11162212837,
+    "artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f"
+  },
+  "semantic_rule": {
+    "workflow_failure_does_not_equal_artifact_invalid": true,
+    "artifact_validity_basis": [
+      "immutable artifact exists",
+      "artifact SHA is recorded",
+      "artifact is independently consumed by exact 1049 replay",
+      "derived evidence reproduces the locked population exactly",
+      "no synthetic replacement rows are used"
+    ],
+    "collector_failure_interpretation": "The producer run failed at the collection step. The upload step completed successfully, so the immutable uploaded artifact remains a distinct provenance object. The failure is preserved as producer-run metadata and is not silently converted to success."
+  },
+  "lineage_chain": [
+    {
+      "role": "RAW_ARTIFACT_PRODUCER",
+      "run": 36773191085,
+      "head_sha": "42de09ce97a71e0924975024c0936aa1fb4a8f61",
+      "conclusion": "failure"
+    },
+    {
+      "role": "IMMUTABLE_RAW_ARCHIVE_ARTIFACT",
+      "artifact_id": 11162212837,
+      "sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f"
+    },
+    {
+      "role": "DERIVED_SNAPSHOT_GAP_COVERAGE_AUDIT",
+      "commit": "4553af53df047674ea030477ff978fd199e7787c",
+      "blob_sha": "aaa6840065c74ad981865233133ac34c29f0ab1d"
+    },
+    {
+      "role": "DERIVED_EXACT_1049_RECONSTRUCTION",
+      "commit": "d70ba6aa3dac4d53352eccf0a44eae870d51b9b8"
+    },
+    {
+      "role": "DERIVED_FOLD_GAP_IMPACT_AUDIT",
+      "commit": "a01fa2c9c2a898f7253a52cb52a4ddf4f3720ea7",
+      "blob_sha": "f8881b455f5e5b909564466ebce646d6a6d4d967"
+    },
+    {
+      "role": "FORMAL_LOCK_VERIFICATION",
+      "commit": "68bb6283586cb5f5b99df13033095df3cd98c041",
+      "blob_sha": "a79209789a6d2e72ad165d4b4f33fb4794492dcb"
+    }
+  ],
+  "cross_evidence_assertions": {
+    "evaluated_observations": 1049,
+    "fold_count": 8,
+    "fold_evaluated": [120,132,135,137,138,127,126,134],
+    "fold_sum": 1049,
+    "wins": 528,
+    "losses": 479,
+    "unlabeled": 42,
+    "gap_fold": 7,
+    "gap_duration_seconds": 18814.863,
+    "excluded_observation_count": 0,
+    "observation_coverage_loss_pct": 0.0,
+    "synthetic_fill": false,
+    "replacement_rows": false,
+    "causal_reassignment": false,
+    "exact_1049_replay": true
+  },
+  "hash_cross_check": {
+    "evidence_lock_gate_blob_sha": "e0103b0c1953ee7c128db3757d2a728152a4d506",
+    "provenance_manifest_blob_sha": "20a2343ef69c0228a3dc57974f2615a094e4efdd",
+    "immutable_archive_recovery_blob_sha": "b706a7aa6c5a3ee0fd9a40307c579c007e6d72db",
+    "snapshot_gap_forensics_blob_sha": "aaa6840065c74ad981865233133ac34c29f0ab1d",
+    "fold_gap_impact_audit_blob_sha": "f8881b455f5e5b909564466ebce646d6a6d4d967",
+    "formal_evidence_lock_blob_sha": "a79209789a6d2e72ad165d4b4f33fb4794492dcb",
+    "snapshot_blob_gap_coverage_delta_blob_sha": "3fd9375ad612b09be85c573d14e6486749682c52",
+    "freeze_candidate_blob_sha": "a11531c934ec4961790fe90b186931c7be3d0be4"
+  },
+  "freeze_decision": {
+    "producer_failure_must_remain_visible": true,
+    "artifact_may_be_consumed_as_immutable_evidence": true,
+    "final_package_freeze_allowed_only_after_current_head_evidence_ci": true,
+    "no_scientific_rewrite_required": true
+  },
+  "safety": {
+    "main_untouched": true,
+    "data_engine_v1_untouched": true,
+    "pr_129_unmerged": true,
+    "live_execution_disabled": true,
+    "promotion_disabled": true
+  }
+}

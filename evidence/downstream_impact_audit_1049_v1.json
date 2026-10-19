@@ -1,0 +1,71 @@
+{
+  "artifact": "HES Trade Agent — Downstream Impact Audit for Locked 1049 v1",
+  "status": "DOWNSTREAM_IMPACT_AUDITED",
+  "scope": "Read-only downstream interpretation of the formally locked 1,049-observation evidence.",
+  "locked_evidence": {
+    "source_pr": 129,
+    "source_commit": "4553af53df047674ea030477ff978fd199e7787c",
+    "immutable_workflow_run": 36773191085,
+    "immutable_artifact_id": 11162212837,
+    "artifact_sha256": "8583c134d23eadbb3055ed373bc9024fc4605ad3449fc1808b7ddbb6576e626f",
+    "evaluated_observations": 1049,
+    "fold_evaluated": [120,132,135,137,138,127,126,134],
+    "wins": 528,
+    "losses": 479,
+    "unlabeled": 42,
+    "gross_total_return": 0.027839866468923342
+  },
+  "gap_boundary": {
+    "affected_fold": 7,
+    "start": "2026-09-27T12:03:19.239Z",
+    "end": "2026-09-27T17:16:54.102Z",
+    "duration_seconds": 18814.863,
+    "duration_hours": 5.226350833333333,
+    "fold7_time_share_pct": 31.52166365140704,
+    "locked_window_time_share_pct": 8.290832673989,
+    "excluded_evaluator_observations": 0,
+    "observation_coverage_delta_pct": 0.0
+  },
+  "downstream_oos_impact": {
+    "population_change_due_to_gap": 0,
+    "fold_count_change_due_to_gap": 0,
+    "fold7_evaluated_before_after": [134,134],
+    "gross_metric_recomputation_required": false,
+    "interpretation": "The gap changes raw time coverage but does not change the locked evaluator population, fold counts, wins/losses, or gross-return aggregate.",
+    "causal_claim_about_market_data_loss": false
+  },
+  "fold_level_gross": {
+    "fold_returns": [0.003714827698641958,0.0033867421019111647,0.007373195874071503,0.014016310862902571,-0.003365815138776131,0.00576935433688134,-0.000777416903097259,-0.0022773323636118047],
+    "gross_positive_folds": 5,
+    "gross_non_positive_folds": 3,
+    "gross_positive_fold_share_pct": 62.5
+  },
+  "cost_slippage_impact": {
+    "source_pr": 86,
+    "protocol_id": "oos-real-btcusdt-v1-800x400x400-e0",
+    "scenario_basis": "Per-side assumptions; total round-trip adverse deduction is 2 × (fee + slippage). These are measurement assumptions, not venue-fee facts.",
+    "scenarios": [
+      {"transaction_cost_bps_per_side":0,"slippage_bps_per_side":0,"total_adverse_bps":0,"aggregate_net_return":0.027839866468923342,"evaluated":1049,"wins":528,"losses":479},
+      {"transaction_cost_bps_per_side":5,"slippage_bps_per_side":2,"total_adverse_bps":14,"aggregate_net_return":-1.4407601335310767,"evaluated":1049,"wins":14,"losses":1035},
+      {"transaction_cost_bps_per_side":10,"slippage_bps_per_side":5,"total_adverse_bps":30,"aggregate_net_return":-3.119160133531077,"evaluated":1049,"wins":1,"losses":1048}
+    ],
+    "positive_trade_survival_at_14bps_pct": 1.334604385128694,
+    "gross_distribution": {"below_0bps":479,"exact_0bps":42,"0_to_14bps_inclusive":556,"above_14bps":14},
+    "fold_survival_under_14bps": {"positive_folds":0,"total_folds":8}
+  },
+  "scientific_boundary": {
+    "gap_changes_locked_metrics": false,
+    "gap_changes_raw_time_coverage": true,
+    "cost_sensitivity_is_material": true,
+    "promotion_evidence_strengthened": false,
+    "live_execution_implication": "No promotion or live execution is authorized by this audit; live execution remains disabled."
+  },
+  "safety": {
+    "main_modified_by_audit": false,
+    "data_engine_v1_modified": false,
+    "locked_1049_modified": false,
+    "synthetic_fill": false,
+    "replacement_rows": false,
+    "causal_reassignment": false
+  }
+}
