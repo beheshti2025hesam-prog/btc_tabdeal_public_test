@@ -49,12 +49,6 @@ class NativeCandle:
     taker_buy_base_volume: Decimal
     taker_buy_quote_volume: Decimal
 
-    @property
-    def is_closed_by_exchange_time(self) -> bool:
-        # A caller still compares close_time_ms against its explicit as_of_ms.
-        return True
-
-
 @dataclass(frozen=True)
 class CandleGap:
     expected_open_time_ms: int
