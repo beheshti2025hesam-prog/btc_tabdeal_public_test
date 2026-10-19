@@ -11,7 +11,7 @@ def fixture(tmp_path: Path, monkeypatch, status="REVIEWED_PINNED"):
     item={"evidence_ref":"test:ordering","evidence_type":"source_ordering",
           "source_scope":"tabdeal-futures:BTC_USDT","evidence_path":artifact.name,
           "evidence_sha256":hashlib.sha256(artifact.read_bytes()).hexdigest(),
-          "review_status":"INDEPENDENTLY_REVIEWED","review_record_ref":"test-review:001"}
+          "review_status":"PAIR_AUDITED_OWNER_ACCEPTED","review_record_ref":"test-pair-audit:001"}
     raw=(json.dumps({"schema":"hes_source_evidence_registry_v1","status":status,
                      "registry_version":1,"entries":[item]},sort_keys=True,separators=(",",":"))+"\n").encode()
     path=tmp_path/"registry.json"; path.write_bytes(raw)
@@ -25,7 +25,7 @@ def test_pin_unset_blocks_even_if_caller_has_a_reference(monkeypatch):
 
 def test_exact_pinned_registry_and_scope_required(tmp_path, monkeypatch):
     path,_,item=fixture(tmp_path, monkeypatch); registry=SourceEvidenceRegistryV1.load(path)
-    # A matching pin and artifact digest do not authenticate a reviewer.
+    # A matching pin and artifact digest do not authenticate pair-audit provenance.
     # Free-form review_status/review_record_ref must never authorize evidence.
     with pytest.raises(SourceEvidenceRegistryError,match="REVIEW_PROVENANCE_UNVERIFIABLE"):
         registry.resolve(item["evidence_ref"],evidence_type="source_ordering",
