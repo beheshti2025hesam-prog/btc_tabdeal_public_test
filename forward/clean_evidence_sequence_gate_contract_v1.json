@@ -12,5 +12,16 @@
   "silent_reorder": false,
   "historical_inputs_allowed": false,
   "future_outcomes_allowed": false,
-  "execution_enabled": false
+  "execution_enabled": false,
+  "source_evidence_registry_required": true,
+  "registry_pin_required": true,
+  "registry_pin_default": "UNSET",
+  "caller_supplied_flags_or_refs_are_proof": false,
+  "required_evidence_types": [
+    "sequence_contract",
+    "source_completeness",
+    "source_ordering"
+  ],
+  "evidence_scope": "tabdeal-futures:BTC_USDT",
+  "failure_mode": "BLOCKED"
 }

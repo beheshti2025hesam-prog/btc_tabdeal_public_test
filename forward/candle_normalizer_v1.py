@@ -3,7 +3,6 @@
 Consumes fresh raw trade observations and emits only closed candles.
 No strategy, indicator, threshold, signal, or outcome logic belongs here.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,7 +20,7 @@ class TradeObservation:
     amount: Decimal
     side: str
     updated: datetime
-    sequence: int
+    sequence: int | str
 
 
 @dataclass(frozen=True)
@@ -36,8 +35,8 @@ class Candle15m:
     close: Decimal
     volume: Decimal
     trade_count: int
-    first_sequence: int
-    last_sequence: int
+    first_sequence: int | str
+    last_sequence: int | str
     source_first_observed_at: datetime
     source_last_observed_at: datetime
 
@@ -65,16 +64,18 @@ def normalize_trades(
     as_of: datetime,
     expected_symbol: str | None = None,
 ) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
-    """Build deterministic closed candles and explicit missing intervals.
+    """Build closed candles without treating native sequence as identity/order.
 
-    as_of is mandatory so an open 15m bucket can never be emitted as closed.
-    expected_symbol prevents accidental multi-symbol aggregation.
+    Equal sequence values are blocked rather than deduplicated. Source timestamps
+    determine the primary order; if equal timestamps carry different prices,
+    open/close order is ambiguous and candle construction fails closed.
     """
     if as_of.tzinfo is None:
         raise ValueError("as_of must be timezone-aware")
     as_of = as_of.astimezone(timezone.utc)
 
-    unique: dict[int, TradeObservation] = {}
+    observed: list[TradeObservation] = []
+    seen_sequence: dict[tuple[str, int | str], TradeObservation] = {}
     symbol = expected_symbol
 
     for trade in trades:
@@ -85,6 +86,8 @@ def normalize_trades(
             raise ValueError("observation occurs after as_of")
         if trade.price <= 0 or trade.amount < 0:
             raise ValueError("price must be > 0 and amount must be >= 0")
+        if isinstance(trade.sequence, bool) or not isinstance(trade.sequence, (int, str)) or trade.sequence == "":
+            raise ValueError("invalid sequence type")
 
         if symbol is None:
             symbol = trade.symbol
@@ -93,16 +96,21 @@ def normalize_trades(
                 f"mixed symbols are not allowed: expected {symbol}, got {trade.symbol}"
             )
 
-        if trade.sequence in unique:
-            if unique[trade.sequence] != trade:
-                raise ValueError(f"Conflicting duplicate sequence: {trade.sequence}")
-            continue
-        unique[trade.sequence] = trade
+        key = (type(trade.sequence).__name__, trade.sequence)
+        if key in seen_sequence:
+            raise ValueError("REPEATED_SEQUENCE_IDENTITY_UNPROVEN")
+        seen_sequence[key] = trade
+        observed.append(trade)
 
-    ordered = sorted(
-        unique.values(),
-        key=lambda x: (x.updated.astimezone(timezone.utc), x.sequence),
-    )
+    # Python's stable sort preserves receipt order only as a deterministic tie
+    # behavior; it is not proof of source order. If price changes at an equal
+    # source timestamp, OHLC open/close cannot be trusted.
+    ordered = sorted(observed, key=lambda x: x.updated.astimezone(timezone.utc))
+    for previous, current in zip(ordered, ordered[1:]):
+        if previous.updated.astimezone(timezone.utc) == current.updated.astimezone(timezone.utc):
+            if previous.price != current.price:
+                raise ValueError("AMBIGUOUS_EQUAL_SOURCE_TIMESTAMP_ORDER")
+
     if not ordered:
         return (), ()
 
@@ -133,10 +141,7 @@ def normalize_trades(
                 )
             )
         else:
-            rows = sorted(
-                rows,
-                key=lambda x: (x.updated.astimezone(timezone.utc), x.sequence),
-            )
+            # Rows inherit the stable event-time order above; sequence is never a tie-breaker.
             prices = [x.price for x in rows]
             candles.append(
                 Candle15m(
