@@ -10,8 +10,9 @@ from forward.tabdeal_transport_v1 import TabdealReadOnlyTransportV1
 ASOF = datetime(2026, 10, 7, 7, 0, tzinfo=timezone.utc)
 
 class FakeWS:
-    def __init__(self, url, on_open, on_message):
+    def __init__(self, url, on_open, on_message, on_close=None, on_error=None):
         self.url = url; self.on_open = on_open; self.on_message = on_message
+        self.on_close = on_close; self.on_error = on_error
         self.sent = []; self.closed = False; self.kwargs = {}
     def send(self, x): self.sent.append(x)
     def close(self): self.closed = True

@@ -7,10 +7,12 @@ from forward.controlled_forward_observation_runner_v1 import (
 
 
 class FakeWS:
-    def __init__(self, url, on_open, on_message):
+    def __init__(self, url, on_open, on_message, on_close=None, on_error=None):
         self.url = url
         self.on_open = on_open
         self.on_message = on_message
+        self.on_close = on_close
+        self.on_error = on_error
 
     def run_forever(self, **kwargs):
         self.on_open(self)
