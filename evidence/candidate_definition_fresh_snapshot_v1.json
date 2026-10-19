@@ -1,0 +1,55 @@
+{
+  "status": "candidate-definition-only",
+  "purpose": "Define the research candidate contract without constructing or tuning a Signal.",
+  "snapshot_lock": {
+    "source_ref": "main",
+    "source_commit": "86631f2522aa74a38cfa21fa28afe8d49fbc5f20",
+    "data_git_blob_sha": "b296b1c95f075518bea0b56fd11bbf5f0f613a04",
+    "first_independent_sequence": 38710284291,
+    "first_independent_timestamp": "2026-09-28T19:08:56.951Z",
+    "frozen_boundary_sequence": 38586238655,
+    "frozen_boundary_timestamp": "2026-09-28T08:27:38.179Z",
+    "coverage_gap_seconds": 38478.772
+  },
+  "evidence_inheritance": {
+    "source_matrix": "PR #109 independence-adjusted feature stability matrix v1",
+    "descriptive_feature_status": {
+      "Buy Ratio": "temporally sign-stable",
+      "Delta": "temporally sign-stable",
+      "Trade Count": "temporally sign-stable",
+      "EMA": "fold-sensitive",
+      "VWAP": "fold-sensitive"
+    },
+    "independence_note": "The 14 nominal winners are not treated as 14 independent confirmations; temporal fold is the independence unit."
+  },
+  "candidate_contract": {
+    "candidate_id": "CANDIDATE_RESEARCH_V1",
+    "inputs": [
+      "Buy Ratio",
+      "Delta",
+      "Trade Count"
+    ],
+    "outcome_boundary": "Frozen prior evidence boundary; no outcome redefinition in this stage.",
+    "time_ordering": "All candidate inputs must be computed using information available at or before the candidate timestamp.",
+    "embargo": "Retain the one-observation outcome separation used by E1.",
+    "cost_boundary": "Use the frozen prior cost boundary only; do not optimize it here.",
+    "parameter_policy": "No numeric threshold selection, tuning, fitting, or reinvestment in candidate_definition.",
+    "execution_policy": "Analysis/signal-only; no order generation or live execution.",
+    "evaluation_policy": "Candidate definition must be evaluated on temporally separated evidence; no random shuffle or cross-fold leakage.",
+    "rejection_conditions": [
+      "Any feature uses future outcome information.",
+      "Any candidate parameter is selected from the evaluation fold.",
+      "Any overlap with the frozen boundary is detected.",
+      "Any hidden timestamp/sequence reversal appears.",
+      "Any promotion/live-execution path is invoked."
+    ]
+  },
+  "gate_boundary": {
+    "signal_created": false,
+    "threshold_tuned": false,
+    "model_fitting": false,
+    "promotion_decision": false,
+    "live_execution": false
+  },
+  "next_gate": "Candidate-definition review first; threshold tuning remains explicitly blocked."
+}

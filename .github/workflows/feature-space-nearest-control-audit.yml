@@ -1,0 +1,80 @@
+name: HES Trade Agent — Feature-Space Nearest-Control Audit v1
+
+on:
+  push:
+    branches:
+      - winner-nearest-control-boundary-audit-v1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hes-feature-space-nearest-control
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout pinned audit branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Materialize immutable fresh snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FRESH_BLOB_SHA: b296b1c95f075518bea0b56fd11bbf5f0f613a04
+        run: |
+          curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/beheshti2025hesam-prog/btc_tabdeal_public_test/git/blobs/$FRESH_BLOB_SHA" > /tmp/fresh_blob.json
+          python - <<'PY'
+          import base64,json,os
+          d=json.load(open("/tmp/fresh_blob.json"))
+          assert d["sha"]==os.environ["FRESH_BLOB_SHA"]
+          raw=base64.b64decode(d["content"])
+          assert raw
+          open("/tmp/hes_fresh_trades.csv","wb").write(raw)
+          PY
+      - name: Verify immutable snapshot hash
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          p=Path("/tmp/hes_fresh_trades.csv"); b=p.read_bytes()
+          got=hashlib.sha1(f"blob {len(b)}\0".encode()+b).hexdigest()
+          assert got=="b296b1c95f075518bea0b56fd11bbf5f0f613a04"
+          print("FRESH_SNAPSHOT_BLOB_VERIFIED",got)
+          PY
+      - name: Run feature-space nearest-control audit
+        run: python scripts/feature_space_nearest_control_audit.py
+      - name: Validate audit claim boundary
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open("feature_space_nearest_control_audit.json"))
+          assert d["status"]=="FEATURE_SPACE_NEAREST_CONTROL_AUDIT_REVIEW_ONLY"
+          assert d["population"]["winners"]==2
+          assert all(d["integrity"].values())
+          assert d["interpretation"]["signal_created"] is False
+          assert d["interpretation"]["threshold_tuned"] is False
+          assert d["interpretation"]["model_fitted"] is False
+          assert d["interpretation"]["promotion_decision"] is False
+          assert d["interpretation"]["live_execution"] is False
+          print("FEATURE_SPACE_NEAREST_CONTROL_AUDIT_VALID")
+          PY
+      - name: Upload audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-space-nearest-control-audit-v1
+          path: feature_space_nearest_control_audit.json
+          if-no-files-found: error
