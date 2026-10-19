@@ -41,6 +41,10 @@ class Candle15m:
     last_sequence: int | None
     source_first_observed_at: datetime | None
     source_last_observed_at: datetime | None
+    # Source identity survives the native-to-structure boundary when known.
+    venue: str | None = None
+    market: str | None = None
+    source: str | None = None
 
 
 @dataclass(frozen=True)
