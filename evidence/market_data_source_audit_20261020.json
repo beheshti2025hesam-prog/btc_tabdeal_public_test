@@ -222,5 +222,43 @@
       "raw_response_text": "{\"Data\":{},\"Err\":{\"type\":2,\"message\":\"API key required, please refer to the documentation at https://developers.coindesk.com/\",\"http_status_code\":401,\"frontend\":{\"type\":2,\"message\":\"API key required, please refer to the documentation at https://developers.coindesk.com/\"}}",
       "conclusion": "REAL ACCESS BLOCKED WITHOUT AUTHORIZED API KEY; no market-data response obtained. This probe does not test a paid account's entitlement or intended-use license."
     }
-  ]
+  ],
+  "validation_results": {
+    "local_full_repository_suite": {
+      "code_head": "28f157e95ee70eb33d4afe29bed033377018d06d",
+      "result": "PASS",
+      "tests_passed": 458,
+      "duration_seconds": 11.56,
+      "environment_note": "Clean shallow clone had origin/main fetched before this run; all repository tests passed."
+    },
+    "focused_local_suite": {
+      "code_head": "28f157e95ee70eb33d4afe29bed033377018d06d",
+      "result": "PASS",
+      "tests_passed": 19,
+      "includes": [
+        "global market data parser",
+        "dashboard routes",
+        "risk veto to in-memory fake adapter boundary",
+        "collector checkpoint tests"
+      ]
+    },
+    "inline_javascript_syntax": {
+      "code_head": "28f157e95ee70eb33d4afe29bed033377018d06d",
+      "result": "PASS",
+      "tool": "node --check",
+      "bytes": 2264
+    },
+    "github_actions": {
+      "tested_code_head": "28f157e95ee70eb33d4afe29bed033377018d06d",
+      "run_id": 39489132146,
+      "url": "https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39489132146",
+      "unit_tests": "PASS: 17 passed",
+      "live_smoke": "FAIL_CLOSED",
+      "failure": "candle_timestamp_not_interval_aligned_1208",
+      "interpretation": "Live Yahoo payload contained an off-minute timestamp; parser correctly rejected it instead of shifting or rounding it. This is source-qualification evidence, not a passing provider qualification.",
+      "exact_latest_head_run_id": 39489341600,
+      "exact_latest_head_run_status": "QUEUED at last observation",
+      "exact_latest_head": "b5a7b13c4cd0e0cf2995f62902bc48ae0765480b"
+    }
+  }
 }
