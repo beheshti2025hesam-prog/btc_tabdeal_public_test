@@ -12,9 +12,21 @@
 2. **TradingView hosted widgets are not a substitute for a programmatic strategy feed.** Its widget FAQ says widgets do not provide an API for exporting data or indicator values. See:
    - https://www.tradingview.com/widget-docs/faq/data/
 3. **Yahoo Finance public chart data remains unqualified.** The endpoint used in this PR is unofficial; this repository has not established its underlying venue composition, global aggregation methodology, volume definition, contractual SLA, or data-use rights. The adapter preserves source volume unchanged, but preservation is not proof of semantic correctness. A live sample returned volume `0`; therefore volume-derived features remain disabled.
-4. **CoinDesk/CryptoCompare CCCAGG is a candidate for evaluation, not yet an approved replacement.** Its public documentation describes CCCAGG reference pricing and historical OHLCV endpoints, but this PR has not verified account/API-key access, license/usage terms, market coverage, volume semantics, latency, or behavior for the required symbols and intervals. See:
-   - https://developers.coindesk.com/
-   - https://developers.coindesk.com/documentation/legacy/Historical/dataHistoday
+4. **CoinDesk Data API is the strongest documented candidate in this review, but is not yet approved or connected.** The current pricing page distinguishes:
+   - Personal: non-commercial CC BY-NC-SA 4.0; aggregate REST access; minute history only for the latest hour; lifetime call cap.
+   - Start-Up: commercial license, internal-only use, REST/WebSocket; minute history only for the latest 24 hours; contact-based pricing.
+   - Enterprise: negotiated license, spot/DEX/derivatives and aggregate/trade/order-book datasets, broader historical access, and SLA/private-delivery options.
+   
+   Therefore the Personal tier cannot be assumed suitable for HES strategy/live use, and the Start-Up tier's stated internal-only license and 24-hour minute-history window must be checked against the project's actual use and history needs. Do not select a plan or imply commercial rights without the account owner confirming intended use and the provider confirming terms.
+   
+   The current Spot historical minute endpoint is explicitly for selected exchanges and returns base- and quote-currency volumes; it is **not automatically a cross-market aggregate**. CCCAGG/reference-index data must be requested from the correct documented aggregate/index surface, with instrument definitions and volume fields inspected separately. No API credential, successful authenticated response, or representative raw response is available in this PR, so integration cannot honestly be called verified.
+   
+   Primary sources:
+   - Pricing and plan/license/history limits: https://developers.coindesk.com/pricing/
+   - Data API introduction and rate limits: https://developers.coindesk.com/documentation/data-api/introduction
+   - Spot OHLCV+ minute endpoint (exchange-specific scope): https://developers.coindesk.com/documentation/data-api/spot_v1_historical_minutes
+   - Indices/reference rates OHLCV+ minute endpoint: https://developers.coindesk.com/documentation/data-api/index_cc_v1_historical_minutes
+   - CCCAGG methodology (older methodology document; must be checked against current terms): https://www.cryptocompare.com/media/37072230/cccagg_methodology-2020-07.pdf
 
 ## Required acceptance evidence before source approval
 
