@@ -8,6 +8,8 @@ on:
       - "tests/test_global_market_data_v1.py"
       - "tests/test_dashboard_routes_v1.py"
       - "docs/decisions/ADR-2026-10-20-integrated-readonly-dashboard.md"
+      - "docs/decisions/ADR-2026-10-20-market-data-source-qualification.md"
+      - "README.md"
       - ".github/workflows/integrated-readonly-dashboard-tests.yml"
   push:
     branches: ["feat/integrated-readonly-dashboard-20261020"]
