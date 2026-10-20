@@ -25,7 +25,7 @@ jobs:
       - name: Checkout exact bridge source under test
         uses: actions/checkout@v4
         with:
-          ref: 70a3949a2b512dead8b00ec57c92c91d2c103862
+          ref: 1a80ad8cb1e94cd17472770abf0d39bc4900b155
           path: bridge
           fetch-depth: 1
 
@@ -46,7 +46,7 @@ jobs:
       - name: Assert exact source revisions
         env:
           EXPECTED_TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          EXPECTED_BRIDGE_SHA: 70a3949a2b512dead8b00ec57c92c91d2c103862
+          EXPECTED_BRIDGE_SHA: 1a80ad8cb1e94cd17472770abf0d39bc4900b155
           EXPECTED_WALLEX_SHA: b490611636cca6d133ba9f9cc08d5d9d6333628b
           EXPECTED_BINANCE_SHA: 264ad62f51dee485c8ab9e1053631929c6379e4b
         run: |
