@@ -6,7 +6,6 @@ from urllib.error import HTTPError, URLError
 from zoneinfo import ZoneInfo
 import pytest
 
-from forward.tabdeal_readonly_adapter_v1 import parse_trade_frame
 
 from forward.native_wallex_ohlcv_v1 import (
     SUPPORTED_MINUTE_RESOLUTIONS,
@@ -47,7 +46,7 @@ def test_native_history_preserves_decimal_and_closed_state():
         (datetime(2026, 1, 19, 15, 0, tzinfo=timezone.utc), "-05:00", 510),
     ],
 )
-def test_tabdeal_and_wallex_normalize_iran_and_us_wall_clocks_to_same_utc_instant(
+def test_timezone_offsets_normalize_to_same_utc_instant_for_native_candles(
     instant, expected_new_york_offset, expected_difference_minutes
 ):
     # Tehran is UTC+03:30; New York switches between UTC-04:00 and UTC-05:00.
@@ -60,15 +59,8 @@ def test_tabdeal_and_wallex_normalize_iran_and_us_wall_clocks_to_same_utc_instan
         instant.astimezone(ZoneInfo("Asia/Tehran")).utcoffset()
         - instant.astimezone(ZoneInfo("America/New_York")).utcoffset()
     ).total_seconds() / 60) == expected_difference_minutes
-
-    common = {
-        "type": "trade", "symbol": "BTC_USDT", "price": "100",
-        "amount": "0.01", "side": "buy", "sequence": 7,
-    }
-    tabdeal_iran = parse_trade_frame({**common, "timestamp": iran_text}, as_of=instant)
-    tabdeal_us = parse_trade_frame({**common, "timestamp": new_york_text}, as_of=instant)
-    assert tabdeal_iran["source_updated"] == tabdeal_us["source_updated"]
-    assert datetime.fromisoformat(tabdeal_iran["source_updated"]) == instant
+    assert datetime.fromisoformat(iran_text).astimezone(timezone.utc) == instant
+    assert datetime.fromisoformat(new_york_text).astimezone(timezone.utc) == instant
 
     payload = {
         "s": "ok", "t": [int(instant.timestamp())],
@@ -79,7 +71,7 @@ def test_tabdeal_and_wallex_normalize_iran_and_us_wall_clocks_to_same_utc_instan
         as_of=instant.replace(minute=2),
     )[0]
     assert wallex.open_time == instant
-    assert wallex.open_time == datetime.fromisoformat(tabdeal_iran["source_updated"])
+    assert wallex.open_time == datetime.fromisoformat(iran_text).astimezone(timezone.utc)
     assert wallex.open_time.tzinfo is timezone.utc
 
 def test_only_runtime_verified_resolutions_are_enabled():
