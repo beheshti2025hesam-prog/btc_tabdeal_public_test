@@ -41,12 +41,12 @@ class Handler(BaseHTTPRequestHandler):
         if p.path=="/": return self._send(200,HTML.encode(),"text/html; charset=utf-8")
         if p.path=="/healthz": return self._send(200,b'{"status":"ok","mode":"NO_TRADE_ONLY","execution_enabled":false}',"application/json")
         if p.path!="/api/candles": return self._send(404,b'{"error":"not_found"}',"application/json")
-        q=parse_qs(p.query); symbol=q.get("symbol",["BTCUSDT"])[0]; interval=q.get("interval",["1m"])[0]
+        q=parse_qs(p.query); symbol=q.get("symbol",["BTC-USD"])[0]; interval=q.get("interval",["1m"])[0]
         if symbol not in {"BTC-USD","ETH-USD","SOL-USD"} or interval not in INTERVALS:
             return self._send(400,b'{"error":"unsupported_symbol_or_interval"}',"application/json")
         try:
             candles=fetch_closed_klines(symbol=symbol,interval=interval,limit=240,
-                max_latest_age=timedelta(seconds=max(180,INTERVALS[interval]*2)))
+                max_latest_age=timedelta(seconds=max(180,INTERVALS[interval][0]*2)))
             now=datetime.now(timezone.utc); last=candles[-1]
             payload={"status":"ok","source":last.source,"market":last.market,"symbol":symbol,"interval":interval,
                 "latest_age_seconds":(now-last.close_time).total_seconds(),"execution_enabled":False,
