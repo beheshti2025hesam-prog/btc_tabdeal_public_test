@@ -1,6 +1,7 @@
-"""Read-only global aggregate crypto candles from Yahoo Finance chart data.
-The public endpoint is unofficial and may change without notice. No exchange-specific
-execution candles, account credentials, or order endpoints are used here.
+"""Read-only provisional USD reference candles from Yahoo Finance chart data.
+The public endpoint is unofficial; global aggregation provenance and volume semantics
+are unverified. It is not approved as a strategy input. No execution-venue candles,
+account credentials, or order endpoints are used here.
 """
 from __future__ import annotations
 from dataclasses import dataclass
