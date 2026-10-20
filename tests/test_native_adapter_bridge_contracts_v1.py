@@ -93,6 +93,9 @@ def test_real_adapter_output_normalizes_into_hes_features(adapter_rows, venue, m
     assert feature_rows[0].trade_count is None
     assert feature_rows[0].timeframe_seconds == 60
     assert feature_rows[0].close == pytest.approx(102.2)
+    assert feature_rows[0].volume is None
+    with pytest.raises(ValueError, match="wallex_volume_semantics_unresolved"):
+        to_feature_candles(batch, include_volume=True)
 
 
 def test_binance_market_identity_mismatch_fails_closed():
