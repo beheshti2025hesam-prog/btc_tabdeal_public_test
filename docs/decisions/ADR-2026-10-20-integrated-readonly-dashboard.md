@@ -5,15 +5,15 @@ Accepted for the first UI slice because inspection of the actual HES repository 
 
 ## Decision
 - Add a Python-standard-library dashboard under web/, runnable as a module from the repository.
-- Chart candles come from a documented global public market-data endpoint, not the execution venue's chart API. The first provider adapter uses Yahoo Finance public chart data for global aggregated USD crypto candles without account credentials.
-- Display only validated, fully closed, fresh candles. Preserve source volume exactly; never silently scale or reinterpret it.
+- Chart candles do not come from the execution venue's chart API. The initial adapter reads Yahoo Finance's public chart endpoint as an unverified USD reference only. The endpoint's global aggregation provenance and volume semantics are not certified; it is not approved as a strategy input and requires independent comparison and provider verification.
+- Display only validated, fully closed, fresh candles. Preserve source volume exactly; never silently scale or reinterpret it. Keep volume-dependent features disabled until volume semantics are proven.
 - No order controls or submit endpoint. Health/status explicitly report NO_TRADE_ONLY.
 - Existing strategy/risk modules remain authoritative. This first UI slice is read-only visualization; it does not claim a trade signal is approved or prove a venue quote executable.
 - Bind to 127.0.0.1 by default. Remote exposure requires separately reviewed authentication/reverse-proxy changes.
 
 ## Consequences
 - The project now has a real UI entry point within the existing repository, without a parallel app or new runtime dependency.
-- Venue symbol mapping, venue constraints, spread/slippage, risk approval, idempotent submission and order/fill reconciliation remain mandatory before any concrete execution adapter can be enabled.
+- The Yahoo reference source remains provisional until provider provenance, volume meaning, freshness, and independent chart comparison are proven. Venue symbol mapping, venue constraints, spread/slippage, risk approval, idempotent submission and order/fill reconciliation remain mandatory before any concrete execution adapter can be enabled.
 - Runtime stays HOLD / NO_TRADE_ONLY. This does not authorize account access, service activation, deployment, or live trading.
 
 ## Acceptance
