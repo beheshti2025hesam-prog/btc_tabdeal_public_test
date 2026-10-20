@@ -25,6 +25,10 @@ class GlobalMarketDataTests(unittest.TestCase):
  def test_stale_bar_rejected(self):
   ts=int((NOW-timedelta(minutes=8)).timestamp())
   with self.assertRaisesRegex(MarketDataError,"latest_closed_candle_stale"):parse_chart_payload(payload([ts]),symbol="BTC-USD",interval="1m",as_of=NOW,max_latest_age=timedelta(seconds=120))
+ def test_timestamp_not_aligned_to_utc_interval_is_rejected(self):
+  ts=int((NOW-timedelta(minutes=2)).timestamp())+8
+  with self.assertRaisesRegex(MarketDataError,"candle_timestamp_not_interval_aligned"):
+   parse_chart_payload(payload([ts]),symbol="BTC-USD",interval="1m",as_of=NOW)
  def test_duplicate_timestamp_rejected(self):
   ts=int((NOW-timedelta(minutes=2)).timestamp())
   with self.assertRaisesRegex(MarketDataError,"duplicate_candle_open_time"):parse_chart_payload(payload([ts,ts]),symbol="BTC-USD",interval="1m",as_of=NOW)
