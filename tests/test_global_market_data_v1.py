@@ -15,7 +15,7 @@ class Response:
 class GlobalMarketDataTests(unittest.TestCase):
  def test_closed_bar_and_volume_preserved(self):
   ts=int((NOW-timedelta(minutes=2)).timestamp());bars=parse_chart_payload(payload([ts]),symbol="BTC-USD",interval="1m",as_of=NOW)
-  self.assertEqual(bars[0].volume,Decimal("4.2500"));self.assertEqual(bars[0].source,"yahoo_finance_global_chart");self.assertEqual(bars[0].market,"global_crypto_usd")
+  self.assertEqual(bars[0].volume,Decimal("4.2500"));self.assertEqual(bars[0].source,"yahoo_finance_public_chart_unverified");self.assertEqual(bars[0].market,"crypto_usd_reference_unverified")
  def test_open_bar_excluded(self):
   ts=int((NOW-timedelta(seconds=30)).timestamp())
   with self.assertRaisesRegex(MarketDataError,"no_closed_candles"):parse_chart_payload(payload([ts]),symbol="BTC-USD",interval="1m",as_of=NOW)
