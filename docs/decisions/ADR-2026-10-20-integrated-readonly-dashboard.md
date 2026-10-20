@@ -5,7 +5,7 @@ Accepted for the first UI slice because inspection of the actual HES repository 
 
 ## Decision
 - Add a Python-standard-library dashboard under web/, runnable as a module from the repository.
-- Chart candles come from a documented global public market-data endpoint, not the execution venue's chart API. The first provider adapter uses public Binance Spot market data without account credentials.
+- Chart candles come from a documented global public market-data endpoint, not the execution venue's chart API. The first provider adapter uses Yahoo Finance public chart data for global aggregated USD crypto candles without account credentials.
 - Display only validated, fully closed, fresh candles. Preserve source volume exactly; never silently scale or reinterpret it.
 - No order controls or submit endpoint. Health/status explicitly report NO_TRADE_ONLY.
 - Existing strategy/risk modules remain authoritative. This first UI slice is read-only visualization; it does not claim a trade signal is approved or prove a venue quote executable.
