@@ -101,5 +101,27 @@ class GlobalMarketDataTests(unittest.TestCase):
             fetch_closed_klines(symbol="BTCUSDT", interval="1m", limit=1001, as_of=NOW)
 
 
+    def test_global_source_candles_feed_existing_native_bridge_without_sequence(self):
+        from forward.native_candle_bridge_v1 import normalize_native_candles, to_feature_candles
+
+        start = NOW - timedelta(minutes=2)
+        source_candles = parse_closed_klines(
+            [kline(start)], symbol="BTCUSDT", interval="1m", as_of=NOW,
+            max_latest_age=timedelta(seconds=120),
+        )
+        batch = normalize_native_candles(
+            source_candles, venue="binance", market="spot", as_of=NOW,
+        )
+        self.assertEqual(batch.identity.venue, "binance")
+        self.assertEqual(batch.identity.market, "spot")
+        self.assertEqual(batch.identity.symbol, "BTCUSDT")
+        self.assertEqual(batch.identity.timeframe_seconds, 60)
+        self.assertEqual(len(batch.candles), 1)
+        feature_candles = to_feature_candles(batch)
+        self.assertEqual(feature_candles[0].symbol, "BTCUSDT")
+        self.assertIsNone(feature_candles[0].trade_count)
+        self.assertIsNone(feature_candles[0].volume)
+
+
 if __name__ == "__main__":
     unittest.main()
