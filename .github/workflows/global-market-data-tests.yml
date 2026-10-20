@@ -6,6 +6,9 @@ on:
       - "forward/global_market_data_v1.py"
       - "tests/test_global_market_data_v1.py"
       - ".github/workflows/global-market-data-tests.yml"
+      - "docs/PROJECT_DNA.md"
+      - "docs/roadmap/APP_DELIVERY_PLAN_AND_CHART_SLICE_ACCEPTANCE_2026-10-20.md"
+      - "docs/roadmap/TRADINGVIEW_COMPARABLE_CHART_DATAFEED_GATE_V1_2026-10-19.md"
   push:
     branches: ["feat/global-market-data-and-safety-gates-20261020"]
     paths:
