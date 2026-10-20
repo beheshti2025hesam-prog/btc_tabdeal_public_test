@@ -9,6 +9,16 @@ The project team consists of exactly two collaborators in its operating plan:
 
 Do not plan routine project execution around an assumed third team member. The owner has stated that no other person is available to take project actions. Prefer autonomous progress with minimal requests for owner intervention.
 
+## Core architecture — independent market intelligence, venue-only execution
+
+- Market-data candles, charting and analysis come from one documented global provider (TradingView or a comparable public feed). The provider's venue/market identity must remain explicit; do not imply that its price is every execution venue's price.
+- Exchange chart candles are not the analytical source of truth. Exchange/private APIs are reserved for order submission, order state, fills, and venue-specific execution constraints.
+- Keep the pipeline decoupled: global feed → validated canonical candles → existing strategy/decision and risk gates → venue-specific execution adapter.
+- Ordinary candle analysis must not depend on undocumented trade sequence fields. Do not block the candle path on unexplained exchange-volume semantics; preserve source volume unchanged and disable only features that rely on its unresolved meaning.
+- Before any execution, explicitly validate source-to-execution symbol mapping, market type, price freshness, spread/basis, tick/step sizes, minimum notional, order type, fees, slippage, margin/leverage, and duplicate/unknown order outcomes. A global chart price is not proof of an executable venue price.
+- No live order is allowed until a concrete venue adapter and its order/fill reconciliation tests are proven. Public market-data work requires no account credentials; never infer authorization to trade from read-only data access.
+- The repository has no verified frontend entry point. Reuse an authorized existing frontend if found. Do not invent one or create a parallel app without an explicit, documented architecture decision.
+
 ## Review and evidence policy
 
 - ChatGPT performs a careful technical review, but must never misrepresent its own review as an independent third-party human review.
