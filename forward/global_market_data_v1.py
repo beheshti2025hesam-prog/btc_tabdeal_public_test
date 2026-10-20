@@ -82,7 +82,7 @@ def fetch_closed_klines(*, symbol="BTC-USD", interval="1m", limit=240, as_of=Non
     try:
         with opener(request,timeout=timeout) as response:
             if getattr(response,"status",200)!=200: raise MarketDataError("market_data_http_error")
-            payload=json.loads(response.read().decode("utf-8"))
+            payload=json.loads(response.read().decode("utf-8"), parse_float=Decimal)
     except MarketDataError: raise
     except (HTTPError,URLError,TimeoutError,OSError,ValueError,UnicodeDecodeError) as exc:
         raise MarketDataError(f"market_data_unavailable:{type(exc).__name__}") from None
