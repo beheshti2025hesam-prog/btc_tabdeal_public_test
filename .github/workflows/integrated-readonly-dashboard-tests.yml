@@ -7,6 +7,7 @@ on:
       - "web/**"
       - "tests/test_global_market_data_v1.py"
       - "tests/test_dashboard_routes_v1.py"
+      - "tests/test_analysis_risk_fake_adapter_boundary_v1.py"
       - "docs/decisions/ADR-2026-10-20-integrated-readonly-dashboard.md"
       - "docs/decisions/ADR-2026-10-20-market-data-source-qualification.md"
       - "README.md"
@@ -29,7 +30,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install pytest
-      - run: PYTHONPATH=. python -m pytest -q tests/test_global_market_data_v1.py tests/test_dashboard_routes_v1.py
+      - run: PYTHONPATH=. python -m pytest -q tests/test_global_market_data_v1.py tests/test_dashboard_routes_v1.py tests/test_analysis_risk_fake_adapter_boundary_v1.py
       - name: Live public market-data smoke test (read-only)
         env:
           PYTHONPATH: .
