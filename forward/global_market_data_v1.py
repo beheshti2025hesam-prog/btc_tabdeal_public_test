@@ -1,4 +1,7 @@
-"""Read-only global public candle source, independent from execution venues."""
+"""Read-only global aggregate crypto candles from Yahoo Finance chart data.
+The public endpoint is unofficial and may change without notice. No exchange-specific
+execution candles, account credentials, or order endpoints are used here.
+"""
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -8,11 +11,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-BASE_URL = "https://data-api.binance.vision/api/v3/klines"
-INTERVALS = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
+BASE_URL = "https://query2.finance.yahoo.com/v8/finance/chart/"
+SYMBOLS = {"BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "SOL-USD": "SOL-USD"}
+INTERVALS = {"1m": (60, "1d"), "5m": (300, "1d"), "15m": (900, "5d"), "60m": (3600, "1mo"), "1d": (86400, "1y")}
 
 class MarketDataError(ValueError):
-    """Public market data cannot safely be used."""
+    """Global market data cannot safely be used."""
 
 @dataclass(frozen=True)
 class Candle:
@@ -29,47 +33,52 @@ class Candle:
     volume: Decimal
 
 def _decimal(value, field):
+    if value is None: raise MarketDataError(f"missing_{field}")
     try: result = Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError): raise MarketDataError(f"invalid_{field}") from None
     if not result.is_finite(): raise MarketDataError(f"invalid_{field}")
     return result
 
-def parse_closed_klines(rows, *, symbol, interval, as_of, max_latest_age=timedelta(minutes=3)):
-    if not isinstance(symbol, str) or not symbol or symbol != symbol.upper():
-        raise MarketDataError("symbol_must_be_explicit_uppercase")
+def parse_chart_payload(payload, *, symbol, interval, as_of, max_latest_age=timedelta(minutes=3)):
+    if symbol not in SYMBOLS: raise MarketDataError("unsupported_global_symbol")
     if interval not in INTERVALS: raise MarketDataError("unsupported_interval")
     if as_of.tzinfo is None or as_of.utcoffset() is None: raise MarketDataError("as_of_must_be_timezone_aware")
-    now = as_of.astimezone(timezone.utc); duration = timedelta(seconds=INTERVALS[interval])
-    result=[]; seen=set(); previous=None
-    for i,row in enumerate(rows):
-        if not isinstance(row,(list,tuple)) or len(row)<7: raise MarketDataError(f"malformed_kline_{i}")
-        try:
-            start=datetime.fromtimestamp(int(row[0])/1000,timezone.utc)
-            end=datetime.fromtimestamp((int(row[6])+1)/1000,timezone.utc)
+    now=as_of.astimezone(timezone.utc); seconds,_=INTERVALS[interval]; duration=timedelta(seconds=seconds)
+    try:
+        chart=payload["chart"]
+        if chart.get("error"): raise MarketDataError("global_source_error")
+        result=chart["result"][0]; timestamps=result["timestamp"]; quote=result["indicators"]["quote"][0]
+        arrays=[quote[k] for k in ("open","high","low","close","volume")]
+    except (KeyError,IndexError,TypeError):
+        raise MarketDataError("malformed_global_chart_payload") from None
+    if not isinstance(timestamps,list) or not all(isinstance(a,list) and len(a)==len(timestamps) for a in arrays):
+        raise MarketDataError("global_chart_array_length_mismatch")
+    candles=[]; seen=set(); previous=None
+    for i,stamp in enumerate(timestamps):
+        try: start=datetime.fromtimestamp(int(stamp),timezone.utc)
         except (ValueError,TypeError,OverflowError,OSError): raise MarketDataError(f"invalid_timestamp_{i}") from None
         if start in seen: raise MarketDataError("duplicate_candle_open_time")
         if previous is not None and start<=previous: raise MarketDataError("candles_not_strictly_chronological")
-        if end != start+duration: raise MarketDataError("candle_interval_boundary_mismatch")
-        seen.add(start); previous=start
-        op,high,low,close,volume=(_decimal(row[n],name) for n,name in ((1,"open"),(2,"high"),(3,"low"),(4,"close"),(5,"volume")))
+        seen.add(start); previous=start; end=start+duration; values=[a[i] for a in arrays]
+        if any(v is None for v in values): continue
+        op,high,low,close,volume=(_decimal(v,n) for v,n in zip(values,("open","high","low","close","volume")))
         if min(op,high,low,close)<=0 or volume<0 or low>min(op,close) or high<max(op,close) or low>high:
             raise MarketDataError("invalid_ohlc_or_volume")
-        if end<=now:
-            result.append(Candle("binance_public_market_data","spot",symbol,interval,start,end,op,high,low,close,volume))
-    if not result: raise MarketDataError("no_closed_candles")
+        if end<=now: candles.append(Candle("yahoo_finance_global_chart","global_crypto_usd",symbol,interval,start,end,op,high,low,close,volume))
+    if not candles: raise MarketDataError("no_closed_candles")
     if max_latest_age is not None:
-        age=now-result[-1].close_time
-        if max_latest_age.total_seconds()<=0 or age<timedelta(0) or age>max_latest_age:
-            raise MarketDataError("latest_closed_candle_stale")
-    return tuple(result)
+        age=now-candles[-1].close_time
+        if max_latest_age.total_seconds()<=0 or age<timedelta(0) or age>max_latest_age: raise MarketDataError("latest_closed_candle_stale")
+    return tuple(candles)
 
-def fetch_closed_klines(*, symbol="BTCUSDT", interval="1m", limit=240, as_of=None,
-                         max_latest_age=timedelta(minutes=3), timeout=8.0, opener=urlopen):
+def fetch_closed_klines(*, symbol="BTC-USD", interval="1m", limit=240, as_of=None, max_latest_age=None, timeout=8.0, opener=urlopen):
+    if symbol not in SYMBOLS: raise MarketDataError("unsupported_global_symbol")
+    if interval not in INTERVALS: raise MarketDataError("unsupported_interval")
     if not isinstance(limit,int) or isinstance(limit,bool) or not 1<=limit<=1000: raise MarketDataError("limit_out_of_range")
     if timeout<=0: raise MarketDataError("timeout_must_be_positive")
-    if interval not in INTERVALS: raise MarketDataError("unsupported_interval")
-    request=Request(BASE_URL+"?"+urlencode({"symbol":symbol,"interval":interval,"limit":limit}),
-                    headers={"Accept":"application/json","User-Agent":"HES-Trade-Agent-readonly/1"})
+    seconds,range_name=INTERVALS[interval]
+    request=Request(BASE_URL+SYMBOLS[symbol]+"?"+urlencode({"interval":interval,"range":range_name}),
+        headers={"Accept":"application/json","User-Agent":"Mozilla/5.0 (compatible; HES-Trade-Agent/1.0)"})
     try:
         with opener(request,timeout=timeout) as response:
             if getattr(response,"status",200)!=200: raise MarketDataError("market_data_http_error")
@@ -77,6 +86,6 @@ def fetch_closed_klines(*, symbol="BTCUSDT", interval="1m", limit=240, as_of=Non
     except MarketDataError: raise
     except (HTTPError,URLError,TimeoutError,OSError,ValueError,UnicodeDecodeError) as exc:
         raise MarketDataError(f"market_data_unavailable:{type(exc).__name__}") from None
-    if not isinstance(payload,list): raise MarketDataError("unexpected_market_data_payload")
-    return parse_closed_klines(payload,symbol=symbol,interval=interval,
-        as_of=as_of or datetime.now(timezone.utc),max_latest_age=max_latest_age)
+    freshness=max_latest_age if max_latest_age is not None else timedelta(seconds=max(180,seconds*2))
+    bars=parse_chart_payload(payload,symbol=symbol,interval=interval,as_of=as_of or datetime.now(timezone.utc),max_latest_age=freshness)
+    return bars[-limit:]
