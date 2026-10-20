@@ -25,3 +25,14 @@ It collects public Tabdeal BTC_USDT futures trade data for the Data Foundation p
 
 **HES Trade Agent**  
 **Owner: Seyed Hesameddin Beheshti Shirazi**
+## Integrated read-only market dashboard
+
+The project includes a first integrated dashboard slice in `web/dashboard.py`. It is intentionally read-only and binds to loopback by default; it does not expose account access or order submission.
+
+```bash
+PYTHONPATH=. python -m web.dashboard
+```
+
+Open `http://127.0.0.1:8765` on the same host. To change the local bind port, set `HES_DASHBOARD_PORT`. Do not bind to a public interface or expose it through a reverse proxy without separately reviewed authentication and network controls.
+
+Chart candles use a credential-free global public market-data feed, not the execution venue's chart API. Only validated, closed and fresh candles are shown; source volume is preserved without normalization. The dashboard remains `HOLD / NO_TRADE_ONLY` and has no order-submit endpoint. This UI slice does not mean the private execution adapter or live trading is ready.
