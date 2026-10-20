@@ -41,3 +41,15 @@
 
 ## Next action
 Continue from the current PR head: inspect exact commit/CI, finish PR #320 review, and close only evidenced gaps. Do not restart support-email follow-ups or reopen sequence/volume as global blockers.
+
+
+## Delivery deadline — visible project constraint (2026-10-20)
+**Application delivery target: 2026-11-19 (28 Aban 1405).** Treat this as the committed planning target, not a claim of current readiness.
+
+- **2026-10-22 — frontend-path decision:** identify and verify the actual authorized HES frontend/application entry point. Current repository tree inspection found no frontend package/entrypoint; do not invent one or claim a deployed frontend was found. If no authorized existing frontend can be located, record the smallest explicit decision needed to unblock the chart slice rather than quietly creating a parallel app.
+- **2026-10-26 — first usable chart slice:** read-only BTCUSDT chart for supported Wallex native intervals (1m and 1h only), through the existing candle bridge and a documented chart library. Acceptance requires source identity, UTC/timeframe correctness, closed bars only, explicit gaps/staleness, raw source parity evidence, and a rendered-chart capture. No volume-derived indicators or order controls.
+- **2026-11-16 — release candidate:** complete end-to-end acceptance, security review, data freshness/session isolation evidence, and exact-commit CI.
+- **2026-11-19 — delivery target:** deliver the application with a clear operational mode and documented limitations. Live trading remains disabled unless every applicable execution/risk gate is proven and explicitly authorized.
+
+### Current schedule risk
+The frontend entry point is not yet verified in the repository. This is the critical path for the 2026-10-26 chart slice. Do not spend time waiting for exchange support emails; resolve the frontend path and implement against the existing Wallex candle-first bridge. Do not report a milestone complete until its acceptance evidence exists.
