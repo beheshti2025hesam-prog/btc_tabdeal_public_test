@@ -195,5 +195,17 @@
     "compressed_bytes": 114057,
     "sha256": "446ff0b493c9734086be90bfbbb7fa3e56e110edd52e68b7a9ed1c228c37e53e",
     "reconstruction": "cat evidence/raw/market_data_source_audit_20261020.tar.gz.b64.part* | base64 -d > market_data_source_audit_20261020.tar.gz"
+  },
+  "chart_library_asset": {
+    "name": "TradingView Lightweight Charts",
+    "version": "5.0.8",
+    "url": "https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js",
+    "retrieved_at_utc": "2026-10-20T20:05:50.669663+00:00",
+    "http_status": 200,
+    "bytes": 180427,
+    "sha256": "bcdca2a528db7c9b386918c99c544bde3eda3f0204ec2d23a64411d4cb4686c9",
+    "subresource_integrity": "sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl",
+    "license": "Apache-2.0; bundle retains its license header; dashboard includes attribution",
+    "limitation": "Asset retrieval and integrity pin verified from the observation host. This is not browser-rendered visual parity testing."
   }
 }
