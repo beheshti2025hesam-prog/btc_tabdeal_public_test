@@ -1,4 +1,8 @@
 import json,unittest
+from datetime import datetime, timezone, timedelta
+from decimal import Decimal
+from unittest.mock import patch
+from forward.global_market_data_v1 import Candle
 from http.server import ThreadingHTTPServer
 from threading import Thread
 from urllib.request import urlopen,Request
@@ -23,3 +27,8 @@ class DashboardRouteTests(unittest.TestCase):
  def test_post_rejected(self):
   with self.assertRaises(HTTPError) as e:urlopen(Request(self.base+"/api/candles",data=b"{}",method="POST"))
   self.assertEqual(e.exception.code,405)
+ def test_candle_route_uses_interval_seconds_for_freshness(self):
+  now=datetime.now(timezone.utc); candle=Candle("test_source","global_crypto_usd","BTC-USD","5m",now-timedelta(minutes=10),now-timedelta(minutes=5),Decimal("100"),Decimal("102"),Decimal("99"),Decimal("101"),Decimal("0"))
+  with patch("web.dashboard.fetch_closed_klines",return_value=(candle,)) as fetch:
+   with urlopen(self.base+"/api/candles?symbol=BTC-USD&interval=5m") as response:self.assertEqual(response.status,200)
+  self.assertEqual(fetch.call_args.kwargs["max_latest_age"],timedelta(seconds=600))
