@@ -6,15 +6,15 @@
 
 ## Milestones
 - [ ] **22 Oct — Frontend path decision:** verify the actual authorized application/frontend entry point and its run/build instructions. Current repository tree inspection found no frontend package or entrypoint. Do not invent a path or claim an existing app has been found. This is the current critical-path risk.
-- [ ] **26 Oct — First usable chart slice:** read-only BTCUSDT chart for Wallex native 1m and 1h candles, fed through the existing native adapter and candle bridge.
+- [ ] **26 Oct — First usable chart slice:** read-only BTCUSDT chart from a documented global public market-data source (initial provider adapter: Binance public Spot klines), fed through the existing native candle bridge. Exchange candles are not the analysis source.
 - [ ] **16 Nov — Release candidate:** acceptance tests and security/data-quality gates complete on the exact release-candidate commit.
 - [ ] **19 Nov — Delivery:** application packaged/documented with its operating mode, supported markets/timeframes, limitations and startup/health instructions. Live trading is not implicitly enabled.
 
 ## First chart slice — acceptance criteria
 ### Source and lineage
-- [ ] Uses the existing Wallex native OHLCV adapter and canonical candle bridge; no second candle engine, invented endpoint, synthetic bars or venue relabelling.
-- [ ] Only supported Wallex resolutions are offered: **1m and 1h**. Other resolutions are rejected/disabled until separately verified.
-- [ ] Every payload has explicit venue, market type, exchange symbol, timeframe, source timestamp and retrieval/evidence metadata.
+- [ ] Uses the global public market-data adapter and existing canonical candle bridge; no second candle engine, invented endpoint, synthetic bars or venue relabelling.
+- [ ] Market-data identity is explicit: provider venue, market type, source symbol and timeframe. Execution venue identity is a separate field.
+- [ ] Every payload has explicit source venue, market type, symbol, timeframe, source timestamp and retrieval/evidence metadata; execution venue identity is a separate field.
 - [ ] Datafeed is read-only; no private API credentials or order submission are required for chart rendering.
 
 ### Candle correctness
@@ -27,8 +27,9 @@
 
 ### Volume and safety
 - [ ] Preserve Wallex source volume exactly as returned; do not halve or normalize it.
-- [ ] Volume-dependent indicators/features remain disabled while the known UDF-vs-public-trades semantics discrepancy is unresolved.
+- [ ] Source volume is preserved as reported; volume-dependent features remain disabled if the chosen source's volume semantics are unknown.
 - [ ] No order controls, strategy activation, deployment, collector activation or live trading is included in this milestone.
+- [ ] Analysis source and execution venue prices are never conflated. A venue adapter must validate symbol mapping and execution conditions before any order can be enabled.
 - [ ] Chart failure, stale data, unsupported timeframe or source identity mismatch fails visibly and safely.
 
 ### Frontend integration rule
