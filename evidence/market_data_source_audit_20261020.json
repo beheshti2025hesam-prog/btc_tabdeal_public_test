@@ -257,8 +257,10 @@
       "failure": "candle_timestamp_not_interval_aligned_1208",
       "interpretation": "Live Yahoo payload contained an off-minute timestamp; parser correctly rejected it instead of shifting or rounding it. This is source-qualification evidence, not a passing provider qualification.",
       "exact_latest_head_run_id": 39489341600,
-      "exact_latest_head_run_status": "QUEUED at last observation",
-      "exact_latest_head": "b5a7b13c4cd0e0cf2995f62902bc48ae0765480b"
+      "exact_latest_head_run_status": "FAILURE in live read-only smoke; parser rejected an off-minute timestamp (candle_timestamp_not_interval_aligned_1209). Unit tests passed.",
+      "exact_latest_head": "0032758ff51d56acfc8a7b46dc47021155592959",
+      "exact_latest_head_run_url": "https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39489341600",
+      "exact_latest_head_note": "The latest commit after this CI run only updated the evidence manifest; no runtime or test code changed."
     }
   }
 }
