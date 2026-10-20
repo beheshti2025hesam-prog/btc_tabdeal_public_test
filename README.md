@@ -35,4 +35,4 @@ PYTHONPATH=. python -m web.dashboard
 
 Open `http://127.0.0.1:8765` on the same host. To change the local bind port, set `HES_DASHBOARD_PORT`. Do not bind to a public interface or expose it through a reverse proxy without separately reviewed authentication and network controls.
 
-Chart candles use a credential-free global public market-data feed, not the execution venue's chart API. Only validated, closed and fresh candles are shown; source volume is preserved without normalization. The dashboard remains `HOLD / NO_TRADE_ONLY` and has no order-submit endpoint. This UI slice does not mean the private execution adapter or live trading is ready.
+Chart candles use Yahoo Finance's public global aggregate USD crypto chart endpoint, not the execution venue's chart API. This endpoint is unofficial and has no guaranteed SLA. Only validated, closed and fresh candles are shown; source volume is preserved without normalization. The dashboard remains `HOLD / NO_TRADE_ONLY` and has no order-submit endpoint. This UI slice does not mean the private execution adapter or live trading is ready.
