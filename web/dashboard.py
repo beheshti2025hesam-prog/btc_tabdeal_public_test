@@ -17,7 +17,7 @@ header,.toolbar,.metrics{display:flex;gap:12px;align-items:center;justify-conten
 #message{color:var(--muted);font-size:13px;margin-top:10px}.gate{border-left:3px solid var(--amber);padding-left:12px}.footer{padding:18px 2px;color:var(--muted);font-size:12px;line-height:1.6}
 @media(max-width:600px){main{padding:12px}canvas{height:300px}.metric{min-width:42%}}
 </style></head><body><main><header><div><div class="brand">HES Trade Agent</div><div class="sub">Global market data · risk-gated · venue execution isolated</div></div><span class="pill">HOLD / NO_TRADE_ONLY</span></header>
-<section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option><option>ETHUSDT</option><option>SOLUSDT</option></select></label><label>Timeframe <select id="interval"><option>1m</option><option>5m</option><option>15m</option><option>1h</option><option>4h</option><option>1d</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Public global market feed</span></div>
+<section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTC-USD</option><option>ETH-USD</option><option>SOL-USD</option></select></label><label>Timeframe <select id="interval"><option>1m</option><option>5m</option><option>15m</option><option>60m</option><option>1d</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Global aggregate market feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" style="font-size:14px">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel" style="padding:8px;margin-top:14px"><canvas id="chart" aria-label="Candlestick chart"></canvas></div><div id="message" role="status">Loading validated closed candles…</div></section>
 <section class="panel"><h3 style="margin-top:0">Decision and safety gates</h3><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
@@ -42,7 +42,7 @@ class Handler(BaseHTTPRequestHandler):
         if p.path=="/healthz": return self._send(200,b'{"status":"ok","mode":"NO_TRADE_ONLY","execution_enabled":false}',"application/json")
         if p.path!="/api/candles": return self._send(404,b'{"error":"not_found"}',"application/json")
         q=parse_qs(p.query); symbol=q.get("symbol",["BTCUSDT"])[0]; interval=q.get("interval",["1m"])[0]
-        if symbol not in {"BTCUSDT","ETHUSDT","SOLUSDT"} or interval not in INTERVALS:
+        if symbol not in {"BTC-USD","ETH-USD","SOL-USD"} or interval not in INTERVALS:
             return self._send(400,b'{"error":"unsupported_symbol_or_interval"}',"application/json")
         try:
             candles=fetch_closed_klines(symbol=symbol,interval=interval,limit=240,
