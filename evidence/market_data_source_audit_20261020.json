@@ -207,5 +207,20 @@
     "subresource_integrity": "sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl",
     "license": "Apache-2.0; bundle retains its license header; dashboard includes attribution",
     "limitation": "Asset retrieval and integrity pin verified from the observation host. This is not browser-rendered visual parity testing."
-  }
+  },
+  "provider_access_probes": [
+    {
+      "provider": "CoinDesk Data API / CryptoCompare endpoint",
+      "product": "Spot historical minutes",
+      "url": "https://data-api.cryptocompare.com/spot/v1/historical/minutes?market=coinbase&instrument=BTC-USD&limit=5",
+      "requested_at_utc": "2026-10-20T20:07:24.041741+00:00",
+      "retrieved_at_utc": "2026-10-20T20:07:24.272714+00:00",
+      "credentials_sent": false,
+      "http_status": 401,
+      "response_bytes": 273,
+      "response_sha256": "e54a34359ebeb4245031b742ee300e3fdd72ccf608d481d57caca1fc16147f17",
+      "raw_response_text": "{\"Data\":{},\"Err\":{\"type\":2,\"message\":\"API key required, please refer to the documentation at https://developers.coindesk.com/\",\"http_status_code\":401,\"frontend\":{\"type\":2,\"message\":\"API key required, please refer to the documentation at https://developers.coindesk.com/\"}}",
+      "conclusion": "REAL ACCESS BLOCKED WITHOUT AUTHORIZED API KEY; no market-data response obtained. This probe does not test a paid account's entitlement or intended-use license."
+    }
+  ]
 }
