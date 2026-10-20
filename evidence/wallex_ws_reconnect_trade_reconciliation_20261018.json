@@ -1,0 +1,43 @@
+{
+  "captured_at_utc": "2026-10-18T16:54:51.633689+00:00",
+  "channel": "BTCUSDT@trade",
+  "credentials_used": false,
+  "deterministic_epoch_guard_test": {
+    "accepted_events": [
+      "old-session-before-reconnect",
+      "new-session-event"
+    ],
+    "current_session_event_accepted": true,
+    "delayed_old_session_event_rejected": true
+  },
+  "endpoint": "wss://api.wallex.ir/ws",
+  "interpretation": "Live transport reconnect and distinct server session IDs are verified. Any candle volume ratio compares only the WebSocket trades observed in this bounded window, not all trades in the minute unless the capture began before the minute opened; therefore OHLC equality and ratio are diagnostic, not a full-bar volume acceptance result. Production collector is not wired/enabled.",
+  "manifest_sha256_excluding_self": "86f524eff70ef40de5eb9d84de47ba9f4657961d38342838fd248f279a45a65d",
+  "orders_or_account_mutations": false,
+  "production_collector_started": false,
+  "schema": "HES_WALLEX_LIVE_WS_RECONNECT_TRADE_RECONCILIATION_V1",
+  "server_session_ids_distinct": true,
+  "sessions": [
+    {
+      "closed_at_utc": "2026-10-18T16:54:05.972448+00:00",
+      "handshake_sha256": "9869e666645c64a8f12d96bf158a0b107e2b399cf86a5161597a6ee4afeef618",
+      "local_session": 1,
+      "server_sid": "5e349573-2a90-46b1-9485-f86d4b693156",
+      "started_at_utc": "2026-10-18T16:53:20.964097+00:00",
+      "trade_frame_count": 0,
+      "trade_frames": []
+    },
+    {
+      "closed_at_utc": "2026-10-18T16:54:51.633584+00:00",
+      "handshake_sha256": "65a83cd759941b081d6c24f3228666b92b4136a9fadf59d8716b30040a861be3",
+      "local_session": 2,
+      "server_sid": "1f0abee1-f71b-4793-a29c-41d5190ad533",
+      "started_at_utc": "2026-10-18T16:54:06.624334+00:00",
+      "trade_frame_count": 0,
+      "trade_frames": []
+    }
+  ],
+  "symbol": "BTCUSDT",
+  "total_trade_frames": 0,
+  "trade_reconciliation": []
+}
