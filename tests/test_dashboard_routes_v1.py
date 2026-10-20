@@ -17,7 +17,7 @@ class DashboardRouteTests(unittest.TestCase):
   cls.server.shutdown();cls.server.server_close();cls.thread.join(timeout=2)
  def test_dashboard_served(self):
   with urlopen(self.base+"/") as r:
-   page=r.read().decode();self.assertEqual(r.status,200);self.assertIn("HES Trade Agent",page);self.assertIn("NO_TRADE_ONLY",page);self.assertIn("/api/candles",page)
+   page=r.read().decode();self.assertEqual(r.status,200);self.assertIn("HES Trade Agent",page);self.assertIn("NO_TRADE_ONLY",page);self.assertIn("/api/candles",page);self.assertIn("lightweight-charts@5.0.8",page);self.assertIn("LightweightCharts.CandlestickSeries",page);self.assertNotIn("<canvas id=\"chart\"",page)
  def test_health_no_trade_only(self):
   with urlopen(self.base+"/healthz") as r:data=json.loads(r.read())
   self.assertEqual(data["mode"],"NO_TRADE_ONLY");self.assertFalse(data["execution_enabled"])
