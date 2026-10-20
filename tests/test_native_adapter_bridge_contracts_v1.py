@@ -94,8 +94,13 @@ def test_real_adapter_output_normalizes_into_hes_features(adapter_rows, venue, m
     assert feature_rows[0].timeframe_seconds == 60
     assert feature_rows[0].close == pytest.approx(102.2)
     assert feature_rows[0].volume is None
-    with pytest.raises(ValueError, match="wallex_volume_semantics_unresolved"):
-        to_feature_candles(batch, include_volume=True)
+    if venue == "wallex":
+        with pytest.raises(ValueError, match="wallex_volume_semantics_unresolved"):
+            to_feature_candles(batch, include_volume=True)
+    else:
+        # Non-Wallex volume is available only by explicit opt-in.
+        opted_in = to_feature_candles(batch, include_volume=True)
+        assert opted_in[0].volume == pytest.approx(12.34)
 
 
 def test_binance_market_identity_mismatch_fails_closed():
