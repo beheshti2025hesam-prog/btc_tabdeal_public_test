@@ -56,8 +56,11 @@ def parse_chart_payload(payload, *, symbol, interval, as_of, max_latest_age=time
         raise MarketDataError("global_chart_array_length_mismatch")
     candles=[]; seen=set(); previous=None
     for i,stamp in enumerate(timestamps):
-        try: start=datetime.fromtimestamp(int(stamp),timezone.utc)
+        try:
+            stamp_int=int(stamp)
+            start=datetime.fromtimestamp(stamp_int,timezone.utc)
         except (ValueError,TypeError,OverflowError,OSError): raise MarketDataError(f"invalid_timestamp_{i}") from None
+        if stamp_int % seconds != 0: raise MarketDataError(f"candle_timestamp_not_interval_aligned_{i}")
         if start in seen: raise MarketDataError("duplicate_candle_open_time")
         if previous is not None and start<=previous: raise MarketDataError("candles_not_strictly_chronological")
         seen.add(start); previous=start; end=start+duration; values=[a[i] for a in arrays]
