@@ -53,3 +53,12 @@ Use the official open-source TradingView Lightweight Charts as the chart rendere
 - [ ] Only after source-specific acceptance may a chart be called integrated; collector activation and deployment remain separately gated.
 
 Overall HES status remains `HOLD / NO-TRADE`.
+
+
+## Delivery schedule and immediate critical path (2026-10-20)
+- **Target application delivery:** 2026-11-19 (28 Aban 1405).
+- **Frontend path decision due:** 2026-10-22. A recursive repository-tree scan of the current chart-bridge branch found no `package.json`, frontend directory, `index.html`, or TSX/JSX UI entry point. The actual authorized frontend remains unverified; do not report it as found.
+- **First usable chart slice due:** 2026-10-26. Scope: read-only Wallex BTCUSDT native 1m and 1h candles, existing adapter + canonical bridge, source-to-chart parity and rendered capture. Volume features remain disabled; no order controls.
+- **Release candidate:** 2026-11-16.
+
+The frontend entry point is the critical path. Do not wait for exchange support replies or reopen sequence/volume as global blockers. If no existing frontend can be verified by 22 Oct, record the smallest architecture decision needed before implementation; do not silently invent a parallel app. All dates are planning targets and require evidence-based acceptance.
