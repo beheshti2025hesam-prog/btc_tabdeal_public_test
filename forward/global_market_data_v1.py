@@ -64,7 +64,7 @@ def parse_chart_payload(payload, *, symbol, interval, as_of, max_latest_age=time
         op,high,low,close,volume=(_decimal(v,n) for v,n in zip(values,("open","high","low","close","volume")))
         if min(op,high,low,close)<=0 or volume<0 or low>min(op,close) or high<max(op,close) or low>high:
             raise MarketDataError("invalid_ohlc_or_volume")
-        if end<=now: candles.append(Candle("yahoo_finance_global_chart","global_crypto_usd",symbol,interval,start,end,op,high,low,close,volume))
+        if end<=now: candles.append(Candle("yahoo_finance_public_chart_unverified","crypto_usd_reference_unverified",symbol,interval,start,end,op,high,low,close,volume))
     if not candles: raise MarketDataError("no_closed_candles")
     if max_latest_age is not None:
         age=now-candles[-1].close_time
