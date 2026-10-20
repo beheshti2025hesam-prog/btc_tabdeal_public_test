@@ -23,3 +23,12 @@
 - Prove session/connection isolation.
 - Test execution adapters in read-only/test mode, including order/fill reconciliation and failure recovery.
 - Maintain HOLD / NO_TRADE_ONLY until evidence proves the relevant safety gates.
+
+
+## Delivery calendar — hard planning target
+- **22 Oct 2026:** verify the authorized existing frontend/application entry point. Current repository tree scan found no frontend package or UI entry point; this remains the critical-path blocker.
+- **26 Oct 2026:** first usable read-only chart slice: Wallex BTCUSDT, 1m and 1h only, via existing native adapter/bridge, with source parity and rendered evidence.
+- **16 Nov 2026:** release candidate; exact-commit CI and data/security acceptance evidence complete.
+- **19 Nov 2026 (28 Aban 1405):** application delivery target.
+
+No milestone is complete until its acceptance evidence exists. Keep the scope focused on delivery; support email follow-ups are not routine dependencies. If the frontend cannot be found, document the explicit minimum decision instead of assuming or inventing an existing app.
