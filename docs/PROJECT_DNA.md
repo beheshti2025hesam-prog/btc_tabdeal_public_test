@@ -48,3 +48,7 @@ USDT aims to track USD; it is not guaranteed to equal exactly USD 1 at every ven
 
 ## Communication
 Report briefly and plainly: what changed, exact evidence, remaining uncertainty and next action. Never claim a GitHub change succeeded before its result is confirmed.
+
+
+## Delivery deadline — 2026-11-19
+The HES Trade Agent application delivery target is **19 November 2026 (28 Aban 1405)**. Delivery planning is a standing project constraint. Milestones: **22 Oct** verify the actual authorized frontend entry point; **26 Oct** deliver the first usable read-only chart slice; **16 Nov** release candidate; **19 Nov** delivery. These are targets, not claims that implementation is already complete. If no existing frontend can be verified, record the smallest explicit architecture decision needed; do not invent a frontend path or silently start a parallel app. Routine exchange-support emails, undocumented sequence semantics, and unresolved volume semantics must not distract from this critical path.
