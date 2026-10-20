@@ -1,0 +1,26 @@
+name: Global Market Data Adapter Tests
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "forward/global_market_data_v1.py"
+      - "tests/test_global_market_data_v1.py"
+      - ".github/workflows/global-market-data-tests.yml"
+  push:
+    branches: ["feat/global-market-data-and-safety-gates-20261020"]
+    paths:
+      - "forward/global_market_data_v1.py"
+      - "tests/test_global_market_data_v1.py"
+      - ".github/workflows/global-market-data-tests.yml"
+permissions:
+  contents: read
+jobs:
+  deterministic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: PYTHONPATH=. python -m pytest -q tests/test_global_market_data_v1.py tests/execution/test_contract.py tests/execution/test_idempotency.py tests/execution/test_order_state.py
