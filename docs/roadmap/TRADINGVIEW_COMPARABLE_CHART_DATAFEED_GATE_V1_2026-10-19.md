@@ -3,13 +3,18 @@
 ## Priority
 High-priority required roadmap item. Integrate HES's existing native-candle/data boundary with a charting layer; do not create a second market-data engine or silently substitute venues.
 
-## Active source constraint — project DNA (2026-10-19)
+## Active architecture constraint — independent market data, venue-only execution
 
-- **Wallex is the currently approved active exchange for market-data/WebSocket work.** Implement and validate the chart datafeed against the existing Wallex native OHLCV adapter first, preserving source/market identity and the known volume-semantic gate.
-- The pinned Wallex adapter currently enables only 1m and 1h (`resolution=1` and `60`): live probes found other requested resolutions returning wrong spacing or an error. Do not promise/display native Wallex 15m candles until the endpoint is independently shown to honor that interval; do not synthesize them from trades or relabel another venue's bars.
-- Tabdeal and Nobitex references below are research/history or future candidate sources only; they are **not authorization to switch the active target**. Do not probe, prioritize, or label them as active production sources unless the user explicitly changes the venue decision or a separately documented contingency is approved.
-- This charting work is independent of trade `sequence`: candle-only display consumes native OHLCV through the existing bridge. Sequence research remains separate and conditional on features that need individual-trade identity/order guarantees.
-- Resource-first rule: reuse the existing native adapters, normalizer, bridge and a supported chart library. Do not create another candle engine, invent undocumented endpoints, or build a parallel frontend without a verified frontend entry point and a documented gap.
+- **Chart/candle/analysis inputs must come from a documented global market-data source** (TradingView or a comparable public feed). The source venue and market identity remain explicit; no claim that a global feed equals every execution venue's price.
+- **Exchange chart candles are not the analytical source of truth.** Exchange/private APIs are reserved for order submission, order state, fills, and venue-specific execution constraints.
+- The initial public provider adapter uses Binance Spot klines (data-api.binance.vision/api/v3/klines) as a comparable global feed, with no credentials. This is a provider choice for read-only market data, not an execution venue choice.
+- Use the existing native candle bridge and canonical validation; do not create a second candle engine, invent endpoints, synthesize bars, or relabel Binance data as Wallex/another venue.
+- Ordinary candle analysis does not depend on trade sequence. Source volume is preserved as reported; unresolved volume semantics disable only features that require them.
+- Before any execution, validate source-to-execution symbol mapping, market type, price freshness, spread/basis, tick/step sizes, minimum notional, order type, fees, slippage, margin/leverage, and duplicate/unknown order outcomes. Global chart price is not proof of executable venue price.
+- No concrete private execution adapter is present in the current architecture. Live execution remains disabled until a venue is explicitly selected and its order/fill reconciliation and safety tests pass.
+- Repository tree inspection finds no verified frontend entry point. Reuse the authorized existing frontend if located; do not create a parallel app or invent a path. If no existing frontend can be located, record the smallest explicit architecture decision before creating one.
+- Sequence/order-book semantics remain adapter-specific only for features that require a stateful book; unknown semantics disable that feature, not candle display.
+- Historical Tabdeal Futures endpoint research below remains non-active history and does not authorize switching the data source or execution venue.
 
 ## Findings from official documentation
 - TradingView Advanced Charts / Trading Platform libraries do not provide market data; HES must supply its own datafeed: https://www.tradingview.com/charting-library-docs/latest/connecting_data/
