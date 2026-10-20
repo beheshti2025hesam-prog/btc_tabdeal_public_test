@@ -11,7 +11,7 @@
     "trading_enabled": false
   },
   "raw_capture_location_on_observation_host": "/tmp/hes_market_source_audit_20261020/",
-  "raw_capture_persistence_note": "Raw HTTP response bytes were retained in the observation host's /tmp directory during this run. This path is temporary and is not a durable repository artifact; SHA-256 values below pin the observed bytes but do not make them retrievable from this repository.",
+  "raw_capture_persistence_note": "Raw HTTP response bytes are preserved in the compressed tar.gz archive encoded as ordered base64 parts under evidence/raw/market_data_source_audit_20261020.tar.gz.b64.part00 through part15. Concatenate the part files in numeric order, base64-decode, then verify the archive SHA-256 before extracting.",
   "binance_spot_comparison_attempts": [
     {
       "symbol": "BTCUSDT",
@@ -187,5 +187,13 @@
       "preceding_timestamp_utc": null,
       "observed_delta_seconds": null
     }
-  ]
+  ],
+  "raw_capture_archive": {
+    "format": "tar.gz, base64 split into 16 ordered UTF-8 text parts",
+    "repository_paths": "evidence/raw/market_data_source_audit_20261020.tar.gz.b64.part00 ... part15",
+    "base64_chars": 152076,
+    "compressed_bytes": 114057,
+    "sha256": "446ff0b493c9734086be90bfbbb7fa3e56e110edd52e68b7a9ed1c228c37e53e",
+    "reconstruction": "cat evidence/raw/market_data_source_audit_20261020.tar.gz.b64.part* | base64 -d > market_data_source_audit_20261020.tar.gz"
+  }
 }
