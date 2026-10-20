@@ -1,9 +1,9 @@
-"""Live read-only smoke test; does not access accounts or submit orders."""
+"""Live read-only smoke test for global aggregated USD candles; no orders."""
 from datetime import datetime, timedelta, timezone
 import json
 from forward.global_market_data_v1 import fetch_closed_klines
 
-bars = fetch_closed_klines(symbol="BTCUSDT", interval="1m", limit=5,
+bars = fetch_closed_klines(symbol="BTC-USD", interval="1m", limit=5,
     as_of=datetime.now(timezone.utc), max_latest_age=timedelta(seconds=180))
 latest = bars[-1]
 print(json.dumps({
