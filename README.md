@@ -27,6 +27,8 @@ It collects public Tabdeal BTC_USDT futures trade data for the Data Foundation p
 **Owner: Seyed Hesameddin Beheshti Shirazi**
 ## Integrated read-only market dashboard
 
+Source qualification and the criteria required before any market-data feed can be approved are recorded in [`docs/decisions/ADR-2026-10-20-market-data-source-qualification.md`](docs/decisions/ADR-2026-10-20-market-data-source-qualification.md).
+
 The project includes a first integrated dashboard slice in `web/dashboard.py`. It is intentionally read-only and binds to loopback by default; it does not expose account access or order submission.
 
 ```bash
