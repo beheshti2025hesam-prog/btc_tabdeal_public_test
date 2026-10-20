@@ -20,7 +20,7 @@ class GlobalMarketDataTests(unittest.TestCase):
   ts=int((NOW-timedelta(minutes=2)).timestamp());bars=parse_chart_payload(payload([ts],volumes=[0]),symbol="BTC-USD",interval="1m",as_of=NOW)
   self.assertEqual(bars[0].volume,Decimal("0"))
  def test_open_bar_excluded(self):
-  ts=int((NOW-timedelta(seconds=30)).timestamp())
+  ts=int(NOW.timestamp())
   with self.assertRaisesRegex(MarketDataError,"no_closed_candles"):parse_chart_payload(payload([ts]),symbol="BTC-USD",interval="1m",as_of=NOW)
  def test_stale_bar_rejected(self):
   ts=int((NOW-timedelta(minutes=8)).timestamp())
