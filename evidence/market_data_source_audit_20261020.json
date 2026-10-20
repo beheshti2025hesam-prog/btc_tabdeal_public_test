@@ -1,4 +1,4 @@
-<escape>{
+{
   "schema": "hes_market_data_source_audit_v1",
   "retrieval_window_utc": {
     "started": "2026-10-20T19:54:38.008284+00:00",
@@ -34,4 +34,4 @@
     "No numeric rescaling, zero filling, timestamp shifting, or volume inference was applied.",
     "This evidence does not satisfy the independent provider comparison or provider permission gates."
   ]
-}</escape>
+}
