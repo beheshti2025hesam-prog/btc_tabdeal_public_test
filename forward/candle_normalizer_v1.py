@@ -34,12 +34,18 @@ class Candle15m:
     high: Decimal
     low: Decimal
     close: Decimal
-    volume: Decimal
-    trade_count: int
-    first_sequence: int
-    last_sequence: int
-    source_first_observed_at: datetime
-    source_last_observed_at: datetime
+    # Price-only structure observations do not carry unverified source volume.
+    volume: Decimal | None
+    # Native OHLCV candles do not expose trade-level metadata; None means unknown.
+    trade_count: int | None
+    first_sequence: int | None
+    last_sequence: int | None
+    source_first_observed_at: datetime | None
+    source_last_observed_at: datetime | None
+    # Source identity survives the native-to-structure boundary when known.
+    venue: str | None = None
+    market: str | None = None
+    source: str | None = None
 
 
 @dataclass(frozen=True)

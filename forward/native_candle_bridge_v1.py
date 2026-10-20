@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from math import isfinite
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
+
+if TYPE_CHECKING:
+    from forward.candle_normalizer_v1 import Candle15m
 
 from core.data_engine.candles import Candle
 
@@ -128,6 +131,13 @@ def normalize_native_candles(
     inferred_source = source or getattr(first, "source", None) or f"{venue}_native_ohlcv"
     identity = NativeMarketIdentity(venue.strip().lower(), market.strip().lower(),
                                     symbol.strip(), timeframe, str(inferred_source))
+    # The pinned Wallex UDF-history adapter has no row-level market field and is
+    # the Spot chart path. Caller metadata must not relabel its bars as Futures.
+    adapter_source = getattr(first, "source", None)
+    if adapter_source == "wallex_native_udf_history" and (
+        identity.venue != "wallex" or identity.market != "spot"
+    ):
+        raise ValueError("source_market_mismatch")
 
     normalized: list[NativeCandleRecord] = []
     discarded_open = 0
@@ -191,22 +201,145 @@ def normalize_native_candles(
     return NativeCandleBatch(identity, tuple(normalized), tuple(gaps), discarded_open)
 
 
-def to_feature_candles(batch: NativeCandleBatch) -> tuple[Candle, ...]:
-    """Explicit Decimal-to-float boundary for the existing feature engine.
+def to_feature_candles(
+    batch: NativeCandleBatch, *, include_volume: bool = False
+) -> tuple[Candle, ...]:
+    """Convert Decimal OHLC into the existing feature engine's float contract.
 
-    Decimal records remain available in batch for evidence; unknown trade count
-    is represented as None, never fabricated as zero.
+    Native volume is omitted by default because its source semantics may be
+    unverified. Wallex UDF volume is fail-closed even when explicitly requested.
+    The original Decimal records remain available in batch for evidence.
     """
+    if not isinstance(include_volume, bool):
+        raise ValueError("include_volume_must_be_boolean")
+    identity = batch.identity
+    if include_volume and (
+        identity.venue.lower() == "wallex"
+        or "wallex" in identity.source.lower()
+    ):
+        raise ValueError("wallex_volume_semantics_unresolved")
+
     result: list[Candle] = []
     for row in batch.candles:
-        values = tuple(float(v) for v in (row.open, row.high, row.low, row.close, row.volume))
-        if not all(isfinite(value) for value in values):
+        ohlc = tuple(float(v) for v in (row.open, row.high, row.low, row.close))
+        if not all(isfinite(value) for value in ohlc):
             raise ValueError("feature_float_conversion_not_finite")
+        volume: float | None = None
+        if include_volume:
+            volume = float(row.volume)
+            if not isfinite(volume) or volume < 0:
+                raise ValueError("feature_volume_conversion_invalid")
         result.append(Candle(
-            symbol=batch.identity.symbol,
-            timeframe_seconds=batch.identity.timeframe_seconds,
-            start=row.start, end=row.end,
-            open=values[0], high=values[1], low=values[2],
-            close=values[3], volume=values[4], trade_count=None,
+            identity.symbol, identity.timeframe_seconds, row.start, row.end,
+            ohlc[0], ohlc[1], ohlc[2], ohlc[3], volume, None,
         ))
     return tuple(result)
+
+def to_structure_candles(batch: NativeCandleBatch) -> tuple["Candle15m", ...]:
+    """Convert a normalized 15m native batch to the existing causal structure input.
+
+    Native OHLCV does not contain trade counts, trade sequences, or trade-observed
+    timestamps. Those fields stay None; no synthetic sequence or zero count is made.
+    The caller must choose and validate the venue/market before invoking this adapter.
+    """
+    if batch.identity.timeframe_seconds != 900:
+        raise ValueError("structure_observation_requires_15m_candles")
+    from forward.candle_normalizer_v1 import Candle15m
+
+    return tuple(
+        Candle15m(
+            symbol=batch.identity.symbol,
+            timeframe="15m",
+            open_time=row.start,
+            close_time=row.end,
+            open=row.open,
+            high=row.high,
+            low=row.low,
+            close=row.close,
+            # Structure observation is price-only; keep unverified volume in batch only.
+            volume=None,
+            trade_count=None,
+            first_sequence=None,
+            last_sequence=None,
+            source_first_observed_at=None,
+            source_last_observed_at=None,
+            venue=batch.identity.venue,
+            market=batch.identity.market,
+            source=batch.identity.source,
+        )
+        for row in batch.candles
+    )
+
+def to_lightweight_chart_payload(
+    batch: NativeCandleBatch, *, include_volume: bool = False
+) -> dict[str, Any]:
+    """Project normalized bars to a read-only Lightweight Charts-compatible payload.
+
+    This is a rendering projection, not a data source or HTTP server. Decimal values
+    remain authoritative in the batch; numeric conversion happens only at the chart
+    boundary. Volume is omitted by default and Wallex UDF volume is fail-closed.
+    """
+    if not isinstance(include_volume, bool):
+        raise ValueError("include_volume_must_be_boolean")
+    identity = batch.identity
+    if include_volume and (
+        identity.venue.lower() == "wallex"
+        or "wallex" in identity.source.lower()
+    ):
+        raise ValueError("wallex_volume_semantics_unresolved")
+
+    bars: list[dict[str, Any]] = []
+    volume_bars: list[dict[str, Any]] = []
+    previous_time: int | None = None
+    for row in batch.candles:
+        if row.start.tzinfo is None or row.start.utcoffset() is None:
+            raise ValueError("chart_bar_time_must_be_timezone_aware")
+        timestamp = row.start.astimezone(timezone.utc).timestamp()
+        if not timestamp.is_integer():
+            raise ValueError("chart_bar_time_must_be_whole_second")
+        chart_time = int(timestamp)
+        if previous_time is not None and chart_time <= previous_time:
+            raise ValueError("chart_bar_times_must_be_strictly_increasing")
+        previous_time = chart_time
+        values = (row.open, row.high, row.low, row.close)
+        converted = tuple(float(value) for value in values)
+        if not all(isfinite(value) for value in converted):
+            raise ValueError("chart_ohlc_conversion_not_finite")
+        bars.append({
+            "time": chart_time,
+            "open": converted[0],
+            "high": converted[1],
+            "low": converted[2],
+            "close": converted[3],
+        })
+        if include_volume:
+            volume = float(row.volume)
+            if not isfinite(volume) or volume < 0:
+                raise ValueError("chart_volume_conversion_invalid")
+            # Lightweight Charts candlestick and histogram series use distinct
+            # data contracts: OHLC bars stay pure, volume uses {time, value}.
+            volume_bars.append({"time": chart_time, "value": volume})
+
+    gaps = [
+        {
+            "expected_start": int(gap.expected_start.timestamp()),
+            "observed_start": int(gap.observed_start.timestamp()),
+        }
+        for gap in batch.gaps
+    ]
+    return {
+        "identity": {
+            "venue": identity.venue,
+            "market": identity.market,
+            "symbol": identity.symbol,
+            "timeframe_seconds": identity.timeframe_seconds,
+            "source": identity.source,
+        },
+        "timezone": "UTC",
+        "volume_included": include_volume,
+        "volume_semantics": "RAW_SOURCE_REPORTED" if include_volume else "OMITTED",
+        "bars": bars,
+        "volume_bars": volume_bars,
+        "gaps": gaps,
+        "discarded_open_candles": batch.discarded_open_candles,
+    }

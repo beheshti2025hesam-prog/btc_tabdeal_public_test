@@ -58,7 +58,9 @@ def test_wallex_shape_normalizes_without_sequence_and_preserves_decimal():
     assert batch.gaps == ()
     feature = to_feature_candles(batch)
     assert feature[0].trade_count is None
-    assert feature[0].volume == float(Decimal("12.34567890123456789"))
+    assert feature[0].volume is None
+    with pytest.raises(ValueError, match="wallex_volume_semantics_unresolved"):
+        to_feature_candles(batch, include_volume=True)
 
 
 def test_binance_shape_normalizes_millisecond_fields():
@@ -74,6 +76,8 @@ def test_binance_shape_normalizes_millisecond_fields():
     assert batch.candles[0].start == start
     assert batch.candles[0].end == start + timedelta(minutes=1)
     assert batch.identity.timeframe_seconds == 60
+    assert to_feature_candles(batch)[0].volume is None
+    assert to_feature_candles(batch, include_volume=True)[0].volume == 5.25
 
 
 def test_open_candle_is_discarded_and_all_open_fails_closed():
