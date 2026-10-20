@@ -1,0 +1,37 @@
+<escape>{
+  "schema": "hes_market_data_source_audit_v1",
+  "retrieval_window_utc": {
+    "started": "2026-10-20T19:54:38.008284+00:00",
+    "finished": "2026-10-20T19:56:06.882190+00:00"
+  },
+  "disposition": "INCOMPLETE_PROVIDER_QUALIFICATION_BLOCKED",
+  "provider_decision": {
+    "approved_global_ohlcv_provider": null,
+    "reason": "CoinDesk/CoinAPI subscription entitlement and written intended-use rights are not available in this session; Binance venue endpoints were unreachable from the observation host; Yahoo Finance is unofficial and not approved as a global OHLCV or strategy source.",
+    "trading_enabled": false
+  },
+  "raw_capture_location_on_observation_host": "/tmp/hes_market_source_audit_20261020/",
+  "raw_capture_persistence_note": "Raw HTTP response bytes were retained in the observation host's /tmp directory during this run. This path is temporary and is not a durable repository artifact; SHA-256 values below pin the observed bytes but do not make them retrievable from this repository.",
+  "binance_spot_comparison_attempts": [
+    {"symbol": "BTCUSDT", "interval": "1m", "url": "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=5", "requested_at_utc": "2026-10-20T19:54:38.008318+00:00", "result": "NETWORK_UNREACHABLE", "detail": "URLError: [Errno 101] Network is unreachable"},
+    {"symbol": "ETHUSDT", "interval": "1m", "url": "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1m&limit=5", "requested_at_utc": "2026-10-20T19:54:50.091290+00:00", "result": "NETWORK_UNREACHABLE", "detail": "URLError: [Errno 101] Network is unreachable"},
+    {"symbol": "SOLUSDT", "interval": "1m", "url": "https://api.binance.com/api/v3/klines?symbol=SOLUSDT&interval=1m&limit=5", "requested_at_utc": "2026-10-20T19:55:02.107143+00:00", "result": "NETWORK_UNREACHABLE", "detail": "URLError: [Errno 101] Network is unreachable"}
+  ],
+  "yahoo_finance_reference_captures": [
+    {"symbol":"BTC-USD","interval":"1m","url":"https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?range=1d&interval=1m","retrieved_at_utc":"2026-10-20T19:55:14.538254+00:00","http_status":200,"raw_bytes":80377,"sha256":"1100822877fcd3578813ce46e665dc56f14d4348dc8b88ff4cf67e7edcfe4377","timestamp_count":1197,"latest_epoch_seconds":1792526108,"latest_volume":0,"volume_zero_count":947,"volume_null_count":1,"volume_nonzero_count":249},
+    {"symbol":"ETH-USD","interval":"1m","url":"https://query1.finance.yahoo.com/v8/finance/chart/ETH-USD?range=1d&interval=1m","retrieved_at_utc":"2026-10-20T19:55:14.965321+00:00","http_status":200,"raw_bytes":98317,"sha256":"e1ee475c0ce1b061a51560054089c7ee3ac351f37ab4c15d41d68188f1d6e4e3","timestamp_count":1197,"latest_epoch_seconds":1792526108,"latest_volume":0,"volume_zero_count":937,"volume_null_count":1,"volume_nonzero_count":259},
+    {"symbol":"SOL-USD","interval":"1m","url":"https://query1.finance.yahoo.com/v8/finance/chart/SOL-USD?range=1d&interval=1m","retrieved_at_utc":"2026-10-20T19:55:15.446421+00:00","http_status":200,"raw_bytes":106250,"sha256":"ab07afe2c8c500da5857a7348c72d7c5aa632aca088f80d186d7dcafbfd7ce99","timestamp_count":1197,"latest_epoch_seconds":1792526107,"latest_volume":0,"volume_zero_count":963,"volume_null_count":1,"volume_nonzero_count":233}
+  ],
+  "same_provider_endpoint_comparison": [
+    {"symbol":"BTC-USD","query1_sha256":"1100822877fcd3578813ce46e665dc56f14d4348dc8b88ff4cf67e7edcfe4377","query2_sha256":"54550393c79b8bbbf466d31e7064cd18b15def59fd7cac817cd4ca5e1907b5ee","query2_retrieved_at_utc":"2026-10-20T19:56:05.714129+00:00","common_timestamps":1196,"timestamp_only_query1":1,"timestamp_only_query2":1,"exact_ohlcv_matches":1196,"ohlcv_mismatches":0},
+    {"symbol":"ETH-USD","query1_sha256":"e1ee475c0ce1b061a51560054089c7ee3ac351f37ab4c15d41d68188f1d6e4e3","query2_sha256":"627fc2cec3d6b5aca2005a7ba7b9171ab4e7afde0fa06c24c7cb89c8f037bfbb","query2_retrieved_at_utc":"2026-10-20T19:56:06.238828+00:00","common_timestamps":1196,"timestamp_only_query1":1,"timestamp_only_query2":2,"exact_ohlcv_matches":1195,"ohlcv_mismatches":1,"mismatch_timestamp_utc":"2026-10-20T19:55:00+00:00","mismatch_reason":"query1 had null OHLCV; query2 returned a populated candle with volume 0"},
+    {"symbol":"SOL-USD","query1_sha256":"ab07afe2c8c500da5857a7348c72d7c5aa632aca088f80d186d7dcafbfd7ce99","query2_sha256":"2476027eee353d58a1afcf756709d3c077c9cd173ff2846552953b9ccfbf475b","query2_retrieved_at_utc":"2026-10-20T19:56:06.882190+00:00","common_timestamps":1196,"timestamp_only_query1":1,"timestamp_only_query2":0,"exact_ohlcv_matches":1195,"ohlcv_mismatches":1,"mismatch_timestamp_utc":"2026-10-20T19:55:00+00:00","mismatch_reason":"query1 had null OHLCV; query2 returned a populated candle with volume 0"}
+  ],
+  "interpretation": [
+    "The endpoint comparison is between two hostnames for the same Yahoo Finance provider, not independent-market validation and not proof of global aggregation.",
+    "The 1-minute UTC timestamp window aligned for 1,196 timestamps, but null/populated differences were observed for ETH-USD and SOL-USD at 2026-10-20T19:55:00Z.",
+    "Latest reported volume was 0 for BTC, ETH, and SOL; zero volume was also present in most captured bars. Do not infer whether this means no trades, omitted venue coverage, a provider limitation, or a synthetic/fill policy without authoritative documentation.",
+    "No numeric rescaling, zero filling, timestamp shifting, or volume inference was applied.",
+    "This evidence does not satisfy the independent provider comparison or provider permission gates."
+  ]
+}</escape>
