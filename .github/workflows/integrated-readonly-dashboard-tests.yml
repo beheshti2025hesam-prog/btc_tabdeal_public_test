@@ -1,0 +1,29 @@
+name: Integrated Read-only Dashboard Tests
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "forward/global_market_data_v1.py"
+      - "web/**"
+      - "tests/test_global_market_data_v1.py"
+      - "tests/test_dashboard_routes_v1.py"
+      - "docs/decisions/ADR-2026-10-20-integrated-readonly-dashboard.md"
+      - ".github/workflows/integrated-readonly-dashboard-tests.yml"
+  push:
+    branches: ["feat/integrated-readonly-dashboard-20261020"]
+    paths:
+      - "forward/global_market_data_v1.py"
+      - "web/**"
+      - "tests/test_global_market_data_v1.py"
+      - "tests/test_dashboard_routes_v1.py"
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: PYTHONPATH=. python -m unittest tests.test_global_market_data_v1 tests.test_dashboard_routes_v1
