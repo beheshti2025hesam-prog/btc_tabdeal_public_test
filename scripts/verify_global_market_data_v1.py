@@ -1,4 +1,4 @@
-"""Live read-only smoke test for global aggregated USD candles; no orders."""
+"""Live read-only smoke test for provisional Yahoo USD reference candles; no orders."""
 from datetime import datetime, timedelta, timezone
 import json
 from forward.global_market_data_v1 import fetch_closed_klines
@@ -7,7 +7,7 @@ bars = fetch_closed_klines(symbol="BTC-USD", interval="1m", limit=5,
     as_of=datetime.now(timezone.utc), max_latest_age=timedelta(seconds=180))
 latest = bars[-1]
 print(json.dumps({
-    "status": "PASS_READ_ONLY_GLOBAL_MARKET_DATA",
+    "status": "PASS_READ_ONLY_REFERENCE_DATA",
     "source": latest.source,
     "market": latest.market,
     "symbol": latest.symbol,
