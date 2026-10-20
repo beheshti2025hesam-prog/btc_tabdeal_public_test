@@ -173,3 +173,35 @@ def test_wallex_spot_parser_output_cannot_be_relabelled_as_futures():
     )
     with pytest.raises(ValueError, match="source_market_mismatch"):
         normalize_native_candles(rows, venue="wallex", market="usdm_futures", as_of=as_of)
+
+
+def test_wallex_native_hourly_candles_project_to_chart_payload_without_volume():
+    start = datetime(2026, 10, 19, 10, 0, tzinfo=timezone.utc)
+    close = start + timedelta(hours=1)
+    rows = wallex.parse_history(
+        {"s": "ok", "t": [int(start.timestamp())], "o": ["100.10"],
+         "h": ["103.00"], "l": ["99.50"], "c": ["102.20"], "v": ["24.6800"]},
+        symbol="BTCUSDT", timeframe_minutes=60, as_of=close,
+    )
+    batch = normalize_native_candles(rows, venue="wallex", market="spot", as_of=close)
+    payload = to_lightweight_chart_payload(batch)
+
+    assert payload["identity"] == {
+        "venue": "wallex",
+        "market": "spot",
+        "symbol": "BTCUSDT",
+        "timeframe_seconds": 3600,
+        "source": "wallex_native_udf_history",
+    }
+    assert payload["timezone"] == "UTC"
+    assert payload["bars"] == [{
+        "time": int(start.timestamp()),
+        "open": 100.1,
+        "high": 103.0,
+        "low": 99.5,
+        "close": 102.2,
+    }]
+    assert payload["volume_included"] is False
+    assert payload["volume_bars"] == []
+    assert payload["gaps"] == []
+    assert payload["discarded_open_candles"] == 0
