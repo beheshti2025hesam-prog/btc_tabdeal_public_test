@@ -1,15 +1,83 @@
 """Integrated read-only HES dashboard; deliberately contains no order routes."""
 from __future__ import annotations
-from datetime import timedelta, datetime, timezone
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json, os
+from threading import Event, Lock, Thread
+import json, os, time
 from urllib.parse import parse_qs, urlparse
-from forward.native_ohlcv_v1 import BinanceSpotKlineSource, INTERVAL_MS
+from forward.native_ohlcv_v1 import BinanceSpotKlineSource, INTERVAL_MS, validate_native_batch
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
+from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event
+from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 _SOURCE = BinanceSpotKlineSource()
 _FEATURES = NativeOHLCVFeaturePipelineV1()
+_CACHE_LOCK = Lock()
+_CACHE = {}
+_STREAM_STOP = Event()
+_STREAM_STATE = {"status": "starting", "reason": None, "last_event_ms": None}
+
+def _refresh_batch(symbol, interval, event=None):
+    batch = _SOURCE.fetch(symbol=symbol, interval=interval, limit=240)
+    validate_native_batch(batch)
+    if not batch.candles:
+        raise ValueError("no_closed_candles")
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    latest = batch.candles[-1]
+    age_ms = now_ms - latest.close_time_ms
+    if age_ms < 0 or age_ms > max(180_000, INTERVAL_MS[interval] * 2):
+        raise ValueError("latest_closed_candle_stale")
+    if event is not None:
+        if event.candle is None or latest.open_time_ms != event.candle.open_time_ms:
+            raise NativeKlineStreamError("rest_websocket_latest_candle_mismatch")
+        fields = ("close_time_ms", "open", "high", "low", "close", "volume",
+                  "quote_volume", "trade_count", "taker_buy_volume", "taker_buy_quote_volume")
+        if any(getattr(latest, field) != getattr(event.candle, field) for field in fields):
+            raise NativeKlineStreamError("rest_websocket_candle_field_mismatch")
+    feature_result = _FEATURES.build(batch)
+    with _CACHE_LOCK:
+        _CACHE[(symbol, interval)] = (batch, feature_result, int(time.time() * 1000))
+    return batch, feature_result
+
+def _stream_reconcile():
+    try:
+        _refresh_batch("BTCUSDT", "1m")
+        _STREAM_STATE.update(status="history_reconciled", reason=None)
+    except Exception as exc:
+        _STREAM_STATE.update(status="blocked", reason=type(exc).__name__)
+        raise
+
+def _stream_payload(payload):
+    event = parse_kline_event(payload, symbol="BTCUSDT", interval="1m")
+    now_ms = int(time.time() * 1000)
+    delay = now_ms - event.event_time_ms
+    if delay < -2_000 or delay > 15_000:
+        raise NativeKlineStreamError("stale_or_future_websocket_event")
+    _STREAM_STATE.update(status="connected", reason=None, last_event_ms=event.event_time_ms)
+    if not event.candle:
+        return
+    try:
+        _refresh_batch("BTCUSDT", "1m", event=event)
+    except Exception as exc:
+        _STREAM_STATE.update(status="blocked", reason=type(exc).__name__)
+        raise
+
+def _stream_worker():
+    try:
+        run_spot_kline_stream(symbol="BTCUSDT", interval="1m", on_payload=_stream_payload,
+                              reconcile_history=_stream_reconcile, stop_event=_STREAM_STOP)
+    except Exception as exc:
+        _STREAM_STATE.update(status="blocked", reason=type(exc).__name__)
+
+def _get_batch(symbol, interval):
+    now_ms = int(time.time() * 1000)
+    ttl_ms = 75_000 if (symbol, interval) == ("BTCUSDT", "1m") else 15_000
+    with _CACHE_LOCK:
+        cached = _CACHE.get((symbol, interval))
+    if cached and now_ms - cached[2] <= ttl_ms:
+        return cached[0], cached[1]
+    return _refresh_batch(symbol, interval)
 
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HES Trade Agent</title><style>
@@ -31,8 +99,8 @@ header,.toolbar,.metrics{display:flex;gap:12px;align-items:center;justify-conten
 const $=id=>document.getElementById(id);let bars=[];let chart=null,candleSeries=null;
 if(window.LightweightCharts){chart=LightweightCharts.createChart($('chart'),{autoSize:true,layout:{background:{type:'solid',color:'#121c2c'},textColor:'#91a2ba'},grid:{vertLines:{color:'#27364b'},horzLines:{color:'#27364b'}},rightPriceScale:{borderColor:'#27364b'},timeScale:{borderColor:'#27364b',timeVisible:true,secondsVisible:false},crosshair:{vertLine:{color:'#526783'},horzLine:{color:'#526783'}}});candleSeries=chart.addSeries(LightweightCharts.CandlestickSeries,{upColor:'#36c98f',downColor:'#f16b75',borderVisible:false,wickUpColor:'#36c98f',wickDownColor:'#f16b75'});}
 function draw(){if(!candleSeries){$('message').textContent='FAIL CLOSED · chart library did not load; check network/CDN policy';return}candleSeries.setData(bars.map(b=>({time:Math.floor(b.open_time/1000),open:Number(b.open),high:Number(b.high),low:Number(b.low),close:Number(b.close)})));if(bars.length)chart.timeScale().fitContent()}
-async function refresh(){const btn=$('refresh');btn.disabled=true;$('message').textContent='Fetching and validating closed reference candles…';try{const q=new URLSearchParams({symbol:$('symbol').value,interval:$('interval').value}),r=await fetch('/api/candles?'+q,{cache:'no-store'}),j=await r.json();if(!r.ok)throw Error(j.error||'Market data unavailable');bars=j.candles;if(!bars.length)throw Error('No closed candles returned');const b=bars[bars.length-1];$('price').textContent=Number(b.close).toLocaleString(undefined,{maximumFractionDigits:8});$('stamp').textContent=new Date(b.close_time).toISOString().replace('T',' ').replace('.000Z',' UTC');$('volume').textContent=b.volume;$('count').textContent=String(bars.length);$('source').textContent='Source: '+j.source+' · '+j.product+' · '+j.symbol;$('message').textContent='PASS · reference bars validated · latest age '+j.latest_age_seconds.toFixed(1)+'s · volume preserved';draw()}catch(e){bars=[];draw();['price','stamp','volume','count'].forEach(k=>$(k).textContent='—');$('message').textContent='FAIL CLOSED · '+e.message}finally{btn.disabled=false}}
-$('refresh').addEventListener('click',refresh);$('symbol').addEventListener('change',refresh);$('interval').addEventListener('change',refresh);refresh();
+async function refresh(){const btn=$('refresh');btn.disabled=true;$('message').textContent='Fetching and validating closed reference candles…';try{const q=new URLSearchParams({symbol:$('symbol').value,interval:$('interval').value}),r=await fetch('/api/candles?'+q,{cache:'no-store'}),j=await r.json();if(!r.ok)throw Error(j.error||'Market data unavailable');bars=j.candles;if(!bars.length)throw Error('No closed candles returned');const b=bars[bars.length-1];$('price').textContent=Number(b.close).toLocaleString(undefined,{maximumFractionDigits:8});$('stamp').textContent=new Date(b.close_time).toISOString().replace('T',' ').replace('.000Z',' UTC');$('volume').textContent=b.volume;$('count').textContent=String(bars.length);$('source').textContent='Source: '+j.source+' · '+j.product+' · '+j.symbol;$('message').textContent='VALIDATED · '+(j.feature_ready?'FEATURES READY':'FEATURES GATED: '+j.feature_reason)+' · stream '+j.stream_status+(j.stream_reason?' ('+j.stream_reason+')':'')+' · latest age '+j.latest_age_seconds.toFixed(1)+'s · volume unchanged';draw()}catch(e){bars=[];draw();['price','stamp','volume','count'].forEach(k=>$(k).textContent='—');$('message').textContent='FAIL CLOSED · '+e.message}finally{btn.disabled=false}}
+$('refresh').addEventListener('click',refresh);$('symbol').addEventListener('change',refresh);$('interval').addEventListener('change',refresh);refresh();setInterval(refresh,15000);
 </script></body></html>'''
 
 class Handler(BaseHTTPRequestHandler):
@@ -51,21 +119,17 @@ class Handler(BaseHTTPRequestHandler):
         if symbol not in SUPPORTED_SYMBOLS or interval not in INTERVAL_MS:
             return self._send(400,b'{"error":"unsupported_symbol_or_interval"}',"application/json")
         try:
-            # One validated native batch is the input for both the chart payload
-            # and the existing descriptive feature pipeline.
-            batch=_SOURCE.fetch(symbol=symbol,interval=interval,limit=240)
-            if not batch.candles: raise ValueError("no_closed_candles")
+            # The exact same validated batch feeds the chart projection and feature pipeline.
+            batch,feature_result=_get_batch(symbol,interval)
             now=datetime.now(timezone.utc); now_ms=int(now.timestamp()*1000); last=batch.candles[-1]
             age=(now_ms-last.close_time_ms)/1000
-            max_age=max(180,INTERVAL_MS[interval]/1000*2)
-            if age < 0 or age > max_age: raise ValueError("latest_closed_candle_stale")
-            feature_result=_FEATURES.build(batch)
             payload={"status":"gaps_present" if batch.gaps else "ok",
                 "source":"binance_native_ohlcv_v1","venue":batch.venue,"product":batch.product,
                 "symbol":batch.symbol,"interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
                 "fetched_at_ms":batch.fetched_at_ms,"response_sha256":batch.response_sha256,
                 "latest_age_seconds":age,"execution_enabled":False,
                 "feature_ready":feature_result.decision_ready,"feature_reason":feature_result.reason,
+                "stream_status":_STREAM_STATE["status"],"stream_reason":_STREAM_STATE["reason"],
                 "gaps":[{"expected_open_time_ms":g.expected_open_time_ms,
                     "next_observed_open_time_ms":g.next_observed_open_time_ms,
                     "missing_intervals":g.missing_intervals} for g in batch.gaps],
@@ -81,6 +145,8 @@ class Handler(BaseHTTPRequestHandler):
         if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
 
 def main():
+    if os.environ.get("HES_BINANCE_STREAM_ENABLED", "1") == "1":
+        Thread(target=_stream_worker, name="hes-binance-spot-kline", daemon=True).start()
     host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
     server=ThreadingHTTPServer((host,port),Handler)
     print(f"HES read-only dashboard listening on http://{host}:{port}",flush=True); server.serve_forever()
