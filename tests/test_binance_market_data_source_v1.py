@@ -1,4 +1,7 @@
 import json
+import sys
+from threading import Event
+from types import SimpleNamespace
 from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -7,7 +10,8 @@ import pytest
 
 from forward.binance_market_data_source_v1 import (
     BinanceMarketDataError, CandleIngestGuard, StaleMarketDataError,
-    closed_event_to_canonical_batch, parse_kline_event, websocket_url,
+    closed_event_to_canonical_batch, parse_kline_event, run_kline_stream,
+    websocket_url,
 )
 from forward.native_candle_bridge_v1 import normalize_native_candles
 
@@ -134,3 +138,33 @@ def test_ingest_guard_rejects_cross_market_identity():
     guard = CandleIngestGuard(market="spot", symbol="BTCUSDT", interval="1m")
     with pytest.raises(BinanceMarketDataError, match="candle_profile_mismatch"):
         guard.remember_closed(parsed.candle)
+
+
+def test_live_stream_rejects_stale_event_before_callback(monkeypatch):
+    payload = json.loads(event(closed=True))
+    payload["data"]["E"] = 1
+    delivered = []
+    reconciliations = []
+
+    class FakeSocket:
+        def recv(self):
+            return json.dumps(payload)
+
+        def close(self):
+            return None
+
+    fake_websocket = SimpleNamespace(
+        WebSocketTimeoutException=type("WebSocketTimeoutException", (Exception,), {}),
+        create_connection=lambda *args, **kwargs: FakeSocket(),
+    )
+    monkeypatch.setitem(sys.modules, "websocket", fake_websocket)
+
+    with pytest.raises(StaleMarketDataError, match="stale_websocket_event"):
+        run_kline_stream(
+            market="spot", symbol="BTCUSDT", interval="1m",
+            on_event=delivered.append,
+            reconcile_history=reconciliations.append,
+            stop_event=Event(), max_reconnects=0,
+        )
+    assert delivered == []
+    assert reconciliations == [None]
