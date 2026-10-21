@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import time
 import unittest
@@ -72,6 +74,8 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertIn("script-src 'self' 'unsafe-inline'",response.headers.get("Content-Security-Policy",""))
             self.assertNotIn("unpkg.com",response.headers.get("Content-Security-Policy",""))
         self.assertGreater(len(payload),100_000)
+        digest=base64.b64encode(hashlib.sha384(payload).digest()).decode("ascii")
+        self.assertEqual(digest,"8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl")
         notice=(dashboard.CHART_ASSET_FILE.parent/"NOTICE").read_text(encoding="utf-8")
         license_text=(dashboard.CHART_ASSET_FILE.parent/"LICENSE").read_text(encoding="utf-8")
         self.assertIn("TradingView",notice)
