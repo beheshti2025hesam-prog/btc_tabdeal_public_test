@@ -7,7 +7,7 @@ import json, os, time
 from urllib.parse import parse_qs, urlparse
 from forward.native_ohlcv_v1 import BinanceSpotKlineSource, INTERVAL_MS, validate_native_batch
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
-from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event
+from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
@@ -29,12 +29,7 @@ def _refresh_batch(symbol, interval, event=None):
     if age_ms < 0 or age_ms > max(180_000, INTERVAL_MS[interval] * 2):
         raise ValueError("latest_closed_candle_stale")
     if event is not None:
-        if event.candle is None or latest.open_time_ms != event.candle.open_time_ms:
-            raise NativeKlineStreamError("rest_websocket_latest_candle_mismatch")
-        fields = ("close_time_ms", "open", "high", "low", "close", "volume",
-                  "quote_volume", "trade_count", "taker_buy_volume", "taker_buy_quote_volume")
-        if any(getattr(latest, field) != getattr(event.candle, field) for field in fields):
-            raise NativeKlineStreamError("rest_websocket_candle_field_mismatch")
+        assert_event_matches_batch(event, batch)
     feature_result = _FEATURES.build(batch)
     with _CACHE_LOCK:
         _CACHE[(symbol, interval)] = (batch, feature_result, int(time.time() * 1000))
