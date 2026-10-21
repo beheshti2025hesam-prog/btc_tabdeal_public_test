@@ -19,6 +19,23 @@ class NativeKlineEvent:
     payload_sha256: str
 
 
+def assert_event_matches_batch(event: NativeKlineEvent, batch) -> None:
+    """Require exact latest-candle equality before publishing a reconciled batch."""
+    if event.candle is None:
+        raise NativeKlineStreamError("only_closed_events_can_be_reconciled")
+    if (batch.venue, batch.product, batch.symbol, batch.interval) != (
+        "binance", "spot", event.symbol, event.interval
+    ):
+        raise NativeKlineStreamError("rest_batch_scope_mismatch")
+    if not batch.candles or batch.candles[-1].open_time_ms != event.candle.open_time_ms:
+        raise NativeKlineStreamError("rest_websocket_latest_candle_mismatch")
+    fields = ("close_time_ms", "open", "high", "low", "close", "volume",
+              "quote_volume", "trade_count", "taker_buy_volume", "taker_buy_quote_volume")
+    if any(getattr(batch.candles[-1], field) != getattr(event.candle, field) for field in fields):
+        raise NativeKlineStreamError("rest_websocket_candle_field_mismatch")
+
+
+
 def parse_kline_event(payload: str | bytes, *, symbol: str, interval: str) -> NativeKlineEvent:
     if interval not in INTERVAL_MS or not symbol.isascii() or symbol != symbol.upper():
         raise NativeKlineStreamError("invalid_stream_identity")
