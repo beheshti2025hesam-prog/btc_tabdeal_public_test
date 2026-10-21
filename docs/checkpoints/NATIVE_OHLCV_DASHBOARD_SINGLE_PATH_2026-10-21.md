@@ -15,8 +15,8 @@ The stream profile is explicitly `binance / spot / BTCUSDT / 1m`. Other supporte
 
 ## Verification
 
-- Focused exact-head workflow: [Native OHLCV Dashboard Single Path v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39639687328), commit `04d22615624c39c93a7131f9af1a804bee42d0b3`: passed before the additional transport/reconciliation tests were added.
-- Latest focused workflow was triggered for commit `d4171959150584734bda7847980682ee95d6ecdd`; at checkpoint creation it was queued. Do not infer a pass until that exact-head run is completed.
+- The focused exact-head workflow [Native OHLCV Dashboard Single Path v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39639914607) passed on code commit `d4171959150584734bda7847980682ee95d6ecdd` after the transport/reconciliation tests were added.
+- All **30/30** pull-request workflows completed successfully on that same code commit. The checkpoint commit is documentation-only; it does not change the tested runtime code.
 - Deterministic tests cover dashboard route safety, same-batch chart/features, WebSocket parsing, transport supervision, exact REST/stream parity, and fail-closed field mismatch.
 - No orders, account endpoints, credentials, deployment, collector activation, or production worktree writes were performed.
 
