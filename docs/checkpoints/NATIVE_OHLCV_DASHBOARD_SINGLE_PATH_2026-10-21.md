@@ -15,9 +15,11 @@ The stream profile is explicitly `binance / spot / BTCUSDT / 1m`. Other supporte
 
 ## Verification
 
-- The focused exact-head workflow [Native OHLCV Dashboard Single Path v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39639914607) passed on code commit `d4171959150584734bda7847980682ee95d6ecdd` after the transport/reconciliation tests were added.
-- All **30/30** pull-request workflows completed successfully on that same code commit. The checkpoint commit is documentation-only; it does not change the tested runtime code.
+- Exact-head integration tests on commit `f5294177162414d06a5283e2d3c9c95046795d3f`: [Native OHLCV Dashboard Single Path v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39641190009) passed. All **31 executed pull-request workflows succeeded** on that head; one duplicate live-smoke run was skipped while the PR was Draft.
+- **Live WebSocket smoke passed** on GitHub Actions runner: [run 39641190585](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39641190585). One closed `binance / spot / BTCUSDT / 1m` WebSocket candle matched the latest REST candle field-by-field; event delay was **67 ms**, REST history contained **239** candles with **0 gaps**, REST response SHA-256 `18df7471efe302d9d99608fa64a3dff8f3b6699ff6db4f9371835dac94360fed`, WebSocket payload SHA-256 `a85b4ae8dd0f10babba882e9fd9754bc768ea08ad123346152a87953be4588c5`. The evidence artifact is attached to that workflow run.
+- [Native OHLCV Live Parity Evidence v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39641190021), [Native OHLCV Verification v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39641190821), and [Forward Integration Verification v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39641189940) also passed on the same head.
 - Deterministic tests cover dashboard route safety, same-batch chart/features, WebSocket parsing, transport supervision, exact REST/stream parity, and fail-closed field mismatch.
+- Important boundary: GitHub Actions live success does **not** prove the authorized VPS can reach Binance or that the dashboard has been deployed/rendered there.
 - No orders, account endpoints, credentials, deployment, collector activation, or production worktree writes were performed.
 
 ## Live-runtime blocker
