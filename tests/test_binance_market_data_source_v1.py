@@ -5,7 +5,8 @@ from decimal import Decimal
 import pytest
 
 from forward.binance_market_data_source_v1 import (
-    BinanceMarketDataError, parse_kline_event, websocket_url,
+    BinanceMarketDataError, closed_event_to_canonical_batch,
+    parse_kline_event, websocket_url,
 )
 from forward.native_candle_bridge_v1 import normalize_native_candles
 
@@ -46,8 +47,8 @@ def test_parse_closed_usdm_futures_event_keeps_market_separate():
 def test_closed_stream_candle_flows_through_existing_canonical_bridge():
     parsed = parse_kline_event(event(closed=True), market="spot",
                                symbol="BTCUSDT", interval="1m")
-    batch = normalize_native_candles(
-        [parsed.candle], venue="binance", market="spot",
+    batch = closed_event_to_canonical_batch(
+        parsed,
         as_of=datetime.fromtimestamp((parsed.candle.close_time_ms + 1) / 1000, timezone.utc),
     )
     assert batch.identity.venue == "binance"
@@ -61,11 +62,11 @@ def test_closed_stream_candle_flows_through_existing_canonical_bridge():
 def test_open_stream_candle_is_not_admitted_to_closed_candle_bridge():
     parsed = parse_kline_event(event(closed=False), market="spot",
                                symbol="BTCUSDT", interval="1m")
-    with pytest.raises(ValueError, match="no_fully_closed_candles"):
-        normalize_native_candles(
-            [parsed.candle], venue="binance", market="spot",
-            as_of=datetime.fromtimestamp((parsed.candle.close_time_ms + 1) / 1000, timezone.utc),
-        )
+    batch = closed_event_to_canonical_batch(
+        parsed,
+        as_of=datetime.fromtimestamp((parsed.candle.close_time_ms + 1) / 1000, timezone.utc),
+    )
+    assert batch is None
 
 
 def test_rejects_wrong_symbol_and_interval_in_stream():
