@@ -200,6 +200,7 @@ def run_kline_stream(*, market: str, symbol: str, interval: str,
     except ImportError as exc:
         raise RuntimeError("websocket-client dependency is required") from exc
 
+    guard = CandleIngestGuard(market=market, symbol=symbol, interval=interval)
     last_closed_open_ms: int | None = None
     reconnects = 0
     while not stop_event.is_set():
@@ -218,6 +219,9 @@ def run_kline_stream(*, market: str, symbol: str, interval: str,
                 if payload in (None, ""):
                     raise ConnectionError("binance_websocket_closed")
                 event = parse_kline_event(payload, market=market, symbol=symbol, interval=interval)
+                guard.assert_fresh(event, received_at_ms=int(time.time() * 1000))
+                if event.candle.is_closed and not guard.remember_closed(event.candle):
+                    continue
                 on_event(event)
                 if event.candle.is_closed:
                     last_closed_open_ms = event.candle.open_time_ms
