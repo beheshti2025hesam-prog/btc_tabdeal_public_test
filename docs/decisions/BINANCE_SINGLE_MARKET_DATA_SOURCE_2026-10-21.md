@@ -14,13 +14,13 @@
 - Read-only market-data access requires no trading credentials. No orders, deployment, collector activation, or live trading are enabled by this decision.
 
 ## Implementation added in this branch
-- `forward/binance_market_data_source_v1.py`: public REST closed-bar retrieval, raw/combined WebSocket kline event parser, explicit Spot/USDⓈ-M URLs, Decimal OHLCV, identity/timeframe validation, payload hash, and a reconnect supervisor that calls a caller-supplied REST reconciliation callback before each connection attempt.
+- `forward/binance_market_data_source_v1.py`: public REST closed-bar retrieval, raw/combined WebSocket kline event parser, explicit Spot/USDⓈ-M URLs, Decimal OHLCV, identity/timeframe validation, payload hash, a reconnect supervisor that calls a caller-supplied REST reconciliation callback before each connection attempt, and a session-local guard for event freshness, closed-candle replay suppression, and conflicting duplicate detection. The guard is in-memory only; durable deduplication remains a runtime responsibility.
 - `tests/test_binance_market_data_source_v1.py`: identity, source separation, Decimal preservation, finality, bad payload, and URL contract tests.
 - `.github/workflows/binance-market-data-source-v1.yml`: exact-head focused CI.
 
 ## Acceptance still required before calling it complete
 1. Pass exact-head CI.
-2. Connect the adapter to the existing canonical bridge in the actual runtime; test historical backfill, closed-bar updates, durable duplicate suppression, gaps, stale-feed fail-closed behavior, reconnect, and session isolation.
+2. Connect the adapter to the existing canonical bridge in the actual runtime; test historical backfill, closed-bar updates, durable duplicate suppression across restart, gap handling, stale-feed fail-closed behavior, reconnect, and session isolation. The adapter's new in-memory guard does not by itself prove durable deduplication.
 3. The target VPS `/opt/hes-trade-agent` was inspected read-only: no HES runtime service/process is active, and outbound HTTPS to Binance failed with `Network is unreachable`; the live WebSocket smoke therefore did not pass in that runtime. Resolve egress/runtime deployment before attempting a soak test.
 4. Locate the authorized existing frontend entry point. The connected HES repository and inspected VPS project contain no verified chart/frontend entry point; do not create a parallel frontend.
 5. Render the selected Spot chart in that existing frontend and compare displayed OHLC against a pinned UTC source window. Until then, rendered parity is unverified.
