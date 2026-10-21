@@ -234,3 +234,30 @@ def run_kline_stream(*, market: str, symbol: str, interval: str,
                     socket.close()
                 except Exception:
                     pass
+
+
+def fetch_canonical_batch(*, market: str, symbol: str = "BTCUSDT", interval: str = "1m",
+                          limit: int = 500, as_of: datetime | None = None):
+    """Fetch REST candles and pass them through HES's existing canonical bridge."""
+    from forward.native_candle_bridge_v1 import normalize_native_candles
+
+    cutoff = as_of or datetime.now(timezone.utc)
+    candles = fetch_klines(market=market, symbol=symbol, interval=interval,
+                           limit=limit, as_of=cutoff)
+    if not candles:
+        raise BinanceMarketDataError("no_closed_candles_available")
+    return normalize_native_candles(candles, venue="binance", market=market,
+                                    as_of=cutoff, source="binance_rest_klines")
+
+
+def closed_event_to_canonical_batch(event: BinanceKlineEvent, *, as_of: datetime):
+    """Convert a final WebSocket event through the existing bridge; open bars return None."""
+    from forward.native_candle_bridge_v1 import normalize_native_candles
+
+    if not isinstance(event, BinanceKlineEvent):
+        raise BinanceMarketDataError("expected_binance_kline_event")
+    if not event.candle.is_closed:
+        return None
+    return normalize_native_candles([event.candle], venue="binance",
+                                    market=event.market, as_of=as_of,
+                                    source=event.candle.source)
