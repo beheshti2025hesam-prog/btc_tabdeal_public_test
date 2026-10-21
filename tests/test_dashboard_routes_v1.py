@@ -11,10 +11,11 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from unittest.mock import patch
 
+import web.dashboard as dashboard
 from web.dashboard import Handler
 
 
-def sample_batch(*, age_ms=1_000, gaps=()):
+def sample_batch(*, gaps=()):
     now_ms=int(time.time()*1000)
     open_ms=(now_ms//60_000-1)*60_000
     close_ms=open_ms+59_999
@@ -27,10 +28,6 @@ def sample_batch(*, age_ms=1_000, gaps=()):
         trade_count=12,taker_buy_volume=Decimal("1.600"),
         taker_buy_quote_volume=Decimal("160.400"),closed=True,
     )
-    if age_ms:
-        # The fixture timestamp is intentionally moved back by whole minutes
-        # only in stale-data tests; default remains a recently closed 1m bar.
-        pass
     return SimpleNamespace(
         venue="binance",product="spot",symbol="BTCUSDT",interval="1m",
         endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
@@ -39,6 +36,10 @@ def sample_batch(*, age_ms=1_000, gaps=()):
 
 
 class DashboardRouteTests(unittest.TestCase):
+    def setUp(self):
+        with dashboard._CACHE_LOCK:
+            dashboard._CACHE.clear()
+
     @classmethod
     def setUpClass(cls):
         cls.server=ThreadingHTTPServer(("127.0.0.1",0),Handler)
