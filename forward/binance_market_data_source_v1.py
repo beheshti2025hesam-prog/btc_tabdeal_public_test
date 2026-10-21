@@ -261,3 +261,79 @@ def closed_event_to_canonical_batch(event: BinanceKlineEvent, *, as_of: datetime
     return normalize_native_candles([event.candle], venue="binance",
                                     market=event.market, as_of=as_of,
                                     source=event.candle.source)
+
+
+class StaleMarketDataError(BinanceMarketDataError):
+    """Raised when a live event exceeds the configured freshness window."""
+
+
+class CandleIngestGuard:
+    """Session-local closed-candle dedupe and live-event freshness guard.
+
+    This is intentionally in-memory and is not a substitute for durable,
+    cross-restart idempotency. Production callers must persist the identity
+    and fingerprint before admitting a candle to the analysis/risk engine.
+    One instance is bound to exactly one market/symbol/interval profile.
+    """
+
+    def __init__(self, *, market: str, symbol: str, interval: str,
+                 max_event_delay_ms: int = 15_000,
+                 max_future_skew_ms: int = 2_000) -> None:
+        _validate_identity(market, symbol, interval)
+        for name, value in (("max_event_delay_ms", max_event_delay_ms),
+                            ("max_future_skew_ms", max_future_skew_ms)):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise BinanceMarketDataError(f"invalid_{name}")
+        self.market = market
+        self.symbol = symbol
+        self.interval = interval
+        self.max_event_delay_ms = max_event_delay_ms
+        self.max_future_skew_ms = max_future_skew_ms
+        self._fingerprints: dict[tuple[str, str, str, str, int], tuple[str, ...]] = {}
+
+    def assert_fresh(self, event: BinanceKlineEvent, *, received_at_ms: int) -> int:
+        """Return event delay in ms or fail closed for stale/future-dated events."""
+        if not isinstance(event, BinanceKlineEvent):
+            raise BinanceMarketDataError("expected_binance_kline_event")
+        if (event.market, event.symbol, event.interval) != (
+            self.market, self.symbol, self.interval
+        ):
+            raise BinanceMarketDataError("event_profile_mismatch")
+        if isinstance(received_at_ms, bool) or not isinstance(received_at_ms, int):
+            raise BinanceMarketDataError("invalid_received_at_ms")
+        delay = received_at_ms - event.event_time_ms
+        if delay < -self.max_future_skew_ms:
+            raise StaleMarketDataError("event_timestamp_in_future")
+        if delay > self.max_event_delay_ms:
+            raise StaleMarketDataError("stale_websocket_event")
+        return max(0, delay)
+
+    def remember_closed(self, candle: BinanceCandle) -> bool:
+        """Return True for a new closed candle, False for exact semantic replay.
+
+        A repeated identity with changed OHLCV is a conflict, not a silent
+        overwrite. Source label is deliberately excluded so matching REST and
+        WebSocket copies of the same native candle deduplicate.
+        """
+        if not isinstance(candle, BinanceCandle):
+            raise BinanceMarketDataError("expected_binance_candle")
+        if (candle.venue, candle.market, candle.symbol, candle.interval) != (
+            "binance", self.market, self.symbol, self.interval
+        ):
+            raise BinanceMarketDataError("candle_profile_mismatch")
+        if not candle.is_closed:
+            raise BinanceMarketDataError("only_closed_candles_may_be_deduplicated")
+        key = (candle.venue, candle.market, candle.symbol, candle.interval,
+               candle.open_time_ms)
+        fingerprint = tuple(str(value) for value in (
+            candle.close_time_ms, candle.open, candle.high, candle.low, candle.close,
+            candle.volume, candle.quote_volume, candle.trade_count,
+            candle.taker_buy_base_volume, candle.taker_buy_quote_volume,
+        ))
+        previous = self._fingerprints.get(key)
+        if previous is not None:
+            if previous != fingerprint:
+                raise BinanceMarketDataError("conflicting_closed_candle_identity")
+            return False
+        self._fingerprints[key] = fingerprint
+        return True
