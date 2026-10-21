@@ -282,17 +282,22 @@ class CandleIngestGuard:
 
     def __init__(self, *, market: str, symbol: str, interval: str,
                  max_event_delay_ms: int = 15_000,
-                 max_future_skew_ms: int = 2_000) -> None:
+                 max_future_skew_ms: int = 2_000,
+                 max_entries: int = 5_000) -> None:
         _validate_identity(market, symbol, interval)
         for name, value in (("max_event_delay_ms", max_event_delay_ms),
-                            ("max_future_skew_ms", max_future_skew_ms)):
+                            ("max_future_skew_ms", max_future_skew_ms),
+                            ("max_entries", max_entries)):
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
                 raise BinanceMarketDataError(f"invalid_{name}")
+        if max_entries == 0:
+            raise BinanceMarketDataError("invalid_max_entries")
         self.market = market
         self.symbol = symbol
         self.interval = interval
         self.max_event_delay_ms = max_event_delay_ms
         self.max_future_skew_ms = max_future_skew_ms
+        self.max_entries = max_entries
         self._fingerprints: dict[tuple[str, str, str, str, int], tuple[str, ...]] = {}
 
     def assert_fresh(self, event: BinanceKlineEvent, *, received_at_ms: int) -> int:
@@ -340,4 +345,7 @@ class CandleIngestGuard:
                 raise BinanceMarketDataError("conflicting_closed_candle_identity")
             return False
         self._fingerprints[key] = fingerprint
+        if len(self._fingerprints) > self.max_entries:
+            oldest = min(self._fingerprints, key=lambda identity: identity[-1])
+            del self._fingerprints[oldest]
         return True
