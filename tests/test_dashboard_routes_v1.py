@@ -56,11 +56,26 @@ class DashboardRouteTests(unittest.TestCase):
             page=response.read().decode()
         self.assertIn("HES Trade Agent",page)
         self.assertIn("HOLD / NO_TRADE_ONLY",page)
-        self.assertIn("lightweight-charts@5.0.8",page)
+        self.assertIn(dashboard.CHART_ASSET_PATH,page)
+        self.assertNotIn("unpkg.com",page)
+        self.assertIn("https://www.tradingview.com/",page)
         self.assertIn("LightweightCharts.CandlestickSeries",page)
         self.assertIn("Binance Spot",page)
         self.assertNotIn("Yahoo",page)
         self.assertNotIn("<canvas id=\"chart\"",page)
+
+    def test_pinned_chart_asset_is_served_locally_with_license_notice(self):
+        with urlopen(self.base+dashboard.CHART_ASSET_PATH) as response:
+            payload=response.read()
+            self.assertEqual(response.status,200)
+            self.assertEqual(response.headers.get_content_type(),"text/javascript")
+            self.assertIn("script-src 'self' 'unsafe-inline'",response.headers.get("Content-Security-Policy",""))
+            self.assertNotIn("unpkg.com",response.headers.get("Content-Security-Policy",""))
+        self.assertGreater(len(payload),100_000)
+        notice=(dashboard.CHART_ASSET_FILE.parent/"NOTICE").read_text(encoding="utf-8")
+        license_text=(dashboard.CHART_ASSET_FILE.parent/"LICENSE").read_text(encoding="utf-8")
+        self.assertIn("TradingView",notice)
+        self.assertIn("Apache License",license_text)
 
     def test_health_and_execution_boundary(self):
         with urlopen(self.base+"/healthz") as response:
