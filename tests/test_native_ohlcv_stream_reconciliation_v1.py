@@ -45,7 +45,7 @@ def test_closed_stream_event_is_admitted_only_after_exact_rest_reconciliation():
 
 def test_stream_rest_field_mismatch_fails_closed_without_cache_write():
     event=parse_kline_event(stream_payload(),symbol="BTCUSDT",interval="1m")
-    conflicting=replace(event.candle,close=event.candle.close+1)
+    conflicting=replace(event.candle,close=event.candle.close.__class__("101.21"))
     batch=rest_batch(conflicting)
     with dashboard._CACHE_LOCK:
         dashboard._CACHE.clear()
