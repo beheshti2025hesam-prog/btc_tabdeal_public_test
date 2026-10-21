@@ -1,0 +1,32 @@
+name: Binance Single Market Data Source v1
+
+on:
+  push:
+    branches: [feat/binance-single-market-data-path-20261021]
+    paths:
+      - "forward/binance_market_data_source_v1.py"
+      - "tests/test_binance_market_data_source_v1.py"
+      - ".github/workflows/binance-market-data-source-v1.yml"
+  pull_request:
+    branches: [test/native-candle-adapter-contracts-20261019]
+    paths:
+      - "forward/binance_market_data_source_v1.py"
+      - "tests/test_binance_market_data_source_v1.py"
+      - ".github/workflows/binance-market-data-source-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check pytest websocket-client
+      - run: python -m pytest -q tests/test_binance_market_data_source_v1.py
