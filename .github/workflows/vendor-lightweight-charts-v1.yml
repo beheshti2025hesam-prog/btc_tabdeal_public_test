@@ -28,7 +28,8 @@ jobs:
           tar -xzf lightweight-charts-5.0.8.tgz -C /tmp/lwc-package
           test -s /tmp/lwc-package/package/dist/lightweight-charts.standalone.production.js
           test -s /tmp/lwc-package/package/LICENSE
-          test -s /tmp/lwc-package/package/NOTICE
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/tradingview/lightweight-charts/v5.0.8/NOTICE -o /tmp/lwc-package/NOTICE
+          test -s /tmp/lwc-package/NOTICE
       - name: Verify exact pinned asset integrity and vendor licenses
         shell: bash
         run: |
@@ -41,7 +42,7 @@ jobs:
           mkdir -p "$dest"
           cp "$src" "$dest/lightweight-charts.standalone.production.js"
           cp /tmp/lwc-package/package/LICENSE "$dest/LICENSE"
-          cp /tmp/lwc-package/package/NOTICE "$dest/NOTICE"
+          cp /tmp/lwc-package/NOTICE "$dest/NOTICE"
           cat > "$dest/README.md" <<'EOF'
           Vendored dependency: TradingView Lightweight Charts 5.0.8
           Source package: https://www.npmjs.com/package/lightweight-charts/v/5.0.8
