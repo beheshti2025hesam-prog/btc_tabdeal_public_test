@@ -11,7 +11,8 @@ This checkpoint separates source code and test readiness from an operational cha
 - Draft PR [#331](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/331) contains `forward/native_candle_bridge_v1.py` and `to_lightweight_chart_payload()`. The latter is a projection helper only—not a frontend, HTTP endpoint, or deployed consumer.
 - The connected GitHub installation exposes only `beheshti2025hesam-prog/btc_tabdeal_public_test`; recursive inspection of the repository and VPS found no verified HES frontend package, chart entry point, or UI consumer. Do not create a parallel frontend to mask this missing dependency.
 - The VPS `/opt/hes-trade-agent` has no active HES runtime service. `hes-trade-agent-collector.service` is failed (since 2026-10-06); `hes-forward-tabdeal-collector.service` is inactive. Both units are disabled.
-- Direct VPS HTTPS access to Binance timed out. The target host cannot currently perform the required live REST/WebSocket smoke. No service was enabled, restarted, or deployed.
+- A fresh direct HTTPS probe from the VPS to `https://api.binance.com/api/v3/time` timed out after 3 seconds. The target host cannot currently perform the required live REST/WebSocket smoke. No service was enabled, restarted, or deployed.
+- VPS working tree has pre-existing modified, deleted, and untracked files, including decision-engine files and evidence. These were left untouched; do not reset/clean the checkout as part of this integration.
 
 ## Fixed-window API comparison
 Evidence: `evidence/binance_spot_btcusdt_klines_uiklines_fixed_window_2026-10-21.json`
@@ -21,6 +22,11 @@ Evidence: `evidence/binance_spot_btcusdt_klines_uiklines_fixed_window_2026-10-21
 - Five common candle open times were compared across open time, OHLC, base/quote volume, close time, trade count, taker-buy base/quote volume, and the final ignore field.
 - Result: **0 field mismatches across the 5 common candles**.
 - Limitation: these are structured connector results, not raw HTTP transport captures. This is API-to-API parity, not rendered-chart parity and not evidence of the HES frontend consuming the data.
+
+## CI verification update
+- GitHub Actions run [#23 — Binance Single Market Data Source v1](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39620245683) completed with **success** for commit `2e147ce91f1470656c2d06d91fc2876d91afab9a`.
+- Its `read-only-contract` job completed successfully, including `python -m pytest -q tests/test_binance_market_data_source_v1.py`.
+- This is isolated source-contract/test evidence only. It does **not** prove the target VPS can connect to Binance, that the code is deployed, or that a real frontend consumes/render-parities the stream.
 
 ## Integration gates still open
 1. Locate and obtain access to the authorized existing frontend repository and entry point; no verified path was found in currently connected sources.
