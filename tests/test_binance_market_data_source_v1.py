@@ -1,0 +1,68 @@
+import json
+from threading import Event
+
+import pytest
+
+from forward.binance_market_data_source_v1 import (
+    BinanceMarketDataError, parse_kline_event, websocket_url,
+)
+
+
+def event(*, market="spot", symbol="BTCUSDT", interval="1m", closed=False):
+    step = 60_000 if interval == "1m" else 3_600_000
+    start = 1_800_000_000_000
+    start -= start % step
+    k = {
+        "t": start, "T": start + step - 1, "s": symbol, "i": interval,
+        "f": 100, "L": 200, "o": "100.10", "c": "101.20",
+        "h": "102.00", "l": "99.50", "v": "12.3400", "n": 8,
+        "x": closed, "q": "1234.50", "V": "4.20", "Q": "420.00", "B": "0",
+    }
+    return json.dumps({"stream": f"{symbol.lower()}@kline_{interval}",
+                       "data": {"e": "kline", "E": start + 10, "s": symbol, "k": k}})
+
+
+def test_parse_spot_stream_preserves_decimal_identity_and_open_status():
+    parsed = parse_kline_event(event(), market="spot", symbol="BTCUSDT", interval="1m")
+    assert parsed.market == "spot"
+    assert parsed.symbol == "BTCUSDT"
+    assert parsed.candle.venue == "binance"
+    assert parsed.candle.source == "binance_websocket_kline"
+    assert parsed.candle.open == __import__("decimal").Decimal("100.10")
+    assert parsed.candle.volume == __import__("decimal").Decimal("12.3400")
+    assert parsed.candle.is_closed is False
+    assert len(parsed.payload_sha256) == 64
+
+
+def test_parse_closed_usdm_futures_event_keeps_market_separate():
+    parsed = parse_kline_event(event(market="usdm_futures", closed=True),
+                               market="usdm_futures", symbol="BTCUSDT", interval="1m")
+    assert parsed.market == "usdm_futures"
+    assert parsed.candle.is_closed is True
+
+
+def test_rejects_wrong_symbol_and_interval_in_stream():
+    with pytest.raises(BinanceMarketDataError, match="symbol_or_event_time"):
+        parse_kline_event(event(), market="spot", symbol="ETHUSDT", interval="1m")
+    with pytest.raises(BinanceMarketDataError, match="identity_or_finality"):
+        parse_kline_event(event(), market="spot", symbol="BTCUSDT", interval="1h")
+
+
+def test_rejects_bad_ohlc_and_non_kline_event():
+    bad = json.loads(event())
+    bad["data"]["k"]["h"] = "90"
+    with pytest.raises(BinanceMarketDataError, match="invalid_ohlc_range"):
+        parse_kline_event(json.dumps(bad), market="spot", symbol="BTCUSDT", interval="1m")
+    with pytest.raises(BinanceMarketDataError, match="unexpected_websocket_event"):
+        parse_kline_event(json.dumps({"e": "trade"}), market="spot", symbol="BTCUSDT", interval="1m")
+
+
+def test_urls_select_exact_market_and_symbol_stream():
+    assert websocket_url(market="spot", symbol="BTCUSDT", interval="1m") == (
+        "wss://data-stream.binance.vision/ws/btcusdt@kline_1m"
+    )
+    assert websocket_url(market="usdm_futures", symbol="BTCUSDT", interval="1h") == (
+        "wss://fstream.binance.com/market/ws/btcusdt@kline_1h"
+    )
+    with pytest.raises(BinanceMarketDataError, match="supported_intervals"):
+        websocket_url(market="spot", symbol="BTCUSDT", interval="15m")
