@@ -11,6 +11,14 @@ Status date: 2026-10-21
 - Exchange execution APIs remain separate from the canonical chart/analysis feed.
 - Existing Yahoo Finance data remains provisional and must not be promoted to strategy-grade data by assumption.
 
+## Public product facts checked on 2026-10-21 (not a qualification decision)
+
+- Kaiko's published Level 1 Aggregations tier includes OHLCV and is advertised from **USD 1,000/month per ticker pack**. Kaiko lists OHLCV through REST and Stream, with 1-second to 1-day granularity and historical availability. This is a public starting price, not a quote for HES's required symbols, history, or intended use: [Kaiko Level 1 & Level 2 data](https://www.kaiko.com/products/l1-l2-data), [Kaiko OHLCV product](https://www.kaiko.com/collections/ohlcv).
+- Kaiko's separate Display offering explicitly describes use for charts and reference context **without** using the data as input to financial calculations, trading, or settlement. HES must not treat a display-only license as sufficient for strategy inputs: [Kaiko Display licensing](https://www.kaiko.com/resources/display).
+- CoinAPI documents normalized REST and WebSocket market-data products, including OHLCV. Its Market Data API documentation lists a Free plan at 1 request/second and 100 requests/day; the pricing page says WebSocket is not included in the Free plan. A no-cost REST trial therefore does not by itself meet the continuous live-stream requirement: [CoinAPI Market Data API](https://www.coinapi.io/products/market-data-api/docs/how-to-guides/real-time-trades-stream-using-websocket-with-different-languages), [CoinAPI pricing](https://www.coinapi.io/products/market-data-api/pricing).
+- On the authorized HES VPS, the CoinAPI host was reachable at the HTTPS layer but returned HTTP 401 without authentication. The expected `/etc/hes-trade-agent/coinapi.env` file was absent; no credential was read or exposed. This proves connectivity only, not entitlement or usable data access.
+- The same VPS resolves `api.binance.com`, `fapi.binance.com`, and `stream.binance.com` to `10.10.34.34`, where HTTPS connections time out; `data-api.binance.vision` returns HTTP 451. Do not work around these network or access controls. Any future network change must be approved by the host/network operator.
+
 ## Delivery gates
 
 ### Gate 1 — commercial and legal rights
