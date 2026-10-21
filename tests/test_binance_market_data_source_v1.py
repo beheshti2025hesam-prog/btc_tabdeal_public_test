@@ -1,12 +1,13 @@
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
 
 from forward.binance_market_data_source_v1 import (
-    BinanceMarketDataError, closed_event_to_canonical_batch,
-    parse_kline_event, websocket_url,
+    BinanceMarketDataError, CandleIngestGuard, StaleMarketDataError,
+    closed_event_to_canonical_batch, parse_kline_event, websocket_url,
 )
 from forward.native_candle_bridge_v1 import normalize_native_candles
 
@@ -94,3 +95,42 @@ def test_urls_select_exact_market_and_symbol_stream():
     )
     with pytest.raises(BinanceMarketDataError, match="supported_intervals"):
         websocket_url(market="spot", symbol="BTCUSDT", interval="15m")
+
+
+def test_ingest_guard_deduplicates_matching_rest_and_websocket_closed_candle():
+    parsed = parse_kline_event(event(closed=True), market="spot",
+                               symbol="BTCUSDT", interval="1m")
+    guard = CandleIngestGuard(market="spot", symbol="BTCUSDT", interval="1m")
+    rest_copy = replace(parsed.candle, source="binance_rest_klines")
+    assert guard.remember_closed(parsed.candle) is True
+    assert guard.remember_closed(rest_copy) is False
+
+
+def test_ingest_guard_rejects_conflicting_duplicate_closed_candle():
+    parsed = parse_kline_event(event(closed=True), market="spot",
+                               symbol="BTCUSDT", interval="1m")
+    guard = CandleIngestGuard(market="spot", symbol="BTCUSDT", interval="1m")
+    assert guard.remember_closed(parsed.candle) is True
+    conflicting = replace(parsed.candle, close=Decimal("101.21"))
+    with pytest.raises(BinanceMarketDataError, match="conflicting_closed_candle_identity"):
+        guard.remember_closed(conflicting)
+
+
+def test_ingest_guard_rejects_stale_and_future_dated_events():
+    parsed = parse_kline_event(event(closed=False), market="spot",
+                               symbol="BTCUSDT", interval="1m")
+    guard = CandleIngestGuard(market="spot", symbol="BTCUSDT", interval="1m",
+                              max_event_delay_ms=1000, max_future_skew_ms=100)
+    with pytest.raises(StaleMarketDataError, match="stale_websocket_event"):
+        guard.assert_fresh(parsed, received_at_ms=parsed.event_time_ms + 1001)
+    with pytest.raises(StaleMarketDataError, match="event_timestamp_in_future"):
+        guard.assert_fresh(parsed, received_at_ms=parsed.event_time_ms - 101)
+    assert guard.assert_fresh(parsed, received_at_ms=parsed.event_time_ms + 250) == 250
+
+
+def test_ingest_guard_rejects_cross_market_identity():
+    parsed = parse_kline_event(event(closed=True), market="usdm_futures",
+                               symbol="BTCUSDT", interval="1m")
+    guard = CandleIngestGuard(market="spot", symbol="BTCUSDT", interval="1m")
+    with pytest.raises(BinanceMarketDataError, match="candle_profile_mismatch"):
+        guard.remember_closed(parsed.candle)
