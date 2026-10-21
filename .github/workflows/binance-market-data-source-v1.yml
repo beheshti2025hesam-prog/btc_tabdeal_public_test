@@ -8,7 +8,9 @@ on:
       - "tests/test_binance_market_data_source_v1.py"
       - ".github/workflows/binance-market-data-source-v1.yml"
   pull_request:
-    branches: [test/native-candle-adapter-contracts-20261019]
+    branches:
+      - feat/native-candle-structure-bridge-20261019
+      - test/native-candle-adapter-contracts-20261019
     paths:
       - "forward/binance_market_data_source_v1.py"
       - "tests/test_binance_market_data_source_v1.py"
