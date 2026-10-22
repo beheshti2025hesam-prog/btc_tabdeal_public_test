@@ -99,6 +99,7 @@ Remote-access check: the only host currently visible in the connected host inven
 
 ## Frontend-entry-point gate — 2026-10-22
 
+- PR #345 was also closed unmerged as superseded because its separate `BinanceCandle` model duplicates the source boundary. Its branch/evidence remain for audit; the active Spot path must use PR #297's `NativeOHLCVBatch` contract.
 - PR #340 (provisional Yahoo USD-reference dashboard) was closed unmerged to remove a competing `web/dashboard.py` implementation and avoid two active UI paths. Its source-audit evidence remains in the branch/history; it is not an approved market-data source.
 - PR #346 remains Draft/unmerged as a tested chart candidate, not a production frontend integration. Its current-head browser render proves only that the branch can render and compare its own REST batch in GitHub Actions.
 - The repository's `main` README describes a Tabdeal public futures data collector and does not identify the production HES frontend entry point. The connected GitHub inventory exposes no verified alternative frontend repository.
