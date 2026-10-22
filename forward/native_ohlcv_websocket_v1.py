@@ -69,10 +69,17 @@ def parse_kline_event(
         raise NativeKlineStreamError("invalid_json") from exc
 
     if isinstance(obj, dict) and isinstance(obj.get("data"), dict):
-        expected_stream = f"{symbol.lower()}@kline_{interval}"
-        if obj.get("stream") != expected_stream:
+        envelope_data = obj["data"]
+        envelope_kline = envelope_data.get("k") if isinstance(envelope_data, dict) else None
+        envelope_symbol = envelope_data.get("s") if isinstance(envelope_data, dict) else None
+        envelope_interval = envelope_kline.get("i") if isinstance(envelope_kline, dict) else None
+        if (
+            not isinstance(envelope_symbol, str)
+            or not isinstance(envelope_interval, str)
+            or obj.get("stream") != f"{envelope_symbol.lower()}@kline_{envelope_interval}"
+        ):
             raise NativeKlineStreamError("invalid_stream_identity")
-        obj = obj["data"]
+        obj = envelope_data
     if not isinstance(obj, dict) or obj.get("e") != "kline" or obj.get("s") != symbol:
         raise NativeKlineStreamError("unexpected_event_or_symbol")
 
