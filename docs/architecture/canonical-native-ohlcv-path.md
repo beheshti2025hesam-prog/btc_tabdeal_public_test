@@ -89,7 +89,7 @@ A further negative case was added after review: wrapped WebSocket messages must 
 
 - Exact dashboard branch head: `2657879f1ce4c632c5f94e2e93b4117468411e16`.
 - Exact-head deterministic suite: **44 passed** — [run 39822079791](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39822079791).
-- Browser render smoke on this exact head was still running when this note was recorded; it must be checked separately before claiming current-head render success.
+- Exact-head browser render smoke: **PASS** — [run 39822080587](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39822080587). It rendered 239 closed BTCUSDT Spot 1m candles into a 1028×362 canvas; chart input matched the API batch, displayed close and volume matched source values, no external chart CDN was requested, and execution stayed disabled. UI reported `FEATURES GATED: VOLUME_SEMANTICS_UNAPPROVED · stream disabled`.
 - Live WebSocket smoke remained **skipped**, not passed.
 
 The separate safety-only PR #349 was closed unmerged as superseded because its fail-closed volume gate, default-disabled stream behavior and regression coverage are now included in the #346 branch. PR #346 remains Draft. No deployment or production activation occurred.
