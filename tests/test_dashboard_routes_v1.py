@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import time
 import unittest
 from decimal import Decimal
@@ -124,6 +125,19 @@ class DashboardRouteTests(unittest.TestCase):
         payload=json.loads(error.exception.read())
         self.assertTrue(payload["fail_closed"])
         self.assertFalse(payload["execution_enabled"])
+
+
+    def test_dashboard_main_does_not_start_websocket_by_default(self):
+        dashboard._STREAM_STATE.update(status="disabled", reason=None, last_event_ms=None)
+        with patch.dict(os.environ):
+            os.environ.pop("HES_BINANCE_STREAM_ENABLED", None)
+            with patch("web.dashboard.Thread") as worker_thread, \
+                 patch("web.dashboard.ThreadingHTTPServer") as server_factory:
+                server_factory.return_value.serve_forever.return_value = None
+                dashboard.main()
+        worker_thread.assert_not_called()
+        self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
+        server_factory.return_value.serve_forever.assert_called_once_with()
 
 
 if __name__=="__main__":
