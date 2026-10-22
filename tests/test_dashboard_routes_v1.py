@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import time
 import unittest
 from decimal import Decimal
@@ -115,6 +116,16 @@ class DashboardRouteTests(unittest.TestCase):
                 urlopen(self.base+"/api/candles?symbol=BTC-USD&interval=1m")
         self.assertEqual(error.exception.code,400)
         fetch.assert_not_called()
+
+    def test_dashboard_main_does_not_start_websocket_by_default(self):
+        with patch.dict(os.environ):
+            os.environ.pop("HES_BINANCE_STREAM_ENABLED", None)
+            with patch("web.dashboard.Thread") as worker_thread, \
+                 patch("web.dashboard.ThreadingHTTPServer") as server_factory:
+                server_factory.return_value.serve_forever.return_value = None
+                dashboard.main()
+        worker_thread.assert_not_called()
+        server_factory.return_value.serve_forever.assert_called_once_with()
 
     def test_source_failure_fails_closed_without_fake_candles(self):
         with patch("web.dashboard._SOURCE.fetch",side_effect=TimeoutError()):

@@ -46,6 +46,7 @@ class NativeOHLCVFeaturePipelineV1:
         vwap_period: int = 20,
         momentum_period: int = 10,
         volume_spike_multiplier: float = 1.5,
+        volume_semantics_approved: bool = False,
     ) -> None:
         if type(ema_period) is not int or ema_period <= 0:
             raise ValueError("ema_period must be a positive integer")
@@ -55,6 +56,9 @@ class NativeOHLCVFeaturePipelineV1:
             raise ValueError("momentum_period must be a positive integer")
         self.ema_period = ema_period
         self.vwap_period = vwap_period
+        if type(volume_semantics_approved) is not bool:
+            raise ValueError("volume_semantics_approved must be a bool")
+        self.volume_semantics_approved = volume_semantics_approved
         self.momentum_period = momentum_period
         self.ema = EMACalculator(ema_period)
         self.momentum = MomentumCalculator(momentum_period)
@@ -132,6 +136,8 @@ class NativeOHLCVFeaturePipelineV1:
             ready, reason = False, "OBSERVED_CANDLE_GAPS"
         elif not quality.passed:
             ready, reason = False, "FEATURE_QUALITY_REJECTED"
+        elif not self.volume_semantics_approved:
+            ready, reason = False, "VOLUME_SEMANTICS_UNAPPROVED"
         else:
             ready, reason = True, "NATIVE_OHLCV_FEATURES_READY"
 

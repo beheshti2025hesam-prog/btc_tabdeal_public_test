@@ -35,7 +35,7 @@ def batch(rows, *, fetched_at=BASE + INTERVAL * 10, product="spot"):
 def test_builds_feature_snapshot_from_native_ohlcv_without_trade_sequence():
     rows = [row(BASE + i * INTERVAL, close=str(100 + i)) for i in range(4)]
     source = batch(rows)
-    result = NativeOHLCVFeaturePipelineV1(ema_period=3, vwap_period=3, momentum_period=2).build(
+    result = NativeOHLCVFeaturePipelineV1(ema_period=3, vwap_period=3, momentum_period=2, volume_semantics_approved=True).build(
         source, now_ms=source.fetched_at_ms + 1
     )
     assert result.venue == "binance" and result.product == "spot"
@@ -49,6 +49,27 @@ def test_builds_feature_snapshot_from_native_ohlcv_without_trade_sequence():
     assert result.snapshot.regime == "uptrend"
     assert result.quality.passed
     assert result.decision_ready
+    assert result.reason == "NATIVE_OHLCV_FEATURES_READY"
+
+
+def test_volume_dependent_features_fail_closed_without_explicit_semantics_approval():
+    source = batch([row(BASE + i * INTERVAL, close=str(100 + i)) for i in range(4)])
+    result = NativeOHLCVFeaturePipelineV1(
+        ema_period=3, vwap_period=3, momentum_period=2
+    ).build(source, now_ms=source.fetched_at_ms + 1)
+    assert result.quality.passed
+    assert not result.decision_ready
+    assert result.snapshot is None
+    assert result.reason == "VOLUME_SEMANTICS_UNAPPROVED"
+
+
+def test_volume_features_can_be_ready_only_with_explicit_approval():
+    source = batch([row(BASE + i * INTERVAL, close=str(100 + i)) for i in range(4)])
+    result = NativeOHLCVFeaturePipelineV1(
+        ema_period=3, vwap_period=3, momentum_period=2, volume_semantics_approved=True
+    ).build(source, now_ms=source.fetched_at_ms + 1)
+    assert result.decision_ready
+    assert result.snapshot is not None
     assert result.reason == "NATIVE_OHLCV_FEATURES_READY"
 
 
@@ -95,7 +116,7 @@ def test_ready_native_snapshot_can_feed_signal_only_baseline_strategy():
     ]
     source = batch(rows)
     result = NativeOHLCVFeaturePipelineV1(
-        ema_period=3, vwap_period=3, momentum_period=2
+        ema_period=3, vwap_period=3, momentum_period=2, volume_semantics_approved=True
     ).build(source, now_ms=source.fetched_at_ms + 1)
     assert result.decision_ready and result.snapshot is not None
     decision = BaselineStrategy().evaluate(BaselineStrategyInput(features=result.snapshot))
