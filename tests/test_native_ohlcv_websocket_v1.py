@@ -57,6 +57,10 @@ def test_rejects_non_string_or_malformed_stream_identity():
         parse_kline_event(payload(), symbol=123, interval="1m")
     with pytest.raises(NativeKlineStreamError, match="invalid_stream_identity"):
         parse_kline_event(payload(), symbol="btcusdt", interval="1m")
+    wrong_stream = json.loads(payload())
+    wrong_stream["stream"] = "ethusdt@kline_1m"
+    with pytest.raises(NativeKlineStreamError, match="invalid_stream_identity"):
+        parse_kline_event(json.dumps(wrong_stream), symbol="BTCUSDT", interval="1m")
 
 
 def test_rejects_invalid_ohlc_and_non_kline_payload():
