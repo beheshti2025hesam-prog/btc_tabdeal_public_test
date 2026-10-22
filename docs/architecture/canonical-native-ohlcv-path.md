@@ -94,6 +94,8 @@ A further negative case was added after review: wrapped WebSocket messages must 
 
 The separate safety-only PR #349 was closed unmerged as superseded because its fail-closed volume gate, default-disabled stream behavior and regression coverage are now included in the #346 branch. PR #346 remains Draft. No deployment or production activation occurred.
 
+Remote-access check: the only host currently visible in the connected host inventory is the previously designated non-authorized VPS, so it was not inspected or modified. Authorized VPS #1 is not currently available through the connected host inventory; actual runtime/frontend verification remains blocked pending that authorized access.
+
 ## References
 
 - [PR #297](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/297)
