@@ -19,7 +19,7 @@ _FEATURES = NativeOHLCVFeaturePipelineV1()
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
-_STREAM_STATE = {"status": "starting", "reason": None, "last_event_ms": None}
+_STREAM_STATE = {"status": "disabled", "reason": None, "last_event_ms": None}
 
 def _refresh_batch(symbol, interval, event=None):
     batch = _SOURCE.fetch(symbol=symbol, interval=interval, limit=240)
@@ -151,6 +151,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     if os.environ.get("HES_BINANCE_STREAM_ENABLED", "0") == "1":
+        _STREAM_STATE.update(status="starting", reason=None)
         Thread(target=_stream_worker, name="hes-binance-spot-kline", daemon=True).start()
     host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
     server=ThreadingHTTPServer((host,port),Handler)
