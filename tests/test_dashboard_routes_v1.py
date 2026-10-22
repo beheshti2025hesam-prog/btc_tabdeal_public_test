@@ -153,5 +153,22 @@ class DashboardRouteTests(unittest.TestCase):
                 self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
 
 
+
+    def test_dashboard_main_starts_websocket_only_for_exact_opt_in_value(self):
+        dashboard._STREAM_STATE.update(status="disabled", reason=None, last_event_ms=None)
+        with patch.dict(os.environ, {"HES_BINANCE_STREAM_ENABLED": "1"}):
+            with patch("web.dashboard.Thread") as worker_thread, \
+                 patch("web.dashboard.ThreadingHTTPServer") as server_factory:
+                server_factory.return_value.serve_forever.return_value = None
+                dashboard.main()
+        worker_thread.assert_called_once_with(
+            target=dashboard._stream_worker,
+            name="hes-binance-spot-kline",
+            daemon=True,
+        )
+        worker_thread.return_value.start.assert_called_once_with()
+        self.assertEqual(dashboard._STREAM_STATE["status"], "starting")
+
+
 if __name__=="__main__":
     unittest.main()
