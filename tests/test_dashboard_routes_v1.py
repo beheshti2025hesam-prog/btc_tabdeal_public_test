@@ -140,5 +140,18 @@ class DashboardRouteTests(unittest.TestCase):
         server_factory.return_value.serve_forever.assert_called_once_with()
 
 
+    def test_dashboard_main_requires_exact_opt_in_value_for_websocket(self):
+        for value in ("", "true", "yes", "2", " 1"):
+            with self.subTest(value=value):
+                dashboard._STREAM_STATE.update(status="disabled", reason=None, last_event_ms=None)
+                with patch.dict(os.environ, {"HES_BINANCE_STREAM_ENABLED": value}):
+                    with patch("web.dashboard.Thread") as worker_thread, \
+                         patch("web.dashboard.ThreadingHTTPServer") as server_factory:
+                        server_factory.return_value.serve_forever.return_value = None
+                        dashboard.main()
+                worker_thread.assert_not_called()
+                self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
+
+
 if __name__=="__main__":
     unittest.main()
