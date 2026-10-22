@@ -1,0 +1,100 @@
+const assert = require("node:assert/strict");
+const { chromium } = require("playwright");
+
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    let candlePayload = null;
+    let externalChartCdnRequested = false;
+
+    page.on("request", request => {
+      const url = request.url();
+      if (url.startsWith("https://unpkg.com/") || url.startsWith("https://cdn.jsdelivr.net/")) {
+        externalChartCdnRequested = true;
+      }
+    });
+    page.on("response", async response => {
+      try {
+        const url = new URL(response.url());
+        if (url.pathname === "/api/candles" && response.status() === 200) {
+          const body = await response.json();
+          if (Array.isArray(body.candles) && body.candles.length) candlePayload = body;
+        }
+      } catch (_) {}
+    });
+
+    await page.goto("http://127.0.0.1:8765/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForFunction(
+      () => document.querySelector("#message")?.textContent?.startsWith("VALIDATED"),
+      null,
+      { timeout: 90000 }
+    );
+    await page.waitForFunction(() => {
+      const canvas = document.querySelector("#chart canvas");
+      return !!canvas && canvas.getBoundingClientRect().width > 100 && canvas.getBoundingClientRect().height > 100;
+    }, null, { timeout: 15000 });
+
+    assert.ok(candlePayload, "successful /api/candles payload was not observed");
+    assert.ok(candlePayload.candles.length > 0, "source returned no candles");
+    assert.equal(candlePayload.source, "binance_native_ohlcv_v1");
+    assert.equal(candlePayload.execution_enabled, false);
+    assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
+
+    const last = candlePayload.candles[candlePayload.candles.length - 1];
+    const ui = await page.evaluate(() => ({
+      price: document.querySelector("#price").textContent,
+      stamp: document.querySelector("#stamp").textContent,
+      volume: document.querySelector("#volume").textContent,
+      count: document.querySelector("#count").textContent,
+      message: document.querySelector("#message").textContent,
+      canvas: (() => {
+        const c = document.querySelector("#chart canvas");
+        const r = c.getBoundingClientRect();
+        return { width: r.width, height: r.height };
+      })(),
+      bars: typeof bars !== "undefined" ? bars.map(b => ({
+        open_time: b.open_time, close: String(b.close), volume: String(b.volume)
+      })) : null
+    }));
+
+    assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
+    assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
+    assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
+    assert.ok(ui.bars, "browser could not inspect the dashboard's candle batch");
+    assert.equal(ui.bars.length, candlePayload.candles.length, "chart input batch length differs from API batch");
+    assert.equal(ui.bars.at(-1).open_time, last.open_time, "chart latest candle time differs from API batch");
+    assert.equal(ui.bars.at(-1).close, last.close, "chart latest candle close differs from API batch");
+    assert.equal(ui.bars.at(-1).volume, last.volume, "chart latest candle volume differs from API batch");
+
+    const stamp = new Date(last.close_time).toISOString().replace("T", " ").replace(".000Z", " UTC");
+    assert.equal(ui.stamp, stamp, "displayed UTC candle time differs from source batch");
+
+    await page.screenshot({ path: "artifacts/native-ohlcv-dashboard-browser-smoke.png", fullPage: true });
+    const evidence = {
+      schema_version: 1,
+      status: "PASS",
+      source: candlePayload.source,
+      venue: candlePayload.venue,
+      product: candlePayload.product,
+      symbol: candlePayload.symbol,
+      interval: candlePayload.interval,
+      response_sha256: candlePayload.response_sha256,
+      candle_count: candlePayload.candles.length,
+      chart_canvas: ui.canvas,
+      external_chart_cdn_requested: externalChartCdnRequested,
+      displayed_close_matches_source: true,
+      displayed_volume_matches_source: true,
+      chart_input_batch_matches_api_batch: true,
+      execution_enabled: false,
+      message: ui.message
+    };
+    require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(evidence, null, 2) + "\n");
+    process.stdout.write(JSON.stringify(evidence) + "\n");
+  } finally {
+    await browser.close();
+  }
+})().catch(error => {
+  process.stderr.write(String(error.stack || error) + "\n");
+  process.exit(1);
+});
