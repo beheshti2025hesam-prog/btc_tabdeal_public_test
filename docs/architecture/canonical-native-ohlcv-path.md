@@ -66,6 +66,22 @@ The two bridge models are not assumed to be equivalent. Before adapting PR #345,
 - No weakening of acceptance gates.
 - No claim that Wallex volume semantics or operational reconnect isolation are resolved.
 
+
+## Implementation follow-up — 2026-10-22
+
+The existing dashboard branch was updated rather than creating a parallel WebSocket parser PR. The current branch already contained a parser built on `NativeCandle` and `normalize_native_klines`; the temporary duplicate PR #352 was closed unmerged to avoid duplicate implementation.
+
+On `feat/native-ohlcv-dashboard-single-path-20261021`, exact head `a2f5940d28d754186293a47299d3e8335db84667`:
+
+- The WebSocket parser now rejects non-string/invalid identities with a controlled fail-closed error, hashes the exact payload bytes, and only admits closed candles through the canonical normalizer.
+- `NativeOHLCVFeaturePipelineV1` defaults `volume_semantics_approved=False`; readiness and the feature snapshot remain blocked with `VOLUME_SEMANTICS_UNAPPROVED` unless explicit approval is supplied. No approval was supplied by this change.
+- Dashboard stream state reports `disabled` by default and changes to `starting` only when `HES_BINANCE_STREAM_ENABLED=1`; a regression test asserts that the default path does not start a worker thread.
+- Exact-head deterministic dashboard/source/feature/WebSocket/transport/reconciliation suite: **44 passed** (workflow run [39819029660](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39819029660)).
+- Exact-head browser render smoke: **passed** (workflow run [39819029616](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39819029616)). The evidence records 239 closed BTCUSDT Spot 1m candles, a 1028×362 chart canvas, chart-input/API-batch equality, displayed close and raw volume matching the same batch, no external chart CDN request, and execution disabled. UI status was `FEATURES GATED: VOLUME_SEMANTICS_UNAPPROVED · stream disabled`.
+- Live WebSocket smoke was **skipped** because the PR remains Draft. This CI render is not proof of integration into the actual HES frontend or connectivity on authorized VPS #1.
+
+This is branch-level verification only: no PR merged, no production deployment, no live collector or WebSocket started, and no order/trading path enabled. Overall status remains `HOLD / NO_TRADE_ONLY`.
+
 ## References
 
 - [PR #297](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/297)
