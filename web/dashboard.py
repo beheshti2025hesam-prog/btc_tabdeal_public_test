@@ -150,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
         if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
 
 def main():
-    if os.environ.get("HES_BINANCE_STREAM_ENABLED", "1") == "1":
+    if os.environ.get("HES_BINANCE_STREAM_ENABLED", "0") == "1":
         Thread(target=_stream_worker, name="hes-binance-spot-kline", daemon=True).start()
     host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
     server=ThreadingHTTPServer((host,port),Handler)
