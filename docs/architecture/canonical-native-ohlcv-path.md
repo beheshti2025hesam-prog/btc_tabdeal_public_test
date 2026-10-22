@@ -82,6 +82,18 @@ On `feat/native-ohlcv-dashboard-single-path-20261021`, exact head `a2f5940d28d75
 
 This is branch-level verification only: no PR merged, no production deployment, no live collector or WebSocket started, and no order/trading path enabled. Overall status remains `HOLD / NO_TRADE_ONLY`.
 
+
+## Parser envelope hardening — 2026-10-22
+
+A further negative case was added after review: wrapped WebSocket messages must have a `stream` envelope consistent with the event's own symbol and interval. This prevents accepting a valid-looking `data` object under a contradictory stream label. The existing parser still checks the caller-requested symbol/interval separately, and only closed candles enter the canonical normalizer.
+
+- Exact dashboard branch head: `2657879f1ce4c632c5f94e2e93b4117468411e16`.
+- Exact-head deterministic suite: **44 passed** — [run 39822079791](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39822079791).
+- Browser render smoke on this exact head was still running when this note was recorded; it must be checked separately before claiming current-head render success.
+- Live WebSocket smoke remained **skipped**, not passed.
+
+The separate safety-only PR #349 was closed unmerged as superseded because its fail-closed volume gate, default-disabled stream behavior and regression coverage are now included in the #346 branch. PR #346 remains Draft. No deployment or production activation occurred.
+
 ## References
 
 - [PR #297](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/297)
