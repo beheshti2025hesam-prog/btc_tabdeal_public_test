@@ -69,6 +69,9 @@ def parse_kline_event(
         raise NativeKlineStreamError("invalid_json") from exc
 
     if isinstance(obj, dict) and isinstance(obj.get("data"), dict):
+        expected_stream = f"{symbol.lower()}@kline_{interval}"
+        if obj.get("stream") != expected_stream:
+            raise NativeKlineStreamError("invalid_stream_identity")
         obj = obj["data"]
     if not isinstance(obj, dict) or obj.get("e") != "kline" or obj.get("s") != symbol:
         raise NativeKlineStreamError("unexpected_event_or_symbol")
