@@ -13,6 +13,8 @@ from hashlib import sha256
 from typing import Iterable, Mapping, Sequence
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
+from pathlib import Path
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -141,6 +143,44 @@ def _parse_time(value: str) -> datetime | None:
 
 def _iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def load_source_registry(path: str | Path) -> dict:
+    """Load and validate the operator-maintained news-source registry.
+
+    An enabled source must have passed a separate qualification review. This
+    loader does not promote candidates or make network requests.
+    """
+    try:
+        registry = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("news source registry unreadable or invalid JSON") from exc
+    if registry.get("schema_version") != "hes.news_sources.v1":
+        raise ValueError("unsupported news source registry schema")
+    sources = registry.get("sources")
+    if not isinstance(sources, list):
+        raise ValueError("registry sources must be a list")
+    seen = set()
+    for source in sources:
+        if not isinstance(source, dict):
+            raise ValueError("each source must be an object")
+        source_id = source.get("id")
+        url = source.get("url", "")
+        if not isinstance(source_id, str) or not source_id or source_id in seen:
+            raise ValueError("source ids must be unique non-empty strings")
+        seen.add(source_id)
+        parsed = urlsplit(url)
+        if parsed.scheme != "https" or not parsed.hostname:
+            raise ValueError(f"source {source_id} must use HTTPS")
+        if source.get("host") != parsed.hostname:
+            raise ValueError(f"source {source_id} host does not match URL")
+        if not isinstance(source.get("enabled"), bool):
+            raise ValueError(f"source {source_id} enabled must be boolean")
+        if source["enabled"] and source.get("qualification_status") != "qualified":
+            raise ValueError(f"source {source_id} cannot be enabled before qualification")
+        if not isinstance(source.get("markets"), list) or not source["markets"]:
+            raise ValueError(f"source {source_id} must declare market coverage")
+    return registry
 
 
 def fetch_rss(url: str, *, source: str, timeout_seconds: float = 5.0,
