@@ -19,7 +19,7 @@ jobs:
       - name: Checkout exact PR head SHA
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: 3dfa878730c3f2ee4b587d8960a2bf18656f8937
           persist-credentials: false
       - name: Record exact source identity
         run: |
