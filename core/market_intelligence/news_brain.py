@@ -364,7 +364,7 @@ class NewsIntelligenceBrain:
             status=status, headline=headline, findings=tuple(findings),
             market_implications=tuple(implications),
             mother_agent_summary="; ".join(summary_bits),
-            suggested_action="NO_TRADE_PENDING_CONFIRMATION" if high_impact or source_failures or context.regime in {"unknown", "insufficient_data"} else "CONTEXT_ONLY",
+            suggested_action="NO_TRADE_PENDING_CONFIRMATION" if veto_flags or context.regime in {"unknown", "insufficient_data"} else "CONTEXT_ONLY",
             veto_flags=tuple(veto_flags),
             provenance={"method": "deterministic_keyword_rules_v1", "sources_seen": len(candidates),
                         "items_returned": len(findings), "stale_items_dropped": stale_count,
