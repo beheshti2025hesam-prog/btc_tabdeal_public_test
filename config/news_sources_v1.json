@@ -1,0 +1,190 @@
+{
+  "schema_version": "hes.news_sources.v1",
+  "policy": {
+    "enabled_by_default": false,
+    "require_https": true,
+    "qualification_required_before_enable": true,
+    "required_qualification_evidence": [
+      "source_ownership_review",
+      "feed_parse_smoke",
+      "target_runtime_reachability",
+      "freshness_check",
+      "terms_and_rate_limit_review"
+    ],
+    "note": "Candidate registry only. Runtime reachability has not been proven; do not enable sources from this file until each source is qualified."
+  },
+  "sources": [
+    {
+      "id": "fed_press_all",
+      "name": "Federal Reserve Board — All Press Releases",
+      "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+      "host": "www.federalreserve.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "official_feed_url_confirmed_runtime_unverified",
+      "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm"
+    },
+    {
+      "id": "fed_monetary_policy",
+      "name": "Federal Reserve Board — Monetary Policy",
+      "url": "https://www.federalreserve.gov/feeds/press_monetary.xml",
+      "host": "www.federalreserve.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "official_feed_url_confirmed_runtime_unverified",
+      "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm"
+    },
+    {
+      "id": "sec_press_releases",
+      "name": "US Securities and Exchange Commission — Press Releases",
+      "url": "https://www.sec.gov/news/pressreleases.rss",
+      "host": "www.sec.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "equities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "official_feed_url_confirmed_runtime_unverified",
+      "evidence_url": "https://www.sec.gov/newsroom/press-releases"
+    },
+    {
+      "id": "cftc_general_press_releases",
+      "name": "US Commodity Futures Trading Commission — General Press Releases",
+      "url": "https://www.cftc.gov/RSS/RSSGP/rssgp.xml",
+      "host": "www.cftc.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "official_feed_url_confirmed_runtime_unverified",
+      "evidence_url": "https://www.cftc.gov/RSS/index.htm"
+    },
+    {
+      "id": "ecb_press_releases",
+      "name": "European Central Bank — Press Releases",
+      "url": "https://www.ecb.europa.eu/rss/press.html",
+      "host": "www.ecb.europa.eu",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "official_rss_directory_confirmed_runtime_unverified",
+      "evidence_url": "https://www.ecb.europa.eu/home/html/rss.en.html"
+    },
+    {
+      "id": "coindesk_news",
+      "name": "CoinDesk — News",
+      "url": "https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml",
+      "host": "www.coindesk.com",
+      "tier": "secondary_media_candidate",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "candidate_not_independently_qualified",
+      "evidence_url": "https://www.coindesk.com/"
+    },
+    {
+      "id": "cointelegraph_news",
+      "name": "Cointelegraph — News",
+      "url": "https://cointelegraph.com/rss",
+      "host": "cointelegraph.com",
+      "tier": "secondary_media_candidate",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "candidate_not_independently_qualified",
+      "evidence_url": "https://cointelegraph.com/"
+    }
+  ],
+  "market_profiles": {
+    "crypto": {
+      "source_ids": [
+        "fed_press_all",
+        "fed_monetary_policy",
+        "sec_press_releases",
+        "cftc_general_press_releases",
+        "ecb_press_releases",
+        "coindesk_news",
+        "cointelegraph_news"
+      ],
+      "status": "candidate_sources_only"
+    },
+    "fx": {
+      "source_ids": [
+        "fed_press_all",
+        "fed_monetary_policy",
+        "cftc_general_press_releases",
+        "ecb_press_releases"
+      ],
+      "status": "candidate_sources_only"
+    },
+    "equities": {
+      "source_ids": [
+        "fed_press_all",
+        "fed_monetary_policy",
+        "sec_press_releases",
+        "cftc_general_press_releases",
+        "ecb_press_releases"
+      ],
+      "status": "candidate_sources_only"
+    },
+    "iran_equities": {
+      "source_ids": [],
+      "status": "blocked_no_qualified_source",
+      "note": "No Iranian-market feed is enabled or qualified in this registry; do not imply domestic coverage."
+    },
+    "commodities": {
+      "source_ids": [
+        "fed_press_all",
+        "fed_monetary_policy",
+        "cftc_general_press_releases",
+        "ecb_press_releases"
+      ],
+      "status": "candidate_sources_only"
+    }
+  }
+}
