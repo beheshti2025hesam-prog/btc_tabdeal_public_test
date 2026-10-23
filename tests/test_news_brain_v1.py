@@ -1,3 +1,5 @@
+import json
+import tempfile
 import unittest
 from pathlib import Path
 from datetime import datetime, timezone
@@ -78,6 +80,27 @@ class NewsBrainTests(unittest.TestCase):
         self.assertTrue(all(source["enabled"] is False for source in registry["sources"]))
         self.assertEqual(registry["market_profiles"]["iran_equities"]["status"],
                          "blocked_no_qualified_source")
+
+    def test_unverified_source_vetoes_trade_context(self):
+        brief = self.brain.analyze(
+            [NewsItem("Bitcoin ETF approved", url="https://unknown.test/item")],
+            MarketContext("crypto", "BTC", "range"), now=NOW)
+        self.assertIn("NEWS_SOURCE_UNVERIFIED", brief.veto_flags)
+        self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
+
+    def test_registry_cannot_enable_unqualified_source(self):
+        bad_registry = {
+            "schema_version": "hes.news_sources.v1",
+            "sources": [{
+                "id": "bad", "url": "https://example.test/feed", "host": "example.test",
+                "enabled": True, "qualification_status": "candidate", "markets": ["crypto"]
+            }]
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sources.json"
+            path.write_text(json.dumps(bad_registry), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "before qualification"):
+                load_source_registry(path)
 
     def test_non_https_feed_rejected_before_network(self):
         with self.assertRaisesRegex(ValueError, "HTTPS"):
