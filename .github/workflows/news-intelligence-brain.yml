@@ -12,7 +12,10 @@ on:
     branches: [main]
     paths:
       - 'core/market_intelligence/news_brain.py'
+      - 'config/news_sources_v1.json'
       - 'tests/test_news_brain_v1.py'
+      - 'tests/test_news_decision_gate_v1.py'
+      - 'forward/news_decision_gate_v1.py'
       - '.github/workflows/news-intelligence-brain.yml'
 jobs:
   unit:
