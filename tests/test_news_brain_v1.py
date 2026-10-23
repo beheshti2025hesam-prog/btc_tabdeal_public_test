@@ -34,6 +34,14 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.findings[0].title, "Bitcoin ETF sees large inflows")
         self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
 
+    def test_generic_fx_reference_rates_are_not_crypto_news(self):
+        brief = self.brain.analyze(
+            [NewsItem("Euro foreign exchange reference rates", source="ECB",
+                      url="https://example.test/fx-rates")],
+            MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(len(brief.findings), 0)
+        self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
+
     def test_duplicate_url_deduplicates(self):
         items = [NewsItem("Bitcoin ETF inflows", source="A", url="https://a.test/story"),
                  NewsItem("Bitcoin ETF inflows with details", summary="more", source="B", url="https://a.test/story")]
