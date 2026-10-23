@@ -232,7 +232,7 @@ class NewsIntelligenceBrain:
             categories = tuple(category for category, terms in _CATEGORY_TERMS.items()
                                if any(_contains(text, term) for term in terms))
             matched = tuple(sorted({term for terms in _CATEGORY_TERMS.values() for term in terms
-                                    if _contains(text, term} | {term for term in _HIGH_IMPACT if _contains(text, term)}))
+                                    if _contains(text, term)} | {term for term in _HIGH_IMPACT if _contains(text, term)}))
             explicit_tags = {tag.casefold() for tag in item.market_tags}
             market = context.market.casefold()
             aliases = _MARKET_ALIASES.get(market, (context.symbol.casefold(),) if context.symbol else ())
