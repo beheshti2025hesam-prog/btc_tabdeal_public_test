@@ -58,6 +58,11 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base+"/") as response:
             page=response.read().decode()
         self.assertIn("HES Trade Agent",page)
+        self.assertIn("Market command center",page)
+        self.assertIn("Skip to market dashboard",page)
+        self.assertIn('aria-live="polite"',page)
+        self.assertIn('id="auto-refresh"',page)
+        self.assertIn("prefers-reduced-motion",page)
         self.assertIn("HOLD / NO_TRADE_ONLY",page)
         self.assertIn(dashboard.CHART_ASSET_PATH,page)
         self.assertNotIn("unpkg.com",page)
