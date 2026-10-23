@@ -42,6 +42,18 @@ def test_success_is_still_observation_only():
     assert r.execution_authorized is False
     assert tuple(x.agent for x in r.stages)==ORDER
 
+def test_short_decision_mapping_is_preserved():
+    a=agents(decision=Stub("decision", "PASS", {"decision":"SHORT"}))
+    r=MotherOrchestratorV1(a).run({})
+    assert r.status=="OBSERVATION_ONLY" and r.decision=="SHORT"
+    assert r.execution_authorized is False
+
+def test_invalid_decision_payload_fails_closed():
+    a=agents(decision=Stub("decision", "PASS", {"decision":"BUY_MORE"}))
+    r=MotherOrchestratorV1(a).run({})
+    assert r.status=="BLOCKED_INVALID_DECISION" and r.decision=="NO_TRADE"
+    assert r.execution_authorized is False
+
 def test_wrong_result_identity_blocks():
     a=agents(signal=Stub("other","PASS"))
     r=MotherOrchestratorV1(a).run({})
