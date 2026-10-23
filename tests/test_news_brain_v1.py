@@ -72,6 +72,18 @@ class NewsBrainTests(unittest.TestCase):
         self.assertIn('"schema_version": "hes.news_brief.v1"', brief.to_json())
         self.assertIn('"news_alone_can_authorize_trade": false', brief.to_json())
 
+    def test_mother_payload_is_compact_and_carries_veto(self):
+        brief = self.brain.analyze(
+            [NewsItem("Major crypto exchange hack; withdrawals suspended", source="wire",
+                      url="https://wire.test/hack")],
+            MarketContext("crypto", "BTC", "range"), now=NOW)
+        payload = brief.to_mother_payload()
+        self.assertEqual(payload["schema_version"], "hes.news_brief.v1")
+        self.assertIn("suggested_action", payload)
+        self.assertIn("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION", payload["veto_flags"])
+        self.assertFalse(payload["news_alone_can_authorize_trade"])
+        self.assertLessEqual(len(payload["top_findings"]), 3)
+
     def test_registry_is_disabled_until_source_qualification(self):
         registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
         registry = load_source_registry(registry_path)
