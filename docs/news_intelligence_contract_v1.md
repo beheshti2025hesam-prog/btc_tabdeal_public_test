@@ -12,7 +12,7 @@ Configured news feeds -> RSS/Atom adapter -> deduplication/freshness checks -> m
 - No order placement, collector auto-start, deployment, trading or runtime configuration change.
 
 ## Source qualification
-Maintain a separate registry containing source name, URL, market coverage, language, source tier, enabled flag and last-success metadata. Prefer official exchange/regulator/central-bank releases for primary facts, then reputable newswires, then secondary commentary. Keep domestic and international sources distinct for venue-aware profiles. No feed is pre-approved by this code.
+Maintain a separate registry containing source name, URL, market coverage, language, source tier, enabled flag and last-success metadata. Prefer official exchange/regulator/central-bank releases for primary facts, then reputable newswires, then secondary commentary. Keep domestic and international sources distinct for venue-aware profiles. The registry records current qualification state; only sources explicitly marked enabled after the documented checks are fetched.
 
 ## Mother Agent handoff
 `NewsBrief` serializes as `hes.news_brief.v1` JSON: market context; status (`ok`, `degraded`, `no_relevant_news`); ranked findings; conditional market implications; suggested action (`NO_TRADE_PENDING_CONFIRMATION` or `CONTEXT_ONLY`); veto flags; and provenance including the explicit rule that scores are not probabilities and news alone cannot authorize a trade.
