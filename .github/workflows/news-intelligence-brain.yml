@@ -1,0 +1,22 @@
+name: News Intelligence Brain
+on:
+  pull_request:
+    paths:
+      - 'core/market_intelligence/news_brain.py'
+      - 'tests/test_news_brain_v1.py'
+      - '.github/workflows/news-intelligence-brain.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'core/market_intelligence/news_brain.py'
+      - 'tests/test_news_brain_v1.py'
+      - '.github/workflows/news-intelligence-brain.yml'
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s tests -p 'test_news_brain_v1.py' -v
