@@ -64,7 +64,7 @@ def fetch_closed_klines(symbol="BTCUSDT",interval="15m",limit=100,*,base_url=BAS
             trade_count = int(item[8])
             if trade_count < 0:
                 raise ValueError("invalid trade count")
-            candles.append(Candle(symbol,interval,op,cl,o,h,l,v,q,int(item[8]),cl<now))
+            candles.append(Candle(symbol,interval,op,cl,o,h,l,c,v,q,trade_count,cl<now))
     except (ValueError,TypeError,IndexError,InvalidOperation) as exc:
         reason = "NON_MONOTONIC_CANDLES" if str(exc) == "NON_MONOTONIC_CANDLES" else "INVALID_CANDLE_DATA"
         return AdapterResult("BLOCKED","BINANCE_SPOT_PUBLIC",endpoint,symbol,interval,received_text,status,digest,len(raw),(),reason)
