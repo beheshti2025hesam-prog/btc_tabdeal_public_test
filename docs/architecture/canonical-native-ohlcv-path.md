@@ -94,7 +94,7 @@ A further negative case was added after review: wrapped WebSocket messages must 
 
 The separate safety-only PR #349 was closed unmerged as superseded because its fail-closed volume gate, default-disabled stream behavior and regression coverage are now included in the #346 branch. PR #346 remains Draft. No deployment or production activation occurred.
 
-Remote-access check: the only host currently visible in the connected host inventory is the previously designated non-authorized VPS, so it was not inspected or modified. Authorized VPS #1 is not currently available through the connected host inventory; actual runtime/frontend verification remains blocked pending that authorized access.
+Remote-access check (2026-10-23): there is exactly one VPS, `vps-second-261930`; do not refer to a VPS #2. The Desktop Commander session reaches this VPS as unprivileged user `hes-remote`, while the user's provider-VNC root session is not exposed to the assistant's remote execution channel. SentinelX currently lists the sole host offline. Privileged service restart and actual frontend/runtime verification remain blocked by that access boundary; no second VPS exists.
 
 
 ## Frontend-entry-point gate — 2026-10-22
@@ -103,7 +103,7 @@ Remote-access check: the only host currently visible in the connected host inven
 - PR #340 (provisional Yahoo USD-reference dashboard) was closed unmerged to remove a competing `web/dashboard.py` implementation and avoid two active UI paths. Its source-audit evidence remains in the branch/history; it is not an approved market-data source.
 - PR #346 remains Draft/unmerged as a tested chart candidate, not a production frontend integration. Its current-head browser render proves only that the branch can render and compare its own REST batch in GitHub Actions.
 - The repository's `main` README describes a Tabdeal public futures data collector and does not identify the production HES frontend entry point. The connected GitHub inventory exposes no verified alternative frontend repository.
-- The connected remote host inventory exposes only the previously disallowed VPS #2; authorized VPS #1 is unavailable. No access to or modification of the disallowed host was performed in this follow-up.
+- The connected remote host inventory contains the single VPS `vps-second-261930`; the previous wording about VPS #2 was incorrect and is withdrawn. The assistant has read-only/unprivileged shell access through Desktop Commander, but cannot access the separate root VNC session to restart the SentinelX service. SentinelX reports this same host offline; no second VPS exists.
 - Therefore the roadmap's entry-point decision remains **BLOCKED**. Do not merge a dashboard into the data-foundation repository as a substitute for locating the actual application. Request the canonical frontend repo/path and authorized VPS #1 access, with approved outbound market-data policy.
 - Current PR #346 head `2657879f1ce4c632c5f94e2e93b4117468411e16`: deterministic suite 44 passed ([run 39822079791](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39822079791)); browser-render smoke passed ([run 39822080587](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39822080587)); current-head live WebSocket smoke was **SKIPPED**. Older successful live-smoke evidence is not current-head evidence.
 - Delivery date remains 2026-11-19. The Oct 26 minimum connected chart slice is at risk until the blocker is resolved. Keep `HOLD / NO_TRADE_ONLY`.
