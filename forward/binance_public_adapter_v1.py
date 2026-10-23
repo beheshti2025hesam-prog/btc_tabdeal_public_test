@@ -2,6 +2,7 @@
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
+from decimal import Decimal, InvalidOperation
 import json, time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -49,9 +50,22 @@ def fetch_closed_klines(symbol="BTCUSDT",interval="15m",limit=100,*,base_url=BAS
             if op<=prev: raise ValueError()
             prev=op
             o,h,l,c,v,q=map(str,(item[1],item[2],item[3],item[4],item[5],item[7]))
-            if float(h)<max(float(o),float(c)) or float(l)>min(float(o),float(c)) or float(l)>float(h): raise ValueError()
+            prices = tuple(Decimal(value) for value in (o, h, l, c))
+            volumes = tuple(Decimal(value) for value in (v, q))
+            if not all(value.is_finite() and value > 0 for value in prices):
+                raise ValueError("invalid price")
+            if not all(value.is_finite() and value >= 0 for value in volumes):
+                raise ValueError("invalid volume")
+            open_price, high_price, low_price, close_price = prices
+            if high_price < max(open_price, close_price, low_price) or low_price > min(open_price, close_price, high_price):
+                raise ValueError("invalid OHLC bounds")
+            if cl < op:
+                raise ValueError("invalid candle time bounds")
+            trade_count = int(item[8])
+            if trade_count < 0:
+                raise ValueError("invalid trade count")
             candles.append(Candle(symbol,interval,op,cl,o,h,l,v,q,int(item[8]),cl<now))
-    except (ValueError,TypeError,IndexError) as exc:
+    except (ValueError,TypeError,IndexError,InvalidOperation) as exc:
         reason = "NON_MONOTONIC_CANDLES" if str(exc) == "NON_MONOTONIC_CANDLES" else "INVALID_CANDLE_DATA"
         return AdapterResult("BLOCKED","BINANCE_SPOT_PUBLIC",endpoint,symbol,interval,received_text,status,digest,len(raw),(),reason)
     closed=tuple(c for c in candles if c.closed)
