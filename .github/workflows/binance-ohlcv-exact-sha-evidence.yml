@@ -1,5 +1,7 @@
 name: Binance OHLCV Exact-SHA Live Evidence
 on:
+  push:
+    branches: ["binance-live-evidence-20261023"]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -33,7 +35,7 @@ jobs:
       - name: Capture official public Spot and USDⓈ-M raw responses
         run: |
           python - <<'PY'
-          import datetime, hashlib, json, pathlib, urllib.error, urllib.request
+          import datetime, hashlib, json, pathlib, urllib.request
           out = pathlib.Path("binance-live-evidence")
           out.mkdir()
           manifest = {
