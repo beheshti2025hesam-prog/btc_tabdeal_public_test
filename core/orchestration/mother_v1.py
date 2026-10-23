@@ -27,6 +27,13 @@ class SpecialistAgent(Protocol):
     name: str
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult: ...
 
+def _decision_value(payload: Any) -> Any:
+    """Read decision from either typed result objects or mapping payloads."""
+    if isinstance(payload, Mapping):
+        return payload.get("decision")
+    return getattr(payload, "decision", None)
+
+
 class MotherOrchestratorV1:
     """Run configured specialists in a fixed order; any unknown/error blocks downstream."""
     REQUIRED = ("data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation")
@@ -59,11 +66,13 @@ class MotherOrchestratorV1:
             if name == "risk" and result.state != "APPROVED":
                 return OrchestrationResult("BLOCKED_RISK_VETO", "NO_TRADE", tuple(stages),
                     result.reason_codes or ("RISK_VETO",), False)
-            if name == "decision" and getattr(result.payload, "decision", result.state) not in {"LONG", "SHORT", "NO_TRADE", "PASS", "READY", "CONFIRMED", "APPROVED", "OBSERVED"}:
-                return OrchestrationResult("BLOCKED_INVALID_DECISION", "NO_TRADE", tuple(stages),
-                    ("INVALID_DECISION",), False)
+            if name == "decision":
+                candidate = _decision_value(result.payload)
+                if candidate not in {"LONG", "SHORT", "NO_TRADE"}:
+                    return OrchestrationResult("BLOCKED_INVALID_DECISION", "NO_TRADE", tuple(stages),
+                        ("INVALID_DECISION",), False)
         decision_result = stages[-2] if len(stages) >= 2 else None
-        decision = getattr(decision_result.payload, "decision", None) if decision_result else None
+        decision = _decision_value(decision_result.payload) if decision_result else None
         if decision not in {"LONG", "SHORT", "NO_TRADE"}:
             decision = "NO_TRADE"
         # Orchestrator is an analysis boundary only; execution requires a separate future gate.
