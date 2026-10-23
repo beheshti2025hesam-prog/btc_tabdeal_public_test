@@ -6,7 +6,7 @@ is an optional adapter; analysis remains pure and testable.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha256
@@ -274,8 +274,9 @@ class NewsIntelligenceBrain:
                    if source["enabled"] and source["id"] in allowed_ids
                    and context.market in source["markets"]]
         if not sources:
-            return self.analyze([], context, now=now,
-                                source_failures=[f"no_enabled_sources_for_market:{context.market}"])
+            brief = self.analyze([], context, now=now,
+                                 source_failures=[f"no_enabled_sources_for_market:{context.market}"])
+            return self._attach_profile_status(brief, profile)
         items = []
         failures = []
         for source in sources:
@@ -283,7 +284,25 @@ class NewsIntelligenceBrain:
                 items.extend(fetch_rss(source["url"], source=source["name"]))
             except ValueError as exc:
                 failures.append(f"{source['id']}:{str(exc).split(':', 1)[0]}")
-        return self.analyze(items, context, now=now, source_failures=failures)
+        brief = self.analyze(items, context, now=now, source_failures=failures)
+        return self._attach_profile_status(brief, profile)
+
+    @staticmethod
+    def _attach_profile_status(brief: NewsBrief, profile: Mapping[str, object]) -> NewsBrief:
+        """Expose partial market-source coverage without claiming completeness."""
+        status = str(profile.get("status", "unknown"))
+        note = str(profile.get("note", ""))
+        provenance = dict(brief.provenance)
+        provenance["source_profile_status"] = status
+        if note:
+            provenance["source_profile_note"] = note
+        implications = list(brief.market_implications)
+        if status not in {"qualified_complete", "complete"}:
+            implications.append("News-source coverage profile is not complete: " + (note or status))
+        summary = brief.mother_agent_summary + f"; source_profile_status={status}"
+        return replace(brief, provenance=provenance,
+                       market_implications=tuple(implications),
+                       mother_agent_summary=summary)
 
     def analyze(self, items: Iterable[NewsItem], context: MarketContext,
                 *, now: datetime | None = None, source_failures: Sequence[str] = ()) -> NewsBrief:
