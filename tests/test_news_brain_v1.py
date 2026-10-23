@@ -100,6 +100,15 @@ class NewsBrainTests(unittest.TestCase):
         self.assertIn("NEWS_SOURCE_UNVERIFIED", brief.veto_flags)
         self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
 
+    def test_pipeline_fails_closed_when_no_source_is_enabled(self):
+        registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        brief = self.brain.run_from_registry(
+            registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(brief.status, "degraded")
+        self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", brief.veto_flags)
+        self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
+        self.assertTrue(brief.provenance["source_failures"])
+
     def test_registry_cannot_enable_unqualified_source(self):
         bad_registry = {
             "schema_version": "hes.news_sources.v1",
