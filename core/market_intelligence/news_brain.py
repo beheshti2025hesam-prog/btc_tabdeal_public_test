@@ -253,12 +253,13 @@ class NewsIntelligenceBrain:
     """Market-aware news ranking and compact Mother Agent handoff."""
 
     def __init__(self, *, max_age_hours: float = 72, max_findings: int = 8,
-                 high_impact_threshold: float = 0.65):
-        if max_age_hours <= 0 or max_findings < 1 or not 0 <= high_impact_threshold <= 1:
+                 high_impact_threshold: float = 0.65, min_relevance: float = 0.35):
+        if max_age_hours <= 0 or max_findings < 1 or not 0 <= high_impact_threshold <= 1 or not 0 <= min_relevance <= 1:
             raise ValueError("invalid news-brain configuration")
         self.max_age_hours = max_age_hours
         self.max_findings = max_findings
         self.high_impact_threshold = high_impact_threshold
+        self.min_relevance = min_relevance
 
     def run_from_registry(self, registry_path: str | Path, context: MarketContext,
                           *, now: datetime | None = None) -> NewsBrief:
@@ -309,6 +310,7 @@ class NewsIntelligenceBrain:
         now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         candidates: dict[str, tuple[NewsItem, datetime | None]] = {}
         stale_count = 0
+        irrelevant_count = 0
         invalid_time_count = 0
         for item in items:
             if not item.title.strip():
@@ -347,6 +349,9 @@ class NewsIntelligenceBrain:
             tagged_match = bool(explicit_tags & {market, context.symbol.casefold()})
             relevance = 0.15 + (0.40 if market_match else 0) + (0.25 if symbol_match else 0) + (0.20 if category_match else 0) + (0.25 if tagged_match else 0)
             relevance = min(1.0, relevance)
+            if relevance < self.min_relevance:
+                irrelevant_count += 1
+                continue
             positive = sum(1 for term in _POSITIVE if _contains(text, term))
             negative = sum(1 for term in _NEGATIVE if _contains(text, term))
             bias = "positive" if positive > negative else "negative" if negative > positive else "mixed_or_unknown"
@@ -427,6 +432,7 @@ class NewsIntelligenceBrain:
             veto_flags=tuple(veto_flags),
             provenance={"method": "deterministic_keyword_rules_v1", "sources_seen": len(candidates),
                         "items_returned": len(findings), "stale_items_dropped": stale_count,
+                        "irrelevant_items_dropped": irrelevant_count,
                         "invalid_timestamps": invalid_time_count, "source_failures": list(source_failures),
                         "scores_are_probabilities": False, "news_alone_can_authorize_trade": False},
         )
