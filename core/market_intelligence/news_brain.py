@@ -260,6 +260,31 @@ class NewsIntelligenceBrain:
         self.max_findings = max_findings
         self.high_impact_threshold = high_impact_threshold
 
+    def run_from_registry(self, registry_path: str | Path, context: MarketContext,
+                          *, now: datetime | None = None) -> NewsBrief:
+        """Collect from enabled market sources, then build the Mother Agent brief.
+
+        No enabled source is treated as incomplete coverage, not as evidence
+        that no news exists. Per-source failures are retained in provenance.
+        """
+        registry = load_source_registry(registry_path)
+        profile = registry.get("market_profiles", {}).get(context.market, {})
+        allowed_ids = set(profile.get("source_ids", []))
+        sources = [source for source in registry["sources"]
+                   if source["enabled"] and source["id"] in allowed_ids
+                   and context.market in source["markets"]]
+        if not sources:
+            return self.analyze([], context, now=now,
+                                source_failures=[f"no_enabled_sources_for_market:{context.market}"])
+        items = []
+        failures = []
+        for source in sources:
+            try:
+                items.extend(fetch_rss(source["url"], source=source["name"]))
+            except ValueError as exc:
+                failures.append(f"{source['id']}:{str(exc).split(':', 1)[0]}")
+        return self.analyze(items, context, now=now, source_failures=failures)
+
     def analyze(self, items: Iterable[NewsItem], context: MarketContext,
                 *, now: datetime | None = None, source_failures: Sequence[str] = ()) -> NewsBrief:
         now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
