@@ -123,7 +123,7 @@ _HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "h
                 "bankruptcy", "liquidation", "فوری")
 _MARKET_ALIASES = {
     "crypto": ("bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
-               "stablecoin", "blockchain", "بیت کوین", "رمزارز"),
+               "stablecoin", "blockchain", "binance", "coinbase", "kraken", "bybit", "okx", "بیت کوین", "رمزارز"),
     "fx": ("forex", "currency", "dollar", "euro", "yen", "gbp", "eur/usd", "usd/jpy", "dxy"),
     "equities": ("stock", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
     "iran_equities": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc"),
@@ -340,7 +340,7 @@ class NewsIntelligenceBrain:
             market_match = any(term and _contains(text, term) for term in aliases)
             symbol_match = bool(context.symbol and _contains(text, context.symbol.casefold()))
             category_match = (
-                market == "crypto" and any(c in categories for c in ("crypto_market", "regulation", "security", "exchange", "monetary_policy", "macro"))
+                market == "crypto" and any(c in categories for c in ("crypto_market", "regulation", "security", "monetary_policy", "macro"))
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
