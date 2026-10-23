@@ -46,7 +46,7 @@ The two bridge models are not assumed to be equivalent. Before adapting PR #345,
 4. **Share the same batch.** The chart and feature pipeline must consume the same normalized batch and market identity, not separately fetched or differently normalized candles.
 5. **Retain #349 safety gates.** Volume-dependent decisions remain unavailable unless volume semantics are explicitly approved. Preserve raw source volume; do not add a guessed multiplier. Stream startup remains disabled by default.
 6. **Test before proposing code integration.** Add/retain contract tests for market/symbol/interval identity, Decimal precision, open versus closed candles, duplicate and stale events, REST/stream reconciliation, missing intervals, malformed volume, and default-disabled stream startup.
-7. **Do not imply production readiness.** The actual frontend repository/entry point and authorized VPS #1 execution environment remain separate delivery blockers until evidenced. A CI-rendered dashboard is not proof that the actual HES frontend is integrated.
+7. **Do not imply production readiness.** The actual frontend repository/entry point and sole VPS execution environment remain separate delivery blockers until evidenced. A CI-rendered dashboard is not proof that the actual HES frontend is integrated.
 
 ## Acceptance evidence required
 
@@ -55,7 +55,7 @@ The two bridge models are not assumed to be equivalent. Before adapting PR #345,
 - Reproducible chart capture tied to the same symbol, interval and UTC window as the normalized source data.
 - REST/WebSocket gap recovery and stale-session isolation evidence.
 - Volume semantics documented from authoritative evidence before volume-dependent decisions can be enabled.
-- Actual frontend repository and entry point identified, plus authorized read-only/non-trading test access to VPS #1.
+- Actual frontend repository and entry point identified, plus authorized read-only/non-trading test access to the sole VPS.
 - No merge, deployment, collector activation, order placement, or trading as part of this ADR.
 
 ## Explicit non-goals
@@ -78,7 +78,7 @@ On `feat/native-ohlcv-dashboard-single-path-20261021`, exact head `a2f5940d28d75
 - Dashboard stream state reports `disabled` by default and changes to `starting` only when `HES_BINANCE_STREAM_ENABLED=1`; a regression test asserts that the default path does not start a worker thread.
 - Exact-head deterministic dashboard/source/feature/WebSocket/transport/reconciliation suite: **44 passed** (workflow run [39819029660](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39819029660)).
 - Exact-head browser render smoke: **passed** (workflow run [39819029616](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39819029616)). The evidence records 239 closed BTCUSDT Spot 1m candles, a 1028×362 chart canvas, chart-input/API-batch equality, displayed close and raw volume matching the same batch, no external chart CDN request, and execution disabled. UI status was `FEATURES GATED: VOLUME_SEMANTICS_UNAPPROVED · stream disabled`.
-- Live WebSocket smoke was **skipped** because the PR remains Draft. This CI render is not proof of integration into the actual HES frontend or connectivity on authorized VPS #1.
+- Live WebSocket smoke was **skipped** because the PR remains Draft. This CI render is not proof of integration into the actual HES frontend or connectivity on the sole VPS.
 
 This is branch-level verification only: no PR merged, no production deployment, no live collector or WebSocket started, and no order/trading path enabled. Overall status remains `HOLD / NO_TRADE_ONLY`.
 
@@ -94,7 +94,7 @@ A further negative case was added after review: wrapped WebSocket messages must 
 
 The separate safety-only PR #349 was closed unmerged as superseded because its fail-closed volume gate, default-disabled stream behavior and regression coverage are now included in the #346 branch. PR #346 remains Draft. No deployment or production activation occurred.
 
-Remote-access check (2026-10-23): there is exactly one VPS, `vps-second-261930`; do not refer to a VPS #2. The Desktop Commander session reaches this VPS as unprivileged user `hes-remote`, while the user's provider-VNC root session is not exposed to the assistant's remote execution channel. SentinelX currently lists the sole host offline. Privileged service restart and actual frontend/runtime verification remain blocked by that access boundary; no second VPS exists.
+Remote-access check (2026-10-23): there is exactly one VPS, `vps-second-261930`; do not number the host as a second VPS. The Desktop Commander session reaches this VPS as unprivileged user `hes-remote`, while the user's provider-VNC root session is not exposed to the assistant's remote execution channel. SentinelX currently lists the sole host offline. Privileged service restart and actual frontend/runtime verification remain blocked by that access boundary; no second VPS exists.
 
 
 ## Frontend-entry-point gate — 2026-10-22
@@ -103,8 +103,8 @@ Remote-access check (2026-10-23): there is exactly one VPS, `vps-second-261930`;
 - PR #340 (provisional Yahoo USD-reference dashboard) was closed unmerged to remove a competing `web/dashboard.py` implementation and avoid two active UI paths. Its source-audit evidence remains in the branch/history; it is not an approved market-data source.
 - PR #346 remains Draft/unmerged as a tested chart candidate, not a production frontend integration. Its current-head browser render proves only that the branch can render and compare its own REST batch in GitHub Actions.
 - The repository's `main` README describes a Tabdeal public futures data collector and does not identify the production HES frontend entry point. The connected GitHub inventory exposes no verified alternative frontend repository.
-- The connected remote host inventory contains the single VPS `vps-second-261930`; the previous wording about VPS #2 was incorrect and is withdrawn. The assistant has read-only/unprivileged shell access through Desktop Commander, but cannot access the separate root VNC session to restart the SentinelX service. SentinelX reports this same host offline; no second VPS exists.
-- Therefore the roadmap's entry-point decision remains **BLOCKED**. Do not merge a dashboard into the data-foundation repository as a substitute for locating the actual application. Request the canonical frontend repo/path and authorized VPS #1 access, with approved outbound market-data policy.
+- The connected remote host inventory contains the single VPS `vps-second-261930`; the previous numbered-host wording was incorrect and is withdrawn. The assistant has read-only/unprivileged shell access through Desktop Commander, but cannot access the separate root VNC session to restart the SentinelX service. SentinelX reports this same host offline; no second VPS exists.
+- Therefore the roadmap's entry-point decision remains **BLOCKED**. Do not merge a dashboard into the data-foundation repository as a substitute for locating the actual application. Request the canonical frontend repo/path and authorized access to the sole VPS, with approved outbound market-data policy.
 - Current PR #346 head `2657879f1ce4c632c5f94e2e93b4117468411e16`: deterministic suite 44 passed ([run 39822079791](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39822079791)); browser-render smoke passed ([run 39822080587](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39822080587)); current-head live WebSocket smoke was **SKIPPED**. Older successful live-smoke evidence is not current-head evidence.
 - Delivery date remains 2026-11-19. The Oct 26 minimum connected chart slice is at risk until the blocker is resolved. Keep `HOLD / NO_TRADE_ONLY`.
 
