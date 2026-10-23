@@ -1,7 +1,8 @@
 import unittest
+from pathlib import Path
 from datetime import datetime, timezone
 
-from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain, NewsItem, fetch_rss
+from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain, NewsItem, fetch_rss, load_source_registry
 
 NOW = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
 
@@ -68,6 +69,15 @@ class NewsBrainTests(unittest.TestCase):
         brief = self.brain.analyze([], MarketContext("fx", "EURUSD", "range"), now=NOW)
         self.assertIn('"schema_version": "hes.news_brief.v1"', brief.to_json())
         self.assertIn('"news_alone_can_authorize_trade": false', brief.to_json())
+
+    def test_registry_is_disabled_until_source_qualification(self):
+        registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        registry = load_source_registry(registry_path)
+        self.assertEqual(registry["schema_version"], "hes.news_sources.v1")
+        self.assertTrue(registry["sources"])
+        self.assertTrue(all(source["enabled"] is False for source in registry["sources"]))
+        self.assertEqual(registry["market_profiles"]["iran_equities"]["status"],
+                         "blocked_no_qualified_source")
 
     def test_non_https_feed_rejected_before_network(self):
         with self.assertRaisesRegex(ValueError, "HTTPS"):
