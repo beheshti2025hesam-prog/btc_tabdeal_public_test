@@ -30,10 +30,18 @@ Maintain a separate registry containing source name, URL, market coverage, langu
 
 ## Initial source registry status (2026-10-23)
 
-`config/news_sources_v1.json` records disabled candidates only. The official feed directory pages establish that the following feeds are published by their respective institutions; target-runtime reachability and parsing have not been tested, so none is enabled:
-- Federal Reserve press releases and monetary-policy feeds: https://www.federalreserve.gov/feeds/feeds.htm
-- SEC press-release RSS: https://www.sec.gov/newsroom/press-releases
+`config/news_sources_v1.json` is an explicit source registry, not an auto-discovery list. A read-only probe from the authorized VPS verified:
+- **Enabled / qualified:** CFTC general press-release RSS (`HTTP 200`, XML parsed, 10 items) and ECB Market Information Dissemination RSS (`HTTP 200`, XML parsed, 20 items; newest item was about 2.44 hours old at probe time). The ECB's official integration guide says MID uses RSS and that MID-published information is public domain.
+- **Disabled:** Federal Reserve all-press feed parsed but its newest item was about 171 hours old; the monetary-policy feed returned malformed XML (unclosed CDATA); SEC RSS and Cointelegraph timed out during TLS handshakes; the legacy ECB press RSS endpoint also timed out.
+- **CoinDesk disabled for policy, despite a successful feed parse:** its published Terms of Use restrict automated access by robots/spiders/scrapers without express written permission. Do not use it unless that permission is confirmed.
+- **Iran equities blocked:** no Iranian-market news source has been qualified. Do not imply domestic coverage.
+
+The current crypto profile is explicitly `partial_official_macro_regulatory_only`: it has official macro/regulatory feeds but no qualified crypto-native newswire. Article freshness is independently filtered (72-hour default), and stale/irrelevant items are counted and excluded. These probe results establish connectivity only for the observed moment, not permanent availability.
+
+Official source references:
+- Federal Reserve RSS directory: https://www.federalreserve.gov/feeds/feeds.htm
+- SEC press-release RSS page: https://www.sec.gov/newsroom/press-releases
 - CFTC RSS directory: https://www.cftc.gov/RSS/index.htm
 - ECB RSS directory: https://www.ecb.europa.eu/home/html/rss.en.html
-
-CoinDesk and Cointelegraph are marked secondary-media candidates, not primary sources and not qualified. The Iran-equities profile is explicitly blocked because no domestic source has been qualified; the module must not imply Iranian market-news coverage. Before enabling any source, verify source ownership, feed parsing, freshness, terms/rate limits and reachability from the authorized runtime.
+- ECB MID integration guide: https://www.ecb.europa.eu/press/shared/pdf/MID-Catalogue-and-Integration-Guide.en.pdf
+- CoinDesk Terms of Use: https://www.coindesk.com/terms
