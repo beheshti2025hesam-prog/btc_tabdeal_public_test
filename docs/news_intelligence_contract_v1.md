@@ -23,3 +23,13 @@ Maintain a separate registry containing source name, URL, market coverage, langu
 3. Caller supplies regime/symbol from the canonical analysis path; this module does not fetch market data.
 4. Do not wire into live decisions until tests pass, feed-source policy is reviewed, source failures reach Mother Agent, and integration tests prove Risk Gate veto remains dominant.
 5. This PR does not schedule feeds or enable a live process. Runtime integration and target-VPS connectivity remain separate gates.
+
+## Initial source registry status (2026-10-23)
+
+`config/news_sources_v1.json` records disabled candidates only. The official feed directory pages establish that the following feeds are published by their respective institutions; target-runtime reachability and parsing have not been tested, so none is enabled:
+- Federal Reserve press releases and monetary-policy feeds: https://www.federalreserve.gov/feeds/feeds.htm
+- SEC press-release RSS: https://www.sec.gov/newsroom/press-releases
+- CFTC RSS directory: https://www.cftc.gov/RSS/index.htm
+- ECB RSS directory: https://www.ecb.europa.eu/home/html/rss.en.html
+
+CoinDesk and Cointelegraph are marked secondary-media candidates, not primary sources and not qualified. The Iran-equities profile is explicitly blocked because no domestic source has been qualified; the module must not imply Iranian market-news coverage. Before enabling any source, verify source ownership, feed parsing, freshness, terms/rate limits and reachability from the authorized runtime.
