@@ -28,5 +28,22 @@ def test_non_monotonic():
 @pytest.mark.parametrize("kw",[{"symbol":"BTC USDT"},{"interval":"10m"},{"limit":0},{"limit":1001}])
 def test_bad_args(kw):
  with pytest.raises(ValueError): fetch_closed_klines(**kw)
+def test_non_finite_price_fails_closed():
+    bad = [row(0, 899999)]
+    bad[0][2] = "NaN"
+    r = fetch_closed_klines(opener=fake(json.dumps(bad).encode()), now_ms=lambda: 999999)
+    assert r.status == "BLOCKED" and r.reason_code == "INVALID_CANDLE_DATA" and not r.candles
+
+def test_negative_volume_fails_closed():
+    bad = [row(0, 899999)]
+    bad[0][5] = "-1"
+    r = fetch_closed_klines(opener=fake(json.dumps(bad).encode()), now_ms=lambda: 999999)
+    assert r.status == "BLOCKED" and r.reason_code == "INVALID_CANDLE_DATA" and not r.candles
+
+def test_close_time_before_open_time_fails_closed():
+    bad = [row(900000, 899999)]
+    r = fetch_closed_klines(opener=fake(json.dumps(bad).encode()), now_ms=lambda: 9999999)
+    assert r.status == "BLOCKED" and r.reason_code == "INVALID_CANDLE_DATA" and not r.candles
+
 def test_empty_fail_closed():
  r=fetch_closed_klines(opener=fake(b"[]")); assert r.reason_code=="NO_CLOSED_CANDLES"
