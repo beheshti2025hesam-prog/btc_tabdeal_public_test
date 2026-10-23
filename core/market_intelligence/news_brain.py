@@ -80,6 +80,21 @@ class NewsBrief:
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, sort_keys=True)
 
+    def to_mother_payload(self) -> dict:
+        """Return the compact, explicit handoff consumed by Mother Agent."""
+        return {
+            "schema_version": self.schema_version,
+            "status": self.status,
+            "context": dict(self.context),
+            "summary": self.mother_agent_summary,
+            "market_implications": list(self.market_implications),
+            "suggested_action": self.suggested_action,
+            "veto_flags": list(self.veto_flags),
+            "top_findings": [asdict(item) for item in self.findings[:3]],
+            "provenance": dict(self.provenance),
+            "news_alone_can_authorize_trade": False,
+        }
+
 
 # Small, inspectable lexicons. Scores are heuristics, not calibrated probabilities.
 _CATEGORY_TERMS = {
