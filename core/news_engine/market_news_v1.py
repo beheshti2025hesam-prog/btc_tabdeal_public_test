@@ -65,7 +65,7 @@ def analyze_news(items:Iterable[NewsItem|Mapping],*,market_profile:str,assets:It
   score=_score(text); impact="HIGH" if any(t in text.casefold() for t in HIGH) else "MEDIUM" if abs(score)>=.45 else "LOW"
   if impact=="HIGH": high=True
   fresh=age is not None and -5<=age<=freshness_minutes
-  eligible_item=fresh and verified and tier in WEIGHT and relevance>=min_relevance
+  eligible_item=fresh and verified and tier in WEIGHT and tier!="UNVERIFIED" and relevance>=min_relevance
   if eligible_item:
    eligible+=1; w=WEIGHT[tier]*relevance*max(.2,1-age/max(1,freshness_minutes))
    total_score+=score*w; total_weight+=w
