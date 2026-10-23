@@ -30,8 +30,9 @@ class NewsBrainTests(unittest.TestCase):
         items = [NewsItem("Local football club announces coach", source="A", url="https://a.test/1"),
                  NewsItem("Bitcoin ETF sees large inflows", source="B", url="https://b.test/2")]
         brief = self.brain.analyze(items, MarketContext("crypto", "BTCUSDT", "uptrend"), now=NOW)
+        self.assertEqual(len(brief.findings), 1)
         self.assertEqual(brief.findings[0].title, "Bitcoin ETF sees large inflows")
-        self.assertGreater(brief.findings[0].relevance, brief.findings[1].relevance)
+        self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
 
     def test_duplicate_url_deduplicates(self):
         items = [NewsItem("Bitcoin ETF inflows", source="A", url="https://a.test/story"),
