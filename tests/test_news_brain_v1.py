@@ -89,7 +89,12 @@ class NewsBrainTests(unittest.TestCase):
         registry = load_source_registry(registry_path)
         self.assertEqual(registry["schema_version"], "hes.news_sources.v1")
         self.assertTrue(registry["sources"])
-        self.assertTrue(all(source["enabled"] is False for source in registry["sources"]))
+        enabled = [source for source in registry["sources"] if source["enabled"]]
+        self.assertEqual({source["id"] for source in enabled},
+                         {"ecb_press_releases", "cftc_general_press_releases"})
+        self.assertTrue(all(source["qualification_status"] == "qualified" for source in enabled))
+        self.assertFalse(next(source for source in registry["sources"]
+                              if source["id"] == "coindesk_news")["enabled"])
         self.assertEqual(registry["market_profiles"]["iran_equities"]["status"],
                          "blocked_no_qualified_source")
 
@@ -103,11 +108,12 @@ class NewsBrainTests(unittest.TestCase):
     def test_pipeline_fails_closed_when_no_source_is_enabled(self):
         registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
         brief = self.brain.run_from_registry(
-            registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+            registry_path, MarketContext("iran_equities", "TSE", "unknown"), now=NOW)
         self.assertEqual(brief.status, "degraded")
         self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", brief.veto_flags)
         self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
         self.assertTrue(brief.provenance["source_failures"])
+        self.assertEqual(brief.provenance["source_profile_status"], "blocked_no_qualified_source")
 
     def test_registry_cannot_enable_unqualified_source(self):
         bad_registry = {
