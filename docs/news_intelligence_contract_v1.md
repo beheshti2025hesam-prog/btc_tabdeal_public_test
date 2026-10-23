@@ -17,6 +17,10 @@ Maintain a separate registry containing source name, URL, market coverage, langu
 ## Mother Agent handoff
 `NewsBrief` serializes as `hes.news_brief.v1` JSON: market context; status (`ok`, `degraded`, `no_relevant_news`); ranked findings; conditional market implications; suggested action (`NO_TRADE_PENDING_CONFIRMATION` or `CONTEXT_ONLY`); veto flags; and provenance including the explicit rule that scores are not probabilities and news alone cannot authorize a trade.
 
+## Decision-boundary adapter
+
+`forward/news_decision_gate_v1.py` provides the optional `apply_news_veto(decision, brief)` boundary. Call it after the ordinary `DecisionEngineV1.evaluate` result and before journaling or dispatch. A high-impact item, source-coverage failure, unverified source, suspicious timestamp, unknown schema or non-context-only action converts a directional LONG/SHORT result to `NO_TRADE`; an existing `NO_TRADE` remains unchanged. The adapter does not change the existing DecisionEngine or RiskPolicy and never submits orders. It is implemented and unit-tested as a callable boundary, but the live Mother Orchestrator call site has not been verified or wired because the actual application entry point is not present in the inspected VPS project tree.
+
 ## Limitations and acceptance gates
 1. Keyword rules can miss nuance, sarcasm, negation, translations, syndication duplicates and novel events. Direction stays `mixed_or_unknown` unless simple positive/negative terms differ.
 2. A source URL does not prove authority; source registry qualification is separate.
