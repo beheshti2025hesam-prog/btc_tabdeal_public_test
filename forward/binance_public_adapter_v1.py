@@ -51,8 +51,9 @@ def fetch_closed_klines(symbol="BTCUSDT",interval="15m",limit=100,*,base_url=BAS
             o,h,l,c,v,q=map(str,(item[1],item[2],item[3],item[4],item[5],item[7]))
             if float(h)<max(float(o),float(c)) or float(l)>min(float(o),float(c)) or float(l)>float(h): raise ValueError()
             candles.append(Candle(symbol,interval,op,cl,o,h,l,v,q,int(item[8]),cl<now))
-    except (ValueError,TypeError,IndexError):
-        return AdapterResult("BLOCKED","BINANCE_SPOT_PUBLIC",endpoint,symbol,interval,received_text,status,digest,len(raw),(),"INVALID_CANDLE_DATA")
+    except (ValueError,TypeError,IndexError) as exc:
+        reason = "NON_MONOTONIC_CANDLES" if str(exc) == "NON_MONOTONIC_CANDLES" else "INVALID_CANDLE_DATA"
+        return AdapterResult("BLOCKED","BINANCE_SPOT_PUBLIC",endpoint,symbol,interval,received_text,status,digest,len(raw),(),reason)
     closed=tuple(c for c in candles if c.closed)
     if not closed: return AdapterResult("BLOCKED","BINANCE_SPOT_PUBLIC",endpoint,symbol,interval,received_text,status,digest,len(raw),(),"NO_CLOSED_CANDLES")
     return AdapterResult("OK","BINANCE_SPOT_PUBLIC",endpoint,symbol,interval,received_text,status,digest,len(raw),closed)
