@@ -182,6 +182,16 @@ class StrategyEvidenceProviderV1:
     MINIMUM_HTF_CANDLES = 200
     MAX_SOURCE_FETCH_SKEW_MS = 300_000
 
+    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT"),)):
+        self.allowed_scopes = tuple(tuple(scope) for scope in allowed_scopes)
+        if not self.allowed_scopes or any(
+            len(scope) != 3 or any(not isinstance(value, str) or not value for value in scope)
+            for scope in self.allowed_scopes
+        ):
+            raise ValueError("allowed_scopes must contain venue/product/symbol triples")
+        if any(scope[:2] != ("binance", "spot") for scope in self.allowed_scopes):
+            raise ValueError("this provider requires a source-specific provider for non-Binance-Spot volume semantics")
+
     @staticmethod
     def _check(name, state, ref, digest, observed_at):
         return StrategyEvidenceCheckV1(
@@ -208,10 +218,11 @@ class StrategyEvidenceProviderV1:
     ) -> StrategyEvidenceBundleV1:
         validate_native_batch(candles_15m)
         validate_native_batch(candles_4h)
-        expected = ("binance", "spot", "BTCUSDT")
-        if (candles_15m.venue, candles_15m.product, candles_15m.symbol) != expected:
+        scope_15m = (candles_15m.venue, candles_15m.product, candles_15m.symbol)
+        scope_4h = (candles_4h.venue, candles_4h.product, candles_4h.symbol)
+        if scope_15m not in self.allowed_scopes:
             raise ValueError("unsupported 15m strategy source scope")
-        if (candles_4h.venue, candles_4h.product, candles_4h.symbol) != expected:
+        if scope_4h not in self.allowed_scopes:
             raise ValueError("unsupported 4h strategy source scope")
         if candles_15m.interval != "15m" or candles_4h.interval != "4h":
             raise ValueError("strategy provider requires 15m and 4h batches")
