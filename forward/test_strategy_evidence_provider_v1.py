@@ -6,7 +6,9 @@ import math
 import pytest
 
 from forward.native_ohlcv_v1 import NativeCandle, NativeOHLCVBatch, INTERVAL_MS, CandleGap
-from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1, mfi14, adx14, _evidence_window_sha256
+from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1, mfi14, adx14, _evidence_window_sha256, detect_mfi_divergence
+from forward.market_structure_v1 import SwingPoint
+from forward.native_ohlcv_feature_adapter_v1 import to_feature_batch
 
 
 def make_batch(interval, now_ms, *, symbol="BTCUSDT", venue="binance", product="spot", count=240, digest="a"):
@@ -179,3 +181,34 @@ def test_provider_reuses_same_logic_for_an_explicitly_approved_spot_symbol():
 def test_provider_does_not_allow_unverified_non_binance_volume_profiles():
     with pytest.raises(ValueError, match="source-specific provider"):
         StrategyEvidenceProviderV1(allowed_scopes=(("wallex", "spot", "BTCUSDT"),))
+
+
+def test_mfi_divergence_supports_bullish_and_bearish_alternatives():
+    now = 1_800_000_000_000
+    batch = make_batch("15m", now, count=80)
+    core = to_feature_batch(batch, as_of_ms=now, now_ms=now).candles
+
+    bullish_swings = (
+        SwingPoint("SWING_LOW", Decimal("100"), core[30].end, 1),
+        SwingPoint("SWING_LOW", Decimal("90"), core[60].end, 2),
+    )
+    bullish_mfi = [None] * len(core)
+    bullish_mfi[30], bullish_mfi[60] = 25.0, 35.0
+    assert detect_mfi_divergence(
+        core, bullish_swings, direction="BULLISH", mfi_values=bullish_mfi
+    ) is True
+
+    bearish_swings = (
+        SwingPoint("SWING_HIGH", Decimal("110"), core[30].end, 1),
+        SwingPoint("SWING_HIGH", Decimal("120"), core[60].end, 2),
+    )
+    bearish_mfi = [None] * len(core)
+    bearish_mfi[30], bearish_mfi[60] = 80.0, 65.0
+    assert detect_mfi_divergence(
+        core, bearish_swings, direction="BEARISH", mfi_values=bearish_mfi
+    ) is True
+
+    bearish_mfi[60] = 85.0
+    assert detect_mfi_divergence(
+        core, bearish_swings, direction="BEARISH", mfi_values=bearish_mfi
+    ) is False
