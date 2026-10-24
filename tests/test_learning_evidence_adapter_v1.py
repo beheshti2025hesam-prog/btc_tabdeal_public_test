@@ -7,6 +7,7 @@ from forward.forward_observation_writer_v1 import canonical_json
 from forward.learning_evidence_adapter_v1 import (
     build_report_from_artifacts,
     record_signal_decision,
+    record_forward_outcome,
 )
 
 
@@ -30,7 +31,7 @@ def record_decision(path, decision="NO_TRADE"):
     )
 
 
-def outcome_record(decision_event_id, outcome="WIN"):
+def outcome_record(decision_event_id, decision_digest, outcome="WIN"):
     row = {
         "artifact_type": "FORWARD_OUTCOME",
         "outcome_event_id": "outcome-1",
@@ -40,6 +41,8 @@ def outcome_record(decision_event_id, outcome="WIN"):
         "source_period": "forward",
         "execution": "OFF",
         "evidence_ref": "independent-forward-close-record",
+        "evidence_sha256": "d" * 64,
+        "decision_digest": decision_digest,
     }
     row["digest"] = sha256(canonical_json(row).encode("utf-8")).hexdigest()
     return row
@@ -67,7 +70,7 @@ def test_separate_verified_outcome_joins_to_decision(tmp_path):
     recorded = record_decision(path, decision="LONG")
     report = build_report_from_artifacts(
         read_decisions(path),
-        [outcome_record(recorded.event_id, "LOSS")],
+        [outcome_record(recorded.event_id, recorded.digest, "LOSS")],
         min_group_size=1,
     )
     assert report.eligible_closed_trade_count == 1
@@ -81,7 +84,7 @@ def test_no_trade_cannot_receive_closed_trade_outcome(tmp_path):
     with pytest.raises(ValueError, match="NO_TRADE_CANNOT_HAVE_TRADE_OUTCOME"):
         build_report_from_artifacts(
             read_decisions(path),
-            [outcome_record(recorded.event_id, "WIN")],
+            [outcome_record(recorded.event_id, recorded.digest, "WIN")],
         )
 
 
@@ -89,7 +92,7 @@ def test_unknown_decision_reference_is_rejected(tmp_path):
     path = tmp_path / "decisions.jsonl"
     record_decision(path, decision="LONG")
     with pytest.raises(ValueError, match="outcome_without_known_forward_decision"):
-        build_report_from_artifacts(read_decisions(path), [outcome_record("missing-event")])
+        build_report_from_artifacts(read_decisions(path), [outcome_record("missing-event", "d" * 64)])
 
 
 def test_modified_decision_digest_is_rejected(tmp_path):
@@ -104,7 +107,7 @@ def test_modified_decision_digest_is_rejected(tmp_path):
 def test_modified_outcome_digest_is_rejected(tmp_path):
     path = tmp_path / "decisions.jsonl"
     recorded = record_decision(path, decision="LONG")
-    outcome = outcome_record(recorded.event_id)
+    outcome = outcome_record(recorded.event_id, recorded.digest)
     outcome["outcome"] = "LOSS"
     with pytest.raises(ValueError, match="outcome_digest_mismatch"):
         build_report_from_artifacts(read_decisions(path), [outcome])
@@ -142,4 +145,51 @@ def test_conflicting_duplicate_decision_event_fails_closed(tmp_path):
             market_regime="UNKNOWN",
             rejected_at="",
             reason_codes=[],
+        )
+
+
+def test_outcome_writer_requires_existing_long_short_decision_and_is_idempotent(tmp_path):
+    decision_path = tmp_path / "decisions.jsonl"
+    outcome_path = tmp_path / "outcomes.jsonl"
+    recorded = record_decision(decision_path, decision="LONG")
+    kwargs = dict(
+        decision_journal_path=decision_path,
+        decision_event_id=recorded.event_id,
+        outcome="WIN",
+        closed_at="2026-10-24T12:30:00+00:00",
+        evidence_ref="independent-forward-close-record",
+        evidence_sha256="e" * 64,
+    )
+    first = record_forward_outcome(outcome_path, **kwargs)
+    second = record_forward_outcome(outcome_path, **kwargs)
+    assert first.status == "RECORDED"
+    assert second.status == "ALREADY_RECORDED"
+    rows = [json.loads(line) for line in outcome_path.read_text().splitlines()]
+    assert len(rows) == 1
+    assert rows[0]["decision_digest"] == recorded.digest
+
+
+def test_outcome_writer_rejects_predecision_close_and_no_trade(tmp_path):
+    decision_path = tmp_path / "decisions.jsonl"
+    outcome_path = tmp_path / "outcomes.jsonl"
+    with pytest.raises(ValueError, match="NO_TRADE_CANNOT_HAVE_TRADE_OUTCOME"):
+        record_forward_outcome(
+            outcome_path,
+            decision_journal_path=decision_path,
+            decision_event_id=record_decision(decision_path).event_id,
+            outcome="WIN",
+            closed_at="2026-10-24T12:30:00+00:00",
+            evidence_ref="independent-forward-close-record",
+            evidence_sha256="e" * 64,
+        )
+    recorded = record_decision(decision_path, decision="LONG")
+    with pytest.raises(ValueError, match="outcome_precedes_decision"):
+        record_forward_outcome(
+            outcome_path,
+            decision_journal_path=decision_path,
+            decision_event_id=recorded.event_id,
+            outcome="LOSS",
+            closed_at="2026-10-24T11:00:00+00:00",
+            evidence_ref="independent-forward-close-record",
+            evidence_sha256="e" * 64,
         )
