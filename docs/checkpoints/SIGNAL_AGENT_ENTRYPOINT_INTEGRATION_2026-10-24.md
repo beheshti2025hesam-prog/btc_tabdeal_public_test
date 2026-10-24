@@ -58,3 +58,12 @@ Integration head when opened: `7b59c4462da8d9b88837fdf3829979e42615099a`.
 - Fixed the scope mismatch: the active profile is explicitly `binance / spot / BTCUSDT / 15m`; prior candidate policy used `BTC_USDT`, which could never match the dashboard's Binance symbol. Spot/Futures are not aliased.
 - The existing dashboard calls the same Signal Agent and surfaces strategy policy state/count/hash. Because no validated strategy-evidence provider is wired yet, the live route must continue to report UNKNOWN/BLOCKED and NO_TRADE. Synthetic unit tests prove contract mechanics, not real signal quality.
 - PR remains Draft/HOLD, no merge/deployment/collector activation/order placement. Delivery target remains 2026-11-19; risk checkpoint 2026-10-26.
+
+
+### Strategy evidence provider follow-up
+
+The current branch now includes `forward/strategy_evidence_provider_v1.py`. It consumes canonical closed Binance Spot BTCUSDT 15m + 4h native OHLCV from the existing source/cache, reuses the existing EMA and confirmed-swing calculators, and supplies six provenance-bound checks to StrategyPolicyV1. MFI14 and ADX14 are implemented only because no repository implementation existed. The provider fails closed on gaps, stale data, insufficient history, wrong venue/product/symbol/timeframe, or unknown direction.
+
+The existing dashboard calls this provider and exposes strategy quality, pass count, policy version and evidence digest. The decision remains NO_TRADE because account/venue risk context remains UNKNOWN and execution symbol mapping is not approved. No order API or account access was added. Binance Spot volume approval is source-specific to the official documented base/quote volume fields; do not carry it over to Wallex or other venues.
+
+Implementation baselines are versioned: 4h close + EMA50/EMA200 alignment; MFI14 >50 bullish / <50 bearish; ADX14 >=20 with directional DI; 15m EMA50 or confirmed-swing pullback/retest; confirmed swing break; stop at last opposite swing with 3R target. Quorum is 5/6, but risk geometry is always mandatory and any UNKNOWN check blocks the overall quality gate.
