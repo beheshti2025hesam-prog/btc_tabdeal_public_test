@@ -20,7 +20,7 @@
 - Full VPS test suite on the current working tree: **398 passed**. Focused risk/firewall/market-data suite: **44 passed**.
 - Gate.io public 15m/1h/4h data-only services were active when checked on 2026-10-24. The 24-hour read-only soak process is running but has **not** completed and is not a pass. Separate reconnect/restart fault-injection evidence is outstanding.
 - Original PR #363 exact candidate head `9a88f959e5f5038211c968cf331c50c7a1a80e4a`: execution-gate/adapter/journal tests passed (29); dashboard/native-path and browser render workflows succeeded. Live WebSocket smoke was **skipped**, not passed. These are historical results, not proof for the re-stacked branch.
-- Replacement PR #366 is based on exact PR #362 head `eccbfe19af37d8629070a2c1788d4c6a73824df1`. At checkpoint update, execution-gate tests and browser-render smoke are running, dashboard/native-path passed, and live WebSocket smoke was skipped. Exact-head CI is not yet complete.
+- Replacement PR #366 is based on exact PR #362 head `eccbfe19af37d8629070a2c1788d4c6a73824df1`. On code/test head `6e02f3c044acdeb60593dc84162cce7d68818881`, execution gate/journal/adapter tests **PASS, 32 tests** ([run 40093527676]); dashboard/native path **PASS** ([run 40093527614]); browser chart render and same-batch API comparison **PASS** ([run 40093527598]); live WebSocket smoke **SKIPPED**, not passed ([run 40093527642]). Only checkpoint documentation changed after this tested code/test head.
 - PR #362 candidate head `69165f832285118d932779a95e4f849320be978f`: Signal Agent contract/regression and dashboard/browser workflows succeeded; live WebSocket smoke was **skipped**, not passed.
 
 ## Risk and execution invariants
@@ -66,3 +66,13 @@ Memory/checkpoints are the project map; GitHub is technical source of truth; cha
 ## Delivery management
 
 Target remains **2026-11-19**. The **2026-10-26** risk checkpoint remains active until source reachability, target-runtime product wiring, soak/fault-injection, venue qualification, and independent review have evidence-backed closure. Resolver code/test coverage is implemented, but does not remove those operational gates. Do not claim the risk/product/analysis sections fully complete before these gates pass.
+
+
+## Execution-boundary regression review — 2026-10-24
+
+- PR #363 was closed unmerged after its branch was found 50 commits ahead / 84 behind the current Signal Agent branch. PR #366 is the replacement, cleanly based on PR #362 head `eccbfe19af37d8629070a2c1788d4c6a73824df1`; it remains Draft/HOLD.
+- Review found stale venue snapshots could regress the journal's cumulative filled quantity or replace a known partial-fill state with UNKNOWN. Added fail-closed checks and tests for decreasing cumulative fills, UNKNOWN after known ACKNOWLEDGED/PARTIALLY_FILLED, and conflicting venue order IDs.
+- File-backed SQLite journal now rejects `:memory:` mode because it is not durable across independent connections and configures `PRAGMA synchronous=FULL`.
+- Exact code/test head `6e02f3c044acdeb60593dc84162cce7d68818881`: execution contract suite **32 passed**; dashboard/native path **PASS**; browser render and same-batch API comparison **PASS**; live WebSocket smoke **SKIPPED**.
+- Current PR #366 remains unmerged. PR #297, #346, #361, and #362 remain open Draft with no submitted reviews. Do not merge out of order or assume a passing GitHub runner proves target-VPS reachability.
+- Still open: selected venue's official API evidence, verified symbol/instrument rules, concrete venue adapter, read-only account/position reconciliation, paper/shadow soak and fault injection, independent review, final target-runtime/browser parity. Live execution OFF; no deployment or VPS mutation.
