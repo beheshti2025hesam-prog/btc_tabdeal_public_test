@@ -14,6 +14,7 @@ from typing import Literal, Protocol, runtime_checkable
 
 Side = Literal["LONG", "SHORT"]
 OrderType = Literal["MARKET", "LIMIT", "STOP_MARKET", "TAKE_PROFIT_MARKET"]
+QuantityUnit = Literal["BASE_ASSET", "QUOTE_ASSET", "CONTRACTS"]
 OrderStatus = Literal[
     "NEW", "PARTIALLY_FILLED", "FILLED", "CANCELED", "REJECTED", "EXPIRED", "UNKNOWN"
 ]
@@ -60,6 +61,7 @@ class ExecutionOrderRequestV1:
     payload_sha256: str
     side: Side
     order_type: OrderType
+    quantity_unit: QuantityUnit
     quantity: Decimal
     limit_price: Decimal | None
     stop_loss: Decimal
@@ -82,6 +84,8 @@ class ExecutionOrderRequestV1:
             errors.append("SIDE_INVALID")
         if self.order_type not in ("MARKET", "LIMIT", "STOP_MARKET", "TAKE_PROFIT_MARKET"):
             errors.append("ORDER_TYPE_INVALID")
+        if self.quantity_unit not in ("BASE_ASSET", "QUOTE_ASSET", "CONTRACTS"):
+            errors.append("QUANTITY_UNIT_INVALID")
         if not _sha256(self.payload_sha256):
             errors.append("PAYLOAD_HASH_INVALID")
         if _positive_decimal(self.quantity) is None:
@@ -224,6 +228,40 @@ class VenueOrderSnapshotV1:
 
 
 @dataclass(frozen=True)
+class BalanceSnapshotV1:
+    asset: str
+    total: Decimal
+    available: Decimal
+    locked: Decimal
+    borrowed: Decimal
+    liability: Decimal
+    observed_at: datetime
+    raw_response_sha256: str
+
+    def validation_errors(self) -> tuple[str, ...]:
+        errors: list[str] = []
+        if not isinstance(self.asset, str) or not self.asset.strip():
+            errors.append("BALANCE_ASSET_MISSING")
+        for field_name in ("total", "available", "locked", "borrowed", "liability"):
+            value = getattr(self, field_name)
+            if isinstance(value, bool):
+                errors.append(f"BALANCE_{field_name.upper()}_INVALID")
+                continue
+            try:
+                number = Decimal(str(value))
+            except (InvalidOperation, TypeError, ValueError):
+                errors.append(f"BALANCE_{field_name.upper()}_INVALID")
+                continue
+            if not number.is_finite() or number < 0:
+                errors.append(f"BALANCE_{field_name.upper()}_INVALID")
+        if not _aware(self.observed_at):
+            errors.append("BALANCE_TIMESTAMP_NOT_TIMEZONE_AWARE")
+        if not _sha256(self.raw_response_sha256):
+            errors.append("BALANCE_RAW_HASH_INVALID")
+        return tuple(dict.fromkeys(errors))
+
+
+@dataclass(frozen=True)
 class PositionSnapshotV1:
     venue_id: str
     market_type: MarketType
@@ -232,16 +270,75 @@ class PositionSnapshotV1:
     observed_at: datetime
     raw_response_sha256: str
 
+    def validation_errors(
+        self, *, expected_venue_id: str, expected_market_type: MarketType,
+        expected_venue_symbol: str,
+    ) -> tuple[str, ...]:
+        errors: list[str] = []
+        if self.venue_id != expected_venue_id:
+            errors.append("POSITION_VENUE_MISMATCH")
+        if self.market_type != expected_market_type:
+            errors.append("POSITION_MARKET_TYPE_MISMATCH")
+        if self.venue_symbol != expected_venue_symbol:
+            errors.append("POSITION_SYMBOL_MISMATCH")
+        if isinstance(self.position_quantity, bool):
+            errors.append("POSITION_QUANTITY_INVALID")
+        else:
+            try:
+                quantity = Decimal(str(self.position_quantity))
+                if not quantity.is_finite():
+                    errors.append("POSITION_QUANTITY_INVALID")
+            except (InvalidOperation, TypeError, ValueError):
+                errors.append("POSITION_QUANTITY_INVALID")
+        if not _aware(self.observed_at):
+            errors.append("POSITION_TIMESTAMP_NOT_TIMEZONE_AWARE")
+        if not _sha256(self.raw_response_sha256):
+            errors.append("POSITION_RAW_HASH_INVALID")
+        return tuple(dict.fromkeys(errors))
+
 
 @dataclass(frozen=True)
 class AccountReconciliationSnapshotV1:
     venue_id: str
     market_type: MarketType
     observed_at: datetime
+    account_mode: str
+    position_mode: str
+    balances: tuple[BalanceSnapshotV1, ...]
     open_order_ids: tuple[str, ...]
     position_snapshot_sha256: str
     raw_response_sha256: str
     reconciliation_ref: str
+
+    def validation_errors(
+        self, *, expected_venue_id: str, expected_market_type: MarketType
+    ) -> tuple[str, ...]:
+        errors: list[str] = []
+        if self.venue_id != expected_venue_id:
+            errors.append("ACCOUNT_VENUE_MISMATCH")
+        if self.market_type != expected_market_type:
+            errors.append("ACCOUNT_MARKET_TYPE_MISMATCH")
+        if not _aware(self.observed_at):
+            errors.append("ACCOUNT_TIMESTAMP_NOT_TIMEZONE_AWARE")
+        if not isinstance(self.account_mode, str) or not self.account_mode.strip():
+            errors.append("ACCOUNT_MODE_MISSING")
+        if not isinstance(self.position_mode, str) or not self.position_mode.strip():
+            errors.append("POSITION_MODE_MISSING")
+        if not self.balances:
+            errors.append("ACCOUNT_BALANCES_MISSING")
+        for balance in self.balances:
+            errors.extend(balance.validation_errors())
+        if len(set(self.open_order_ids)) != len(self.open_order_ids):
+            errors.append("DUPLICATE_OPEN_ORDER_IDS")
+        if any(not isinstance(order_id, str) or not order_id.strip() for order_id in self.open_order_ids):
+            errors.append("OPEN_ORDER_ID_INVALID")
+        if not _sha256(self.position_snapshot_sha256):
+            errors.append("POSITION_SNAPSHOT_HASH_INVALID")
+        if not _sha256(self.raw_response_sha256):
+            errors.append("ACCOUNT_RAW_HASH_INVALID")
+        if not isinstance(self.reconciliation_ref, str) or not self.reconciliation_ref.strip():
+            errors.append("ACCOUNT_RECONCILIATION_REF_MISSING")
+        return tuple(dict.fromkeys(errors))
 
 
 @runtime_checkable
