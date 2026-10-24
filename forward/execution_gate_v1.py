@@ -8,7 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Literal, Protocol
+from typing import Literal
+
+from forward.execution_adapter_contract_v1 import ExecutionAdapterV1
 import hashlib
 
 
@@ -52,16 +54,6 @@ class ExecutionRuntimeStateV1:
     operator_approval_ref: str = ""
     deployment_sha: str = ""
     environment: str = "development"
-
-
-class ExecutionAdapterV1(Protocol):
-    """Interface contract only; implementations require independent review."""
-
-    def submit_order(self, *, client_order_id: str, side: Side,
-                     quantity: Decimal, entry: Decimal,
-                     stop_loss: Decimal, take_profit: Decimal) -> object: ...
-
-    def get_order(self, *, client_order_id: str) -> object: ...
 
 
 class ExecutionGateV1:
