@@ -18,7 +18,7 @@ This module composes existing policy components. It does not create a second can
 - The risk policy must approve; a signal cannot override a veto.
 - Risk approval requires explicit upstream PASS evidence for entry/stop/target geometry and the versioned risk/reward gate. The Signal Agent independently validates positive finite prices, directionally ordered entry/stop/target levels, and the existing 3:1 minimum reward-to-risk baseline; missing or invalid geometry fails closed.
 - The risk evidence includes execution_disabled; the agent has no order-placement capability.
-- The existing scope policy remains BTC_USDT / 15m. Other scopes fail closed until a versioned policy explicitly supports them.
+- The active configured analysis profile is Binance Spot BTCUSDT / 15m. Venue, product, symbol, and timeframe form one explicit scope tuple; other scopes fail closed until separately configured. The former BTC_USDT spelling was inconsistent with the Binance Spot dashboard and is no longer the active profile.
 - This is not a profitability or win-rate guarantee. The strategy must be validated with fresh forward observations and an immutable journal.
 
 ## Deliberately not claimed complete
