@@ -1,0 +1,28 @@
+name: Transformer Agent Contract Tests
+
+on:
+  pull_request:
+    paths:
+      - "forward/transformer_agent_v1.py"
+      - "tests/test_transformer_agent_v1.py"
+      - ".github/workflows/transformer-agent-contract.yml"
+  push:
+    branches:
+      - "feat/transformer-agent-contract-v1-20261024"
+
+permissions:
+  contents: read
+
+jobs:
+  transformer-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test runner
+        run: python -m pip install --upgrade pip pytest
+      - name: Run Transformer Agent contract tests
+        run: python -m pytest -q tests/test_transformer_agent_v1.py
