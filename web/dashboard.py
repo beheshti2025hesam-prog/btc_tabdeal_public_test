@@ -14,6 +14,7 @@ from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
 from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
+from forward.learning_evidence_adapter_v1 import record_signal_decision
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
@@ -274,6 +275,52 @@ class Handler(BaseHTTPRequestHandler):
                     "execution_enabled": False,
                     "execution_blocked_reasons": ["SYMBOL_MAPPING_EVIDENCE_MISSING", "LIVE_EXECUTION_DISABLED"],
                 }
+                # Forward learning is opt-in via an explicit durable journal path.
+                # GET polling is idempotent: the journal keys the event by immutable
+                # source hashes + policy version and rejects conflicting re-evaluations.
+                learning_journal_path = os.environ.get("HES_FORWARD_LEARNING_DECISION_JOURNAL", "").strip()
+                payload["learning_journal_status"] = "NOT_CONFIGURED"
+                payload["learning_event_id"] = None
+                if learning_journal_path:
+                    if not payload["response_sha256"] or not payload["htf_response_sha256"]:
+                        payload["learning_journal_status"] = "BLOCKED_MISSING_SOURCE_IDENTITY"
+                    else:
+                        if not data_ok:
+                            rejected_at = "DATA_QUALITY"
+                        elif not structure_ok:
+                            rejected_at = "MARKET_STRUCTURE"
+                        elif payload["strategy_quality_state"] != "PASS":
+                            rejected_at = "STRATEGY_QUALITY"
+                        elif getattr(result.confirmation, "state", "") not in ("CONFIRMED_LONG", "CONFIRMED_SHORT"):
+                            rejected_at = "CONFIRMATION"
+                        elif getattr(result.risk, "state", "") != "RISK_APPROVED":
+                            rejected_at = "RISK"
+                        else:
+                            rejected_at = ""
+                        try:
+                            journal_result = record_signal_decision(
+                                learning_journal_path,
+                                decision=final_decision,
+                                observed_at=strategy.observed_at.isoformat(),
+                                symbol=strategy.symbol,
+                                timeframe=strategy.timeframe,
+                                source=f"{strategy.venue}_native_ohlcv_v1",
+                                product=strategy.product,
+                                response_sha256=batch.response_sha256,
+                                htf_response_sha256=htf_batch.response_sha256,
+                                strategy_evidence_sha256=payload["strategy_evidence_sha256"],
+                                policy_version=payload["strategy_policy_version"],
+                                status=payload["status"],
+                                market_regime=strategy.regime or "UNKNOWN",
+                                rejected_at=rejected_at,
+                                reason_codes=list(dict.fromkeys(blocked + list(arbitration.reason_codes))),
+                            )
+                            payload["learning_journal_status"] = journal_result.status
+                            payload["learning_event_id"] = journal_result.event_id
+                            payload["learning_event_sha256"] = journal_result.digest
+                        except Exception as exc:
+                            payload["learning_journal_status"] = "BLOCKED_JOURNAL_ERROR"
+                            payload["learning_journal_error"] = type(exc).__name__
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
                 return self._send(503, json.dumps({
