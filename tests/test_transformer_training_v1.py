@@ -71,13 +71,16 @@ def test_dataset_has_explicit_three_class_labels_and_purged_chronological_splits
 def test_training_artifact_loads_and_emits_probabilities_for_existing_contract(tmp_path):
     pytest.importorskip("torch")
     data = make_data()
-    manifest = train_and_evaluate(data, sequence_length=16, output_dir=tmp_path, epochs=1, batch_size=32)
+    manifest = train_and_evaluate(data, sequence_length=16, output_dir=tmp_path, epochs=1, batch_size=32, round_trip_cost_bps=10.0)
     assert manifest["status"] == "RESEARCH_CANDIDATE_NOT_PROMOTED"
     assert manifest["promotion_decision"] == "HOLD"
     assert manifest["source_id"] == "synthetic-test-fixture-not-market-evidence"
     assert manifest["model_sha256"]
     saved = json.loads((tmp_path / "transformer_training_manifest.json").read_text())
     assert saved["metrics"]["test_accuracy"] >= 0.0
+    assert saved["strategy_backtest"]["status"] == "RESEARCH_ONLY_NOT_PROMOTED"
+    assert saved["strategy_backtest"]["round_trip_cost_bps"] == 10.0
+    assert "max_drawdown_fraction" in saved["strategy_backtest"]
 
     predictor = TorchCheckpointPredictor(
         tmp_path / "transformer_candidate.pt",
@@ -145,3 +148,9 @@ def test_ohlcv_csv_rejects_timestamps_not_aligned_to_candle_interval(tmp_path):
             })
     with pytest.raises(ValueError, match="not aligned"):
         load_ohlcv_csv(path, source_id="synthetic-test", interval="15m")
+
+
+def test_strategy_backtest_rejects_invalid_cost_policy():
+    data = make_data()
+    with pytest.raises(ValueError, match="round_trip_cost_bps"):
+        train_and_evaluate(data, sequence_length=16, output_dir="unused-test-output", epochs=1, round_trip_cost_bps=-1.0)
