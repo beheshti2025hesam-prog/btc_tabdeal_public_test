@@ -1,6 +1,7 @@
 """Integrated read-only HES dashboard; deliberately contains no order routes."""
 from __future__ import annotations
 from datetime import datetime, timezone
+from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Lock, Thread
@@ -11,6 +12,7 @@ from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
+from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
@@ -22,6 +24,7 @@ _SOURCE = BinanceSpotKlineSource()
 # This approval is source-specific; never reuse it for Wallex or another venue.
 _FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=True)
 _SIGNAL_AGENT = SignalAgentV1()
+_DISAGREEMENT_RESOLVER = AgentDisagreementResolverV1()
 _STRATEGY_PROVIDER = StrategyEvidenceProviderV1()
 _CACHE_LOCK = Lock()
 _CACHE = {}
@@ -164,11 +167,66 @@ class Handler(BaseHTTPRequestHandler):
                     blocked.append("NATIVE_FEATURES_NOT_READY")
                 if batch.gaps or htf_batch.gaps:
                     blocked.append("NATIVE_CANDLE_GAPS_PRESENT")
+
+                # Adapt existing layer outputs into one auditable arbitration record.
+                # The snapshot identity binds both source responses; no new indicators or policies.
+                snapshot_sha = sha256((batch.response_sha256 + ":" + htf_batch.response_sha256).encode()).hexdigest()
+                strategy_sha = (
+                    result.strategy_quality.evidence_sha256
+                    if result.strategy_quality and result.strategy_quality.evidence_sha256
+                    else batch.response_sha256
+                )
+                structure_ok = strategy.direction in ("BULLISH", "BEARISH") and (
+                    (strategy.direction == "BULLISH" and strategy.regime == "UPTREND")
+                    or (strategy.direction == "BEARISH" and strategy.regime == "DOWNTREND")
+                )
+                data_ok = bool(feature_result.decision_ready and not batch.gaps and not htf_batch.gaps
+                               and not strategy.blocked_reasons)
+                confirmation_direction = (
+                    "LONG" if getattr(result.confirmation, "state", "") == "CONFIRMED_LONG"
+                    else "SHORT" if getattr(result.confirmation, "state", "") == "CONFIRMED_SHORT"
+                    else strategy.direction
+                )
+                assessments = (
+                    AgentAssessmentV1("data_quality", "native-feature-pipeline-v1", "PASS" if data_ok else "FAIL",
+                        strategy.direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
+                        strategy.observed_at, snapshot_sha, batch.response_sha256,
+                        () if data_ok else ("DATA_QUALITY_GATE_FAILED",)),
+                    AgentAssessmentV1("market_structure", "market-structure-v1", "PASS" if structure_ok else "UNKNOWN",
+                        strategy.direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
+                        strategy.observed_at, snapshot_sha, batch.response_sha256,
+                        () if structure_ok else ("STRUCTURE_DIRECTION_OR_REGIME_UNKNOWN",)),
+                    AgentAssessmentV1("strategy", result.strategy_quality.policy_version if result.strategy_quality else "unknown",
+                        "PASS" if result.strategy_quality and result.strategy_quality.state == "PASS"
+                        else "FAIL" if result.strategy_quality and result.strategy_quality.state == "FAIL" else "UNKNOWN",
+                        strategy.direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
+                        strategy.observed_at, snapshot_sha, strategy_sha,
+                        tuple(result.strategy_quality.reason_codes) if result.strategy_quality else ("STRATEGY_QUALITY_UNKNOWN",)),
+                    AgentAssessmentV1("confirmation", "confirmation-policy-v1",
+                        "PASS" if getattr(result.confirmation, "state", "") in ("CONFIRMED_LONG", "CONFIRMED_SHORT")
+                        else "UNKNOWN",
+                        confirmation_direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
+                        strategy.observed_at, snapshot_sha, batch.response_sha256,
+                        tuple(getattr(result.confirmation, "reason_codes", ()))),
+                    AgentAssessmentV1("risk", "risk-policy-v1",
+                        "PASS" if getattr(result.risk, "state", "") == "RISK_APPROVED" else "FAIL",
+                        confirmation_direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
+                        strategy.observed_at, snapshot_sha, batch.response_sha256,
+                        tuple(getattr(result.risk, "reason_codes", ()))),
+                )
+                arbitration = _DISAGREEMENT_RESOLVER.resolve(
+                    assessments=assessments, observed_at=datetime.now(timezone.utc)
+                )
+                if arbitration.decision == "NO_TRADE":
+                    blocked.extend(arbitration.reason_codes)
+                final_decision = arbitration.decision if not blocked else "NO_TRADE"
                 payload = {
-                    "status": "BLOCKED" if result.decision.decision == "NO_TRADE" or blocked else "READY",
+                    "status": "BLOCKED" if final_decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
-                    "decision": result.decision.decision,
-                    "decision_reasons": list(result.decision.reason_codes),
+                    "disagreement_resolver_version": _DISAGREEMENT_RESOLVER.VERSION,
+                    "decision": final_decision,
+                    "arbitration": arbitration.as_dict(),
+                    "decision_reasons": list(arbitration.reason_codes),
                     "blocked_reasons": list(dict.fromkeys(blocked)),
                     "observed_at": strategy.observed_at.isoformat(),
                     "symbol": strategy.symbol,
