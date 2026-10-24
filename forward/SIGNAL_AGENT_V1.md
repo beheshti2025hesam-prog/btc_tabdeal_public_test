@@ -40,9 +40,9 @@ The existing read-only dashboard entry point now calls SignalAgentV1 through `GE
 ## Explicit strategy calculation contract
 
 - HTF alignment: the 4h close and EMA50 must be above EMA200 for bullish alignment, or below EMA200 for bearish alignment.
-- MFI: MFI14 > 50 for bullish confirmation and < 50 for bearish confirmation.
+- MFI: MFI14 > 50 for bullish confirmation or confirmed bullish divergence (price lower swing low, MFI higher low); MFI14 < 50 for bearish confirmation or confirmed bearish divergence (price higher swing high, MFI lower high).
 - Directional strength: ADX14 >= 20 and +DI > -DI for bullish, or ADX14 >= 20 and -DI > +DI for bearish.
-- Pullback: closed 15m candle touches/reclaims EMA50 or retests a confirmed swing level in the directional context.
+- Pullback: closed 15m candle touches/reclaims the existing VWAP snapshot or EMA50, or retests a confirmed swing level in the directional context.
 - Break confirmation: the latest closed 15m close crosses a confirmed swing high/low; this is one of six measured gates, not a substitute for directional structure.
 - Geometry: stop at the last opposite confirmed swing; target at 3R. Missing/wrong-side swing means geometry UNKNOWN and NO_TRADE.
 - Quorum is at least 5/6 measured checks, with geometry always mandatory. Any UNKNOWN check makes overall strategy quality UNKNOWN; the policy never treats missing evidence as a failed vote.
