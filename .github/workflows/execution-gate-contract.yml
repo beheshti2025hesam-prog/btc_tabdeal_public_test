@@ -7,6 +7,7 @@ on:
       - "forward/execution_journal_v1.py"
       - "tests/test_execution_gate_v1.py"
       - "tests/test_execution_journal_v1.py"
+      - "README.md"
       - "forward/execution_adapter_contract_v1.py"
       - "tests/test_execution_adapter_contract_v1.py"
       - ".github/workflows/execution-gate-contract.yml"
