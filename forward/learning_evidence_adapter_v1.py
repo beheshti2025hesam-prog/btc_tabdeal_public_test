@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from hashlib import sha256
+import fcntl
 import json
+import os
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Mapping
 
@@ -214,6 +217,101 @@ def build_report_from_artifacts(
         })
     return build_learning_report(learning_rows, min_group_size=min_group_size)
 
+
+
+def record_forward_outcome(
+    outcome_path: str | Path,
+    *,
+    decision_journal_path: str | Path,
+    decision_event_id: str,
+    outcome: str,
+    closed_at: str | None,
+    evidence_ref: str,
+    evidence_sha256: str,
+) -> JournalWriteResult:
+    """Append an externally reconciled outcome; never calculate or infer PnL."""
+    if outcome not in OUTCOME_VALUES:
+        raise ValueError("invalid_outcome")
+    if not isinstance(decision_event_id, str) or not decision_event_id.strip():
+        raise ValueError("decision_event_id_required")
+    if not isinstance(evidence_ref, str) or not evidence_ref.strip():
+        raise ValueError("outcome_evidence_ref_required")
+    if not isinstance(evidence_sha256, str) or len(evidence_sha256) != 64 or any(
+        char not in "0123456789abcdef" for char in evidence_sha256
+    ):
+        raise ValueError("invalid_outcome_evidence_sha256")
+    if outcome in CLOSED_OUTCOMES or outcome == "CANCELLED":
+        if not isinstance(closed_at, str) or not closed_at.strip():
+            raise ValueError("outcome_closed_at_required")
+    elif closed_at is not None:
+        raise ValueError("open_outcome_must_not_have_closed_at")
+
+    decision_path = Path(decision_journal_path)
+    decisions = []
+    for line in decision_path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            decisions.append(json.loads(line))
+    matches = [row for row in decisions if row.get("event_id") == decision_event_id]
+    if len(matches) != 1:
+        raise ValueError("decision_event_not_found_or_ambiguous")
+    decision = matches[0]
+    if decision.get("artifact_type") != "FORWARD_OBSERVATION" or decision.get("artifact_kind") != "SIGNAL_DECISION":
+        raise ValueError("decision_artifact_type_invalid")
+    if decision.get("source_period") != "forward" or decision.get("execution") != "OFF":
+        raise ValueError("decision_population_not_forward_only")
+    if not isinstance(decision.get("digest"), str) or _digest_without_field(decision, "digest") != decision["digest"]:
+        raise ValueError("decision_digest_mismatch")
+    if decision.get("decision") == "NO_TRADE":
+        raise ValueError("NO_TRADE_CANNOT_HAVE_TRADE_OUTCOME")
+    if decision.get("decision") not in {"LONG", "SHORT"}:
+        raise ValueError("invalid_decision")
+    if closed_at is not None:
+        try:
+            closed = datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
+            observed = datetime.fromisoformat(decision["observed_at"].replace("Z", "+00:00"))
+        except (TypeError, ValueError, KeyError) as exc:
+            raise ValueError("invalid_outcome_timestamp") from exc
+        if closed.tzinfo is None or observed.tzinfo is None:
+            raise ValueError("outcome_timestamps_must_be_timezone_aware")
+        if closed < observed:
+            raise ValueError("outcome_precedes_decision")
+    event_key = sha256(decision_event_id.encode("utf-8")).hexdigest()
+    outcome_event_id = "outcome-" + event_key
+    row = {
+        "artifact_type": "FORWARD_OUTCOME",
+        "outcome_event_id": outcome_event_id,
+        "decision_event_id": decision_event_id,
+        "outcome": outcome,
+        "closed_at": closed_at,
+        "source_period": "forward",
+        "execution": "OFF",
+        "evidence_ref": evidence_ref,
+        "evidence_sha256": evidence_sha256,
+        "decision_digest": decision["digest"],
+    }
+    row["digest"] = sha256(canonical_json(row).encode("utf-8")).hexdigest()
+    path = Path(outcome_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(path.name + ".lock")
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        try:
+            if path.exists():
+                for line in path.read_text(encoding="utf-8").splitlines():
+                    if not line.strip():
+                        continue
+                    existing = json.loads(line)
+                    if existing.get("outcome_event_id") == outcome_event_id:
+                        if existing == row:
+                            return JournalWriteResult("ALREADY_RECORDED", outcome_event_id, row["digest"])
+                        raise ValueError("conflicting_duplicate_outcome_event")
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(canonical_json(row) + "\\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+        finally:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    return JournalWriteResult("RECORDED", outcome_event_id, row["digest"])
 
 def report_dict(report: LearningReport) -> dict:
     return asdict(report)
