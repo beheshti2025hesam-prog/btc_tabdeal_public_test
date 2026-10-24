@@ -41,4 +41,6 @@ The existing dashboard is the application entry surface for the current data-fou
 
 - [Live Execution Boundary v1](docs/execution/LIVE_EXECUTION_BOUNDARY_V1.md) defines the required fail-closed preflight and promotion sequence.
 - [Master checkpoint — live execution, 2026-10-24](docs/checkpoints/MASTER_CHECKPOINT_2026-10-24_LIVE_EXECUTION.md) records the current state and remaining acceptance gates.
-- `forward/execution_gate_v1.py` is a preflight contract only. It has no concrete venue adapter and cannot submit orders. Runtime defaults deny live execution; passing unit tests does not authorize production trading.
+- `forward/execution_gate_v1.py` is a preflight contract only; it cannot submit orders.
+- `forward/execution_journal_v1.py` provides a durable SQLite idempotency/state journal and blocks automatic retry of ambiguous submissions until explicit reconciliation evidence is recorded.
+- No concrete venue adapter, credentials, or order route exists in this candidate. Runtime defaults deny live execution; passing unit tests does not authorize production trading.
