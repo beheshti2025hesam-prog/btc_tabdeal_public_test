@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 import sqlite3
 from typing import Literal
@@ -235,6 +236,41 @@ class ExecutionJournalV1:
 
             current = row["state"]
             target = status_to_state[snapshot.status]
+
+            # Venue snapshots may arrive late or out of order. Never let an
+            # UNKNOWN/stale response erase a known acknowledgement or reduce
+            # the amount already confirmed filled.
+            if current in ("ACKNOWLEDGED", "PARTIALLY_FILLED"):
+                if target == "UNKNOWN":
+                    db.execute("ROLLBACK")
+                    return JournalResultV1(
+                        False, request.client_order_id, current,
+                        "UNKNOWN_STATUS_REGRESSION_REJECTED",
+                    )
+                if row["venue_order_id"] and snapshot.venue_order_id and (
+                    row["venue_order_id"] != snapshot.venue_order_id
+                ):
+                    db.execute("ROLLBACK")
+                    return JournalResultV1(
+                        False, request.client_order_id, current,
+                        "VENUE_ORDER_ID_CONFLICT",
+                    )
+                try:
+                    prior_executed = Decimal(row["executed_quantity"] or "0")
+                    incoming_executed = Decimal(str(snapshot.executed_quantity))
+                except (InvalidOperation, TypeError, ValueError):
+                    db.execute("ROLLBACK")
+                    return JournalResultV1(
+                        False, request.client_order_id, current,
+                        "EXECUTED_QUANTITY_INVALID",
+                    )
+                if incoming_executed < prior_executed:
+                    db.execute("ROLLBACK")
+                    return JournalResultV1(
+                        False, request.client_order_id, current,
+                        "EXECUTED_QUANTITY_REGRESSION_REJECTED",
+                    )
+
             if current == "UNKNOWN" and target != "UNKNOWN":
                 if not self._text(reconciliation_ref):
                     db.execute("ROLLBACK")
