@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feat/forward-signal-agent-hardening-20261024
+      - feat/hes-agent-entrypoint-integration-20261024
   pull_request:
     branches:
       - feat/native-ohlcv-candle-sources-20261017
+      - feat/native-ohlcv-dashboard-single-path-20261021
 
 permissions:
   contents: read
