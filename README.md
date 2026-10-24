@@ -25,3 +25,12 @@ It collects public Tabdeal BTC_USDT futures trade data for the Data Foundation p
 
 **HES Trade Agent**  
 **Owner: Seyed Hesameddin Beheshti Shirazi**
+
+
+## Transformer Agent v1 (candidate / not production-approved)
+
+- [Transformer Agent contract](forward/TRANSFORMER_AGENT_V1.md) defines the model-agnostic, evidence-only inference boundary.
+- `forward/transformer_agent_v1.py` validates sequence freshness, causal timestamps, finite feature rows, source/model hashes, versioned feature schema, and normalized LONG/SHORT/NEUTRAL output from an injected existing model adapter.
+- Unknown, neutral, malformed, stale, look-ahead, or model-runtime failure cases abstain to UNKNOWN; the component cannot place orders or bypass the Signal Agent and Risk Gate.
+- No Transformer architecture, weights, training data, calibration, or profitability is fabricated. A real model must pass reproducible out-of-sample/walk-forward evaluation before promotion.
+- [Master checkpoint — Transformer Agent, 2026-10-24](docs/checkpoints/MASTER_CHECKPOINT_2026-10-24_TRANSFORMER.md).
