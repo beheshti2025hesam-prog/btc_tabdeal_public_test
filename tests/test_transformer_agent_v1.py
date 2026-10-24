@@ -125,3 +125,22 @@ def test_boolean_probabilities_are_not_accepted_as_numeric_scores():
     result = evaluate_transformer_v1(**sample(predictor=predictor))
     assert result.status == "ABSTAIN"
     assert result.direction == "UNKNOWN"
+
+
+
+def test_malformed_container_and_policy_arguments_abstain_without_exception():
+    for overrides in (
+        {"rows": None, "timestamps": None},
+        {"minimum_rows": "32"},
+        {"max_age_seconds": "900"},
+        {"minimum_confidence": True},
+    ):
+        result = evaluate_transformer_v1(**sample(**overrides))
+        assert result.status == "ABSTAIN"
+
+
+def test_boolean_probabilities_are_rejected():
+    predictor = Predictor({"LONG": True, "SHORT": 0.0, "NEUTRAL": 0.0})
+    result = evaluate_transformer_v1(**sample(predictor=predictor))
+    assert result.status == "ABSTAIN"
+    assert "PROBABILITY_VALUE_INVALID" in result.reasons
