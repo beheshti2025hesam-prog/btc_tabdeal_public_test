@@ -38,6 +38,16 @@
 - The separate, auditable arbitration record for independent agent disagreement is **not yet implemented/proven**. A checkpoint specification is recorded at `docs/checkpoints/MULTI_LAYER_ANALYSIS_CONFLICT_RESOLUTION_2026-10-24.md` (commit `b35db905aa513b603a9de6bb0b3469110f4b6c2e`).
 - Required arbitration contract: exact same scope and common closed-candle as-of/hash; contradictory LONG vs SHORT, stale/future/mismatched evidence, duplicate reports, or UNKNOWN must yield NO_TRADE; preserve per-agent version/state/reason/evidence refs/hashes/timestamp; data-quality and mandatory strategy checks precede confirmation; risk veto is absolute; context-only/optional scores cannot override mandatory failures. Must be deterministic and auditable.
 
+## Multi-layer analysis and disagreement resolver implementation — 2026-10-24
+
+- Added `forward/agent_disagreement_resolver_v1.py` on PR #362 branch `feat/hes-agent-entrypoint-integration-20261024`, commit `de85274cc62d3251abee2f49feb668083b4e5061`. It is a thin deterministic adapter over existing layer outputs; it does not duplicate indicators or policies.
+- Added adversarial tests at `tests/forward/test_agent_disagreement_resolver_v1.py`, commit `0bbb49990ef708910df1c5138f864b9028b08336`: opposing LONG/SHORT, mismatched source snapshot hash, as-of mismatch, symbol mismatch, risk veto despite majority, UNKNOWN evidence, duplicate reports, future timestamps, missing required agent, naive timestamp, and deterministic replay.
+- Wired the existing read-only `GET /api/signal` in `web/dashboard.py` to create a common two-timeframe snapshot fingerprint, adapt data-quality/structure/strategy/confirmation/risk outputs, and expose the complete arbitration audit record. Commits `592e41375b8ab32dc32d670b5836f4fff92297d6` and follow-up safety fix `67f6c511e4b7bb92e8c95006faaa3c7bd29ad9eb`.
+- Updated both existing Signal Agent CI workflows to run the new adversarial suite: `85a93c478294a966aa9a676642f1357598fba714` and `eccbfe19af37d8629070a2c1788d4c6a73824df1`.
+- Exact-head CI for PR #362 head `eccbfe19af37d8629070a2c1788d4c6a73824df1` was triggered; contract tests, Signal Agent regression and dashboard-native-path jobs were still **IN PROGRESS** at checkpoint time. Do not claim test pass until completed results are recorded. Live WebSocket smoke is **SKIPPED** for Draft PRs.
+- Integration remains fail-closed: data quality must pass, all required agents must report the same venue/product/symbol/timeframe, identical closed-candle as-of and common snapshot hash, no UNKNOWN/FAIL, and no opposing directional opinions. Risk rejection is an absolute veto. If the dashboard has any blocked reason, final API decision remains NO_TRADE.
+- Important dependency condition: PR #363 is stacked on an earlier PR #362 head. The new resolver commits are currently on PR #362 branch; reconcile/rebase the stack and rerun exact-head CI before treating PR #363 or the whole product chain as merge-ready.
+
 ## Blocking acceptance gates
 
 1. Approve one supported execution venue only after authoritative official documentation and independent review of order types, quantity units/filters, protective orders, client-order idempotency, timeout-after-accept handling, positions, and account reconciliation.
