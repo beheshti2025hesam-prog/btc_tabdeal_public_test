@@ -11,9 +11,6 @@ on:
       - "tests/test_transformer_training_v1.py"
       - "tests/test_transformer_binance_export_v1.py"
       - ".github/workflows/transformer-training-pipeline.yml"
-  push:
-    branches:
-      - "feat/transformer-agent-contract-v1-20261024"
   workflow_dispatch:
 
 permissions:
