@@ -44,3 +44,7 @@ The existing dashboard is the application entry surface for the current data-fou
 - `forward/execution_gate_v1.py` is a preflight contract only; it cannot submit orders.
 - `forward/execution_journal_v1.py` provides a durable SQLite idempotency/state journal and blocks automatic retry of ambiguous submissions until explicit reconciliation evidence is recorded.
 - No concrete venue adapter, credentials, or order route exists in this candidate. Runtime defaults deny live execution; passing unit tests does not authorize production trading.
+
+- `forward/execution_adapter_contract_v1.py` is the single typed venue-adapter contract, including symbol mapping, order lifecycle snapshots, and externally pinned capability evidence. It is an interface/validation contract, not a concrete exchange integration.
+- `tests/test_execution_adapter_contract_v1.py` runs with the execution gate and journal suite in the dedicated workflow.
+- A concrete adapter remains blocked until an execution venue is approved from authoritative evidence and independently reviewed; do not infer approval from the generic contract or CI.
