@@ -288,7 +288,7 @@ class StrategyEvidenceProviderV1:
         order_block = detect_order_block_v1(
             native15,
             direction=break_direction,
-            break_confirmed=bool(bullish_break or bearish_break),
+            break_confirmed=bool(not stale and not gaps and (bullish_break or bearish_break)),
             break_type=break_type,
             htf_direction=htf_direction,
             last_swing_high=Decimal(str(last_high)) if last_high is not None else None,
