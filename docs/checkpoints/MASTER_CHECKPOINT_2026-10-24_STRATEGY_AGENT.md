@@ -60,3 +60,17 @@ These runs verified the implementation at the SHA above. This checkpoint additio
 
 
 - Final strategy refinement supports the saved MFI rule fully: directional MFI14 threshold OR confirmed bullish/bearish divergence at the last two confirmed swing lows/highs. Pullback checks reuse the existing VWAP snapshot as well as EMA50 and confirmed swing retests. Divergence is causal and tested separately for long and short cases.
+
+
+## Latest implementation verification — 2026-10-24
+
+Exact implementation head `c87dc30ec9189d72daa7fb81f1bb052e8b2746a5`:
+- Strategy contract + provider + OB tests: **PASS, 73 tests** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080619221
+- Signal Agent + adjacent policy regression: **PASS, 79 tests** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080619226
+- Dashboard/native path: **PASS** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080619231
+- Browser render: **PASS** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080619229
+- Live WebSocket smoke: **SKIPPED** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080619246
+
+The strategy provider now supports MFI14 threshold OR confirmed directional divergence, pullback against the existing VWAP/EMA50/confirmed-swing level, configurable opportunity scopes, and a source-scoped Binance Spot provider. Order-block score includes BOS/CHOCH, liquidity sweep, FVG, freshness/mitigation, HTF alignment, volume expansion and EMA/VWAP/support-resistance confluence. It remains contextual only, with no authorized score threshold.
+
+This checkpoint update is documentation-only. Re-run the same workflows on the new branch head and store those final-head run IDs in the Notion Master Checkpoint. Keep Draft/HOLD until independent review and parent-PR stack reconciliation.
