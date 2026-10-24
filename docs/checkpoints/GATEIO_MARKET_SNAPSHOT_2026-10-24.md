@@ -32,3 +32,9 @@
 - All three market-data systemd units were active/running and enabled when checked at 2026-10-24 11:23 UTC.
 - The feed → validated input → feature snapshot → existing fail-closed decision engine path is now exercised. A production strategy policy has NOT been configured: this does not produce LONG/SHORT signals.
 - The 24-hour soak cannot be declared complete at this timestamp. The separate frontend entrypoint remains unidentified in the connected repository.
+
+## 24-hour soak — started, not yet passed
+- Added `scripts/soak_gateio_feed_24h_v1.py`, a read-only health sampler intended to run for 24 hours and append one sample per minute to `data/forward/gateio_feed_soak_24h_v1.jsonl`.
+- It checks the fail-closed market-input reader and all three systemd service states; it records failures and exits non-zero rather than marking an unhealthy run as passed.
+- The background run was launched on 2026-10-24 around 11:27 UTC. A full 24-hour result cannot be claimed until the run completes with sufficient samples and the log is reviewed.
+- This sampler checks service/feed freshness, not forced network-disconnect recovery or a service restart drill; those remain separate fault-injection acceptance checks.
