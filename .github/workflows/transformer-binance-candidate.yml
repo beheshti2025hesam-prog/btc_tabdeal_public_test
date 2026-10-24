@@ -1,0 +1,84 @@
+name: Transformer Binance Candidate Training
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Closed-candle history window (30-365 days)"
+        required: true
+        default: "180"
+        type: string
+      horizon:
+        description: "Forecast horizon in candles"
+        required: true
+        default: "3"
+        type: string
+      neutral_band_bps:
+        description: "Pre-registered neutral band in bps based on documented execution fees/slippage"
+        required: true
+        type: string
+      epochs:
+        description: "Maximum training epochs (1-300)"
+        required: true
+        default: "10"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  train-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Export closed BTCUSDT USD-M candles using the existing canonical adapter
+        run: |
+          python scripts/export_binance_ohlcv_for_transformer_v1.py --days "$DAYS" --interval 15m
+        env:
+          DAYS: ${{ inputs.days }}
+      - name: Train and evaluate research candidate
+        run: |
+          python forward/transformer_training_v1.py \
+            --input data/transformer-training/btcusdt_usdm_15m.csv \
+            --source-id binance-usdm-perpetual-public-klines \
+            --interval 15m \
+            --horizon "$HORIZON" \
+            --neutral-band-bps "$NEUTRAL_BAND_BPS" \
+            --sequence-length 32 \
+            --epochs "$EPOCHS" \
+            --output-dir artifacts/transformer-candidate
+        env:
+          HORIZON: ${{ inputs.horizon }}
+          NEUTRAL_BAND_BPS: ${{ inputs.neutral_band_bps }}
+          EPOCHS: ${{ inputs.epochs }}
+      - name: Verify artifact provenance and HOLD state
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          csv_path = Path("data/transformer-training/btcusdt_usdm_15m.csv")
+          source = json.loads(Path("data/transformer-training/source_manifest.json").read_text())
+          model = json.loads(Path("artifacts/transformer-candidate/transformer_training_manifest.json").read_text())
+          digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+          assert digest == source["dataset_csv_sha256"] == model["source_sha256"]
+          assert model["promotion_decision"] == "HOLD"
+          assert model["status"] == "RESEARCH_CANDIDATE_NOT_PROMOTED"
+          print(json.dumps({"source_sha256": digest, "model_sha256": model["model_sha256"], "samples": model["samples"], "metrics": model["metrics"], "promotion_decision": "HOLD"}, indent=2))
+          PY
+      - name: Upload immutable research candidate and source provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: transformer-binance-candidate-${{ github.run_id }}
+          path: |
+            data/transformer-training/btcusdt_usdm_15m.csv
+            data/transformer-training/source_manifest.json
+            artifacts/transformer-candidate/transformer_candidate.pt
+            artifacts/transformer-candidate/transformer_training_manifest.json
