@@ -124,6 +124,7 @@ class DashboardRouteTests(unittest.TestCase):
             decision_ready=True,
             reason="feature_quality_passed",
             quality=SimpleNamespace(passed=True),
+            snapshot=None,
         )
         htf_batch = sample_batch(interval="4h")
         with patch("web.dashboard._get_batch", side_effect=[(batch, features), (htf_batch, features)]) as get_batch:
