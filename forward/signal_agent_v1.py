@@ -235,4 +235,4 @@ class SignalAgentV1:
             + list(risk.reason_codes)
             + list(decision.reason_codes if decision.decision == "NO_TRADE" else ())
         )
-        return SignalAgentResult(observed_at, candidate, confirmation, risk, decision, tuple(dict.fromkeys(blocked)))
+        return SignalAgentResult(observed_at, candidate, confirmation, risk, decision, tuple(dict.fromkeys(blocked)), strategy_quality)
