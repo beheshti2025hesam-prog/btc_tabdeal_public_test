@@ -54,3 +54,6 @@
 - Live WebSocket smoke: **SKIPPED**, not passed — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080290007
 
 These runs verified the implementation at the SHA above. This checkpoint addition is documentation-only; the repository will rerun the workflows on the resulting new head. The final promotion gate remains HOLD until that new head is checked and independent review is complete.
+
+
+- Scope hardening: the Opportunity Policy and Signal Agent accept explicit scope configuration rather than symbol-specific duplicated logic. StrategyEvidenceProviderV1 can be configured for additional Binance Spot symbols while rejecting other venue/product volume profiles until a source-specific adapter proves their volume semantics.
