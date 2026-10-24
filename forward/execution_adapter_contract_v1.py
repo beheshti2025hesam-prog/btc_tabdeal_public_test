@@ -129,11 +129,11 @@ class ExecutionAdapterCapabilitiesV1:
             errors.append("SUPPORTED_ORDER_TYPES_MISSING")
         if self.verification_status != "VERIFIED":
             errors.append("CAPABILITIES_NOT_INDEPENDENTLY_VERIFIED")
-        if not self.official_contract_ref.strip():
+        if not isinstance(self.official_contract_ref, str) or not self.official_contract_ref.strip():
             errors.append("OFFICIAL_CONTRACT_EVIDENCE_MISSING")
         if not _sha256(self.evidence_sha256):
             errors.append("CAPABILITY_EVIDENCE_HASH_INVALID")
-        if not self.reviewed_revision.strip():
+        if not isinstance(self.reviewed_revision, str) or not self.reviewed_revision.strip():
             errors.append("INDEPENDENT_REVIEW_REVISION_MISSING")
         if self.client_order_id_supported is not True:
             errors.append("CLIENT_ORDER_ID_NOT_SUPPORTED")
@@ -190,7 +190,14 @@ class VenueOrderSnapshotV1:
         requested = _positive_decimal(self.requested_quantity)
         if requested is None or requested != _positive_decimal(request.quantity):
             errors.append("RESPONSE_REQUESTED_QUANTITY_MISMATCH")
-        executed = Decimal(str(self.executed_quantity)) if not isinstance(self.executed_quantity, bool) else Decimal("-1")
+        try:
+            executed = (
+                Decimal(str(self.executed_quantity))
+                if not isinstance(self.executed_quantity, bool)
+                else Decimal("-1")
+            )
+        except (InvalidOperation, TypeError, ValueError):
+            executed = Decimal("-1")
         if not executed.is_finite() or executed < 0:
             errors.append("RESPONSE_EXECUTED_QUANTITY_INVALID")
         elif requested is not None and executed > requested:
