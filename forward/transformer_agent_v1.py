@@ -139,6 +139,20 @@ def evaluate_transformer_v1(
         "sequence_rows": len(rows) if isinstance(rows, Sequence) and not isinstance(rows, (str, bytes)) else None,
         "feature_names": list(feature_names) if isinstance(feature_names, Sequence) and not isinstance(feature_names, (str, bytes)) else None,
     }
+    # When the predictor exposes checkpoint metadata, bind the evidence
+    # envelope to the exact loaded artifact/schema rather than trusting caller
+    # strings. Generic test/remote adapters may omit these optional attributes.
+    predictor_sha = getattr(predictor, "artifact_sha256", None)
+    predictor_version = getattr(predictor, "model_version", None)
+    predictor_schema = getattr(predictor, "feature_schema_version", None)
+    if predictor_sha is not None and (
+        not isinstance(model_sha256, str) or predictor_sha != model_sha256.lower()
+    ):
+        reasons.append("MODEL_HASH_MISMATCH")
+    if predictor_version is not None and predictor_version != model_version:
+        reasons.append("MODEL_VERSION_MISMATCH")
+    if predictor_schema is not None and predictor_schema != feature_schema_version:
+        reasons.append("FEATURE_SCHEMA_VERSION_MISMATCH")
     if reasons:
         return TransformerResultV1("ABSTAIN", "UNKNOWN", None, None, tuple(dict.fromkeys(reasons)), base_evidence)
 
