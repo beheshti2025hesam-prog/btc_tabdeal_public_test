@@ -310,3 +310,12 @@ def test_unknown_or_conflicting_order_snapshot_cannot_erase_known_fill(tmp_path)
     assert row["state"] == "PARTIALLY_FILLED"
     assert row["executed_quantity"] == "0.004"
     assert row["venue_order_id"] == "venue-order-1"
+
+
+def test_in_memory_journal_is_rejected_because_it_is_not_durable():
+    import pytest
+
+    with pytest.raises(
+        ValueError, match="EXECUTION_JOURNAL_REQUIRES_DURABLE_FILE_BACKING"
+    ):
+        ExecutionJournalV1(":memory:")
