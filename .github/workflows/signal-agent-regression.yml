@@ -43,7 +43,8 @@ jobs:
             forward/test_opportunity_policy_v1.py \
             forward/test_risk_policy_v1.py \
             forward/test_decision_risk_integration_v1.py \
-            forward/test_forward_e2e_boundary_v1.py
+            forward/test_forward_e2e_boundary_v1.py \
+            tests/forward/test_agent_disagreement_resolver_v1.py
       - name: Assert execution remains disabled
         run: |
           grep -q 'execution_disabled' forward/risk_policy_v1.py
