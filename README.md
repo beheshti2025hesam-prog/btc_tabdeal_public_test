@@ -26,7 +26,6 @@ It collects public Tabdeal BTC_USDT futures trade data for the Data Foundation p
 **HES Trade Agent**  
 **Owner: Seyed Hesameddin Beheshti Shirazi**
 
-
 ## Read-only dashboard and Signal Agent entry point
 
 The existing dashboard is the application entry surface for the current data-foundation slice; it is not a separate trading application.
@@ -37,3 +36,9 @@ The existing dashboard is the application entry surface for the current data-fou
 - The route intentionally returns `BLOCKED / NO_TRADE` while symbol mapping evidence, validated directional structure, strategy-level signal-quality approval, and provenance-bound entry/stop/target risk geometry are missing. Feature-engine quality is not equivalent to the strategy-level signal-quality gate.
 - The dashboard has no order-submit endpoint. WebSocket collection remains opt-in and execution remains disabled. Do not deploy or enable trading from this branch alone.
 - See [Signal Agent v1 boundary](forward/SIGNAL_AGENT_V1.md) and [entrypoint integration checkpoint](docs/checkpoints/SIGNAL_AGENT_ENTRYPOINT_INTEGRATION_2026-10-24.md).
+
+## Live execution boundary (not enabled)
+
+- [Live Execution Boundary v1](docs/execution/LIVE_EXECUTION_BOUNDARY_V1.md) defines the required fail-closed preflight and promotion sequence.
+- [Master checkpoint — live execution, 2026-10-24](docs/checkpoints/MASTER_CHECKPOINT_2026-10-24_LIVE_EXECUTION.md) records the current state and remaining acceptance gates.
+- `forward/execution_gate_v1.py` is a preflight contract only. It has no concrete venue adapter and cannot submit orders. Runtime defaults deny live execution; passing unit tests does not authorize production trading.
