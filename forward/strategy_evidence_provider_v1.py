@@ -115,6 +115,38 @@ def mfi14(candles: Sequence) -> float | None:
     return values[-1] if values else None
 
 
+
+def detect_mfi_divergence(
+    candles: Sequence,
+    swings: Sequence[SwingPoint],
+    *,
+    direction: str,
+    mfi_values: Sequence[float | None],
+) -> bool | None:
+    """Compare the last two confirmed directional swings using causal MFI values."""
+    if direction not in ("BULLISH", "BEARISH"):
+        return None
+    kind = "SWING_LOW" if direction == "BULLISH" else "SWING_HIGH"
+    directional_swings = [swing for swing in swings if swing.kind == kind]
+    if len(directional_swings) < 2:
+        return None
+    previous_swing, current_swing = directional_swings[-2:]
+    index_by_end_ms = {
+        int(candle.end.timestamp() * 1000): index for index, candle in enumerate(candles)
+    }
+    previous_index = index_by_end_ms.get(int(previous_swing.candle_time.timestamp() * 1000))
+    current_index = index_by_end_ms.get(int(current_swing.candle_time.timestamp() * 1000))
+    if previous_index is None or current_index is None:
+        return None
+    if previous_index >= len(mfi_values) or current_index >= len(mfi_values):
+        return None
+    previous_mfi, current_mfi = mfi_values[previous_index], mfi_values[current_index]
+    if previous_mfi is None or current_mfi is None:
+        return None
+    if direction == "BULLISH":
+        return current_swing.price < previous_swing.price and current_mfi > previous_mfi
+    return current_swing.price > previous_swing.price and current_mfi < previous_mfi
+
 def adx14(candles: Sequence) -> tuple[float, float, float] | None:
     """Wilder ADX14 and directional indicators from OHLC only."""
     period = 14
@@ -333,25 +365,9 @@ class StrategyEvidenceProviderV1:
 
         htf_ok = None if htf_direction == "UNKNOWN" or direction == "UNKNOWN" else htf_direction == direction
         mfi_values = mfi14_series(native15)
-        mfi_divergence = None
-        if direction != "UNKNOWN":
-            swing_kind = "SWING_LOW" if direction == "BULLISH" else "SWING_HIGH"
-            directional_swings = [swing for swing in confirmed_swings if swing.kind == swing_kind]
-            if len(directional_swings) >= 2:
-                previous_swing, current_swing = directional_swings[-2:]
-                index_by_end_ms = {
-                    int(candle.end.timestamp() * 1000): index for index, candle in enumerate(c15)
-                }
-                previous_index = index_by_end_ms.get(int(previous_swing.candle_time.timestamp() * 1000))
-                current_index = index_by_end_ms.get(int(current_swing.candle_time.timestamp() * 1000))
-                if previous_index is not None and current_index is not None:
-                    previous_mfi = mfi_values[previous_index]
-                    current_mfi = mfi_values[current_index]
-                    if previous_mfi is not None and current_mfi is not None:
-                        if direction == "BULLISH":
-                            mfi_divergence = current_swing.price < previous_swing.price and current_mfi > previous_mfi
-                        else:
-                            mfi_divergence = current_swing.price > previous_swing.price and current_mfi < previous_mfi
+        mfi_divergence = detect_mfi_divergence(
+            c15, confirmed_swings, direction=direction, mfi_values=mfi_values
+        )
         if direction == "UNKNOWN":
             mfi_ok = None
         elif mfi_value is not None and (mfi_value > 50.0 if direction == "BULLISH" else mfi_value < 50.0):
