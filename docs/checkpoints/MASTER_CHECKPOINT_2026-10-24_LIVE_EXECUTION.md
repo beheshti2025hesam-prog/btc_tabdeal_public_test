@@ -53,3 +53,25 @@ Do not work around these blockers with guessed symbol mappings, invented strateg
 - Risk checkpoint: **26 October 2026**.
 - Priority through the risk checkpoint: unblock canonical source/runtime evidence and select/verify the execution venue; then finish the concrete adapter and paper/shadow validation without weakening the gates.
 - Do not turn planning estimates or passing unit tests into a production-readiness claim.
+
+
+## 2026-10-24 follow-up — venue adapter contract hardening
+
+**Code-side adapter contract status:** implemented on the same execution-boundary branch; concrete exchange adapter remains blocked by venue approval/evidence, not by an unimplemented generic interface.
+
+- Canonical typed interface: `forward/execution_adapter_contract_v1.py`. The prior minimal `ExecutionAdapterV1` protocol in `execution_gate_v1.py` now imports this single contract rather than defining a competing interface.
+- Request contract separates analysis symbol from venue-native symbol and requires mapping evidence, client-order ID, decision ID, and payload SHA-256.
+- Capability records default to `UNVERIFIED` and cannot be considered ready without exact venue/product match, official API evidence URL, pinned evidence hash, independent review revision, idempotent client-ID submission, cancellation, native protective orders, and order/open-order/position/account reconciliation capabilities.
+- Venue order snapshots model NEW/PARTIALLY_FILLED/FILLED/CANCELED/REJECTED/EXPIRED/UNKNOWN and validate scope, IDs, quantity, fill consistency, timezone-aware receive evidence, and raw-response hash.
+- New contract regression file: `tests/test_execution_adapter_contract_v1.py`; the existing execution-gate workflow now runs gate, journal, and adapter-contract tests together.
+- No concrete venue adapter, credentials, network order call, private endpoint, deployment, or VPS change was added. No exchange currently satisfies the approval gate in the existing venue-selection decision (#300). Therefore do not claim that the concrete adapter is complete or live-ready.
+
+### Remaining external blockers before a real adapter can be selected
+
+1. Select a venue based on current authoritative evidence and applicable legal/provider access, not marketing claims.
+2. Pin and independently review official contract evidence for order placement/query/cancel, client-order-ID idempotency, symbol mapping, precision/minimum notional, margin/position mode, reduce-only, native protective stops, partial fills, rate limits, and reconciliation.
+3. Confirm read-only account/order/position reconciliation is permitted in the authorized runtime.
+4. Implement exactly one venue adapter against the typed contract, add mocked timeout-after-accept/partial-fill/restart/reconciliation tests, then run paper/shadow validation.
+5. Keep live mode disabled until separate explicit owner approval and all prior product gates pass.
+
+**Schedule:** product delivery target remains **2026-11-19**; risk checkpoint remains **2026-10-26**. The adapter abstraction is ready for a venue-specific implementation, but the venue decision and the production frontend/runtime blocker remain schedule-critical. Keep `HOLD / NO_TRADE_ONLY`.
