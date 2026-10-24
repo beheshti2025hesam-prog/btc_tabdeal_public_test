@@ -124,10 +124,12 @@ class DashboardRouteTests(unittest.TestCase):
             reason="feature_quality_passed",
             quality=SimpleNamespace(passed=True),
         )
-        with patch("web.dashboard._get_batch", return_value=(batch, features)) as get_batch:
+        htf_batch = sample_batch(interval="4h")
+        with patch("web.dashboard._get_batch", side_effect=[(batch, features), (htf_batch, features)]) as get_batch:
             with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
                 payload = json.loads(response.read())
-        get_batch.assert_called_once_with("BTCUSDT", "15m")
+        self.assertEqual(get_batch.call_args_list[0].args, ("BTCUSDT", "15m"))
+        self.assertEqual(get_batch.call_args_list[1].args, ("BTCUSDT", "4h"))
         self.assertEqual(payload["agent_version"], "hes-signal-agent-v1")
         self.assertEqual(payload["decision"], "NO_TRADE")
         self.assertEqual(payload["status"], "BLOCKED")
@@ -139,8 +141,11 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["strategy_policy_version"], "hes-strategy-policy-v1")
         self.assertIsNone(payload["strategy_evidence_sha256"])
         self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["blocked_reasons"])
-        self.assertIn("VALIDATED_STRUCTURE_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
-        self.assertIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+        self.assertIn("HTF_AND_STRUCTURE_DIRECTION_NOT_ALIGNED", payload["blocked_reasons"])
+        self.assertIn("STRATEGY_EVIDENCE_UNKNOWN", payload["blocked_reasons"])
+        self.assertEqual(payload["strategy_evidence_provider"], "hes-native-strategy-evidence-v1")
+        self.assertEqual(payload["execution_enabled"], False)
+        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["execution_blocked_reasons"])
         self.assertIn("RISK_GEOMETRY_MISSING", payload["blocked_reasons"])
 
     def test_signal_endpoint_rejects_unapproved_scope_before_fetch(self):
