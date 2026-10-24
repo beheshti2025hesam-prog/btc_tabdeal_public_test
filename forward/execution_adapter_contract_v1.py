@@ -274,11 +274,25 @@ def validate_adapter_readiness(
     *,
     expected_venue_id: str,
     expected_market_type: MarketType,
+    approved_evidence_sha256: str | None = None,
+    approved_review_revision: str | None = None,
 ) -> tuple[str, ...]:
-    """Return blockers; an unverified adapter is never ready for live execution."""
+    """Return blockers; self-asserted VERIFIED metadata is not a trust root.
+
+    The approved pins must come from trusted deployment/project configuration,
+    not from the adapter itself. Without both pins, readiness always fails.
+    """
     errors = list(capabilities.validation_errors())
     if capabilities.venue_id != expected_venue_id:
         errors.append("CAPABILITY_VENUE_SCOPE_MISMATCH")
     if capabilities.market_type != expected_market_type:
         errors.append("CAPABILITY_MARKET_TYPE_SCOPE_MISMATCH")
+    if not _sha256(approved_evidence_sha256):
+        errors.append("APPROVED_CAPABILITY_EVIDENCE_PIN_MISSING_OR_INVALID")
+    elif capabilities.evidence_sha256.lower() != approved_evidence_sha256.lower():
+        errors.append("CAPABILITY_EVIDENCE_PIN_MISMATCH")
+    if not isinstance(approved_review_revision, str) or not approved_review_revision.strip():
+        errors.append("APPROVED_REVIEW_REVISION_PIN_MISSING")
+    elif capabilities.reviewed_revision != approved_review_revision:
+        errors.append("CAPABILITY_REVIEW_REVISION_PIN_MISMATCH")
     return tuple(dict.fromkeys(errors))
