@@ -52,6 +52,6 @@ The existing read-only dashboard entry point now calls SignalAgentV1 through `GE
 ## Order Block context v1
 
 - Reuses the same validated closed Binance Spot 15m native-candle batch; no second candle source or candle schema.
-- Finds the last opposing candle before a confirmed swing break, defines its zone, and scores seven binary context factors: confirmed BOS/CHOCH, liquidity sweep, fair-value gap, freshness/unmitigated state, higher-timeframe alignment, volume expansion, and EMA/swing-level confluence.
+- Finds the last opposing candle before a confirmed swing break, defines its zone, and scores seven binary context factors: confirmed BOS/CHOCH, liquidity sweep, fair-value gap, freshness/unmitigated state, higher-timeframe alignment, volume expansion, and EMA/VWAP/support-resistance confluence.
 - Output is a raw `0..7` contextual score with zone and source-response SHA-256. It is explicitly `CONTEXT_ONLY`; `score_threshold_authorized=false`. No score threshold is used to promote or reject a trade until separately pre-registered and reviewed.
 - Missing break, direction, stale/gapped data, or invalid source evidence does not create a tradable order block. Tests cover zone, factor scoring, freshness/mitigation, hash validation, and fail-closed behavior.
