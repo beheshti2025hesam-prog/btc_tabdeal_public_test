@@ -18,13 +18,14 @@ import web.dashboard as dashboard
 from web.dashboard import Handler
 
 
-def sample_batch(*, gaps=()):
+def sample_batch(*, gaps=(), interval="1m"):
     now_ms=int(time.time()*1000)
-    open_ms=(now_ms//60_000-1)*60_000
-    close_ms=open_ms+59_999
+    interval_ms=dashboard.INTERVAL_MS[interval]
+    open_ms=(now_ms//interval_ms-1)*interval_ms
+    close_ms=open_ms+interval_ms-1
     fetched=now_ms
     candle=SimpleNamespace(
-        venue="binance",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="binance",product="spot",symbol="BTCUSDT",interval=interval,
         open_time_ms=open_ms,close_time_ms=close_ms,
         open=Decimal("100.00"),high=Decimal("102.00"),low=Decimal("99.00"),
         close=Decimal("101.00"),volume=Decimal("2.500"),quote_volume=Decimal("250.625"),
@@ -32,7 +33,7 @@ def sample_batch(*, gaps=()):
         taker_buy_quote_volume=Decimal("160.400"),closed=True,
     )
     return SimpleNamespace(
-        venue="binance",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="binance",product="spot",symbol="BTCUSDT",interval=interval,
         endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
@@ -58,6 +59,12 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base+"/") as response:
             page=response.read().decode()
         self.assertIn("HES Trade Agent",page)
+        self.assertIn("Signal Agent v1",page)
+        self.assertIn("/api/signal?symbol=BTCUSDT&interval=15m",page)
+        self.assertIn("signalReasons",page)
+        self.assertIn("signalStrategyQuality",page)
+        self.assertIn("signalStrategyQuorum",page)
+        self.assertIn("signalOrderBlock",page)
         self.assertIn("HOLD / NO_TRADE_ONLY",page)
         self.assertIn(dashboard.CHART_ASSET_PATH,page)
         self.assertNotIn("unpkg.com",page)
@@ -108,6 +115,59 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["candles"][0]["open"],"100.00")
         self.assertEqual(payload["candles"][0]["volume"],"2.500")
         self.assertFalse(payload["feature_ready"])
+        self.assertFalse(payload["execution_enabled"])
+
+
+    def test_signal_entrypoint_is_wired_and_fails_closed_without_strategy_evidence(self):
+        batch = sample_batch(interval="15m")
+        features = SimpleNamespace(
+            decision_ready=True,
+            reason="feature_quality_passed",
+            quality=SimpleNamespace(passed=True),
+            snapshot=None,
+        )
+        htf_batch = sample_batch(interval="4h")
+        with patch("web.dashboard._get_batch", side_effect=[(batch, features), (htf_batch, features)]) as get_batch:
+            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                payload = json.loads(response.read())
+        self.assertEqual(get_batch.call_args_list[0].args, ("BTCUSDT", "15m"))
+        self.assertEqual(get_batch.call_args_list[1].args, ("BTCUSDT", "4h"))
+        self.assertEqual(payload["agent_version"], "hes-signal-agent-v1")
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertFalse(payload["execution_enabled"])
+        self.assertTrue(payload["feature_quality_passed"])
+        self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
+        self.assertEqual(payload["strategy_quality_passed_count"], 0)
+        self.assertEqual(payload["strategy_quality_required_count"], 5)
+        self.assertEqual(payload["strategy_policy_version"], "hes-strategy-policy-v1")
+        self.assertIsNone(payload["strategy_evidence_sha256"])
+        self.assertIn("HTF_AND_STRUCTURE_DIRECTION_NOT_ALIGNED", payload["blocked_reasons"])
+        self.assertIn("DIRECTION_NOT_ESTABLISHED", payload["blocked_reasons"])
+        self.assertEqual(payload["strategy_evidence_provider"], "hes-native-strategy-evidence-v1")
+        self.assertEqual(payload["order_block_version"], "hes-order-block-context-v1")
+        self.assertEqual(payload["order_block_status"], "UNAVAILABLE")
+        self.assertIsNone(payload["order_block_score"])
+        self.assertFalse(payload["order_block_score_threshold_authorized"])
+        self.assertEqual(payload["execution_enabled"], False)
+        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["execution_blocked_reasons"])
+        self.assertIn("RISK_GEOMETRY_MISSING", payload["blocked_reasons"])
+
+    def test_signal_endpoint_rejects_unapproved_scope_before_fetch(self):
+        with patch("web.dashboard._get_batch") as get_batch:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=ETHUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 400)
+        get_batch.assert_not_called()
+
+    def test_signal_input_failure_returns_no_trade_and_never_fabricates_signal(self):
+        with patch("web.dashboard._get_batch", side_effect=TimeoutError()):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertTrue(payload["fail_closed"])
         self.assertFalse(payload["execution_enabled"])
 
     def test_unsupported_symbol_or_interval_fails_before_source_call(self):

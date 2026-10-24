@@ -1,0 +1,28 @@
+name: Signal Agent Contract Tests
+
+on:
+  push:
+    branches:
+      - feat/forward-signal-agent-hardening-20261024
+      - feat/hes-agent-entrypoint-integration-20261024
+  pull_request:
+    branches:
+      - feat/native-ohlcv-candle-sources-20261017
+      - feat/native-ohlcv-dashboard-single-path-20261021
+
+permissions:
+  contents: read
+
+jobs:
+  signal-agent-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: python -m pytest -q forward/test_opportunity_policy_v1.py forward/test_confirmation_policy_v1.py forward/test_risk_policy_v1.py forward/test_signal_agent_v1.py forward/test_strategy_policy_v1.py forward/test_strategy_evidence_provider_v1.py forward/test_order_block_v1.py tests/forward/test_agent_disagreement_resolver_v1.py
+        env:
+          PYTHONPATH: .
