@@ -11,8 +11,8 @@ class OpportunityPolicyV1:
         if not events:
             return OpportunityCandidate(observed_at,symbol,timeframe,'NO_CANDIDATE',regime,labels,events,('NO_STRUCTURE_EVENT',))
         latest=events[-1]
-        if regime=='UPTREND' and latest in ('BOS','CHOCH'):
-            return OpportunityCandidate(observed_at,symbol,timeframe,'CANDIDATE_LONG',regime,labels,events,('LATEST_STRUCTURAL_EVENT',))
-        if regime=='DOWNTREND' and latest in ('BOS','CHOCH'):
-            return OpportunityCandidate(observed_at,symbol,timeframe,'CANDIDATE_SHORT',regime,labels,events,('LATEST_STRUCTURAL_EVENT',))
+        if regime=='UPTREND' and 'HH' in labels and 'HL' in labels and latest in ('BOS','CHOCH','HH','HL'):
+            return OpportunityCandidate(observed_at,symbol,timeframe,'CANDIDATE_LONG',regime,labels,events,('DIRECTIONAL_STRUCTURE_PRESENT',))
+        if regime=='DOWNTREND' and 'LL' in labels and 'LH' in labels and latest in ('BOS','CHOCH','LL','LH'):
+            return OpportunityCandidate(observed_at,symbol,timeframe,'CANDIDATE_SHORT',regime,labels,events,('DIRECTIONAL_STRUCTURE_PRESENT',))
         return OpportunityCandidate(observed_at,symbol,timeframe,'NO_CANDIDATE',regime,labels,events,('EVENT_DIRECTION_NOT_TRACEABLE',))
