@@ -1,8 +1,6 @@
-"""Fail-closed news context adapter for Mother Orchestrator v1.
+"""Fail-closed adapter for the actual NewsBrief.to_mother_payload() contract.
 
-This module is deliberately not wired into live execution. It validates a
-versioned brief and exposes only contextual evidence plus a veto flag. News
-cannot create a LONG/SHORT decision or authorize execution.
+Observation-only: news can veto/raise uncertainty but cannot originate a trade.
 """
 from __future__ import annotations
 
@@ -10,82 +8,78 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
-CONTRACT = "hes.news_brief.v1"
-ALLOWED_STATES = {"READY", "DEGRADED", "BLOCKED"}
+SCHEMA_VERSION = "hes.news_brief.v1"
 
 
-def _utc_timestamp(value: Any) -> datetime | None:
+def _timestamp(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    # Naive timestamps are ambiguous: fail closed instead of assuming UTC.
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return None
     return parsed.astimezone(timezone.utc)
 
 
 def adapt_news_brief(brief: Any, *, now: datetime | None = None) -> dict[str, Any]:
-    """Return safe, observation-only context. Invalid/unknown input blocks."""
+    """Accept the native news handoff shape; invalid or uncertain input blocks."""
     blocked = {
-        "contract": CONTRACT,
-        "state": "BLOCKED",
-        "veto": True,
-        "reason_codes": ["NEWS_BRIEF_INVALID_OR_UNTRUSTED"],
-        "items": [],
-        "execution_authorized": False,
-        "decision_authorized": False,
+        "schema_version": SCHEMA_VERSION, "status": "BLOCKED", "veto": True,
+        "reason_codes": ["NEWS_BRIEF_INVALID_OR_UNTRUSTED"], "items": [],
+        "execution_authorized": False, "decision_authorized": False,
     }
-    if not isinstance(brief, Mapping) or brief.get("contract") != CONTRACT:
+    if not isinstance(brief, Mapping) or brief.get("schema_version") != SCHEMA_VERSION:
         return blocked
-    if brief.get("state") not in ALLOWED_STATES:
+    if brief.get("news_alone_can_authorize_trade") is not False:
         return blocked
-    items = brief.get("items")
-    if not isinstance(items, list):
+    status = brief.get("status")
+    if status not in {"READY", "DEGRADED", "BLOCKED"}:
+        return blocked
+    findings = brief.get("top_findings", [])
+    if not isinstance(findings, list):
         return blocked
     clock = now or datetime.now(timezone.utc)
     if clock.tzinfo is None or clock.utcoffset() is None:
         return blocked
-    clean_items = []
-    for item in items:
-        if not isinstance(item, Mapping):
+    clean = []
+    for finding in findings:
+        if not isinstance(finding, Mapping):
             return blocked
-        published = _utc_timestamp(item.get("published_at"))
+        published = _timestamp(finding.get("published_at"))
         if published is None or published > clock:
             return blocked
-        source_id = item.get("source_id")
-        canonical_url = item.get("canonical_url")
-        if not isinstance(source_id, str) or not source_id.strip():
+        url = finding.get("url")
+        if not isinstance(url, str) or not url.startswith("https://"):
             return blocked
-        if not isinstance(canonical_url, str) or not canonical_url.startswith("https://"):
+        source = finding.get("source")
+        if not isinstance(source, str) or not source.strip():
             return blocked
-        # Article text is intentionally not copied into orchestration context.
-        impact = item.get("impact")
-        if impact not in {"LOW", "MEDIUM", "HIGH", "UNKNOWN"}:
+        impact = finding.get("impact")
+        if not isinstance(impact, (int, float)) or isinstance(impact, bool) or not 0 <= impact <= 1:
             return blocked
-        clean_items.append({
-            "source_id": source_id,
-            "canonical_url": canonical_url,
-            "published_at": published.isoformat(),
-            "impact": impact,
-            "item_hash": item.get("item_hash") if isinstance(item.get("item_hash"), str) else None,
+        clean.append({
+            "source": source, "url": url, "published_at": published.isoformat(),
+            "impact": float(impact), "freshness": finding.get("freshness", "UNKNOWN"),
+            "item_id": finding.get("item_id") if isinstance(finding.get("item_id"), str) else None,
         })
-    state = brief["state"]
-    high_impact = any(item["impact"] == "HIGH" for item in clean_items)
-    degraded = state != "READY"
-    reasons = []
+    flags = brief.get("veto_flags", [])
+    if not isinstance(flags, (list, tuple)) or any(not isinstance(flag, str) for flag in flags):
+        return blocked
+    high_impact = any(item["impact"] >= 0.65 for item in clean)
+    degraded = status != "READY"
+    reasons = list(flags)
     if high_impact:
         reasons.append("HIGH_IMPACT_NEWS_REQUIRES_INDEPENDENT_CONFIRMATION")
-    if degraded:
+    if degraded and not reasons:
         reasons.append("NEWS_COVERAGE_DEGRADED")
     return {
-        "contract": CONTRACT,
-        "state": "DEGRADED" if degraded else "READY",
-        "veto": high_impact or degraded,
-        "reason_codes": reasons,
-        "items": clean_items,
+        "schema_version": SCHEMA_VERSION,
+        "status": "DEGRADED" if degraded else "READY",
+        "veto": bool(high_impact or degraded or flags),
+        "reason_codes": sorted(set(reasons)),
+        "items": clean,
         "execution_authorized": False,
         "decision_authorized": False,
     }
