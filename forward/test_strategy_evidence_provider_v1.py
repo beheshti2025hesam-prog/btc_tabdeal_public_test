@@ -136,3 +136,31 @@ def test_evidence_window_hash_excludes_rows_after_common_as_of():
     changed_batch = replace(batch, candles=batch.candles[:-1] + (changed_last,))
     after = _evidence_window_sha256(changed_batch, as_of_ms=as_of_ms)
     assert before == after
+
+
+def test_mfi14_known_monotonic_flow_edges():
+    now = 1_800_000_000_000
+    base = make_batch("15m", now, count=30)
+    rising = []
+    falling = []
+    for i, original in enumerate(base.candles):
+        up_close = Decimal(100 + i)
+        down_close = Decimal(200 - i)
+        rising.append(replace(
+            original, open=up_close - Decimal("0.5"), high=up_close + Decimal("1"),
+            low=up_close - Decimal("1"), close=up_close, volume=Decimal("1"),
+            quote_volume=up_close, taker_buy_volume=Decimal("0.5"),
+            taker_buy_quote_volume=up_close / Decimal("2"),
+        ))
+        falling.append(replace(
+            original, open=down_close + Decimal("0.5"), high=down_close + Decimal("1"),
+            low=down_close - Decimal("1"), close=down_close, volume=Decimal("1"),
+            quote_volume=down_close, taker_buy_volume=Decimal("0.5"),
+            taker_buy_quote_volume=down_close / Decimal("2"),
+        ))
+    assert mfi14(rising) == 100.0
+    assert mfi14(falling) == 0.0
+    adx = adx14(rising)
+    assert adx is not None
+    assert adx[0] > 99.0
+    assert adx[1] > adx[2]
