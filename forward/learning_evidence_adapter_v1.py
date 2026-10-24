@@ -192,6 +192,8 @@ def build_report_from_artifacts(
             char not in "0123456789abcdef" for char in evidence_sha
         ):
             raise ValueError("invalid_outcome_evidence_sha256")
+        if not isinstance(row.get("evidence_ref"), str) or not row["evidence_ref"].strip():
+            raise ValueError("outcome_evidence_ref_required")
         decision_event_id = row.get("decision_event_id")
         if decision_event_id not in decision_by_id:
             raise ValueError("outcome_without_known_forward_decision")
@@ -207,6 +209,16 @@ def build_report_from_artifacts(
         if not isinstance(row.get("closed_at"), str) or not row["closed_at"].strip():
             if outcome in CLOSED_OUTCOMES or outcome == "CANCELLED":
                 raise ValueError("outcome_closed_at_required")
+        elif outcome in CLOSED_OUTCOMES or outcome == "CANCELLED":
+            try:
+                closed = datetime.fromisoformat(row["closed_at"].replace("Z", "+00:00"))
+                observed = datetime.fromisoformat(decision_by_id[decision_event_id]["observed_at"].replace("Z", "+00:00"))
+            except (TypeError, ValueError, KeyError) as exc:
+                raise ValueError("invalid_outcome_timestamp") from exc
+            if closed.tzinfo is None or observed.tzinfo is None:
+                raise ValueError("outcome_timestamps_must_be_timezone_aware")
+            if closed < observed:
+                raise ValueError("outcome_precedes_decision")
         outcome_by_decision[decision_event_id] = row
 
     learning_rows = []
