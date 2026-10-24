@@ -18,6 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
+from forward.native_ohlcv_v1 import INTERVAL_MS
+
 
 OHLCV_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 FEATURE_NAMES = (
@@ -75,8 +77,9 @@ def _finite_positive(value: str, field: str, line: int, *, allow_zero: bool = Fa
 def load_ohlcv_csv(path: str | Path, *, source_id: str, interval: str) -> tuple[OHLCVRow, ...]:
     if not isinstance(source_id, str) or not source_id.strip():
         raise ValueError("source_id must explicitly identify the global OHLCV provider")
-    if not isinstance(interval, str) or not interval.strip():
-        raise ValueError("interval must be explicit")
+    if not isinstance(interval, str) or interval not in INTERVAL_MS:
+        raise ValueError("interval must be an explicitly supported fixed-duration candle interval")
+    interval_seconds = INTERVAL_MS[interval] / 1000
     rows: list[OHLCVRow] = []
     with Path(path).open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -102,8 +105,13 @@ def load_ohlcv_csv(path: str | Path, *, source_id: str, interval: str) -> tuple[
             )
             if row.high < max(row.open, row.close, row.low) or row.low > min(row.open, row.close, row.high):
                 raise ValueError(f"line {line}: OHLC bounds invalid")
-            if rows and parsed_stamp <= datetime.fromisoformat(rows[-1].timestamp):
-                raise ValueError(f"line {line}: timestamps must be strictly increasing")
+            if rows:
+                previous_stamp = datetime.fromisoformat(rows[-1].timestamp)
+                delta_seconds = (parsed_stamp - previous_stamp).total_seconds()
+                if delta_seconds <= 0:
+                    raise ValueError(f"line {line}: timestamps must be strictly increasing")
+                if delta_seconds != interval_seconds:
+                    raise ValueError(f"line {line}: candle gap/overlap does not match declared interval")
             rows.append(row)
     if len(rows) < 50:
         raise ValueError(f"need at least 50 chronological OHLCV candles; got {len(rows)}")
