@@ -75,3 +75,5 @@ Do not work around these blockers with guessed symbol mappings, invented strateg
 5. Keep live mode disabled until separate explicit owner approval and all prior product gates pass.
 
 **Schedule:** product delivery target remains **2026-11-19**; risk checkpoint remains **2026-10-26**. The adapter abstraction is ready for a venue-specific implementation, but the venue decision and the production frontend/runtime blocker remain schedule-critical. Keep `HOLD / NO_TRADE_ONLY`.
+
+- Additional fail-closed hardening: adapter capability metadata cannot self-authorize. `validate_adapter_readiness` requires external trusted evidence-SHA and independent-review-revision pins; missing or mismatched pins block readiness even if an adapter self-labels its capabilities `VERIFIED`. The new tests cover both absent pins and exact matching pins.
