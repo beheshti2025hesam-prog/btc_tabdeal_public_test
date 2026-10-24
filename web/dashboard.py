@@ -199,6 +199,7 @@ class Handler(BaseHTTPRequestHandler):
                     "order_block_score": strategy.order_block.score if strategy.order_block else None,
                     "order_block_max_score": strategy.order_block.max_score if strategy.order_block else 7,
                     "order_block_direction": strategy.order_block.direction if strategy.order_block else None,
+                    "order_block_break_type": strategy.order_block.break_type if strategy.order_block else None,
                     "order_block_zone_low": str(strategy.order_block.zone_low) if strategy.order_block else None,
                     "order_block_zone_high": str(strategy.order_block.zone_high) if strategy.order_block else None,
                     "order_block_fresh": strategy.order_block.fresh if strategy.order_block else None,
