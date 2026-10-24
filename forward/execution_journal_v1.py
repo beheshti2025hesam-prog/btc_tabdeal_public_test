@@ -63,14 +63,16 @@ class ExecutionJournalV1:
 
     def __init__(self, database_path: str | Path):
         self.database_path = str(database_path)
-        if self.database_path != ":memory:":
-            Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
+        if self.database_path == ":memory:":
+            raise ValueError("EXECUTION_JOURNAL_REQUIRES_DURABLE_FILE_BACKING")
+        Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
         self._ensure_schema()
 
     def _connect(self):
         db = sqlite3.connect(self.database_path, timeout=5.0, isolation_level=None)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA busy_timeout=5000")
+        db.execute("PRAGMA synchronous=FULL")
         return db
 
     def _ensure_schema(self) -> None:
