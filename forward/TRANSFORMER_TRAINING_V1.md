@@ -6,7 +6,8 @@ Status: **training code and source-export workflow implemented; real-market mode
 - `forward/transformer_training_v1.py`: reads chronologically ordered OHLCV candles, builds a small causal Transformer, creates explicit SHORT/NEUTRAL/LONG labels from a future-return horizon, performs purged chronological train/validation/test splits, fits normalization on training rows only, and emits a checkpoint plus SHA-256 manifest.
 - `forward/transformer_torch_adapter_v1.py`: verifies checkpoint SHA-256, validates the saved feature/class schema, loads the model, and returns normalized probabilities through the existing Transformer Agent predictor contract.
 - `scripts/export_binance_ohlcv_for_transformer_v1.py`: reuses the existing `BinanceUsdMPerpetualKlineSource` adapter to export closed BTCUSDT USDⓈ-M 15m candles. It records per-response hashes, final CSV hash, date range, and candle count; any observed candle gap aborts the export.
-- `tests/test_transformer_training_v1.py`: tests rejection of trade-tape CSV, chronological split boundaries, training/checkpoint creation, artifact verification, and contract integration.
+- `tests/test_transformer_training_v1.py`: tests rejection of trade-tape CSV, candle gaps and misaligned timestamps, chronological split boundaries, training/checkpoint creation, artifact verification, and contract integration.
+- `tests/test_transformer_binance_export_v1.py`: mocked pagination test for the existing Binance adapter exporter, CSV/hash-manifest verification, and fail-closed gap rejection.
 - `.github/workflows/transformer-training-pipeline.yml`: CPU PyTorch CI for the inference and training contracts.
 - `.github/workflows/transformer-binance-candidate.yml`: manually triggered, read-only Binance data export + candidate training + provenance artifact upload. The neutral band is a required input, not a guessed default.
 
