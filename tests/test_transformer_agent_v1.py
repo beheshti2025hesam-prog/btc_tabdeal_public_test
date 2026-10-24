@@ -105,3 +105,23 @@ def test_model_runtime_failure_abstains():
     assert result.status == "ABSTAIN"
     assert result.direction == "UNKNOWN"
     assert "MODEL_INFERENCE_FAILED" in result.reasons
+
+
+def test_invalid_configuration_fails_closed_without_type_error():
+    result = evaluate_transformer_v1(**sample(minimum_rows="32", max_age_seconds=-1))
+    assert result.status == "ABSTAIN"
+    assert "MINIMUM_ROWS_INVALID" in result.reasons
+    assert "MAX_AGE_INVALID" in result.reasons
+
+
+def test_non_sequence_rows_fail_closed_without_type_error():
+    result = evaluate_transformer_v1(**sample(rows=7, timestamps=[]))
+    assert result.status == "ABSTAIN"
+    assert result.direction == "UNKNOWN"
+
+
+def test_boolean_probabilities_are_not_accepted_as_numeric_scores():
+    predictor = Predictor({"LONG": True, "SHORT": 0.0, "NEUTRAL": 0.0})
+    result = evaluate_transformer_v1(**sample(predictor=predictor))
+    assert result.status == "ABSTAIN"
+    assert result.direction == "UNKNOWN"
