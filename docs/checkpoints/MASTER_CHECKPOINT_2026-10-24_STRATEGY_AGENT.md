@@ -43,3 +43,14 @@
 
 - Evidence provenance hardening: each strategy check hashes only the closed candle rows actually used at the common `as_of_ms`; its evidence reference separately records the raw Binance response SHA-256 and as-of timestamp. The provider filters both timeframes to the common cutoff, so a newer 15m response cannot leak rows past an older cached 4h observation.
 - Order-block context now distinguishes confirmed BOS from CHOCH, scores the seven contextual factors, and includes price confluence against the existing EMA50, the existing VWAP snapshot, or confirmed swing/support-resistance levels. Long and short/CHOCH paths are covered by tests. Score remains non-authorizing.
+
+
+## Exact-head CI evidence — implementation SHA `4b26a8e4f84be3c9152669625db69165407d4993`
+
+- Strategy policy + evidence provider + order-block + Signal Agent contract suite: **PASS, 69 tests** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080290061
+- Existing Signal Agent and adjacent gate regression: **PASS, 75 tests** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080290033
+- Dashboard/native source-path integration: **PASS** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080290002
+- Browser chart render/source-path smoke: **PASS** — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080290006
+- Live WebSocket smoke: **SKIPPED**, not passed — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40080290007
+
+These runs verified the implementation at the SHA above. This checkpoint addition is documentation-only; the repository will rerun the workflows on the resulting new head. The final promotion gate remains HOLD until that new head is checked and independent review is complete.
