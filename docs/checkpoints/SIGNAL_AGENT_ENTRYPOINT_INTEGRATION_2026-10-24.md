@@ -48,3 +48,13 @@ Integration head when opened: `7b59c4462da8d9b88837fdf3829979e42615099a`.
 4. Provenance-bound actual entry/stop/target geometry and versioned risk evidence.
 5. Exact target-runtime/browser parity and acceptance of the canonical data foundation/dashboard PRs.
 6. Forward-observation validation; no profitability or win-rate claim follows from component tests.
+
+
+## Strategy Agent completion follow-up — 2026-10-24
+
+- Added `forward/strategy_policy_v1.py` and tests. The versioned policy requires six named checks (HTF trend, pullback location, reversal/break, MFI, ADX/+DI, and 3:1 risk geometry), at least 5/6 measured PASS, and always PASS on the risk-geometry gate.
+- Every check must include provider/version, evidence reference, evidence SHA-256, state, and timezone-aware observation timestamp. Missing/UNKNOWN/future/malformed evidence fails closed. The policy validates evidence; it does not calculate or fabricate indicator values.
+- Signal Agent now derives `signal_quality_gate_passed` from the policy itself and rejects caller-supplied quality overrides. It separately checks actual numeric entry/stop/target geometry and execution remains disabled.
+- Fixed the scope mismatch: the active profile is explicitly `binance / spot / BTCUSDT / 15m`; prior candidate policy used `BTC_USDT`, which could never match the dashboard's Binance symbol. Spot/Futures are not aliased.
+- The existing dashboard calls the same Signal Agent and surfaces strategy policy state/count/hash. Because no validated strategy-evidence provider is wired yet, the live route must continue to report UNKNOWN/BLOCKED and NO_TRADE. Synthetic unit tests prove contract mechanics, not real signal quality.
+- PR remains Draft/HOLD, no merge/deployment/collector activation/order placement. Delivery target remains 2026-11-19; risk checkpoint 2026-10-26.
