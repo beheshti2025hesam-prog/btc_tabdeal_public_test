@@ -194,7 +194,7 @@ class StrategyEvidenceProviderV1:
         stale = []
         for batch in (candles_15m, candles_4h):
             interval_ms = INTERVAL_MS[batch.interval]
-            if now_ms - batch.candles[-1].close_time_ms > interval_ms + 60_000 if batch.candles else True:
+            if not batch.candles or now_ms - batch.candles[-1].close_time_ms > interval_ms + 60_000:
                 stale.append(batch.interval)
         if abs(candles_15m.fetched_at_ms - candles_4h.fetched_at_ms) > 60_000:
             stale.append("SOURCE_FETCH_SKEW")
@@ -287,13 +287,12 @@ class StrategyEvidenceProviderV1:
                         geometry_ok = True
 
         if stale or gaps:
+            strategy_checks = []
             for name in ("htf_trend_alignment", "pullback_location", "reversal_break_confirmation",
                          "mfi_confirmation", "adx_directional_strength", "risk_geometry_3_to_1"):
-                state = "UNKNOWN"
                 digest = candles_4h.response_sha256 if name == "htf_trend_alignment" else candles_15m.response_sha256
                 ref = f"{name}:{candles_15m.venue}/{candles_15m.product}/{candles_15m.symbol}"
-                strategy_checks = locals().get("strategy_checks", [])
-                strategy_checks.append(self._check(name, state, ref, digest, observed_at))
+                strategy_checks.append(self._check(name, "UNKNOWN", ref, digest, observed_at))
         else:
             strategy_checks = [
                 self._check("htf_trend_alignment", state_or_unknown(htf_ok),
