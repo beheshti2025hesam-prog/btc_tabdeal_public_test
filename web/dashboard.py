@@ -10,15 +10,18 @@ from forward.native_ohlcv_v1 import BinanceSpotKlineSource, INTERVAL_MS, validat
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
-from forward.confirmation_engine_v1 import ConfirmationCheck
-from forward.signal_agent_v1 import SignalAgentV1
+from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
+from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
 CHART_ASSET_FILE = Path(__file__).resolve().parent / "static" / "third_party" / "lightweight-charts" / "5.0.8" / "lightweight-charts.standalone.production.js"
 _SOURCE = BinanceSpotKlineSource()
-_FEATURES = NativeOHLCVFeaturePipelineV1()
+# Binance Spot documents base-asset volume and quote-asset volume separately.
+# This approval is source-specific; never reuse it for Wallex or another venue.
+_FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=True)
 _SIGNAL_AGENT = SignalAgentV1()
+_STRATEGY_PROVIDER = StrategyEvidenceProviderV1()
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
@@ -73,7 +76,7 @@ def _stream_worker():
 
 def _get_batch(symbol, interval):
     now_ms = int(time.time() * 1000)
-    ttl_ms = 75_000 if (symbol, interval) == ("BTCUSDT", "1m") else 15_000
+    ttl_ms = 75_000 if (symbol, interval) == ("BTCUSDT", "1m") else 300_000 if interval == "4h" else 15_000
     with _CACHE_LOCK:
         cached = _CACHE.get((symbol, interval))
     if cached and now_ms - cached[2] <= ttl_ms:
@@ -130,50 +133,48 @@ class Handler(BaseHTTPRequestHandler):
             if symbol != "BTCUSDT" or interval != "15m":
                 return self._send(400, b'{"error":"unsupported_signal_scope","decision":"NO_TRADE","execution_enabled":false}', "application/json")
             try:
-                # Reuse the canonical native batch/cache and feature result; no second data path.
+                # Both timeframes come from the same canonical Binance Spot OHLCV source.
                 batch, feature_result = _get_batch(symbol, interval)
-                observed_at = datetime.fromtimestamp(batch.fetched_at_ms / 1000, timezone.utc)
-                evidence_ref = "native-ohlcv-sha256:" + batch.response_sha256
-                # Unknown is deliberate until strategy-level providers are validated and wired.
-                checks = (
-                    ConfirmationCheck("structure_direction_aligned", "UNKNOWN", evidence_ref, observed_at),
-                    ConfirmationCheck("signal_quality_gate_passed", "UNKNOWN", evidence_ref, observed_at),
+                htf_batch, _ = _get_batch(symbol, "4h")
+                strategy = _STRATEGY_PROVIDER.evaluate(
+                    candles_15m=batch,
+                    candles_4h=htf_batch,
+                    now_ms=int(time.time() * 1000),
                 )
+                geometry = RiskGeometryV1(*strategy.risk_geometry) if strategy.risk_geometry else None
                 result = _SIGNAL_AGENT.evaluate(
-                    observed_at=observed_at,
-                    venue=batch.venue,
-                    product=batch.product,
-                    symbol=batch.symbol,
-                    timeframe=batch.interval,
-                    regime="UNKNOWN",
-                    strategy_checks=(),
-                    structure_direction="UNKNOWN",
-                    confirmation_checks=checks,
-                    risk_checks=(),
-                    risk_geometry=None,
+                    observed_at=strategy.observed_at,
+                    venue=strategy.venue,
+                    product=strategy.product,
+                    symbol=strategy.symbol,
+                    timeframe=strategy.timeframe,
+                    regime=strategy.regime,
+                    structure_labels=strategy.structure_labels,
+                    structure_events=strategy.structure_events,
+                    structure_direction=strategy.direction,
+                    strategy_checks=strategy.strategy_checks,
+                    confirmation_checks=strategy.confirmation_checks,
+                    risk_checks=strategy.risk_checks,
+                    risk_geometry=geometry,
                 )
-                blocked = list(result.blocked_reasons)
-                blocked.extend((
-                    "SYMBOL_MAPPING_EVIDENCE_MISSING",
-                    "VALIDATED_STRUCTURE_PROVIDER_NOT_WIRED",
-                    "STRATEGY_QUALITY_PROVIDER_NOT_WIRED",
-                ))
+                blocked = list(strategy.blocked_reasons) + list(result.blocked_reasons)
                 if not feature_result.decision_ready:
                     blocked.append("NATIVE_FEATURES_NOT_READY")
-                if batch.gaps:
+                if batch.gaps or htf_batch.gaps:
                     blocked.append("NATIVE_CANDLE_GAPS_PRESENT")
                 payload = {
-                    "status": "BLOCKED" if blocked else "NO_TRADE",
+                    "status": "BLOCKED" if result.decision.decision == "NO_TRADE" or blocked else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
-                    "decision": "NO_TRADE",
+                    "decision": result.decision.decision,
                     "decision_reasons": list(result.decision.reason_codes),
                     "blocked_reasons": list(dict.fromkeys(blocked)),
-                    "observed_at": observed_at.isoformat(),
-                    "symbol": batch.symbol,
-                    "timeframe": batch.interval,
-                    "source": f"{batch.venue}_native_ohlcv_v1",
-                    "product": batch.product,
+                    "observed_at": strategy.observed_at.isoformat(),
+                    "symbol": strategy.symbol,
+                    "timeframe": strategy.timeframe,
+                    "source": f"{strategy.venue}_native_ohlcv_v1",
+                    "product": strategy.product,
                     "response_sha256": batch.response_sha256,
+                    "htf_response_sha256": htf_batch.response_sha256,
                     "feature_ready": feature_result.decision_ready,
                     "feature_reason": feature_result.reason,
                     "feature_quality_passed": feature_result.quality.passed,
@@ -182,10 +183,20 @@ class Handler(BaseHTTPRequestHandler):
                     "strategy_quality_required_count": result.strategy_quality.required_count if result.strategy_quality else 5,
                     "strategy_policy_version": result.strategy_quality.policy_version if result.strategy_quality else "hes-strategy-policy-v1",
                     "strategy_evidence_sha256": result.strategy_quality.evidence_sha256 if result.strategy_quality else None,
-                    "structure_direction": "UNKNOWN",
+                    "strategy_evidence_provider": _STRATEGY_PROVIDER.VERSION,
+                    "structure_direction": strategy.direction,
+                    "structure_regime": strategy.regime,
+                    "mfi14": strategy.mfi14,
+                    "adx14": strategy.adx14,
+                    "plus_di14": strategy.plus_di14,
+                    "minus_di14": strategy.minus_di14,
+                    "ema50_15m": strategy.ema50_15m,
+                    "ema50_4h": strategy.ema50_4h,
+                    "ema200_4h": strategy.ema200_4h,
                     "risk_state": result.risk.state,
                     "risk_reasons": list(result.risk.reason_codes),
                     "execution_enabled": False,
+                    "execution_blocked_reasons": ["SYMBOL_MAPPING_EVIDENCE_MISSING", "LIVE_EXECUTION_DISABLED"],
                 }
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
