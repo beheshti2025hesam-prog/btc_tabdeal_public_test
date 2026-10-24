@@ -81,8 +81,9 @@ def record_signal_decision(
     if any(not isinstance(reason, str) or not reason.strip() for reason in reasons):
         raise ValueError("invalid_reason_codes")
 
+    # Event identity pins immutable inputs + policy version, not the output.
+    # If the same inputs later produce a different decision, it becomes a conflict.
     identity = {
-        "decision": decision,
         "observed_at": observed_at,
         "symbol": symbol,
         "timeframe": timeframe,
@@ -92,10 +93,6 @@ def record_signal_decision(
         "htf_response_sha256": htf_response_sha256,
         "strategy_evidence_sha256": strategy_evidence_sha256,
         "policy_version": policy_version,
-        "status": status,
-        "market_regime": market_regime,
-        "rejected_at": rejected_at,
-        "reason_codes": reasons,
     }
     identity_sha = sha256(canonical_json(identity).encode("utf-8")).hexdigest()
     run_id = "signal-" + identity_sha
@@ -195,7 +192,7 @@ def build_report_from_artifacts(
         outcome = row.get("outcome")
         if not isinstance(outcome, str) or outcome not in OUTCOME_VALUES:
             raise ValueError("invalid_outcome")
-        if decision_by_id[decision_event_id].get("decision") == "NO_TRADE" and outcome in CLOSED_OUTCOMES:
+        if decision_by_id[decision_event_id].get("decision") == "NO_TRADE":
             raise ValueError("NO_TRADE_CANNOT_HAVE_TRADE_OUTCOME")
         if not isinstance(row.get("closed_at"), str) or not row["closed_at"].strip():
             if outcome in CLOSED_OUTCOMES or outcome == "CANCELLED":
