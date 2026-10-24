@@ -164,3 +164,18 @@ def test_mfi14_known_monotonic_flow_edges():
     assert adx is not None
     assert adx[0] > 99.0
     assert adx[1] > adx[2]
+
+
+def test_provider_reuses_same_logic_for_an_explicitly_approved_spot_symbol():
+    now = 1_800_000_000_000
+    fifteen = make_batch("15m", now, symbol="ETHUSDT", digest="d")
+    four_hour = make_batch("4h", now, symbol="ETHUSDT", digest="e")
+    provider = StrategyEvidenceProviderV1(allowed_scopes=(("binance", "spot", "ETHUSDT"),))
+    result = provider.evaluate(candles_15m=fifteen, candles_4h=four_hour, now_ms=now)
+    assert result.symbol == "ETHUSDT"
+    assert len(result.strategy_checks) == 6
+
+
+def test_provider_does_not_allow_unverified_non_binance_volume_profiles():
+    with pytest.raises(ValueError, match="source-specific provider"):
+        StrategyEvidenceProviderV1(allowed_scopes=(("wallex", "spot", "BTCUSDT"),))
