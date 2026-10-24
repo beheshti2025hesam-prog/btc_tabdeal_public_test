@@ -4,9 +4,9 @@ Status: **implemented as a deterministic, read-only composition layer; not produ
 
 ## Canonical path
 
-Validated native OHLCV batch (PR #297 canonical contract) → existing feature pipeline → upstream structure/quality evidence → opportunity policy → confirmation policy → risk gate → decision resolver → forward journal.
+Validated native OHLCV batch (PR #297 canonical contract) → existing feature pipeline + StrategyEvidenceProviderV1 → StrategyPolicyV1 → existing opportunity policy → confirmation policy → risk gate → decision resolver → forward journal.
 
-This module composes existing policy components. It does not create a second candle schema, chart path, indicator implementation, execution adapter, or data collector.
+The agent composes existing policy components and reuses the canonical candle schema, existing EMA calculator, and existing confirmed-swing calculator. MFI14 and ADX14 are implemented in the strategy provider because no implementation existed in this repository. No second candle schema, chart path, execution adapter, or data collector is created.
 
 ## Safety contract
 
@@ -23,15 +23,27 @@ This module composes existing policy components. It does not create a second can
 
 ## Deliberately not claimed complete
 
-The existing read-only dashboard entry point now calls SignalAgentV1 through `GET /api/signal?symbol=BTCUSDT&interval=15m` and renders the returned decision and block reasons. It reuses the same native OHLCV batch/cache and feature pipeline as the chart. The route currently returns BLOCKED / NO_TRADE because source-to-agent symbol mapping evidence, validated directional structure, strategy-level signal-quality provider, and provenance-bound entry/stop/target geometry are not wired. Feature-engine quality is reported descriptively and is never promoted to strategy-level quality. These missing inputs must be connected to existing validated providers or added through versioned, tested contracts; do not invent thresholds or map fields by resemblance. Production runtime/browser parity on the authorized VPS, PR #297 and #346 acceptance, and any live-execution gates remain open. Do not activate execution or deploy solely on unit tests.
+The existing read-only dashboard entry point now calls SignalAgentV1 through `GET /api/signal?symbol=BTCUSDT&interval=15m` and renders the returned decision and block reasons. It reuses the same native OHLCV batch/cache and feature pipeline as the chart. The route now fetches closed Binance Spot BTCUSDT 15m and 4h candles from the same canonical source, derives directional structure and strategy checks, and displays quality/quorum diagnostics. Strategy quality may pass only when the versioned evidence policy passes; the final decision remains NO_TRADE while the independent risk-context gate is UNKNOWN and execution-symbol mapping is not approved. The read-only route does not access accounts or place orders. Production runtime/browser parity on the authorized VPS, parent PR #297/#346 acceptance, and live-execution gates remain open. Do not activate execution or deploy solely on unit tests.
 
 
 ## Strategy Policy v1 — forward evidence quorum
 
 - Policy ID: `hes-strategy-policy-v1`; required checks and minimum quorum are versioned in `forward/strategy_policy_v1.py`.
-- The policy validates externally supplied evidence only. It does not fabricate EMA200/EMA50, VWAP/pullback, MFI14, ADX/+DI, structure direction, or entry/stop/target values.
+- `StrategyEvidenceProviderV1` computes evidence from canonical closed OHLCV: 4h close + EMA50/EMA200 alignment; 15m pullback/retest against EMA50 or a confirmed swing level; confirmed-swing break evidence; MFI14; ADX14/+DI/-DI; and stop placement at the last opposite confirmed swing with a 3R target. It reuses the existing EMA and swing calculators. MFI14 and ADX14 were absent from the repository and have deterministic implementations plus regression tests.
 - Every check requires PASS/FAIL/UNKNOWN, a provider and version, an evidence reference, a 64-character SHA-256, and a timezone-aware observation timestamp no later than the decision observation.
 - All six checks must be present and measurable. UNKNOWN, missing evidence, duplicate checks, invalid hashes, future timestamps, or incomplete scope produce UNKNOWN and NO_TRADE.
 - A PASS requires at least five of six measured checks to pass, with `risk_geometry_3_to_1` always PASS. The Signal Agent separately verifies actual numeric geometry and the minimum 3:1 ratio.
 - The selected current profile is `binance / spot / BTCUSDT / 15m`. This fixes the former `BTC_USDT` versus `BTCUSDT` mismatch between the candidate policy and dashboard data path. Spot and Futures are never silently aliased.
-- The dashboard currently passes no real strategy-evidence provider; its strategy quality remains UNKNOWN and decision remains NO_TRADE. Unit tests with synthetic evidence validate policy mechanics only, not live market evidence or performance.
+- Binance Spot's official Kline contract distinguishes base-asset volume (`v`) from quote-asset volume (`q`); volume semantics approval is scoped only to this Binance Spot path, not Wallex or other venues: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#klinecandlestick-streams-for-utc. The strategy provider is wired into the existing dashboard; if source data is stale, gapped, insufficient, or mis-scoped, evidence is UNKNOWN and NO_TRADE.
+
+
+## Explicit strategy calculation contract
+
+- HTF alignment: the 4h close and EMA50 must be above EMA200 for bullish alignment, or below EMA200 for bearish alignment.
+- MFI: MFI14 > 50 for bullish confirmation and < 50 for bearish confirmation.
+- Directional strength: ADX14 >= 20 and +DI > -DI for bullish, or ADX14 >= 20 and -DI > +DI for bearish.
+- Pullback: closed 15m candle touches/reclaims EMA50 or retests a confirmed swing level in the directional context.
+- Break confirmation: the latest closed 15m close crosses a confirmed swing high/low; this is one of six measured gates, not a substitute for directional structure.
+- Geometry: stop at the last opposite confirmed swing; target at 3R. Missing/wrong-side swing means geometry UNKNOWN and NO_TRADE.
+- Quorum is at least 5/6 measured checks, with geometry always mandatory. Any UNKNOWN check makes overall strategy quality UNKNOWN; the policy never treats missing evidence as a failed vote.
+- The risk context gate remains UNKNOWN until independent risk-budget/account/venue constraints are supplied. This deliberately prevents the strategy result from becoming an executable order.
