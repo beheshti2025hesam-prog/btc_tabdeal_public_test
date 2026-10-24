@@ -247,10 +247,18 @@ def train_and_evaluate(
     backtest_min_confidence: float = 0.60,
 ) -> dict:
     if round_trip_cost_bps is not None and (
-        isinstance(round_trip_cost_bps, bool) or not math.isfinite(round_trip_cost_bps) or round_trip_cost_bps < 0
+        isinstance(round_trip_cost_bps, bool)
+        or not isinstance(round_trip_cost_bps, (int, float))
+        or not math.isfinite(round_trip_cost_bps)
+        or round_trip_cost_bps < 0
     ):
         raise ValueError("round_trip_cost_bps must be finite and non-negative when supplied")
-    if isinstance(backtest_min_confidence, bool) or not math.isfinite(backtest_min_confidence) or not 0.0 <= backtest_min_confidence <= 1.0:
+    if (
+        isinstance(backtest_min_confidence, bool)
+        or not isinstance(backtest_min_confidence, (int, float))
+        or not math.isfinite(backtest_min_confidence)
+        or not 0.0 <= backtest_min_confidence <= 1.0
+    ):
         raise ValueError("backtest_min_confidence must be between 0 and 1")
     if type(epochs) is not int or not 1 <= epochs <= 300:
         raise ValueError("epochs must be between 1 and 300")
