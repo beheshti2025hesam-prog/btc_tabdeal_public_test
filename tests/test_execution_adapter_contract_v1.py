@@ -27,6 +27,7 @@ def request(**overrides):
         side="LONG",
         order_type="LIMIT",
         quantity_unit="CONTRACTS",
+        quantity_unit_evidence_ref="instrument-rules:test",
         quantity=Decimal("0.01"),
         limit_price=Decimal("100"),
         stop_loss=Decimal("90"),
