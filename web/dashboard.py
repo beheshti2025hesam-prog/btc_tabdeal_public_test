@@ -141,6 +141,7 @@ class Handler(BaseHTTPRequestHandler):
                     candles_15m=batch,
                     candles_4h=htf_batch,
                     now_ms=int(time.time() * 1000),
+                    vwap=feature_result.snapshot.vwap if feature_result.snapshot is not None else None,
                 )
                 geometry = RiskGeometryV1(*strategy.risk_geometry) if strategy.risk_geometry else None
                 result = _SIGNAL_AGENT.evaluate(
