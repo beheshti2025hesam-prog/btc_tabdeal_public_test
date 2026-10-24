@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - forward/integration-gate-test-2026-10-07
+      - feat/hes-agent-entrypoint-integration-20261024
   workflow_dispatch:
 
 permissions:
@@ -48,7 +49,10 @@ jobs:
             tests/test_clock_integrity_v1.py \
             tests/test_health_monitor_v1.py \
             tests/test_crash_safe_checkpoint_v1.py \
-            tests/test_soak_health_v1.py
+            tests/test_soak_health_v1.py \
+            tests/test_forward_learning_loop_v1.py \
+            tests/test_learning_evidence_adapter_v1.py \
+            tests/test_dashboard_routes_v1.py
       - name: Explicit execution and historical firewall scan
         run: |
           python - <<'PY'
