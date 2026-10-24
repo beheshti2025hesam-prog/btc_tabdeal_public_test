@@ -19,6 +19,7 @@ _HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 class OrderBlockResultV1:
     version: str
     direction: str
+    break_type: str
     zone_low: Decimal
     zone_high: Decimal
     formed_at_ms: int
@@ -43,6 +44,7 @@ def detect_order_block_v1(
     *,
     direction: str,
     break_confirmed: bool,
+    break_type: str = "BOS",
     htf_direction: str,
     last_swing_high: Decimal | None,
     last_swing_low: Decimal | None,
@@ -61,6 +63,8 @@ def detect_order_block_v1(
         raise ValueError("source_response_sha256 must be a lowercase SHA-256")
     if direction not in ("BULLISH", "BEARISH"):
         return None
+    if break_type not in ("BOS", "CHOCH"):
+        raise ValueError("break_type must be BOS or CHOCH")
     if not break_confirmed or len(candles) < 4:
         return None
     if any(not isinstance(c.closed, bool) or c.closed is not True for c in candles):
@@ -128,6 +132,7 @@ def detect_order_block_v1(
     return OrderBlockResultV1(
         version="hes-order-block-context-v1",
         direction=direction,
+        break_type=break_type,
         zone_low=zone_low,
         zone_high=zone_high,
         formed_at_ms=block.open_time_ms,
