@@ -82,3 +82,14 @@ Do not work around these blockers with guessed symbol mappings, invented strateg
 - Exact-head execution gate/journal/adapter contract CI at the lifecycle code SHA passed: [run 40077171868](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077171868) — **27 passed**. Dashboard/native-path workflow also passed at that SHA: [run 40077171888](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077171888). Browser render run [40077171867](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077171867) was still in progress at the time of this note; do not claim it passed until it completes.
 
 - Final contract hardening adds explicit quantity units (base asset, quote asset, or contracts) with mandatory instrument-rules evidence; no contract multiplier/unit conversion is guessed. Typed balance and position snapshots now validate venue/product/symbol scope, account and position mode, duplicate open-order IDs, timestamps, and raw-response hashes. Execution gate/journal/adapter contract CI passed at code head f1066b05949a8258f9a108bcfc86aefebb959f60: [run 40077455478](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077455478) — **29 passed**. Dashboard and browser-render checks for that exact head were still in progress when this note was written; inspect their final state before claiming them passed.
+
+ 
+### Final exact-head verification follow-up
+
+At code/documentation head `8c94a5d880920a989898d094b6d4550aa78e7062`:
+- Execution gate, journal, and adapter contract: PASS, 29 tests ([run 40077523245](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523245)).
+- Dashboard/native-path regression: PASS ([run 40077523277](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523277)).
+- Browser-render smoke: PASS; chart rendering, same-batch source comparison, and evidence upload all succeeded ([run 40077523256](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523256)).
+- WebSocket live smoke: SKIPPED, not passed ([run 40077523257](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523257)).
+
+These results validate the generic adapter contract/journal and existing read-only dashboard path only. They do not establish a concrete venue adapter, live API access, account reconciliation, paper/shadow execution, or trading readiness. PR #363 remains Draft/HOLD and live execution remains OFF.
