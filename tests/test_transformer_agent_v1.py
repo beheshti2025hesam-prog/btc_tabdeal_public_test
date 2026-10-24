@@ -144,3 +144,14 @@ def test_boolean_probabilities_are_rejected():
     result = evaluate_transformer_v1(**sample(predictor=predictor))
     assert result.status == "ABSTAIN"
     assert "PROBABILITY_VALUE_INVALID" in result.reasons
+
+
+def test_predictor_artifact_hash_and_schema_must_match_evidence_metadata():
+    predictor = Predictor()
+    predictor.artifact_sha256 = "c" * 64
+    predictor.model_version = "transformer-candidate-001"
+    predictor.feature_schema_version = "features-v1"
+    result = evaluate_transformer_v1(**sample(predictor=predictor, model_sha256="b" * 64))
+    assert result.status == "ABSTAIN"
+    assert result.direction == "UNKNOWN"
+    assert "MODEL_HASH_MISMATCH" in result.reasons
