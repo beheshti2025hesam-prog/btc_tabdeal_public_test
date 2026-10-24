@@ -58,3 +58,6 @@ The existing read-only dashboard entry point now calls SignalAgentV1 through `GE
 
 
 - Strategy evidence `evidence_sha256` hashes the canonical candle rows actually used at the common as-of boundary; the evidence reference separately pins the raw source-response SHA-256 and as-of timestamp. This prevents later rows included in a newer response from entering the evidence window silently.
+
+
+- Opportunity and Signal Agent scopes are configuration-driven; the strategy evidence provider can be reused for additional explicitly approved Binance Spot symbols without copying strategy logic. It rejects non-Binance-Spot volume profiles until a source-specific provider proves the volume units and mapping. This prevents a future symbol/venue from inheriting an unverified volume assumption.
