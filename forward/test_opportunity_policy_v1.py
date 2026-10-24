@@ -13,3 +13,12 @@ def test_downtrend_structure_event_candidate_short():
 def test_unknown_regime_fails_closed():
     r=OpportunityPolicyV1().evaluate(observed_at=B,symbol='BTCUSDT',timeframe='15m',regime='UNKNOWN',structure_events=('BOS',))
     assert r.state=='NO_CANDIDATE'
+
+
+def test_opportunity_scope_is_configurable_without_copying_policy_logic():
+    policy = OpportunityPolicyV1(allowed_scopes=(("ETHUSDT", "1h"),))
+    result = policy.evaluate(
+        observed_at=B, symbol="ETHUSDT", timeframe="1h", regime="UPTREND",
+        structure_labels=("HH", "HL"), structure_events=("HL",),
+    )
+    assert result.state == "CANDIDATE_LONG"
