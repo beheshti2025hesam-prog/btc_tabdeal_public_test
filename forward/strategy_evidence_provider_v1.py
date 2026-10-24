@@ -204,6 +204,7 @@ class StrategyEvidenceProviderV1:
         candles_15m: NativeOHLCVBatch,
         candles_4h: NativeOHLCVBatch,
         now_ms: int,
+        vwap: float | None = None,
     ) -> StrategyEvidenceBundleV1:
         validate_native_batch(candles_15m)
         validate_native_batch(candles_4h)
@@ -293,6 +294,7 @@ class StrategyEvidenceProviderV1:
             last_swing_high=Decimal(str(last_high)) if last_high is not None else None,
             last_swing_low=Decimal(str(last_low)) if last_low is not None else None,
             ema50=ema50_15,
+            vwap=vwap,
             source_response_sha256=candles_15m.response_sha256,
         )
 
