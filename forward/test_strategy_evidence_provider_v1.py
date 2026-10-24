@@ -107,8 +107,8 @@ def test_provider_fails_closed_on_stale_candles():
 
 def test_provider_rejects_wrong_market_or_symbol_scope():
     now = 1_800_000_000_000
-    fifteen = make_batch("15m", now, symbol="BTC_USDT", digest="a")
-    four_hour = make_batch("4h", now, symbol="BTC_USDT", digest="b")
+    fifteen = make_batch("15m", now, symbol="ETHUSDT", digest="a")
+    four_hour = make_batch("4h", now, symbol="ETHUSDT", digest="b")
     with pytest.raises(ValueError, match="unsupported 15m strategy source scope"):
         StrategyEvidenceProviderV1().evaluate(
             candles_15m=fifteen, candles_4h=four_hour, now_ms=now
