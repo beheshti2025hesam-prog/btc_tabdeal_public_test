@@ -1,8 +1,7 @@
 """Fail-closed live-execution boundary contract.
 
-This module defines the last safety boundary between an approved decision and a
-venue adapter. It intentionally ships with no live venue adapter and no order
-submission side effects. Production must inject a separately reviewed adapter.
+Defines the preflight between an approved decision and a venue adapter. No
+concrete live adapter or order-submission side effect ships in this module.
 """
 from __future__ import annotations
 
@@ -10,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Literal, Protocol
+import hashlib
 
 
 Side = Literal["LONG", "SHORT"]
@@ -55,7 +55,7 @@ class ExecutionRuntimeStateV1:
 
 
 class ExecutionAdapterV1(Protocol):
-    """Contract only. A concrete venue adapter must be separately reviewed."""
+    """Interface contract only; implementations require independent review."""
 
     def submit_order(self, *, client_order_id: str, side: Side,
                      quantity: Decimal, entry: Decimal,
@@ -79,6 +79,10 @@ class ExecutionGateV1:
             return None
         return result if result.is_finite() and result > 0 else None
 
+    @staticmethod
+    def _has_text(value: object) -> bool:
+        return isinstance(value, str) and bool(value.strip())
+
     def evaluate(
         self,
         *,
@@ -88,27 +92,40 @@ class ExecutionGateV1:
         max_evidence_age_seconds: int = 90,
         duplicate_client_order_id: bool = False,
     ) -> ExecutionPermitV1:
-        reasons: list[str] = []
         if evidence is None:
             return ExecutionPermitV1(False, ("EXECUTION_EVIDENCE_MISSING",))
-        if now.tzinfo is None or now.utcoffset() is None:
+        reasons: list[str] = []
+        now_valid = isinstance(now, datetime) and now.tzinfo is not None and now.utcoffset() is not None
+        evidence_time_valid = (
+            isinstance(evidence.observed_at, datetime)
+            and evidence.observed_at.tzinfo is not None
+            and evidence.observed_at.utcoffset() is not None
+        )
+        if not now_valid:
             reasons.append("CURRENT_TIME_MUST_BE_TIMEZONE_AWARE")
-        if evidence.observed_at.tzinfo is None or evidence.observed_at.utcoffset() is None:
+        if not evidence_time_valid:
             reasons.append("EVIDENCE_TIME_MUST_BE_TIMEZONE_AWARE")
-        elif now.tzinfo is not None and now.utcoffset() is not None:
+        elif now_valid:
             age = (now - evidence.observed_at).total_seconds()
             if age < 0:
                 reasons.append("FUTURE_EVIDENCE_REJECTED")
+            elif not isinstance(max_evidence_age_seconds, int) or max_evidence_age_seconds < 0:
+                reasons.append("MAX_EVIDENCE_AGE_POLICY_INVALID")
             elif age > max_evidence_age_seconds:
                 reasons.append("EXECUTION_EVIDENCE_STALE")
-        if not evidence.decision_id.strip():
+
+        if not self._has_text(evidence.decision_id):
             reasons.append("DECISION_ID_MISSING")
-        if not evidence.signal_agent_version.strip():
+        if not self._has_text(evidence.signal_agent_version):
             reasons.append("SIGNAL_AGENT_VERSION_MISSING")
         if evidence.side not in ("LONG", "SHORT"):
             reasons.append("SIDE_INVALID")
-        if len(evidence.source_sha256) != 64 or any(c not in "0123456789abcdef" for c in evidence.source_sha256.lower()):
+        digest = evidence.source_sha256
+        if not isinstance(digest, str) or len(digest) != 64 or any(
+            c not in "0123456789abcdef" for c in digest.lower()
+        ):
             reasons.append("SOURCE_HASH_INVALID")
+
         for value, reason in (
             (evidence.symbol_mapping_ref, "SYMBOL_MAPPING_EVIDENCE_MISSING"),
             (evidence.structure_evidence_ref, "STRUCTURE_EVIDENCE_MISSING"),
@@ -117,7 +134,7 @@ class ExecutionGateV1:
             (evidence.risk_evidence_ref, "RISK_EVIDENCE_MISSING"),
             (evidence.account_reconciliation_ref, "ACCOUNT_RECONCILIATION_EVIDENCE_MISSING"),
         ):
-            if not isinstance(value, str) or not value.strip():
+            if not self._has_text(value):
                 reasons.append(reason)
 
         entry, stop, target, quantity, rr_min = (
@@ -140,29 +157,26 @@ class ExecutionGateV1:
 
         if runtime.environment != "production":
             reasons.append("NON_PRODUCTION_ENVIRONMENT")
-        if not runtime.live_mode_enabled:
+        if runtime.live_mode_enabled is not True:
             reasons.append("LIVE_MODE_NOT_EXPLICITLY_ENABLED")
-        if not runtime.kill_switch_clear:
+        if runtime.kill_switch_clear is not True:
             reasons.append("KILL_SWITCH_ACTIVE_OR_UNKNOWN")
-        if not runtime.venue_adapter_approved:
+        if runtime.venue_adapter_approved is not True:
             reasons.append("VENUE_ADAPTER_NOT_APPROVED")
-        if not runtime.venue_health_ref.strip():
+        if not self._has_text(runtime.venue_health_ref):
             reasons.append("VENUE_HEALTH_EVIDENCE_MISSING")
-        if not runtime.account_reconciled:
+        if runtime.account_reconciled is not True:
             reasons.append("ACCOUNT_NOT_RECONCILED")
-        if not runtime.operator_approval_ref.strip():
+        if not self._has_text(runtime.operator_approval_ref):
             reasons.append("OPERATOR_APPROVAL_MISSING")
-        if not runtime.deployment_sha.strip():
+        if not self._has_text(runtime.deployment_sha):
             reasons.append("DEPLOYMENT_SHA_MISSING")
         if duplicate_client_order_id:
             reasons.append("DUPLICATE_ORDER_ID_REJECTED")
 
-        # Stable order and no silent success on unknown or absent prerequisites.
         reasons = list(dict.fromkeys(reasons))
         if reasons:
             return ExecutionPermitV1(False, tuple(reasons))
-        # Deterministic client ID enables an external durable journal to dedupe.
-        import hashlib
         client_id = "hes-" + hashlib.sha256(
             f"{self.VERSION}|{evidence.decision_id}|{evidence.source_sha256}".encode()
         ).hexdigest()[:32]
