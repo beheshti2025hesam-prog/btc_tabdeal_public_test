@@ -149,6 +149,12 @@ def evaluate_transformer_v1(
             raise ValueError("PROBABILITY_SCHEMA_INVALID")
         if any(isinstance(probs_raw[key], bool) for key in SUPPORTED_DIRECTIONS):
             raise ValueError("PROBABILITY_VALUE_INVALID")
+        if any(
+            isinstance(probs_raw[key], bool)
+            or not isinstance(probs_raw[key], (int, float))
+            for key in SUPPORTED_DIRECTIONS
+        ):
+            raise ValueError("PROBABILITY_VALUE_INVALID")
         probs = {key: float(probs_raw[key]) for key in SUPPORTED_DIRECTIONS}
         if any(not math.isfinite(p) or p < 0.0 or p > 1.0 for p in probs.values()):
             raise ValueError("PROBABILITY_VALUE_INVALID")
