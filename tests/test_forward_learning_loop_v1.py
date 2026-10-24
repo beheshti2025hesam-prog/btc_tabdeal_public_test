@@ -117,3 +117,132 @@ def test_invalid_min_group_size_fails_closed():
     for value in (0, -1, True, 1.5):
         with pytest.raises(ValueError, match="min_group_size"):
             build_learning_report([], min_group_size=value)
+
+
+
+from datetime import datetime, timezone
+import json
+
+from forward.learning_loop_v1 import build_report_from_forward_evidence
+
+
+def _decision_record(event_id="e-1", decision="LONG", observed_at="2026-10-24T10:00:00+00:00"):
+    return {
+        "event_id": event_id,
+        "observed_at": observed_at,
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "market_regime": "TREND",
+        "decision": decision,
+        "evidence_source": "approved_forward_source_ref",
+        "no_trade_reason": "RISK_NOT_APPROVED" if decision == "NO_TRADE" else None,
+        "outcome": None,
+        "closed_at": None,
+    }
+
+
+def _write_journal(path, rows):
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\\n" for row in rows), encoding="utf-8")
+
+
+def test_forward_evidence_reader_joins_immutable_outcome_by_event_id(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    outcomes = tmp_path / "outcomes"
+    outcomes.mkdir()
+    decision = _decision_record()
+    _write_journal(journal, [decision])
+    raw_decision_bytes = journal.read_bytes()
+    (outcomes / "arbitrary-name.json").write_text(
+        json.dumps({
+            "event_id": "e-1",
+            "outcome": "WIN",
+            "closed_at": "2026-10-24T11:00:00+00:00",
+            "realized_rr": 2.5,
+        }),
+        encoding="utf-8",
+    )
+    result = build_report_from_forward_evidence(
+        journal, outcomes, now=datetime(2026, 10, 24, 12, tzinfo=timezone.utc)
+    )
+    assert result.report.eligible_closed_trade_count == 1
+    assert result.report.decision_counts["LONG"] == 1
+    assert result.evidence_manifest["decision_journal_sha256"]
+    assert result.evidence_manifest["outcome_manifest_sha256"]
+    assert result.evidence_manifest["execution_enabled"] is False
+    assert result.evidence_manifest["orders_placed"] is False
+    assert journal.read_bytes() == raw_decision_bytes
+    assert result.report.source_sha256
+
+
+def test_forward_evidence_reader_keeps_missing_outcomes_unclosed(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    outcomes = tmp_path / "outcomes"
+    outcomes.mkdir()
+    _write_journal(journal, [_decision_record()])
+    result = build_report_from_forward_evidence(
+        journal, outcomes, now=datetime(2026, 10, 24, 12, tzinfo=timezone.utc)
+    )
+    assert result.report.eligible_closed_trade_count == 0
+    assert result.report.excluded_unclosed_count == 1
+    assert result.evidence_manifest["outcome_artifact_count"] == 0
+
+
+@pytest.mark.parametrize(
+    ("artifact", "error"),
+    [
+        ({"event_id": "unknown", "outcome": "WIN", "closed_at": "2026-10-24T11:00:00+00:00"}, "UNKNOWN_DECISION_EVENT_ID"),
+        ({"event_id": "e-1", "outcome": "WIN", "closed_at": "2026-10-24T09:00:00+00:00"}, "FORWARD_OUTCOME_CLOSE_TIME_INVALID"),
+        ({"event_id": "e-1", "outcome": "WIN", "closed_at": "2026-10-24T13:00:00+00:00"}, "FORWARD_OUTCOME_CLOSE_TIME_INVALID"),
+    ],
+)
+def test_forward_evidence_reader_rejects_unmatched_or_invalid_outcomes(tmp_path, artifact, error):
+    journal = tmp_path / "journal.jsonl"
+    outcomes = tmp_path / "outcomes"
+    outcomes.mkdir()
+    _write_journal(journal, [_decision_record()])
+    (outcomes / "outcome.json").write_text(json.dumps(artifact), encoding="utf-8")
+    with pytest.raises(ValueError, match=error):
+        build_report_from_forward_evidence(
+            journal, outcomes, now=datetime(2026, 10, 24, 12, tzinfo=timezone.utc)
+        )
+
+
+def test_forward_evidence_reader_rejects_partial_journal_tail(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    outcomes = tmp_path / "outcomes"
+    outcomes.mkdir()
+    journal.write_text(json.dumps(_decision_record()), encoding="utf-8")
+    with pytest.raises(ValueError, match="PARTIAL_TAIL"):
+        build_report_from_forward_evidence(
+            journal, outcomes, now=datetime(2026, 10, 24, 12, tzinfo=timezone.utc)
+        )
+
+
+def test_forward_evidence_reader_rejects_duplicate_decision_ids(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    outcomes = tmp_path / "outcomes"
+    outcomes.mkdir()
+    _write_journal(journal, [_decision_record(), _decision_record()])
+    with pytest.raises(ValueError, match="DUPLICATE"):
+        build_report_from_forward_evidence(
+            journal, outcomes, now=datetime(2026, 10, 24, 12, tzinfo=timezone.utc)
+        )
+
+
+def test_forward_evidence_reader_rejects_outcome_for_no_trade(tmp_path):
+    journal = tmp_path / "journal.jsonl"
+    outcomes = tmp_path / "outcomes"
+    outcomes.mkdir()
+    _write_journal(journal, [_decision_record(decision="NO_TRADE")])
+    (outcomes / "outcome.json").write_text(
+        json.dumps({
+            "event_id": "e-1",
+            "outcome": "WIN",
+            "closed_at": "2026-10-24T11:00:00+00:00",
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="FORWARD_OUTCOME_FOR_NON_TRADE_DECISION"):
+        build_report_from_forward_evidence(
+            journal, outcomes, now=datetime(2026, 10, 24, 12, tzinfo=timezone.utc)
+        )
