@@ -131,7 +131,8 @@ def adapter_request(**overrides):
         symbol_mapping_ref="mapping-evidence:test",
         client_order_id="hes-client-1", decision_id="decision-1",
         payload_sha256="a" * 64, side="LONG", order_type="LIMIT",
-        quantity_unit="CONTRACTS", quantity=Decimal("0.01"), limit_price=Decimal("100"),
+        quantity_unit="CONTRACTS", quantity_unit_evidence_ref="instrument-rules:test",
+        quantity=Decimal("0.01"), limit_price=Decimal("100"),
         stop_loss=Decimal("90"), take_profit=Decimal("130"),
         reduce_only=False, time_in_force="GTC",
     )
