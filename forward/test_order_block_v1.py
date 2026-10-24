@@ -44,7 +44,7 @@ def test_bullish_order_block_score_is_context_only_and_provenance_bound():
     assert result.liquidity_sweep
     assert result.fair_value_gap
     assert result.fresh and not result.mitigated
-    assert result.htf_aligned and result.volume_expansion and result.ema_or_swing_confluence
+    assert result.htf_aligned and result.volume_expansion and result.price_confluence
     assert result.score == 7 and result.max_score == 7
     assert result.status == "CONTEXT_ONLY"
     assert result.score_threshold_authorized is False
