@@ -2,8 +2,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from forward.execution_adapter_contract_v1 import (
+    AccountReconciliationSnapshotV1,
+    BalanceSnapshotV1,
     ExecutionAdapterCapabilitiesV1,
     ExecutionOrderRequestV1,
+    PositionSnapshotV1,
     VenueOrderSnapshotV1,
     validate_adapter_readiness,
 )
@@ -23,6 +26,7 @@ def request(**overrides):
         payload_sha256="a" * 64,
         side="LONG",
         order_type="LIMIT",
+        quantity_unit="CONTRACTS",
         quantity=Decimal("0.01"),
         limit_price=Decimal("100"),
         stop_loss=Decimal("90"),
@@ -183,3 +187,60 @@ def test_unknown_submit_outcome_may_have_no_venue_order_id_but_keeps_provenance(
 def test_response_with_naive_timestamp_is_rejected():
     result = snapshot(observed_at=datetime(2026, 10, 24, 12, 0))
     assert "RESPONSE_TIMESTAMP_NOT_TIMEZONE_AWARE" in result.validation_errors(request())
+
+def test_position_and_account_snapshots_validate_scope_and_provenance():
+    position = PositionSnapshotV1(
+        venue_id="unselected-venue", market_type="USDM_FUTURES",
+        venue_symbol="BTCUSDT", position_quantity=Decimal("-0.01"),
+        observed_at=NOW, raw_response_sha256="d" * 64,
+    )
+    assert position.validation_errors(
+        expected_venue_id="unselected-venue",
+        expected_market_type="USDM_FUTURES",
+        expected_venue_symbol="BTCUSDT",
+    ) == ()
+    assert "POSITION_SYMBOL_MISMATCH" in position.validation_errors(
+        expected_venue_id="unselected-venue",
+        expected_market_type="USDM_FUTURES",
+        expected_venue_symbol="ETHUSDT",
+    )
+
+    balance = BalanceSnapshotV1(
+        asset="USDT", total=Decimal("1000"), available=Decimal("900"),
+        locked=Decimal("100"), borrowed=Decimal("0"), liability=Decimal("0"),
+        observed_at=NOW, raw_response_sha256="e" * 64,
+    )
+    account = AccountReconciliationSnapshotV1(
+        venue_id="unselected-venue", market_type="USDM_FUTURES",
+        observed_at=NOW, account_mode="cross", position_mode="one-way",
+        balances=(balance,), open_order_ids=("venue-order-1",),
+        position_snapshot_sha256="f" * 64, raw_response_sha256="a" * 64,
+        reconciliation_ref="read-only-account-snapshot:test",
+    )
+    assert account.validation_errors(
+        expected_venue_id="unselected-venue",
+        expected_market_type="USDM_FUTURES",
+    ) == ()
+
+
+def test_account_snapshot_rejects_duplicate_order_ids_and_bad_balance():
+    balance = BalanceSnapshotV1(
+        asset="USDT", total=Decimal("-1"), available=Decimal("0"),
+        locked=Decimal("0"), borrowed=Decimal("0"), liability=Decimal("0"),
+        observed_at=NOW, raw_response_sha256="bad",
+    )
+    account = AccountReconciliationSnapshotV1(
+        venue_id="unselected-venue", market_type="USDM_FUTURES",
+        observed_at=NOW, account_mode="cross", position_mode="hedge",
+        balances=(balance,), open_order_ids=("same", "same"),
+        position_snapshot_sha256="f" * 64, raw_response_sha256="a" * 64,
+        reconciliation_ref="read-only-account-snapshot:test",
+    )
+    errors = account.validation_errors(
+        expected_venue_id="unselected-venue",
+        expected_market_type="USDM_FUTURES",
+    )
+    assert "DUPLICATE_OPEN_ORDER_IDS" in errors
+    assert "BALANCE_TOTAL_INVALID" in errors
+    assert "BALANCE_RAW_HASH_INVALID" in errors
+
