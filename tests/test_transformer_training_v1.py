@@ -103,3 +103,25 @@ def test_training_artifact_loads_and_emits_probabilities_for_existing_contract(t
     assert result.status in {"EVIDENCE_ONLY", "ABSTAIN"}
     assert result.direction in {"LONG", "SHORT", "UNKNOWN"}
     assert result.evidence.get("sequence_sha256")
+
+
+def test_ohlcv_csv_rejects_missing_candle_interval(tmp_path):
+    rows = synthetic_rows(70)
+    path = tmp_path / "gapped.csv"
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["timestamp", "open", "high", "low", "close", "volume"])
+        writer.writeheader()
+        for index, row in enumerate(rows):
+            stamp = datetime.fromisoformat(row.timestamp)
+            if index >= 30:
+                stamp += timedelta(minutes=15)
+            writer.writerow({
+                "timestamp": stamp.isoformat(),
+                "open": row.open,
+                "high": row.high,
+                "low": row.low,
+                "close": row.close,
+                "volume": row.volume,
+            })
+    with pytest.raises(ValueError, match="candle gap/overlap"):
+        load_ohlcv_csv(path, source_id="synthetic-test", interval="15m")
