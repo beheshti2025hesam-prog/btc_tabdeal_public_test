@@ -9,7 +9,8 @@ Date: 2026-10-24
 - PR #346: existing read-only dashboard/chart on that data path.
 - PR #361: reusable Signal Agent v1.
 - PR #362: dashboard → Signal Agent API/UI integration.
-- New candidate branch: `feat/hes-live-execution-gates-20261024`, based on the #362 candidate head. It adds `forward/execution_gate_v1.py`, `tests/test_execution_gate_v1.py`, a dedicated GitHub Actions contract workflow, and this execution boundary documentation.
+- PR #363: live-execution preflight candidate, stacked on #362.
+- Candidate branch: `feat/hes-live-execution-gates-20261024`. It adds `forward/execution_gate_v1.py`, `tests/test_execution_gate_v1.py`, a dedicated GitHub Actions contract workflow, and this execution boundary documentation.
 - The gate is a preflight only. It cannot place orders. Runtime defaults are disabled and kill-switch state is not clear.
 
 ## Implemented in this checkpoint
@@ -19,8 +20,10 @@ Date: 2026-10-24
 - Fail-closed handling of missing, malformed, stale, future-dated, or unknown prerequisites.
 - Contract tests for success-path preflight, default deny, missing provenance/account reconciliation, stale/future evidence, duplicate IDs, Long/Short geometry and RR, and proof the gate itself does not submit orders.
 
-## Not yet verified
-The newly added workflow has not yet been confirmed green on the final branch SHA in this checkpoint. Do not claim tests passed until the exact-head workflow completes. The interface is not a venue adapter and the preflight is not a live-trading proof.
+## Verification evidence
+- Execution Gate Contract Tests passed on code head `f40e640f9b78a0d3625d94748651d6efa5dbc476`: [run 40071427149](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071427149).
+- The dashboard/native-path and browser-render smoke workflows were still running when this checkpoint was last updated; inspect their exact-head results before treating those checks as complete.
+- A passing preflight contract test is not a live-trading proof. The interface is not a venue adapter.
 
 ## Hard blockers before live trading
 1. PR #297/#346/#362 acceptance and exact target-runtime/browser parity.
@@ -39,7 +42,7 @@ Do not work around these blockers with guessed symbol mappings, invented strateg
 - One VPS only. Do not refer to a second VPS.
 - Do not alter the VPS, reset/clean its dirty working tree, deploy, start collectors, expose credentials, or place live orders as part of this code-only checkpoint.
 - The project has not been deployed by this change.
-- Keep the branch and PR Draft/HOLD until exact-head CI and review evidence are available.
+- Keep PR #363 Draft/HOLD until exact-head CI and review evidence are available.
 
 ## Delivery management
 - Product delivery target: **19 November 2026**.
