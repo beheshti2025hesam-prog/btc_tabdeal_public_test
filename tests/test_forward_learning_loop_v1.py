@@ -142,7 +142,7 @@ def _decision_record(event_id="e-1", decision="LONG", observed_at="2026-10-24T10
 
 
 def _write_journal(path, rows):
-    path.write_text("".join(json.dumps(row, sort_keys=True) + "\\n" for row in rows), encoding="utf-8")
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
 
 
 def test_forward_evidence_reader_joins_immutable_outcome_by_event_id(tmp_path):
