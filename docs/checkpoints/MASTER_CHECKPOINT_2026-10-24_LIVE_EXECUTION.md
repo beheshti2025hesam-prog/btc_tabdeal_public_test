@@ -21,9 +21,12 @@ Date: 2026-10-24
 - Contract tests for success-path preflight, default deny, missing provenance/account reconciliation, stale/future evidence, duplicate IDs, Long/Short geometry and RR, and proof the gate itself does not submit orders.
 
 ## Verification evidence
-- Execution Gate Contract Tests passed on code head `f40e640f9b78a0d3625d94748651d6efa5dbc476`: [run 40071427149](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071427149).
-- The dashboard/native-path and browser-render smoke workflows were still running when this checkpoint was last updated; inspect their exact-head results before treating those checks as complete.
-- A passing preflight contract test is not a live-trading proof. The interface is not a venue adapter.
+The following workflows all passed on code head `f40e640f9b78a0d3625d94748651d6efa5dbc476`:
+- Execution Gate Contract Tests: [run 40071427149](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071427149).
+- Dashboard/native-path tests: [run 40071427157](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071427157).
+- Browser chart-render smoke: [run 40071427150](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071427150).
+
+The PR head subsequently received documentation-only checkpoint updates; no code changed after the tested code head. A passing preflight contract test is not a live-trading proof. The interface is not a venue adapter and the permitted VPS runtime has not been deployed or verified by this change.
 
 ## Hard blockers before live trading
 1. PR #297/#346/#362 acceptance and exact target-runtime/browser parity.
