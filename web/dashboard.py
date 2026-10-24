@@ -189,6 +189,7 @@ class Handler(BaseHTTPRequestHandler):
                     "structure_direction": strategy.direction,
                     "structure_regime": strategy.regime,
                     "mfi14": strategy.mfi14,
+                    "mfi_divergence": strategy.mfi_divergence,
                     "adx14": strategy.adx14,
                     "plus_di14": strategy.plus_di14,
                     "minus_di14": strategy.minus_di14,
