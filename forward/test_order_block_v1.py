@@ -37,6 +37,7 @@ def test_bullish_order_block_score_is_context_only_and_provenance_bound():
     )
     assert result is not None
     assert result.direction == "BULLISH"
+    assert result.break_type == "BOS"
     assert result.zone_low == Decimal("93")
     assert result.zone_high == Decimal("98")
     assert result.bos_choch_confirmed
