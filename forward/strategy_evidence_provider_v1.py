@@ -247,15 +247,21 @@ class StrategyEvidenceProviderV1:
         last_low = getattr(structure_snapshot, "swing_low", None)
         previous_close = float(previous_native.close) if previous_native else None
         current_close = float(latest_native.close) if latest_native else None
-        bullish_break = bool(direction == "BULLISH" and last_high is not None and previous_close is not None
+        break_direction = htf_direction if htf_direction in ("BULLISH", "BEARISH") else direction
+        bullish_break = bool(break_direction == "BULLISH" and last_high is not None and previous_close is not None
                              and current_close is not None and previous_close <= last_high < current_close)
-        bearish_break = bool(direction == "BEARISH" and last_low is not None and previous_close is not None
+        bearish_break = bool(break_direction == "BEARISH" and last_low is not None and previous_close is not None
                              and current_close is not None and previous_close >= last_low > current_close)
-        structure_events: tuple[str, ...] = ("BOS",) if bullish_break or bearish_break else (labels[-2:] if labels else ())
+        break_type = "CHOCH" if (
+            (bullish_break and structure_regime == "DOWNTREND")
+            or (bearish_break and structure_regime == "UPTREND")
+        ) else "BOS"
+        structure_events: tuple[str, ...] = (break_type,) if bullish_break or bearish_break else (labels[-2:] if labels else ())
         order_block = detect_order_block_v1(
             native15,
-            direction=direction,
+            direction=break_direction,
             break_confirmed=bool(bullish_break or bearish_break),
+            break_type=break_type,
             htf_direction=htf_direction,
             last_swing_high=Decimal(str(last_high)) if last_high is not None else None,
             last_swing_low=Decimal(str(last_low)) if last_low is not None else None,
