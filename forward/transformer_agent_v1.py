@@ -85,9 +85,26 @@ def evaluate_transformer_v1(
         reasons.append("FEATURE_NAMES_MISSING")
     elif any(not isinstance(name, str) or not name.strip() for name in feature_names) or len(set(feature_names)) != len(feature_names):
         reasons.append("FEATURE_NAMES_INVALID")
-    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)) or len(rows) < max(1, minimum_rows):
+    rows_valid = isinstance(rows, Sequence) and not isinstance(rows, (str, bytes))
+    rows_len = len(rows) if rows_valid else 0
+    min_rows_valid = isinstance(minimum_rows, int) and not isinstance(minimum_rows, bool) and minimum_rows >= 1
+    max_age_valid = isinstance(max_age_seconds, int) and not isinstance(max_age_seconds, bool) and max_age_seconds >= 0
+    confidence_valid = (
+        isinstance(minimum_confidence, (int, float))
+        and not isinstance(minimum_confidence, bool)
+        and math.isfinite(minimum_confidence)
+        and 0.0 <= minimum_confidence <= 1.0
+    )
+    if not min_rows_valid:
+        reasons.append("MINIMUM_ROWS_INVALID")
+    if not max_age_valid:
+        reasons.append("MAX_AGE_INVALID")
+    if not confidence_valid:
+        reasons.append("CONFIDENCE_THRESHOLD_INVALID")
+    if not rows_valid or (min_rows_valid and rows_len < minimum_rows):
         reasons.append("SEQUENCE_TOO_SHORT")
-    if not isinstance(timestamps, Sequence) or isinstance(timestamps, (str, bytes)) or len(timestamps) != len(rows):
+    timestamps_valid = isinstance(timestamps, Sequence) and not isinstance(timestamps, (str, bytes))
+    if not timestamps_valid or len(timestamps) != rows_len:
         reasons.append("TIMESTAMP_ROW_COUNT_MISMATCH")
     elif obs is not None:
         parsed = [_aware(t) for t in timestamps]
@@ -99,14 +116,8 @@ def evaluate_transformer_v1(
                 reasons.append("TIMESTAMPS_NOT_STRICTLY_INCREASING")
             if valid and valid[-1] > obs:
                 reasons.append("LOOKAHEAD_TIMESTAMP")
-            if valid and (obs - valid[-1]).total_seconds() > max_age_seconds:
+            if valid and max_age_valid and (obs - valid[-1]).total_seconds() > max_age_seconds:
                 reasons.append("SEQUENCE_STALE")
-    if not isinstance(minimum_confidence, (int, float)) or not math.isfinite(minimum_confidence) or not 0.0 <= minimum_confidence <= 1.0:
-        reasons.append("CONFIDENCE_THRESHOLD_INVALID")
-    if not isinstance(minimum_rows, int) or minimum_rows < 1:
-        reasons.append("MINIMUM_ROWS_INVALID")
-    if not isinstance(max_age_seconds, int) or max_age_seconds < 0:
-        reasons.append("MAX_AGE_INVALID")
 
     width = len(feature_names) if isinstance(feature_names, Sequence) and not isinstance(feature_names, (str, bytes)) else 0
     if not reasons:
@@ -125,7 +136,7 @@ def evaluate_transformer_v1(
         "feature_schema_version": feature_schema_version if isinstance(feature_schema_version, str) else None,
         "source_sha256": source_sha256 if isinstance(source_sha256, str) else None,
         "observation_time": observation_time if isinstance(observation_time, str) else None,
-        "sequence_rows": len(rows) if isinstance(rows, Sequence) else None,
+        "sequence_rows": len(rows) if isinstance(rows, Sequence) and not isinstance(rows, (str, bytes)) else None,
         "feature_names": list(feature_names) if isinstance(feature_names, Sequence) and not isinstance(feature_names, (str, bytes)) else None,
     }
     if reasons:
