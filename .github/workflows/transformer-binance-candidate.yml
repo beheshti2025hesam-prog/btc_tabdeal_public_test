@@ -17,6 +17,10 @@ on:
         description: "Pre-registered neutral band in bps based on documented execution fees/slippage"
         required: true
         type: string
+      round_trip_cost_bps:
+        description: "Pre-registered round-trip fees plus evidenced slippage in bps for the intended execution venue"
+        required: true
+        type: string
       epochs:
         description: "Maximum training epochs (1-300)"
         required: true
@@ -52,12 +56,14 @@ jobs:
             --interval 15m \
             --horizon "$HORIZON" \
             --neutral-band-bps "$NEUTRAL_BAND_BPS" \
+            --round-trip-cost-bps "$ROUND_TRIP_COST_BPS" \
             --sequence-length 32 \
             --epochs "$EPOCHS" \
             --output-dir artifacts/transformer-candidate
         env:
           HORIZON: ${{ inputs.horizon }}
           NEUTRAL_BAND_BPS: ${{ inputs.neutral_band_bps }}
+          ROUND_TRIP_COST_BPS: ${{ inputs.round_trip_cost_bps }}
           EPOCHS: ${{ inputs.epochs }}
       - name: Verify artifact provenance and HOLD state
         run: |
@@ -71,6 +77,8 @@ jobs:
           assert digest == source["dataset_csv_sha256"] == model["source_sha256"]
           assert model["promotion_decision"] == "HOLD"
           assert model["status"] == "RESEARCH_CANDIDATE_NOT_PROMOTED"
+          assert model["strategy_backtest"]["status"] == "RESEARCH_ONLY_NOT_PROMOTED"
+          assert model["strategy_backtest"]["round_trip_cost_bps"] == float("${{ inputs.round_trip_cost_bps }}")
           print(json.dumps({"source_sha256": digest, "model_sha256": model["model_sha256"], "samples": model["samples"], "metrics": model["metrics"], "promotion_decision": "HOLD"}, indent=2))
           PY
       - name: Upload immutable research candidate and source provenance
