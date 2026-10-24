@@ -17,7 +17,7 @@ Existing canonical data/feature pipeline → Transformer Agent evidence adapter 
 - Sequence lineage hash and machine-readable reason codes.
 
 ## Verification
-CI run: [Transformer Agent Contract Tests](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40072072749), tested head `671656d6b55573d98e88772db9cec048c460c678`. At checkpoint creation, the workflow was still running; do not mark tests passed until its final conclusion is successful. Any code changes after this SHA require rerunning the workflow on the new head.
+CI run: [Transformer Agent Contract Tests](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40072072749), tested head `671656d6b55573d98e88772db9cec048c460c678`. The workflow completed successfully on this exact code head. Subsequent changes on this branch were documentation-only; no code changed after the tested SHA.
 
 ## Remaining gates before production use
 1. Select an existing, maintainable model/runtime and create a separately reviewed adapter; verify model artifact hash and feature-schema compatibility.
