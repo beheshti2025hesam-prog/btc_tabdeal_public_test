@@ -23,7 +23,7 @@ def main(argv=None) -> int:
         rendered = json.dumps({
             "report": result.report.__dict__,
             "evidence_manifest": result.evidence_manifest,
-        }, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\\n"
+        }, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(rendered, encoding="utf-8")
