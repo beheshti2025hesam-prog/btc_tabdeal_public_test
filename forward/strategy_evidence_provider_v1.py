@@ -49,6 +49,7 @@ class StrategyEvidenceBundleV1:
     ema200_4h: float | None
     blocked_reasons: tuple[str, ...]
     order_block: OrderBlockResultV1 | None
+    mfi_divergence: bool | None
 
 
 
@@ -80,31 +81,38 @@ def _aware_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def mfi14_series(candles: Sequence) -> tuple[float | None, ...]:
+    """Causal MFI14 values; each value uses only candles up to its own index."""
+    values: list[float | None] = [None] * len(candles)
+    for end in range(14, len(candles)):
+        positive = 0.0
+        negative = 0.0
+        for index in range(end - 13, end + 1):
+            current = candles[index]
+            previous = candles[index - 1]
+            typical = (float(current.high) + float(current.low) + float(current.close)) / 3.0
+            prior_typical = (float(previous.high) + float(previous.low) + float(previous.close)) / 3.0
+            flow = typical * float(current.volume)
+            if typical > prior_typical:
+                positive += flow
+            elif typical < prior_typical:
+                negative += flow
+        if positive == 0 and negative == 0:
+            values[end] = 50.0
+        elif negative == 0:
+            values[end] = 100.0
+        elif positive == 0:
+            values[end] = 0.0
+        else:
+            ratio = positive / negative
+            values[end] = 100.0 - (100.0 / (1.0 + ratio))
+    return tuple(values)
+
+
 def mfi14(candles: Sequence) -> float | None:
-    """Standard 14-period Money Flow Index using native base-asset volume."""
-    if len(candles) < 15:
-        return None
-    positive = 0.0
-    negative = 0.0
-    start = len(candles) - 14
-    for index in range(start, len(candles)):
-        current = candles[index]
-        previous = candles[index - 1]
-        typical = (float(current.high) + float(current.low) + float(current.close)) / 3.0
-        prior_typical = (float(previous.high) + float(previous.low) + float(previous.close)) / 3.0
-        flow = typical * float(current.volume)
-        if typical > prior_typical:
-            positive += flow
-        elif typical < prior_typical:
-            negative += flow
-    if positive == 0 and negative == 0:
-        return 50.0
-    if negative == 0:
-        return 100.0
-    if positive == 0:
-        return 0.0
-    ratio = positive / negative
-    return 100.0 - (100.0 / (1.0 + ratio))
+    """Latest standard MFI14 using native base-asset volume."""
+    values = mfi14_series(candles)
+    return values[-1] if values else None
 
 
 def adx14(candles: Sequence) -> tuple[float, float, float] | None:
@@ -151,7 +159,7 @@ def adx14(candles: Sequence) -> tuple[float, float, float] | None:
     return adx_value, latest_plus_di, latest_minus_di
 
 
-def _swing_labels(candles: Sequence) -> tuple[tuple[str, ...], object | None]:
+def _swing_labels(candles: Sequence) -> tuple[tuple[str, ...], object | None, tuple[SwingPoint, ...]]:
     snapshots = StructureCalculator(left=2, right=2).calculate(candles)
     changes: list[tuple[datetime, str, Decimal]] = []
     seen_high = seen_low = None
@@ -171,7 +179,7 @@ def _swing_labels(candles: Sequence) -> tuple[tuple[str, ...], object | None]:
         swing = SwingPoint(kind, price, stamp, sequence)
         labels.extend(classify_swing_labels(swings, swing))
         swings.append(swing)
-    return tuple(labels), (snapshots[-1] if snapshots else None)
+    return tuple(labels), (snapshots[-1] if snapshots else None), tuple(swings)
 
 
 class StrategyEvidenceProviderV1:
@@ -264,7 +272,7 @@ class StrategyEvidenceProviderV1:
         mfi_value = mfi14(native15)
         adx_values = adx14(native15)
         adx_value, plus_di, minus_di = adx_values if adx_values else (None, None, None)
-        labels, structure_snapshot = _swing_labels(c15)
+        labels, structure_snapshot, confirmed_swings = _swing_labels(c15)
         structure_regime = infer_regime(labels)
         latest_native = native15[-1] if native15 else None
         previous_native = native15[-2] if len(native15) >= 2 else None
@@ -310,13 +318,13 @@ class StrategyEvidenceProviderV1:
         )
 
         pullback = None
-        if direction != "UNKNOWN" and latest_native is not None and ema50_15 is not None:
+        if direction != "UNKNOWN" and latest_native is not None:
             if direction == "BULLISH":
-                pullback = (float(latest_native.low) <= ema50_15 < float(latest_native.close)
-                            or (last_high is not None and float(latest_native.low) <= last_high < float(latest_native.close)))
+                pullback_levels = [level for level in (ema50_15, vwap, last_high) if level is not None]
+                pullback = any(float(latest_native.low) <= level < float(latest_native.close) for level in pullback_levels)
             else:
-                pullback = (float(latest_native.high) >= ema50_15 > float(latest_native.close)
-                            or (last_low is not None and float(latest_native.high) >= last_low > float(latest_native.close)))
+                pullback_levels = [level for level in (ema50_15, vwap, last_low) if level is not None]
+                pullback = any(float(latest_native.high) >= level > float(latest_native.close) for level in pullback_levels)
 
         def state_or_unknown(value):
             if value is None or stale or gaps:
@@ -324,9 +332,36 @@ class StrategyEvidenceProviderV1:
             return "PASS" if value else "FAIL"
 
         htf_ok = None if htf_direction == "UNKNOWN" or direction == "UNKNOWN" else htf_direction == direction
-        mfi_ok = None if mfi_value is None or direction == "UNKNOWN" else (
-            mfi_value > 50.0 if direction == "BULLISH" else mfi_value < 50.0
-        )
+        mfi_values = mfi14_series(native15)
+        mfi_divergence = None
+        if direction != "UNKNOWN":
+            swing_kind = "SWING_LOW" if direction == "BULLISH" else "SWING_HIGH"
+            directional_swings = [swing for swing in confirmed_swings if swing.kind == swing_kind]
+            if len(directional_swings) >= 2:
+                previous_swing, current_swing = directional_swings[-2:]
+                index_by_end_ms = {
+                    int(candle.end.timestamp() * 1000): index for index, candle in enumerate(c15)
+                }
+                previous_index = index_by_end_ms.get(int(previous_swing.candle_time.timestamp() * 1000))
+                current_index = index_by_end_ms.get(int(current_swing.candle_time.timestamp() * 1000))
+                if previous_index is not None and current_index is not None:
+                    previous_mfi = mfi_values[previous_index]
+                    current_mfi = mfi_values[current_index]
+                    if previous_mfi is not None and current_mfi is not None:
+                        if direction == "BULLISH":
+                            mfi_divergence = current_swing.price < previous_swing.price and current_mfi > previous_mfi
+                        else:
+                            mfi_divergence = current_swing.price > previous_swing.price and current_mfi < previous_mfi
+        if direction == "UNKNOWN":
+            mfi_ok = None
+        elif mfi_value is not None and (mfi_value > 50.0 if direction == "BULLISH" else mfi_value < 50.0):
+            mfi_ok = True
+        elif mfi_divergence is True:
+            mfi_ok = True
+        elif mfi_value is None or mfi_divergence is None:
+            mfi_ok = None
+        else:
+            mfi_ok = False
         adx_ok = None if adx_value is None or plus_di is None or minus_di is None or direction == "UNKNOWN" else (
             adx_value >= self.ADX_MINIMUM and plus_di > minus_di if direction == "BULLISH"
             else adx_value >= self.ADX_MINIMUM and minus_di > plus_di
@@ -402,4 +437,5 @@ class StrategyEvidenceProviderV1:
             risk_checks=risk_checks, risk_geometry=geometry, mfi14=mfi_value, adx14=adx_value,
             plus_di14=plus_di, minus_di14=minus_di, ema50_15m=ema50_15, ema50_4h=ema50_4,
             ema200_4h=ema200_4, blocked_reasons=tuple(dict.fromkeys(blocked)), order_block=order_block,
+            mfi_divergence=mfi_divergence,
         )
