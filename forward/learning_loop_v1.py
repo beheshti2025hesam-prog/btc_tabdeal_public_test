@@ -10,6 +10,9 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 from typing import Iterable, Mapping
+from datetime import datetime, timezone
+from pathlib import Path
+import math
 
 DECISIONS = frozenset({"LONG", "SHORT", "NO_TRADE"})
 OUTCOMES = frozenset({None, "OPEN", "WIN", "LOSS", "BREAKEVEN", "CANCELLED"})
@@ -169,3 +172,185 @@ def build_learning_report(
 
 def report_json(report: LearningReport) -> str:
     return json.dumps(asdict(report), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+
+@dataclass(frozen=True)
+class ForwardEvidenceRun:
+    """Learning report plus hashes of the existing forward journal inputs."""
+    report: LearningReport
+    evidence_manifest: dict
+
+
+def _strict_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value):
+    raise ValueError(f"non_finite_json_constant:{value}")
+
+
+def _read_json_bytes(raw: bytes, *, error_code: str):
+    try:
+        return json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_strict_json_object,
+            parse_constant=_reject_json_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(error_code) from exc
+
+
+def _aware_timestamp(value, *, field: str) -> datetime:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field}_REQUIRED")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{field}_INVALID") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{field}_MUST_BE_TIMEZONE_AWARE")
+    return parsed.astimezone(timezone.utc)
+
+
+def build_report_from_forward_evidence(
+    journal_path: str | Path,
+    outcome_dir: str | Path,
+    *,
+    now: datetime | None = None,
+    min_group_size: int = 5,
+) -> ForwardEvidenceRun:
+    """Read the existing append-only decision journal and immutable outcome artifacts.
+
+    The original decision rows are never rewritten. An outcome is joined by event_id
+    only after validation against the existing runtime outcome contract. Missing
+    outcomes remain missing; no result is inferred from price candles or decisions.
+    """
+    from .forward_runtime_validation_v1 import (
+        validate_decision_record,
+        validate_outcome_artifact,
+    )
+
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValueError("now_must_be_timezone_aware")
+    current = current.astimezone(timezone.utc)
+
+    journal = Path(journal_path)
+    outcomes_root = Path(outcome_dir)
+    if journal.is_symlink() or not journal.is_file():
+        raise ValueError("FORWARD_DECISION_JOURNAL_MISSING_OR_UNSAFE")
+    if outcomes_root.is_symlink() or not outcomes_root.is_dir():
+        raise ValueError("FORWARD_OUTCOME_DIRECTORY_MISSING_OR_UNSAFE")
+
+    journal_bytes = journal.read_bytes()
+    if not journal_bytes:
+        raise ValueError("FORWARD_DECISION_JOURNAL_EMPTY")
+    try:
+        journal_text = journal_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("FORWARD_DECISION_JOURNAL_NOT_UTF8") from exc
+    if not journal_text.endswith("\n"):
+        raise ValueError("FORWARD_DECISION_JOURNAL_PARTIAL_TAIL")
+
+    decisions = []
+    seen_ids = set()
+    for line_no, line in enumerate(journal_text.splitlines(), start=1):
+        if not line.strip():
+            raise ValueError(f"FORWARD_DECISION_JOURNAL_BLANK_LINE:{line_no}")
+        row = _read_json_bytes(line.encode("utf-8"), error_code=f"FORWARD_DECISION_JSON_INVALID:{line_no}")
+        if not isinstance(row, dict):
+            raise ValueError(f"FORWARD_DECISION_RECORD_NOT_OBJECT:{line_no}")
+        required = {"event_id", "observed_at", "symbol", "timeframe", "decision", "evidence_source"}
+        if not required.issubset(row):
+            raise ValueError(f"FORWARD_DECISION_REQUIRED_FIELDS_MISSING:{line_no}")
+        event_id = row.get("event_id")
+        if not isinstance(event_id, str) or not event_id.strip() or event_id in seen_ids:
+            raise ValueError(f"FORWARD_DECISION_EVENT_ID_INVALID_OR_DUPLICATE:{line_no}")
+        seen_ids.add(event_id)
+        errors = validate_decision_record(row)
+        if errors:
+            raise ValueError(f"FORWARD_DECISION_RECORD_REJECTED:{line_no}:{','.join(errors)}")
+        if row.get("closed_at") is not None:
+            raise ValueError(f"FORWARD_DECISION_HAS_MUTABLE_OUTCOME_FIELDS:{line_no}")
+        observed = _aware_timestamp(row.get("observed_at"), field="observed_at")
+        if observed > current:
+            raise ValueError(f"FORWARD_DECISION_FROM_FUTURE:{line_no}")
+        row = dict(row)
+        row["outcome"] = None
+        row["closed_at"] = None
+        decisions.append(row)
+
+    if not decisions:
+        raise ValueError("FORWARD_DECISION_JOURNAL_HAS_NO_RECORDS")
+
+    decision_by_id = {row["event_id"]: row for row in decisions}
+    outcome_files = sorted(outcomes_root.glob("*.json"), key=lambda p: p.name)
+    outcome_hashes = []
+    outcome_by_id = {}
+    for path in outcome_files:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("FORWARD_OUTCOME_ARTIFACT_UNSAFE_PATH")
+        raw = path.read_bytes()
+        artifact = _read_json_bytes(raw, error_code=f"FORWARD_OUTCOME_ARTIFACT_INVALID:{path.name}")
+        if not isinstance(artifact, dict):
+            raise ValueError(f"FORWARD_OUTCOME_ARTIFACT_NOT_OBJECT:{path.name}")
+        event_id = artifact.get("event_id")
+        errors = validate_outcome_artifact(artifact, decision_event_ids=set(decision_by_id))
+        if errors:
+            raise ValueError(f"FORWARD_OUTCOME_ARTIFACT_REJECTED:{path.name}:{','.join(errors)}")
+        if event_id in outcome_by_id:
+            raise ValueError(f"FORWARD_OUTCOME_DUPLICATE_EVENT_ID:{event_id}")
+        decision = decision_by_id[event_id]
+        if decision["decision"] not in {"LONG", "SHORT"}:
+            raise ValueError(f"FORWARD_OUTCOME_FOR_NON_TRADE_DECISION:{event_id}")
+        if artifact.get("source_period") == "historical" or str(artifact.get("population", "")).lower() in {"winner", "survivor"}:
+            raise ValueError("HISTORICAL_OR_SURVIVOR_OUTCOME_FORBIDDEN")
+        closed_at = _aware_timestamp(artifact.get("closed_at"), field="closed_at")
+        observed_at = _aware_timestamp(decision["observed_at"], field="observed_at")
+        if closed_at <= observed_at or closed_at > current:
+            raise ValueError(f"FORWARD_OUTCOME_CLOSE_TIME_INVALID:{event_id}")
+        if "realized_rr" in artifact and artifact["realized_rr"] is not None:
+            rr = artifact["realized_rr"]
+            if isinstance(rr, bool) or not isinstance(rr, (int, float)) or not math.isfinite(rr):
+                raise ValueError(f"FORWARD_OUTCOME_REALIZED_RR_INVALID:{event_id}")
+        outcome_by_id[event_id] = artifact
+        outcome_hashes.append({"file": path.name, "sha256": sha256(raw).hexdigest()})
+
+    merged = []
+    for row in decisions:
+        combined = dict(row)
+        artifact = outcome_by_id.get(row["event_id"])
+        if artifact is not None:
+            combined["outcome"] = artifact["outcome"]
+            combined["closed_at"] = artifact["closed_at"]
+            if artifact.get("realized_rr") is not None:
+                combined["realized_rr"] = artifact["realized_rr"]
+            combined["outcome_artifact_sha256"] = next(
+                item["sha256"] for item in outcome_hashes if item["file"] == f"{row['event_id']}.json"
+            ) if any(item["file"] == f"{row['event_id']}.json" for item in outcome_hashes) else None
+        merged.append(combined)
+
+    outcome_manifest_payload = json.dumps(
+        outcome_hashes, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    ).encode("utf-8")
+    manifest = {
+        "schema": "hes_forward_learning_evidence_manifest_v1",
+        "status": "EVIDENCE_READ_ONLY_REPORT",
+        "decision_journal_sha256": sha256(journal_bytes).hexdigest(),
+        "decision_record_count": len(decisions),
+        "outcome_artifact_count": len(outcome_hashes),
+        "outcome_manifest_sha256": sha256(outcome_manifest_payload).hexdigest(),
+        "outcome_artifacts": outcome_hashes,
+        "historical_inputs_allowed": False,
+        "decision_rows_mutated": False,
+        "execution_enabled": False,
+        "orders_placed": False,
+    }
+    report = build_learning_report(merged, min_group_size=min_group_size)
+    return ForwardEvidenceRun(report=report, evidence_manifest=manifest)
