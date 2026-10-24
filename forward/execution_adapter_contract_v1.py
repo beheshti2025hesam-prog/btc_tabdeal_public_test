@@ -62,6 +62,7 @@ class ExecutionOrderRequestV1:
     side: Side
     order_type: OrderType
     quantity_unit: QuantityUnit
+    quantity_unit_evidence_ref: str
     quantity: Decimal
     limit_price: Decimal | None
     stop_loss: Decimal
@@ -73,7 +74,7 @@ class ExecutionOrderRequestV1:
         errors: list[str] = []
         for field_name in (
             "venue_id", "analysis_symbol", "venue_symbol", "symbol_mapping_ref",
-            "client_order_id", "decision_id",
+            "quantity_unit_evidence_ref", "client_order_id", "decision_id",
         ):
             value = getattr(self, field_name)
             if not isinstance(value, str) or not value.strip():
@@ -96,6 +97,10 @@ class ExecutionOrderRequestV1:
             errors.append("LIMIT_PRICE_INVALID")
         if self.order_type == "LIMIT" and self.limit_price is None:
             errors.append("LIMIT_PRICE_REQUIRED")
+        if self.order_type == "LIMIT" and (
+            not isinstance(self.time_in_force, str) or not self.time_in_force.strip()
+        ):
+            errors.append("TIME_IN_FORCE_REQUIRED")
         if not isinstance(self.reduce_only, bool):
             errors.append("REDUCE_ONLY_FLAG_INVALID")
         return tuple(dict.fromkeys(errors))
@@ -131,6 +136,11 @@ class ExecutionAdapterCapabilitiesV1:
             errors.append("API_CONTRACT_VERSION_MISSING")
         if not self.supported_order_types:
             errors.append("SUPPORTED_ORDER_TYPES_MISSING")
+        elif any(
+            order_type not in ("MARKET", "LIMIT", "STOP_MARKET", "TAKE_PROFIT_MARKET")
+            for order_type in self.supported_order_types
+        ):
+            errors.append("SUPPORTED_ORDER_TYPES_INVALID")
         if self.verification_status != "VERIFIED":
             errors.append("CAPABILITIES_NOT_INDEPENDENTLY_VERIFIED")
         if not isinstance(self.official_contract_ref, str) or not self.official_contract_ref.strip():
@@ -335,10 +345,11 @@ class AccountReconciliationSnapshotV1:
         if not isinstance(self.open_order_ids, tuple):
             errors.append("OPEN_ORDER_IDS_INVALID")
         else:
-            if len(set(self.open_order_ids)) != len(self.open_order_ids):
-                errors.append("DUPLICATE_OPEN_ORDER_IDS")
             if any(not isinstance(order_id, str) or not order_id.strip() for order_id in self.open_order_ids):
                 errors.append("OPEN_ORDER_ID_INVALID")
+            else:
+                if len(set(self.open_order_ids)) != len(self.open_order_ids):
+                    errors.append("DUPLICATE_OPEN_ORDER_IDS")
         if not _sha256(self.position_snapshot_sha256):
             errors.append("POSITION_SNAPSHOT_HASH_INVALID")
         if not _sha256(self.raw_response_sha256):
