@@ -1,0 +1,37 @@
+name: Transformer Training Pipeline Tests
+
+on:
+  pull_request:
+    paths:
+      - "forward/transformer_agent_v1.py"
+      - "forward/transformer_training_v1.py"
+      - "forward/transformer_torch_adapter_v1.py"
+      - "scripts/export_binance_ohlcv_for_transformer_v1.py"
+      - "tests/test_transformer_agent_v1.py"
+      - "tests/test_transformer_training_v1.py"
+      - "tests/test_transformer_binance_export_v1.py"
+      - ".github/workflows/transformer-training-pipeline.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  transformer-training-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test runner and CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile Python modules and scripts
+        run: python -m compileall -q forward scripts
+      - name: Run inference contract and training pipeline tests
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q tests/test_transformer_agent_v1.py tests/test_transformer_training_v1.py tests/test_transformer_binance_export_v1.py
