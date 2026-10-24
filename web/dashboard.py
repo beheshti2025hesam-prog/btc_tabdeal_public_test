@@ -17,7 +17,8 @@ SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
 CHART_ASSET_FILE = Path(__file__).resolve().parent / "static" / "third_party" / "lightweight-charts" / "5.0.8" / "lightweight-charts.standalone.production.js"
 _SOURCE = BinanceSpotKlineSource()
-# Binance Spot documents base-asset volume and quote-asset volume separately.
+# Binance Spot documents base-asset volume and quote-asset volume separately:
+# https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#klinecandlestick-streams-for-utc
 # This approval is source-specific; never reuse it for Wallex or another venue.
 _FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=True)
 _SIGNAL_AGENT = SignalAgentV1()
