@@ -5,7 +5,7 @@ never changes strategy thresholds, execution state, or authorizes orders.
 """
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
@@ -97,6 +97,10 @@ def build_learning_report(
             raise ValueError("invalid_outcome")
         if decision == "NO_TRADE" and outcome in CLOSED_OUTCOMES:
             raise ValueError("NO_TRADE_CANNOT_HAVE_TRADE_OUTCOME")
+        if row.get("realized_rr") is not None:
+            realized_rr = row["realized_rr"]
+            if isinstance(realized_rr, bool) or not isinstance(realized_rr, (int, float)) or not math.isfinite(realized_rr):
+                raise ValueError("invalid_realized_rr")
 
         # Validate attribution dimensions before string conversion; never stringify
         # dicts/lists into apparently legitimate market regimes or gate names.
@@ -104,7 +108,10 @@ def build_learning_report(
         _required_label(row.get("rejected_at"), "rejected_at", "")
         _required_label(row.get("decision_gate"), "decision_gate", "")
 
-    counts = Counter(row["decision"] for row in rows)
+    # Reuse the established forward evaluator for aggregate decision/outcome counts.
+    # This module adds attribution only; it does not fork the existing evaluator.
+    from .forward_evaluation_v1 import evaluate
+    aggregate = evaluate(rows)
     groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for row in rows:
         outcome = row.get("outcome")
@@ -147,10 +154,7 @@ def build_learning_report(
                 "action": "RESEARCH_ONLY_NO_PARAMETER_CHANGE",
             })
 
-    closed_count = sum(
-        row.get("outcome") in CLOSED_OUTCOMES and row["decision"] in {"LONG", "SHORT"}
-        for row in rows
-    )
+    closed_count = aggregate.closed_trade_count
     # Cancelled trades are neither closed performance outcomes nor open trades.
     unclosed = sum(
         row["decision"] in {"LONG", "SHORT"}
@@ -163,7 +167,11 @@ def build_learning_report(
         len(rows),
         closed_count,
         unclosed,
-        {key: counts.get(key, 0) for key in ("LONG", "SHORT", "NO_TRADE")},
+        {
+            "LONG": aggregate.long_count,
+            "SHORT": aggregate.short_count,
+            "NO_TRADE": aggregate.no_trade_count,
+        },
         attribution,
         hypotheses,
         _canonical_hash(rows),
