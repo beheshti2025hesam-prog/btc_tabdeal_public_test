@@ -18,6 +18,7 @@ from .opportunity_detector_v1 import OpportunityCandidate, OpportunityDetectorV1
 from .opportunity_policy_v1 import OpportunityPolicyV1
 from .risk_gate_v1 import RiskCheck, RiskGateV1, RiskGateResult
 from .risk_policy_v1 import RiskPolicyV1
+from .strategy_policy_v1 import StrategyEvidenceCheckV1, StrategyPolicyV1, StrategyQualityResultV1
 
 
 @dataclass(frozen=True)
@@ -42,21 +43,26 @@ class SignalAgentResult:
     risk: RiskGateResult
     decision: DecisionResult
     blocked_reasons: tuple[str, ...]
+    strategy_quality: StrategyQualityResultV1 | None = None
 
 
 class SignalAgentV1:
     """Deterministic Signal -> Confirmation -> Risk -> Decision chain.
 
-    The default scope follows the already-established forward baseline:
-    BTC_USDT / 15m. Any other scope is rejected by the existing opportunity policy.
-    No orders or external side effects are performed.
+    The active analysis profile is explicitly Binance Spot BTCUSDT / 15m.
+    Other venue/product/symbol/timeframe scopes fail closed until a separately
+    configured and versioned policy approves them. No orders are submitted.
     """
 
     VERSION = "hes-signal-agent-v1"
     MIN_REWARD_RISK = Decimal("3")
     REQUIRED_PRECHECKS = ("structure_direction_aligned", "signal_quality_gate_passed")
 
-    def __init__(self) -> None:
+    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT", "15m"),)) -> None:
+        self.allowed_scopes = tuple(tuple(scope) for scope in allowed_scopes)
+        if not self.allowed_scopes or any(len(scope) != 4 or any(not isinstance(v, str) or not v for v in scope) for scope in self.allowed_scopes):
+            raise ValueError("allowed_scopes must contain explicit venue/product/symbol/timeframe tuples")
+        self.strategy_policy = StrategyPolicyV1()
         self.detector = OpportunityDetectorV1(policy=OpportunityPolicyV1())
         self.confirmation_engine = ConfirmationEngineV1(policy=ConfirmationPolicyV1())
         self.risk_gate = RiskGateV1(policy=RiskPolicyV1())
@@ -134,6 +140,9 @@ class SignalAgentV1:
         symbol: str,
         timeframe: str,
         regime: str,
+        venue: str = "",
+        product: str = "",
+        strategy_checks: Sequence[StrategyEvidenceCheckV1] = (),
         structure_labels: Sequence[str] = (),
         structure_events: Sequence[str] = (),
         structure_direction: str = "UNKNOWN",
@@ -149,23 +158,43 @@ class SignalAgentV1:
         """
         confirmation_checks = tuple(confirmation_checks)
         risk_checks = tuple(risk_checks)
-        all_checks = confirmation_checks + risk_checks
-        invalid = self._validate_observation(observed_at, all_checks)
+        strategy_checks = tuple(strategy_checks)
+        caller_quality_checks = tuple(c for c in confirmation_checks if getattr(c, "name", None) == "signal_quality_gate_passed")
+        confirmation_checks = tuple(c for c in confirmation_checks if getattr(c, "name", None) != "signal_quality_gate_passed")
+        strategy_quality = self.strategy_policy.evaluate(
+            observed_at=observed_at, venue=venue, product=product, symbol=symbol,
+            timeframe=timeframe, direction=structure_direction, checks=strategy_checks,
+        )
+        quality_ref = ("strategy-policy-v1:sha256:" + strategy_quality.evidence_sha256
+                       if strategy_quality.evidence_sha256 else "strategy-policy-v1:unavailable")
+        confirmation_checks = confirmation_checks + (
+            ConfirmationCheck("signal_quality_gate_passed", strategy_quality.state, quality_ref, observed_at),
+        )
+        all_checks = confirmation_checks + risk_checks + strategy_checks
+        invalid = list(self._validate_observation(observed_at, all_checks))
+        if caller_quality_checks:
+            invalid.append("EXTERNAL_STRATEGY_QUALITY_OVERRIDE_REJECTED")
+        invalid = tuple(dict.fromkeys(invalid))
         geometry_reasons = self._validate_risk_geometry(risk_geometry, structure_direction)
         direction_matches = (
             (regime == "UPTREND" and structure_direction == "BULLISH")
             or (regime == "DOWNTREND" and structure_direction == "BEARISH")
         )
+        scope_matches = (venue, product, symbol, timeframe) in self.allowed_scopes
         precheck_by_name = {c.name: c for c in confirmation_checks if isinstance(getattr(c, "name", None), str)}
         missing_prechecks = tuple(n for n in self.REQUIRED_PRECHECKS if n not in precheck_by_name)
         failed_prechecks = tuple(
             n for n in self.REQUIRED_PRECHECKS
             if n in precheck_by_name and getattr(precheck_by_name[n], "state", None) != "PASS"
         )
-        if invalid or geometry_reasons or not direction_matches or missing_prechecks or failed_prechecks:
+        if invalid or geometry_reasons or not direction_matches or not scope_matches or missing_prechecks or failed_prechecks:
             reasons = list(invalid) + list(geometry_reasons)
             if not direction_matches:
                 reasons.append("STRUCTURE_DIRECTION_NOT_ALIGNED")
+            if not scope_matches:
+                reasons.append("STRATEGY_SCOPE_UNSUPPORTED")
+            if strategy_quality.state != "PASS":
+                reasons.extend(strategy_quality.reason_codes)
             if missing_prechecks:
                 reasons.extend("MISSING_" + n.upper() for n in missing_prechecks)
             if failed_prechecks:
@@ -181,7 +210,7 @@ class SignalAgentV1:
             decision = self.decision_engine.evaluate(
                 observed_at=observed_at, candidate=candidate, confirmation=confirmation, risk=risk
             )
-            return SignalAgentResult(observed_at, candidate, confirmation, risk, decision, tuple(dict.fromkeys(reasons)))
+            return SignalAgentResult(observed_at, candidate, confirmation, risk, decision, tuple(dict.fromkeys(reasons)), strategy_quality)
 
         candidate = self.detector.evaluate(
             observed_at=observed_at,
