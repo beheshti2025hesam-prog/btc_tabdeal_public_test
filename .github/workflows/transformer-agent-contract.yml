@@ -6,9 +6,6 @@ on:
       - "forward/transformer_agent_v1.py"
       - "tests/test_transformer_agent_v1.py"
       - ".github/workflows/transformer-agent-contract.yml"
-  push:
-    branches:
-      - "feat/transformer-agent-contract-v1-20261024"
 
 permissions:
   contents: read
