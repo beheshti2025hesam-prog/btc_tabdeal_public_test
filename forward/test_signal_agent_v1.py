@@ -21,7 +21,13 @@ def confirmation_checks(state="PASS", observed_at=OBS):
 
 
 def risk_checks(state="PASS", observed_at=OBS):
-    names = ("confirmation_valid", "risk_context_available", "execution_disabled")
+    names = (
+        "confirmation_valid",
+        "risk_context_available",
+        "entry_stop_target_geometry_valid",
+        "risk_reward_gate_passed",
+        "execution_disabled",
+    )
     return tuple(RiskCheck(n, state, "forward:risk:" + n, observed_at) for n in names)
 
 
@@ -169,3 +175,29 @@ def test_duplicate_evidence_names_fail_closed():
     result = evaluate(confirmation_checks=checks)
     assert result.decision.decision == "NO_TRADE"
     assert "DUPLICATE_EVIDENCE_CHECK_NAME" in result.blocked_reasons
+
+
+def test_missing_risk_reward_gate_fails_closed():
+    checks = tuple(c for c in risk_checks() if c.name != "risk_reward_gate_passed")
+    result = evaluate(risk_checks=checks)
+    assert result.decision.decision == "NO_TRADE"
+    assert result.risk.state == "RISK_REJECTED"
+    assert "MISSING_RISK_EVIDENCE" in result.risk.reason_codes
+
+
+def test_failed_entry_stop_target_geometry_fails_closed():
+    checks = tuple(
+        RiskCheck(c.name, "FAIL" if c.name == "entry_stop_target_geometry_valid" else c.state,
+                  c.evidence_ref, c.observed_at)
+        for c in risk_checks()
+    )
+    result = evaluate(risk_checks=checks)
+    assert result.decision.decision == "NO_TRADE"
+    assert result.risk.state == "RISK_REJECTED"
+
+
+def test_missing_execution_disabled_proof_fails_closed():
+    checks = tuple(c for c in risk_checks() if c.name != "execution_disabled")
+    result = evaluate(risk_checks=checks)
+    assert result.decision.decision == "NO_TRADE"
+    assert result.risk.state == "RISK_REJECTED"
