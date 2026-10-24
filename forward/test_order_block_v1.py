@@ -84,3 +84,32 @@ def test_mitigated_order_block_loses_freshness_point():
     assert result is not None
     assert result.mitigated and not result.fresh
     assert result.score < result.max_score
+
+
+def bearish_break_candles():
+    return (
+        candle(0, 100, 105, 99, 101),
+        candle(1, 101, 106, 100, 105),
+        candle(2, 109, 113, 105, 108),  # sweep above prior swing high, closes back below
+        candle(3, 107, 110, 106, 109),  # last bullish candle: bearish order block
+        candle(4, 104, 105, 101, 102),
+        candle(5, 102, 103, 95, 96, volume=30),  # bearish break
+    )
+
+
+def test_bearish_choch_order_block_supports_short_context():
+    result = detect_order_block_v1(
+        bearish_break_candles(), direction="BEARISH", break_confirmed=True,
+        break_type="CHOCH", htf_direction="BEARISH", last_swing_high=Decimal("110"),
+        last_swing_low=Decimal("100"), ema50=108.0, vwap=109.0,
+        source_response_sha256="c" * 64,
+    )
+    assert result is not None
+    assert result.direction == "BEARISH"
+    assert result.break_type == "CHOCH"
+    assert result.zone_low == Decimal("107")
+    assert result.zone_high == Decimal("110")
+    assert result.liquidity_sweep and result.fair_value_gap
+    assert result.fresh and result.htf_aligned and result.volume_expansion
+    assert result.price_confluence
+    assert result.score == 7
