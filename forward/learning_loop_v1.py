@@ -273,6 +273,10 @@ def build_report_from_forward_evidence(
         if not isinstance(event_id, str) or not event_id.strip() or event_id in seen_ids:
             raise ValueError(f"FORWARD_DECISION_EVENT_ID_INVALID_OR_DUPLICATE:{line_no}")
         seen_ids.add(event_id)
+        if not isinstance(row.get("decision"), str) or row.get("decision") not in DECISIONS:
+            raise ValueError(f"FORWARD_DECISION_INVALID:{line_no}")
+        if row.get("outcome") is not None:
+            raise ValueError(f"FORWARD_DECISION_HAS_OUTCOME:{line_no}")
         errors = validate_decision_record(row)
         if errors:
             raise ValueError(f"FORWARD_DECISION_RECORD_REJECTED:{line_no}:{','.join(errors)}")
@@ -292,6 +296,7 @@ def build_report_from_forward_evidence(
     decision_by_id = {row["event_id"]: row for row in decisions}
     outcome_files = sorted(outcomes_root.glob("*.json"), key=lambda p: p.name)
     outcome_hashes = []
+    outcome_sha_by_id = {}
     outcome_by_id = {}
     for path in outcome_files:
         if path.is_symlink() or not path.is_file():
@@ -301,6 +306,8 @@ def build_report_from_forward_evidence(
         if not isinstance(artifact, dict):
             raise ValueError(f"FORWARD_OUTCOME_ARTIFACT_NOT_OBJECT:{path.name}")
         event_id = artifact.get("event_id")
+        if not isinstance(artifact.get("outcome"), str) or artifact.get("outcome") not in {"WIN", "LOSS", "BREAKEVEN", "CANCELLED"}:
+            raise ValueError(f"FORWARD_OUTCOME_INVALID:{path.name}")
         errors = validate_outcome_artifact(artifact, decision_event_ids=set(decision_by_id))
         if errors:
             raise ValueError(f"FORWARD_OUTCOME_ARTIFACT_REJECTED:{path.name}:{','.join(errors)}")
@@ -309,7 +316,11 @@ def build_report_from_forward_evidence(
         decision = decision_by_id[event_id]
         if decision["decision"] not in {"LONG", "SHORT"}:
             raise ValueError(f"FORWARD_OUTCOME_FOR_NON_TRADE_DECISION:{event_id}")
-        if artifact.get("source_period") == "historical" or str(artifact.get("population", "")).lower() in {"winner", "survivor"}:
+        source_period = artifact.get("source_period")
+        population = artifact.get("population")
+        if (isinstance(source_period, str) and source_period.strip().lower() == "historical") or (
+            isinstance(population, str) and population.strip().lower() in {"winner", "survivor"}
+        ):
             raise ValueError("HISTORICAL_OR_SURVIVOR_OUTCOME_FORBIDDEN")
         closed_at = _aware_timestamp(artifact.get("closed_at"), field="closed_at")
         observed_at = _aware_timestamp(decision["observed_at"], field="observed_at")
@@ -320,7 +331,9 @@ def build_report_from_forward_evidence(
             if isinstance(rr, bool) or not isinstance(rr, (int, float)) or not math.isfinite(rr):
                 raise ValueError(f"FORWARD_OUTCOME_REALIZED_RR_INVALID:{event_id}")
         outcome_by_id[event_id] = artifact
-        outcome_hashes.append({"file": path.name, "sha256": sha256(raw).hexdigest()})
+        artifact_sha = sha256(raw).hexdigest()
+        outcome_sha_by_id[event_id] = artifact_sha
+        outcome_hashes.append({"file": path.name, "event_id": event_id, "sha256": artifact_sha})
 
     merged = []
     for row in decisions:
@@ -331,9 +344,7 @@ def build_report_from_forward_evidence(
             combined["closed_at"] = artifact["closed_at"]
             if artifact.get("realized_rr") is not None:
                 combined["realized_rr"] = artifact["realized_rr"]
-            combined["outcome_artifact_sha256"] = next(
-                item["sha256"] for item in outcome_hashes if item["file"] == f"{row['event_id']}.json"
-            ) if any(item["file"] == f"{row['event_id']}.json" for item in outcome_hashes) else None
+            combined["outcome_artifact_sha256"] = outcome_sha_by_id[row["event_id"]]
         merged.append(combined)
 
     outcome_manifest_payload = json.dumps(
