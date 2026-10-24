@@ -59,6 +59,9 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base+"/") as response:
             page=response.read().decode()
         self.assertIn("HES Trade Agent",page)
+        self.assertIn("Signal Agent v1",page)
+        self.assertIn("/api/signal?symbol=BTCUSDT&interval=15m",page)
+        self.assertIn("signalReasons",page)
         self.assertIn("HOLD / NO_TRADE_ONLY",page)
         self.assertIn(dashboard.CHART_ASSET_PATH,page)
         self.assertNotIn("unpkg.com",page)
