@@ -155,6 +155,7 @@ class StrategyEvidenceProviderV1:
     VERSION = "hes-native-strategy-evidence-v1"
     ADX_MINIMUM = 20.0
     MINIMUM_HTF_CANDLES = 200
+    MAX_SOURCE_FETCH_SKEW_MS = 300_000
 
     @staticmethod
     def _check(name, state, ref, digest, observed_at):
@@ -193,12 +194,15 @@ class StrategyEvidenceProviderV1:
 
         as_of_ms = min(candles_15m.fetched_at_ms, candles_4h.fetched_at_ms)
         observed_at = datetime.fromtimestamp(as_of_ms / 1000, tz=timezone.utc)
+        if as_of_ms > now_ms + 60_000:
+            raise ValueError("strategy observation time is ahead of current UTC")
         stale = []
         for batch in (candles_15m, candles_4h):
             interval_ms = INTERVAL_MS[batch.interval]
-            if not batch.candles or now_ms - batch.candles[-1].close_time_ms > interval_ms + 60_000:
+            eligible = tuple(c for c in batch.candles if c.close_time_ms < as_of_ms)
+            if not eligible or now_ms - eligible[-1].close_time_ms > interval_ms + 60_000:
                 stale.append(batch.interval)
-        if abs(candles_15m.fetched_at_ms - candles_4h.fetched_at_ms) > 60_000:
+        if abs(candles_15m.fetched_at_ms - candles_4h.fetched_at_ms) > self.MAX_SOURCE_FETCH_SKEW_MS:
             stale.append("SOURCE_FETCH_SKEW")
         gaps = bool(candles_15m.gaps or candles_4h.gaps)
         feature_15m = to_feature_batch(candles_15m, as_of_ms=as_of_ms, now_ms=max(now_ms, as_of_ms))
