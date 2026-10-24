@@ -60,10 +60,12 @@ def record_signal_decision(
     for name, value in (
         ("observed_at", observed_at), ("symbol", symbol), ("timeframe", timeframe),
         ("source", source), ("product", product), ("policy_version", policy_version),
-        ("status", status), ("market_regime", market_regime), ("rejected_at", rejected_at),
+        ("status", status), ("market_regime", market_regime),
     ):
         if not isinstance(value, str) or not value.strip():
             raise ValueError("invalid_" + name)
+    if not isinstance(rejected_at, str):
+        raise ValueError("invalid_rejected_at")
     for name, value in (
         ("response_sha256", response_sha256),
         ("htf_response_sha256", htf_response_sha256),
@@ -134,7 +136,8 @@ def record_signal_decision(
                 continue
             existing = json.loads(line)
             if existing.get("event_id") == event_id:
-                expected = observation_digest(payload)
+                expected_payload = {**payload, "artifact_type": "FORWARD_OBSERVATION", "artifact_version": "1.0"}
+                expected = observation_digest(expected_payload)
                 if existing.get("digest") == expected:
                     return JournalWriteResult("ALREADY_RECORDED", event_id, expected)
                 raise ValueError("conflicting_duplicate_decision_event")
