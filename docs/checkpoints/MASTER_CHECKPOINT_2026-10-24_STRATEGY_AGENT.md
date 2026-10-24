@@ -74,3 +74,12 @@ Exact implementation head `c87dc30ec9189d72daa7fb81f1bb052e8b2746a5`:
 The strategy provider now supports MFI14 threshold OR confirmed directional divergence, pullback against the existing VWAP/EMA50/confirmed-swing level, configurable opportunity scopes, and a source-scoped Binance Spot provider. Order-block score includes BOS/CHOCH, liquidity sweep, FVG, freshness/mitigation, HTF alignment, volume expansion and EMA/VWAP/support-resistance confluence. It remains contextual only, with no authorized score threshold.
 
 This checkpoint update is documentation-only. Re-run the same workflows on the new branch head and store those final-head run IDs in the Notion Master Checkpoint. Keep Draft/HOLD until independent review and parent-PR stack reconciliation.
+
+
+## Deep strategy review — 2026-10-24
+
+- Review finding: the original 5/6 quorum could pass while a core setup gate (pullback, break, or ADX directional strength) failed. This is not automatically evidence of a high win rate.
+- Conservative change on the same branch: five non-negotiable gates are now required: HTF trend alignment, pullback location, confirmed break, ADX/DI strength, and valid 3R geometry. MFI threshold/divergence is the only optional vote. UNKNOWN/missing evidence still blocks. Regression tests assert that the 5/6 quorum cannot override a failed mandatory gate.
+- Evidence boundary: no verified historical backtest, out-of-sample results, or net-of-fees win-rate report was found in the strategy artifacts reviewed. The change is a conservative structural hypothesis only, not a measured performance improvement.
+- Before any claim of high win rate or strategy promotion, compare old and revised rules on the same immutable historical data with chronological walk-forward/out-of-sample splits; realistic fees, spread/slippage, and funding if relevant; no lookahead; and report win rate, expectancy (R/trade), profit factor, drawdown, trade count, and regime-wise results. Preserve the old policy as baseline; do not tune on the final holdout.
+- Product delivery target remains 2026-11-19; risk checkpoint remains 2026-10-26. PR #362 remains Draft/HOLD; live execution OFF and NO_TRADE_ONLY.
