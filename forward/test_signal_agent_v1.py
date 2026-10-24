@@ -5,6 +5,7 @@ import pytest
 from forward.confirmation_engine_v1 import ConfirmationCheck
 from forward.risk_gate_v1 import RiskCheck
 from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
+from forward.strategy_policy_v1 import REQUIRED_CHECKS, StrategyEvidenceCheckV1
 
 OBS = datetime(2026, 10, 24, 10, 0, tzinfo=timezone.utc)
 
@@ -12,12 +13,27 @@ OBS = datetime(2026, 10, 24, 10, 0, tzinfo=timezone.utc)
 def confirmation_checks(state="PASS", observed_at=OBS):
     names = (
         "structure_direction_aligned",
-        "signal_quality_gate_passed",
         "candidate_valid",
         "direction_regime_alignment",
         "structural_event_present",
     )
     return tuple(ConfirmationCheck(n, state, "forward:evidence:" + n, observed_at) for n in names)
+
+
+def strategy_checks(states=None, observed_at=OBS):
+    states = states or {}
+    return tuple(
+        StrategyEvidenceCheckV1(
+            name=name,
+            state=states.get(name, "PASS"),
+            evidence_ref="forward:strategy:" + name,
+            evidence_sha256=f"{index + 1:064x}",
+            provider="test-provider",
+            provider_version="1",
+            observed_at=observed_at,
+        )
+        for index, name in enumerate(REQUIRED_CHECKS)
+    )
 
 
 def risk_checks(state="PASS", observed_at=OBS):
@@ -34,8 +50,11 @@ def risk_checks(state="PASS", observed_at=OBS):
 def evaluate(**kwargs):
     defaults = dict(
         observed_at=OBS,
-        symbol="BTC_USDT",
+        venue="binance",
+        product="spot",
+        symbol="BTCUSDT",
         timeframe="15m",
+        strategy_checks=strategy_checks(),
         regime="UPTREND",
         structure_labels=("HH", "HL"),
         structure_events=("BOS",),
@@ -86,21 +105,28 @@ def test_generic_bos_without_direction_is_not_enough():
     assert result.decision.decision == "NO_TRADE"
 
 
-def test_missing_quality_gate_fails_closed():
-    checks = tuple(c for c in confirmation_checks() if c.name != "signal_quality_gate_passed")
-    result = evaluate(confirmation_checks=checks)
+def test_missing_strategy_evidence_fails_closed():
+    result = evaluate(strategy_checks=())
     assert result.decision.decision == "NO_TRADE"
-    assert "MISSING_SIGNAL_QUALITY_GATE_PASSED" in result.blocked_reasons
+    assert any(reason.startswith("MISSING_HTF_TREND_ALIGNMENT") for reason in result.blocked_reasons)
 
 
-def test_failed_quality_gate_fails_closed():
-    checks = tuple(
-        ConfirmationCheck(c.name, "FAIL" if c.name == "signal_quality_gate_passed" else c.state,
-                          c.evidence_ref, c.observed_at)
-        for c in confirmation_checks()
+def test_strategy_quorum_failure_fails_closed():
+    result = evaluate(strategy_checks=strategy_checks({
+        "mfi_confirmation": "FAIL",
+        "adx_directional_strength": "FAIL",
+    }))
+    assert result.decision.decision == "NO_TRADE"
+    assert "STRATEGY_CONFIRMATION_QUORUM_NOT_MET" in result.blocked_reasons
+
+
+def test_caller_cannot_self_assert_strategy_quality():
+    checks = confirmation_checks() + (
+        ConfirmationCheck("signal_quality_gate_passed", "PASS", "untrusted:caller", OBS),
     )
     result = evaluate(confirmation_checks=checks)
     assert result.decision.decision == "NO_TRADE"
+    assert "EXTERNAL_STRATEGY_QUALITY_OVERRIDE_REJECTED" in result.blocked_reasons
 
 
 def test_unknown_confirmation_evidence_fails_closed():
@@ -152,7 +178,7 @@ def test_missing_evidence_reference_is_rejected():
 
 
 def test_scope_mismatch_fails_closed():
-    result = evaluate(symbol="ETH_USDT")
+    result = evaluate(symbol="ETHUSDT")
     assert result.decision.decision == "NO_TRADE"
 
 
@@ -238,3 +264,16 @@ def test_non_finite_risk_geometry_fails_closed():
     result = evaluate(risk_geometry=RiskGeometryV1(entry="NaN", stop_loss="97", take_profit="109"))
     assert result.decision.decision == "NO_TRADE"
     assert "RISK_GEOMETRY_INVALID_NUMBER" in result.blocked_reasons
+
+
+
+def test_wrong_market_profile_fails_closed_even_with_strategy_checks():
+    result = evaluate(product="usdm_futures")
+    assert result.decision.decision == "NO_TRADE"
+    assert "STRATEGY_SCOPE_UNSUPPORTED" in result.blocked_reasons
+
+
+def test_strategy_quality_requires_all_six_measurable_checks():
+    result = evaluate(strategy_checks=strategy_checks({"mfi_confirmation": "UNKNOWN"}))
+    assert result.decision.decision == "NO_TRADE"
+    assert "STRATEGY_EVIDENCE_UNKNOWN" in result.blocked_reasons
