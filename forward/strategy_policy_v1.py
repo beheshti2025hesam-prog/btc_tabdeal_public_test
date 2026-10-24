@@ -54,17 +54,28 @@ class StrategyQualityResultV1:
 
 
 class StrategyPolicyV1:
-    """Require 5/6 independently evidenced checks and always require valid risk geometry.
+    """Require a conservative 5/6 quorum with five non-negotiable setup gates.
 
-    The sixth check is the mandatory 3:1 risk-geometry gate. Therefore a
-    passing result requires at least four of the five market confirmations
-    plus risk geometry. All six checks must be present and measurable; UNKNOWN
-    is not silently counted as a failed-but-usable confirmation.
+    MFI is the only optional vote. HTF alignment, pullback location, a confirmed
+    break, directional ADX/DI strength, and valid 3R geometry are mandatory.
+    All six checks must be present and measurable; UNKNOWN never counts as a vote.
+    This is a conservative hypothesis, not a measured win-rate claim; it must be
+    compared with the prior 5/6 rule using out-of-sample net expectancy.
     """
 
     VERSION = "hes-strategy-policy-v1"
     MINIMUM_PASSES = MINIMUM_PASSES
     REQUIRED = REQUIRED_CHECKS
+    # Core setup conditions are not interchangeable with oscillator confirmation.
+    # MFI is the one optional vote; trend, location, break, directional strength,
+    # and valid 3R geometry are mandatory for this conservative profile.
+    MANDATORY = (
+        "htf_trend_alignment",
+        "pullback_location",
+        "reversal_break_confirmation",
+        "adx_directional_strength",
+        "risk_geometry_3_to_1",
+    )
 
     def evaluate(
         self,
@@ -136,8 +147,9 @@ class StrategyPolicyV1:
                 self.MINIMUM_PASSES, checks, ("STRATEGY_EVIDENCE_UNKNOWN",), None)
 
         passed = sum(by_name[name].state == "PASS" for name in self.REQUIRED)
-        if by_name["risk_geometry_3_to_1"].state != "PASS":
-            reasons.append("MANDATORY_RISK_GEOMETRY_GATE_FAILED")
+        for name in self.MANDATORY:
+            if by_name[name].state != "PASS":
+                reasons.append("MANDATORY_GATE_FAILED:" + name.upper())
         if passed < self.MINIMUM_PASSES:
             reasons.append("STRATEGY_CONFIRMATION_QUORUM_NOT_MET")
         state: EvidenceState = "PASS" if passed >= self.MINIMUM_PASSES and not reasons else "FAIL"
