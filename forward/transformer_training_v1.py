@@ -95,6 +95,12 @@ def load_ohlcv_csv(path: str | Path, *, source_id: str, interval: str) -> tuple[
                 raise ValueError(f"line {line}: invalid timestamp") from exc
             if parsed_stamp.tzinfo is None or parsed_stamp.utcoffset() is None:
                 raise ValueError(f"line {line}: timestamp must include timezone")
+            # This pipeline uses the exclusive close timestamp convention:
+            # each completed fixed-duration candle ends exactly on an interval
+            # boundary in UTC. The Binance exporter emits this representation.
+            timestamp_ms = int(parsed_stamp.timestamp() * 1000)
+            if timestamp_ms % INTERVAL_MS[interval] != 0:
+                raise ValueError(f"line {line}: timestamp is not aligned to the declared candle interval")
             row = OHLCVRow(
                 timestamp=parsed_stamp.isoformat(),
                 open=_finite_positive(item["open"], "open", line),
