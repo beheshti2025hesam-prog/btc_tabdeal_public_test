@@ -55,3 +55,6 @@ The existing read-only dashboard entry point now calls SignalAgentV1 through `GE
 - Finds the last opposing candle before a confirmed swing break, defines its zone, and scores seven binary context factors: confirmed BOS/CHOCH, liquidity sweep, fair-value gap, freshness/unmitigated state, higher-timeframe alignment, volume expansion, and EMA/VWAP/support-resistance confluence.
 - Output is a raw `0..7` contextual score with zone and source-response SHA-256. It is explicitly `CONTEXT_ONLY`; `score_threshold_authorized=false`. No score threshold is used to promote or reject a trade until separately pre-registered and reviewed.
 - Missing break, direction, stale/gapped data, or invalid source evidence does not create a tradable order block. Tests cover zone, factor scoring, freshness/mitigation, hash validation, and fail-closed behavior.
+
+
+- Strategy evidence `evidence_sha256` hashes the canonical candle rows actually used at the common as-of boundary; the evidence reference separately pins the raw source-response SHA-256 and as-of timestamp. This prevents later rows included in a newer response from entering the evidence window silently.
