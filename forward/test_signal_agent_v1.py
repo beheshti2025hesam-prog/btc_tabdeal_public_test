@@ -162,3 +162,10 @@ def test_execution_is_never_enabled_by_signal_agent():
     result = evaluate()
     assert result.decision.decision == "LONG"
     assert "execution_disabled" in {c.name for c in result.risk.checks}
+
+
+def test_duplicate_evidence_names_fail_closed():
+    checks = confirmation_checks() + (confirmation_checks()[0],)
+    result = evaluate(confirmation_checks=checks)
+    assert result.decision.decision == "NO_TRADE"
+    assert "DUPLICATE_EVIDENCE_CHECK_NAME" in result.blocked_reasons
