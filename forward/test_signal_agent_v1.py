@@ -4,7 +4,7 @@ import pytest
 
 from forward.confirmation_engine_v1 import ConfirmationCheck
 from forward.risk_gate_v1 import RiskCheck
-from forward.signal_agent_v1 import SignalAgentV1
+from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
 
 OBS = datetime(2026, 10, 24, 10, 0, tzinfo=timezone.utc)
 
@@ -42,6 +42,7 @@ def evaluate(**kwargs):
         structure_direction="BULLISH",
         confirmation_checks=confirmation_checks(),
         risk_checks=risk_checks(),
+        risk_geometry=RiskGeometryV1(entry="100", stop_loss="97", take_profit="109"),
     )
     defaults.update(kwargs)
     return SignalAgentV1().evaluate(**defaults)
@@ -60,6 +61,7 @@ def test_full_short_path_is_symmetric():
         regime="DOWNTREND",
         structure_labels=("LL", "LH"),
         structure_direction="BEARISH",
+        risk_geometry=RiskGeometryV1(entry="100", stop_loss="103", take_profit="91"),
     )
     assert result.candidate.state == "CANDIDATE_SHORT"
     assert result.confirmation.state == "CONFIRMED_SHORT"
@@ -201,3 +203,38 @@ def test_missing_execution_disabled_proof_fails_closed():
     result = evaluate(risk_checks=checks)
     assert result.decision.decision == "NO_TRADE"
     assert result.risk.state == "RISK_REJECTED"
+
+
+def test_missing_risk_geometry_fails_closed():
+    result = evaluate(risk_geometry=None)
+    assert result.decision.decision == "NO_TRADE"
+    assert "RISK_GEOMETRY_MISSING" in result.blocked_reasons
+
+
+def test_reward_risk_below_three_to_one_fails_closed():
+    result = evaluate(risk_geometry=RiskGeometryV1(entry="100", stop_loss="97", take_profit="108"))
+    assert result.decision.decision == "NO_TRADE"
+    assert "RISK_REWARD_BELOW_MINIMUM_3_TO_1" in result.blocked_reasons
+
+
+def test_long_geometry_with_stop_above_entry_fails_closed():
+    result = evaluate(risk_geometry=RiskGeometryV1(entry="100", stop_loss="101", take_profit="110"))
+    assert result.decision.decision == "NO_TRADE"
+    assert "LONG_RISK_GEOMETRY_ORDER_INVALID" in result.blocked_reasons
+
+
+def test_short_geometry_with_target_above_entry_fails_closed():
+    result = evaluate(
+        regime="DOWNTREND",
+        structure_labels=("LL", "LH"),
+        structure_direction="BEARISH",
+        risk_geometry=RiskGeometryV1(entry="100", stop_loss="103", take_profit="101"),
+    )
+    assert result.decision.decision == "NO_TRADE"
+    assert "SHORT_RISK_GEOMETRY_ORDER_INVALID" in result.blocked_reasons
+
+
+def test_non_finite_risk_geometry_fails_closed():
+    result = evaluate(risk_geometry=RiskGeometryV1(entry="NaN", stop_loss="97", take_profit="109"))
+    assert result.decision.decision == "NO_TRADE"
+    assert "RISK_GEOMETRY_INVALID_NUMBER" in result.blocked_reasons
