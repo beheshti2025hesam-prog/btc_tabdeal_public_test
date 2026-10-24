@@ -116,7 +116,7 @@ def test_modified_outcome_digest_is_rejected(tmp_path):
 def test_historical_outcome_is_rejected(tmp_path):
     path = tmp_path / "decisions.jsonl"
     recorded = record_decision(path, decision="LONG")
-    outcome = outcome_record(recorded.event_id)
+    outcome = outcome_record(recorded.event_id, recorded.digest)
     outcome["source_period"] = "historical"
     outcome.pop("digest")
     outcome["digest"] = sha256(canonical_json(outcome).encode("utf-8")).hexdigest()
