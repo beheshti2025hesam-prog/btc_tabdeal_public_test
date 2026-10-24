@@ -13,7 +13,7 @@ The agent composes existing policy components and reuses the canonical candle sc
 - Decisions are forward-only and use evidence timestamped no later than the observation.
 - Evidence must be timezone-aware, have a non-empty provenance reference, and use PASS/FAIL/UNKNOWN states.
 - Direction must be explicitly established upstream: UPTREND + BULLISH structure for LONG; DOWNTREND + BEARISH structure for SHORT. BOS/CHOCH without direction is insufficient.
-- `signal_quality_gate_passed` is derived internally from `StrategyPolicyV1`, not accepted as a caller assertion. Six named evidence groups are required: HTF trend alignment, pullback location, reversal/break confirmation, MFI confirmation, ADX directional strength, and 3:1 risk geometry. At least 5/6 must pass; the risk-geometry check is mandatory regardless of quorum.
+- `signal_quality_gate_passed` is derived internally from `StrategyPolicyV1`, not accepted as a caller assertion. Six named evidence groups are required: HTF trend alignment, pullback location, reversal/break confirmation, MFI confirmation, ADX directional strength, and 3:1 risk geometry. At least 5/6 must pass; HTF alignment, pullback location, confirmed break, ADX/DI directional strength, and risk geometry are mandatory. MFI is the only optional vote; a 5/6 score cannot trade away a failed core setup gate.
 - Existing candidate, confirmation, and risk policies remain independent; unknown/missing/failed evidence means NO_TRADE.
 - The risk policy must approve; a signal cannot override a veto.
 - Risk approval requires explicit upstream PASS evidence for entry/stop/target geometry and the versioned risk/reward gate. The Signal Agent independently validates positive finite prices, directionally ordered entry/stop/target levels, and the existing 3:1 minimum reward-to-risk baseline; missing or invalid geometry fails closed.
@@ -32,7 +32,7 @@ The existing read-only dashboard entry point now calls SignalAgentV1 through `GE
 - `StrategyEvidenceProviderV1` computes evidence from canonical closed OHLCV: 4h close + EMA50/EMA200 alignment; 15m pullback/retest against EMA50 or a confirmed swing level; confirmed-swing break evidence; MFI14; ADX14/+DI/-DI; and stop placement at the last opposite confirmed swing with a 3R target. It reuses the existing EMA and swing calculators. MFI14 and ADX14 were absent from the repository and have deterministic implementations plus regression tests.
 - Every check requires PASS/FAIL/UNKNOWN, a provider and version, an evidence reference, a 64-character SHA-256, and a timezone-aware observation timestamp no later than the decision observation.
 - All six checks must be present and measurable. UNKNOWN, missing evidence, duplicate checks, invalid hashes, future timestamps, or incomplete scope produce UNKNOWN and NO_TRADE.
-- A PASS requires at least five of six measured checks to pass, with `risk_geometry_3_to_1` always PASS. The Signal Agent separately verifies actual numeric geometry and the minimum 3:1 ratio.
+- A PASS requires at least five of six measured checks to pass, with `htf_trend_alignment`, `pullback_location`, `reversal_break_confirmation`, `adx_directional_strength`, and `risk_geometry_3_to_1` all PASS. `mfi_confirmation` is the only optional vote. The Signal Agent separately verifies actual numeric geometry and the minimum 3:1 ratio.
 - The selected current profile is `binance / spot / BTCUSDT / 15m`. This fixes the former `BTC_USDT` versus `BTCUSDT` mismatch between the candidate policy and dashboard data path. Spot and Futures are never silently aliased.
 - Binance Spot's official Kline contract distinguishes base-asset volume (`v`) from quote-asset volume (`q`); volume semantics approval is scoped only to this Binance Spot path, not Wallex or other venues: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#klinecandlestick-streams-for-utc. The strategy provider is wired into the existing dashboard; if source data is stale, gapped, insufficient, or mis-scoped, evidence is UNKNOWN and NO_TRADE.
 
@@ -61,3 +61,10 @@ The existing read-only dashboard entry point now calls SignalAgentV1 through `GE
 
 
 - Opportunity and Signal Agent scopes are configuration-driven; the strategy evidence provider can be reused for additional explicitly approved Binance Spot symbols without copying strategy logic. It rejects non-Binance-Spot volume profiles until a source-specific provider proves the volume units and mapping. This prevents a future symbol/venue from inheriting an unverified volume assumption.
+
+
+## Conservative strategy review — 2026-10-24
+
+- Review finding: the earlier generic 5/6 quorum allowed one of the core price-action/strength gates (pullback, break, or ADX/DI) to fail while still passing. This was logically consistent with the numeric quorum but weaker than the intended high-quality setup.
+- Change: keep the 5/6 baseline but make five setup gates non-negotiable: HTF trend alignment, pullback location, confirmed break, ADX/DI directional strength, and valid 3R geometry. MFI threshold/divergence is the only optional vote. Unknown evidence still blocks.
+- This is a conservative hypothesis, not evidence of higher win rate. No historical/backtest dataset or net-of-fees outcome report was present in the reviewed strategy artifacts. Do not claim improved profitability until both the previous and revised policies are compared on the same immutable data with chronological walk-forward splits, fees, spread/slippage, funding where applicable, and no lookahead. Track win rate, expectancy in R, profit factor, max drawdown, trade count, and performance by regime.
