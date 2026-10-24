@@ -79,3 +79,10 @@ instrument, position-mode, idempotency, protective-order, rate-limit, and
 reconciliation contracts are pinned and independently reviewed. Until then:
 `HOLD / NO_TRADE_ONLY`; no credentials, private endpoints, VPS mutation, or
 live orders.
+
+- **Anti-self-authorization:** a capability object's own `verification_status`,
+  evidence URL, digest, or review label is not a trust root. Readiness also
+  requires separately supplied trusted `approved_evidence_sha256` and
+  `approved_review_revision` pins; absent pins or mismatches always block.
+  Those pins must come from reviewed deployment/project configuration, not
+  from the adapter response itself.
