@@ -18,13 +18,14 @@ import web.dashboard as dashboard
 from web.dashboard import Handler
 
 
-def sample_batch(*, gaps=()):
+def sample_batch(*, gaps=(), interval="1m"):
     now_ms=int(time.time()*1000)
-    open_ms=(now_ms//60_000-1)*60_000
-    close_ms=open_ms+59_999
+    interval_ms=dashboard.INTERVAL_MS[interval]
+    open_ms=(now_ms//interval_ms-1)*interval_ms
+    close_ms=open_ms+interval_ms-1
     fetched=now_ms
     candle=SimpleNamespace(
-        venue="binance",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="binance",product="spot",symbol="BTCUSDT",interval=interval,
         open_time_ms=open_ms,close_time_ms=close_ms,
         open=Decimal("100.00"),high=Decimal("102.00"),low=Decimal("99.00"),
         close=Decimal("101.00"),volume=Decimal("2.500"),quote_volume=Decimal("250.625"),
@@ -32,7 +33,7 @@ def sample_batch(*, gaps=()):
         taker_buy_quote_volume=Decimal("160.400"),closed=True,
     )
     return SimpleNamespace(
-        venue="binance",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="binance",product="spot",symbol="BTCUSDT",interval=interval,
         endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
@@ -108,6 +109,46 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["candles"][0]["open"],"100.00")
         self.assertEqual(payload["candles"][0]["volume"],"2.500")
         self.assertFalse(payload["feature_ready"])
+        self.assertFalse(payload["execution_enabled"])
+
+
+    def test_signal_entrypoint_is_wired_and_fails_closed_without_strategy_evidence(self):
+        batch = sample_batch(interval="15m")
+        features = SimpleNamespace(
+            decision_ready=True,
+            reason="feature_quality_passed",
+            quality=SimpleNamespace(passed=True),
+        )
+        with patch("web.dashboard._get_batch", return_value=(batch, features)) as get_batch:
+            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                payload = json.loads(response.read())
+        get_batch.assert_called_once_with("BTCUSDT", "15m")
+        self.assertEqual(payload["agent_version"], "hes-signal-agent-v1")
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertFalse(payload["execution_enabled"])
+        self.assertTrue(payload["feature_quality_passed"])
+        self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
+        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["blocked_reasons"])
+        self.assertIn("VALIDATED_STRUCTURE_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+        self.assertIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+        self.assertIn("RISK_GEOMETRY_MISSING", payload["blocked_reasons"])
+
+    def test_signal_endpoint_rejects_unapproved_scope_before_fetch(self):
+        with patch("web.dashboard._get_batch") as get_batch:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=ETHUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 400)
+        get_batch.assert_not_called()
+
+    def test_signal_input_failure_returns_no_trade_and_never_fabricates_signal(self):
+        with patch("web.dashboard._get_batch", side_effect=TimeoutError()):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertTrue(payload["fail_closed"])
         self.assertFalse(payload["execution_enabled"])
 
     def test_unsupported_symbol_or_interval_fails_before_source_call(self):
