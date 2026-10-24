@@ -187,9 +187,16 @@ def build_report_from_artifacts(
         outcome_event_ids.add(outcome_event_id)
         if not isinstance(row.get("digest"), str) or _digest_without_field(row, "digest") != row["digest"]:
             raise ValueError("outcome_digest_mismatch")
+        evidence_sha = row.get("evidence_sha256")
+        if not isinstance(evidence_sha, str) or len(evidence_sha) != 64 or any(
+            char not in "0123456789abcdef" for char in evidence_sha
+        ):
+            raise ValueError("invalid_outcome_evidence_sha256")
         decision_event_id = row.get("decision_event_id")
         if decision_event_id not in decision_by_id:
             raise ValueError("outcome_without_known_forward_decision")
+        if row.get("decision_digest") != decision_by_id[decision_event_id].get("digest"):
+            raise ValueError("outcome_decision_digest_mismatch")
         if decision_event_id in outcome_by_decision:
             raise ValueError("multiple_outcomes_for_decision")
         outcome = row.get("outcome")
