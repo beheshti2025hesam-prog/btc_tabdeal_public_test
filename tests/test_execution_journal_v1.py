@@ -112,3 +112,138 @@ def test_invalid_reservation_inputs_fail_closed(tmp_path):
                              payload_sha256="not-a-hash")
     assert not result.accepted
     assert result.reason_code == "JOURNAL_INPUT_INVALID"
+
+
+from datetime import datetime, timezone
+from decimal import Decimal
+import sqlite3
+
+from forward.execution_adapter_contract_v1 import ExecutionOrderRequestV1, VenueOrderSnapshotV1
+
+
+NOW = datetime(2026, 10, 24, 12, 0, tzinfo=timezone.utc)
+
+
+def adapter_request(**overrides):
+    values = dict(
+        venue_id="unselected-venue", market_type="USDM_FUTURES",
+        analysis_symbol="BTCUSDT", venue_symbol="BTCUSDT",
+        symbol_mapping_ref="mapping-evidence:test",
+        client_order_id="hes-client-1", decision_id="decision-1",
+        payload_sha256="a" * 64, side="LONG", order_type="LIMIT",
+        quantity=Decimal("0.01"), limit_price=Decimal("100"),
+        stop_loss=Decimal("90"), take_profit=Decimal("130"),
+        reduce_only=False, time_in_force="GTC",
+    )
+    values.update(overrides)
+    return ExecutionOrderRequestV1(**values)
+
+
+def venue_snapshot(**overrides):
+    values = dict(
+        venue_id="unselected-venue", market_type="USDM_FUTURES",
+        venue_symbol="BTCUSDT", client_order_id="hes-client-1",
+        venue_order_id="venue-order-1", side="LONG", status="PARTIALLY_FILLED",
+        requested_quantity=Decimal("0.01"), executed_quantity=Decimal("0.004"),
+        average_fill_price=Decimal("100"), reduce_only=False,
+        observed_at=NOW, raw_response_sha256="b" * 64,
+    )
+    values.update(overrides)
+    return VenueOrderSnapshotV1(**values)
+
+
+def _prepare(journal):
+    assert journal.reserve(client_order_id="hes-client-1", decision_id="decision-1",
+                           payload_sha256="a" * 64).accepted
+    assert journal.mark_submitting(client_order_id="hes-client-1").accepted
+
+
+def test_partial_fill_is_durable_and_can_advance_to_filled(tmp_path):
+    path = tmp_path / "execution.sqlite3"
+    journal = ExecutionJournalV1(path)
+    _prepare(journal)
+
+    partial = venue_snapshot()
+    result = journal.record_venue_snapshot(request=adapter_request(), snapshot=partial)
+    assert result.accepted and result.state == "PARTIALLY_FILLED"
+    reopened = ExecutionJournalV1(path)
+    row = reopened.get(client_order_id="hes-client-1")
+    assert row["executed_quantity"] == "0.004"
+    assert row["venue_status"] == "PARTIALLY_FILLED"
+    assert row["raw_response_sha256"] == "b" * 64
+
+    filled = venue_snapshot(
+        status="FILLED", executed_quantity=Decimal("0.01"),
+        average_fill_price=Decimal("101"), raw_response_sha256="c" * 64,
+    )
+    result = reopened.record_venue_snapshot(request=adapter_request(), snapshot=filled)
+    assert result.accepted and result.state == "FILLED"
+    duplicate = reopened.record_venue_snapshot(request=adapter_request(), snapshot=filled)
+    assert duplicate.accepted and duplicate.reason_code == "DUPLICATE_VENUE_SNAPSHOT_NOOP"
+
+
+def test_ambiguous_order_requires_reconciliation_before_known_status(tmp_path):
+    journal = make_journal(tmp_path)
+    _prepare(journal)
+    unknown = venue_snapshot(
+        status="UNKNOWN", venue_order_id=None, executed_quantity=Decimal("0"),
+        average_fill_price=None, raw_response_sha256="d" * 64,
+    )
+    result = journal.record_venue_snapshot(request=adapter_request(), snapshot=unknown)
+    assert result.accepted and result.state == "UNKNOWN"
+
+    filled = venue_snapshot(
+        status="FILLED", executed_quantity=Decimal("0.01"),
+        average_fill_price=Decimal("100"), raw_response_sha256="e" * 64,
+    )
+    blocked = journal.record_venue_snapshot(request=adapter_request(), snapshot=filled)
+    assert not blocked.accepted
+    assert blocked.reason_code == "RECONCILIATION_EVIDENCE_MISSING"
+
+    reconciled = journal.record_venue_snapshot(
+        request=adapter_request(), snapshot=filled,
+        reconciliation_ref="read-only-reconciliation:verified-run",
+    )
+    assert reconciled.accepted and reconciled.state == "RECONCILED_FILLED"
+
+
+def test_mismatched_adapter_snapshot_is_not_persisted(tmp_path):
+    journal = make_journal(tmp_path)
+    _prepare(journal)
+    bad = venue_snapshot(venue_symbol="ETHUSDT")
+    result = journal.record_venue_snapshot(request=adapter_request(), snapshot=bad)
+    assert not result.accepted and result.reason_code == "VENUE_SNAPSHOT_INVALID"
+    assert journal.get(client_order_id="hes-client-1")["state"] == "SUBMITTING"
+
+
+def test_legacy_journal_schema_migrates_without_losing_reserved_intents(tmp_path):
+    path = tmp_path / "legacy.sqlite3"
+    db = sqlite3.connect(path)
+    db.execute("""CREATE TABLE execution_orders (
+        client_order_id TEXT PRIMARY KEY,
+        decision_id TEXT NOT NULL UNIQUE,
+        payload_sha256 TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN (
+            'PREPARED','SUBMITTING','ACKNOWLEDGED','REJECTED','UNKNOWN',
+            'RECONCILED_ACKNOWLEDGED','RECONCILED_REJECTED'
+        )),
+        venue_order_id TEXT,
+        reconciliation_ref TEXT,
+        last_error_code TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+    db.execute("CREATE INDEX idx_execution_orders_state ON execution_orders(state)")
+    db.execute(
+        "INSERT INTO execution_orders(client_order_id,decision_id,payload_sha256,state) VALUES(?,?,?,'PREPARED')",
+        ("legacy-client", "legacy-decision", "f" * 64),
+    )
+    db.commit()
+    db.close()
+
+    migrated = ExecutionJournalV1(path)
+    row = migrated.get(client_order_id="legacy-client")
+    assert row["state"] == "PREPARED"
+    assert row["decision_id"] == "legacy-decision"
+    assert "executed_quantity" in row
+    assert migrated.mark_submitting(client_order_id="legacy-client").accepted
