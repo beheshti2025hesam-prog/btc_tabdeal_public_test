@@ -90,7 +90,7 @@ def build_learning_report(
         outcome = row.get("outcome")
         if not isinstance(decision, str) or decision not in DECISIONS:
             raise ValueError("invalid_decision")
-        if outcome not in OUTCOMES:
+        if outcome is not None and (not isinstance(outcome, str) or outcome not in OUTCOMES):
             raise ValueError("invalid_outcome")
         if decision == "NO_TRADE" and outcome in CLOSED_OUTCOMES:
             raise ValueError("NO_TRADE_CANNOT_HAVE_TRADE_OUTCOME")
