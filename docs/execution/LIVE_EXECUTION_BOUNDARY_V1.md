@@ -99,3 +99,10 @@ reconciliation evidence to resolve an UNKNOWN outcome. Existing journal tables
 are migrated transactionally to the expanded schema while preserving prior
 intent/state rows. This is still a local persistence contract; it does not prove
 that any exchange actually implements the claimed behavior.
+
+- Order quantity now carries an explicit unit (`BASE_ASSET`, `QUOTE_ASSET`, or
+  `CONTRACTS`) and a required quantity-unit/instrument-rules evidence reference;
+  no contract multiplier or unit conversion is guessed. The contract also
+  defines typed balance and position snapshots and validates account/position
+  scope, account/position mode, duplicate open-order IDs, timestamps, and raw
+  evidence hashes.
