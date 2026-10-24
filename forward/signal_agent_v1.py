@@ -63,7 +63,11 @@ class SignalAgentV1:
         if not self.allowed_scopes or any(len(scope) != 4 or any(not isinstance(v, str) or not v for v in scope) for scope in self.allowed_scopes):
             raise ValueError("allowed_scopes must contain explicit venue/product/symbol/timeframe tuples")
         self.strategy_policy = StrategyPolicyV1()
-        self.detector = OpportunityDetectorV1(policy=OpportunityPolicyV1())
+        self.detector = OpportunityDetectorV1(
+            policy=OpportunityPolicyV1(
+                allowed_scopes=tuple((scope[2], scope[3]) for scope in self.allowed_scopes)
+            )
+        )
         self.confirmation_engine = ConfirmationEngineV1(policy=ConfirmationPolicyV1())
         self.risk_gate = RiskGateV1(policy=RiskPolicyV1())
         self.decision_engine = DecisionEngineV1()
