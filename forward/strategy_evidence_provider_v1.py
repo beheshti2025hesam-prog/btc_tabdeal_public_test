@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from hashlib import sha256
+import json
 from typing import Sequence
 
 from core.feature_engine.ema import EMACalculator
@@ -48,6 +50,29 @@ class StrategyEvidenceBundleV1:
     blocked_reasons: tuple[str, ...]
     order_block: OrderBlockResultV1 | None
 
+
+
+def _evidence_window_sha256(batch: NativeOHLCVBatch, *, as_of_ms: int) -> str:
+    """Hash only the closed candle rows actually eligible at the common as-of."""
+    rows = [
+        {
+            "open_time_ms": candle.open_time_ms,
+            "close_time_ms": candle.close_time_ms,
+            "open": str(candle.open), "high": str(candle.high),
+            "low": str(candle.low), "close": str(candle.close),
+            "volume": str(candle.volume), "quote_volume": str(candle.quote_volume),
+            "trade_count": candle.trade_count,
+            "taker_buy_volume": str(candle.taker_buy_volume),
+            "taker_buy_quote_volume": str(candle.taker_buy_quote_volume),
+        }
+        for candle in batch.candles if candle.close_time_ms < as_of_ms
+    ]
+    canonical = {
+        "venue": batch.venue, "product": batch.product, "symbol": batch.symbol,
+        "interval": batch.interval, "as_of_ms": as_of_ms, "candles": rows,
+    }
+    encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return sha256(encoded).hexdigest()
 
 def _aware_utc(value: datetime) -> datetime:
     if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
@@ -210,6 +235,8 @@ class StrategyEvidenceProviderV1:
         c15 = feature_15m.candles
         c4 = feature_4h.candles
         native15 = tuple(c for c in candles_15m.candles if c.close_time_ms < as_of_ms)
+        digest_15m = _evidence_window_sha256(candles_15m, as_of_ms=as_of_ms)
+        digest_4h = _evidence_window_sha256(candles_4h, as_of_ms=as_of_ms)
         blocked: list[str] = []
         if stale:
             blocked.append("STRATEGY_SOURCE_STALE:" + ",".join(stale))
@@ -312,23 +339,24 @@ class StrategyEvidenceProviderV1:
             strategy_checks = []
             for name in ("htf_trend_alignment", "pullback_location", "reversal_break_confirmation",
                          "mfi_confirmation", "adx_directional_strength", "risk_geometry_3_to_1"):
-                digest = candles_4h.response_sha256 if name == "htf_trend_alignment" else candles_15m.response_sha256
-                ref = f"{name}:{candles_15m.venue}/{candles_15m.product}/{candles_15m.symbol}"
+                digest = digest_4h if name == "htf_trend_alignment" else digest_15m
+                raw_digest = candles_4h.response_sha256 if name == "htf_trend_alignment" else candles_15m.response_sha256
+                ref = f"{name}:raw-sha256={raw_digest}:as-of-ms={as_of_ms}:window-sha256={digest}"
                 strategy_checks.append(self._check(name, "UNKNOWN", ref, digest, observed_at))
         else:
             strategy_checks = [
                 self._check("htf_trend_alignment", state_or_unknown(htf_ok),
-                            f"4h:{candles_4h.response_sha256}", candles_4h.response_sha256, observed_at),
+                            f"4h:raw-sha256={candles_4h.response_sha256}:as-of-ms={as_of_ms}:window-sha256={digest_4h}", digest_4h, observed_at),
                 self._check("pullback_location", state_or_unknown(pullback),
-                            f"15m:{candles_15m.response_sha256}", candles_15m.response_sha256, observed_at),
+                            f"15m:raw-sha256={candles_15m.response_sha256}:as-of-ms={as_of_ms}:window-sha256={digest_15m}", digest_15m, observed_at),
                 self._check("reversal_break_confirmation", state_or_unknown(break_ok),
-                            f"15m:{candles_15m.response_sha256}", candles_15m.response_sha256, observed_at),
+                            f"15m:raw-sha256={candles_15m.response_sha256}:as-of-ms={as_of_ms}:window-sha256={digest_15m}", digest_15m, observed_at),
                 self._check("mfi_confirmation", state_or_unknown(mfi_ok),
-                            f"15m:{candles_15m.response_sha256}", candles_15m.response_sha256, observed_at),
+                            f"15m:raw-sha256={candles_15m.response_sha256}:as-of-ms={as_of_ms}:window-sha256={digest_15m}", digest_15m, observed_at),
                 self._check("adx_directional_strength", state_or_unknown(adx_ok),
-                            f"15m:{candles_15m.response_sha256}", candles_15m.response_sha256, observed_at),
+                            f"15m:raw-sha256={candles_15m.response_sha256}:as-of-ms={as_of_ms}:window-sha256={digest_15m}", digest_15m, observed_at),
                 self._check("risk_geometry_3_to_1", state_or_unknown(geometry_ok),
-                            f"15m:{candles_15m.response_sha256}", candles_15m.response_sha256, observed_at),
+                            f"15m:raw-sha256={candles_15m.response_sha256}:as-of-ms={as_of_ms}:window-sha256={digest_15m}", digest_15m, observed_at),
             ]
 
         if direction == "UNKNOWN" or regime == "UNKNOWN":
