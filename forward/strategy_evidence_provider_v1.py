@@ -18,6 +18,7 @@ from .confirmation_engine_v1 import ConfirmationCheck
 from .market_structure_v1 import SwingPoint, classify_swing_labels, infer_regime
 from .native_ohlcv_feature_adapter_v1 import to_feature_batch
 from .native_ohlcv_v1 import NativeOHLCVBatch, INTERVAL_MS, validate_native_batch
+from .order_block_v1 import OrderBlockResultV1, detect_order_block_v1
 from .risk_gate_v1 import RiskCheck
 from .strategy_policy_v1 import StrategyEvidenceCheckV1
 
@@ -45,6 +46,7 @@ class StrategyEvidenceBundleV1:
     ema50_4h: float | None
     ema200_4h: float | None
     blocked_reasons: tuple[str, ...]
+    order_block: OrderBlockResultV1 | None
 
 
 def _aware_utc(value: datetime) -> datetime:
@@ -246,6 +248,16 @@ class StrategyEvidenceProviderV1:
         bearish_break = bool(direction == "BEARISH" and last_low is not None and previous_close is not None
                              and current_close is not None and previous_close >= last_low > current_close)
         structure_events: tuple[str, ...] = ("BOS",) if bullish_break or bearish_break else (labels[-2:] if labels else ())
+        order_block = detect_order_block_v1(
+            native15,
+            direction=direction,
+            break_confirmed=bool(bullish_break or bearish_break),
+            htf_direction=htf_direction,
+            last_swing_high=Decimal(str(last_high)) if last_high is not None else None,
+            last_swing_low=Decimal(str(last_low)) if last_low is not None else None,
+            ema50=ema50_15,
+            source_response_sha256=candles_15m.response_sha256,
+        )
 
         pullback = None
         if direction != "UNKNOWN" and latest_native is not None and ema50_15 is not None:
@@ -338,5 +350,5 @@ class StrategyEvidenceProviderV1:
             strategy_checks=tuple(strategy_checks), confirmation_checks=confirmation_checks,
             risk_checks=risk_checks, risk_geometry=geometry, mfi14=mfi_value, adx14=adx_value,
             plus_di14=plus_di, minus_di14=minus_di, ema50_15m=ema50_15, ema50_4h=ema50_4,
-            ema200_4h=ema200_4, blocked_reasons=tuple(dict.fromkeys(blocked)),
+            ema200_4h=ema200_4, blocked_reasons=tuple(dict.fromkeys(blocked)), order_block=order_block,
         )
