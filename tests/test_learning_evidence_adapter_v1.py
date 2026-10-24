@@ -194,3 +194,35 @@ def test_outcome_writer_rejects_predecision_close_and_no_trade(tmp_path):
             evidence_ref="independent-forward-close-record",
             evidence_sha256="e" * 64,
         )
+
+
+def test_malformed_decision_and_outcome_types_fail_closed(tmp_path):
+    path = tmp_path / "decisions.jsonl"
+    with pytest.raises(ValueError, match="invalid_decision"):
+        record_signal_decision(
+            path,
+            decision=["LONG"],
+            observed_at="2026-10-24T12:00:00+00:00",
+            symbol="BTCUSDT",
+            timeframe="15m",
+            source="binance_native_ohlcv_v1",
+            product="spot",
+            response_sha256="a" * 64,
+            htf_response_sha256="b" * 64,
+            strategy_evidence_sha256=None,
+            policy_version="hes-strategy-policy-v1",
+            status="BLOCKED",
+            market_regime="UNKNOWN",
+            rejected_at="RISK",
+            reason_codes=[],
+        )
+    with pytest.raises(ValueError, match="invalid_outcome"):
+        record_forward_outcome(
+            tmp_path / "outcomes.jsonl",
+            decision_journal_path=path,
+            decision_event_id="missing",
+            outcome=["WIN"],
+            closed_at="2026-10-24T12:30:00+00:00",
+            evidence_ref="independent-forward-close-record",
+            evidence_sha256="e" * 64,
+        )
