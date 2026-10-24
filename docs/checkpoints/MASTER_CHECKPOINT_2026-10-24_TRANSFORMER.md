@@ -23,7 +23,7 @@ Existing public Binance USDⓈ-M OHLCV adapter → closed-candle export + source
 - The manual Binance candidate workflow has not been run. Synthetic fixtures/mock exporter responses are software validation only, not real-market performance evidence.
 
 ## Remaining evidence gate
-1. Confirm the intended execution venue and pre-register the neutral-label band and round-trip cost using documented fees plus evidenced slippage. Do not substitute Binance fees for an unconfirmed Iranian venue or invent slippage.
+1. Confirm the intended execution venue and pre-register the neutral-label band and round-trip cost using documented fees plus evidenced slippage. Tabdeal's public fee page currently lists a 0.001 rate for its professional leveraged product and labels the discount temporary; this alone does not prove the user's applicable tier or realized slippage. See https://tabdeal.org/commissions. Do not treat it as an approved all-in cost or invent slippage.
 2. Run `.github/workflows/transformer-binance-candidate.yml` with those approved numeric inputs. It exports closed BTCUSDT USDⓈ-M 15m candles via the existing adapter, trains a candidate, and uploads source/model manifests and artifacts.
 3. Compare immutable out-of-sample results against the existing strategy and naive baselines, net of costs; inspect calibration, abstention coverage, drawdown, turnover, and regime stability. The included first-pass cost-aware summary does not replace a full walk-forward evaluation.
 4. Obtain independent promotion approval and paper/shadow validation before downstream use.
