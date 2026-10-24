@@ -182,11 +182,12 @@ def test_outcome_writer_rejects_predecision_close_and_no_trade(tmp_path):
             evidence_ref="independent-forward-close-record",
             evidence_sha256="e" * 64,
         )
-    recorded = record_decision(decision_path, decision="LONG")
+    decision_path_long = tmp_path / "decisions-long.jsonl"
+    recorded = record_decision(decision_path_long, decision="LONG")
     with pytest.raises(ValueError, match="outcome_precedes_decision"):
         record_forward_outcome(
             outcome_path,
-            decision_journal_path=decision_path,
+            decision_journal_path=decision_path_long,
             decision_event_id=recorded.event_id,
             outcome="LOSS",
             closed_at="2026-10-24T11:00:00+00:00",
