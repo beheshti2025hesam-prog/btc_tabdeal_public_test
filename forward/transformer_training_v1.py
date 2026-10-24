@@ -49,6 +49,7 @@ class PreparedData:
     features: tuple[tuple[float, ...], ...]
     labels: tuple[int, ...]
     target_indices: tuple[int, ...]
+    future_returns: tuple[float, ...]
     source_sha256: str
     source_id: str
     interval: str
@@ -162,17 +163,20 @@ def prepare_dataset(
     band = neutral_band_bps / 10_000.0
     sample_labels: list[int] = []
     sample_indices: list[int] = []
+    sample_future_returns: list[float] = []
     for target_index in range(sequence_length - 1, len(rows) - horizon):
         future_return = rows[target_index + horizon].close / rows[target_index].close - 1.0
         # SHORT=0, NEUTRAL=1, LONG=2. Labels are defined before model fitting.
         label = 0 if future_return < -band else (2 if future_return > band else 1)
         sample_labels.append(label)
         sample_indices.append(target_index)
+        sample_future_returns.append(future_return)
     return PreparedData(
         timestamps=tuple(row.timestamp for row in rows),
         features=tuple(features),
         labels=tuple(sample_labels),
         target_indices=tuple(sample_indices),
+        future_returns=tuple(sample_future_returns),
         source_sha256=source_sha256,
         source_id=source_id,
         interval=interval,
@@ -239,7 +243,15 @@ def train_and_evaluate(
     epochs: int = 20,
     batch_size: int = 64,
     seed: int = 17,
+    round_trip_cost_bps: float | None = None,
+    backtest_min_confidence: float = 0.60,
 ) -> dict:
+    if round_trip_cost_bps is not None and (
+        isinstance(round_trip_cost_bps, bool) or not math.isfinite(round_trip_cost_bps) or round_trip_cost_bps < 0
+    ):
+        raise ValueError("round_trip_cost_bps must be finite and non-negative when supplied")
+    if isinstance(backtest_min_confidence, bool) or not math.isfinite(backtest_min_confidence) or not 0.0 <= backtest_min_confidence <= 1.0:
+        raise ValueError("backtest_min_confidence must be between 0 and 1")
     if type(epochs) is not int or not 1 <= epochs <= 300:
         raise ValueError("epochs must be between 1 and 300")
     if type(batch_size) is not int or not 1 <= batch_size <= 2048:
@@ -322,6 +334,45 @@ def train_and_evaluate(
                 confidence_bin = float(confidence[mask].mean().item())
                 ece += count / len(y_test) * abs(accuracy_bin - confidence_bin)
 
+    strategy_backtest = {"status": "NOT_RUN_COST_POLICY_MISSING"}
+    if round_trip_cost_bps is not None:
+        equity = 1.0
+        peak = 1.0
+        max_drawdown = 0.0
+        net_trade_returns_bps: list[float] = []
+        gross_trade_returns_bps: list[float] = []
+        next_available_index = -1
+        predicted_classes = predictions.tolist()
+        confidence_values = confidence.tolist()
+        for position, sample_id in enumerate(test_ids):
+            target_index = data.target_indices[sample_id]
+            class_index = int(predicted_classes[position])
+            conf = float(confidence_values[position])
+            if class_index == 1 or conf < backtest_min_confidence or target_index < next_available_index:
+                continue
+            direction_sign = -1.0 if class_index == 0 else 1.0
+            gross_bps = direction_sign * data.future_returns[sample_id] * 10_000.0
+            net_bps = gross_bps - round_trip_cost_bps
+            gross_trade_returns_bps.append(gross_bps)
+            net_trade_returns_bps.append(net_bps)
+            equity *= max(0.0, 1.0 + net_bps / 10_000.0)
+            peak = max(peak, equity)
+            if peak > 0:
+                max_drawdown = max(max_drawdown, (peak - equity) / peak)
+            next_available_index = target_index + data.horizon
+        strategy_backtest = {
+            "status": "RESEARCH_ONLY_NOT_PROMOTED",
+            "round_trip_cost_bps": round_trip_cost_bps,
+            "minimum_confidence": backtest_min_confidence,
+            "non_overlapping_horizon_trades": len(net_trade_returns_bps),
+            "signal_coverage_over_test_samples": len(net_trade_returns_bps) / max(len(test_ids), 1),
+            "gross_mean_return_bps_per_trade": sum(gross_trade_returns_bps) / max(len(gross_trade_returns_bps), 1),
+            "net_mean_return_bps_per_trade": sum(net_trade_returns_bps) / max(len(net_trade_returns_bps), 1),
+            "net_positive_trade_rate": sum(value > 0 for value in net_trade_returns_bps) / max(len(net_trade_returns_bps), 1),
+            "compounded_net_return_bps": (equity - 1.0) * 10_000.0,
+            "max_drawdown_fraction": max_drawdown,
+        }
+
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     model_path = out / "transformer_candidate.pt"
@@ -365,6 +416,7 @@ def train_and_evaluate(
             "test_class_metrics": class_metrics,
             "best_validation_cross_entropy": best_val_loss,
         },
+        "strategy_backtest": strategy_backtest,
         "seed": seed,
         "epochs_max": epochs,
         "no_trade_or_execution": True,
@@ -385,6 +437,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--neutral-band-bps", type=float, required=True, help="neutral label band in basis points; must be selected from fee/slippage policy")
     parser.add_argument("--sequence-length", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--round-trip-cost-bps", type=float, default=None, help="documented round-trip fee plus slippage in bps; omit to leave strategy backtest blocked")
+    parser.add_argument("--backtest-min-confidence", type=float, default=0.60)
     parser.add_argument("--output-dir", default="artifacts/transformer-candidate")
     args = parser.parse_args(argv)
     rows = load_ohlcv_csv(args.input, source_id=args.source_id, interval=args.interval)
@@ -395,6 +449,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     manifest = train_and_evaluate(
         data, sequence_length=args.sequence_length, output_dir=args.output_dir, epochs=args.epochs,
+        round_trip_cost_bps=args.round_trip_cost_bps,
+        backtest_min_confidence=args.backtest_min_confidence,
     )
     print(json.dumps(manifest, indent=2, sort_keys=True))
     return 0
