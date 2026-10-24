@@ -94,6 +94,7 @@ def test_source_hash_is_independent_of_input_order():
         ({"event_id": "x", "decision": "LONG", "market_regime": ["TREND"]}, "invalid_market_regime"),
         ({"event_id": "x", "decision": "LONG", "decision_gate": {"gate": "ENTRY"}}, "invalid_decision_gate"),
         ({"event_id": "x", "decision": "LONG", "metric": float("nan")}, "record_not_canonical_json"),
+        ({"event_id": "x", "decision": "LONG", "realized_rr": float("inf")}, "record_not_canonical_json"),
     ],
 )
 def test_malformed_input_fails_closed(record, error):
@@ -246,3 +247,17 @@ def test_forward_evidence_reader_rejects_outcome_for_no_trade(tmp_path):
         build_report_from_forward_evidence(
             journal, outcomes, now=datetime(2026, 10, 24, 12, tzinfo=timezone.utc)
         )
+
+
+
+def test_no_trade_reason_codes_are_attributed_individually():
+    report = build_learning_report([
+        {
+            "event_id": "reject",
+            "decision": "NO_TRADE",
+            "no_trade_reason": "RISK_NOT_APPROVED|RR_TOO_LOW",
+        }
+    ])
+    dimensions = {row["dimension"] for row in report.attribution}
+    assert "REASON:RISK_NOT_APPROVED" in dimensions
+    assert "REASON:RR_TOO_LOW" in dimensions
