@@ -107,6 +107,10 @@ def build_learning_report(
         _required_label(row.get("market_regime"), "market_regime", "UNKNOWN")
         _required_label(row.get("rejected_at"), "rejected_at", "")
         _required_label(row.get("decision_gate"), "decision_gate", "")
+        _required_label(row.get("signal_state"), "signal_state", "UNKNOWN")
+        _required_label(row.get("confirmation_state"), "confirmation_state", "UNKNOWN")
+        _required_label(row.get("risk_state"), "risk_state", "UNKNOWN")
+        _required_label(row.get("no_trade_reason"), "no_trade_reason", "")
 
     # Reuse the established forward evaluator for aggregate decision/outcome counts.
     # This module adds attribution only; it does not fork the existing evaluator.
@@ -119,12 +123,21 @@ def build_learning_report(
         rejected_at = _required_label(row.get("rejected_at"), "rejected_at", "")
         decision_gate = _required_label(row.get("decision_gate"), "decision_gate", "")
         gate = rejected_at or decision_gate or "UNSPECIFIED"
+        signal_state = _required_label(row.get("signal_state"), "signal_state", "UNKNOWN")
+        confirmation_state = _required_label(row.get("confirmation_state"), "confirmation_state", "UNKNOWN")
+        risk_state = _required_label(row.get("risk_state"), "risk_state", "UNKNOWN")
+        reasons = _required_label(row.get("no_trade_reason"), "no_trade_reason", "")
 
         if row["decision"] == "NO_TRADE":
-            groups[(gate, "NO_TRADE")].append(row)
+            groups[(f"GATE:{gate}", "NO_TRADE")].append(row)
+            for reason in sorted({part.strip() for part in reasons.split("|") if part.strip()}):
+                groups[(f"REASON:{reason}", "NO_TRADE")].append(row)
         elif outcome in CLOSED_OUTCOMES:
             groups[(f"GATE:{gate}", outcome)].append(row)
             groups[(f"REGIME:{regime}", outcome)].append(row)
+            groups[(f"SIGNAL_STATE:{signal_state}", outcome)].append(row)
+            groups[(f"CONFIRMATION_STATE:{confirmation_state}", outcome)].append(row)
+            groups[(f"RISK_STATE:{risk_state}", outcome)].append(row)
 
     attribution = []
     for (dimension, outcome), items in sorted(groups.items()):
