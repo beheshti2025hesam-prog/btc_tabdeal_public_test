@@ -93,3 +93,14 @@ At code/documentation head `8c94a5d880920a989898d094b6d4550aa78e7062`:
 - WebSocket live smoke: SKIPPED, not passed ([run 40077523257](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523257)).
 
 These results validate the generic adapter contract/journal and existing read-only dashboard path only. They do not establish a concrete venue adapter, live API access, account reconciliation, paper/shadow execution, or trading readiness. PR #363 remains Draft/HOLD and live execution remains OFF.
+
+
+## 2026-10-24 — re-stacked execution candidate and journal safety regression fix
+
+- The original PR #363 stack was divergent from the current Signal Agent branch (50 commits ahead / 84 behind). It was closed unmerged and superseded by PR #366, based on exact PR #362 head `eccbfe19af37d8629070a2c1788d4c6a73824df1`. Current candidate branch: `feat/hes-live-execution-gates-rebased-20261024`.
+- Added monotonic order-lifecycle protections after review found that an out-of-order venue snapshot could otherwise lower the journal's confirmed cumulative fill or overwrite a known order state with UNKNOWN. Journal now rejects: UNKNOWN regression after known ACKNOWLEDGED/PARTIALLY_FILLED; cumulative executed-quantity regression; conflicting venue order IDs.
+- Journal now explicitly rejects SQLite `:memory:` mode because separate connections would not share a durable state; file-backed operation uses `PRAGMA synchronous=FULL`.
+- Added adversarial regression tests for lower stale partial fills, UNKNOWN status regression, conflicting venue order IDs, and in-memory journal misuse.
+- Exact current PR #366 head: `6e02f3c044acdeb60593dc84162cce7d68818881`.
+- Exact-head CI: execution gate/journal/adapter contract tests **PASS** ([run 40093527676]); dashboard/native path **PASS** ([run 40093527614]); browser render and same-batch API comparison still running at checkpoint update ([run 40093527598]); live WebSocket smoke **SKIPPED**, not passed ([run 40093527642]).
+- Keep PR #366 Draft/HOLD. The generic execution boundary has no live adapter and is not wired to submit orders. No VPS mutation, deployment, collector activation, or live order was performed. The venue-specific runtime, independent review, account reconciliation, paper/shadow soak, and product dependency acceptance remain open gates.
