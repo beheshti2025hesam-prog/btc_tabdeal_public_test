@@ -51,6 +51,12 @@ class SignalAgentV1:
         reasons: list[str] = []
         if not isinstance(observed_at, datetime) or observed_at.tzinfo is None or observed_at.utcoffset() is None:
             return ("OBSERVED_AT_MUST_BE_TIMEZONE_AWARE",)
+        names = [getattr(check, "name", None) for check in checks]
+        if any(not isinstance(name, str) or not name.strip() for name in names):
+            reasons.append("EVIDENCE_CHECK_NAME_MISSING")
+        valid_names = [name for name in names if isinstance(name, str) and name.strip()]
+        if len(valid_names) != len(set(valid_names)):
+            reasons.append("DUPLICATE_EVIDENCE_CHECK_NAME")
         for check in checks:
             stamp = getattr(check, "observed_at", None)
             if not isinstance(stamp, datetime) or stamp.tzinfo is None or stamp.utcoffset() is None:
