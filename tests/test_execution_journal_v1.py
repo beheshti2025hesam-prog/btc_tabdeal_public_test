@@ -248,3 +248,65 @@ def test_legacy_journal_schema_migrates_without_losing_reserved_intents(tmp_path
     assert row["decision_id"] == "legacy-decision"
     assert "executed_quantity" in row
     assert migrated.mark_submitting(client_order_id="legacy-client").accepted
+
+
+
+def test_stale_partial_fill_cannot_reduce_confirmed_execution_quantity(tmp_path):
+    journal = make_journal(tmp_path)
+    _prepare(journal)
+    first = venue_snapshot(
+        status="PARTIALLY_FILLED", executed_quantity=Decimal("0.006"),
+        raw_response_sha256="1" * 64,
+    )
+    accepted = journal.record_venue_snapshot(request=adapter_request(), snapshot=first)
+    assert accepted.accepted and accepted.state == "PARTIALLY_FILLED"
+
+    stale = venue_snapshot(
+        status="PARTIALLY_FILLED", executed_quantity=Decimal("0.004"),
+        raw_response_sha256="2" * 64,
+    )
+    rejected = journal.record_venue_snapshot(request=adapter_request(), snapshot=stale)
+    assert not rejected.accepted
+    assert rejected.reason_code == "EXECUTED_QUANTITY_REGRESSION_REJECTED"
+    row = journal.get(client_order_id="hes-client-1")
+    assert row["state"] == "PARTIALLY_FILLED"
+    assert row["executed_quantity"] == "0.006"
+    assert row["raw_response_sha256"] == "1" * 64
+
+
+def test_unknown_or_conflicting_order_snapshot_cannot_erase_known_fill(tmp_path):
+    journal = make_journal(tmp_path)
+    _prepare(journal)
+    partial = venue_snapshot(
+        status="PARTIALLY_FILLED", executed_quantity=Decimal("0.004"),
+        raw_response_sha256="3" * 64,
+    )
+    assert journal.record_venue_snapshot(
+        request=adapter_request(), snapshot=partial
+    ).accepted
+
+    unknown = venue_snapshot(
+        status="UNKNOWN", venue_order_id=None,
+        executed_quantity=Decimal("0"), average_fill_price=None,
+        raw_response_sha256="4" * 64,
+    )
+    rejected_unknown = journal.record_venue_snapshot(
+        request=adapter_request(), snapshot=unknown
+    )
+    assert not rejected_unknown.accepted
+    assert rejected_unknown.reason_code == "UNKNOWN_STATUS_REGRESSION_REJECTED"
+
+    conflicting_id = venue_snapshot(
+        status="PARTIALLY_FILLED", venue_order_id="different-venue-order",
+        executed_quantity=Decimal("0.005"), raw_response_sha256="5" * 64,
+    )
+    rejected_id = journal.record_venue_snapshot(
+        request=adapter_request(), snapshot=conflicting_id
+    )
+    assert not rejected_id.accepted
+    assert rejected_id.reason_code == "VENUE_ORDER_ID_CONFLICT"
+
+    row = journal.get(client_order_id="hes-client-1")
+    assert row["state"] == "PARTIALLY_FILLED"
+    assert row["executed_quantity"] == "0.004"
+    assert row["venue_order_id"] == "venue-order-1"
