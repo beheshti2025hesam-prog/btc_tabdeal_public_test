@@ -13,11 +13,12 @@ Existing canonical data/feature pipeline → Transformer Agent evidence adapter 
 - `forward/TRANSFORMER_AGENT_V1.md`: interface, non-goals, evaluation, and promotion criteria.
 - `.github/workflows/transformer-agent-contract.yml`: dedicated CI contract workflow.
 - Causal window validation: ordered timezone-aware timestamps, no future rows, freshness, row shape, finite numeric features, feature schema, model/source SHA-256, and model version.
-- Output validation: LONG/SHORT/NEUTRAL probabilities must be finite, normalized, and schema-correct; neutral/low-confidence/malformed/runtime-failure cases abstain to UNKNOWN.
+- Output validation: LONG/SHORT/NEUTRAL probabilities must be finite, normalized, non-boolean, and schema-correct; neutral/low-confidence/malformed/runtime-failure cases abstain to UNKNOWN.
+- Hardened malformed parameter/container handling so invalid row/timestamp containers, confidence thresholds, minimum window size, or age settings fail closed rather than throwing an uncaught exception. Added negative tests for malformed containers/policy inputs and boolean probabilities.
 - Sequence lineage hash and machine-readable reason codes.
 
 ## Verification
-CI run: [Transformer Agent Contract Tests](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40072072749), tested head `671656d6b55573d98e88772db9cec048c460c678`. The workflow completed successfully on this exact code head. Subsequent changes on this branch were documentation-only; no code changed after the tested SHA.
+CI runs passed after hardening malformed-input handling and adding negative tests: [latest run](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40072369820) on head `9312db0a4596d3bdad82d97736114498e8d0c240`; [parallel rerun](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40072366673) on the same head. Earlier baseline contract run: [40072072749](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40072072749).
 
 ## Remaining gates before production use
 1. Select an existing, maintainable model/runtime and create a separately reviewed adapter; verify model artifact hash and feature-schema compatibility.
