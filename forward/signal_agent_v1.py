@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Sequence
 
 from .confirmation_engine_v1 import ConfirmationCheck, ConfirmationEngineV1
@@ -17,6 +18,20 @@ from .opportunity_detector_v1 import OpportunityCandidate, OpportunityDetectorV1
 from .opportunity_policy_v1 import OpportunityPolicyV1
 from .risk_gate_v1 import RiskCheck, RiskGateV1, RiskGateResult
 from .risk_policy_v1 import RiskPolicyV1
+
+
+@dataclass(frozen=True)
+class RiskGeometryV1:
+    """Explicit, independently checked entry/stop/target geometry.
+
+    The project's existing baseline uses a minimum 3:1 reward-to-risk target.
+    Values may be Decimal-compatible numbers or strings; binary floats are
+    converted through their string representation before Decimal arithmetic.
+    """
+
+    entry: Decimal | str | int | float
+    stop_loss: Decimal | str | int | float
+    take_profit: Decimal | str | int | float
 
 
 @dataclass(frozen=True)
@@ -38,6 +53,7 @@ class SignalAgentV1:
     """
 
     VERSION = "hes-signal-agent-v1"
+    MIN_REWARD_RISK = Decimal("3")
     REQUIRED_PRECHECKS = ("structure_direction_aligned", "signal_quality_gate_passed")
 
     def __init__(self) -> None:
@@ -72,6 +88,38 @@ class SignalAgentV1:
                 reasons.append("EVIDENCE_STATE_INVALID")
         return tuple(dict.fromkeys(reasons))
 
+    @classmethod
+    def _validate_risk_geometry(cls, geometry: RiskGeometryV1 | None, direction: str) -> tuple[str, ...]:
+        if geometry is None:
+            return ("RISK_GEOMETRY_MISSING",)
+        try:
+            if any(isinstance(v, bool) for v in (geometry.entry, geometry.stop_loss, geometry.take_profit)):
+                return ("RISK_GEOMETRY_INVALID_NUMBER",)
+            entry, stop, target = (
+                Decimal(str(geometry.entry)),
+                Decimal(str(geometry.stop_loss)),
+                Decimal(str(geometry.take_profit)),
+            )
+        except (InvalidOperation, TypeError, ValueError):
+            return ("RISK_GEOMETRY_INVALID_NUMBER",)
+        if not all(v.is_finite() and v > 0 for v in (entry, stop, target)):
+            return ("RISK_GEOMETRY_INVALID_NUMBER",)
+        if direction == "BULLISH":
+            if not stop < entry < target:
+                return ("LONG_RISK_GEOMETRY_ORDER_INVALID",)
+            risk, reward = entry - stop, target - entry
+        elif direction == "BEARISH":
+            if not target < entry < stop:
+                return ("SHORT_RISK_GEOMETRY_ORDER_INVALID",)
+            risk, reward = stop - entry, entry - target
+        else:
+            return ("RISK_GEOMETRY_DIRECTION_UNKNOWN",)
+        if risk <= 0 or reward <= 0:
+            return ("RISK_GEOMETRY_NON_POSITIVE_DISTANCE",)
+        if reward / risk < cls.MIN_REWARD_RISK:
+            return ("RISK_REWARD_BELOW_MINIMUM_3_TO_1",)
+        return ()
+
     @staticmethod
     def _blocked_candidate(observed_at, symbol, timeframe, regime, labels, events, reason):
         return OpportunityCandidate(
@@ -91,16 +139,19 @@ class SignalAgentV1:
         structure_direction: str = "UNKNOWN",
         confirmation_checks: Sequence[ConfirmationCheck] = (),
         risk_checks: Sequence[RiskCheck] = (),
+        risk_geometry: RiskGeometryV1 | None = None,
     ) -> SignalAgentResult:
         """Evaluate one contemporaneous observation and return LONG/SHORT/NO_TRADE.
 
-        structure_direction must be an explicit upstream result (BULLISH/BEARISH);
-        a generic BOS/CHOCH token alone is not sufficient directional evidence.
+        structure_direction must be explicit (BULLISH/BEARISH); BOS/CHOCH alone
+        is insufficient. Actual entry/stop/target geometry is independently checked
+        against the existing 3:1 minimum reward-to-risk baseline.
         """
         confirmation_checks = tuple(confirmation_checks)
         risk_checks = tuple(risk_checks)
         all_checks = confirmation_checks + risk_checks
         invalid = self._validate_observation(observed_at, all_checks)
+        geometry_reasons = self._validate_risk_geometry(risk_geometry, structure_direction)
         direction_matches = (
             (regime == "UPTREND" and structure_direction == "BULLISH")
             or (regime == "DOWNTREND" and structure_direction == "BEARISH")
@@ -111,8 +162,8 @@ class SignalAgentV1:
             n for n in self.REQUIRED_PRECHECKS
             if n in precheck_by_name and getattr(precheck_by_name[n], "state", None) != "PASS"
         )
-        if invalid or not direction_matches or missing_prechecks or failed_prechecks:
-            reasons = list(invalid)
+        if invalid or geometry_reasons or not direction_matches or missing_prechecks or failed_prechecks:
+            reasons = list(invalid) + list(geometry_reasons)
             if not direction_matches:
                 reasons.append("STRUCTURE_DIRECTION_NOT_ALIGNED")
             if missing_prechecks:
