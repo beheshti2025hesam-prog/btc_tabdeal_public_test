@@ -64,7 +64,7 @@ def test_geometry_is_mandatory_even_when_five_other_checks_pass():
     evidence = checks({"risk_geometry_3_to_1": "FAIL"})
     result = evaluate(evidence=evidence)
     assert result.state == "FAIL"
-    assert "MANDATORY_RISK_GEOMETRY_GATE_FAILED" in result.reason_codes
+    assert "MANDATORY_GATE_FAILED:RISK_GEOMETRY_3_TO_1" in result.reason_codes
 
 
 def test_unknown_check_fails_closed_instead_of_counting_as_a_failed_vote():
@@ -124,3 +124,22 @@ def test_evidence_digest_is_deterministic():
     first = evaluate(evidence=checks())
     second = evaluate(evidence=checks())
     assert first.evidence_sha256 == second.evidence_sha256
+
+
+@pytest.mark.parametrize("mandatory_name", [
+    "htf_trend_alignment",
+    "pullback_location",
+    "reversal_break_confirmation",
+    "adx_directional_strength",
+    "risk_geometry_3_to_1",
+])
+def test_core_setup_gate_cannot_be_traded_away_by_five_of_six(mandatory_name):
+    result = evaluate(evidence=checks({mandatory_name: "FAIL"}))
+    assert result.state == "FAIL"
+    assert "MANDATORY_GATE_FAILED:" + mandatory_name.upper() in result.reason_codes
+
+
+def test_mfi_is_the_only_optional_vote_under_conservative_profile():
+    result = evaluate(evidence=checks({"mfi_confirmation": "FAIL"}))
+    assert result.state == "PASS"
+    assert result.passed_count == 5
