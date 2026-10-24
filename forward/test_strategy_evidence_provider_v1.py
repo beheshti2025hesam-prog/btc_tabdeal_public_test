@@ -6,7 +6,7 @@ import math
 import pytest
 
 from forward.native_ohlcv_v1 import NativeCandle, NativeOHLCVBatch, INTERVAL_MS, CandleGap
-from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1, mfi14, adx14
+from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1, mfi14, adx14, _evidence_window_sha256
 
 
 def make_batch(interval, now_ms, *, symbol="BTCUSDT", venue="binance", product="spot", count=240, digest="a"):
@@ -123,3 +123,16 @@ def test_provider_rejects_wrong_timeframe_pair():
         StrategyEvidenceProviderV1().evaluate(
             candles_15m=fifteen, candles_4h=wrong, now_ms=now
         )
+
+
+def test_evidence_window_hash_excludes_rows_after_common_as_of():
+    now = 1_800_000_000_000
+    batch = make_batch("15m", now, digest="a")
+    as_of_ms = batch.candles[-1].close_time_ms
+    before = _evidence_window_sha256(batch, as_of_ms=as_of_ms)
+    changed_last = replace(
+        batch.candles[-1], volume=Decimal("999"), quote_volume=Decimal("999999")
+    )
+    changed_batch = replace(batch, candles=batch.candles[:-1] + (changed_last,))
+    after = _evidence_window_sha256(changed_batch, as_of_ms=as_of_ms)
+    assert before == after
