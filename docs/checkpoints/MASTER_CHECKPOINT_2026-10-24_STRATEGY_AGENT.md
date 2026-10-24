@@ -30,3 +30,12 @@
 2. Use the existing native feature/market-structure components to identify whether validated providers can supply each required strategy evidence group without duplicating indicator logic.
 3. Where a provider is absent, leave its evidence UNKNOWN and NO_TRADE; add only a versioned adapter to a genuinely existing validated provider or an explicitly reviewed implementation.
 4. Preserve the fixed delivery target **2026-11-19** and risk checkpoint **2026-10-26**; escalate schedule risk rather than weakening the evidence gates.
+
+
+## Provider and order-block implementation follow-up
+
+- Added `forward/strategy_evidence_provider_v1.py`: derives 4h HTF alignment, 15m pullback/retest, confirmed-swing break, MFI14, ADX14/+DI/-DI, and structure-based 3R geometry from the canonical Binance Spot OHLCV path. Existing EMA and confirmed-swing calculators are reused; MFI14 and ADX14 were absent and are now covered by deterministic tests.
+- Wired the provider into the existing read-only dashboard `GET /api/signal`; it fetches 15m and 4h candles from the same native source/cache and exposes strategy state/quorum plus indicator diagnostics. A separate risk-context check stays UNKNOWN until risk budget/account/venue constraints are approved, so the final decision remains NO_TRADE.
+- Added `forward/order_block_v1.py`: last opposing candle before a confirmed swing break, with a seven-factor descriptive score (BOS/CHOCH, liquidity sweep, FVG, freshness/mitigation, HTF alignment, volume expansion, EMA/swing confluence). It is `CONTEXT_ONLY`; no score threshold is authorized and it cannot bypass the 5/6 strategy quorum or Risk Gate.
+- Binance Spot volume semantics are approved only for this source because the official kline contract identifies base-asset volume and quote-asset volume separately: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#klinecandlestick-streams-for-utc. Do not transfer this approval to Wallex or another venue.
+- Exact-head CI must be rerun after the last code changes; do not use earlier successful runs as final evidence. Live WebSocket smoke remains skipped for this Draft PR. No deployment, account access, order placement, or execution activation.
