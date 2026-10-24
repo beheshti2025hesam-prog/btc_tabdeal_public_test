@@ -31,7 +31,7 @@ class OrderBlockResultV1:
     mitigated: bool
     htf_aligned: bool
     volume_expansion: bool
-    ema_or_swing_confluence: bool
+    price_confluence: bool
     score: int
     max_score: int
     source_response_sha256: str
@@ -49,6 +49,7 @@ def detect_order_block_v1(
     last_swing_high: Decimal | None,
     last_swing_low: Decimal | None,
     ema50: float | None,
+    vwap: float | None = None,
     source_response_sha256: str,
 ) -> OrderBlockResultV1 | None:
     """Find the last opposing candle before a confirmed BOS and score context.
@@ -119,15 +120,17 @@ def detect_order_block_v1(
     confluence_levels = []
     if ema50 is not None:
         confluence_levels.append(Decimal(str(ema50)))
+    if vwap is not None:
+        confluence_levels.append(Decimal(str(vwap)))
     if direction == "BULLISH" and last_swing_high is not None:
         confluence_levels.append(last_swing_high)
     if direction == "BEARISH" and last_swing_low is not None:
         confluence_levels.append(last_swing_low)
-    ema_or_swing_confluence = any(zone_low <= level <= zone_high for level in confluence_levels)
+    price_confluence = any(zone_low <= level <= zone_high for level in confluence_levels)
 
     factors = (
         True, liquidity_sweep, fair_value_gap, fresh, htf_aligned,
-        volume_expansion, ema_or_swing_confluence,
+        volume_expansion, price_confluence,
     )
     return OrderBlockResultV1(
         version="hes-order-block-context-v1",
@@ -144,7 +147,7 @@ def detect_order_block_v1(
         mitigated=mitigated,
         htf_aligned=htf_aligned,
         volume_expansion=volume_expansion,
-        ema_or_swing_confluence=ema_or_swing_confluence,
+        price_confluence=price_confluence,
         score=sum(factors),
         max_score=len(factors),
         source_response_sha256=source_response_sha256,
