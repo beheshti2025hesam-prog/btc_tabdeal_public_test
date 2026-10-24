@@ -22,12 +22,12 @@ Date: 2026-10-24
 - Fail-closed handling of missing, malformed, stale, future-dated, duplicated, or unknown prerequisites.
 
 ## Verification evidence
-- Pre-journal execution-gate tests passed on code head `f40e640f9b78a0d3625d94748651d6efa5dbc476`: [run 40071427149](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071427149).
-- Execution gate + journal tests passed on code head `86154ffe06303389e071b2cb0ee53579ea2f295e`: [run 40071620072](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620072).
-- Dashboard/native-path tests passed on that code head: [run 40071620040](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620040).
-- Browser-render smoke on that code head was still running when this checkpoint was edited; inspect [run 40071620075](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620075) before claiming it passed.
-- The branch head subsequently received documentation-only edits; no code changed after tested code head `86154ffe06303389e071b2cb0ee53579ea2f295e`.
-- These are contract/regression checks, not live venue or trading-performance evidence.
+All three workflows passed on code head `86154ffe06303389e071b2cb0ee53579ea2f295e`:
+- Execution gate + journal contract tests: [run 40071620072](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620072).
+- Dashboard/native-path tests: [run 40071620040](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620040).
+- Browser-render smoke: [run 40071620075](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620075).
+
+The branch head subsequently received documentation-only updates; no code changed after tested code head `86154ffe06303389e071b2cb0ee53579ea2f295e`. The live WebSocket smoke was skipped because the PR remains Draft. These are contract/regression checks, not live venue or trading-performance evidence.
 
 ## Hard blockers before live trading
 1. PR #297/#346/#362 acceptance and exact target-runtime/browser parity.
