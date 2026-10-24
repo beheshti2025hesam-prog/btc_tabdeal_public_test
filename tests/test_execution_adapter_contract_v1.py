@@ -105,6 +105,38 @@ def test_adapter_defaults_unverified_and_fail_closed():
     assert "INDEPENDENT_REVIEW_REVISION_MISSING" in errors
 
 
+
+def test_capability_claim_cannot_self_authorize_without_trusted_pins():
+    candidate = capabilities(
+        verification_status="VERIFIED",
+        official_contract_ref="https://official.example/api",
+        evidence_sha256="c" * 64,
+        reviewed_revision="reviewed-commit-sha",
+    )
+    errors = validate_adapter_readiness(
+        candidate, expected_venue_id="unselected-venue",
+        expected_market_type="USDM_FUTURES",
+    )
+    assert "APPROVED_CAPABILITY_EVIDENCE_PIN_MISSING_OR_INVALID" in errors
+    assert "APPROVED_REVIEW_REVISION_PIN_MISSING" in errors
+
+
+def test_adapter_readiness_passes_only_with_matching_external_pins():
+    digest = "c" * 64
+    candidate = capabilities(
+        verification_status="VERIFIED",
+        official_contract_ref="https://official.example/api",
+        evidence_sha256=digest,
+        reviewed_revision="reviewed-commit-sha",
+    )
+    errors = validate_adapter_readiness(
+        candidate, expected_venue_id="unselected-venue",
+        expected_market_type="USDM_FUTURES",
+        approved_evidence_sha256=digest,
+        approved_review_revision="reviewed-commit-sha",
+    )
+    assert errors == ()
+
 def test_adapter_capabilities_must_match_exact_venue_and_product():
     candidate = capabilities(
         verification_status="VERIFIED",
