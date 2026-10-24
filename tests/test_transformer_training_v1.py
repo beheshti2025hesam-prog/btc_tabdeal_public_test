@@ -125,3 +125,23 @@ def test_ohlcv_csv_rejects_missing_candle_interval(tmp_path):
             })
     with pytest.raises(ValueError, match="candle gap/overlap"):
         load_ohlcv_csv(path, source_id="synthetic-test", interval="15m")
+
+
+def test_ohlcv_csv_rejects_timestamps_not_aligned_to_candle_interval(tmp_path):
+    rows = synthetic_rows(70)
+    path = tmp_path / "misaligned.csv"
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["timestamp", "open", "high", "low", "close", "volume"])
+        writer.writeheader()
+        for row in rows:
+            stamp = datetime.fromisoformat(row.timestamp) + timedelta(minutes=1)
+            writer.writerow({
+                "timestamp": stamp.isoformat(),
+                "open": row.open,
+                "high": row.high,
+                "low": row.low,
+                "close": row.close,
+                "volume": row.volume,
+            })
+    with pytest.raises(ValueError, match="not aligned"):
+        load_ohlcv_csv(path, source_id="synthetic-test", interval="15m")
