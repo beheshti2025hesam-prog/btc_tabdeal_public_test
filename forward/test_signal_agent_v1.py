@@ -169,7 +169,7 @@ def test_naive_evidence_timestamp_is_rejected():
 
 def test_missing_evidence_reference_is_rejected():
     checks = tuple(
-        ConfirmationCheck(c.name, c.state, "" if c.name == "signal_quality_gate_passed" else c.evidence_ref, c.observed_at)
+        ConfirmationCheck(c.name, c.state, "" if c.name == "structure_direction_aligned" else c.evidence_ref, c.observed_at)
         for c in confirmation_checks()
     )
     result = evaluate(confirmation_checks=checks)
