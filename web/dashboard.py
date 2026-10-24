@@ -180,8 +180,12 @@ class Handler(BaseHTTPRequestHandler):
                     (strategy.direction == "BULLISH" and strategy.regime == "UPTREND")
                     or (strategy.direction == "BEARISH" and strategy.regime == "DOWNTREND")
                 )
+                source_blocked = any(
+                    reason.startswith(("STRATEGY_SOURCE_STALE:", "STRATEGY_SOURCE_GAPS_PRESENT"))
+                    for reason in strategy.blocked_reasons
+                )
                 data_ok = bool(feature_result.decision_ready and not batch.gaps and not htf_batch.gaps
-                               and not strategy.blocked_reasons)
+                               and not source_blocked)
                 confirmation_direction = (
                     "LONG" if getattr(result.confirmation, "state", "") == "CONFIRMED_LONG"
                     else "SHORT" if getattr(result.confirmation, "state", "") == "CONFIRMED_SHORT"
@@ -189,7 +193,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 assessments = (
                     AgentAssessmentV1("data_quality", "native-feature-pipeline-v1", "PASS" if data_ok else "FAIL",
-                        strategy.direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
+                        "NEUTRAL", strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
                         strategy.observed_at, snapshot_sha, batch.response_sha256,
                         () if data_ok else ("DATA_QUALITY_GATE_FAILED",)),
                     AgentAssessmentV1("market_structure", "market-structure-v1", "PASS" if structure_ok else "UNKNOWN",
