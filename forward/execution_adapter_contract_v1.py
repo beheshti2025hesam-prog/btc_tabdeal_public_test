@@ -324,14 +324,21 @@ class AccountReconciliationSnapshotV1:
             errors.append("ACCOUNT_MODE_MISSING")
         if not isinstance(self.position_mode, str) or not self.position_mode.strip():
             errors.append("POSITION_MODE_MISSING")
-        if not self.balances:
+        if not isinstance(self.balances, tuple) or not self.balances:
             errors.append("ACCOUNT_BALANCES_MISSING")
-        for balance in self.balances:
-            errors.extend(balance.validation_errors())
-        if len(set(self.open_order_ids)) != len(self.open_order_ids):
-            errors.append("DUPLICATE_OPEN_ORDER_IDS")
-        if any(not isinstance(order_id, str) or not order_id.strip() for order_id in self.open_order_ids):
-            errors.append("OPEN_ORDER_ID_INVALID")
+        else:
+            for balance in self.balances:
+                if not isinstance(balance, BalanceSnapshotV1):
+                    errors.append("ACCOUNT_BALANCE_RECORD_INVALID")
+                else:
+                    errors.extend(balance.validation_errors())
+        if not isinstance(self.open_order_ids, tuple):
+            errors.append("OPEN_ORDER_IDS_INVALID")
+        else:
+            if len(set(self.open_order_ids)) != len(self.open_order_ids):
+                errors.append("DUPLICATE_OPEN_ORDER_IDS")
+            if any(not isinstance(order_id, str) or not order_id.strip() for order_id in self.open_order_ids):
+                errors.append("OPEN_ORDER_ID_INVALID")
         if not _sha256(self.position_snapshot_sha256):
             errors.append("POSITION_SNAPSHOT_HASH_INVALID")
         if not _sha256(self.raw_response_sha256):
