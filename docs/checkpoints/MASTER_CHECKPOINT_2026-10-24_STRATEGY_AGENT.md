@@ -57,3 +57,6 @@ These runs verified the implementation at the SHA above. This checkpoint additio
 
 
 - Scope hardening: the Opportunity Policy and Signal Agent accept explicit scope configuration rather than symbol-specific duplicated logic. StrategyEvidenceProviderV1 can be configured for additional Binance Spot symbols while rejecting other venue/product volume profiles until a source-specific adapter proves their volume semantics.
+
+
+- Final strategy refinement supports the saved MFI rule fully: directional MFI14 threshold OR confirmed bullish/bearish divergence at the last two confirmed swing lows/highs. Pullback checks reuse the existing VWAP snapshot as well as EMA50 and confirmed swing retests. Divergence is causal and tested separately for long and short cases.
