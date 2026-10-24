@@ -1,0 +1,106 @@
+# HES Trade Agent — Master Checkpoint: Live Execution Boundary
+Date: 2026-10-24
+
+## Status
+**HOLD / NO_TRADE_ONLY.** The live-execution work now includes a fail-closed preflight contract and a durable SQLite idempotency/state journal with negative tests. No live venue adapter is implemented or enabled. This is intentional: verified evidence does not yet support safe live orders.
+
+## Canonical path (do not recreate)
+- PR #297: canonical NativeOHLCV source/data contract.
+- PR #346: existing read-only dashboard/chart on that data path.
+- PR #361: reusable Signal Agent v1.
+- PR #362: dashboard → Signal Agent API/UI integration.
+- PR #363: live-execution preflight and journal candidate, stacked on #362.
+- Candidate branch: `feat/hes-live-execution-gates-20261024`.
+- New components: `forward/execution_gate_v1.py`, `forward/execution_journal_v1.py`, `tests/test_execution_gate_v1.py`, `tests/test_execution_journal_v1.py`, and the dedicated GitHub Actions contract workflow.
+- The gate is a preflight only. The journal is persistence only. Neither calls an exchange or places orders. Runtime defaults are disabled and kill-switch state is not clear.
+
+## Implemented in this checkpoint
+- Required versioned provenance fields: source hash, mapping, structure, strategy quality, risk policy/evidence, account reconciliation, and deployment SHA.
+- Freshness/timezone validation, positive finite order geometry and quantity checks, LONG/SHORT stop-target ordering, configurable minimum reward:risk (default 3:1), production environment and explicit operator/live-mode/venue/health/kill-switch prerequisites.
+- Deterministic client-order ID; durable unique client-order/decision reservations; payload-conflict rejection; persisted order state across process/instance restart.
+- Strict journal state transitions. Ambiguous submissions enter `UNKNOWN`; they cannot be resubmitted until explicit reconciliation evidence is recorded.
+- Fail-closed handling of missing, malformed, stale, future-dated, duplicated, or unknown prerequisites.
+
+## Verification evidence
+All three workflows passed on code head `86154ffe06303389e071b2cb0ee53579ea2f295e`:
+- Execution gate + journal contract tests: [run 40071620072](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620072).
+- Dashboard/native-path tests: [run 40071620040](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620040).
+- Browser-render smoke: [run 40071620075](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40071620075).
+
+The branch head subsequently received documentation-only updates; no code changed after tested code head `86154ffe06303389e071b2cb0ee53579ea2f295e`. The live WebSocket smoke was skipped because the PR remains Draft. These are contract/regression checks, not live venue or trading-performance evidence.
+
+## Hard blockers before live trading
+1. PR #297/#346/#362 acceptance and exact target-runtime/browser parity.
+2. Approved data-source reachability and same-window freshness/provenance from the permitted runtime.
+3. Reviewed analysis-symbol → policy-symbol → execution-venue instrument mapping.
+4. Validated causal structure and versioned strategy-level quality provider.
+5. Actual entry/stop/target/quantity and policy-bound risk evidence from the accepted signal path.
+6. Choose one execution venue and verify official order API, instrument rules, account/position mode, and venue constraints.
+7. Implement and review the concrete venue adapter, protective-stop lifecycle, partial-fill handling, and venue-specific restart-safe reconciliation connected to the journal.
+8. Exact-SHA venue-adapter mocks, then read-only account reconciliation and paper/shadow observation.
+9. Explicit owner approval to enable live mode after all gates pass.
+
+Do not work around these blockers with guessed symbol mappings, invented strategy thresholds, placeholder credentials, or a parallel order path.
+
+## Environment / deployment guardrails
+- One VPS only. Do not refer to a second VPS.
+- Do not alter the VPS, reset/clean its dirty working tree, deploy, start collectors, expose credentials, or place live orders as part of this code-only checkpoint.
+- The project has not been deployed by this change.
+- Keep PR #363 Draft/HOLD until exact-head CI and review evidence are available.
+
+## Delivery management
+- Product delivery target: **19 November 2026**.
+- Risk checkpoint: **26 October 2026**.
+- Priority through the risk checkpoint: unblock canonical source/runtime evidence and select/verify the execution venue; then finish the concrete adapter and paper/shadow validation without weakening the gates.
+- Do not turn planning estimates or passing unit tests into a production-readiness claim.
+
+
+## 2026-10-24 follow-up — venue adapter contract hardening
+
+**Code-side adapter contract status:** implemented on the same execution-boundary branch; concrete exchange adapter remains blocked by venue approval/evidence, not by an unimplemented generic interface.
+
+- Canonical typed interface: `forward/execution_adapter_contract_v1.py`. The prior minimal `ExecutionAdapterV1` protocol in `execution_gate_v1.py` now imports this single contract rather than defining a competing interface.
+- Request contract separates analysis symbol from venue-native symbol and requires mapping evidence, client-order ID, decision ID, and payload SHA-256.
+- Capability records default to `UNVERIFIED` and cannot be considered ready without exact venue/product match, official API evidence URL, pinned evidence hash, independent review revision, idempotent client-ID submission, cancellation, native protective orders, and order/open-order/position/account reconciliation capabilities.
+- Venue order snapshots model NEW/PARTIALLY_FILLED/FILLED/CANCELED/REJECTED/EXPIRED/UNKNOWN and validate scope, IDs, quantity, fill consistency, timezone-aware receive evidence, and raw-response hash.
+- New contract regression file: `tests/test_execution_adapter_contract_v1.py`; the existing execution-gate workflow now runs gate, journal, and adapter-contract tests together.
+- No concrete venue adapter, credentials, network order call, private endpoint, deployment, or VPS change was added. No exchange currently satisfies the approval gate in the existing venue-selection decision (#300). Therefore do not claim that the concrete adapter is complete or live-ready.
+
+### Remaining external blockers before a real adapter can be selected
+
+1. Select a venue based on current authoritative evidence and applicable legal/provider access, not marketing claims.
+2. Pin and independently review official contract evidence for order placement/query/cancel, client-order-ID idempotency, symbol mapping, precision/minimum notional, margin/position mode, reduce-only, native protective stops, partial fills, rate limits, and reconciliation.
+3. Confirm read-only account/order/position reconciliation is permitted in the authorized runtime.
+4. Implement exactly one venue adapter against the typed contract, add mocked timeout-after-accept/partial-fill/restart/reconciliation tests, then run paper/shadow validation.
+5. Keep live mode disabled until separate explicit owner approval and all prior product gates pass.
+
+**Schedule:** product delivery target remains **2026-11-19**; risk checkpoint remains **2026-10-26**. The adapter abstraction is ready for a venue-specific implementation, but the venue decision and the production frontend/runtime blocker remain schedule-critical. Keep `HOLD / NO_TRADE_ONLY`.
+
+- Additional fail-closed hardening: adapter capability metadata cannot self-authorize. `validate_adapter_readiness` requires external trusted evidence-SHA and independent-review-revision pins; missing or mismatched pins block readiness even if an adapter self-labels its capabilities `VERIFIED`. The new tests cover both absent pins and exact matching pins.
+
+- Durable journal follow-up: the existing SQLite journal now migrates its old schema transactionally without dropping reserved intents and records validated venue snapshots (venue status, cumulative executed quantity, average fill price, raw-response SHA-256, UTC observed time). Partial fills can advance to terminal fill/cancel/expiry states; exact repeated terminal snapshots are idempotent; conflicting terminal snapshots are rejected; UNKNOWN outcomes require explicit reconciliation evidence before a known result can be persisted.
+- Exact-head execution gate/journal/adapter contract CI at the lifecycle code SHA passed: [run 40077171868](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077171868) — **27 passed**. Dashboard/native-path workflow also passed at that SHA: [run 40077171888](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077171888). Browser render run [40077171867](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077171867) was still in progress at the time of this note; do not claim it passed until it completes.
+
+- Final contract hardening adds explicit quantity units (base asset, quote asset, or contracts) with mandatory instrument-rules evidence; no contract multiplier/unit conversion is guessed. Typed balance and position snapshots now validate venue/product/symbol scope, account and position mode, duplicate open-order IDs, timestamps, and raw-response hashes. Execution gate/journal/adapter contract CI passed at code head f1066b05949a8258f9a108bcfc86aefebb959f60: [run 40077455478](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077455478) — **29 passed**. Dashboard and browser-render checks for that exact head were still in progress when this note was written; inspect their final state before claiming them passed.
+
+ 
+### Final exact-head verification follow-up
+
+At code/documentation head `8c94a5d880920a989898d094b6d4550aa78e7062`:
+- Execution gate, journal, and adapter contract: PASS, 29 tests ([run 40077523245](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523245)).
+- Dashboard/native-path regression: PASS ([run 40077523277](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523277)).
+- Browser-render smoke: PASS; chart rendering, same-batch source comparison, and evidence upload all succeeded ([run 40077523256](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523256)).
+- WebSocket live smoke: SKIPPED, not passed ([run 40077523257](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40077523257)).
+
+These results validate the generic adapter contract/journal and existing read-only dashboard path only. They do not establish a concrete venue adapter, live API access, account reconciliation, paper/shadow execution, or trading readiness. PR #363 remains Draft/HOLD and live execution remains OFF.
+
+
+## 2026-10-24 — re-stacked execution candidate and journal safety regression fix
+
+- The original PR #363 stack was divergent from the current Signal Agent branch (50 commits ahead / 84 behind). It was closed unmerged and superseded by PR #366, based on exact PR #362 head `eccbfe19af37d8629070a2c1788d4c6a73824df1`. Current candidate branch: `feat/hes-live-execution-gates-rebased-20261024`.
+- Added monotonic order-lifecycle protections after review found that an out-of-order venue snapshot could otherwise lower the journal's confirmed cumulative fill or overwrite a known order state with UNKNOWN. Journal now rejects: UNKNOWN regression after known ACKNOWLEDGED/PARTIALLY_FILLED; cumulative executed-quantity regression; conflicting venue order IDs.
+- Journal now explicitly rejects SQLite `:memory:` mode because separate connections would not share a durable state; file-backed operation uses `PRAGMA synchronous=FULL`.
+- Added adversarial regression tests for lower stale partial fills, UNKNOWN status regression, conflicting venue order IDs, and in-memory journal misuse.
+- Exact current PR #366 head: `6e02f3c044acdeb60593dc84162cce7d68818881`.
+- Exact-head CI: execution gate/journal/adapter contract tests **PASS** ([run 40093527676]); dashboard/native path **PASS** ([run 40093527614]); browser render and same-batch API comparison still running at checkpoint update ([run 40093527598]); live WebSocket smoke **SKIPPED**, not passed ([run 40093527642]).
+- Keep PR #366 Draft/HOLD. The generic execution boundary has no live adapter and is not wired to submit orders. No VPS mutation, deployment, collector activation, or live order was performed. The venue-specific runtime, independent review, account reconciliation, paper/shadow soak, and product dependency acceptance remain open gates.
