@@ -68,7 +68,7 @@ jobs:
       - name: Verify artifact provenance and HOLD state
         run: |
           python - <<'PY'
-          import hashlib, json
+          import hashlib, json, os
           from pathlib import Path
           csv_path = Path("data/transformer-training/btcusdt_usdm_15m.csv")
           source = json.loads(Path("data/transformer-training/source_manifest.json").read_text())
@@ -78,9 +78,11 @@ jobs:
           assert model["promotion_decision"] == "HOLD"
           assert model["status"] == "RESEARCH_CANDIDATE_NOT_PROMOTED"
           assert model["strategy_backtest"]["status"] == "RESEARCH_ONLY_NOT_PROMOTED"
-          assert model["strategy_backtest"]["round_trip_cost_bps"] == float("${{ inputs.round_trip_cost_bps }}")
-          print(json.dumps({"source_sha256": digest, "model_sha256": model["model_sha256"], "samples": model["samples"], "metrics": model["metrics"], "promotion_decision": "HOLD"}, indent=2))
+          assert model["strategy_backtest"]["round_trip_cost_bps"] == float(os.environ["ROUND_TRIP_COST_BPS"])
+          print(json.dumps({"source_sha256": digest, "model_sha256": model["model_sha256"], "samples": model["samples"], "metrics": model["metrics"], "strategy_backtest": model["strategy_backtest"], "promotion_decision": "HOLD"}, indent=2))
           PY
+        env:
+          ROUND_TRIP_COST_BPS: ${{ inputs.round_trip_cost_bps }}
       - name: Upload immutable research candidate and source provenance
         uses: actions/upload-artifact@v4
         with:
