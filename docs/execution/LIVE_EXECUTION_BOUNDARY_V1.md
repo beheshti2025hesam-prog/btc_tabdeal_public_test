@@ -40,3 +40,42 @@ Current Signal Agent integration intentionally lacks accepted symbol mapping, va
 
 ## Compatibility / anti-rework rule
 Continue from the single existing path: NativeOHLCV source → feature pipeline → Signal Agent → Risk Gate → execution boundary → durable order journal → reviewed venue adapter. Do not add a second dashboard, candle schema, market-data adapter, or signal implementation.
+
+
+## 2026-10-24 — canonical venue-adapter contract
+
+The existing `ExecutionAdapterV1` interface has been moved to the dedicated
+`forward/execution_adapter_contract_v1.py` contract module and made typed.
+This is a contract refactor, not a concrete venue integration.
+
+- One explicit request carries both `analysis_symbol` and `venue_symbol`,
+  plus a required mapping-evidence reference. Symbols are never inferred or
+  silently translated by the adapter.
+- Requests carry an immutable decision/client-order identity and payload hash.
+- Capability claims default to `UNVERIFIED`. Live readiness requires a pinned
+  official API contract reference, evidence SHA-256, independent review revision,
+  exact venue/product scope, client-order-ID support, proven idempotent-submit
+  behavior, order/open-order/position/account reconciliation, cancellation,
+  and native protective-order support.
+- Normalized venue snapshots include order status (including partial fills),
+  requested/executed quantities, average fill price, venue/client IDs, explicit
+  market scope, timezone-aware observation time, and raw-response hash.
+- Validation rejects identity/symbol/product mismatch, overfills, inconsistent
+  partial/filled states, missing fill price, invalid timestamps, and missing
+  provenance. An ambiguous submit remains `UNKNOWN`; the adapter contract
+  explicitly prohibits automatic resubmission.
+- Contract tests are included in the existing execution-gate workflow. No second
+  execution interface or separate order path was added.
+
+## Venue selection remains an external release blocker
+
+The execution adapter contract is now defined and tested, but there is still no
+venue-approved concrete implementation. The existing venue-selection decision
+(#300) explicitly says no exchange is approved for leveraged/live execution.
+Do not label a mock, local contract test, or unverified capability record as a
+working exchange adapter. A concrete adapter can be implemented only after one
+venue is selected from authoritative evidence and its current official order,
+instrument, position-mode, idempotency, protective-order, rate-limit, and
+reconciliation contracts are pinned and independently reviewed. Until then:
+`HOLD / NO_TRADE_ONLY`; no credentials, private endpoints, VPS mutation, or
+live orders.
