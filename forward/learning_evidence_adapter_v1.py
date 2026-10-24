@@ -58,7 +58,7 @@ def record_signal_decision(
     reason_codes: Iterable[str],
 ) -> JournalWriteResult:
     """Persist a deterministic, idempotent decision event; never persist outcomes."""
-    if decision not in {"LONG", "SHORT", "NO_TRADE"}:
+    if not isinstance(decision, str) or decision not in {"LONG", "SHORT", "NO_TRADE"}:
         raise ValueError("invalid_decision")
     for name, value in (
         ("observed_at", observed_at), ("symbol", symbol), ("timeframe", timeframe),
@@ -80,6 +80,8 @@ def record_signal_decision(
         or any(c not in "0123456789abcdef" for c in strategy_evidence_sha256)
     ):
         raise ValueError("invalid_strategy_evidence_sha256")
+    if isinstance(reason_codes, (str, bytes)):
+        raise ValueError("invalid_reason_codes")
     reasons = list(reason_codes)
     if any(not isinstance(reason, str) or not reason.strip() for reason in reasons):
         raise ValueError("invalid_reason_codes")
@@ -249,7 +251,7 @@ def record_forward_outcome(
     evidence_sha256: str,
 ) -> JournalWriteResult:
     """Append an externally reconciled outcome; never calculate or infer PnL."""
-    if outcome not in OUTCOME_VALUES:
+    if not isinstance(outcome, str) or outcome not in OUTCOME_VALUES:
         raise ValueError("invalid_outcome")
     if not isinstance(decision_event_id, str) or not decision_event_id.strip():
         raise ValueError("decision_event_id_required")
