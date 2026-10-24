@@ -306,6 +306,8 @@ def build_report_from_forward_evidence(
         if not isinstance(artifact, dict):
             raise ValueError(f"FORWARD_OUTCOME_ARTIFACT_NOT_OBJECT:{path.name}")
         event_id = artifact.get("event_id")
+        if not isinstance(event_id, str) or event_id not in decision_by_id:
+            raise ValueError(f"FORWARD_OUTCOME_ARTIFACT_REJECTED:{path.name}:UNKNOWN_DECISION_EVENT_ID")
         if not isinstance(artifact.get("outcome"), str) or artifact.get("outcome") not in {"WIN", "LOSS", "BREAKEVEN", "CANCELLED"}:
             raise ValueError(f"FORWARD_OUTCOME_INVALID:{path.name}")
         errors = validate_outcome_artifact(artifact, decision_event_ids=set(decision_by_id))
