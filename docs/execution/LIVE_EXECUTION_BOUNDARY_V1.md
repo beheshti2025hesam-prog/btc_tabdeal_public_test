@@ -86,3 +86,16 @@ live orders.
   `approved_review_revision` pins; absent pins or mismatches always block.
   Those pins must come from reviewed deployment/project configuration, not
   from the adapter response itself.
+
+
+## Durable order lifecycle follow-up
+
+The SQLite journal now persists validated venue snapshots as well as intent/state:
+venue status, executed quantity, average fill price, raw response SHA-256, and
+UTC observation time. It accepts the tested lifecycle from submission through
+partial fill to fill/cancel/expiry, makes an exact repeated terminal snapshot
+idempotent, rejects conflicting terminal snapshots, and requires explicit
+reconciliation evidence to resolve an UNKNOWN outcome. Existing journal tables
+are migrated transactionally to the expanded schema while preserving prior
+intent/state rows. This is still a local persistence contract; it does not prove
+that any exchange actually implements the claimed behavior.
