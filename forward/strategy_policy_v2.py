@@ -8,7 +8,7 @@ import math
 from dataclasses import dataclass, asdict
 from typing import Any, Mapping
 
-POLICY_VERSION = "hes-btcusdt-mtf-confirmed-breakout-v2.0.0"
+POLICY_VERSION = "hes-btcusdt-mtf-confirmed-breakout-v2.0.1"
 REQUIRED_TIMEFRAMES = ("15m", "1h", "4h")
 
 @dataclass(frozen=True)
