@@ -97,5 +97,5 @@ def load_market_input(*, root: str | Path = ".", now: int | None = None,
         "source":SOURCE,
         "symbol":SYMBOL,
         "timeframes":feeds,
-        "observed_at":max(row["observed_at"] for rows in feeds.values() for row in rows),
+        "observed_at":max((row["observed_at"] for rows in feeds.values() for row in rows), key=lambda value: datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()),
     }
