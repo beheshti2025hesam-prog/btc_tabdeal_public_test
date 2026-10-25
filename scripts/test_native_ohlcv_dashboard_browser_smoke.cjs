@@ -50,6 +50,8 @@ const { chromium } = require("playwright");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
     assert.equal(candlePayload.source, "gateio_public_spot");
     assert.equal(candlePayload.source_reader, "global_market_data_reader_v1");
+    assert.equal(candlePayload.source_symbol, "BTC_USDT");
+    assert.equal(candlePayload.symbol_mapping_verified, true);
     assert.equal(candlePayload.venue, "gateio");
     assert.equal(candlePayload.execution_enabled, false);
     assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
@@ -107,6 +109,8 @@ const { chromium } = require("playwright");
       source: candlePayload.source,
       venue: candlePayload.venue,
       symbol: candlePayload.symbol,
+      source_symbol: candlePayload.source_symbol,
+      symbol_mapping_verified: candlePayload.symbol_mapping_verified,
       interval: candlePayload.interval,
       input_batch_sha256: candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
