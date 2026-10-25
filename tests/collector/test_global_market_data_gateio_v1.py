@@ -16,6 +16,19 @@ class GateFeedTests(unittest.TestCase):
   with self.assertRaises(ValueError): m.normalize_row(['1000','2','12','11','10','11','1'],now=2000)
  def test_reject_short_row(self):
   with self.assertRaises(ValueError): m.normalize_row(['1000','2'],now=2000)
+ def test_reject_non_finite_numeric_fields(self):
+  for field in range(1,7):
+   for bad in ('NaN','Infinity','-Infinity'):
+    row=['1000','2.4','12','13','10','11','1.2']
+    row[field]=bad
+    with self.subTest(field=field,bad=bad), self.assertRaises(ValueError):
+     m.normalize_row(row,now=2000)
+ def test_reject_zero_price_and_negative_volumes(self):
+  for field,bad in ((2,'0'),(3,'0'),(4,'0'),(5,'0'),(6,'-1'),(1,'-1')):
+   row=['1000','2.4','12','13','10','11','1.2']
+   row[field]=bad
+   with self.subTest(field=field,bad=bad), self.assertRaises(ValueError):
+    m.normalize_row(row,now=2000)
  def test_ws_name_format_and_volume_fields(self):
   msg={'channel':'spot.candlesticks','event':'update','result':{'n':'15m_BTC_USDT','t':'1000','v':'2400','a':'0.03','c':'12','h':'13','l':'10','o':'11'}}
   self.assertIsNotNone(m.normalize_ws_message(msg,now=1900))
