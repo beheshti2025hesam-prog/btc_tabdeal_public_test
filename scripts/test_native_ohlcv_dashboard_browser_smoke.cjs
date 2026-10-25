@@ -48,7 +48,8 @@ const { chromium } = require("playwright");
 
     assert.ok(candlePayload, "successful /api/candles payload was not observed");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
-    assert.equal(candlePayload.source, "gateio_native_ohlcv_v1");
+    assert.equal(candlePayload.source, "gateio_public_spot");
+    assert.equal(candlePayload.source_reader, "global_market_data_reader_v1");
     assert.equal(candlePayload.venue, "gateio");
     assert.equal(candlePayload.execution_enabled, false);
     assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
@@ -107,7 +108,7 @@ const { chromium } = require("playwright");
       venue: candlePayload.venue,
       symbol: candlePayload.symbol,
       interval: candlePayload.interval,
-      response_sha256: candlePayload.response_sha256,
+      input_batch_sha256: candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       chart_library_loaded: ui.chartLibraryLoaded,
@@ -145,7 +146,7 @@ const { chromium } = require("playwright");
       product: candlePayload.product,
       symbol: candlePayload.symbol,
       interval: candlePayload.interval,
-      response_sha256: candlePayload.response_sha256,
+      input_batch_sha256: candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       visible_candle_pixels: candlePixels,
