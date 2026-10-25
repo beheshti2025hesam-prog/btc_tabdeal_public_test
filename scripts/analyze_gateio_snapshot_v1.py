@@ -67,8 +67,10 @@ def snapshot(timeframe: str, rows: Sequence[Mapping[str, Any]]) -> dict[str, Any
     closes = [float(row["close"]) for row in rows]
     ema50 = ema(closes, 50)[-1]
     ema200 = ema(closes, 200)[-1]
+    if len(rows) < 21:
+        raise ValueError("INSUFFICIENT_BREAKOUT_HISTORY")
     recent = rows[-20:]
-    prior = recent[:-1]
+    prior = rows[-21:-1]
     prior_high = max(float(row["high"]) for row in prior)
     prior_low = min(float(row["low"]) for row in prior)
     last = rows[-1]
@@ -114,6 +116,7 @@ def snapshot(timeframe: str, rows: Sequence[Mapping[str, Any]]) -> dict[str, Any
         "atr14": round(atr, 4) if atr is not None else None,
         "vwap20": round(vwap, 4) if vwap is not None else None,
         "close_vs_vwap20": "ABOVE" if vwap is not None and close > vwap else "BELOW" if vwap is not None and close < vwap else "AT" if vwap is not None else "UNAVAILABLE",
+        "breakout_lookback_bars": 20,
         "prior20_high": prior_high,
         "prior20_low": prior_low,
         "close_breakout20": "UP" if close > prior_high else "DOWN" if close < prior_low else "NONE",
