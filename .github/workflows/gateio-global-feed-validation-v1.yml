@@ -33,6 +33,7 @@ jobs:
       - name: Run continuous-soak audit tests
         if: github.event_name == 'pull_request' && (github.event.pull_request.head.ref == 'fix/audit-gateio-soak-continuity-20261025' || github.event.pull_request.head.ref == 'fix/strategy-final-gate-20261025')
         run: python -m pytest -q tests/collector/test_gateio_soak_audit_v2.py
+      # Exact-head safety tests for the strategy candidate; no runner is started.
       - name: Run strategy final-gate and runner safety tests
         if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/strategy-final-gate-20261025'
         run: >-
