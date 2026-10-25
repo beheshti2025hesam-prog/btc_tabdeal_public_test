@@ -1,9 +1,9 @@
 name: Strategy Final Gate and Forward Runner Safety v1
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/strategy-final-gate-20261025
+      - fix/audit-gateio-soak-continuity-20261025
 
 permissions:
   contents: read
@@ -16,12 +16,12 @@ jobs:
       - name: Checkout exact pushed revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
       - name: Assert exact source revision
         shell: bash
         env:
-          EXPECTED_SOURCE_SHA: ${{ github.sha }}
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
       - name: Set up Python
         uses: actions/setup-python@v5
