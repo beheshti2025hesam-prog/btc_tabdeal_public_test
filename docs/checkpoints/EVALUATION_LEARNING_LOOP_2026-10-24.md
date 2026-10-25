@@ -28,3 +28,15 @@ The dashboard does not create a journal file unless `HES_FORWARD_LEARNING_DECISI
 - Product remains HOLD / NO_TRADE_ONLY.
 - PR #367 is Draft/unmerged. Do not accept the loop end-to-end until exact-head CI passes on the final head, the authorized durable path is configured, actual forward decisions accumulate, and separately reconciled closed outcomes are verified.
 - Delivery target: 2026-11-19. Risk checkpoint: 2026-10-26. Exactly one VPS.
+
+
+## Follow-up — read-only journal projection candidate (2026-10-25)
+
+- Branch: `feat/trade-journal-readonly-ui-20261025`.
+- Reuses the existing decision journal configured by `HES_FORWARD_LEARNING_DECISION_JOURNAL`; no second journal or database is created.
+- Adds `forward/trade_journal_view_v1.py`, a strict read-only projection that verifies each record digest and rejects malformed/partial, duplicate, tampered, non-forward, future/naive-timestamp, or outcome-contaminated records. UI output is bounded to 50 newest events and uses DOM `textContent` for untrusted values.
+- Adds `GET /api/journal?limit=50` and a journal section in the existing `web/dashboard.py`. The panel explicitly labels decisions as learning evidence, not proof of executed trades; execution stays OFF and realized outcomes stay NOT_LINKED unless separately reconciled through the existing outcome-artifact contract.
+- Adds adversarial tests for valid projection, tampering, partial trailing line, duplicate identity, naive/future timestamps, outcome leakage, and invalid limits. CI workflow now includes this test module.
+- This is a new candidate diff, **not yet CI-verified or production deployed**. No VPS/runtime configuration was changed; journal remains unconfigured unless an operator explicitly supplies a durable path.
+- Exact-head CI and test-log inspection are mandatory before acceptance. Keep PR #367 and its parent chain Draft/HOLD; do not merge this stack independently.
+- Product delivery target remains **2026-11-19**; risk checkpoint remains **2026-10-26**. Status remains **HOLD / NO_TRADE_ONLY**.
