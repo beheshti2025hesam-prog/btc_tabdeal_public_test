@@ -1,4 +1,5 @@
 import json, tempfile, unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from forward.global_market_data_reader_v1 import read_closed_candles, MarketDataRejected
 NL=chr(10)
@@ -11,7 +12,7 @@ class ReaderTests(unittest.TestCase):
   rows=[]
   for i in range(count):
    ts=start+i*secs
-   rows.append({"source":"gateio_public_spot","symbol":"BTC_USDT","timeframe":tf,"open_time":ts,"close_time":ts+secs,"open":"10","high":"12","low":"9","close":"11","volume":"1","closed":True,"observed_at":"2026-10-24T00:00:00+00:00"})
+   rows.append({"source":"gateio_public_spot","symbol":"BTC_USDT","timeframe":tf,"open_time":ts,"close_time":ts+secs,"open":"10","high":"12","low":"9","close":"11","volume":"1","closed":True,"observed_at":datetime.fromtimestamp(ts+secs-1,timezone.utc).isoformat()})
   p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
   return p
 
@@ -44,5 +45,20 @@ class ReaderTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; rows[1]["quote_volume"]="NaN"; p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
    with self.assertRaisesRegex(MarketDataRejected,"CANDLE_QUOTE_VOLUME_INVALID"): read_closed_candles("15m",root=d,now=12000,min_bars=3)
+
+ def test_reject_missing_observation_timestamp(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; del rows[1]["observed_at"]; p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
+   with self.assertRaisesRegex(MarketDataRejected,"CANDLE_OBSERVATION_TIME_INVALID"): read_closed_candles("15m",root=d,now=12000,min_bars=3)
+
+ def test_reject_naive_observation_timestamp(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; rows[1]["observed_at"]="1970-01-01T03:00:00"; p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
+   with self.assertRaisesRegex(MarketDataRejected,"CANDLE_OBSERVATION_TIME_INVALID"): read_closed_candles("15m",root=d,now=12000,min_bars=3)
+
+ def test_reject_future_observation_timestamp(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; rows[1]["observed_at"]="1970-01-01T03:20:00+00:00"; p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
+   with self.assertRaisesRegex(MarketDataRejected,"CANDLE_OBSERVATION_TIME_IN_FUTURE"): read_closed_candles("15m",root=d,now=12000,min_bars=3)
 
 if __name__=="__main__": unittest.main()
