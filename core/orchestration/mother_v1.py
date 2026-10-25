@@ -38,6 +38,7 @@ class AgentResult:
     reason_codes: tuple[str, ...] = ()
     evidence_refs: tuple[str, ...] = ()
     payload: Any = None
+    agent_version: str = ""
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,7 @@ class OrchestrationResult:
             payload = stage.payload if isinstance(stage.payload, Mapping) else {}
             row: dict[str, Any] = {
                 "agent": stage.agent,
+                "agent_version": stage.agent_version,
                 "state": stage.state,
                 "reason_codes": list(stage.reason_codes),
                 "evidence_refs": list(stage.evidence_refs),
@@ -131,7 +133,8 @@ class PrecomputedSpecialistV1:
         payload = report.get("payload", {})
         if not isinstance(reasons, (tuple, list)) or not isinstance(refs, (tuple, list)):
             return AgentResult(self.name, "UNKNOWN", ("SPECIALIST_REPORT_MALFORMED:" + self.name,))
-        return AgentResult(self.name, state, tuple(reasons), tuple(refs), payload)
+        version = report.get("agent_version")
+        return AgentResult(self.name, state, tuple(reasons), tuple(refs), payload, version)
 
 
 def precomputed_specialists_v1() -> dict[str, PrecomputedSpecialistV1]:
@@ -180,6 +183,8 @@ class MotherOrchestratorV1:
     def _valid_result(name: str, result: Any) -> tuple[bool, str | None]:
         if not isinstance(result, AgentResult) or result.agent != name:
             return False, "INVALID_AGENT_RESULT:" + name
+        if not _text(result.agent_version):
+            return False, "AGENT_VERSION_MISSING:" + name
         if not isinstance(result.state, str) or not _text(result.state):
             return False, "INVALID_AGENT_STATE:" + name
         if not isinstance(result.reason_codes, (tuple, list)) or len(result.reason_codes) > _MAX_REASON_CODES:
@@ -218,7 +223,7 @@ class MotherOrchestratorV1:
         def finish(status: str, decision: str, why: tuple[str, ...] | list[str]) -> OrchestrationResult:
             canonical_reasons = tuple(dict.fromkeys(str(x) for x in why if isinstance(x, str) and x))
             audit_rows = [{
-                "agent": row.agent, "state": row.state,
+                "agent": row.agent, "agent_version": row.agent_version, "state": row.state,
                 "reason_codes": list(row.reason_codes),
                 "evidence_refs": list(row.evidence_refs),
                 "decision": _safe_decision(_decision_value(row.payload)) if row.agent == "decision" else None,
@@ -260,7 +265,7 @@ class MotherOrchestratorV1:
             # Freeze caller-owned collections at the boundary; do not retain mutable aliases.
             try:
                 result = AgentResult(result.agent, result.state, tuple(result.reason_codes),
-                                     tuple(result.evidence_refs), deepcopy(result.payload))
+                                     tuple(result.evidence_refs), deepcopy(result.payload), result.agent_version)
             except Exception:
                 return finish("BLOCKED_INVALID_RESULT", "NO_TRADE", ("AGENT_PAYLOAD_NOT_COPYABLE:" + name,))
             stages.append(result)
