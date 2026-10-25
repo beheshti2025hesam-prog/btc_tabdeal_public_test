@@ -136,6 +136,13 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["agent_version"], "hes-signal-agent-v1")
         self.assertEqual(payload["decision"], "NO_TRADE")
         self.assertEqual(payload["status"], "BLOCKED")
+        mother = payload["mother_orchestrator"]
+        self.assertEqual(mother["schema_version"], "hes.mother_orchestration.v1")
+        self.assertEqual(mother["decision"], "NO_TRADE")
+        self.assertFalse(mother["execution_authorized"])
+        self.assertEqual([row["agent"] for row in mother["stages"][:1]], ["data_quality"])
+        self.assertEqual(len(mother["trace_id"]), 64)
+        self.assertEqual(len(mother["audit_sha256"]), 64)
         self.assertFalse(payload["execution_enabled"])
         self.assertTrue(payload["feature_quality_passed"])
         self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
