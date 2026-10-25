@@ -180,7 +180,7 @@ class MotherOrchestratorV1:
             if not isinstance(reports, Mapping) or set(reports) != set(_ALLOWED):
                 return None, "SPECIALIST_REPORT_SET_INVALID"
             try:
-                report_bytes = json.dumps(reports, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+                report_bytes = json.dumps(reports, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
             except (TypeError, ValueError):
                 return None, "SPECIALIST_REPORTS_NOT_CANONICAL_JSON"
             if sha256(report_bytes).hexdigest() != safe["evidence_sha256"]:
