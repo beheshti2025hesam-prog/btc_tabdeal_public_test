@@ -39,7 +39,7 @@ class Stub:
             context["scope"]["symbol"] = "INJECTED"
         if self.raises:
             raise RuntimeError("simulated")
-        return AgentResult(self.result_agent or self.name, self.state, tuple(self.reasons), tuple(self.refs), self.payload)
+        return AgentResult(self.result_agent or self.name, self.state, tuple(self.reasons), tuple(self.refs), self.payload, "test-stub-v1")
 
 
 def agents(**overrides):
