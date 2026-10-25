@@ -3,7 +3,7 @@
 This is an analysis-input boundary, not a signal or execution component.
 """
 from __future__ import annotations
-import json, time
+import json, math, time
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +46,16 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
             o=float(row["open"]); h=float(row["high"]); l=float(row["low"]); c=float(row["close"]); v=float(row["volume"])
         except (KeyError, TypeError, ValueError) as exc:
             raise MarketDataRejected("CANDLE_SCHEMA_INVALID") from exc
+        if not all(math.isfinite(value) for value in (o,h,l,c,v)):
+            raise MarketDataRejected("CANDLE_NON_FINITE_VALUE")
+        quote_volume = row.get("quote_volume")
+        if quote_volume is not None:
+            try:
+                qv = float(quote_volume)
+            except (TypeError, ValueError) as exc:
+                raise MarketDataRejected("CANDLE_SCHEMA_INVALID") from exc
+            if not math.isfinite(qv) or qv < 0:
+                raise MarketDataRejected("CANDLE_QUOTE_VOLUME_INVALID")
         if close_time != ts + seconds or min(o,h,l,c) <= 0 or v < 0 or h < max(o,c,l) or l > min(o,c,h):
             raise MarketDataRejected("CANDLE_OHLC_INVALID")
         if previous is not None:
