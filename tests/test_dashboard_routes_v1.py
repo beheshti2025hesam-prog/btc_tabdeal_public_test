@@ -56,6 +56,18 @@ class DashboardRouteTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown();cls.server.server_close();cls.thread.join(timeout=2)
 
+    def test_outcome_projection_route_is_explicitly_unconfigured_by_default(self):
+        with patch.dict(os.environ, {
+            "HES_FORWARD_LEARNING_DECISION_JOURNAL": "",
+            "HES_FORWARD_OUTCOMES_DIR": "",
+        }):
+            with urlopen(self.base + "/api/journal-outcomes?limit=50") as response:
+                payload = json.loads(response.read().decode())
+        self.assertEqual(payload["status"], "NOT_CONFIGURED")
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["outcomes_inferred"])
+        self.assertEqual(payload["events"], [])
+
     def test_execution_journal_route_is_explicitly_unconfigured_by_default(self):
         with patch.dict(os.environ, {"HES_EXECUTION_JOURNAL_DB": ""}):
             with urlopen(self.base + "/api/execution-journal?limit=50") as response:
