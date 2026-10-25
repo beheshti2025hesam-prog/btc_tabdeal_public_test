@@ -35,6 +35,7 @@ def _event_from_validated_row(row: dict[str, Any]) -> dict[str, Any]:
         "closed_at": row.get("closed_at") if isinstance(row.get("closed_at"), str) else "NOT_LINKED",
         "realized_rr": row.get("realized_rr") if row.get("realized_rr") is not None else "UNKNOWN",
         "outcome_artifact_sha256": row.get("outcome_artifact_sha256"),
+        "decision_event_sha256": row.get("event_sha256"),
         "fees": "UNKNOWN",
         "funding": "UNKNOWN",
         "realized_pnl": "UNKNOWN",
