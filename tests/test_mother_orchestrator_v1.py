@@ -1,5 +1,7 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
 
 from core.orchestration.mother_v1 import AgentResult, MotherOrchestratorV1
 
@@ -140,13 +142,18 @@ def test_mutating_specialist_cannot_poison_following_context():
 
 
 def test_duplicate_and_malformed_evidence_refs_fail_closed():
-    a = agents(signal=Stub("signal", refs=("bad-hash",)))
-    # References are opaque source identifiers at this layer; they are still
-    # type/length checked, while canonical SHA-256 provenance is in the context.
-    r = MotherOrchestratorV1(a).run(CONTEXT)
-    assert r.decision == "LONG"
+    a = agents(signal=Stub("signal", refs=("a" * 64, "a" * 64)))
+    assert MotherOrchestratorV1(a).run(CONTEXT).status == "BLOCKED_INVALID_RESULT"
     a = agents(signal=Stub("signal", refs=("x" * 513,)))
     assert MotherOrchestratorV1(a).run(CONTEXT).status == "BLOCKED_INVALID_RESULT"
+
+
+def test_versioned_json_contract_matches_implementation_order():
+    contract = json.loads((Path(__file__).parents[1] / "core/orchestration/mother_contract_v1.json").read_text())
+    assert contract["schema_version"] == "hes.mother_orchestration.v1"
+    assert tuple(contract["required_stage_order"]) == MotherOrchestratorV1.REQUIRED
+    assert contract["execution_authorized"] is False
+    assert contract["allowed_states"]["risk"] == ["APPROVED"]
 
 
 def test_trace_is_stable_for_identical_context_and_stage_outputs():
