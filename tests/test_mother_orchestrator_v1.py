@@ -22,7 +22,7 @@ STATES = {
 class Stub:
     def __init__(self, name, state=None, payload=None, raises=False, mutate=False, reasons=(), refs=("a" * 64,)):
         self.name = name
-        self.state = STATES[name] if state is None else state
+        self.state = STATES.get(name, "PASS") if state is None else state
         self.payload = ({"decision": "LONG"} if name == "decision" else {}) if payload is None else payload
         self.raises = raises
         self.mutate = mutate
