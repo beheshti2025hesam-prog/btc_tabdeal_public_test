@@ -30,3 +30,11 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest requests websocket-client==1.8.0
       - name: Run Gate.io source, reader, and decision tests
         run: python -m pytest -q tests/collector/test_global_market_data_gateio_v1.py tests/collector/test_global_market_data_reader_v1.py tests/collector/test_gateio_analysis_decision_v1.py tests/collector/test_gateio_soak_audit_v2.py
+      - name: Run strategy final-gate and runner safety tests
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/strategy-final-gate-20261025'
+        run: >-
+          python -m pytest -q
+          tests/strategy/test_policy_v2.py
+          tests/strategy/test_strategy_policy_final_gate_v1.py
+          tests/strategy/test_gateio_snapshot_breakout_window_v1.py
+          tests/strategy/test_strategy_policy_runner_safety_v1.py
