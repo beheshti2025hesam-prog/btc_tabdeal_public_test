@@ -78,7 +78,7 @@ def test_rejects_naive_timestamp(tmp_path):
     record["observed_at"] = "2026-10-25T10:00:00"
     from forward.forward_observation_writer_v1 import observation_digest
     record["digest"] = observation_digest(record)
-    path.write_text(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\\n")
+    path.write_text(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
     with pytest.raises(JournalProjectionError, match="naive_timestamp"):
         read_decision_journal(path)
 
