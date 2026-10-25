@@ -1,6 +1,9 @@
 name: Native OHLCV WebSocket Live Smoke v1
 
 on:
+  push:
+    branches:
+      - test/native-ohlcv-websocket-live-20261025
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
@@ -10,7 +13,7 @@ permissions:
 
 jobs:
   live-websocket-smoke:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
