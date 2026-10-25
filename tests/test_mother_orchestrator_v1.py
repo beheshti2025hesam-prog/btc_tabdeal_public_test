@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
 import json
 from pathlib import Path
 
@@ -159,7 +160,8 @@ def test_precomputed_adapter_reuses_versioned_existing_specialist_reports():
             "evidence_refs": ["a" * 64],
             "payload": {"decision": "LONG"} if name == "decision" else {},
         }
-    context = dict(CONTEXT, specialist_reports=reports)
+    report_hash = sha256(json.dumps(reports, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
+    context = dict(CONTEXT, evidence_sha256=report_hash, specialist_reports=reports)
     result = MotherOrchestratorV1(precomputed_specialists_v1()).run(context)
     assert result.status == "OBSERVATION_ONLY"
     assert result.decision == "LONG"
