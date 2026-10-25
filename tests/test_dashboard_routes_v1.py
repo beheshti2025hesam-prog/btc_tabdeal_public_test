@@ -146,6 +146,11 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn(mother["status"], ("BLOCKED_CONTEXT", "BLOCKED_GATE", "BLOCKED_CONFIGURATION", "BLOCKED_INVALID_RESULT"))
         self.assertEqual(len(mother["trace_id"]), 64)
         self.assertEqual(len(mother["audit_sha256"]), 64)
+        witness = payload["mother_witness"]
+        self.assertEqual(witness["schema_version"], "hes.mother_witness.v1")
+        self.assertTrue(witness["verified"])
+        self.assertEqual(witness["audit_sha256"], mother["audit_sha256"])
+        self.assertFalse(witness["execution_authorized"])
         self.assertFalse(payload["execution_enabled"])
         self.assertTrue(payload["feature_quality_passed"])
         self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
