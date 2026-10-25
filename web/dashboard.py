@@ -7,7 +7,7 @@ from threading import Event, Lock, Thread
 import json, os, time
 from urllib.parse import parse_qs, urlparse
 from forward.native_ohlcv_v1 import INTERVAL_MS, validate_native_batch
-from forward.native_ohlcv_gateio_v1 import GateioSpotKlineSource, SUPPORTED_INTERVALS
+from forward.native_ohlcv_gateio_v1 import (GateioSpotKlineSource, SUPPORTED_INTERVALS,\n    VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES)
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
@@ -16,7 +16,7 @@ SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
 CHART_ASSET_FILE = Path(__file__).resolve().parent / "static" / "third_party" / "lightweight-charts" / "5.0.8" / "lightweight-charts.standalone.production.js"
 _SOURCE = GateioSpotKlineSource()
-_FEATURES = NativeOHLCVFeaturePipelineV1()
+_FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES)
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
