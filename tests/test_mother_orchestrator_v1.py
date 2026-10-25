@@ -160,7 +160,7 @@ def test_precomputed_adapter_reuses_versioned_existing_specialist_reports():
             "evidence_refs": ["a" * 64],
             "payload": {"decision": "LONG"} if name == "decision" else {},
         }
-    report_hash = sha256(json.dumps(reports, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
+    report_hash = sha256(json.dumps(reports, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()).hexdigest()
     context = dict(CONTEXT, evidence_sha256=report_hash, specialist_reports=reports)
     result = MotherOrchestratorV1(precomputed_specialists_v1()).run(context)
     assert result.status == "OBSERVATION_ONLY"
