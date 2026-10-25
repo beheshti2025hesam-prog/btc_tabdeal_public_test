@@ -115,6 +115,8 @@ def _text(value: Any) -> bool:
 class PrecomputedSpecialistV1:
     """Expose an existing validated specialist result without recomputing it."""
 
+    VERSION = "hes-precomputed-specialist-adapter-v1"
+
     def __init__(self, name: str):
         if name not in _ALLOWED:
             raise ValueError("unregistered specialist name")
@@ -123,16 +125,16 @@ class PrecomputedSpecialistV1:
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
         reports = context.get("specialist_reports")
         if not isinstance(reports, Mapping):
-            return AgentResult(self.name, "UNKNOWN", ("SPECIALIST_REPORTS_MISSING",))
+            return AgentResult(self.name, "UNKNOWN", ("SPECIALIST_REPORTS_MISSING",), (), {}, self.VERSION)
         report = reports.get(self.name)
         if not isinstance(report, Mapping):
-            return AgentResult(self.name, "UNKNOWN", ("SPECIALIST_REPORT_MISSING:" + self.name,))
+            return AgentResult(self.name, "UNKNOWN", ("SPECIALIST_REPORT_MISSING:" + self.name,), (), {}, self.VERSION)
         state = report.get("state")
         reasons = report.get("reason_codes", ())
         refs = report.get("evidence_refs", ())
         payload = report.get("payload", {})
         if not isinstance(reasons, (tuple, list)) or not isinstance(refs, (tuple, list)):
-            return AgentResult(self.name, "UNKNOWN", ("SPECIALIST_REPORT_MALFORMED:" + self.name,))
+            return AgentResult(self.name, "UNKNOWN", ("SPECIALIST_REPORT_MALFORMED:" + self.name,), (), {}, self.VERSION)
         version = report.get("agent_version")
         return AgentResult(self.name, state, tuple(reasons), tuple(refs), payload, version)
 
