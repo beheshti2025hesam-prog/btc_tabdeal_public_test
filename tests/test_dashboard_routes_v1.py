@@ -134,7 +134,7 @@ class DashboardRouteTests(unittest.TestCase):
     def test_source_failure_fails_closed_without_fake_candles(self):
         with patch("web.dashboard._SOURCE.fetch",side_effect=TimeoutError()):
             with self.assertRaises(HTTPError) as error:
-                urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=1m")
+                urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m")
         self.assertEqual(error.exception.code,503)
         payload=json.loads(error.exception.read())
         self.assertTrue(payload["fail_closed"])
