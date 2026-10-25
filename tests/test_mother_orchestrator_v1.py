@@ -22,7 +22,7 @@ STATES = {
 
 
 class Stub:
-    def __init__(self, name, state=None, payload=None, raises=False, mutate=False, reasons=(), refs=("a" * 64,)):
+    def __init__(self, name, state=None, payload=None, raises=False, mutate=False, reasons=(), refs=("a" * 64,), result_agent=None):
         self.name = name
         self.state = STATES.get(name, "PASS") if state is None else state
         self.payload = ({"decision": "LONG"} if name == "decision" else {}) if payload is None else payload
@@ -30,6 +30,7 @@ class Stub:
         self.mutate = mutate
         self.reasons = reasons
         self.refs = refs
+        self.result_agent = result_agent
         self.seen = []
 
     def evaluate(self, context):
@@ -38,7 +39,7 @@ class Stub:
             context["scope"]["symbol"] = "INJECTED"
         if self.raises:
             raise RuntimeError("simulated")
-        return AgentResult(self.name, self.state, tuple(self.reasons), tuple(self.refs), self.payload)
+        return AgentResult(self.result_agent or self.name, self.state, tuple(self.reasons), tuple(self.refs), self.payload)
 
 
 def agents(**overrides):
@@ -108,7 +109,7 @@ def test_invalid_decision_payload_fails_closed():
 
 
 def test_wrong_result_identity_blocks():
-    a = agents(signal=Stub("other"))
+    a = agents(signal=Stub("signal", result_agent="other"))
     r = MotherOrchestratorV1(a).run(CONTEXT)
     assert r.status == "BLOCKED_INVALID_RESULT" and r.decision == "NO_TRADE"
 
