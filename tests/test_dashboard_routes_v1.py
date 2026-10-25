@@ -64,6 +64,8 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("https://www.tradingview.com/",page)
         self.assertIn("LightweightCharts.CandlestickSeries",page)
         self.assertIn("Gate.io Spot public candles",page)
+        self.assertIn("Gate.io Spot is the source for this dashboard",page)
+        self.assertNotIn("Binance Spot is venue-specific",page)
         self.assertNotIn("Yahoo",page)
         self.assertNotIn("<canvas id=\"chart\"",page)
 
