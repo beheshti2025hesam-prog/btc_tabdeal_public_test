@@ -4,9 +4,16 @@ const { chromium } = require("playwright");
 (async () => {
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "en-US" });
     let candlePayload = null;
     let externalChartCdnRequested = false;
+    let chartAssetResponse = null;
+    const consoleErrors = [];
+    const pageErrors = [];
+    const requestFailures = [];
+    page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
+    page.on("pageerror", error => pageErrors.push(String(error.stack || error)));
+    page.on("requestfailed", request => requestFailures.push({ url: request.url(), failure: request.failure()?.errorText || "unknown" }));
 
     page.on("request", request => {
       const url = request.url();
@@ -16,6 +23,10 @@ const { chromium } = require("playwright");
     });
     page.on("response", async response => {
       try {
+        const responseUrl = new URL(response.url());
+        if (responseUrl.pathname === "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js") {
+          chartAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
+        }
         const url = new URL(response.url());
         if (url.pathname === "/api/candles" && response.status() === 200) {
           const body = await response.json();
@@ -54,6 +65,9 @@ const { chromium } = require("playwright");
         const r = c.getBoundingClientRect();
         return { width: r.width, height: r.height };
       })(),
+      chartLibraryLoaded: typeof LightweightCharts !== "undefined",
+      chartSeriesExists: typeof candleSeries !== "undefined" && !!candleSeries,
+      chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
       bars: typeof bars !== "undefined" ? bars.map(b => ({
         open_time: b.open_time, close: String(b.close), volume: String(b.volume)
       })) : null
@@ -62,6 +76,57 @@ const { chromium } = require("playwright");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
+    const candlePixels = await page.evaluate(() => {
+      const canvases = [...document.querySelectorAll("#chart canvas")];
+      let green = 0;
+      let red = 0;
+      let sampled = 0;
+      for (const canvas of canvases) {
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx || canvas.width === 0 || canvas.height === 0) continue;
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        // Sample every fourth pixel; chart candles use these configured up/down colors.
+        for (let p = 0; p < pixels.length; p += 16) {
+          const r = pixels[p], g = pixels[p + 1], b = pixels[p + 2], a = pixels[p + 3];
+          if (a < 160) continue;
+          sampled++;
+          if (Math.abs(r - 54) < 35 && Math.abs(g - 201) < 45 && Math.abs(b - 143) < 45) green++;
+          if (Math.abs(r - 241) < 35 && Math.abs(g - 107) < 45 && Math.abs(b - 117) < 45) red++;
+        }
+      }
+      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
+    });
+    assert.ok(candlePixels.canvas_count > 0, "no chart canvas was rendered");
+    const visibleCandlePixelCount = candlePixels.green_candle_color_pixels + candlePixels.red_candle_color_pixels;
+    // Preserve diagnostics even when the visual assertion fails, so the CI artifact can show the failure.
+    await page.screenshot({ path: "artifacts/native-ohlcv-dashboard-browser-smoke.png", fullPage: true });
+    const diagnosticEvidence = {
+      schema_version: 1,
+      status: visibleCandlePixelCount >= 8 ? "PASS" : "FAIL_VISIBLE_CANDLES",
+      source: candlePayload.source,
+      venue: candlePayload.venue,
+      symbol: candlePayload.symbol,
+      interval: candlePayload.interval,
+      response_sha256: candlePayload.response_sha256,
+      candle_count: candlePayload.candles.length,
+      chart_canvas: ui.canvas,
+      chart_library_loaded: ui.chartLibraryLoaded,
+      chart_series_exists: ui.chartSeriesExists,
+      chart_script_integrity: ui.chartScriptIntegrity,
+      chart_asset_response: chartAssetResponse,
+      visible_candle_pixels: candlePixels,
+      console_errors: consoleErrors,
+      page_errors: pageErrors,
+      request_failures: requestFailures,
+      message: ui.message,
+      execution_enabled: false
+    };
+    require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(diagnosticEvidence, null, 2) + "\n");
+    assert.ok(
+      visibleCandlePixelCount >= 8,
+      `candlestick series is not visibly rendered: ${JSON.stringify({ ...candlePixels, chartAssetResponse, chartLibraryLoaded: ui.chartLibraryLoaded, chartSeriesExists: ui.chartSeriesExists, consoleErrors, pageErrors })}`
+    );
+
     assert.ok(ui.bars, "browser could not inspect the dashboard's candle batch");
     assert.equal(ui.bars.length, candlePayload.candles.length, "chart input batch length differs from API batch");
     assert.equal(ui.bars.at(-1).open_time, last.open_time, "chart latest candle time differs from API batch");
@@ -83,6 +148,7 @@ const { chromium } = require("playwright");
       response_sha256: candlePayload.response_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
+      visible_candle_pixels: candlePixels,
       external_chart_cdn_requested: externalChartCdnRequested,
       displayed_close_matches_source: true,
       displayed_volume_matches_source: true,
