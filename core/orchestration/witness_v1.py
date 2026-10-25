@@ -53,7 +53,7 @@ class WitnessResultV1:
 
 
 class MotherAuditWitnessV1:
-    """Verify the audit digest and safety invariants without trusting the producer."""
+    """Verify audit digest and safety invariants without trusting its producer."""
 
     VERSION = "hes-mother-orchestrator-v1"
 
@@ -66,6 +66,10 @@ class MotherAuditWitnessV1:
             return self._fail("WITNESS_ENVELOPE_NOT_MAPPING")
         trace_id = envelope.get("trace_id", "")
         digest = envelope.get("audit_sha256", "")
+        status = envelope.get("status")
+        decision = envelope.get("decision")
+        reasons = envelope.get("reason_codes")
+        stages = envelope.get("stages")
         if envelope.get("schema_version") != "hes.mother_orchestration.v1":
             return self._fail("WITNESS_SCHEMA_VERSION_INVALID")
         if envelope.get("execution_authorized") is not False:
@@ -74,10 +78,6 @@ class MotherAuditWitnessV1:
             return self._fail("WITNESS_TRACE_ID_INVALID")
         if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
             return self._fail("WITNESS_AUDIT_HASH_INVALID")
-        status = envelope.get("status")
-        decision = envelope.get("decision")
-        reasons = envelope.get("reason_codes")
-        stages = envelope.get("stages")
         if not isinstance(status, str) or not status:
             return self._fail("WITNESS_STATUS_INVALID")
         if decision not in _DECISIONS:
@@ -86,18 +86,28 @@ class MotherAuditWitnessV1:
             return self._fail("WITNESS_REASON_CODES_INVALID")
         if len(reasons) != len(set(reasons)):
             return self._fail("WITNESS_REASON_CODES_DUPLICATED")
-        if not isinstance(stages, list):
+        if not isinstance(stages, list) or len(stages) > len(_REQUIRED_STAGES):
             return self._fail("WITNESS_STAGES_INVALID")
         names = [stage.get("agent") if isinstance(stage, Mapping) else None for stage in stages]
-        if tuple(names) != _REQUIRED_STAGES:
+        if tuple(names) != _REQUIRED_STAGES[:len(names)]:
             return self._fail("WITNESS_STAGE_ORDER_INVALID")
+        observation = status == "OBSERVATION_ONLY"
+        if observation and len(names) != len(_REQUIRED_STAGES):
+            return self._fail("WITNESS_OBSERVATION_CHAIN_INCOMPLETE")
+        if not observation and (not status.startswith("BLOCKED_") or decision != "NO_TRADE"):
+            return self._fail("WITNESS_BLOCKED_DECISION_NOT_NO_TRADE")
+
         audit_rows: list[dict[str, Any]] = []
-        for name, stage in zip(_REQUIRED_STAGES, stages):
+        for index, (name, stage) in enumerate(zip(names, stages)):
             if not isinstance(stage, Mapping):
-                return self._fail("WITNESS_STAGE_INVALID:" + name)
-            if not isinstance(stage.get("agent_version"), str) or not stage["agent_version"].strip():
+                return self._fail("WITNESS_STAGE_INVALID:" + str(name))
+            version = stage.get("agent_version")
+            state = stage.get("state")
+            if not isinstance(version, str) or not version.strip():
                 return self._fail("WITNESS_AGENT_VERSION_INVALID:" + name)
-            if stage.get("state") not in _ALLOWED_STATES[name]:
+            if not isinstance(state, str) or not state.strip():
+                return self._fail("WITNESS_STAGE_STATE_INVALID:" + name)
+            if observation and state not in _ALLOWED_STATES[name]:
                 return self._fail("WITNESS_STAGE_STATE_INVALID:" + name)
             stage_reasons = stage.get("reason_codes")
             refs = stage.get("evidence_refs")
@@ -109,23 +119,23 @@ class MotherAuditWitnessV1:
                 return self._fail("WITNESS_STAGE_EVIDENCE_INVALID:" + name)
             if len(refs) != len(set(refs)):
                 return self._fail("WITNESS_STAGE_EVIDENCE_DUPLICATED:" + name)
-            row = {
+            row_decision = stage.get("decision") if name == "decision" else None
+            if name == "decision":
+                if observation and row_decision != decision:
+                    return self._fail("WITNESS_DECISION_STAGE_MISMATCH")
+                if not observation and row_decision not in (*_DECISIONS, "INVALID"):
+                    return self._fail("WITNESS_BLOCKED_STAGE_DECISION_INVALID")
+            audit_rows.append({
                 "agent": name,
-                "agent_version": stage["agent_version"],
-                "state": stage["state"],
+                "agent_version": version,
+                "state": state,
                 "reason_codes": stage_reasons,
                 "evidence_refs": refs,
-                "decision": stage.get("decision") if name == "decision" else None,
-            }
-            audit_rows.append(row)
-        decision_row = stages[5]
-        if decision_row.get("decision") != decision:
-            return self._fail("WITNESS_DECISION_STAGE_MISMATCH")
-        if status == "OBSERVATION_ONLY":
-            if "EXECUTION_NOT_AUTHORIZED" not in reasons:
-                return self._fail("WITNESS_OBSERVATION_BOUNDARY_MISSING")
-        elif decision != "NO_TRADE":
-            return self._fail("WITNESS_BLOCKED_DECISION_NOT_NO_TRADE")
+                "decision": row_decision,
+            })
+        if observation and "EXECUTION_NOT_AUTHORIZED" not in reasons:
+            return self._fail("WITNESS_OBSERVATION_BOUNDARY_MISSING")
+
         audit = {
             "version": self.VERSION,
             "trace_id": trace_id,
