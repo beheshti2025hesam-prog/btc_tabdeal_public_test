@@ -7,6 +7,7 @@ const { chromium } = require("playwright");
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     let candlePayload = null;
     let externalChartCdnRequested = false;
+    let directMarketDataRequest = false;
     let chartAssetResponse = null;
     const consoleErrors = [];
     const pageErrors = [];
@@ -19,6 +20,10 @@ const { chromium } = require("playwright");
       const url = request.url();
       if (url.startsWith("https://unpkg.com/") || url.startsWith("https://cdn.jsdelivr.net/")) {
         externalChartCdnRequested = true;
+      }
+      if (url.startsWith("https://api.gateio.ws/") || url.startsWith("https://api.binance.com/") ||
+          url.startsWith("https://data-api.binance.vision/")) {
+        directMarketDataRequest = true;
       }
     });
     page.on("response", async response => {
@@ -58,6 +63,7 @@ const { chromium } = require("playwright");
     assert.equal(candlePayload.venue, "gateio");
     assert.equal(candlePayload.execution_enabled, false);
     assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
+    assert.equal(directMarketDataRequest, false, "dashboard must read the persisted global feed, not call an exchange REST endpoint");
 
     const last = candlePayload.candles[candlePayload.candles.length - 1];
     const ui = await page.evaluate(() => ({
@@ -177,6 +183,7 @@ const { chromium } = require("playwright");
       chart_canvas: ui.canvas,
       visible_candle_pixels: candlePixels,
       external_chart_cdn_requested: externalChartCdnRequested,
+      direct_market_data_request_from_browser: directMarketDataRequest,
       displayed_close_matches_source: true,
       displayed_volume_matches_source: true,
       chart_input_batch_matches_api_batch: true,
