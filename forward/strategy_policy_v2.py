@@ -61,7 +61,7 @@ def evaluate(features: Mapping[str, Mapping[str, Any]], *, risk_fraction: float 
             raise ValueError("RISK_FRACTION_OUT_OF_RANGE")
         if isinstance(min_rr, bool) or not isinstance(min_rr, (int, float)) or not math.isfinite(float(min_rr)) or min_rr < 3.0:
             raise ValueError("RR_BELOW_POLICY_FLOOR_OR_INVALID")
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         return PolicyDecision(POLICY_VERSION, "NO_TRADE", "NONE", 0, None, None, None, None,
                               (str(exc),), {"data": "FAIL"})
     # Directional context must align on 1h and 4h; 15m must not contradict it.
