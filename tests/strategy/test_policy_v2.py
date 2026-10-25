@@ -36,6 +36,17 @@ def test_aligned_breakout_can_generate_policy_proposal_only():
     assert decision.execution_enabled is False and decision.orders_placed is False
     assert decision.policy_version == POLICY_VERSION
 
+def test_aligned_short_can_generate_policy_proposal_only():
+    features = {
+        "15m": base("15m", 90, 100, 80, 40, 35, "DOWN", "BELOW"),
+        "1h": base("1h", 90, 100, 80, 40, 35, "NONE", "BELOW"),
+        "4h": base("4h", 90, 100, 80, 40, 35, "NONE", "BELOW"),
+    }
+    decision = evaluate(features)
+    assert decision.decision == "SHORT" and decision.rr >= 3
+    assert decision.take_profit < decision.entry < decision.stop_loss
+    assert decision.execution_enabled is False and decision.orders_placed is False
+
 
 def test_conflicting_htf_blocks_signal():
     features = aligned_long()
