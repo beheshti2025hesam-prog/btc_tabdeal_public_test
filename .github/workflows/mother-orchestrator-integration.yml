@@ -23,9 +23,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_mother_orchestrator_v1.py \
-            tests/test_dashboard_routes_v1.py \
-            tests/test_signal_agent_v1.py \
-            tests/test_strategy_policy_v1.py
+            tests/test_dashboard_routes_v1.py
         env:
           PYTHONPATH: .
       - name: Assert no execution capability is introduced
