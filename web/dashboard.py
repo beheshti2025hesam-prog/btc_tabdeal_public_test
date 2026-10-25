@@ -7,7 +7,8 @@ from threading import Event, Lock, Thread
 import json, os, time
 from urllib.parse import parse_qs, urlparse
 from forward.native_ohlcv_v1 import INTERVAL_MS, validate_native_batch
-from forward.native_ohlcv_gateio_v1 import (GateioSpotKlineSource, SUPPORTED_INTERVALS,\n    VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES)
+from forward.native_ohlcv_gateio_v1 import (GateioSpotKlineSource, SUPPORTED_INTERVALS,
+    VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES)
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
