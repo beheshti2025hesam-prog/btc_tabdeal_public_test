@@ -34,3 +34,10 @@ def test_no_trade_stays_no_trade():
     assert decision.decision == "NO_TRADE"
     assert decision.execution_enabled is False and decision.orders_placed is False
     assert decision.gate_version == GATE_VERSION
+
+def test_final_gate_exposes_no_top_level_execution_parameters():
+    decision = enforce_final_gates(proposal("LONG"))
+    assert not hasattr(decision, "entry")
+    assert not hasattr(decision, "stop_loss")
+    assert not hasattr(decision, "take_profit")
+    assert not hasattr(decision, "rr")
