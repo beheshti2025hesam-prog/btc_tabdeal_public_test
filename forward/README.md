@@ -1,28 +1,30 @@
 # Forward Signal Engine v1
 
-This directory is the forward-only engineering boundary for HES Trade Agent.
+This directory contains the forward-only market-data, strategy, confirmation, risk, decision-journal, and evaluation interfaces for HES Trade Agent.
 
-## Current state
+## Canonical pipeline
 
-The repository's existing collector remains a market-data collector. The forward engine is currently a **contract/skeleton**, not a trading strategy.
+Validated native OHLCV (one approved source/scope) → existing feature pipeline → StrategyEvidenceProvider / StrategyPolicy → SignalAgentV1 → Confirmation → Risk Gate → AgentDisagreementResolver → Mother Orchestrator → optional forward decision journal.
 
-The engine intentionally fails closed to `NO_TRADE` until a versioned policy is explicitly supplied.
+The dashboard entry point is the existing `web/dashboard.py`. Its `GET /api/signal` route reuses the same validated closed-candle batches and feature cache used by the chart. Mother consumes the already-computed specialist outputs; it does not fetch data, recalculate indicators, invent strategy thresholds, or replace the existing disagreement resolver.
 
-## Pipeline
+## Multi-agent control plane
 
-`Market Data → Market Structure → Opportunity Candidate → Confirmation → Risk Gate → LONG/SHORT/NO_TRADE`
+- Implementation: `core/orchestration/mother_v1.py`
+- Versioned contract: `core/orchestration/mother_contract_v1.json`
+- Architecture and ownership map: `docs/MOTHER_MULTI_AGENT_ARCHITECTURE_V1.md`
+- Dashboard trace: `mother_orchestrator` in `GET /api/signal`, including stage states, reason codes, evidence references, trace ID, and audit SHA-256.
 
-Every evaluated opportunity must be journalable, including `NO_TRADE`.
+Missing/invalid provenance, unknown states, data/structure/strategy/confirmation failures, or a risk veto fail closed to `NO_TRADE`. Mother is read-only and always returns `execution_authorized=false`.
 
-## Explicitly out of scope
+## Learning and outcome separation
 
-- historical Winner/Survivor reselection
-- historical performance optimization
-- threshold tuning against old results
-- feature selection from historical outcomes
-- future-outcome leakage
-- live order execution
+The forward decision journal is outcome-free and records decisions idempotently only when explicitly configured. Realized outcomes belong to the separate immutable outcome/evaluation contract and must be linked to verified evidence; Mother must never infer wins, losses, fees, funding, or P&L.
 
-## Next engineering layer
+## Release boundary
 
-Build the **Market Data → normalized candles/features contract** first. It must consume fresh observations and expose stable inputs to this engine without embedding strategy thresholds.
+The current multi-agent integration is a Draft candidate stacked on the canonical data/dashboard/Signal Agent/learning dependency chain. CI validates the code path but does not prove deployment or runtime parity on the authorized VPS. Live WebSocket smoke is not established on this candidate. Execution remains disabled until the approved venue adapter, account/risk context, symbol mapping, and independently reconciled fill/outcome evidence pass their release gates.
+
+## Non-duplication rule
+
+Before adding a specialist, search the existing `forward/` contracts and the ownership table in `docs/MOTHER_MULTI_AGENT_ARCHITECTURE_V1.md`. Extend the owner module or add a thin adapter; do not create another candle schema, feature calculator, risk engine, decision resolver, journal, or frontend.
