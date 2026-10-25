@@ -15,6 +15,7 @@ from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
 from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 from forward.learning_evidence_adapter_v1 import record_signal_decision
+from core.orchestration.mother_v1 import MotherOrchestratorV1, precomputed_specialists_v1
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
@@ -224,11 +225,68 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 if arbitration.decision == "NO_TRADE":
                     blocked.extend(arbitration.reason_codes)
-                final_decision = arbitration.decision if not blocked else "NO_TRADE"
+
+                # Mother Orchestrator coordinates the outputs already computed by
+                # the canonical data/strategy/confirmation/risk/arbitration layers.
+                # These adapters do not refetch data or duplicate specialist logic.
+                confirmed = getattr(result.confirmation, "state", "") in ("CONFIRMED_LONG", "CONFIRMED_SHORT")
+                quality_state = result.strategy_quality.state if result.strategy_quality else "UNKNOWN"
+                evidence_refs = [batch.response_sha256, htf_batch.response_sha256]
+                specialist_reports = {
+                    "data_quality": {
+                        "state": "PASS" if data_ok else "FAIL",
+                        "reason_codes": [] if data_ok else ["DATA_QUALITY_GATE_FAILED"],
+                        "evidence_refs": evidence_refs,
+                    },
+                    "market_structure": {
+                        "state": "PASS" if structure_ok else "UNKNOWN",
+                        "reason_codes": [] if structure_ok else ["STRUCTURE_DIRECTION_OR_REGIME_UNKNOWN"],
+                        "evidence_refs": evidence_refs,
+                    },
+                    "signal": {
+                        "state": "PASS" if quality_state == "PASS" else "FAIL" if quality_state == "FAIL" else "UNKNOWN",
+                        "reason_codes": list(result.strategy_quality.reason_codes) if result.strategy_quality else ["STRATEGY_QUALITY_UNKNOWN"],
+                        "evidence_refs": [strategy_sha],
+                    },
+                    "confirmation": {
+                        "state": "CONFIRMED" if confirmed else "UNKNOWN",
+                        "reason_codes": list(getattr(result.confirmation, "reason_codes", ())),
+                        "evidence_refs": evidence_refs,
+                    },
+                    "risk": {
+                        "state": "APPROVED" if getattr(result.risk, "state", "") == "RISK_APPROVED" else "REJECTED",
+                        "reason_codes": list(getattr(result.risk, "reason_codes", ())),
+                        "evidence_refs": evidence_refs,
+                    },
+                    "decision": {
+                        "state": "DECIDED",
+                        "reason_codes": list(arbitration.reason_codes),
+                        "evidence_refs": [arbitration.audit_sha256, *evidence_refs],
+                        "payload": {"decision": arbitration.decision},
+                    },
+                    "evaluation": {
+                        "state": "OBSERVED" if not blocked else "BLOCKED",
+                        "reason_codes": list(dict.fromkeys(blocked)),
+                        "evidence_refs": [arbitration.audit_sha256],
+                    },
+                }
+                evidence_sha = sha256(json.dumps(specialist_reports, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                mother = MotherOrchestratorV1(precomputed_specialists_v1()).run({
+                    "scope": {"venue": strategy.venue, "product": strategy.product,
+                              "symbol": strategy.symbol, "timeframe": strategy.timeframe},
+                    "observed_at": strategy.observed_at.isoformat(),
+                    "snapshot_sha256": snapshot_sha,
+                    "evidence_sha256": evidence_sha,
+                    "specialist_reports": specialist_reports,
+                })
+                if mother.status != "OBSERVATION_ONLY":
+                    blocked.extend(mother.reason_codes)
+                final_decision = mother.decision
                 payload = {
                     "status": "BLOCKED" if final_decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
                     "disagreement_resolver_version": _DISAGREEMENT_RESOLVER.VERSION,
+                    "mother_orchestrator": mother.as_dict(),
                     "decision": final_decision,
                     "arbitration": arbitration.as_dict(),
                     "decision_reasons": list(arbitration.reason_codes),
