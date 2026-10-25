@@ -18,7 +18,7 @@ class Candle:
     low: float
     close: float
     volume: float
-    trade_count: int
+    trade_count: int | None
 
 class TradeCandleAggregator:
     """Aggregate canonical trades into deterministic OHLCV candles."""

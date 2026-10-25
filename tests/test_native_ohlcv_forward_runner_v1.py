@@ -127,7 +127,7 @@ def test_future_fetch_timestamp_is_blocked_before_journaling(tmp_path):
 def test_runner_journals_native_feature_snapshot_from_the_same_fetched_batch(tmp_path):
     source = FakeSource(sample_batch(count=3))
     journal = tmp_path / "observations.jsonl"
-    pipeline = NativeOHLCVFeaturePipelineV1(ema_period=3, vwap_period=3, momentum_period=2)
+    pipeline = NativeOHLCVFeaturePipelineV1(ema_period=3, vwap_period=3, momentum_period=2, volume_semantics_approved=True)
     runner = NativeOHLCVForwardRunnerV1(
         source=source, journal_path=journal, enabled=True, feature_pipeline=pipeline
     )

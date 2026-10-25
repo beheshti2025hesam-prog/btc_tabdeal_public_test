@@ -24,15 +24,15 @@ def sample_batch(*, gaps=()):
     close_ms=open_ms+59_999
     fetched=now_ms
     candle=SimpleNamespace(
-        venue="binance",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="gateio",product="spot",symbol="BTCUSDT",interval="1m",
         open_time_ms=open_ms,close_time_ms=close_ms,
         open=Decimal("100.00"),high=Decimal("102.00"),low=Decimal("99.00"),
         close=Decimal("101.00"),volume=Decimal("2.500"),quote_volume=Decimal("250.625"),
-        trade_count=12,taker_buy_volume=Decimal("1.600"),
-        taker_buy_quote_volume=Decimal("160.400"),closed=True,
+        trade_count=None,taker_buy_volume=None,
+        taker_buy_quote_volume=None,closed=True,
     )
     return SimpleNamespace(
-        venue="binance",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="gateio",product="spot",symbol="BTCUSDT",interval="1m",
         endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
@@ -63,7 +63,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertNotIn("unpkg.com",page)
         self.assertIn("https://www.tradingview.com/",page)
         self.assertIn("LightweightCharts.CandlestickSeries",page)
-        self.assertIn("Binance Spot",page)
+        self.assertIn("Gate.io Spot public candles",page)
         self.assertNotIn("Yahoo",page)
         self.assertNotIn("<canvas id=\"chart\"",page)
 
@@ -103,7 +103,7 @@ class DashboardRouteTests(unittest.TestCase):
                 payload=json.loads(response.read())
         fetch.assert_called_once_with(symbol="BTCUSDT",interval="1m",limit=240)
         build.assert_called_once_with(batch)
-        self.assertEqual(payload["source"],"binance_native_ohlcv_v1")
+        self.assertEqual(payload["source"],"gateio_native_ohlcv_v1")
         self.assertEqual(payload["response_sha256"],"a"*64)
         self.assertEqual(payload["candles"][0]["open"],"100.00")
         self.assertEqual(payload["candles"][0]["volume"],"2.500")
@@ -114,6 +114,11 @@ class DashboardRouteTests(unittest.TestCase):
         with patch("web.dashboard._SOURCE.fetch") as fetch:
             with self.assertRaises(HTTPError) as error:
                 urlopen(self.base+"/api/candles?symbol=BTC-USD&interval=1m")
+        self.assertEqual(error.exception.code,400)
+        fetch.assert_not_called()
+        with patch("web.dashboard._SOURCE.fetch") as fetch:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=2h")
         self.assertEqual(error.exception.code,400)
         fetch.assert_not_called()
 
@@ -154,20 +159,16 @@ class DashboardRouteTests(unittest.TestCase):
 
 
 
-    def test_dashboard_main_starts_websocket_only_for_exact_opt_in_value(self):
+    def test_dashboard_main_never_starts_legacy_binance_websocket_in_gateio_mode(self):
         dashboard._STREAM_STATE.update(status="disabled", reason=None, last_event_ms=None)
         with patch.dict(os.environ, {"HES_BINANCE_STREAM_ENABLED": "1"}):
             with patch("web.dashboard.Thread") as worker_thread, \
                  patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                 server_factory.return_value.serve_forever.return_value = None
                 dashboard.main()
-        worker_thread.assert_called_once_with(
-            target=dashboard._stream_worker,
-            name="hes-binance-spot-kline",
-            daemon=True,
-        )
-        worker_thread.return_value.start.assert_called_once_with()
-        self.assertEqual(dashboard._STREAM_STATE["status"], "starting")
+        worker_thread.assert_not_called()
+        self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
+        self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 
 
 if __name__=="__main__":

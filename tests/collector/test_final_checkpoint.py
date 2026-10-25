@@ -14,6 +14,7 @@ def test_main_raises_when_final_checkpoint_fails(monkeypatch):
     monkeypatch.setattr(collector, "open_csv", lambda: None)
     monkeypatch.setattr(collector, "collect", lambda: None)
     monkeypatch.setattr(collector, "git_checkpoint", lambda: False)
+    monkeypatch.setattr(collector, "synchronize_startup_data_state", lambda: None)
 
     def fake_close_csv():
         closed["value"] = True
@@ -33,6 +34,7 @@ def test_main_completes_when_final_checkpoint_succeeds(monkeypatch):
     monkeypatch.setattr(collector, "open_csv", lambda: None)
     monkeypatch.setattr(collector, "collect", lambda: None)
     monkeypatch.setattr(collector, "git_checkpoint", lambda: True)
+    monkeypatch.setattr(collector, "synchronize_startup_data_state", lambda: None)
 
     def fake_close_csv():
         closed["value"] = True
