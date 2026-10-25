@@ -2,9 +2,9 @@ name: Evaluation and Learning Evidence Integration
 
 on:
   pull_request:
-    branches: ["main", "feat/hes-agent-entrypoint-integration-20261024", "feat/evaluation-learning-evidence-integration-20261024"]
+    branches: ["main", "feat/hes-agent-entrypoint-integration-20261024", "feat/evaluation-learning-evidence-integration-20261024", "feat/trade-journal-readonly-ui-20261025"]
   push:
-    branches: ["feat/evaluation-learning-evidence-integration-20261024"]
+    branches: ["feat/evaluation-learning-evidence-integration-20261024", "feat/trade-journal-execution-projection-20261025"]
 
 permissions:
   contents: read
