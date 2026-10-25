@@ -44,9 +44,12 @@ jobs:
         with:
           node-version: "22"
       - name: Install Playwright and Chromium
+        timeout-minutes: 4
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.56.1
-          npx playwright install --with-deps chromium
+          # GitHub-hosted Ubuntu runners already include Chromium's system libraries;
+          # install only the pinned browser binary here to avoid a slow apt dependency pass.
+          npx playwright install chromium
       - name: Render real chart and compare chart input with same API batch
         timeout-minutes: 2
         run: |
