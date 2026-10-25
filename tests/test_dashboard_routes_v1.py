@@ -110,6 +110,8 @@ class DashboardRouteTests(unittest.TestCase):
         build.assert_called_once_with(batch)
         self.assertEqual(payload["source"],"gateio_public_spot")
         self.assertEqual(payload["source_reader"],"global_market_data_reader_v1")
+        self.assertEqual(payload["source_symbol"],"BTC_USDT")
+        self.assertTrue(payload["symbol_mapping_verified"])
         self.assertEqual(payload["volume_semantics_contract"],"gateio_spot_candlestick_volume_v1")
         self.assertFalse(payload["trade_count_available"])
         self.assertFalse(payload["taker_buy_flow_available"])
