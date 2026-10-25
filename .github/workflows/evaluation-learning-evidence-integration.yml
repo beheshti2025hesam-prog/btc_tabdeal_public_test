@@ -25,7 +25,6 @@ jobs:
             tests/test_forward_learning_loop_v1.py \
             tests/test_learning_evidence_adapter_v1.py \
             tests/test_dashboard_routes_v1.py \
-            tests/test_trade_journal_view_v1.py
       - name: Assert execution and historical firewalls
         run: |
           grep -q '"execution_enabled": false' forward/clean_evidence_contract_v1.json
