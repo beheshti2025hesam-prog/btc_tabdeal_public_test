@@ -1,7 +1,11 @@
 import importlib.util, unittest, tempfile
 from pathlib import Path
-p=Path('/opt/hes-trade-agent/forward/global_market_data_gateio_v1.py')
-spec=importlib.util.spec_from_file_location('gatefeed',p); m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ROOT = Path(__file__).resolve().parents[2]
+p = ROOT / 'forward/global_market_data_gateio_v1.py'
+spec = importlib.util.spec_from_file_location('gatefeed', p)
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+
 class GateFeedTests(unittest.TestCase):
  def test_normalize_closed_candle(self):
   x=m.normalize_row(['1000','2.4','12','13','10','11','1.2'],now=1900)
