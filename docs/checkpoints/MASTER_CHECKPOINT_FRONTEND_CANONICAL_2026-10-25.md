@@ -29,3 +29,24 @@ Until all gates pass: HOLD / NO_TRADE_ONLY; no live execution.
 
 Delivery target remains 2026-11-19.
 DNA/Roadmap record: `docs/HES_DNA_AND_ROADMAP.md`.
+
+
+## Revalidation pass — 2026-10-25 (current state)
+
+### Exact PR dependency alignment
+- PR #297 is open Draft, head `1ebc0046457a05fe30a43db0addd567c88dcc79d`.
+- PR #346 is open Draft, head `5bcc4be0e098e843d7cab622489f6a7f3cc99816`; its base SHA is exactly PR #297's head SHA.
+- PR #362 is open Draft, head `5b5b26e92e9d0d4c167dc5af035245e90ccaece4`; its base SHA is exactly PR #346's head SHA.
+- Therefore the intended stack is currently aligned by exact parent SHAs: **#297 → #346 → #362**. This is review alignment only; none is merged or production-approved.
+- PR #361 remains open Draft and overlaps the Signal Agent core; do not merge it independently of #362. PR #345 and #349 are closed unmerged. PR #340 was previously closed unmerged.
+- Current workflows fetched for PR #362 head: dashboard/native source PASS; browser render PASS; Signal Agent regression PASS; Signal Agent contract PASS; live WebSocket smoke SKIPPED (not a pass). Exact run IDs: 40095520769, 40095520745, 40095520775, 40095520824, and skipped 40095520812.
+
+### Sole VPS revalidation
+- Host: `vps-second-261930`; project checkout remains `/opt/hes-trade-agent`, branch `feat/gateio-global-market-data-v1`, HEAD `b2466bc118217dcc6446498effe38181589ed2db`.
+- `git status --short` count: 58 entries. `web/dashboard.py` is absent in this checkout. No reset, clean, merge, copy-over, or deployment was performed.
+- The four existing `hes-global-market-data-gateio*` systemd units (main, 1h, 4h, soak) currently report active and enabled. Journal access to the soak unit was denied for the SentinelX agent identity, so current soak duration/completion is **not verified**.
+- Fresh read-only connectivity probe: `api.binance.com` timed out and resolved to private address `10.10.34.34`; `fapi.binance.com` timed out; `data-api.binance.vision` returned HTTP 451. These results do not support target-VPS feed reachability.
+- A nonempty `COINAPI_API_KEY` assignment was detected without printing its value. Reading file metadata was denied, and earlier PR evidence recorded an HTTP 401 from CoinAPI. Key validity/account access remains unverified; do not expose or print the key.
+
+### Disposition
+The candidate location and PR ancestry are now resolved and persisted; do not repeat generic frontend/repository discovery. **The broader frontend section is not complete for production** because the target runtime lacks verified source connectivity, target-runtime chart/API parity is absent, the candidate code is not in the VPS checkout, and the dirty checkout must be preserved. Do not merge, deploy, activate live feed/collection, or enable execution as a workaround. Continue with authorized provider/runtime access and exact-SHA acceptance evidence. Status remains **HOLD / NO_TRADE_ONLY**. Delivery target: **2026-11-19**; risk checkpoint: **2026-10-26**.
