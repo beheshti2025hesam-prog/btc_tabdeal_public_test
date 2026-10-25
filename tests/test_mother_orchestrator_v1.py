@@ -171,6 +171,24 @@ def test_precomputed_adapter_reuses_versioned_existing_specialist_reports():
     assert result.execution_authorized is False
 
 
+def test_precomputed_report_digest_mismatch_fails_closed():
+    reports = {
+        name: {
+            "agent_version": "existing-" + name + "-v1",
+            "state": STATES[name],
+            "reason_codes": [],
+            "evidence_refs": ["a" * 64],
+            "payload": {"decision": "LONG"} if name == "decision" else {},
+        }
+        for name in ORDER
+    }
+    context = dict(CONTEXT, specialist_reports=reports)
+    result = MotherOrchestratorV1(precomputed_specialists_v1()).run(context)
+    assert result.status == "BLOCKED_CONTEXT"
+    assert result.decision == "NO_TRADE"
+    assert "SPECIALIST_REPORT_DIGEST_MISMATCH" in result.reason_codes
+
+
 def test_versioned_json_contract_matches_implementation_order():
     contract = json.loads((Path(__file__).parents[1] / "core/orchestration/mother_contract_v1.json").read_text())
     assert contract["schema_version"] == "hes.mother_orchestration.v1"
