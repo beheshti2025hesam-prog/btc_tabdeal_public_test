@@ -19,6 +19,7 @@ Delivery target: 2026-11-19. Risk checkpoint: 2026-10-26.
 - Fill states require positive cumulative quantity and average fill price plus response hash and observation time; malformed evidence fails closed.
 - Explicit UNKNOWN fees, funding, realized P&L, and P&L evidence until the existing independently reconciled outcome artifact provides them.
 - Test covers SQLite read-only immutability, invalid/missing fill provenance, unknown schema, and backup/restore projection parity.
+- `forward/sqlite_backup_v1.py` provides a dependency-free online SQLite backup and verified restore utility: SHA-256 manifest, integrity checks, atomic replacement, explicit overwrite protection, and tamper/corrupt-manifest rejection. `tests/test_sqlite_backup_v1.py` covers backup/restore integrity and fail-closed cases.
 - No order routes, venue calls, credential use, service activation, deployment, or VPS mutation.
 
 ## Verification limits / remaining external evidence
