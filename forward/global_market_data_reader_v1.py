@@ -74,6 +74,10 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
             raise MarketDataRejected("CANDLE_OBSERVATION_TIME_INVALID")
         if observed_epoch > now_s + 60:
             raise MarketDataRejected("CANDLE_OBSERVATION_TIME_IN_FUTURE")
+        # Observation may trail candle close slightly because of source/clock
+        # skew, but must not materially predate the candle's close.
+        if observed_epoch < close_time - 60:
+            raise MarketDataRejected("CANDLE_OBSERVED_BEFORE_CLOSE")
         if close_time != ts + seconds or min(o,h,l,c) <= 0 or v < 0 or h < max(o,c,l) or l > min(o,c,h):
             raise MarketDataRejected("CANDLE_OHLC_INVALID")
         if previous is not None:
