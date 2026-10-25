@@ -2,7 +2,7 @@ name: Evaluation and Learning Evidence Integration
 
 on:
   pull_request:
-    branches: ["main", "feat/hes-agent-entrypoint-integration-20261024"]
+    branches: ["main", "feat/hes-agent-entrypoint-integration-20261024", "feat/evaluation-learning-evidence-integration-20261024"]
   push:
     branches: ["feat/evaluation-learning-evidence-integration-20261024"]
 
