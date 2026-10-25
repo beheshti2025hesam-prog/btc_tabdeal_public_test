@@ -47,7 +47,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
             return {"schema": "hes.trade_journal_view.v1", "status": "EMPTY", "count": 0, "events": []}
         with file_path.open("rb") as handle:
             handle.seek(-1, 2)
-            if handle.read(1) != b"\\n":
+            if handle.read(1) != b"\n":
                 raise JournalProjectionError("partial_trailing_record")
     except JournalProjectionError:
         raise
@@ -63,7 +63,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
     try:
         for line_no, raw_line in _iter_raw_lines(file_path):
             try:
-                line = raw_line.decode("utf-8", errors="strict").rstrip("\\r\\n")
+                line = raw_line.decode("utf-8", errors="strict").rstrip("\r\n")
             except UnicodeDecodeError as exc:
                 raise JournalProjectionError(f"invalid_utf8:{line_no}") from exc
             if not line:
