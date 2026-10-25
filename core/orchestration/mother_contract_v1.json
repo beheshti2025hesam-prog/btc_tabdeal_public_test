@@ -14,6 +14,7 @@
     "evaluation": ["OBSERVED"]
   },
   "decisions": ["LONG", "SHORT", "NO_TRADE"],
+  "required_specialist_report_fields": ["agent_version", "state", "reason_codes", "evidence_refs"],
   "required_context": ["scope.venue", "scope.product", "scope.symbol", "scope.timeframe", "observed_at", "snapshot_sha256", "evidence_sha256"],
   "invariants": [
     "NO_TRADE is a first-class decision.",
