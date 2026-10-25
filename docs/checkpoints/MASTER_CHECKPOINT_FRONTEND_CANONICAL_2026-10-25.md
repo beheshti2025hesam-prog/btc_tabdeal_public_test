@@ -92,3 +92,9 @@ The candidate location and PR ancestry are now resolved and persisted; do not re
 - Keep `HOLD / NO_TRADE_ONLY`; no order execution or live trading.
 - Before acceptance: (1) uninterrupted 86,400-second Gate.io soak with evidence for reconnect/gap/stale behavior, (2) Gate.io adapter and source-specific volume semantics tested on exact SHA, (3) exact-SHA CI and browser render, (4) authorized target-runtime chart/API parity, (5) reviewable deployment/rollback and security plan, (6) independent approval of symbol mapping, risk context, and execution adapter before any later execution work.
 - Delivery target remains **2026-11-19**; risk checkpoint **2026-10-26**. This checkpoint records progress and blockers, not product acceptance or production approval.
+
+
+### Reader/soak verification follow-up — 2026-10-25 12:19 UTC
+- Executed the existing `forward.global_market_data_reader_v1.load_market_input` read-only against the live VPS journals: **PASS** for Gate.io BTC_USDT across 15m/1h/4h; counts 600/524/506. Latest candle ages were 220s, 1,120s, and 1,120s respectively, within the reader's per-timeframe 2× freshness limits.
+- Soak journal now has 31 samples, 31 `ok=true`, 0 bad samples; observed span 2026-10-25 11:48:05Z to 12:18:07Z, elapsed 1,802 seconds (~30 minutes). This verifies only the observed 30-minute slice; 24-hour soak remains incomplete.
+- No source files, service configuration, Git worktree, or production deployment were modified by this verification.
