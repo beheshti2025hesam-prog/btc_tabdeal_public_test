@@ -38,6 +38,19 @@
 - Risk checkpoint remains **2026-10-26** until critical blockers clear.
 - GitHub is the technical source of truth. This checkpoint is a status record, not a production approval.
 
+## Latest continuation state — 2026-10-25 16:34
+
+- Latest candidate SHA reviewed: `43fba46ba8f5f0d42858b5092fda77d9f508b1e1`.
+- Mother + independent witness CI: PASS — [run 40195837779](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195837779).
+- Native dashboard single path: PASS — [run 40195837790](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195837790).
+- Evaluation/learning evidence integration: PASS — [run 40195837860](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195837860).
+- Browser render smoke: PASS — [run 40195838195](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195838195).
+- Native WebSocket live smoke: SKIPPED — [run 40195837859](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195837859); not counted as a pass.
+- PR #373 remains OPEN / DRAFT, base `feat/evaluation-learning-evidence-integration-20261024`. No merge, deployment, or live trading.
+- Progress report: [PROJECT_PROGRESS_2026-10-25.md](../reports/PROJECT_PROGRESS_2026-10-25.md). Weighted estimate is ~61% for planning only; 24-hour percentage-point change cannot be truthfully quantified because no baseline was recorded at the start of the window.
+- Current critical gaps: 24-hour continuous soak, live WebSocket/reconnect/restart/session-isolation evidence, VPS/runtime parity, PR ancestry review, and blind forward OOS evidence (95/4,000 observations).
+- Delivery target remains **2026-11-19**; risk checkpoint remains **2026-10-26**.
+
 ## Anti-repeat rule
 
 Do not rebuild existing components. Extend the current canonical path only; reuse immutable artifacts and exact-SHA CI evidence. A skipped workflow is never a pass, and a green result applies only to its exact commit.
