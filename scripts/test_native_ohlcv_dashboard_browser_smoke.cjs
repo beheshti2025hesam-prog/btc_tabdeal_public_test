@@ -52,6 +52,9 @@ const { chromium } = require("playwright");
     assert.equal(candlePayload.source_reader, "global_market_data_reader_v1");
     assert.equal(candlePayload.source_symbol, "BTC_USDT");
     assert.equal(candlePayload.symbol_mapping_verified, true);
+    assert.equal(candlePayload.volume_semantics_contract, "gateio_spot_candlestick_volume_v1");
+    assert.equal(candlePayload.trade_count_available, false);
+    assert.equal(candlePayload.taker_buy_flow_available, false);
     assert.equal(candlePayload.venue, "gateio");
     assert.equal(candlePayload.execution_enabled, false);
     assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
@@ -72,7 +75,8 @@ const { chromium } = require("playwright");
       chartSeriesExists: typeof candleSeries !== "undefined" && !!candleSeries,
       chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
       bars: typeof bars !== "undefined" ? bars.map(b => ({
-        open_time: b.open_time, close: String(b.close), volume: String(b.volume)
+        open_time: b.open_time, open: Number(b.open), high: Number(b.high), low: Number(b.low),
+        close: Number(b.close), volume: String(b.volume)
       })) : null
     }));
 
@@ -107,6 +111,12 @@ const { chromium } = require("playwright");
       schema_version: 1,
       status: visibleCandlePixelCount >= 8 ? "PASS" : "FAIL_VISIBLE_CANDLES",
       source: candlePayload.source,
+      source_reader: candlePayload.source_reader,
+      source_symbol: candlePayload.source_symbol,
+      symbol_mapping_verified: candlePayload.symbol_mapping_verified,
+      volume_semantics_contract: candlePayload.volume_semantics_contract,
+      trade_count_available: candlePayload.trade_count_available,
+      taker_buy_flow_available: candlePayload.taker_buy_flow_available,
       venue: candlePayload.venue,
       symbol: candlePayload.symbol,
       source_symbol: candlePayload.source_symbol,
@@ -134,9 +144,15 @@ const { chromium } = require("playwright");
 
     assert.ok(ui.bars, "browser could not inspect the dashboard's candle batch");
     assert.equal(ui.bars.length, candlePayload.candles.length, "chart input batch length differs from API batch");
-    assert.equal(ui.bars.at(-1).open_time, last.open_time, "chart latest candle time differs from API batch");
-    assert.equal(ui.bars.at(-1).close, last.close, "chart latest candle close differs from API batch");
-    assert.equal(ui.bars.at(-1).volume, last.volume, "chart latest candle volume differs from API batch");
+    for (let i = 0; i < candlePayload.candles.length; i++) {
+      const source = candlePayload.candles[i];
+      const chart = ui.bars[i];
+      assert.equal(chart.open_time, source.open_time, `chart open_time differs at candle ${i}`);
+      for (const field of ["open", "high", "low", "close"]) {
+        assert.equal(chart[field], Number(source[field]), `chart ${field} differs at candle ${i}`);
+      }
+      assert.equal(chart.volume, source.volume, `chart volume differs at candle ${i}`);
+    }
 
     const stamp = new Date(last.close_time).toISOString().replace("T", " ").replace(".000Z", " UTC");
     assert.equal(ui.stamp, stamp, "displayed UTC candle time differs from source batch");
@@ -158,6 +174,7 @@ const { chromium } = require("playwright");
       displayed_close_matches_source: true,
       displayed_volume_matches_source: true,
       chart_input_batch_matches_api_batch: true,
+      chart_all_candles_match_api_batch: true,
       execution_enabled: false,
       message: ui.message
     };
