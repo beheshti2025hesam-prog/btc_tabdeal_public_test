@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 
-from core.orchestration.mother_v1 import AgentResult, MotherOrchestratorV1
+from core.orchestration.mother_v1 import AgentResult, MotherOrchestratorV1, precomputed_specialists_v1
 
 ORDER = ("data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation")
 NOW = datetime.now(timezone.utc)
@@ -147,6 +147,26 @@ def test_duplicate_and_malformed_evidence_refs_fail_closed():
     assert MotherOrchestratorV1(a).run(CONTEXT).status == "BLOCKED_INVALID_RESULT"
     a = agents(signal=Stub("signal", refs=("x" * 513,)))
     assert MotherOrchestratorV1(a).run(CONTEXT).status == "BLOCKED_INVALID_RESULT"
+
+
+def test_precomputed_adapter_reuses_versioned_existing_specialist_reports():
+    reports = {}
+    for name in ORDER:
+        reports[name] = {
+            "agent_version": "existing-" + name + "-v1",
+            "state": STATES[name],
+            "reason_codes": [],
+            "evidence_refs": ["a" * 64],
+            "payload": {"decision": "LONG"} if name == "decision" else {},
+        }
+    context = dict(CONTEXT, specialist_reports=reports)
+    result = MotherOrchestratorV1(precomputed_specialists_v1()).run(context)
+    assert result.status == "OBSERVATION_ONLY"
+    assert result.decision == "LONG"
+    assert [row["agent_version"] for row in result.as_dict()["stages"]] == [
+        "existing-" + name + "-v1" for name in ORDER
+    ]
+    assert result.execution_authorized is False
 
 
 def test_versioned_json_contract_matches_implementation_order():
