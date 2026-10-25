@@ -4,7 +4,7 @@ const { chromium } = require("playwright");
 (async () => {
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "en-US" });
     let candlePayload = null;
     let externalChartCdnRequested = false;
     let chartAssetResponse = null;
