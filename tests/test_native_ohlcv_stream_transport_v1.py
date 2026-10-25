@@ -109,3 +109,47 @@ def test_reconnect_budget_is_bounded_and_failed_socket_is_closed(monkeypatch):
     assert reconciled==[True]
     assert sock.closed
     assert not stop.is_set()
+
+
+def test_reconnect_budget_resets_after_each_valid_payload(monkeypatch):
+    stop=Event()
+    reconciled=[]
+    received=[]
+    payload='{"e":"kline","s":"BTCUSDT","E":1000,"k":{"s":"BTCUSDT","i":"1m","x":false}}'
+
+    class IntermittentSocket:
+        closed=False
+        def __init__(self, final=False):
+            self.final=final
+            self.sent=False
+        def recv(self):
+            if not self.sent:
+                self.sent=True
+                if self.final:
+                    stop.set()
+                return payload
+            raise ConnectionError("simulated_disconnect_after_valid_payload")
+        def close(self):
+            self.closed=True
+
+    sockets=[IntermittentSocket(),IntermittentSocket(),IntermittentSocket(final=True)]
+    iterator=iter(sockets)
+    fake=SimpleNamespace(
+        WebSocketTimeoutException=type("WebSocketTimeoutException",(Exception,),{}),
+        create_connection=lambda *args,**kwargs:next(iterator),
+    )
+    monkeypatch.setitem(sys.modules,"websocket",fake)
+    monkeypatch.setattr(stop,"wait",lambda _timeout:False)
+
+    def on_payload(value):
+        received.append(value)
+
+    run_spot_kline_stream(
+        symbol="BTCUSDT",interval="1m",on_payload=on_payload,
+        reconcile_history=lambda:reconciled.append(True),stop_event=stop,
+        max_reconnects=1,timeout_seconds=1,
+    )
+
+    assert len(reconciled)==3
+    assert received==[payload,payload,payload]
+    assert all(sock.closed for sock in sockets)
