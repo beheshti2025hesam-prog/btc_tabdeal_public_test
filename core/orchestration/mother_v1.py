@@ -175,6 +175,16 @@ class MotherOrchestratorV1:
             return None, "CONTEXT_PROVENANCE_INVALID"
         if "request_id" in safe and (not isinstance(safe["request_id"], str) or len(safe["request_id"]) > 256):
             return None, "CONTEXT_REQUEST_ID_INVALID"
+        if "specialist_reports" in safe:
+            reports = safe["specialist_reports"]
+            if not isinstance(reports, Mapping) or set(reports) != set(_ALLOWED):
+                return None, "SPECIALIST_REPORT_SET_INVALID"
+            try:
+                report_bytes = json.dumps(reports, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+            except (TypeError, ValueError):
+                return None, "SPECIALIST_REPORTS_NOT_CANONICAL_JSON"
+            if sha256(report_bytes).hexdigest() != safe["evidence_sha256"]:
+                return None, "SPECIALIST_REPORT_DIGEST_MISMATCH"
         safe["observed_at"] = observed_at.isoformat()
         safe["scope"] = {key: scope[key] for key in ("venue", "product", "symbol", "timeframe")}
         return safe, None
