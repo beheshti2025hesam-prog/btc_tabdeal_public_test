@@ -17,7 +17,7 @@
   "required_context": ["scope.venue", "scope.product", "scope.symbol", "scope.timeframe", "observed_at", "snapshot_sha256", "evidence_sha256"],
   "invariants": [
     "NO_TRADE is a first-class decision.",
-    "Missing, extra, duplicated, malformed, stale, future, or unprovenanced stage evidence fails closed.",
+    "Missing, extra, malformed, stale, future, or unprovenanced stage evidence fails closed; duplicate reason codes and evidence references within a stage are rejected.",
     "Risk must explicitly return APPROVED before a directional decision stage may run.",
     "No stage may authorize execution.",
     "The orchestrator coordinates existing specialist outputs and must not recompute indicators, market structure, strategy, risk, or outcomes.",
