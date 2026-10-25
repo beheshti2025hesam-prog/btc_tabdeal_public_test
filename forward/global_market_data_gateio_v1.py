@@ -40,8 +40,11 @@ def normalize_row(row: list[Any] | tuple[Any, ...], *, now: int | None = None) -
         quote_vol, close, high, low, open_, volume = (Decimal(str(x)) for x in row[1:7])
     except (ValueError, TypeError, InvalidOperation) as exc:
         raise ValueError('Invalid numeric candle field') from exc
-    if ts < 0 or min(open_, high, low, close, volume, quote_vol) < 0:
-        raise ValueError('Negative timestamp, price, or volume')
+    numeric_values = (quote_vol, close, high, low, open_, volume)
+    if not all(value.is_finite() for value in numeric_values):
+        raise ValueError('Non-finite numeric candle field')
+    if ts < 0 or min(open_, high, low, close) <= 0 or min(volume, quote_vol) < 0:
+        raise ValueError('Negative timestamp, nonpositive price, or negative volume')
     if high < max(open_, close, low) or low > min(open_, close, high):
         raise ValueError('Inconsistent OHLC bounds')
     now_s = int(time.time()) if now is None else int(now)
