@@ -72,7 +72,13 @@ def test_rejects_duplicate_event_identity(tmp_path):
 
 def test_rejects_naive_timestamp(tmp_path):
     path = tmp_path / "decision.jsonl"
-    write_event(path, observed_at="2026-10-25T10:00:00")
+    write_event(path)
+    record = json.loads(path.read_text().strip())
+    record.pop("digest")
+    record["observed_at"] = "2026-10-25T10:00:00"
+    from forward.forward_observation_writer_v1 import observation_digest
+    record["digest"] = observation_digest(record)
+    path.write_text(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\\n")
     with pytest.raises(JournalProjectionError, match="naive_timestamp"):
         read_decision_journal(path)
 
