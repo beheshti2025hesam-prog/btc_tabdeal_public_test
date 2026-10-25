@@ -62,7 +62,7 @@ class OrchestrationResult:
                 "evidence_refs": list(stage.evidence_refs),
             }
             if stage.agent == "decision":
-                row["decision"] = payload.get("decision") if payload.get("decision") in {"LONG", "SHORT", "NO_TRADE"} else "INVALID"
+                row["decision"] = _safe_decision(payload.get("decision"))
             rows.append(row)
         return {
             "schema_version": self.schema_version,
@@ -96,6 +96,10 @@ def _utc(value: Any) -> datetime | None:
     if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         return None
     return value.astimezone(timezone.utc)
+
+
+def _safe_decision(value: Any) -> str:
+    return value if isinstance(value, str) and value in ("LONG", "SHORT", "NO_TRADE") else "INVALID"
 
 
 def _valid_hash(value: Any) -> bool:
@@ -213,7 +217,7 @@ class MotherOrchestratorV1:
                 "agent": row.agent, "state": row.state,
                 "reason_codes": list(row.reason_codes),
                 "evidence_refs": list(row.evidence_refs),
-                "decision": (_decision_value(row.payload) if _decision_value(row.payload) in {"LONG", "SHORT", "NO_TRADE"} else "INVALID") if row.agent == "decision" else None,
+                "decision": _safe_decision(_decision_value(row.payload)) if row.agent == "decision" else None,
             } for row in stages]
             audit = {
                 "version": self.VERSION, "trace_id": trace_id, "status": status,
@@ -262,11 +266,11 @@ class MotherOrchestratorV1:
                 return finish(status, "NO_TRADE", reasons)
             if name == "decision":
                 decision = _decision_value(result.payload)
-                if decision not in {"LONG", "SHORT", "NO_TRADE"}:
+                if _safe_decision(decision) == "INVALID":
                     return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
             shared[name] = result
 
         final_decision = _decision_value(stages[-2].payload)
-        if final_decision not in {"LONG", "SHORT", "NO_TRADE"}:
+        if _safe_decision(final_decision) == "INVALID":
             return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
         return finish("OBSERVATION_ONLY", final_decision, ("EXECUTION_NOT_AUTHORIZED",))
