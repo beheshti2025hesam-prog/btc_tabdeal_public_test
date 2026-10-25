@@ -62,6 +62,32 @@ const { chromium } = require("playwright");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
+    const candlePixels = await page.evaluate(() => {
+      const canvases = [...document.querySelectorAll("#chart canvas")];
+      let green = 0;
+      let red = 0;
+      let sampled = 0;
+      for (const canvas of canvases) {
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx || canvas.width === 0 || canvas.height === 0) continue;
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        // Sample every fourth pixel; chart candles use these configured up/down colors.
+        for (let p = 0; p < pixels.length; p += 16) {
+          const r = pixels[p], g = pixels[p + 1], b = pixels[p + 2], a = pixels[p + 3];
+          if (a < 160) continue;
+          sampled++;
+          if (Math.abs(r - 54) < 35 && Math.abs(g - 201) < 45 && Math.abs(b - 143) < 45) green++;
+          if (Math.abs(r - 241) < 35 && Math.abs(g - 107) < 45 && Math.abs(b - 117) < 45) red++;
+        }
+      }
+      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
+    });
+    assert.ok(candlePixels.canvas_count > 0, "no chart canvas was rendered");
+    assert.ok(
+      candlePixels.green_candle_color_pixels + candlePixels.red_candle_color_pixels >= 8,
+      `candlestick series is not visibly rendered: ${JSON.stringify(candlePixels)}`
+    );
+
     assert.ok(ui.bars, "browser could not inspect the dashboard's candle batch");
     assert.equal(ui.bars.length, candlePayload.candles.length, "chart input batch length differs from API batch");
     assert.equal(ui.bars.at(-1).open_time, last.open_time, "chart latest candle time differs from API batch");
@@ -83,6 +109,7 @@ const { chromium } = require("playwright");
       response_sha256: candlePayload.response_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
+      visible_candle_pixels: candlePixels,
       external_chart_cdn_requested: externalChartCdnRequested,
       displayed_close_matches_source: true,
       displayed_volume_matches_source: true,
