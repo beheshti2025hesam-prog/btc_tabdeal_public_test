@@ -35,6 +35,9 @@ def run_spot_kline_stream(*, symbol: str, interval: str, on_payload: Callable[[s
                 if payload in (None, ""):
                     raise ConnectionError("stream_closed")
                 on_payload(payload)
+                # Bound consecutive failures, not the lifetime number of
+                # reconnects. A valid payload proves the stream recovered.
+                retries = 0
         except Exception:
             if stop_event.is_set():
                 return
