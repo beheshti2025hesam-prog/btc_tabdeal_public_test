@@ -73,4 +73,9 @@ class ReaderTests(unittest.TestCase):
    result=load_market_input(root=d,now=now,min_bars=3)
    self.assertEqual(datetime.fromisoformat(result["observed_at"]).timestamp(),now+1)
 
+ def test_reject_observation_timestamp_materially_before_close(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; rows[1]["observed_at"]=datetime.fromtimestamp(rows[1]["close_time"]-120,timezone.utc).isoformat(); p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
+   with self.assertRaisesRegex(MarketDataRejected,"CANDLE_OBSERVED_BEFORE_CLOSE"): read_closed_candles("15m",root=d,now=12000,min_bars=3)
+
 if __name__=="__main__": unittest.main()
