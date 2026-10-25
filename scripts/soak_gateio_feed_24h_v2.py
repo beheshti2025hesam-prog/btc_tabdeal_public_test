@@ -42,7 +42,7 @@ def main():
  LOG.parent.mkdir(parents=True,exist_ok=True)
  lock_handle=(LOG.parent/'.gateio_feed_soak_v2.lock').open('a',encoding='utf-8')
  try:
-  fcntl.flock(lock_handle.fileno(),fcntl.LOCK_EX|LOCK_NB)
+  fcntl.flock(lock_handle.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
  except BlockingIOError:
   print(json.dumps({'schema':'hes_gateio_soak_error_v1','error':'SOAK_ALREADY_RUNNING','ok':False}),flush=True)
   return 4
