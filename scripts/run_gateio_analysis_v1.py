@@ -19,9 +19,14 @@ from scripts.analyze_gateio_snapshot_v1 import snapshot
 
 def run(root: Path=ROOT) -> dict:
     source=load_market_input(root=root)
-    observed=datetime.fromtimestamp(int(source["timeframes"]["15m"][-1]["close_time"]),timezone.utc)
+    # Keep feed-observation time separate from candle event time and decision time.
+    # The reader has already required an explicit timezone-aware observed_at on
+    # every candle and rejected timestamps too far in the future.
+    observed=datetime.fromisoformat(source["observed_at"].replace("Z","+00:00"))
+    if observed.tzinfo is None or observed.utcoffset() is None:
+        raise ValueError("MARKET_OBSERVATION_TIME_MUST_BE_TIMEZONE_AWARE")
+    latest_close=int(source["timeframes"]["15m"][-1]["close_time"])
     features={tf:snapshot(tf,rows) for tf,rows in source["timeframes"].items()}
-    primary=features["15m"]
     market=MarketInput(
         observed_at=observed,
         symbol="BTC_USDT",
@@ -40,6 +45,8 @@ def run(root: Path=ROOT) -> dict:
     output={
         "schema":"hes_gateio_analysis_decision_v1",
         "observed_at":observed.isoformat(),
+        "decision_at":datetime.now(timezone.utc).isoformat(),
+        "latest_closed_candle_at":datetime.fromtimestamp(latest_close,timezone.utc).isoformat(),
         "source":source["source"],
         "symbol":market.symbol,
         "timeframe":market.timeframe,

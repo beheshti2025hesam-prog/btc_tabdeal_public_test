@@ -4,6 +4,7 @@ This is an analysis-input boundary, not a signal or execution component.
 """
 from __future__ import annotations
 import json, math, time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,8 +36,11 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         raise MarketDataRejected("CANDLE_FILE_UNREADABLE") from exc
     if len(records) < min_bars:
         raise MarketDataRejected("INSUFFICIENT_CLOSED_CANDLES")
+    now_s=int(time.time()) if now is None else int(now)
     previous=None
     for row in records:
+        if not isinstance(row, dict):
+            raise MarketDataRejected("CANDLE_SCHEMA_INVALID")
         if row.get("source") != SOURCE or row.get("symbol") != SYMBOL or row.get("timeframe") != timeframe:
             raise MarketDataRejected("SOURCE_IDENTITY_MISMATCH")
         if row.get("closed") is not True:
@@ -44,7 +48,7 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         try:
             ts=int(row["open_time"]); close_time=int(row["close_time"])
             o=float(row["open"]); h=float(row["high"]); l=float(row["low"]); c=float(row["close"]); v=float(row["volume"])
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError, OverflowError) as exc:
             raise MarketDataRejected("CANDLE_SCHEMA_INVALID") from exc
         if not all(math.isfinite(value) for value in (o,h,l,c,v)):
             raise MarketDataRejected("CANDLE_NON_FINITE_VALUE")
@@ -52,10 +56,28 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         if quote_volume is not None:
             try:
                 qv = float(quote_volume)
-            except (TypeError, ValueError) as exc:
+            except (TypeError, ValueError, OverflowError) as exc:
                 raise MarketDataRejected("CANDLE_SCHEMA_INVALID") from exc
             if not math.isfinite(qv) or qv < 0:
                 raise MarketDataRejected("CANDLE_QUOTE_VOLUME_INVALID")
+        # Provenance is part of the input contract: a candle without a parseable,
+        # timezone-aware observation timestamp cannot be audited at decision time.
+        try:
+            observed_raw = row["observed_at"]
+            observed = datetime.fromisoformat(observed_raw.replace("Z", "+00:00"))
+            if observed.tzinfo is None or observed.utcoffset() is None:
+                raise ValueError("timezone required")
+            observed_epoch = observed.timestamp()
+        except (KeyError, AttributeError, TypeError, ValueError, OverflowError, OSError) as exc:
+            raise MarketDataRejected("CANDLE_OBSERVATION_TIME_INVALID") from exc
+        if not math.isfinite(observed_epoch):
+            raise MarketDataRejected("CANDLE_OBSERVATION_TIME_INVALID")
+        if observed_epoch > now_s + 60:
+            raise MarketDataRejected("CANDLE_OBSERVATION_TIME_IN_FUTURE")
+        # Observation may trail candle close slightly because of source/clock
+        # skew, but must not materially predate the candle's close.
+        if observed_epoch < close_time - 60:
+            raise MarketDataRejected("CANDLE_OBSERVED_BEFORE_CLOSE")
         if close_time != ts + seconds or min(o,h,l,c) <= 0 or v < 0 or h < max(o,c,l) or l > min(o,c,h):
             raise MarketDataRejected("CANDLE_OHLC_INVALID")
         if previous is not None:
@@ -64,7 +86,6 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
             if ts - previous != seconds:
                 raise MarketDataRejected("CANDLE_INTERVAL_GAP")
         previous=ts
-    now_s=int(time.time()) if now is None else int(now)
     age=now_s-int(records[-1]["close_time"])
     if age < 0:
         raise MarketDataRejected("CANDLE_CLOSE_IN_FUTURE")
@@ -80,5 +101,5 @@ def load_market_input(*, root: str | Path = ".", now: int | None = None,
         "source":SOURCE,
         "symbol":SYMBOL,
         "timeframes":feeds,
-        "observed_at":max(row["observed_at"] for rows in feeds.values() for row in rows),
+        "observed_at":max((row["observed_at"] for rows in feeds.values() for row in rows), key=lambda value: datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()),
     }
