@@ -2,6 +2,8 @@ name: Strategy Final Gate and Forward Runner Safety v1
 
 on:
   pull_request:
+    branches:
+      - fix/audit-gateio-soak-continuity-20261025
   push:
     branches:
       - fix/strategy-final-gate-20261025
