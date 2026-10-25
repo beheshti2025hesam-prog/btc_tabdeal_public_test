@@ -16,6 +16,7 @@ from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisag
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 from forward.learning_evidence_adapter_v1 import record_signal_decision
 from core.orchestration.mother_v1 import MotherOrchestratorV1, precomputed_specialists_v1
+from core.orchestration.witness_v1 import MotherAuditWitnessV1
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
@@ -286,14 +287,21 @@ class Handler(BaseHTTPRequestHandler):
                     "evidence_sha256": evidence_sha,
                     "specialist_reports": specialist_reports,
                 })
-                if mother.status != "OBSERVATION_ONLY":
-                    blocked.extend(mother.reason_codes)
-                final_decision = mother.decision
+                mother_payload = mother.as_dict()
+                witness = MotherAuditWitnessV1().verify(mother_payload)
+                if not witness.verified:
+                    blocked.extend(witness.reason_codes)
+                    final_decision = "NO_TRADE"
+                else:
+                    if mother.status != "OBSERVATION_ONLY":
+                        blocked.extend(mother.reason_codes)
+                    final_decision = mother.decision
                 payload = {
                     "status": "BLOCKED" if final_decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
                     "disagreement_resolver_version": _DISAGREEMENT_RESOLVER.VERSION,
-                    "mother_orchestrator": mother.as_dict(),
+                    "mother_orchestrator": mother_payload,
+                    "mother_witness": witness.as_dict(),
                     "decision": final_decision,
                     "arbitration": arbitration.as_dict(),
                     "decision_reasons": list(arbitration.reason_codes),
