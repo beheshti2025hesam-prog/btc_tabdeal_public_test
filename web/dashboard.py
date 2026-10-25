@@ -15,6 +15,8 @@ from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
 from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 from forward.learning_evidence_adapter_v1 import record_signal_decision
+from core.orchestration.mother_v1 import MotherOrchestratorV1, precomputed_specialists_v1
+from core.orchestration.witness_v1 import MotherAuditWitnessV1
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
@@ -102,14 +104,14 @@ header,.toolbar,.metrics{display:flex;gap:12px;align-items:center;justify-conten
 <section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option><option>ETHUSDT</option><option>SOLUSDT</option></select></label><label>Timeframe <select id="interval"><option>1m</option><option>5m</option><option>15m</option><option>1h</option><option>1d</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Binance Spot public klines</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" style="font-size:14px">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel" style="padding:8px;margin-top:14px"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status">Loading validated closed candles…</div></section>
-<section class="panel"><h3 style="margin-top:0">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This is the read-only Signal Agent entry route. Missing symbol-mapping evidence, directional structure, strategy-level quality approval, risk geometry, or any risk approval keeps the decision at NO_TRADE. Feature-engine quality is descriptive and is not substituted for strategy-level signal quality.</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
+<section class="panel"><h3 style="margin-top:0">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This is the read-only Signal Agent entry route. Missing symbol-mapping evidence, directional structure, strategy-level quality approval, risk geometry, or any risk approval keeps the decision at NO_TRADE. Feature-engine quality is descriptive and is not substituted for strategy-level signal quality.</p></div><div class="panel"><h4 style="margin:0 0 8px">Mother Orchestrator · read-only</h4><div class="metrics"><div class="metric"><small>Orchestration status</small><strong id="motherStatus">BLOCKED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace" style="font-size:12px">—</strong></div></div><p class="muted" id="motherStages">Waiting for specialist evidence…</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <div class="footer">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. Copyright (c) 2025 TradingView, Inc. Binance Spot is venue-specific, not a consolidated global feed. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Volume is shown as reported and is not normalized; its semantics are unverified. If the source is unavailable or stale, the chart fails closed.</div></main>
 <script>
 const $=id=>document.getElementById(id);let bars=[];let chart=null,candleSeries=null;
 if(window.LightweightCharts){chart=LightweightCharts.createChart($('chart'),{autoSize:true,layout:{background:{type:'solid',color:'#121c2c'},textColor:'#91a2ba'},grid:{vertLines:{color:'#27364b'},horzLines:{color:'#27364b'}},rightPriceScale:{borderColor:'#27364b'},timeScale:{borderColor:'#27364b',timeVisible:true,secondsVisible:false},crosshair:{vertLine:{color:'#526783'},horzLine:{color:'#526783'}}});candleSeries=chart.addSeries(LightweightCharts.CandlestickSeries,{upColor:'#36c98f',downColor:'#f16b75',borderVisible:false,wickUpColor:'#36c98f',wickDownColor:'#f16b75'});}
 function draw(){if(!candleSeries){$('message').textContent='FAIL CLOSED · chart library did not load; check network/CDN policy';return}candleSeries.setData(bars.map(b=>({time:Math.floor(b.open_time/1000),open:Number(b.open),high:Number(b.high),low:Number(b.low),close:Number(b.close)})));if(bars.length)chart.timeScale().fitContent()}
 async function refresh(){const btn=$('refresh');btn.disabled=true;$('message').textContent='Fetching and validating closed reference candles…';try{const q=new URLSearchParams({symbol:$('symbol').value,interval:$('interval').value}),r=await fetch('/api/candles?'+q,{cache:'no-store'}),j=await r.json();if(!r.ok)throw Error(j.error||'Market data unavailable');bars=j.candles;if(!bars.length)throw Error('No closed candles returned');const b=bars[bars.length-1];$('price').textContent=Number(b.close).toLocaleString(undefined,{maximumFractionDigits:8});$('stamp').textContent=new Date(b.close_time).toISOString().replace('T',' ').replace('.000Z',' UTC');$('volume').textContent=b.volume;$('count').textContent=String(bars.length);$('source').textContent='Source: '+j.source+' · '+j.product+' · '+j.symbol;$('message').textContent='VALIDATED · '+(j.feature_ready?'FEATURES READY':'FEATURES GATED: '+j.feature_reason)+' · stream '+j.stream_status+(j.stream_reason?' ('+j.stream_reason+')':'')+' · latest age '+j.latest_age_seconds.toFixed(1)+'s · volume unchanged';draw()}catch(e){bars=[];draw();['price','stamp','volume','count'].forEach(k=>$(k).textContent='—');$('message').textContent='FAIL CLOSED · '+e.message}finally{btn.disabled=false}}
-async function refreshSignal(){try{const r=await fetch('/api/signal?symbol=BTCUSDT&interval=15m',{cache:'no-store'}),j=await r.json();if(!r.ok)throw Error(j.error||'Signal evaluation unavailable');$('signalDecision').textContent=j.decision;$('signalStatus').textContent=j.status;$('signalFeatureQuality').textContent=j.feature_quality_passed===true?'PASS (descriptive)':j.feature_quality_passed===false?'FAIL':'UNKNOWN';$('signalStrategyQuality').textContent=j.strategy_quality_state||'UNKNOWN';$('signalStrategyQuorum').textContent=String(j.strategy_quality_passed_count??0)+'/'+String(j.strategy_quality_required_count??5);$('signalOrderBlock').textContent=j.order_block_score===null||j.order_block_score===undefined?'UNAVAILABLE':String(j.order_block_score)+'/'+String(j.order_block_max_score??7)+(j.order_block_fresh?' · FRESH':j.order_block_mitigated?' · MITIGATED':'');$('signalRisk').textContent=j.risk_state||'UNKNOWN';$('signalReasons').textContent=(j.blocked_reasons||[]).join(' · ')||'No block reasons supplied';}catch(e){$('signalDecision').textContent='NO_TRADE';$('signalStatus').textContent='BLOCKED';$('signalFeatureQuality').textContent='UNKNOWN';$('signalStrategyQuality').textContent='UNKNOWN';$('signalStrategyQuorum').textContent='0/5';$('signalOrderBlock').textContent='UNKNOWN';$('signalRisk').textContent='UNKNOWN';$('signalReasons').textContent='FAIL CLOSED · '+e.message}}
+async function refreshSignal(){try{const r=await fetch('/api/signal?symbol=BTCUSDT&interval=15m',{cache:'no-store'}),j=await r.json();if(!r.ok)throw Error(j.error||'Signal evaluation unavailable');$('signalDecision').textContent=j.decision;$('signalStatus').textContent=j.status;$('signalFeatureQuality').textContent=j.feature_quality_passed===true?'PASS (descriptive)':j.feature_quality_passed===false?'FAIL':'UNKNOWN';$('signalStrategyQuality').textContent=j.strategy_quality_state||'UNKNOWN';$('signalStrategyQuorum').textContent=String(j.strategy_quality_passed_count??0)+'/'+String(j.strategy_quality_required_count??5);$('signalOrderBlock').textContent=j.order_block_score===null||j.order_block_score===undefined?'UNAVAILABLE':String(j.order_block_score)+'/'+String(j.order_block_max_score??7)+(j.order_block_fresh?' · FRESH':j.order_block_mitigated?' · MITIGATED':'');$('signalRisk').textContent=j.risk_state||'UNKNOWN';$('signalReasons').textContent=(j.blocked_reasons||[]).join(' · ')||'No block reasons supplied';const m=j.mother_orchestrator||{};$('motherStatus').textContent=m.status||'BLOCKED';$('motherTrace').textContent=(m.trace_id||'').slice(0,12)+' / '+(m.audit_sha256||'').slice(0,12);$('motherStages').textContent=(m.stages||[]).map(s=>s.agent+': '+s.state+((s.reason_codes||[]).length?' ('+s.reason_codes.join(', ')+')':'')).join(' · ')||'No verified stage results';}catch(e){$('motherStatus').textContent='BLOCKED';$('motherTrace').textContent='—';$('motherStages').textContent='FAIL CLOSED · '+e.message;$('signalDecision').textContent='NO_TRADE';$('signalStatus').textContent='BLOCKED';$('signalFeatureQuality').textContent='UNKNOWN';$('signalStrategyQuality').textContent='UNKNOWN';$('signalStrategyQuorum').textContent='0/5';$('signalOrderBlock').textContent='UNKNOWN';$('signalRisk').textContent='UNKNOWN';$('signalReasons').textContent='FAIL CLOSED · '+e.message}}
 $('refresh').addEventListener('click',refresh);$('symbol').addEventListener('change',refresh);$('interval').addEventListener('change',refresh);refresh();refreshSignal();setInterval(refresh,15000);setInterval(refreshSignal,15000);
 </script></body></html>'''
 
@@ -224,11 +226,82 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 if arbitration.decision == "NO_TRADE":
                     blocked.extend(arbitration.reason_codes)
-                final_decision = arbitration.decision if not blocked else "NO_TRADE"
+
+                # Mother Orchestrator coordinates the outputs already computed by
+                # the canonical data/strategy/confirmation/risk/arbitration layers.
+                # These adapters do not refetch data or duplicate specialist logic.
+                confirmed = getattr(result.confirmation, "state", "") in ("CONFIRMED_LONG", "CONFIRMED_SHORT")
+                quality_state = result.strategy_quality.state if result.strategy_quality else "UNKNOWN"
+                evidence_refs = [batch.response_sha256, htf_batch.response_sha256]
+                specialist_reports = {
+                    "data_quality": {
+                        "agent_version": "native-feature-pipeline-v1",
+                        "state": "PASS" if data_ok else "FAIL",
+                        "reason_codes": [] if data_ok else ["DATA_QUALITY_GATE_FAILED"],
+                        "evidence_refs": evidence_refs,
+                    },
+                    "market_structure": {
+                        "agent_version": "market-structure-v1",
+                        "state": "PASS" if structure_ok else "UNKNOWN",
+                        "reason_codes": [] if structure_ok else ["STRUCTURE_DIRECTION_OR_REGIME_UNKNOWN"],
+                        "evidence_refs": evidence_refs,
+                    },
+                    "signal": {
+                        "agent_version": "hes-strategy-policy-v1",
+                        "state": "PASS" if quality_state == "PASS" else "FAIL" if quality_state == "FAIL" else "UNKNOWN",
+                        "reason_codes": list(result.strategy_quality.reason_codes) if result.strategy_quality else ["STRATEGY_QUALITY_UNKNOWN"],
+                        "evidence_refs": [strategy_sha],
+                    },
+                    "confirmation": {
+                        "agent_version": "confirmation-policy-v1",
+                        "state": "CONFIRMED" if confirmed else "UNKNOWN",
+                        "reason_codes": list(getattr(result.confirmation, "reason_codes", ())),
+                        "evidence_refs": evidence_refs,
+                    },
+                    "risk": {
+                        "agent_version": "risk-policy-v1",
+                        "state": "APPROVED" if getattr(result.risk, "state", "") == "RISK_APPROVED" else "REJECTED",
+                        "reason_codes": list(getattr(result.risk, "reason_codes", ())),
+                        "evidence_refs": evidence_refs,
+                    },
+                    "decision": {
+                        "agent_version": _DISAGREEMENT_RESOLVER.VERSION,
+                        "state": "DECIDED",
+                        "reason_codes": list(arbitration.reason_codes),
+                        "evidence_refs": [arbitration.audit_sha256, *evidence_refs],
+                        "payload": {"decision": arbitration.decision},
+                    },
+                    "evaluation": {
+                        "agent_version": "mother-observation-handoff-v1",
+                        "state": "OBSERVED" if not blocked else "BLOCKED",
+                        "reason_codes": list(dict.fromkeys(blocked)),
+                        "evidence_refs": [arbitration.audit_sha256],
+                    },
+                }
+                evidence_sha = sha256(json.dumps(specialist_reports, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+                mother = MotherOrchestratorV1(precomputed_specialists_v1()).run({
+                    "scope": {"venue": strategy.venue, "product": strategy.product,
+                              "symbol": strategy.symbol, "timeframe": strategy.timeframe},
+                    "observed_at": strategy.observed_at.isoformat(),
+                    "snapshot_sha256": snapshot_sha,
+                    "evidence_sha256": evidence_sha,
+                    "specialist_reports": specialist_reports,
+                })
+                mother_payload = mother.as_dict()
+                witness = MotherAuditWitnessV1().verify(mother_payload)
+                if not witness.verified:
+                    blocked.extend(witness.reason_codes)
+                    final_decision = "NO_TRADE"
+                else:
+                    if mother.status != "OBSERVATION_ONLY":
+                        blocked.extend(mother.reason_codes)
+                    final_decision = mother.decision
                 payload = {
                     "status": "BLOCKED" if final_decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
                     "disagreement_resolver_version": _DISAGREEMENT_RESOLVER.VERSION,
+                    "mother_orchestrator": mother_payload,
+                    "mother_witness": witness.as_dict(),
                     "decision": final_decision,
                     "arbitration": arbitration.as_dict(),
                     "decision_reasons": list(arbitration.reason_codes),
