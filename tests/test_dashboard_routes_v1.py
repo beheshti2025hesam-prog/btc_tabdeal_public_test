@@ -261,5 +261,45 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertEqual(records[0]["execution"], "OFF")
 
 
+    def test_journal_api_is_explicitly_not_configured_by_default(self):
+        with patch.dict(os.environ, {"HES_FORWARD_LEARNING_DECISION_JOURNAL": ""}):
+            with urlopen(self.base + "/api/journal?limit=50") as response:
+                payload = json.loads(response.read())
+        self.assertEqual(payload["status"], "NOT_CONFIGURED")
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["outcomes_inferred"])
+
+    def test_journal_api_projects_verified_events_without_claiming_trade_outcomes(self):
+        from datetime import datetime, timezone
+        from forward.learning_evidence_adapter_v1 import record_signal_decision
+        with tempfile.TemporaryDirectory() as directory:
+            journal = os.path.join(directory, "forward-decisions.jsonl")
+            record_signal_decision(
+                journal,
+                decision="NO_TRADE",
+                observed_at=datetime.now(timezone.utc).isoformat(),
+                symbol="BTCUSDT",
+                timeframe="15m",
+                source="binance_native_ohlcv_v1",
+                product="spot",
+                response_sha256="a" * 64,
+                htf_response_sha256="b" * 64,
+                strategy_evidence_sha256="c" * 64,
+                policy_version="hes-strategy-policy-v1",
+                status="BLOCKED",
+                market_regime="UNKNOWN",
+                rejected_at="RISK",
+                reason_codes=["RISK_CONTEXT_UNKNOWN"],
+            )
+            with patch.dict(os.environ, {"HES_FORWARD_LEARNING_DECISION_JOURNAL": journal}):
+                with urlopen(self.base + "/api/journal?limit=10") as response:
+                    payload = json.loads(response.read())
+        self.assertEqual(payload["status"], "VERIFIED")
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["events"][0]["decision"], "NO_TRADE")
+        self.assertEqual(payload["events"][0]["realized_outcome"], "NOT_LINKED")
+        self.assertEqual(payload["events"][0]["execution"], "OFF")
+
+
 if __name__=="__main__":
     unittest.main()
