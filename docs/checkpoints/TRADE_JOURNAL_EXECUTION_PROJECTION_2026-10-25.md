@@ -20,6 +20,7 @@ Delivery target: 2026-11-19. Risk checkpoint: 2026-10-26.
 - Explicit UNKNOWN fees, funding, realized P&L, and P&L evidence until the existing independently reconciled outcome artifact provides them.
 - Test covers SQLite read-only immutability, invalid/missing fill provenance, unknown schema, and backup/restore projection parity.
 - `forward/sqlite_backup_v1.py` provides a dependency-free online SQLite backup and verified restore utility: SHA-256 manifest, integrity checks, atomic replacement, explicit overwrite protection, and tamper/corrupt-manifest rejection. `tests/test_sqlite_backup_v1.py` covers backup/restore integrity and fail-closed cases.
+- Operator entrypoint: `python -m scripts.backup_execution_journal_v1 --backup SOURCE_DB BACKUP_DB` and `--restore BACKUP_DB DESTINATION_DB`; usage and runtime controls are documented in `docs/execution/SQLITE_BACKUP_RESTORE_V1.md`.
 - No order routes, venue calls, credential use, service activation, deployment, or VPS mutation.
 
 ## Verification limits / remaining external evidence
