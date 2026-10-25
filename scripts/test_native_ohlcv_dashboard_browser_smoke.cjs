@@ -7,6 +7,13 @@ const { chromium } = require("playwright");
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     let candlePayload = null;
     let externalChartCdnRequested = false;
+    let chartAssetResponse = null;
+    const consoleErrors = [];
+    const pageErrors = [];
+    const requestFailures = [];
+    page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
+    page.on("pageerror", error => pageErrors.push(String(error.stack || error)));
+    page.on("requestfailed", request => requestFailures.push({ url: request.url(), failure: request.failure()?.errorText || "unknown" }));
 
     page.on("request", request => {
       const url = request.url();
@@ -16,6 +23,10 @@ const { chromium } = require("playwright");
     });
     page.on("response", async response => {
       try {
+        const responseUrl = new URL(response.url());
+        if (responseUrl.pathname === "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js") {
+          chartAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
+        }
         const url = new URL(response.url());
         if (url.pathname === "/api/candles" && response.status() === 200) {
           const body = await response.json();
@@ -54,6 +65,9 @@ const { chromium } = require("playwright");
         const r = c.getBoundingClientRect();
         return { width: r.width, height: r.height };
       })(),
+      chartLibraryLoaded: typeof LightweightCharts !== "undefined",
+      chartSeriesExists: typeof candleSeries !== "undefined" && !!candleSeries,
+      chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
       bars: typeof bars !== "undefined" ? bars.map(b => ({
         open_time: b.open_time, close: String(b.close), volume: String(b.volume)
       })) : null
@@ -83,9 +97,34 @@ const { chromium } = require("playwright");
       return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
     });
     assert.ok(candlePixels.canvas_count > 0, "no chart canvas was rendered");
+    const visibleCandlePixelCount = candlePixels.green_candle_color_pixels + candlePixels.red_candle_color_pixels;
+    // Preserve diagnostics even when the visual assertion fails, so the CI artifact can show the failure.
+    await page.screenshot({ path: "artifacts/native-ohlcv-dashboard-browser-smoke.png", fullPage: true });
+    const diagnosticEvidence = {
+      schema_version: 1,
+      status: visibleCandlePixelCount >= 8 ? "PASS" : "FAIL_VISIBLE_CANDLES",
+      source: candlePayload.source,
+      venue: candlePayload.venue,
+      symbol: candlePayload.symbol,
+      interval: candlePayload.interval,
+      response_sha256: candlePayload.response_sha256,
+      candle_count: candlePayload.candles.length,
+      chart_canvas: ui.canvas,
+      chart_library_loaded: ui.chartLibraryLoaded,
+      chart_series_exists: ui.chartSeriesExists,
+      chart_script_integrity: ui.chartScriptIntegrity,
+      chart_asset_response: chartAssetResponse,
+      visible_candle_pixels: candlePixels,
+      console_errors: consoleErrors,
+      page_errors: pageErrors,
+      request_failures: requestFailures,
+      message: ui.message,
+      execution_enabled: false
+    };
+    require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(diagnosticEvidence, null, 2) + "\\n");
     assert.ok(
-      candlePixels.green_candle_color_pixels + candlePixels.red_candle_color_pixels >= 8,
-      `candlestick series is not visibly rendered: ${JSON.stringify(candlePixels)}`
+      visibleCandlePixelCount >= 8,
+      `candlestick series is not visibly rendered: ${JSON.stringify({ ...candlePixels, chartAssetResponse, chartLibraryLoaded: ui.chartLibraryLoaded, chartSeriesExists: ui.chartSeriesExists, consoleErrors, pageErrors })}`
     );
 
     assert.ok(ui.bars, "browser could not inspect the dashboard's candle batch");
