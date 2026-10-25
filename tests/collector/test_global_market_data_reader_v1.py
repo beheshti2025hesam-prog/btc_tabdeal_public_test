@@ -1,7 +1,7 @@
 import json, tempfile, unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from forward.global_market_data_reader_v1 import read_closed_candles, MarketDataRejected
+from forward.global_market_data_reader_v1 import read_closed_candles, load_market_input, MarketDataRejected
 NL=chr(10)
 
 class ReaderTests(unittest.TestCase):
@@ -60,5 +60,17 @@ class ReaderTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; rows[1]["observed_at"]="1970-01-01T03:21:01+00:00"; p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
    with self.assertRaisesRegex(MarketDataRejected,"CANDLE_OBSERVATION_TIME_IN_FUTURE"): read_closed_candles("15m",root=d,now=12000,min_bars=3)
+
+ def test_load_market_input_uses_latest_absolute_observation_time(self):
+  with tempfile.TemporaryDirectory() as d:
+   now=200000
+   for tf,secs in (("15m",900),("1h",3600),("4h",14400)):
+    self.make_file(d,tf=tf,count=3,start=now-3*secs)
+   p=Path(d)/"data/forward/global_market_candles_1h_v1.jsonl"
+   rows=[json.loads(x) for x in p.read_text().splitlines()]
+   rows[-1]["observed_at"]=datetime.fromtimestamp(now+1,timezone.utc).astimezone(timezone(timedelta(hours=1))).isoformat()
+   p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
+   result=load_market_input(root=d,now=now,min_bars=3)
+   self.assertEqual(datetime.fromisoformat(result["observed_at"]).timestamp(),now+1)
 
 if __name__=="__main__": unittest.main()
