@@ -43,9 +43,9 @@ class NativeCandle:
     close: Decimal
     volume: Decimal
     quote_volume: Decimal
-    trade_count: int
-    taker_buy_volume: Decimal
-    taker_buy_quote_volume: Decimal
+    trade_count: int | None
+    taker_buy_volume: Decimal | None
+    taker_buy_quote_volume: Decimal | None
     closed: bool = True
 
 
@@ -127,12 +127,15 @@ def validate_native_batch(batch: NativeOHLCVBatch) -> None:
         if any(type(x) is not Decimal or not x.is_finite() or x < 0
                for x in (candle.volume, candle.quote_volume)):
             raise ValueError("invalid volume")
-        if any(type(x) is not Decimal or not x.is_finite() or x < 0
-               for x in (candle.taker_buy_volume, candle.taker_buy_quote_volume)):
-            raise ValueError("invalid taker-buy volume")
-        if candle.taker_buy_volume > candle.volume or candle.taker_buy_quote_volume > candle.quote_volume:
-            raise ValueError("taker-buy volume exceeds total volume")
-        if type(candle.trade_count) is not int or candle.trade_count < 0:
+        flow_values = (candle.taker_buy_volume, candle.taker_buy_quote_volume)
+        if (flow_values[0] is None) != (flow_values[1] is None):
+            raise ValueError("taker-buy volumes must both be available or both be unavailable")
+        if all(value is not None for value in flow_values):
+            if any(type(x) is not Decimal or not x.is_finite() or x < 0 for x in flow_values):
+                raise ValueError("invalid taker-buy volume")
+            if candle.taker_buy_volume > candle.volume or candle.taker_buy_quote_volume > candle.quote_volume:
+                raise ValueError("taker-buy volume exceeds total volume")
+        if candle.trade_count is not None and (type(candle.trade_count) is not int or candle.trade_count < 0):
             raise ValueError("invalid trade count")
     for gap in batch.gaps:
         if type(gap.expected_open_time_ms) is not int or type(gap.next_observed_open_time_ms) is not int:

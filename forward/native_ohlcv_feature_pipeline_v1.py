@@ -100,11 +100,14 @@ class NativeOHLCVFeaturePipelineV1:
             window = eligible_native[-self.vwap_period:]
             total_base = sum((c.volume for c in window), Decimal("0"))
             total_quote = sum((c.quote_volume for c in window), Decimal("0"))
-            total_taker_buy = sum((c.taker_buy_volume for c in window), Decimal("0"))
+            flow_available = all(c.taker_buy_volume is not None for c in window)
+            total_taker_buy = (sum((c.taker_buy_volume for c in window), Decimal("0"))
+                               if flow_available else None)
             if total_base > 0:
                 vwap = float(total_quote / total_base)
-                buy_ratio = float(total_taker_buy / total_base)
-                buy_sell_delta = float((Decimal("2") * total_taker_buy) - total_base)
+                if total_taker_buy is not None:
+                    buy_ratio = float(total_taker_buy / total_base)
+                    buy_sell_delta = float((Decimal("2") * total_taker_buy) - total_base)
 
         volume_ratio = volume_points[-1].latest_vs_average if volume_points else None
         volume_spike = volume_points[-1].is_volume_spike if volume_points else None
