@@ -62,7 +62,7 @@ class OrchestrationResult:
                 "evidence_refs": list(stage.evidence_refs),
             }
             if stage.agent == "decision":
-                row["decision"] = payload.get("decision")
+                row["decision"] = payload.get("decision") if payload.get("decision") in {"LONG", "SHORT", "NO_TRADE"} else "INVALID"
             rows.append(row)
         return {
             "schema_version": self.schema_version,
@@ -166,6 +166,8 @@ class MotherOrchestratorV1:
             return None, "CONTEXT_FUTURE_TIMESTAMP"
         if not _valid_hash(safe.get("snapshot_sha256")) or not _valid_hash(safe.get("evidence_sha256")):
             return None, "CONTEXT_PROVENANCE_INVALID"
+        if "request_id" in safe and (not isinstance(safe["request_id"], str) or len(safe["request_id"]) > 256):
+            return None, "CONTEXT_REQUEST_ID_INVALID"
         safe["observed_at"] = observed_at.isoformat()
         safe["scope"] = {key: scope[key] for key in ("venue", "product", "symbol", "timeframe")}
         return safe, None
@@ -211,7 +213,7 @@ class MotherOrchestratorV1:
                 "agent": row.agent, "state": row.state,
                 "reason_codes": list(row.reason_codes),
                 "evidence_refs": list(row.evidence_refs),
-                "decision": _decision_value(row.payload) if row.agent == "decision" else None,
+                "decision": (_decision_value(row.payload) if _decision_value(row.payload) in {"LONG", "SHORT", "NO_TRADE"} else "INVALID") if row.agent == "decision" else None,
             } for row in stages]
             audit = {
                 "version": self.VERSION, "trace_id": trace_id, "status": status,
@@ -248,8 +250,11 @@ class MotherOrchestratorV1:
             if not valid:
                 return finish("BLOCKED_INVALID_RESULT", "NO_TRADE", (error or "INVALID_AGENT_RESULT",))
             # Freeze caller-owned collections at the boundary; do not retain mutable aliases.
-            result = AgentResult(result.agent, result.state, tuple(result.reason_codes),
-                                 tuple(result.evidence_refs), deepcopy(result.payload))
+            try:
+                result = AgentResult(result.agent, result.state, tuple(result.reason_codes),
+                                     tuple(result.evidence_refs), deepcopy(result.payload))
+            except Exception:
+                return finish("BLOCKED_INVALID_RESULT", "NO_TRADE", ("AGENT_PAYLOAD_NOT_COPYABLE:" + name,))
             stages.append(result)
             if result.state not in _ALLOWED[name]:
                 reasons = result.reason_codes or ("AGENT_GATE_NOT_PASSED:" + name,)
