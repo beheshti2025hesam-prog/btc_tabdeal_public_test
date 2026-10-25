@@ -34,6 +34,8 @@ class PersistedGlobalFeedSource:
         if start_time_ms is not None or end_time_ms is not None or as_of_ms is not None:
             raise ValueError("persisted global feed does not support custom time windows")
         market = load_market_input(root=PROJECT_ROOT)
+        if market.get("source") != "gateio_public_spot" or market.get("symbol") != "BTC_USDT":
+            raise ValueError("persisted global source identity mismatch")
         rows = market["timeframes"].get(interval, [])[-limit:]
         if len(rows) < 200:
             raise ValueError("insufficient persisted closed candles")
@@ -168,7 +170,7 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 return self._send(503,b'{"error":"chart_library_unavailable","fail_closed":true}',"application/json")
             return self._send(200,asset,"text/javascript; charset=utf-8")
-        if p.path=="/healthz": return self._send(200,b'{"status":"ok","mode":"NO_TRADE_ONLY","execution_enabled":false,"source":"gateio_public_spot","source_reader":"global_market_data_reader_v1"}',"application/json")
+        if p.path=="/healthz": return self._send(200,b'{"status":"ok","mode":"NO_TRADE_ONLY","execution_enabled":false,"source":"gateio_public_spot","source_reader":"global_market_data_reader_v1","source_symbol":"BTC_USDT","symbol_mapping_verified":true}',"application/json")
         if p.path!="/api/candles": return self._send(404,b'{"error":"not_found"}',"application/json")
         q=parse_qs(p.query); symbol=q.get("symbol",["BTCUSDT"])[0]; interval=q.get("interval",["15m"])[0]
         if symbol not in SUPPORTED_SYMBOLS or interval not in SUPPORTED_INTERVALS or interval not in INTERVAL_MS:
@@ -183,7 +185,8 @@ class Handler(BaseHTTPRequestHandler):
                 "venue":batch.venue,"product":batch.product,
                 "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
                 "trade_count_available":TRADE_COUNT_AVAILABLE,"taker_buy_flow_available":TAKER_BUY_FLOW_AVAILABLE,
-                "symbol":batch.symbol,"interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
+                "symbol":batch.symbol,"source_symbol":"BTC_USDT","symbol_mapping_verified":True,
+                "interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
                 "fetched_at_ms":batch.fetched_at_ms,"input_batch_sha256":batch.response_sha256,
                 "latest_age_seconds":age,"execution_enabled":False,
                 "feature_ready":feature_result.decision_ready,"feature_reason":feature_result.reason,
