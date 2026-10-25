@@ -18,10 +18,11 @@
 
 ## Verification evidence
 
-- The prior CI hardening revision `def3ecb5617acbbb7e78632709e9a1b22db2764b` passed the expanded Mother workflow: [run 40195510854](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195510854).
-- Subsequent witness module, witness tests, dashboard wiring, and dashboard assertion are newer than that run. They require successful CI on the latest candidate SHA before this checkpoint can be considered fully verified.
-- WebSocket live smoke workflows triggered from Draft candidates are marked **SKIPPED**, not PASS. Do not count them as evidence.
+- The full witness + dashboard integration code passed the expanded Mother workflow on exact SHA `9f4682901c203989977ea2dc91a5bfe9d6db3e43`: [run 40195722157](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195722157).
+- The latest candidate including this checkpoint and the optimized shallow checkout passed the expanded Mother workflow on exact SHA `a25dc3b57a3118bddbe10573e354a5e62c3ca5a4`: [run 40195792685](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/40195792685). The independent witness tests and contract/firewall assertions passed.
+- Native dashboard and evaluation/learning CI also passed on the checkpoint candidate SHA. The WebSocket live smoke was **SKIPPED**, not PASS; it is not counted as evidence.
 - The separate blind forward OOS result remains `G6_BLOCKED_INSUFFICIENT_FORWARD_OBSERVATIONS` (95 observations vs 4,000 required); no performance or win-rate claim is allowed.
+- This checkpoint edit is documentation-only; the new commit still receives its own exact-head CI run.
 
 ## Still open — do not mark complete without evidence
 
