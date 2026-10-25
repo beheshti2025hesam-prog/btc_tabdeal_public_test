@@ -234,37 +234,44 @@ class Handler(BaseHTTPRequestHandler):
                 evidence_refs = [batch.response_sha256, htf_batch.response_sha256]
                 specialist_reports = {
                     "data_quality": {
+                        "agent_version": "native-feature-pipeline-v1",
                         "state": "PASS" if data_ok else "FAIL",
                         "reason_codes": [] if data_ok else ["DATA_QUALITY_GATE_FAILED"],
                         "evidence_refs": evidence_refs,
                     },
                     "market_structure": {
+                        "agent_version": "market-structure-v1",
                         "state": "PASS" if structure_ok else "UNKNOWN",
                         "reason_codes": [] if structure_ok else ["STRUCTURE_DIRECTION_OR_REGIME_UNKNOWN"],
                         "evidence_refs": evidence_refs,
                     },
                     "signal": {
+                        "agent_version": "hes-strategy-policy-v1",
                         "state": "PASS" if quality_state == "PASS" else "FAIL" if quality_state == "FAIL" else "UNKNOWN",
                         "reason_codes": list(result.strategy_quality.reason_codes) if result.strategy_quality else ["STRATEGY_QUALITY_UNKNOWN"],
                         "evidence_refs": [strategy_sha],
                     },
                     "confirmation": {
+                        "agent_version": "confirmation-policy-v1",
                         "state": "CONFIRMED" if confirmed else "UNKNOWN",
                         "reason_codes": list(getattr(result.confirmation, "reason_codes", ())),
                         "evidence_refs": evidence_refs,
                     },
                     "risk": {
+                        "agent_version": "risk-policy-v1",
                         "state": "APPROVED" if getattr(result.risk, "state", "") == "RISK_APPROVED" else "REJECTED",
                         "reason_codes": list(getattr(result.risk, "reason_codes", ())),
                         "evidence_refs": evidence_refs,
                     },
                     "decision": {
+                        "agent_version": _DISAGREEMENT_RESOLVER.VERSION,
                         "state": "DECIDED",
                         "reason_codes": list(arbitration.reason_codes),
                         "evidence_refs": [arbitration.audit_sha256, *evidence_refs],
                         "payload": {"decision": arbitration.decision},
                     },
                     "evaluation": {
+                        "agent_version": "mother-observation-handoff-v1",
                         "state": "OBSERVED" if not blocked else "BLOCKED",
                         "reason_codes": list(dict.fromkeys(blocked)),
                         "evidence_refs": [arbitration.audit_sha256],
