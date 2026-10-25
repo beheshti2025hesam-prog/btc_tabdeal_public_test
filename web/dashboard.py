@@ -277,7 +277,7 @@ class Handler(BaseHTTPRequestHandler):
                         "evidence_refs": [arbitration.audit_sha256],
                     },
                 }
-                evidence_sha = sha256(json.dumps(specialist_reports, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                evidence_sha = sha256(json.dumps(specialist_reports, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
                 mother = MotherOrchestratorV1(precomputed_specialists_v1()).run({
                     "scope": {"venue": strategy.venue, "product": strategy.product,
                               "symbol": strategy.symbol, "timeframe": strategy.timeframe},
