@@ -107,7 +107,7 @@ def _valid_hash(value: Any) -> bool:
 
 
 def _text(value: Any) -> bool:
-    return isinstance(value, str) and 0 < len(value.strip()) <= _MAX_TEXT
+    return isinstance(value, str) and 0 < len(value.strip()) <= _MAX_TEXT and value == value.strip()
 
 
 class PrecomputedSpecialistV1:
@@ -186,10 +186,14 @@ class MotherOrchestratorV1:
             return False, "INVALID_REASON_CODES:" + name
         if any(not isinstance(code, str) or not code or len(code) > _MAX_TEXT for code in result.reason_codes):
             return False, "INVALID_REASON_CODES:" + name
+        if len(result.reason_codes) != len(set(result.reason_codes)):
+            return False, "DUPLICATE_REASON_CODES:" + name
         if not isinstance(result.evidence_refs, (tuple, list)) or len(result.evidence_refs) > _MAX_EVIDENCE_REFS:
             return False, "INVALID_EVIDENCE_REFS:" + name
         if any(not isinstance(ref, str) or not ref or len(ref) > 512 for ref in result.evidence_refs):
             return False, "INVALID_EVIDENCE_REFS:" + name
+        if len(result.evidence_refs) != len(set(result.evidence_refs)):
+            return False, "DUPLICATE_EVIDENCE_REFS:" + name
         return True, None
 
     @staticmethod
