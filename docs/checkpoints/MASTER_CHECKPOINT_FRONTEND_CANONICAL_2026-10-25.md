@@ -57,3 +57,18 @@ The candidate location and PR ancestry are now resolved and persisted; do not re
 - At the last read-only check (2026-10-25 around 12:08 UTC), all three collector services were active; 15m had 599 rows, 1h 524, 4h 506. The 24h soak service was active since 11:48:04 UTC; sample 21 at 12:08:06 UTC reported `ok=true`, elapsed 1201 seconds (~20 minutes), with latest candle age 486 seconds. **This is not a completed 24-hour soak.** Current soak completion remains due no earlier than approximately 2026-10-26 11:48 UTC if it runs uninterrupted.
 - Direct public API probes from this VPS: Binance api.binance.com and api1/api2/api3 timed out; data-api.binance.vision returned 451; fapi.binance.com timed out. Bybit returned 403 explicitly stating access blocked from the server's country; OKX/Kraken connections timed out; Coinbase API timed out. These are read-only probes and no proxy was used.
 - Gate.io is a technically reachable candidate source already feeding the VPS, but this does **not** automatically approve replacing the requested Binance profile or prove parity with a global consolidated chart. Do not silently switch the candidate dashboard from Binance to Gate.io. Any such change must reuse the existing `NativeOHLCVBatch`/feature pipeline (no second candle model), have exact-SHA tests and source identity gates, and preserve execution disabled.
+
+
+## Canonical data-source decision — 2026-10-25
+**Project memory rule: Binance is not the default fallback. HES migrated to Gate.io public Spot market data because Binance public endpoints were inaccessible from the authorized VPS/runtime under the observed region/network restrictions. Do not rediscover/retry Binance by default.**
+
+- Primary operational candidate for analysis: `gateio_public_spot`, `BTC_USDT`, 15m/1h/4h.
+- Existing VPS collectors and files:
+  - `data/forward/global_market_candles_v1.jsonl` (15m)
+  - `data/forward/global_market_candles_1h_v1.jsonl` (1h)
+  - `data/forward/global_market_candles_4h_v1.jsonl` (4h)
+  - Reader: `forward/global_market_data_reader_v1.py`; schema: `hes_global_candle_v1`.
+- 2026-10-25 read-only integrity audit: 599/524/506 rows for 15m/1h/4h; no detected duplicate/out-of-order candles, interval gaps, source identity errors, open candles, close-boundary violations, or invalid OHLCV bounds. Latest closed candle age 923 seconds; within current freshness limits.
+- All four existing Gate.io services active/enabled. 24h soak had 28 successful samples, elapsed 1,622 seconds (~27 minutes), all `ok=true`. This is early evidence only: **24-hour soak is not complete**, so 24/7 reliability is not yet certified.
+- Gate.io is now the canonical operational source candidate for HES analysis, but it is a single exchange's Spot market feed, not a consolidated multi-exchange global index. Keep the market-data source separate from execution adapter. Do not silently switch providers or fabricate data; preserve fail-closed handling.
+- Remaining gates: complete uninterrupted 86,400s soak; review failure/reconnect/backfill evidence; integrate dashboard using the same NativeOHLCVBatch/feature pipeline; prove target-runtime chart/API parity; then consider controlled deployment. No merge/deploy/live trading before gates. Status HOLD / NO_TRADE_ONLY; delivery target 2026-11-19.
