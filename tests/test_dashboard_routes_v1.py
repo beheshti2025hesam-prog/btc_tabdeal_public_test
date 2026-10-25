@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import time
+import tempfile
 import unittest
 from decimal import Decimal
 from http.server import ThreadingHTTPServer
@@ -228,6 +229,36 @@ class DashboardRouteTests(unittest.TestCase):
         )
         worker_thread.return_value.start.assert_called_once_with()
         self.assertEqual(dashboard._STREAM_STATE["status"], "starting")
+
+
+    def test_signal_decisions_are_journaled_only_with_explicit_durable_path(self):
+        batch15 = sample_batch(interval="15m")
+        batch4h = sample_batch(interval="4h")
+        features = SimpleNamespace(
+            decision_ready=True,
+            reason="feature_quality_passed",
+            quality=SimpleNamespace(passed=True),
+            snapshot=None,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            journal = os.path.join(directory, "forward-decisions.jsonl")
+            with patch.dict(os.environ, {"HES_FORWARD_LEARNING_DECISION_JOURNAL": journal}), \
+                 patch("web.dashboard._get_batch", side_effect=lambda symbol, interval: (
+                     (batch15 if interval == "15m" else batch4h), features
+                 )):
+                with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                    first = json.loads(response.read())
+                with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                    second = json.loads(response.read())
+            self.assertEqual(first["learning_journal_status"], "RECORDED")
+            self.assertEqual(second["learning_journal_status"], "ALREADY_RECORDED")
+            self.assertEqual(first["learning_event_id"], second["learning_event_id"])
+            with open(journal, encoding="utf-8") as handle:
+                records = [json.loads(line) for line in handle if line.strip()]
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0]["artifact_kind"], "SIGNAL_DECISION")
+            self.assertNotIn("outcome", records[0])
+            self.assertEqual(records[0]["execution"], "OFF")
 
 
 if __name__=="__main__":
