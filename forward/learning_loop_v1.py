@@ -177,9 +177,10 @@ def report_json(report: LearningReport) -> str:
 
 @dataclass(frozen=True)
 class ForwardEvidenceRun:
-    """Learning report plus hashes of the existing forward journal inputs."""
+    """Learning report plus hashes and validated rows from existing forward inputs."""
     report: LearningReport
     evidence_manifest: dict
+    rows: tuple[dict, ...] = ()
 
 
 def _strict_json_object(pairs):
@@ -364,4 +365,4 @@ def build_report_from_forward_evidence(
         "orders_placed": False,
     }
     report = build_learning_report(merged, min_group_size=min_group_size)
-    return ForwardEvidenceRun(report=report, evidence_manifest=manifest)
+    return ForwardEvidenceRun(report=report, evidence_manifest=manifest, rows=tuple(merged))

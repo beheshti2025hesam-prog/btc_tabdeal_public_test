@@ -56,10 +56,64 @@ class DashboardRouteTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown();cls.server.server_close();cls.thread.join(timeout=2)
 
+    def test_outcome_projection_route_is_explicitly_unconfigured_by_default(self):
+        with patch.dict(os.environ, {
+            "HES_FORWARD_LEARNING_DECISION_JOURNAL": "",
+            "HES_FORWARD_OUTCOMES_DIR": "",
+        }):
+            with urlopen(self.base + "/api/journal-outcomes?limit=50") as response:
+                payload = json.loads(response.read().decode())
+        self.assertEqual(payload["status"], "NOT_CONFIGURED")
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["outcomes_inferred"])
+        self.assertEqual(payload["events"], [])
+
+    def test_execution_journal_route_is_explicitly_unconfigured_by_default(self):
+        with patch.dict(os.environ, {"HES_EXECUTION_JOURNAL_DB": ""}):
+            with urlopen(self.base + "/api/execution-journal?limit=50") as response:
+                payload = json.loads(response.read().decode())
+        self.assertEqual(payload["status"], "NOT_CONFIGURED")
+        self.assertTrue(payload["read_only"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["outcomes_inferred"])
+        self.assertEqual(payload["orders"], [])
+
+    def test_execution_journal_route_projects_existing_sqlite_read_only(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, "execution.sqlite")
+            db = __import__("sqlite3").connect(path)
+            db.execute("""CREATE TABLE execution_orders (
+                client_order_id TEXT PRIMARY KEY, decision_id TEXT NOT NULL UNIQUE,
+                payload_sha256 TEXT NOT NULL, state TEXT NOT NULL, venue_order_id TEXT,
+                reconciliation_ref TEXT, last_error_code TEXT, venue_status TEXT,
+                executed_quantity TEXT, average_fill_price TEXT, raw_response_sha256 TEXT,
+                observed_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )""")
+            db.execute("""INSERT INTO execution_orders
+                (client_order_id,decision_id,payload_sha256,state,venue_order_id,venue_status,
+                 executed_quantity,average_fill_price,raw_response_sha256,observed_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                ("c1", "decision-1", "a"*64, "FILLED", "venue-1", "FILLED",
+                 "0.25", "100.5", "b"*64, "2026-10-25T10:00:00+00:00"))
+            db.commit()
+            db.close()
+            before = open(path, "rb").read()
+            with patch.dict(os.environ, {"HES_EXECUTION_JOURNAL_DB": path}):
+                with urlopen(self.base + "/api/execution-journal?limit=10") as response:
+                    payload = json.loads(response.read().decode())
+            self.assertEqual(payload["status"], "VERIFIED")
+            self.assertEqual(payload["orders"][0]["state"], "FILLED")
+            self.assertEqual(payload["orders"][0]["realized_pnl"], "UNKNOWN")
+            self.assertFalse(payload["execution_enabled"])
+            self.assertEqual(open(path, "rb").read(), before)
+
     def test_dashboard_uses_pinned_chart_library_and_native_source_label(self):
         with urlopen(self.base+"/") as response:
             page=response.read().decode()
         self.assertIn("HES Trade Agent",page)
+        self.assertIn("Execution Lifecycle · Read-only",page)
+        self.assertIn("/api/execution-journal?limit=50",page)
         self.assertIn("Signal Agent v1",page)
         self.assertIn("/api/signal?symbol=BTCUSDT&interval=15m",page)
         self.assertIn("signalReasons",page)

@@ -2,9 +2,9 @@ name: Evaluation and Learning Evidence Integration
 
 on:
   pull_request:
-    branches: ["main", "feat/hes-agent-entrypoint-integration-20261024", "feat/evaluation-learning-evidence-integration-20261024"]
+    branches: ["main", "feat/hes-agent-entrypoint-integration-20261024", "feat/evaluation-learning-evidence-integration-20261024", "feat/trade-journal-readonly-ui-20261025"]
   push:
-    branches: ["feat/evaluation-learning-evidence-integration-20261024"]
+    branches: ["feat/evaluation-learning-evidence-integration-20261024", "feat/trade-journal-execution-projection-20261025"]
 
 permissions:
   contents: read
@@ -25,7 +25,7 @@ jobs:
             tests/test_forward_learning_loop_v1.py \
             tests/test_learning_evidence_adapter_v1.py \
             tests/test_dashboard_routes_v1.py \
-            tests/test_trade_journal_view_v1.py
+            tests/test_trade_journal_view_v1.py tests/test_execution_journal_view_v1.py tests/test_trade_journal_outcome_view_v1.py tests/test_sqlite_backup_v1.py
       - name: Assert execution and historical firewalls
         run: |
           grep -q '"execution_enabled": false' forward/clean_evidence_contract_v1.json
