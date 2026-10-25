@@ -72,3 +72,23 @@ The candidate location and PR ancestry are now resolved and persisted; do not re
 - All four existing Gate.io services active/enabled. 24h soak had 28 successful samples, elapsed 1,622 seconds (~27 minutes), all `ok=true`. This is early evidence only: **24-hour soak is not complete**, so 24/7 reliability is not yet certified.
 - Gate.io is now the canonical operational source candidate for HES analysis, but it is a single exchange's Spot market feed, not a consolidated multi-exchange global index. Keep the market-data source separate from execution adapter. Do not silently switch providers or fabricate data; preserve fail-closed handling.
 - Remaining gates: complete uninterrupted 86,400s soak; review failure/reconnect/backfill evidence; integrate dashboard using the same NativeOHLCVBatch/feature pipeline; prove target-runtime chart/API parity; then consider controlled deployment. No merge/deploy/live trading before gates. Status HOLD / NO_TRADE_ONLY; delivery target 2026-11-19.
+
+
+## Product acceptance continuation — 2026-10-25 12:18 UTC
+
+### Fresh live read-only recheck
+- Sole VPS remains `/opt/hes-trade-agent`, branch `feat/gateio-global-market-data-v1`, HEAD `b2466bc118217dcc6446498effe38181589ed2db`; worktree remains dirty with 58 status entries. `web/dashboard.py` is still absent from this checkout. No reset, clean, overwrite, merge, deployment, or trading action was performed.
+- Existing Gate.io collector/soak systemd units all report active. Candle journals at this check: 15m 600 rows, 1h 524 rows, 4h 506 rows. Latest sample from the existing 24h soak journal: sample 30, `ok=true`, elapsed 1,742 seconds (~29 minutes). This is **not** a 24-hour soak; do not call the feed 24/7-qualified.
+- Latest observed 15m candle age was 127 seconds. 1h/4h latest ages were 1,027 seconds in the soak sample. Continue requiring fail-closed freshness checks; the 4h freshness threshold in the current reader is 28,800 seconds.
+- Exact-head PR #362 workflows remain: dashboard/native path PASS, browser render PASS, Signal Agent regression PASS, Signal Agent contract PASS; live WebSocket smoke SKIPPED. These are hosted-runner/software checks, not VPS production evidence.
+
+### Newly confirmed product acceptance blocker
+- The current PR stack #297 -> #346 -> #362 is still Draft/unmerged. PR #362's dashboard source and `StrategyEvidenceProviderV1` are explicitly Binance Spot-specific (`BinanceSpotKlineSource`, Binance venue/product assumptions and Binance volume semantics). The sole VPS's accepted operational candidate is instead `gateio_public_spot / BTC_USDT`, via `forward/global_market_data_reader_v1.py` and schema `hes_global_candle_v1`.
+- Therefore the existing candidate UI/API is **not yet integrated with the canonical Gate.io feed**. Do not declare acceptance based on CI or point the UI at Gate.io by string substitution: the adapter must map validated Gate.io closed candles into the existing `NativeOHLCVBatch` contract, preserve source identity/provenance and correct volume semantics, and reuse the existing feature pipeline. No parallel candle/indicator schema.
+- Required next engineering gate: isolated exact-SHA implementation + tests for Gate.io-to-NativeOHLCV adaptation, stale/gap/duplicate/identity/volume negative tests, and dashboard chart/API parity on the same validated batch. Reconcile PR ancestry before merge; PR #361 overlaps Signal Agent files and must not be merged independently.
+- Deployment is still blocked by the dirty VPS checkout and absent candidate frontend. No file write or deployment was attempted on that checkout.
+
+### Release plan / safety
+- Keep `HOLD / NO_TRADE_ONLY`; no order execution or live trading.
+- Before acceptance: (1) uninterrupted 86,400-second Gate.io soak with evidence for reconnect/gap/stale behavior, (2) Gate.io adapter and source-specific volume semantics tested on exact SHA, (3) exact-SHA CI and browser render, (4) authorized target-runtime chart/API parity, (5) reviewable deployment/rollback and security plan, (6) independent approval of symbol mapping, risk context, and execution adapter before any later execution work.
+- Delivery target remains **2026-11-19**; risk checkpoint **2026-10-26**. This checkpoint records progress and blockers, not product acceptance or production approval.
