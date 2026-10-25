@@ -80,3 +80,16 @@ def test_manifest_corruption_fails_closed(tmp_path):
 def test_missing_source_fails_closed(tmp_path):
     with pytest.raises(SQLiteBackupError, match="source_database_missing_or_unsafe"):
         create_verified_backup(tmp_path / "missing.sqlite", tmp_path / "backup.sqlite")
+
+
+def test_operator_cli_backup_and_restore(tmp_path, capsys):
+    from scripts.backup_execution_journal_v1 import main
+
+    source = tmp_path / "source.sqlite"
+    backup = tmp_path / "backup.sqlite"
+    restored = tmp_path / "restored.sqlite"
+    create_db(source)
+    assert main(["--backup", str(source), str(backup)]) == 0
+    assert json.loads(capsys.readouterr().out)["integrity_check"] == "ok"
+    assert main(["--restore", str(backup), str(restored)]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
