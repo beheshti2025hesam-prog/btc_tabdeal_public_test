@@ -10,11 +10,13 @@ Delivery target: 2026-11-19. Risk checkpoint: 2026-10-26.
 - Execution lifecycle state: existing `forward/execution_journal_v1.py` SQLite journal from PR #366. The new projection does not create or mutate a second ledger; it opens that database with SQLite `mode=ro`.
 - UI: existing `web/dashboard.py`; no parallel frontend or order routes.
 - Learning attribution: existing `forward/learning_loop_v1.py` and its separate immutable outcome artifact contract. No outcome is inferred from candles, decisions, or order status.
+- UI outcome linkage: `forward/trade_journal_outcome_view_v1.py` delegates decision/outcome validation and exact event-ID join to the existing `build_report_from_forward_evidence`; only validated `outcome`, `closed_at`, `realized_rr`, and artifact digest are projected. Fees, funding, and net P&L remain UNKNOWN because the existing outcome contract and verified artifacts do not provide those values.
 - Market data remains the existing canonical OHLCV path; no exchange sequence logic was added.
 
 ## Implemented in this candidate
 
 - Read-only execution lifecycle projection from the existing SQLite table.
+- Existing dashboard journal now projects verified immutable outcome artifacts when configured; otherwise it clearly reports outcomes as not configured/unlinked. No new outcome schema or outcome ledger is introduced.
 - Validates database integrity, expected schema, stable IDs, lifecycle states, SHA-256 provenance, decimal fill values, and timezone-aware fill observation timestamps.
 - Fill states require positive cumulative quantity and average fill price plus response hash and observation time; malformed evidence fails closed.
 - Explicit UNKNOWN fees, funding, realized P&L, and P&L evidence until the existing independently reconciled outcome artifact provides them.
