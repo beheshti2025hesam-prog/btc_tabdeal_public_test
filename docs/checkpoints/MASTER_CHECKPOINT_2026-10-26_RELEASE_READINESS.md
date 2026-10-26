@@ -44,6 +44,7 @@
 - Controlled post-soak restart test **PASSED**: 15m service PID changed from `237849` to `273642`; service returned active; `HES_GLOBAL_MARKET_START` and `HES_GLOBAL_MARKET_WS_SUBSCRIBED` were observed; the canonical reader accepted all 15m/1h/4h feeds after restart with unique, strictly increasing timestamps.
 - Restart evidence: `/srv/hes-evidence/gateio/gateio_feed_restart_fault_test_20261026.json`; SHA-256 `426620bc806b2ead26843e0e361ca1b658468b3e2d69d3cf67cd16da65968d0f`.
 - A separate **mocked** disconnect/reconnect harness passed (two connection attempts, REST reconciliation twice, subscription and reconnect logged). This is not a live network fault-injection result.
+- Mock harness evidence: `/srv/hes-evidence/gateio/gateio_feed_mock_reconnect_test_20261026.json`; SHA-256 `83e542916153cceceb349fa6a9895f40c25841a1c0accb08d0f8afb4169bc9f2`.
 - After restart, a one-shot read-only analysis consumed the latest closed 15m candle at **2026-10-26 11:45 UTC** and returned `NO_TRADE`; `execution_enabled=false`, `orders_placed=false`.
 
 ## Remaining release blockers, in priority order
