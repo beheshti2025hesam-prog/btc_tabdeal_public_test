@@ -27,11 +27,10 @@ Read-only endpoints are `GET /api/candles`, `GET /api/signal`, and `GET /healthz
 
 ## Current integration candidate
 
-- Persisted-feed chart candidate: [PR #383](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/383).
-- Signal Agent source candidate: [PR #387](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/387); the combined persisted-feed integration is being validated on a separate draft branch, not merged or deployed.
-- Base Gate.io dashboard candidate: [PR #375](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/375).
-- Visible candlestick pixel gate: [PR #378](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/378).
-- Native OHLCV foundation and dashboard ancestry must be reconciled by exact commit/patch review before any merge. These PRs are candidates, not accepted production changes.
+- Combined persisted-feed + Signal Agent candidate: [Draft PR #388](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/388), based on the persisted-feed chart path in [PR #383](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/383).
+- Signal Agent source candidate: [PR #387](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/387); do not merge it independently with PR #383 because the combined candidate reuses the canonical persisted feed.
+- Base Gate.io dashboard candidate: [PR #375](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/375); visible candlestick pixel gate: [PR #378](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/378).
+- PR #388 exact-head full-suite and browser CI passed (599 tests + 5 subtests; browser confirms chart/signal batch-hash equality). Keep Draft/HOLD until independent review and production runtime gates pass; no merge/deployment is authorized.
 
 ## Data foundation / historical component
 
@@ -39,9 +38,9 @@ This repository also contains the first Tabdeal BTC/USDT futures public trade-da
 
 ## Required release gates
 
-- One uninterrupted Gate.io soak of at least 86,400 seconds and 1,400 valid samples, a passing final summary, final SHA-256, and independent audit.
-- Separate reconnect/restart/session-isolation fault injection.
-- Exact-head tests and browser evidence proving chart input, displayed close, and volume match the same canonical API batch.
+- **Completed 2026-10-26:** uninterrupted Gate.io soak passed (86,400 seconds, 1,439 valid samples, max gap 60.742 seconds); independent audit and final SHA-256 are recorded under `/srv/hes-evidence/gateio/`.
+- **Completed 2026-10-26:** controlled 15m feed restart/recovery passed; a mocked disconnect/reconnect harness passed. Live WebSocket smoke remains SKIPPED, not passed.
+- **Passed on PR #388 exact head:** full-suite regression and browser render; browser evidence proves chart input, displayed close/volume, and Signal Agent consume the same canonical input-batch SHA-256.
 - Strategy-level structure/confirmation evidence, symbol mapping, and independent risk approval. Missing evidence means `NO_TRADE`.
 - Verification of the actual frontend runtime, service/route, security configuration, and rollback on the sole VPS before deployment.
 - Exact-SHA ancestry, regression, provenance, and independent review before release.
