@@ -132,142 +132,56 @@ class Handler(BaseHTTPRequestHandler):
             if symbol != "BTCUSDT" or interval != "15m":
                 return self._send(400, b'{"error":"unsupported_signal_scope","decision":"NO_TRADE","execution_enabled":false}', "application/json")
             try:
-                # Both timeframes come from the same canonical Binance Spot OHLCV source.
+                # Reuse the canonical native batch/cache and feature result; no second data path.
                 batch, feature_result = _get_batch(symbol, interval)
-                htf_batch, _ = _get_batch(symbol, "4h")
-                strategy = _STRATEGY_PROVIDER.evaluate(
-                    candles_15m=batch,
-                    candles_4h=htf_batch,
-                    now_ms=int(time.time() * 1000),
-                    vwap=feature_result.snapshot.vwap if feature_result.snapshot is not None else None,
+                observed_at = datetime.fromtimestamp(batch.fetched_at_ms / 1000, timezone.utc)
+                evidence_ref = "native-ohlcv-sha256:" + batch.response_sha256
+                # Unknown is deliberate until strategy-level providers are validated and wired.
+                checks = (
+                    ConfirmationCheck("structure_direction_aligned", "UNKNOWN", evidence_ref, observed_at),
                 )
-                geometry = RiskGeometryV1(*strategy.risk_geometry) if strategy.risk_geometry else None
                 result = _SIGNAL_AGENT.evaluate(
-                    observed_at=strategy.observed_at,
-                    venue=strategy.venue,
-                    product=strategy.product,
-                    symbol=strategy.symbol,
-                    timeframe=strategy.timeframe,
-                    regime=strategy.regime,
-                    structure_labels=strategy.structure_labels,
-                    structure_events=strategy.structure_events,
-                    structure_direction=strategy.direction,
-                    strategy_checks=strategy.strategy_checks,
-                    confirmation_checks=strategy.confirmation_checks,
-                    risk_checks=strategy.risk_checks,
-                    risk_geometry=geometry,
+                    observed_at=observed_at,
+                    venue=batch.venue,
+                    product=batch.product,
+                    symbol=batch.symbol,
+                    timeframe=batch.interval,
+                    regime="UNKNOWN",
+                    structure_direction="UNKNOWN",
+                    confirmation_checks=checks,
+                    risk_checks=(),
+                    risk_geometry=None,
                 )
-                blocked = list(strategy.blocked_reasons) + list(result.blocked_reasons)
+                blocked = list(result.blocked_reasons)
+                blocked.extend((
+                    "SYMBOL_MAPPING_EVIDENCE_MISSING",
+                    "VALIDATED_STRUCTURE_PROVIDER_NOT_WIRED",
+                    "STRATEGY_QUALITY_PROVIDER_NOT_WIRED",
+                ))
                 if not feature_result.decision_ready:
                     blocked.append("NATIVE_FEATURES_NOT_READY")
-                if batch.gaps or htf_batch.gaps:
+                if batch.gaps:
                     blocked.append("NATIVE_CANDLE_GAPS_PRESENT")
-
-                # Adapt existing layer outputs into one auditable arbitration record.
-                # The snapshot identity binds both source responses; no new indicators or policies.
-                snapshot_sha = sha256((batch.response_sha256 + ":" + htf_batch.response_sha256).encode()).hexdigest()
-                strategy_sha = (
-                    result.strategy_quality.evidence_sha256
-                    if result.strategy_quality and result.strategy_quality.evidence_sha256
-                    else batch.response_sha256
-                )
-                structure_ok = strategy.direction in ("BULLISH", "BEARISH") and (
-                    (strategy.direction == "BULLISH" and strategy.regime == "UPTREND")
-                    or (strategy.direction == "BEARISH" and strategy.regime == "DOWNTREND")
-                )
-                source_blocked = any(
-                    reason.startswith(("STRATEGY_SOURCE_STALE:", "STRATEGY_SOURCE_GAPS_PRESENT"))
-                    for reason in strategy.blocked_reasons
-                )
-                data_ok = bool(feature_result.decision_ready and not batch.gaps and not htf_batch.gaps
-                               and not source_blocked)
-                confirmation_direction = (
-                    "LONG" if getattr(result.confirmation, "state", "") == "CONFIRMED_LONG"
-                    else "SHORT" if getattr(result.confirmation, "state", "") == "CONFIRMED_SHORT"
-                    else strategy.direction
-                )
-                assessments = (
-                    AgentAssessmentV1("data_quality", "native-feature-pipeline-v1", "PASS" if data_ok else "FAIL",
-                        "NEUTRAL", strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
-                        strategy.observed_at, snapshot_sha, batch.response_sha256,
-                        () if data_ok else ("DATA_QUALITY_GATE_FAILED",)),
-                    AgentAssessmentV1("market_structure", "market-structure-v1", "PASS" if structure_ok else "UNKNOWN",
-                        strategy.direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
-                        strategy.observed_at, snapshot_sha, batch.response_sha256,
-                        () if structure_ok else ("STRUCTURE_DIRECTION_OR_REGIME_UNKNOWN",)),
-                    AgentAssessmentV1("strategy", result.strategy_quality.policy_version if result.strategy_quality else "unknown",
-                        "PASS" if result.strategy_quality and result.strategy_quality.state == "PASS"
-                        else "FAIL" if result.strategy_quality and result.strategy_quality.state == "FAIL" else "UNKNOWN",
-                        strategy.direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
-                        strategy.observed_at, snapshot_sha, strategy_sha,
-                        tuple(result.strategy_quality.reason_codes) if result.strategy_quality else ("STRATEGY_QUALITY_UNKNOWN",)),
-                    AgentAssessmentV1("confirmation", "confirmation-policy-v1",
-                        "PASS" if getattr(result.confirmation, "state", "") in ("CONFIRMED_LONG", "CONFIRMED_SHORT")
-                        else "UNKNOWN",
-                        confirmation_direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
-                        strategy.observed_at, snapshot_sha, batch.response_sha256,
-                        tuple(getattr(result.confirmation, "reason_codes", ()))),
-                    AgentAssessmentV1("risk", "risk-policy-v1",
-                        "PASS" if getattr(result.risk, "state", "") == "RISK_APPROVED" else "FAIL",
-                        confirmation_direction, strategy.venue, strategy.product, strategy.symbol, strategy.timeframe,
-                        strategy.observed_at, snapshot_sha, batch.response_sha256,
-                        tuple(getattr(result.risk, "reason_codes", ()))),
-                )
-                arbitration = _DISAGREEMENT_RESOLVER.resolve(
-                    assessments=assessments, observed_at=datetime.now(timezone.utc)
-                )
-                if arbitration.decision == "NO_TRADE":
-                    blocked.extend(arbitration.reason_codes)
-                final_decision = arbitration.decision if not blocked else "NO_TRADE"
                 payload = {
-                    "status": "BLOCKED" if final_decision == "NO_TRADE" else "READY",
+                    "status": "BLOCKED" if blocked else "NO_TRADE",
                     "agent_version": _SIGNAL_AGENT.VERSION,
-                    "disagreement_resolver_version": _DISAGREEMENT_RESOLVER.VERSION,
-                    "decision": final_decision,
-                    "arbitration": arbitration.as_dict(),
-                    "decision_reasons": list(arbitration.reason_codes),
+                    "decision": "NO_TRADE",
+                    "decision_reasons": list(result.decision.reason_codes),
                     "blocked_reasons": list(dict.fromkeys(blocked)),
-                    "observed_at": strategy.observed_at.isoformat(),
-                    "symbol": strategy.symbol,
-                    "timeframe": strategy.timeframe,
-                    "source": f"{strategy.venue}_native_ohlcv_v1",
-                    "product": strategy.product,
+                    "observed_at": observed_at.isoformat(),
+                    "symbol": batch.symbol,
+                    "timeframe": batch.interval,
+                    "source": f"{batch.venue}_native_ohlcv_v1",
+                    "product": batch.product,
                     "response_sha256": batch.response_sha256,
-                    "htf_response_sha256": htf_batch.response_sha256,
                     "feature_ready": feature_result.decision_ready,
                     "feature_reason": feature_result.reason,
                     "feature_quality_passed": feature_result.quality.passed,
                     "strategy_quality_state": result.strategy_quality.state if result.strategy_quality else "UNKNOWN",
-                    "strategy_quality_passed_count": result.strategy_quality.passed_count if result.strategy_quality else 0,
-                    "strategy_quality_required_count": result.strategy_quality.required_count if result.strategy_quality else 5,
-                    "strategy_policy_version": result.strategy_quality.policy_version if result.strategy_quality else "hes-strategy-policy-v1",
-                    "strategy_evidence_sha256": result.strategy_quality.evidence_sha256 if result.strategy_quality else None,
-                    "strategy_evidence_provider": _STRATEGY_PROVIDER.VERSION,
-                    "structure_direction": strategy.direction,
-                    "structure_regime": strategy.regime,
-                    "mfi14": strategy.mfi14,
-                    "mfi_divergence": strategy.mfi_divergence,
-                    "adx14": strategy.adx14,
-                    "plus_di14": strategy.plus_di14,
-                    "minus_di14": strategy.minus_di14,
-                    "ema50_15m": strategy.ema50_15m,
-                    "ema50_4h": strategy.ema50_4h,
-                    "ema200_4h": strategy.ema200_4h,
-                    "order_block_version": strategy.order_block.version if strategy.order_block else "hes-order-block-context-v1",
-                    "order_block_status": strategy.order_block.status if strategy.order_block else "UNAVAILABLE",
-                    "order_block_score": strategy.order_block.score if strategy.order_block else None,
-                    "order_block_max_score": strategy.order_block.max_score if strategy.order_block else 7,
-                    "order_block_direction": strategy.order_block.direction if strategy.order_block else None,
-                    "order_block_break_type": strategy.order_block.break_type if strategy.order_block else None,
-                    "order_block_zone_low": str(strategy.order_block.zone_low) if strategy.order_block else None,
-                    "order_block_zone_high": str(strategy.order_block.zone_high) if strategy.order_block else None,
-                    "order_block_fresh": strategy.order_block.fresh if strategy.order_block else None,
-                    "order_block_mitigated": strategy.order_block.mitigated if strategy.order_block else None,
-                    "order_block_score_threshold_authorized": strategy.order_block.score_threshold_authorized if strategy.order_block else False,
+                    "structure_direction": "UNKNOWN",
                     "risk_state": result.risk.state,
                     "risk_reasons": list(result.risk.reason_codes),
                     "execution_enabled": False,
-                    "execution_blocked_reasons": ["SYMBOL_MAPPING_EVIDENCE_MISSING", "LIVE_EXECUTION_DISABLED"],
                 }
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
