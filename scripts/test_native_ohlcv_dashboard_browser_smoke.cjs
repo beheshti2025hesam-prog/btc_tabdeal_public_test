@@ -4,8 +4,9 @@ const { chromium } = require("playwright");
 (async () => {
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "en-US" });
     let candlePayload = null;
+    let signalPayload = null;
     let externalChartCdnRequested = false;
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
@@ -37,6 +38,9 @@ const { chromium } = require("playwright");
           const body = await response.json();
           if (Array.isArray(body.candles) && body.candles.length) candlePayload = body;
         }
+        if (url.pathname === "/api/signal" && response.status() === 200) {
+          signalPayload = await response.json();
+        }
       } catch (_) {}
     });
 
@@ -51,8 +55,20 @@ const { chromium } = require("playwright");
       return !!canvas && canvas.getBoundingClientRect().width > 100 && canvas.getBoundingClientRect().height > 100;
     }, null, { timeout: 15000 });
 
+    await page.waitForFunction(
+      () => document.querySelector("#signalStatus")?.textContent && document.querySelector("#signalStatus").textContent !== "Checking gates…",
+      null,
+      { timeout: 15000 }
+    );
     assert.ok(candlePayload, "successful /api/candles payload was not observed");
+    assert.ok(signalPayload, "successful /api/signal payload was not observed");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
+    assert.equal(signalPayload.source, candlePayload.source, "signal and chart source identities differ");
+    assert.equal(signalPayload.source_reader, candlePayload.source_reader, "signal and chart reader identities differ");
+    assert.equal(signalPayload.input_batch_sha256, candlePayload.input_batch_sha256, "signal and chart input batches differ");
+    assert.equal(signalPayload.decision, "NO_TRADE", "unapproved signal path must fail closed");
+    assert.equal(signalPayload.status, "BLOCKED", "missing risk/structure providers must block signal");
+    assert.equal(signalPayload.execution_enabled, false, "signal route must never enable execution");
     assert.equal(candlePayload.source, "gateio_public_spot");
     assert.equal(candlePayload.source_reader, "global_market_data_reader_v1");
     assert.equal(candlePayload.source_symbol, "BTC_USDT");
@@ -129,6 +145,11 @@ const { chromium } = require("playwright");
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
       interval: candlePayload.interval,
       input_batch_sha256: candlePayload.input_batch_sha256,
+      signal_input_batch_sha256: signalPayload.input_batch_sha256,
+      signal_source_reader: signalPayload.source_reader,
+      signal_status: signalPayload.status,
+      signal_decision: signalPayload.decision,
+      signal_same_batch_provenance: signalPayload.input_batch_sha256 === candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       chart_library_loaded: ui.chartLibraryLoaded,
@@ -179,6 +200,11 @@ const { chromium } = require("playwright");
       symbol: candlePayload.symbol,
       interval: candlePayload.interval,
       input_batch_sha256: candlePayload.input_batch_sha256,
+      signal_input_batch_sha256: signalPayload.input_batch_sha256,
+      signal_source_reader: signalPayload.source_reader,
+      signal_status: signalPayload.status,
+      signal_decision: signalPayload.decision,
+      signal_same_batch_provenance: signalPayload.input_batch_sha256 === candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       visible_candle_pixels: candlePixels,

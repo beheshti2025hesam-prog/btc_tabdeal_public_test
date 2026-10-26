@@ -34,7 +34,7 @@ def sample_batch(*, gaps=()):
     )
     return SimpleNamespace(
         venue="gateio",product="spot",symbol="BTCUSDT",interval="15m",
-        endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
+        endpoint_kind="global_market_data_reader_v1",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
 
@@ -181,6 +181,37 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 
+
+
+    def test_signal_agent_reuses_gateio_canonical_batch_and_fails_closed(self):
+        batch = sample_batch()
+        batch = SimpleNamespace(**{**batch.__dict__, "interval": "15m"})
+        features = SimpleNamespace(
+            decision_ready=False,
+            reason="VOLUME_SEMANTICS_UNAPPROVED",
+            quality=SimpleNamespace(passed=False),
+        )
+        with patch("web.dashboard._get_batch", return_value=(batch, features)) as get_batch:
+            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                payload = json.loads(response.read())
+        get_batch.assert_called_once_with("BTCUSDT", "15m")
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertEqual(payload["source"], "gateio_public_spot")
+        self.assertEqual(payload["source_reader"], "global_market_data_reader_v1")
+        self.assertEqual(payload["input_batch_sha256"], "a" * 64)
+        self.assertEqual(payload["response_sha256"], "a" * 64)
+        self.assertFalse(payload["execution_enabled"])
+        self.assertEqual(payload["structure_direction"], "UNKNOWN")
+        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["blocked_reasons"])
+        self.assertIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+
+    def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
+        with patch("web.dashboard._get_batch") as get_batch:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=ETHUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 400)
+        get_batch.assert_not_called()
 
 if __name__=="__main__":
     unittest.main()
