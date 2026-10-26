@@ -173,5 +173,34 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 
 
+
+    def test_signal_agent_reuses_gateio_canonical_batch_and_fails_closed(self):
+        batch = sample_batch()
+        batch = SimpleNamespace(**{**batch.__dict__, "interval": "15m"})
+        features = SimpleNamespace(
+            decision_ready=False,
+            reason="VOLUME_SEMANTICS_UNAPPROVED",
+            quality=SimpleNamespace(passed=False),
+        )
+        with patch("web.dashboard._get_batch", return_value=(batch, features)) as get_batch:
+            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                payload = json.loads(response.read())
+        get_batch.assert_called_once_with("BTCUSDT", "15m")
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertEqual(payload["source"], "gateio_native_ohlcv_v1")
+        self.assertEqual(payload["response_sha256"], "a" * 64)
+        self.assertFalse(payload["execution_enabled"])
+        self.assertEqual(payload["structure_direction"], "UNKNOWN")
+        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["blocked_reasons"])
+        self.assertIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+
+    def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
+        with patch("web.dashboard._get_batch") as get_batch:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=ETHUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 400)
+        get_batch.assert_not_called()
+
 if __name__=="__main__":
     unittest.main()
