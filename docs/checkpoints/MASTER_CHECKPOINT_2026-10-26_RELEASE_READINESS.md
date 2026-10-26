@@ -25,6 +25,7 @@
 - Worktree remains dirty: **11 tracked changes and 50 untracked paths** (61 status entries). Do not reset, clean, checkout, or overwrite it.
 - Local full suite on the dirty runtime checkout: **417 passed**.
 - Active market-data services after the restart test: `hes-global-market-data-gateio.service`, `hes-global-market-data-gateio-1h.service`, and `hes-global-market-data-gateio-4h.service`. The completed soak service is inactive as expected.
+- Legacy `hes-trade-agent-collector.service` remains disabled/failed since 2026-10-06: its final Git checkpoint refused to write because `origin/main` advanced during the collector run. It is not the canonical Gate.io chart/analysis source and was not restarted; safely persisting or retiring that historical Tabdeal collector is a separate decision.
 - The actual dashboard is **not installed or verified as a service on the VPS**; no dashboard deployment or service activation occurred.
 
 ### Combined dashboard + Signal Agent candidate
