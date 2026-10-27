@@ -254,7 +254,7 @@ class DashboardRouteTests(unittest.TestCase):
         get_batch.assert_not_called()
 
     def test_security_headers_and_read_only_methods(self):
-        with urlopen(self.base+"/healthz") as response:
+        with urlopen(self.base+"/") as response:
             headers=response.headers
             self.assertEqual(headers.get("X-Content-Type-Options"), "nosniff")
             self.assertEqual(headers.get("X-Frame-Options"), "DENY")
