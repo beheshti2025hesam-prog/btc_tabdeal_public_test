@@ -170,7 +170,32 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 return self._send(503,b'{"error":"dashboard_asset_unavailable","fail_closed":true}',"application/json")
             return self._send(200,asset,content_type)
-        if p.path=="/healthz": return self._send(200,b'{"status":"ok","mode":"NO_TRADE_ONLY","execution_enabled":false,"source":"gateio_public_spot","source_reader":"global_market_data_reader_v1","source_symbol":"BTC_USDT","symbol_mapping_verified":true,"execution_instrument_mapping_verified":false}',"application/json")
+        if p.path=="/healthz":
+            try:
+                batch, _ = _get_batch("BTCUSDT", "15m")
+                now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+                latest_age_seconds = (now_ms - batch.candles[-1].close_time_ms) / 1000
+                if latest_age_seconds < 0 or latest_age_seconds > max(180, INTERVAL_MS["15m"] * 2 / 1000):
+                    raise ValueError("latest_closed_candle_stale")
+                if batch.gaps:
+                    raise ValueError("persisted_candle_gaps_present")
+                payload = {
+                    "status": "ok", "mode": "NO_TRADE_ONLY", "execution_enabled": False,
+                    "source": "gateio_public_spot", "source_reader": "global_market_data_reader_v1",
+                    "source_symbol": "BTC_USDT", "symbol_mapping_verified": True,
+                    "execution_instrument_mapping_verified": False,
+                    "input_batch_sha256": batch.response_sha256,
+                    "latest_age_seconds": latest_age_seconds,
+                }
+                return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+            except Exception as exc:
+                payload = {
+                    "status": "blocked", "mode": "NO_TRADE_ONLY",
+                    "error": "market_data_unavailable", "reason": type(exc).__name__,
+                    "fail_closed": True, "execution_enabled": False,
+                    "symbol_mapping_verified": False, "execution_instrument_mapping_verified": False,
+                }
+                return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/signal":
             q = parse_qs(p.query)
             symbol = q.get("symbol", ["BTCUSDT"])[0]
