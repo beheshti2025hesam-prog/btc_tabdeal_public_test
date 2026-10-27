@@ -97,9 +97,13 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Apache License",license_text)
 
     def test_health_and_execution_boundary(self):
-        with urlopen(self.base+"/healthz") as response:
-            payload=json.loads(response.read())
+        batch=sample_batch()
+        with patch("web.dashboard._get_batch",return_value=(batch,SimpleNamespace())):
+            with urlopen(self.base+"/healthz") as response:
+                payload=json.loads(response.read())
         self.assertEqual(payload["mode"],"NO_TRADE_ONLY")
+        self.assertEqual(payload["status"],"ok")
+        self.assertEqual(payload["input_batch_sha256"],"a"*64)
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["execution_instrument_mapping_verified"])
         with self.assertRaises(HTTPError) as error:
@@ -108,6 +112,29 @@ class DashboardRouteTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             urlopen(Request(self.base+"/api/candles",data=b"{}",method="POST"))
         self.assertEqual(error.exception.code,405)
+
+    def test_health_fails_closed_when_persisted_feed_is_unavailable(self):
+        with patch("web.dashboard._get_batch",side_effect=TimeoutError("feed unavailable")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base+"/healthz")
+        self.assertEqual(error.exception.code,503)
+        payload=json.loads(error.exception.read())
+        self.assertEqual(payload["status"],"blocked")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["execution_instrument_mapping_verified"])
+
+    def test_health_fails_closed_when_latest_candle_is_stale(self):
+        batch=sample_batch()
+        stale_candle=SimpleNamespace(**{**batch.candles[-1].__dict__,"close_time_ms":int(time.time()*1000)-7_200_000})
+        stale_batch=SimpleNamespace(**{**batch.__dict__,"candles":(stale_candle,)})
+        with patch("web.dashboard._get_batch",return_value=(stale_batch,SimpleNamespace())):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base+"/healthz")
+        self.assertEqual(error.exception.code,503)
+        payload=json.loads(error.exception.read())
+        self.assertEqual(payload["reason"],"ValueError")
+        self.assertTrue(payload["fail_closed"])
 
     def test_chart_and_feature_pipeline_receive_the_same_native_batch(self):
         batch=sample_batch()
