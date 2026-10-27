@@ -6,6 +6,9 @@ const { chromium } = require("playwright");
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "en-US" });
     let candlePayload = null;
+    let signalPayload = null;
+    let resolveSignalPayload;
+    const signalPayloadReady = new Promise(resolve => { resolveSignalPayload = resolve; });
     let externalChartCdnRequested = false;
     let chartAssetResponse = null;
     const consoleErrors = [];
@@ -32,6 +35,13 @@ const { chromium } = require("playwright");
           const body = await response.json();
           if (Array.isArray(body.candles) && body.candles.length) candlePayload = body;
         }
+        if (url.pathname === "/api/signal" && response.status() === 200) {
+          const body = await response.json();
+          if (body && typeof body.response_sha256 === "string") {
+            signalPayload = body;
+            resolveSignalPayload();
+          }
+        }
       } catch (_) {}
     });
 
@@ -45,8 +55,24 @@ const { chromium } = require("playwright");
       const canvas = document.querySelector("#chart canvas");
       return !!canvas && canvas.getBoundingClientRect().width > 100 && canvas.getBoundingClientRect().height > 100;
     }, null, { timeout: 15000 });
+    await page.waitForFunction(
+      () => document.querySelector("#signalStatus")?.textContent !== "Checking gates…",
+      null,
+      { timeout: 30000 }
+    );
+    await Promise.race([
+      signalPayloadReady,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("successful /api/signal payload was not observed")), 30000))
+    ]);
 
     assert.ok(candlePayload, "successful /api/candles payload was not observed");
+    assert.ok(signalPayload, "successful /api/signal payload was not observed");
+    assert.equal(candlePayload.interval, "15m", "browser evidence must use the Signal Agent's supported timeframe");
+    assert.equal(signalPayload.symbol, candlePayload.symbol, "Signal Agent symbol differs from chart batch");
+    assert.equal(signalPayload.timeframe, candlePayload.interval, "Signal Agent timeframe differs from chart batch");
+    assert.equal(signalPayload.response_sha256, candlePayload.response_sha256, "Signal Agent did not reuse the chart's exact candle batch");
+    assert.equal(signalPayload.decision, "NO_TRADE", "Signal Agent must remain fail-closed");
+    assert.equal(signalPayload.execution_enabled, false, "Signal Agent execution must remain disabled");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
     assert.equal(candlePayload.source, "gateio_native_ohlcv_v1");
     assert.equal(candlePayload.venue, "gateio");
@@ -119,6 +145,14 @@ const { chromium } = require("playwright");
       page_errors: pageErrors,
       request_failures: requestFailures,
       message: ui.message,
+      signal_agent: signalPayload ? {
+        symbol: signalPayload.symbol,
+        timeframe: signalPayload.timeframe,
+        response_sha256: signalPayload.response_sha256,
+        batch_matches_chart_batch: signalPayload.response_sha256 === candlePayload.response_sha256,
+        decision: signalPayload.decision,
+        execution_enabled: signalPayload.execution_enabled
+      } : null,
       execution_enabled: false
     };
     require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(diagnosticEvidence, null, 2) + "\n");
@@ -153,6 +187,14 @@ const { chromium } = require("playwright");
       displayed_close_matches_source: true,
       displayed_volume_matches_source: true,
       chart_input_batch_matches_api_batch: true,
+      signal_agent: signalPayload ? {
+        symbol: signalPayload.symbol,
+        timeframe: signalPayload.timeframe,
+        response_sha256: signalPayload.response_sha256,
+        batch_matches_chart_batch: signalPayload.response_sha256 === candlePayload.response_sha256,
+        decision: signalPayload.decision,
+        execution_enabled: signalPayload.execution_enabled
+      } : null,
       execution_enabled: false,
       message: ui.message
     };
