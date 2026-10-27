@@ -213,5 +213,23 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(error.exception.code, 400)
         get_batch.assert_not_called()
 
+    def test_security_headers_and_read_only_methods(self):
+        with urlopen(self.base+"/healthz") as response:
+            headers=response.headers
+            self.assertEqual(headers.get("X-Content-Type-Options"), "nosniff")
+            self.assertEqual(headers.get("X-Frame-Options"), "DENY")
+            self.assertEqual(headers.get("Referrer-Policy"), "no-referrer")
+            self.assertIn("object-src 'none'", headers.get("Content-Security-Policy", ""))
+            self.assertIn("base-uri 'self'", headers.get("Content-Security-Policy", ""))
+            self.assertIn("form-action 'self'", headers.get("Content-Security-Policy", ""))
+            self.assertIn("frame-ancestors 'none'", headers.get("Content-Security-Policy", ""))
+            self.assertEqual(headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()")
+            self.assertEqual(headers.get("Cache-Control"), "no-store")
+        for path in ("/api/order", "/api/orders", "/api/execute"):
+            with self.subTest(path=path):
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(self.base+path, data=b"{}", method="POST"))
+                self.assertEqual(error.exception.code, 405)
+
 if __name__=="__main__":
     unittest.main()
