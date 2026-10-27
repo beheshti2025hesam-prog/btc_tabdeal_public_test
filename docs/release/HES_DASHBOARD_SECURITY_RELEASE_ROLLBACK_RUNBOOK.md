@@ -24,7 +24,7 @@
    - visible candles, no console/page errors, and responsive viewport checks;
    - Signal Agent is `BLOCKED` / `NO_TRADE` while required providers are absent and execution is disabled.
 3. Verify freshness, closed-candle integrity, source identity, symbol mapping evidence, risk/strategy approvals, access control, service user, firewall, health check, logs, and monitoring.
-4. Verify a staged install and rollback in an isolated environment before production. Capture exact SHA-256 hashes and command output; do not infer success from CI alone.
+4. Verify a staged install and rollback in an isolated environment before production. Capture exact SHA-256 hashes and command output; do not infer success from CI alone. The candidate now includes filesystem-only atomic version-switch/rollback tests, but those tests are not a production rollback rehearsal.
 5. Do not deploy until the frontend runtime and approved release target on the sole VPS are identified. Never clean, reset, or overwrite its dirty checkout as part of this procedure.
 
 ## Controlled release (not yet authorized)
@@ -58,4 +58,6 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 - Candidate PR: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/388
 - Persisted-feed parent: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/383
 - Signal Agent source candidate (not a separate merge target): https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/387
-- The recorded CI evidence applies only to the exact SHA shown in the corresponding workflow run. Production installation, production rollback, independent risk approval, and execution mapping remain separate gates.
+- Exact-head validation on 2026-10-27: full repository suite 604 passed / 8 subtests; dashboard single-path tests passed; browser render and responsive checks passed at 390px, 768px, and 1440px with no horizontal overflow; public Binance Spot WebSocket-to-REST smoke passed (read-only transport test; this is not proof of a Gate.io dashboard WebSocket, which remains disabled).
+- Isolated VPS runtime smoke on candidate SHA `a64afe129f41db66afb5b54724e1eb2cd2ab5665`: health 200 with fresh feed, 503 after the persisted 15m file was removed beyond cache expiry, 200 after restore, and 200 after process restart. Temporary checkout/process were removed; no VPS service was installed or changed.
+- The recorded CI evidence applies only to the exact SHA shown in the corresponding workflow run. Production installation, production rollback, independent risk approval, and execution instrument mapping remain separate gates.
