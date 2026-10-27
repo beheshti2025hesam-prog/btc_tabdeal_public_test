@@ -7,3 +7,7 @@ header,.toolbar,.metrics{display:flex;gap:12px;align-items:center;justify-conten
 #message{color:var(--muted);font-size:13px;margin-top:10px}.gate{border-left:3px solid var(--amber);padding-left:12px}.footer{padding:18px 2px;color:var(--muted);font-size:12px;line-height:1.6}
 @media(max-width:600px){main{padding:12px}#chart{height:300px}.metric{min-width:42%}}
 
+
+.stamp{font-size:14px}
+.chart-panel{padding:8px;margin-top:14px}
+.panel-title{margin-top:0}
