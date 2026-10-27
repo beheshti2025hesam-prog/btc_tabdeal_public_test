@@ -26,6 +26,26 @@ def atomic_switch(link: Path, target: Path) -> None:
 
 
 class DashboardReleaseRollbackTests(unittest.TestCase):
+    def test_service_template_is_loopback_only_read_only_and_fail_closed(self):
+        unit = (Path(__file__).resolve().parents[1] / "deploy/systemd/hes-readonly-dashboard.service").read_text(encoding="utf-8")
+        for required in (
+            "User=sentinelx",
+            "WorkingDirectory=/opt/hes-trade-agent/current",
+            "Environment=HES_DASHBOARD_HOST=127.0.0.1",
+            "Environment=HES_DASHBOARD_PORT=8765",
+            "ExecStart=/opt/hes-trade-agent/.venv/bin/python -m web.dashboard",
+            "NoNewPrivileges=true",
+            "PrivateTmp=true",
+            "ProtectSystem=strict",
+            "ProtectHome=true",
+            "MemoryDenyWriteExecute=true",
+            "Restart=on-failure",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, unit)
+        self.assertNotIn("HES_BINANCE_STREAM_ENABLED=1", unit)
+        self.assertNotIn("order", unit.lower().split("execstart", 1)[-1])
+
     def test_versioned_install_and_rollback_restore_exact_previous_artifact(self):
         with tempfile.TemporaryDirectory(prefix="hes-dashboard-release-test-") as temp:
             root = Path(temp)
