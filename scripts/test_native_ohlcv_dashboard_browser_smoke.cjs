@@ -190,7 +190,12 @@ const { chromium } = require("playwright");
     const responsiveViewports = [];
     for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 1000 }]) {
       await page.setViewportSize(viewport);
-      await page.waitForTimeout(150);
+      const minimumChartWidth = viewport.width <= 600 ? 200 : viewport.width <= 800 ? 550 : 900;
+      await page.waitForFunction((minimum) => {
+        const canvas = document.querySelector("#chart canvas");
+        const rect = canvas?.getBoundingClientRect();
+        return !!rect && rect.width > minimum;
+      }, minimumChartWidth, { timeout: 5000 });
       const layout = await page.evaluate(() => {
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
@@ -202,7 +207,7 @@ const { chromium } = require("playwright");
           horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
         };
       });
-      assert.ok(layout.chartWidth > 200 && layout.chartHeight > 200, "chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
       assert.equal(layout.horizontalOverflow, false, "horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
       responsiveViewports.push(layout);
     }
