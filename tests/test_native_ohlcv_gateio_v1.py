@@ -57,8 +57,15 @@ def test_query_uses_gateio_symbol_and_public_endpoint():
     assert seen[0].startswith("https://api.gateio.ws/api/v4/spot/candlesticks?")
     assert "currency_pair=BTC_USDT" in seen[0] and "interval=15m" in seen[0]
 
-def test_unavailable_taker_flow_cannot_emit_ready_features():
+def test_documented_base_quote_volume_features_ready_without_fabricating_taker_flow():
     from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
+    from forward.native_ohlcv_gateio_v1 import (VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES,
+        VOLUME_SEMANTICS_CONTRACT_VERSION, VOLUME_SEMANTICS_SOURCE_DOC_URL,
+        TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE)
+    assert VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES is True
+    assert VOLUME_SEMANTICS_CONTRACT_VERSION == "gateio_spot_candlestick_volume_v1"
+    assert VOLUME_SEMANTICS_SOURCE_DOC_URL.startswith("https://www.gate.com/docs/")
+    assert TRADE_COUNT_AVAILABLE is False and TAKER_BUY_FLOW_AVAILABLE is False
     rows=[]
     for i in range(25):
         ts=BASE_S+i*STEP
@@ -67,10 +74,15 @@ def test_unavailable_taker_flow_cannot_emit_ready_features():
     now=(BASE_S+30*STEP)*1000
     source,body=make_source(list(reversed(rows)),fetched_ms=now)
     batch=source.fetch(symbol="BTCUSDT",interval="15m",limit=50,as_of_ms=now)
-    result=NativeOHLCVFeaturePipelineV1().build(batch,now_ms=now)
-    assert result.decision_ready is False
-    assert result.reason=="VOLUME_SEMANTICS_UNAPPROVED"
-    assert result.snapshot is None
+    result=NativeOHLCVFeaturePipelineV1(
+        volume_semantics_approved=VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES
+    ).build(batch,now_ms=now)
+    assert result.decision_ready is True
+    assert result.reason=="NATIVE_OHLCV_FEATURES_READY"
+    assert result.snapshot is not None
+    assert result.snapshot.volume_ratio is not None
+    assert result.snapshot.buy_ratio is None
+    assert result.snapshot.buy_sell_delta is None
 
 def test_native_batch_rejects_partially_available_taker_flow():
     from dataclasses import replace

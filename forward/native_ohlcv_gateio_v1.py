@@ -1,9 +1,11 @@
 """Read-only Gate.io Spot adapter for the canonical NativeOHLCV contract.
 
-Gate.io candle REST rows provide OHLC, base volume and quote volume, but not
-trade count or taker-buy flow. Those fields remain None (unavailable), never
-fabricated as zero. The feature pipeline's volume-semantics gate must remain
-unapproved unless a separate source-specific evidence contract is approved.
+Gate.io's official Spot candlestick schema defines field 1 as quote-currency
+volume and field 6 as base-currency amount. That source-specific contract
+supports base/quote volume features without normalization. Trade count and
+taker-buy flow are not returned and remain None (unavailable), never fabricated.
+The approval below applies only to documented base/quote volume features.
+Official schema: https://www.gate.com/docs/developers/apiv4/en/spot/
 """
 from __future__ import annotations
 import hashlib, json, time
@@ -14,6 +16,11 @@ from urllib.request import Request, urlopen
 from .native_ohlcv_v1 import INTERVAL_MS, CandleGap, NativeCandle, NativeOHLCVBatch, validate_native_batch
 
 REST_URL = "https://api.gateio.ws/api/v4/spot/candlesticks"
+VOLUME_SEMANTICS_CONTRACT_VERSION = "gateio_spot_candlestick_volume_v1"
+VOLUME_SEMANTICS_SOURCE_DOC_URL = "https://www.gate.com/docs/developers/apiv4/en/spot/"
+VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES = True
+TRADE_COUNT_AVAILABLE = False
+TAKER_BUY_FLOW_AVAILABLE = False
 _SYMBOLS = {"BTCUSDT": "BTC_USDT", "ETHUSDT": "ETH_USDT", "SOLUSDT": "SOL_USDT"}
 SUPPORTED_INTERVALS = frozenset({"1m", "5m", "15m", "1h", "4h", "1d"})
 _TIMEOUT = 10
