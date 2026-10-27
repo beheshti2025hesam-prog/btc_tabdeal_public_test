@@ -63,7 +63,13 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn(dashboard.CHART_ASSET_PATH,page)
         self.assertNotIn("unpkg.com",page)
         self.assertIn("https://www.tradingview.com/",page)
-        self.assertIn("LightweightCharts.CandlestickSeries",page)
+        self.assertIn('src="/static/dashboard.js"',page)
+        with urlopen(self.base+"/static/dashboard.js") as response:
+            self.assertEqual(response.headers.get_content_type(),"text/javascript")
+            self.assertIn("LightweightCharts.CandlestickSeries",response.read().decode())
+        with urlopen(self.base+"/static/dashboard.css") as response:
+            self.assertEqual(response.headers.get_content_type(),"text/css")
+            self.assertIn("#0b1220",response.read().decode())
         self.assertIn("Canonical persisted global feed",page)
         self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
@@ -77,7 +83,8 @@ class DashboardRouteTests(unittest.TestCase):
             payload=response.read()
             self.assertEqual(response.status,200)
             self.assertEqual(response.headers.get_content_type(),"text/javascript")
-            self.assertIn("script-src 'self' 'unsafe-inline'",response.headers.get("Content-Security-Policy",""))
+            self.assertIn("script-src 'self'",response.headers.get("Content-Security-Policy",""))
+            self.assertNotIn("unsafe-inline",response.headers.get("Content-Security-Policy",""))
             self.assertNotIn("unpkg.com",response.headers.get("Content-Security-Policy",""))
         self.assertGreater(len(payload),100_000)
         digest=base64.b64encode(hashlib.sha384(payload).digest()).decode("ascii")
@@ -223,6 +230,7 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertIn("base-uri 'self'", headers.get("Content-Security-Policy", ""))
             self.assertIn("form-action 'self'", headers.get("Content-Security-Policy", ""))
             self.assertIn("frame-ancestors 'none'", headers.get("Content-Security-Policy", ""))
+            self.assertNotIn("unsafe-inline", headers.get("Content-Security-Policy", ""))
             self.assertEqual(headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()")
             self.assertEqual(headers.get("Cache-Control"), "no-store")
         for path in ("/api/order", "/api/orders", "/api/execute"):
