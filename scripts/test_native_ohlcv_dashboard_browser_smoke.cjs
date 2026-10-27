@@ -194,7 +194,7 @@ const { chromium } = require("playwright");
       await page.waitForFunction((minimum) => {
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
-        return !!rect && rect.width > minimum;
+        return !!rect && rect.width > minimum && document.documentElement.scrollWidth <= window.innerWidth + 1;
       }, minimumChartWidth, { timeout: 5000 });
       const layout = await page.evaluate(() => {
         const canvas = document.querySelector("#chart canvas");
