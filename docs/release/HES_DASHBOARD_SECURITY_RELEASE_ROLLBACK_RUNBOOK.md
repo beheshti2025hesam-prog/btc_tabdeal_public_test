@@ -3,7 +3,7 @@
 **Applies to:** the read-only persisted-feed dashboard candidate in PR #388.  
 **Target date:** 2026-11-19.  
 **Current disposition:** HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.  
-**Production status:** this runbook is a prepared procedure, not evidence of a production deployment or rollback rehearsal.
+**Production status:** no production deployment or production rollback has occurred. An isolated temporary-directory versioned-release/rollback rehearsal passed; it does not replace production authorization or production rollback evidence.
 
 ## Security boundary
 
@@ -60,4 +60,5 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 - Signal Agent source candidate (not a separate merge target): https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/387
 - Exact-head validation on 2026-10-27: full repository suite 604 passed / 8 subtests; dashboard single-path tests passed; browser render and responsive checks passed at 390px, 768px, and 1440px with no horizontal overflow; public Binance Spot WebSocket-to-REST smoke passed (read-only transport test; this is not proof of a Gate.io dashboard WebSocket, which remains disabled).
 - Isolated VPS runtime smoke on candidate SHA `a64afe129f41db66afb5b54724e1eb2cd2ab5665`: health 200 with fresh feed, 503 after the persisted 15m file was removed beyond cache expiry, 200 after restore, and 200 after process restart. Temporary checkout/process were removed; no VPS service was installed or changed.
+- Isolated versioned-release rollback rehearsal on candidate SHA `b6f5fed89350dd3c9ba42e3722a7a8f2192bd78b`: valid release health 200; intentionally invalid release rejected; atomic pointer restored to the valid release; health returned to 200 and the restored dashboard SHA-256 matched the saved pre-release digest. Temporary release directories and process were removed.
 - The recorded CI evidence applies only to the exact SHA shown in the corresponding workflow run. Production installation, production rollback, independent risk approval, and execution instrument mapping remain separate gates.
