@@ -60,6 +60,8 @@ class DashboardRouteTests(unittest.TestCase):
             page=response.read().decode()
         self.assertIn("HES Trade Agent",page)
         self.assertIn("HOLD / NO_TRADE_ONLY",page)
+        self.assertIn('<div class="panel chart-panel">',page)
+        self.assertNotIn('class="panel" class="chart-panel"',page)
         self.assertIn(dashboard.CHART_ASSET_PATH,page)
         self.assertNotIn("unpkg.com",page)
         self.assertIn("https://www.tradingview.com/",page)
