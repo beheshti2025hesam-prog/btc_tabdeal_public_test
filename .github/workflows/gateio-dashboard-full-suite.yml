@@ -3,6 +3,7 @@ name: Gate.io Dashboard Full Repository Regression
 on:
   pull_request:
     branches:
+      - fix/browser-visible-candle-assertion-20261025
       - feat/gateio-native-ohlcv-dashboard-adapter-20261025
   push:
     branches:
