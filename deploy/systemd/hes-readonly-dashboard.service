@@ -1,0 +1,43 @@
+[Unit]
+Description=HES Trade Agent read-only persisted-feed dashboard
+Documentation=https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/388
+After=network-online.target hes-global-market-data-gateio.service
+Wants=network-online.target
+ConditionPathExists=/opt/hes-trade-agent/current/web/dashboard.py
+
+[Service]
+Type=simple
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent/current
+Environment=PYTHONPATH=/opt/hes-trade-agent/current
+Environment=HES_DASHBOARD_HOST=127.0.0.1
+Environment=HES_DASHBOARD_PORT=8765
+Environment=HES_DASHBOARD_ACCESS_LOG=0
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -m web.dashboard
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGTERM
+UMask=0077
+TasksMax=64
+LimitNOFILE=1024
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadOnlyPaths=/opt/hes-trade-agent/releases /opt/hes-trade-agent/data/forward
+
+[Install]
+WantedBy=multi-user.target

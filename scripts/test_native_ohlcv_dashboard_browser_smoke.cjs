@@ -4,8 +4,9 @@ const { chromium } = require("playwright");
 (async () => {
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "en-US" });
     let candlePayload = null;
+    let signalPayload = null;
     let externalChartCdnRequested = false;
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
@@ -37,6 +38,9 @@ const { chromium } = require("playwright");
           const body = await response.json();
           if (Array.isArray(body.candles) && body.candles.length) candlePayload = body;
         }
+        if (url.pathname === "/api/signal" && response.status() === 200) {
+          signalPayload = await response.json();
+        }
       } catch (_) {}
     });
 
@@ -51,12 +55,26 @@ const { chromium } = require("playwright");
       return !!canvas && canvas.getBoundingClientRect().width > 100 && canvas.getBoundingClientRect().height > 100;
     }, null, { timeout: 15000 });
 
+    await page.waitForFunction(
+      () => document.querySelector("#signalStatus")?.textContent && document.querySelector("#signalStatus").textContent !== "Checking gates…",
+      null,
+      { timeout: 15000 }
+    );
     assert.ok(candlePayload, "successful /api/candles payload was not observed");
+    assert.ok(signalPayload, "successful /api/signal payload was not observed");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
+    assert.equal(signalPayload.source, candlePayload.source, "signal and chart source identities differ");
+    assert.equal(signalPayload.source_reader, candlePayload.source_reader, "signal and chart reader identities differ");
+    assert.equal(signalPayload.input_batch_sha256, candlePayload.input_batch_sha256, "signal and chart input batches differ");
+    assert.equal(signalPayload.decision, "NO_TRADE", "unapproved signal path must fail closed");
+    assert.equal(signalPayload.status, "BLOCKED", "missing risk/structure providers must block signal");
+    assert.equal(signalPayload.execution_enabled, false, "signal route must never enable execution");
     assert.equal(candlePayload.source, "gateio_public_spot");
     assert.equal(candlePayload.source_reader, "global_market_data_reader_v1");
     assert.equal(candlePayload.source_symbol, "BTC_USDT");
     assert.equal(candlePayload.symbol_mapping_verified, true);
+    assert.equal(candlePayload.execution_instrument_mapping_verified, false);
+    assert.equal(signalPayload.execution_instrument_mapping_verified, false);
     assert.equal(candlePayload.volume_semantics_contract, "gateio_spot_candlestick_volume_v1");
     assert.equal(candlePayload.trade_count_available, false);
     assert.equal(candlePayload.taker_buy_flow_available, false);
@@ -120,6 +138,7 @@ const { chromium } = require("playwright");
       source_reader: candlePayload.source_reader,
       source_symbol: candlePayload.source_symbol,
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
+      execution_instrument_mapping_verified: candlePayload.execution_instrument_mapping_verified,
       volume_semantics_contract: candlePayload.volume_semantics_contract,
       trade_count_available: candlePayload.trade_count_available,
       taker_buy_flow_available: candlePayload.taker_buy_flow_available,
@@ -129,6 +148,11 @@ const { chromium } = require("playwright");
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
       interval: candlePayload.interval,
       input_batch_sha256: candlePayload.input_batch_sha256,
+      signal_input_batch_sha256: signalPayload.input_batch_sha256,
+      signal_source_reader: signalPayload.source_reader,
+      signal_status: signalPayload.status,
+      signal_decision: signalPayload.decision,
+      signal_same_batch_provenance: signalPayload.input_batch_sha256 === candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       chart_library_loaded: ui.chartLibraryLoaded,
@@ -163,6 +187,32 @@ const { chromium } = require("playwright");
     const stamp = new Date(last.close_time).toISOString().replace("T", " ").replace(".000Z", " UTC");
     assert.equal(ui.stamp, stamp, "displayed UTC candle time differs from source batch");
 
+    const responsiveViewports = [];
+    for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 1000 }]) {
+      await page.setViewportSize(viewport);
+      const minimumChartWidth = viewport.width <= 600 ? 200 : viewport.width <= 800 ? 550 : 900;
+      await page.waitForFunction((minimum) => {
+        const canvas = document.querySelector("#chart canvas");
+        const rect = canvas?.getBoundingClientRect();
+        return !!rect && rect.width > minimum && document.documentElement.scrollWidth <= window.innerWidth + 1;
+      }, minimumChartWidth, { timeout: 5000 });
+      const layout = await page.evaluate(() => {
+        const canvas = document.querySelector("#chart canvas");
+        const rect = canvas?.getBoundingClientRect();
+        return {
+          viewportWidth: window.innerWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          chartWidth: rect ? rect.width : 0,
+          chartHeight: rect ? rect.height : 0,
+          horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
+        };
+      });
+      assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.equal(layout.horizontalOverflow, false, "horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      responsiveViewports.push(layout);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+
     await page.screenshot({ path: "artifacts/native-ohlcv-dashboard-browser-smoke.png", fullPage: true });
     const evidence = {
       schema_version: 1,
@@ -171,6 +221,7 @@ const { chromium } = require("playwright");
       source_reader: candlePayload.source_reader,
       source_symbol: candlePayload.source_symbol,
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
+      execution_instrument_mapping_verified: candlePayload.execution_instrument_mapping_verified,
       volume_semantics_contract: candlePayload.volume_semantics_contract,
       trade_count_available: candlePayload.trade_count_available,
       taker_buy_flow_available: candlePayload.taker_buy_flow_available,
@@ -179,8 +230,14 @@ const { chromium } = require("playwright");
       symbol: candlePayload.symbol,
       interval: candlePayload.interval,
       input_batch_sha256: candlePayload.input_batch_sha256,
+      signal_input_batch_sha256: signalPayload.input_batch_sha256,
+      signal_source_reader: signalPayload.source_reader,
+      signal_status: signalPayload.status,
+      signal_decision: signalPayload.decision,
+      signal_same_batch_provenance: signalPayload.input_batch_sha256 === candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
+      responsive_viewports: responsiveViewports,
       visible_candle_pixels: candlePixels,
       external_chart_cdn_requested: externalChartCdnRequested,
       direct_market_data_request_from_browser: directMarketDataRequest,

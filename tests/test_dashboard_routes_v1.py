@@ -34,7 +34,7 @@ def sample_batch(*, gaps=()):
     )
     return SimpleNamespace(
         venue="gateio",product="spot",symbol="BTCUSDT",interval="15m",
-        endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
+        endpoint_kind="global_market_data_reader_v1",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
 
@@ -60,10 +60,18 @@ class DashboardRouteTests(unittest.TestCase):
             page=response.read().decode()
         self.assertIn("HES Trade Agent",page)
         self.assertIn("HOLD / NO_TRADE_ONLY",page)
+        self.assertIn('<div class="panel chart-panel">',page)
+        self.assertNotIn('class="panel" class="chart-panel"',page)
         self.assertIn(dashboard.CHART_ASSET_PATH,page)
         self.assertNotIn("unpkg.com",page)
         self.assertIn("https://www.tradingview.com/",page)
-        self.assertIn("LightweightCharts.CandlestickSeries",page)
+        self.assertIn('src="/static/dashboard.js"',page)
+        with urlopen(self.base+"/static/dashboard.js") as response:
+            self.assertEqual(response.headers.get_content_type(),"text/javascript")
+            self.assertIn("LightweightCharts.CandlestickSeries",response.read().decode())
+        with urlopen(self.base+"/static/dashboard.css") as response:
+            self.assertEqual(response.headers.get_content_type(),"text/css")
+            self.assertIn("#0b1220",response.read().decode())
         self.assertIn("Canonical persisted global feed",page)
         self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
@@ -77,7 +85,8 @@ class DashboardRouteTests(unittest.TestCase):
             payload=response.read()
             self.assertEqual(response.status,200)
             self.assertEqual(response.headers.get_content_type(),"text/javascript")
-            self.assertIn("script-src 'self' 'unsafe-inline'",response.headers.get("Content-Security-Policy",""))
+            self.assertIn("script-src 'self'",response.headers.get("Content-Security-Policy",""))
+            self.assertNotIn("unsafe-inline",response.headers.get("Content-Security-Policy",""))
             self.assertNotIn("unpkg.com",response.headers.get("Content-Security-Policy",""))
         self.assertGreater(len(payload),100_000)
         digest=base64.b64encode(hashlib.sha384(payload).digest()).decode("ascii")
@@ -88,16 +97,44 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Apache License",license_text)
 
     def test_health_and_execution_boundary(self):
-        with urlopen(self.base+"/healthz") as response:
-            payload=json.loads(response.read())
+        batch=sample_batch()
+        with patch("web.dashboard._get_batch",return_value=(batch,SimpleNamespace())):
+            with urlopen(self.base+"/healthz") as response:
+                payload=json.loads(response.read())
         self.assertEqual(payload["mode"],"NO_TRADE_ONLY")
+        self.assertEqual(payload["status"],"ok")
+        self.assertEqual(payload["input_batch_sha256"],"a"*64)
         self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["execution_instrument_mapping_verified"])
         with self.assertRaises(HTTPError) as error:
             urlopen(self.base+"/api/order")
         self.assertEqual(error.exception.code,404)
         with self.assertRaises(HTTPError) as error:
             urlopen(Request(self.base+"/api/candles",data=b"{}",method="POST"))
         self.assertEqual(error.exception.code,405)
+
+    def test_health_fails_closed_when_persisted_feed_is_unavailable(self):
+        with patch("web.dashboard._get_batch",side_effect=TimeoutError("feed unavailable")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base+"/healthz")
+        self.assertEqual(error.exception.code,503)
+        payload=json.loads(error.exception.read())
+        self.assertEqual(payload["status"],"blocked")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["execution_instrument_mapping_verified"])
+
+    def test_health_fails_closed_when_latest_candle_is_stale(self):
+        batch=sample_batch()
+        stale_candle=SimpleNamespace(**{**batch.candles[-1].__dict__,"close_time_ms":int(time.time()*1000)-7_200_000})
+        stale_batch=SimpleNamespace(**{**batch.__dict__,"candles":(stale_candle,)})
+        with patch("web.dashboard._get_batch",return_value=(stale_batch,SimpleNamespace())):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base+"/healthz")
+        self.assertEqual(error.exception.code,503)
+        payload=json.loads(error.exception.read())
+        self.assertEqual(payload["reason"],"ValueError")
+        self.assertTrue(payload["fail_closed"])
 
     def test_chart_and_feature_pipeline_receive_the_same_native_batch(self):
         batch=sample_batch()
@@ -112,6 +149,8 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["source_reader"],"global_market_data_reader_v1")
         self.assertEqual(payload["source_symbol"],"BTC_USDT")
         self.assertTrue(payload["symbol_mapping_verified"])
+        self.assertFalse(payload["execution_instrument_mapping_verified"])
+        self.assertFalse(payload["execution_instrument_mapping_verified"])
         self.assertEqual(payload["volume_semantics_contract"],"gateio_spot_candlestick_volume_v1")
         self.assertFalse(payload["trade_count_available"])
         self.assertFalse(payload["taker_buy_flow_available"])
@@ -181,6 +220,57 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 
+
+
+    def test_signal_agent_reuses_gateio_canonical_batch_and_fails_closed(self):
+        batch = sample_batch()
+        batch = SimpleNamespace(**{**batch.__dict__, "interval": "15m"})
+        features = SimpleNamespace(
+            decision_ready=False,
+            reason="VOLUME_SEMANTICS_UNAPPROVED",
+            quality=SimpleNamespace(passed=False),
+        )
+        with patch("web.dashboard._get_batch", return_value=(batch, features)) as get_batch:
+            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                payload = json.loads(response.read())
+        get_batch.assert_called_once_with("BTCUSDT", "15m")
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertEqual(payload["source"], "gateio_public_spot")
+        self.assertEqual(payload["source_reader"], "global_market_data_reader_v1")
+        self.assertEqual(payload["input_batch_sha256"], "a" * 64)
+        self.assertEqual(payload["response_sha256"], "a" * 64)
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["execution_instrument_mapping_verified"])
+        self.assertEqual(payload["structure_direction"], "UNKNOWN")
+        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["blocked_reasons"])
+        self.assertIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+
+    def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
+        with patch("web.dashboard._get_batch") as get_batch:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=ETHUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 400)
+        get_batch.assert_not_called()
+
+    def test_security_headers_and_read_only_methods(self):
+        with urlopen(self.base+"/") as response:
+            headers=response.headers
+            self.assertEqual(headers.get("X-Content-Type-Options"), "nosniff")
+            self.assertEqual(headers.get("X-Frame-Options"), "DENY")
+            self.assertEqual(headers.get("Referrer-Policy"), "no-referrer")
+            self.assertIn("object-src 'none'", headers.get("Content-Security-Policy", ""))
+            self.assertIn("base-uri 'self'", headers.get("Content-Security-Policy", ""))
+            self.assertIn("form-action 'self'", headers.get("Content-Security-Policy", ""))
+            self.assertIn("frame-ancestors 'none'", headers.get("Content-Security-Policy", ""))
+            self.assertNotIn("unsafe-inline", headers.get("Content-Security-Policy", ""))
+            self.assertEqual(headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()")
+            self.assertEqual(headers.get("Cache-Control"), "no-store")
+        for path in ("/api/order", "/api/orders", "/api/execute"):
+            with self.subTest(path=path):
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(self.base+path, data=b"{}", method="POST"))
+                self.assertEqual(error.exception.code, 405)
 
 if __name__=="__main__":
     unittest.main()
