@@ -216,6 +216,7 @@ const { chromium } = require("playwright");
       source_reader: candlePayload.source_reader,
       source_symbol: candlePayload.source_symbol,
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
+      execution_instrument_mapping_verified: candlePayload.execution_instrument_mapping_verified,
       volume_semantics_contract: candlePayload.volume_semantics_contract,
       trade_count_available: candlePayload.trade_count_available,
       taker_buy_flow_available: candlePayload.taker_buy_flow_available,
