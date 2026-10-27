@@ -73,6 +73,8 @@ const { chromium } = require("playwright");
     assert.equal(candlePayload.source_reader, "global_market_data_reader_v1");
     assert.equal(candlePayload.source_symbol, "BTC_USDT");
     assert.equal(candlePayload.symbol_mapping_verified, true);
+    assert.equal(candlePayload.execution_instrument_mapping_verified, false);
+    assert.equal(signalPayload.execution_instrument_mapping_verified, false);
     assert.equal(candlePayload.volume_semantics_contract, "gateio_spot_candlestick_volume_v1");
     assert.equal(candlePayload.trade_count_available, false);
     assert.equal(candlePayload.taker_buy_flow_available, false);
@@ -136,6 +138,7 @@ const { chromium } = require("playwright");
       source_reader: candlePayload.source_reader,
       source_symbol: candlePayload.source_symbol,
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
+      execution_instrument_mapping_verified: candlePayload.execution_instrument_mapping_verified,
       volume_semantics_contract: candlePayload.volume_semantics_contract,
       trade_count_available: candlePayload.trade_count_available,
       taker_buy_flow_available: candlePayload.taker_buy_flow_available,
