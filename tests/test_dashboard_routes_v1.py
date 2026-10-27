@@ -18,13 +18,14 @@ import web.dashboard as dashboard
 from web.dashboard import Handler
 
 
-def sample_batch(*, gaps=()):
+def sample_batch(*, gaps=(), interval="1m"):
     now_ms=int(time.time()*1000)
-    open_ms=(now_ms//60_000-1)*60_000
-    close_ms=open_ms+59_999
+    period_ms=dashboard.INTERVAL_MS[interval]
+    open_ms=(now_ms//period_ms-1)*period_ms
+    close_ms=open_ms+period_ms-1
     fetched=now_ms
     candle=SimpleNamespace(
-        venue="gateio",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="gateio",product="spot",symbol="BTCUSDT",interval=interval,
         open_time_ms=open_ms,close_time_ms=close_ms,
         open=Decimal("100.00"),high=Decimal("102.00"),low=Decimal("99.00"),
         close=Decimal("101.00"),volume=Decimal("2.500"),quote_volume=Decimal("250.625"),
@@ -32,7 +33,7 @@ def sample_batch(*, gaps=()):
         taker_buy_quote_volume=None,closed=True,
     )
     return SimpleNamespace(
-        venue="gateio",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="gateio",product="spot",symbol="BTCUSDT",interval=interval,
         endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
@@ -172,6 +173,55 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 
+
+
+    def test_signal_agent_reuses_gateio_canonical_batch_and_fails_closed(self):
+        batch = sample_batch(interval="15m")
+        features = SimpleNamespace(
+            decision_ready=False,
+            reason="VOLUME_SEMANTICS_UNAPPROVED",
+            quality=SimpleNamespace(passed=False),
+        )
+        with patch("web.dashboard._get_batch", return_value=(batch, features)) as get_batch:
+            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                payload = json.loads(response.read())
+        get_batch.assert_called_once_with("BTCUSDT", "15m")
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertEqual(payload["source"], "gateio_native_ohlcv_v1")
+        self.assertEqual(payload["response_sha256"], "a" * 64)
+        self.assertFalse(payload["execution_enabled"])
+        self.assertEqual(payload["structure_direction"], "UNKNOWN")
+        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["blocked_reasons"])
+        self.assertIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+
+    def test_chart_and_signal_share_exact_validated_batch_hash(self):
+        batch = sample_batch(interval="15m")
+        features = SimpleNamespace(
+            decision_ready=False,
+            reason="VOLUME_SEMANTICS_UNAPPROVED",
+            quality=SimpleNamespace(passed=False),
+        )
+        with patch("web.dashboard._SOURCE.fetch", return_value=batch) as fetch, \
+             patch("web.dashboard._FEATURES.build", return_value=features) as build:
+            with urlopen(self.base + "/api/candles?symbol=BTCUSDT&interval=15m") as response:
+                chart_payload = json.loads(response.read())
+            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                signal_payload = json.loads(response.read())
+        fetch.assert_called_once_with(symbol="BTCUSDT", interval="15m", limit=240)
+        build.assert_called_once_with(batch)
+        self.assertEqual(chart_payload["response_sha256"], signal_payload["response_sha256"])
+        self.assertEqual(chart_payload["symbol"], signal_payload["symbol"])
+        self.assertEqual(chart_payload["interval"], signal_payload["timeframe"])
+        self.assertEqual(signal_payload["decision"], "NO_TRADE")
+        self.assertFalse(signal_payload["execution_enabled"])
+
+    def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
+        with patch("web.dashboard._get_batch") as get_batch:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=ETHUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 400)
+        get_batch.assert_not_called()
 
 if __name__=="__main__":
     unittest.main()
