@@ -184,6 +184,27 @@ const { chromium } = require("playwright");
     const stamp = new Date(last.close_time).toISOString().replace("T", " ").replace(".000Z", " UTC");
     assert.equal(ui.stamp, stamp, "displayed UTC candle time differs from source batch");
 
+    const responsiveViewports = [];
+    for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 1000 }]) {
+      await page.setViewportSize(viewport);
+      await page.waitForTimeout(150);
+      const layout = await page.evaluate(() => {
+        const canvas = document.querySelector("#chart canvas");
+        const rect = canvas?.getBoundingClientRect();
+        return {
+          viewportWidth: window.innerWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          chartWidth: rect ? rect.width : 0,
+          chartHeight: rect ? rect.height : 0,
+          horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
+        };
+      });
+      assert.ok(layout.chartWidth > 200 && layout.chartHeight > 200, "chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.equal(layout.horizontalOverflow, false, "horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      responsiveViewports.push(layout);
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+
     await page.screenshot({ path: "artifacts/native-ohlcv-dashboard-browser-smoke.png", fullPage: true });
     const evidence = {
       schema_version: 1,
@@ -207,6 +228,7 @@ const { chromium } = require("playwright");
       signal_same_batch_provenance: signalPayload.input_batch_sha256 === candlePayload.input_batch_sha256,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
+      responsive_viewports: responsiveViewports,
       visible_candle_pixels: candlePixels,
       external_chart_cdn_requested: externalChartCdnRequested,
       direct_market_data_request_from_browser: directMarketDataRequest,
