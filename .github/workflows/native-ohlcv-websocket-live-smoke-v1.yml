@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   live-websocket-smoke:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
