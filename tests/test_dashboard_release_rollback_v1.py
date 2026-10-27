@@ -17,6 +17,8 @@ def digest(path: Path) -> str:
 
 
 def atomic_switch(link: Path, target: Path) -> None:
+    if not target.is_dir():
+        raise FileNotFoundError(target)
     temporary = link.with_name(link.name + ".next")
     temporary.unlink(missing_ok=True)
     temporary.symlink_to(target, target_is_directory=True)
