@@ -1,0 +1,76 @@
+"""Isolated, filesystem-only rehearsal of versioned dashboard release and rollback."""
+from __future__ import annotations
+
+import hashlib
+import os
+from pathlib import Path
+import tempfile
+import unittest
+
+
+def digest(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def atomic_switch(link: Path, target: Path) -> None:
+    temporary = link.with_name(link.name + ".next")
+    temporary.unlink(missing_ok=True)
+    temporary.symlink_to(target, target_is_directory=True)
+    os.replace(temporary, link)
+
+
+class DashboardReleaseRollbackTests(unittest.TestCase):
+    def test_versioned_install_and_rollback_restore_exact_previous_artifact(self):
+        with tempfile.TemporaryDirectory(prefix="hes-dashboard-release-test-") as temp:
+            root = Path(temp)
+            releases = root / "releases"
+            releases.mkdir()
+            old = releases / "release-old"
+            new = releases / "release-new"
+            old.mkdir()
+            new.mkdir()
+            (old / "dashboard.py").write_text("version = 'old'\n", encoding="utf-8")
+            (new / "dashboard.py").write_text("version = 'new'\n", encoding="utf-8")
+            old_hash = digest(old / "dashboard.py")
+            new_hash = digest(new / "dashboard.py")
+            self.assertNotEqual(old_hash, new_hash)
+
+            current = root / "current"
+            atomic_switch(current, old)
+            self.assertEqual(current.resolve(), old.resolve())
+            self.assertEqual(digest(current / "dashboard.py"), old_hash)
+
+            atomic_switch(current, new)
+            self.assertEqual(current.resolve(), new.resolve())
+            self.assertEqual(digest(current / "dashboard.py"), new_hash)
+
+            # Simulate a failed health gate: switch atomically to the exact old release.
+            atomic_switch(current, old)
+            self.assertEqual(current.resolve(), old.resolve())
+            self.assertEqual(digest(current / "dashboard.py"), old_hash)
+            self.assertEqual(digest(old / "dashboard.py"), old_hash)
+            self.assertEqual(digest(new / "dashboard.py"), new_hash)
+            self.assertFalse((root / "current.next").exists())
+
+    def test_missing_release_target_does_not_replace_current_link(self):
+        with tempfile.TemporaryDirectory(prefix="hes-dashboard-release-fail-") as temp:
+            root = Path(temp)
+            releases = root / "releases"
+            releases.mkdir()
+            old = releases / "release-old"
+            old.mkdir()
+            current = root / "current"
+            atomic_switch(current, old)
+            previous = current.resolve()
+            missing = releases / "missing"
+            with self.assertRaises(OSError):
+                atomic_switch(current, missing)
+            self.assertEqual(current.resolve(), previous)
+
+
+if __name__ == "__main__":
+    unittest.main()
