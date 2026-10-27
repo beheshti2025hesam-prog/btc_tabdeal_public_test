@@ -12,7 +12,7 @@
 - Keep `execution_enabled=false`, `orders_placed=false`, and `NO_TRADE_ONLY`; missing source, structure, strategy, mapping, or risk evidence must remain fail-closed.
 - Use the locally pinned TradingView Lightweight Charts asset. Browser requests to exchange APIs or third-party chart CDNs are a test failure.
 - Responses must include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, restrictive `Permissions-Policy`, `Cache-Control: no-store`, and CSP directives `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`.
-- The page still uses inline script/style and therefore retains `'unsafe-inline'` for those directives. Treat this as a documented residual hardening item; do not describe the CSP as nonce/hash strict.
+- Dashboard client JavaScript and CSS are served as same-origin static assets; inline script/style and inline style attributes are removed. CSP `script-src` and `style-src` do not allow `unsafe-inline`. Regression tests assert this restriction.
 
 ## Pre-release gate
 
