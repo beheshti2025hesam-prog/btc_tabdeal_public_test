@@ -163,7 +163,10 @@ class Handler(BaseHTTPRequestHandler):
     def _send(self,status,body,content_type):
         self.send_response(status); self.send_header("Content-Type",content_type); self.send_header("Content-Length",str(len(body)))
         self.send_header("Cache-Control","no-store"); self.send_header("X-Content-Type-Options","nosniff")
-        self.send_header("Content-Security-Policy","default-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:")
+        self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
+        self.send_header("X-Frame-Options","DENY")
+        self.send_header("Referrer-Policy","no-referrer")
+        self.send_header("Permissions-Policy","camera=(), microphone=(), geolocation=()")
         self.end_headers(); self.wfile.write(body)
     def do_GET(self):
         p=urlparse(self.path)
