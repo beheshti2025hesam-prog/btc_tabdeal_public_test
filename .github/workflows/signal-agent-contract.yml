@@ -8,6 +8,7 @@ on:
       - feat/gateio-signal-agent-canonical-integration-20261026
   pull_request:
     branches:
+      - fix/browser-visible-candle-assertion-20261025
       - feat/native-ohlcv-candle-sources-20261017
       - feat/native-ohlcv-dashboard-single-path-20261021
       - feat/gateio-native-ohlcv-dashboard-adapter-20261025
