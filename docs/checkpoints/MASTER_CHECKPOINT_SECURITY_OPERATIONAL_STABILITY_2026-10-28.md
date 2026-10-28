@@ -31,11 +31,16 @@
 3. **Exact release reproducibility:** the existing working tree contains pre-existing modifications, deletions and untracked files. The dashboard runs from `/opt/hes-trade-agent/current`, while several data/learning services launch scripts from `/opt/hes-trade-agent`. Data is shared through the existing `current/data/forward` symlink, but this mixed code-source layout still needs reconciliation to one reviewed, immutable release SHA before release promotion; do not reset or clean the working tree to force it.
 4. **Legacy collector lifecycle:** `hes-trade-agent-collector.service` remains disabled/inactive and must not be restarted blindly. Retire it or formally replace it only through a reviewed change after the canonical global-feed architecture and recovery tests are accepted.
 
-## Next acceptance gates
-- Supply an approved off-host backup target and encryption-key custody plan; run and verify a restore from that target.
-- Supply/approve an external alert destination; test delivery and recovery notifications.
-- Reconcile active service source paths to one clean, exact release SHA; run release CI/evidence gates on that SHA.
-- Resolve legacy collector retirement in a reviewed change.
-- Keep live execution, deployment and promotion blocked until these gates pass.
+## Remediation plan and exact unblock requirements
+1. **Off-host recovery:** Do not upload the current local archive in plaintext or create a cloud account/provider without approval. Preferred implementation is an established encrypted backup tool (e.g. restic) to a user-approved SFTP/object-storage target, with a repository password held separately from the target and a root-only credentials file. Acceptance requires encrypted repository initialization, a completed backup, independent checksum/snapshot verification, and a restore drill to a temporary directory. The local archive is only a short-term same-host fallback.
+2. **External alerting:** Keep local journald logging as the fail-safe. Add delivery only after an explicit destination and credential mechanism are approved. Test both alert and recovery messages, timeout/failure handling, and ensure secrets never appear in logs. Do not put a webhook/token into source control or invent a destination.
+3. **Single release identity:** Inventory the exact `ExecStart`, working directory, symlinks, and code SHA for every active HES service; preserve the dirty worktree. Build a clean release directory from an explicitly selected commit, run tests and evidence checks there, switch service definitions atomically only after a successful staged validation, then verify every service resolves to that same SHA. Keep rollback to the prior release and do not promote/merge by assumption.
+4. **Legacy collector:** Leave `hes-trade-agent-collector.service` disabled. Confirm no required downstream consumers remain, then submit a small reviewed retirement change or a formally tested replacement; never enable it as a diagnostic shortcut.
+5. **Release deadline:** Delivery target remains 2026-11-19. Track the three external/release gates as blockers rather than silently declaring full acceptance. Keep live execution, deployment and promotion disabled until all acceptance evidence is recorded.
 
-**Status:** Host security hardening, full OS patching/reboot, local restore drill, dependency remediation, application runtime checks and 456 tests are complete. **Full security/operational acceptance is still gated by off-host recovery, external alert delivery, and exact-release consistency.** This checkpoint does not authorize live trading or deployment.
+## Minimal information needed to close the external blockers
+- **Backup:** an approved remote target type/address (SFTP host/path or object-storage provider/bucket) and confirmation of where its encryption key/password will be held. Do not send the secret in chat; configure it through the host's approved secret mechanism.
+- **Alerts:** the approved recipient/channel (e.g. an operational email address or webhook provider). Configure credentials on the host, not in Git.
+No other new product or parallel agent is needed; reuse the current VPS, services, journal, repository, and release mechanisms.
+
+**Status:** Host hardening, OS patch/reboot, local restore drill, dependency remediation, dashboard runtime checks and 456 tests are complete. Full security/operational acceptance is **not yet complete**: encrypted off-host recovery, external alert delivery and exact-release consistency still require verified evidence. This checkpoint does not authorize live trading or deployment.
