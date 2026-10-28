@@ -78,6 +78,30 @@ def test_provider_emits_six_provenance_bound_checks_and_separate_risk_context():
     assert next(c for c in result.risk_checks if c.name == "risk_context_available").state == "UNKNOWN"
 
 
+def test_provider_accepts_gateio_spot_base_quote_evidence_without_fabricated_flow():
+    now = 1_800_000_000_000
+    fifteen = make_batch("15m", now, venue="gateio", digest="a")
+    four_hour = make_batch("4h", now, venue="gateio", digest="b")
+    # Gate.io's candle contract does not expose trade count or taker-buy flow.
+    fifteen = replace(fifteen, candles=tuple(replace(
+        candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+    ) for candle in fifteen.candles))
+    four_hour = replace(four_hour, candles=tuple(replace(
+        candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+    ) for candle in four_hour.candles))
+
+    result = StrategyEvidenceProviderV1().evaluate(
+        candles_15m=fifteen, candles_4h=four_hour, now_ms=now
+    )
+
+    assert result.venue == "gateio"
+    assert result.product == "spot"
+    assert result.symbol == "BTCUSDT"
+    assert result.mfi14 is not None  # Uses documented base volume, not taker flow.
+    assert all(c.state in {"PASS", "FAIL", "UNKNOWN"} for c in result.strategy_checks)
+    assert all(c.state == "PASS" for c in result.risk_checks if c.name == "execution_disabled")
+
+
 def test_provider_fails_closed_on_source_gaps():
     now = 1_800_000_000_000
     fifteen = make_batch("15m", now, digest="a")
