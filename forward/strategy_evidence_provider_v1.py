@@ -237,9 +237,14 @@ class StrategyEvidenceProviderV1:
             for scope in self.allowed_scopes
         ):
             raise ValueError("allowed_scopes must contain venue/product/symbol triples")
-        supported = {("binance", "spot", "BTCUSDT"), ("gateio", "spot", "BTCUSDT")}
-        if any(scope not in supported for scope in self.allowed_scopes):
-            raise ValueError("unsupported strategy source scope; source-specific volume semantics required")
+        # Preserve explicitly approved Binance Spot symbols; Gate.io support is
+        # deliberately narrower until its source-specific field contract is proven.
+        if any(
+            not (scope[0] == "binance" and scope[1] == "spot" and scope[2])
+            and scope != ("gateio", "spot", "BTCUSDT")
+            for scope in self.allowed_scopes
+        ):
+            raise ValueError("unsupported scope; a source-specific provider is required for non-approved volume semantics")
 
     @staticmethod
     def _check(name, state, ref, digest, observed_at):
