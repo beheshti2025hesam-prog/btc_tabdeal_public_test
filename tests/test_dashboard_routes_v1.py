@@ -20,11 +20,12 @@ from web.dashboard import Handler
 
 def sample_batch(*, gaps=()):
     now_ms=int(time.time()*1000)
-    open_ms=(now_ms//60_000-1)*60_000
-    close_ms=open_ms+59_999
+    interval_ms=900_000
+    open_ms=(now_ms//interval_ms-1)*interval_ms
+    close_ms=open_ms+interval_ms-1
     fetched=now_ms
     candle=SimpleNamespace(
-        venue="gateio",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="gateio",product="spot",symbol="BTCUSDT",interval="15m",
         open_time_ms=open_ms,close_time_ms=close_ms,
         open=Decimal("100.00"),high=Decimal("102.00"),low=Decimal("99.00"),
         close=Decimal("101.00"),volume=Decimal("2.500"),quote_volume=Decimal("250.625"),
@@ -32,7 +33,7 @@ def sample_batch(*, gaps=()):
         taker_buy_quote_volume=None,closed=True,
     )
     return SimpleNamespace(
-        venue="gateio",product="spot",symbol="BTCUSDT",interval="1m",
+        venue="gateio",product="spot",symbol="BTCUSDT",interval="15m",
         endpoint_kind="klines",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
@@ -63,8 +64,8 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertNotIn("unpkg.com",page)
         self.assertIn("https://www.tradingview.com/",page)
         self.assertIn("LightweightCharts.CandlestickSeries",page)
-        self.assertIn("Gate.io Spot public candles",page)
-        self.assertIn("Gate.io Spot is the source for this dashboard",page)
+        self.assertIn("Canonical persisted global feed",page)
+        self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
         self.assertNotIn("its semantics are unverified",page)
         self.assertNotIn("Binance Spot is venue-specific",page)
@@ -103,15 +104,18 @@ class DashboardRouteTests(unittest.TestCase):
         features=SimpleNamespace(decision_ready=False,reason="INSUFFICIENT_CLOSED_CANDLES")
         with patch("web.dashboard._SOURCE.fetch",return_value=batch) as fetch, \
              patch("web.dashboard._FEATURES.build",return_value=features) as build:
-            with urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=1m") as response:
+            with urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m") as response:
                 payload=json.loads(response.read())
-        fetch.assert_called_once_with(symbol="BTCUSDT",interval="1m",limit=240)
+        fetch.assert_called_once_with(symbol="BTCUSDT",interval="15m",limit=240)
         build.assert_called_once_with(batch)
-        self.assertEqual(payload["source"],"gateio_native_ohlcv_v1")
+        self.assertEqual(payload["source"],"gateio_public_spot")
+        self.assertEqual(payload["source_reader"],"global_market_data_reader_v1")
+        self.assertEqual(payload["source_symbol"],"BTC_USDT")
+        self.assertTrue(payload["symbol_mapping_verified"])
         self.assertEqual(payload["volume_semantics_contract"],"gateio_spot_candlestick_volume_v1")
         self.assertFalse(payload["trade_count_available"])
         self.assertFalse(payload["taker_buy_flow_available"])
-        self.assertEqual(payload["response_sha256"],"a"*64)
+        self.assertEqual(payload["input_batch_sha256"],"a"*64)
         self.assertEqual(payload["candles"][0]["open"],"100.00")
         self.assertEqual(payload["candles"][0]["volume"],"2.500")
         self.assertFalse(payload["feature_ready"])
@@ -132,7 +136,7 @@ class DashboardRouteTests(unittest.TestCase):
     def test_source_failure_fails_closed_without_fake_candles(self):
         with patch("web.dashboard._SOURCE.fetch",side_effect=TimeoutError()):
             with self.assertRaises(HTTPError) as error:
-                urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=1m")
+                urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m")
         self.assertEqual(error.exception.code,503)
         payload=json.loads(error.exception.read())
         self.assertTrue(payload["fail_closed"])
