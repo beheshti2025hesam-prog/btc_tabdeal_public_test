@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -uo pipefail
+STATE_DIR=/var/lib/hes-operational-health
+STATE_FILE="$STATE_DIR/last-issues"
+issues=()
+now=$(date +%s)
+
+check_unit() {
+  local unit="$1"
+  if ! systemctl is-active --quiet "$unit"; then issues+=("unit_not_active:$unit") ; fi
+}
+check_freshness() {
+  local path="$1" max_age="$2" label="$3" mtime age
+  if [[ ! -f "$path" ]]; then issues+=("missing_feed:$label"); return; fi
+  mtime=$(stat -c %Y "$path" 2>/dev/null) || { issues+=("stat_failed:$label"); return; }
+  age=$((now - mtime))
+  if (( age < 0 || age > max_age )); then issues+=("stale_feed:$label:age_seconds=$age:max_seconds=$max_age"); fi
+}
+
+for unit in \
+  hes-global-market-data-gateio.service \
+  hes-global-market-data-gateio-1h.service \
+  hes-global-market-data-gateio-4h.service \
+  hes-readonly-dashboard.service \
+  hes-strategy-learning-loop.service \
+  hes-strategy-paper-evaluator.service \
+  xray.service; do
+  check_unit "$unit"
+done
+
+check_freshness /opt/hes-trade-agent/data/forward/global_market_candles_v1.jsonl 2700 global_market_candles_v1
+check_freshness /opt/hes-trade-agent/data/forward/global_market_candles_1h_v1.jsonl 5400 global_market_candles_1h_v1
+check_freshness /opt/hes-trade-agent/data/forward/global_market_candles_4h_v1.jsonl 18000 global_market_candles_4h_v1
+check_freshness /opt/hes-trade-agent/data/forward/no_trade_decision_audit_24h_v1.jsonl 2700 no_trade_decision_audit_24h_v1
+
+root_use=$(df -P / | awk 'NR==2 {gsub("%", "", $5); print $5}')
+if [[ "$root_use" =~ ^[0-9]+$ ]] && (( root_use >= 85 )); then issues+=("disk_usage_percent=$root_use:threshold=85"); fi
+ntp=$(timedatectl show -p NTPSynchronized --value 2>/dev/null || true)
+if [[ "$ntp" != yes ]]; then issues+=("clock_not_synchronized"); fi
+if ! ss -lnt 2>/dev/null | awk '$4 ~ /:9011$/ {found=1} END {exit !found}'; then issues+=("ssh_port_9011_not_listening"); fi
+if ! ss -lnt 2>/dev/null | awk '$4 ~ /:443$/ {found=1} END {exit !found}'; then issues+=("tunnel_port_443_not_listening"); fi
+
+printf '%s\n' "${issues[@]}" | sed '/^$/d' | sort -u > "$STATE_DIR/current-issues.tmp"
+new_state=$(cat "$STATE_DIR/current-issues.tmp")
+old_state=$(cat "$STATE_FILE" 2>/dev/null || true)
+if [[ "$new_state" != "$old_state" ]]; then
+  if [[ -n "$new_state" ]]; then
+    logger -p daemon.err -t hes-operational-health -- "ALERT: operational health checks failed: $(printf '%s' "$new_state" | tr '\n' ';')"
+  elif [[ -n "$old_state" ]]; then
+    logger -p daemon.notice -t hes-operational-health -- 'RECOVERY: all operational health checks pass'
+  else
+    logger -p daemon.notice -t hes-operational-health -- 'INITIALIZED: operational health monitor is active'
+  fi
+  printf '%s\n' "$new_state" > "$STATE_FILE"
+fi
+rm -f "$STATE_DIR/current-issues.tmp"
+if [[ -n "$new_state" ]]; then
+  printf 'UNHEALTHY\n%s\n' "$new_state"
+  exit 1
+fi
+printf 'HEALTHY timestamp=%s\n' "$(date -u +%FT%TZ)"
+exit 0
