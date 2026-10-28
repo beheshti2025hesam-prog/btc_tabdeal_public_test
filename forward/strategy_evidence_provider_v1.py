@@ -222,15 +222,24 @@ class StrategyEvidenceProviderV1:
     MINIMUM_HTF_CANDLES = 200
     MAX_SOURCE_FETCH_SKEW_MS = 300_000
 
-    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT"),)):
+    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT"), ("gateio", "spot", "BTCUSDT"))):
+        """Allow only explicitly supported scopes whose required fields are present.
+
+        Gate.io Spot is supported for OHLCV/base-volume features only. Its native
+        adapter leaves trade_count and taker-buy flow as None; this provider does
+        not use or synthesize those fields. Any future check requiring those
+        fields must explicitly return UNKNOWN until a source-specific contract
+        is approved.
+        """
         self.allowed_scopes = tuple(tuple(scope) for scope in allowed_scopes)
         if not self.allowed_scopes or any(
             len(scope) != 3 or any(not isinstance(value, str) or not value for value in scope)
             for scope in self.allowed_scopes
         ):
             raise ValueError("allowed_scopes must contain venue/product/symbol triples")
-        if any(scope[:2] != ("binance", "spot") for scope in self.allowed_scopes):
-            raise ValueError("this provider requires a source-specific provider for non-Binance-Spot volume semantics")
+        supported = {("binance", "spot", "BTCUSDT"), ("gateio", "spot", "BTCUSDT")}
+        if any(scope not in supported for scope in self.allowed_scopes):
+            raise ValueError("unsupported strategy source scope; source-specific volume semantics required")
 
     @staticmethod
     def _check(name, state, ref, digest, observed_at):
