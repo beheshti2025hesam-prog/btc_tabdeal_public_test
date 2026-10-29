@@ -19,6 +19,8 @@ from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
 from forward.learning_evidence_adapter_v1 import record_signal_decision
 from forward.trade_journal_view_v1 import configured_decision_journal, JournalProjectionError
+from core.orchestration.mother_v1 import MotherOrchestratorV1, precomputed_specialists_v1
+from core.orchestration.witness_v1 import MotherAuditWitnessV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -77,6 +79,8 @@ _FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=VOLUME_SEMANT
 _SIGNAL_AGENT = SignalAgentV1(allowed_scopes=(("gateio", "spot", "BTCUSDT", "15m"),))
 _STRATEGY_PROVIDER = StrategyEvidenceProviderV1(allowed_scopes=(("gateio", "spot", "BTCUSDT"),))
 _ARBITRATION_RESOLVER = AgentDisagreementResolverV1()
+_MOTHER_ORCHESTRATOR = MotherOrchestratorV1(precomputed_specialists_v1())
+_MOTHER_WITNESS = MotherAuditWitnessV1()
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
@@ -143,7 +147,7 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status">Loading validated closed candles…</div></section>
-<section class="panel"><h3 class="panel-title">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This is the read-only Signal Agent entry route. Missing symbol-mapping evidence, directional structure, strategy-level quality approval, risk geometry, or any risk approval keeps the decision at NO_TRADE. Feature-engine quality is descriptive and is not substituted for strategy-level signal quality.</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
+<section class="panel"><h3 class="panel-title">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This read-only route composes validated market structure, strategy quality, confirmation, risk and arbitration. Missing execution-instrument mapping or any unapproved risk gate keeps the decision at NO_TRADE.</p></div><div class="panel"><h4 class="panel-title">Mother Orchestrator · read-only</h4><div class="metrics"><div class="metric"><small>Orchestration status</small><strong id="motherStatus">BLOCKED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace">—</strong></div></div><p class="muted" id="motherStages">Waiting for specialist evidence…</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel"><h3 class="panel-title">Decision and safety gates</h3><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel" id="journalPanel"><div class="toolbar"><div><h3 class="panel-title">Trade Journal · Decision & Learning Evidence</h3><div class="muted">Immutable forward decisions only. Executed trades and realized outcomes are not inferred from a signal.</div></div><button id="journalRefresh" type="button">Refresh journal</button></div><p class="muted" id="journalStatus" role="status">Loading journal…</p><div class="journal-scroll"><table class="journal-table"><thead><tr><th>Time (UTC)</th><th>Market</th><th>Decision</th><th>Gate / reason</th><th>Outcome</th><th>Evidence</th></tr></thead><tbody id="journalRows"><tr><td colspan="6" class="muted">No journal entries loaded.</td></tr></tbody></table></div></section>
 <div class="footer">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. Copyright (c) 2025 TradingView, Inc. The chart reads the same validated persisted Gate.io candles through the canonical global-market reader used by the analysis input path; the dashboard does not make a second REST candle request. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io's documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.</div></main>
@@ -343,6 +347,70 @@ class Handler(BaseHTTPRequestHandler):
                     assessments=assessments, observed_at=observed_at
                 )
 
+                # Mother is a bounded control plane over these existing outputs.
+                # It validates order/provenance/vetoes; it does not recalculate indicators.
+                def report(state, version, reasons, refs, payload=None):
+                    return {
+                        "state": state,
+                        "agent_version": version,
+                        "reason_codes": list(dict.fromkeys(str(x) for x in reasons if isinstance(x, str) and x)),
+                        "evidence_refs": list(dict.fromkeys(str(x) for x in refs if isinstance(x, str) and x)),
+                        "payload": payload if payload is not None else {},
+                    }
+                common_refs = [snapshot_sha256, batch.response_sha256, htf_batch.response_sha256]
+                confirmed = confirmation_gate == "PASS"
+                risk_approved = result.risk.state == "RISK_APPROVED" and False
+                signal_ready = bool(quality and quality.state == "PASS" and result.candidate.state in ("CANDIDATE_LONG", "CANDIDATE_SHORT"))
+                specialist_reports = {
+                    "data_quality": report(
+                        data_state, "native-feature-pipeline-v1",
+                        () if data_ok else ("NATIVE_FEATURES_NOT_READY",), common_refs,
+                        {"decision_ready": bool(feature_result.decision_ready)},
+                    ),
+                    "market_structure": report(
+                        "PASS" if structure_ok else "UNKNOWN", "strategy-market-structure-v1",
+                        () if structure_ok else ("STRUCTURE_DIRECTION_UNKNOWN_OR_MISMATCHED",), common_refs,
+                        {"direction": strategy.direction, "regime": strategy.regime},
+                    ),
+                    "signal": report(
+                        "PASS" if signal_ready else "UNKNOWN", _SIGNAL_AGENT.VERSION,
+                        () if signal_ready else ("SIGNAL_CANDIDATE_NOT_APPROVED",), common_refs,
+                        {"decision": result.decision.decision},
+                    ),
+                    "confirmation": report(
+                        "CONFIRMED" if confirmed else "UNKNOWN", "confirmation-engine-v1",
+                        () if confirmed else tuple(getattr(result.confirmation, "reason_codes", ()),), common_refs,
+                        {"state": confirmation_state},
+                    ),
+                    "risk": report(
+                        "APPROVED" if risk_approved else "UNKNOWN", "risk-gate-v1",
+                        () if risk_approved else tuple(result.risk.reason_codes) or ("INDEPENDENT_RISK_APPROVAL_MISSING",),
+                        common_refs, {"state": result.risk.state, "execution_enabled": False},
+                    ),
+                    "decision": report(
+                        "DECIDED", "decision-engine-v1", tuple(result.decision.reason_codes), common_refs,
+                        {"decision": arbitration.decision},
+                    ),
+                    "evaluation": report(
+                        "OBSERVED", "forward-learning-observation-v1", ("OUTCOME_NOT_INFERRED",), common_refs,
+                        {"journal_status": "OPT_IN"},
+                    ),
+                }
+                report_digest = evidence_hash(specialist_reports)
+                mother_context = {
+                    "scope": {
+                        "venue": batch.venue, "product": batch.product,
+                        "symbol": batch.symbol, "timeframe": batch.interval,
+                    },
+                    "observed_at": observed_at.isoformat(),
+                    "snapshot_sha256": snapshot_sha256,
+                    "evidence_sha256": report_digest,
+                    "specialist_reports": specialist_reports,
+                }
+                mother_result = _MOTHER_ORCHESTRATOR.run(mother_context)
+                mother_envelope = mother_result.as_dict()
+                mother_witness = _MOTHER_WITNESS.verify(mother_envelope).as_dict()
+
                 blocked = list(strategy.blocked_reasons) + list(result.blocked_reasons)
                 if arbitration.decision == "NO_TRADE":
                     blocked.extend(arbitration.reason_codes)
@@ -352,7 +420,11 @@ class Handler(BaseHTTPRequestHandler):
                     blocked.append("NATIVE_FEATURES_NOT_READY")
                 if batch.gaps or htf_batch.gaps:
                     blocked.append("NATIVE_CANDLE_GAPS_PRESENT")
-                final_decision = arbitration.decision if not blocked else "NO_TRADE"
+                if not mother_witness.get("verified", False):
+                    blocked.append("MOTHER_AUDIT_WITNESS_FAILED")
+                if mother_result.decision == "NO_TRADE":
+                    blocked.extend(mother_result.reason_codes)
+                final_decision = arbitration.decision if not blocked and mother_result.decision != "NO_TRADE" else "NO_TRADE"
                 payload = {
                     "status": "BLOCKED" if blocked or final_decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
@@ -401,6 +473,8 @@ class Handler(BaseHTTPRequestHandler):
                     "arbitration_reason_codes": list(arbitration.reason_codes),
                     "arbitration_audit_sha256": arbitration.audit_sha256,
                     "arbitration_assessments": [dict(item) for item in arbitration.assessments],
+                    "mother_orchestration": mother_envelope,
+                    "mother_witness": mother_witness,
                     "execution_enabled": False,
                     "learning_journal_status": "NOT_CONFIGURED",
                     "learning_event_id": None,
