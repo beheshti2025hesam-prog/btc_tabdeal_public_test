@@ -18,6 +18,7 @@ from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
 from forward.learning_evidence_adapter_v1 import record_signal_decision
+from forward.trade_journal_view_v1 import configured_decision_journal, JournalProjectionError
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -144,6 +145,7 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status">Loading validated closed candles…</div></section>
 <section class="panel"><h3 class="panel-title">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This is the read-only Signal Agent entry route. Missing symbol-mapping evidence, directional structure, strategy-level quality approval, risk geometry, or any risk approval keeps the decision at NO_TRADE. Feature-engine quality is descriptive and is not substituted for strategy-level signal quality.</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel"><h3 class="panel-title">Decision and safety gates</h3><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
+<section class="panel" id="journalPanel"><div class="toolbar"><div><h3 class="panel-title">Trade Journal · Decision & Learning Evidence</h3><div class="muted">Immutable forward decisions only. Executed trades and realized outcomes are not inferred from a signal.</div></div><button id="journalRefresh" type="button">Refresh journal</button></div><p class="muted" id="journalStatus" role="status">Loading journal…</p><div class="journal-scroll"><table class="journal-table"><thead><tr><th>Time (UTC)</th><th>Market</th><th>Decision</th><th>Gate / reason</th><th>Outcome</th><th>Evidence</th></tr></thead><tbody id="journalRows"><tr><td colspan="6" class="muted">No journal entries loaded.</td></tr></tbody></table></div></section>
 <div class="footer">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. Copyright (c) 2025 TradingView, Inc. The chart reads the same validated persisted Gate.io candles through the canonical global-market reader used by the analysis input path; the dashboard does not make a second REST candle request. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io's documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.</div></main>
 <script src="/static/dashboard.js" defer></script></body></html>'''
 
@@ -199,6 +201,19 @@ class Handler(BaseHTTPRequestHandler):
                     "error": "market_data_unavailable", "reason": type(exc).__name__,
                     "fail_closed": True, "execution_enabled": False,
                     "symbol_mapping_verified": False, "execution_instrument_mapping_verified": False,
+                }
+                return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+        if p.path == "/api/journal":
+            q = parse_qs(p.query)
+            try:
+                limit = int(q.get("limit", ["50"])[0])
+                payload = configured_decision_journal(limit=limit)
+                return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+            except (JournalProjectionError, ValueError) as exc:
+                payload = {
+                    "schema": "hes.trade_journal_view.v1", "status": "BLOCKED",
+                    "error": str(exc), "events": [], "count": 0,
+                    "execution_enabled": False, "outcomes_inferred": False,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/signal":
