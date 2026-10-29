@@ -50,3 +50,11 @@
 
 ## Truthful status
 The README was fetched from the default branch. The checkpoint is intentionally being added on a separate documentation branch for review; it does not alter the default branch or approve a release.
+
+
+## Gate.io continuation update — 2026-10-29
+- Do not lose the active market-data decision: Gate.io public Spot `BTC_USDT`, candle profiles `15m`, `1h`, `4h`, with PR #365 as the selected source path. Do not restore Binance PR #345 as default without a fresh evidence-backed decision.
+- PR #375 is the existing stacked, read-only Gate.io dashboard integration candidate. Its description reports REST/API parity and browser-render CI on a GitHub Actions runner, but no production VPS chart parity. Gate.io WebSocket smoke is SKIPPED, not passed; 24-hour soak, reconnect/restart/session isolation remain required.
+- Issue #393 / PR #394 is the existing strategy-evidence fix candidate. Reuse the existing StrategyEvidenceProvider and feature/confirmation/risk modules; do not create a parallel strategy engine. Gate.io base/quote volume may be used according to documented semantics; trade count and taker-buy flow remain UNKNOWN/unavailable and must never be fabricated or treated as passing.
+- PR #394 remains candidate-only until exact-head CI, independent structure/confirmation and risk approvals, execution instrument mapping, and native Gate.io dashboard stream evidence are independently checked.
+- Current release posture remains `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`. No merge, deployment, live order, or threshold tuning is authorized by this checkpoint.
