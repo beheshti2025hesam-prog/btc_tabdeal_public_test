@@ -14,7 +14,8 @@ from forward.native_ohlcv_gateio_v1 import (
     TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE)
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from forward.confirmation_engine_v1 import ConfirmationCheck
-from forward.signal_agent_v1 import SignalAgentV1
+from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
+from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -71,6 +72,7 @@ class PersistedGlobalFeedSource:
 _SOURCE = PersistedGlobalFeedSource()
 _FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES)
 _SIGNAL_AGENT = SignalAgentV1(allowed_scopes=(("gateio", "spot", "BTCUSDT", "15m"),))
+_STRATEGY_PROVIDER = StrategyEvidenceProviderV1(allowed_scopes=(("gateio", "spot", "BTCUSDT"),))
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
@@ -203,43 +205,55 @@ class Handler(BaseHTTPRequestHandler):
             if symbol != "BTCUSDT" or interval != "15m":
                 return self._send(400, b'{"error":"unsupported_signal_scope","decision":"NO_TRADE","execution_enabled":false}', "application/json")
             try:
-                # Reuse the canonical native batch/cache and feature result; no second data path.
+                # Reuse the canonical persisted reader for both the chart-aligned 15m
+                # batch and its 4h context. No independent candle fetch or indicator engine.
                 batch, feature_result = _get_batch(symbol, interval)
-                observed_at = datetime.fromtimestamp(batch.fetched_at_ms / 1000, timezone.utc)
-                evidence_ref = "native-ohlcv-sha256:" + batch.response_sha256
-                # Unknown is deliberate until strategy-level providers are validated and wired.
-                checks = (
-                    ConfirmationCheck("structure_direction_aligned", "UNKNOWN", evidence_ref, observed_at),
+                htf_batch, _ = _get_batch(symbol, "4h")
+                strategy = _STRATEGY_PROVIDER.evaluate(
+                    candles_15m=batch,
+                    candles_4h=htf_batch,
+                    now_ms=int(time.time() * 1000),
+                )
+                geometry = (
+                    RiskGeometryV1(
+                        entry=str(strategy.risk_geometry[0]),
+                        stop_loss=str(strategy.risk_geometry[1]),
+                        take_profit=str(strategy.risk_geometry[2]),
+                    )
+                    if strategy.risk_geometry is not None else None
                 )
                 result = _SIGNAL_AGENT.evaluate(
-                    observed_at=observed_at,
+                    observed_at=strategy.observed_at,
                     venue=batch.venue,
                     product=batch.product,
                     symbol=batch.symbol,
                     timeframe=batch.interval,
-                    regime="UNKNOWN",
-                    structure_direction="UNKNOWN",
-                    confirmation_checks=checks,
-                    risk_checks=(),
-                    risk_geometry=None,
+                    regime=strategy.regime,
+                    structure_labels=strategy.structure_labels,
+                    structure_events=strategy.structure_events,
+                    structure_direction=strategy.direction,
+                    strategy_checks=strategy.strategy_checks,
+                    confirmation_checks=strategy.confirmation_checks,
+                    risk_checks=strategy.risk_checks,
+                    risk_geometry=geometry,
                 )
-                blocked = list(result.blocked_reasons)
-                blocked.extend((
-                    "SYMBOL_MAPPING_EVIDENCE_MISSING",
-                    "VALIDATED_STRUCTURE_PROVIDER_NOT_WIRED",
-                    "STRATEGY_QUALITY_PROVIDER_NOT_WIRED",
-                ))
+                blocked = list(strategy.blocked_reasons) + list(result.blocked_reasons)
+                # Market-data mapping is known; executable venue-instrument mapping is not.
+                blocked.append("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED")
                 if not feature_result.decision_ready:
                     blocked.append("NATIVE_FEATURES_NOT_READY")
-                if batch.gaps:
+                if batch.gaps or htf_batch.gaps:
                     blocked.append("NATIVE_CANDLE_GAPS_PRESENT")
+                quality = result.strategy_quality
+                order_block = strategy.order_block
                 payload = {
-                    "status": "BLOCKED" if blocked else "NO_TRADE",
+                    "status": "BLOCKED" if blocked or result.decision.decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
-                    "decision": "NO_TRADE",
+                    "strategy_provider_version": _STRATEGY_PROVIDER.VERSION,
+                    "decision": "NO_TRADE" if blocked else result.decision.decision,
                     "decision_reasons": list(result.decision.reason_codes),
                     "blocked_reasons": list(dict.fromkeys(blocked)),
-                    "observed_at": observed_at.isoformat(),
+                    "observed_at": strategy.observed_at.isoformat(),
                     "symbol": batch.symbol,
                     "timeframe": batch.interval,
                     "source": "gateio_public_spot",
@@ -250,11 +264,28 @@ class Handler(BaseHTTPRequestHandler):
                     "product": batch.product,
                     "input_batch_sha256": batch.response_sha256,
                     "response_sha256": batch.response_sha256,
+                    "strategy_15m_batch_sha256": batch.response_sha256,
+                    "strategy_4h_batch_sha256": htf_batch.response_sha256,
                     "feature_ready": feature_result.decision_ready,
                     "feature_reason": feature_result.reason,
                     "feature_quality_passed": feature_result.quality.passed,
-                    "strategy_quality_state": result.strategy_quality.state if result.strategy_quality else "UNKNOWN",
-                    "structure_direction": "UNKNOWN",
+                    "strategy_quality_state": quality.state if quality else "UNKNOWN",
+                    "strategy_quality_passed_count": quality.passed_count if quality else 0,
+                    "strategy_quality_required_count": quality.required_count if quality else 5,
+                    "structure_direction": strategy.direction,
+                    "regime": strategy.regime,
+                    "mfi14": strategy.mfi14,
+                    "adx14": strategy.adx14,
+                    "plus_di14": strategy.plus_di14,
+                    "minus_di14": strategy.minus_di14,
+                    "ema50_15m": strategy.ema50_15m,
+                    "ema50_4h": strategy.ema50_4h,
+                    "ema200_4h": strategy.ema200_4h,
+                    "mfi_divergence": strategy.mfi_divergence,
+                    "order_block_score": getattr(order_block, "score", None),
+                    "order_block_max_score": getattr(order_block, "max_score", 7),
+                    "order_block_fresh": getattr(order_block, "fresh", None),
+                    "order_block_mitigated": getattr(order_block, "mitigated", None),
                     "risk_state": result.risk.state,
                     "risk_reasons": list(result.risk.reason_codes),
                     "execution_enabled": False,
