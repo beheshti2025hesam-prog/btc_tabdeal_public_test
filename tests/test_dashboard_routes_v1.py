@@ -7,6 +7,7 @@ import os
 import time
 import unittest
 from decimal import Decimal
+from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer
 from threading import Thread
 from types import SimpleNamespace
@@ -15,6 +16,9 @@ from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 import web.dashboard as dashboard
+from forward.confirmation_engine_v1 import ConfirmationCheck
+from forward.risk_gate_v1 import RiskCheck
+from forward.strategy_policy_v1 import REQUIRED_CHECKS, StrategyEvidenceCheckV1
 from web.dashboard import Handler
 
 
@@ -222,29 +226,90 @@ class DashboardRouteTests(unittest.TestCase):
 
 
 
-    def test_signal_agent_reuses_gateio_canonical_batch_and_fails_closed(self):
+    def test_signal_agent_wires_strategy_provider_through_canonical_gate_chain(self):
         batch = sample_batch()
-        batch = SimpleNamespace(**{**batch.__dict__, "interval": "15m"})
+        htf_batch = SimpleNamespace(**{**batch.__dict__, "interval": "4h"})
         features = SimpleNamespace(
             decision_ready=False,
             reason="VOLUME_SEMANTICS_UNAPPROVED",
             quality=SimpleNamespace(passed=False),
         )
-        with patch("web.dashboard._get_batch", return_value=(batch, features)) as get_batch:
+        observed_at = datetime.fromtimestamp(batch.fetched_at_ms / 1000, timezone.utc)
+        checks = tuple(
+            StrategyEvidenceCheckV1(
+                name=name, state="UNKNOWN", evidence_ref="test:" + name,
+                evidence_sha256=f"{i + 1:064x}", provider="test-provider",
+                provider_version="1", observed_at=observed_at,
+            )
+            for i, name in enumerate(REQUIRED_CHECKS)
+        )
+        confirmation = tuple(
+            ConfirmationCheck(name, "UNKNOWN", "test:" + name, observed_at)
+            for name in (
+                "structure_direction_aligned", "candidate_valid",
+                "direction_regime_alignment", "structural_event_present",
+            )
+        )
+        risk = tuple(
+            RiskCheck(name, "UNKNOWN", "test:" + name, observed_at)
+            for name in (
+                "confirmation_valid", "risk_context_available",
+                "entry_stop_target_geometry_valid", "risk_reward_gate_passed",
+                "execution_disabled",
+            )
+        )
+        strategy = SimpleNamespace(
+            VERSION="test-provider-v1", observed_at=observed_at, venue="gateio",
+            product="spot", symbol="BTCUSDT", timeframe="15m", regime="UNKNOWN",
+            direction="UNKNOWN", structure_labels=(), structure_events=(),
+            strategy_checks=checks, confirmation_checks=confirmation, risk_checks=risk,
+            risk_geometry=None, mfi14=None, adx14=None, plus_di14=None, minus_di14=None,
+            ema50_15m=None, ema50_4h=None, ema200_4h=None,
+            blocked_reasons=("STRATEGY_SOURCE_GAPS_PRESENT",), order_block=None,
+            mfi_divergence=None,
+        )
+        def get_batch(symbol, interval):
+            return (batch if interval == "15m" else htf_batch, features)
+        with patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
+             patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider:
             with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
                 payload = json.loads(response.read())
-        get_batch.assert_called_once_with("BTCUSDT", "15m")
+        self.assertEqual(batch_reader.call_count, 2)
+        batch_reader.assert_any_call("BTCUSDT", "15m")
+        batch_reader.assert_any_call("BTCUSDT", "4h")
+        provider.assert_called_once_with(
+            candles_15m=batch, candles_4h=htf_batch, now_ms=unittest.mock.ANY
+        )
         self.assertEqual(payload["status"], "BLOCKED")
         self.assertEqual(payload["decision"], "NO_TRADE")
         self.assertEqual(payload["source"], "gateio_public_spot")
         self.assertEqual(payload["source_reader"], "global_market_data_reader_v1")
         self.assertEqual(payload["input_batch_sha256"], "a" * 64)
-        self.assertEqual(payload["response_sha256"], "a" * 64)
+        self.assertEqual(payload["strategy_15m_batch_sha256"], "a" * 64)
+        self.assertEqual(payload["strategy_4h_batch_sha256"], "a" * 64)
+        self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
+        self.assertEqual(payload["structure_direction"], "UNKNOWN")
+        self.assertIn("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED", payload["blocked_reasons"])
+        self.assertIn("STRATEGY_SOURCE_GAPS_PRESENT", payload["blocked_reasons"])
+        self.assertNotIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["execution_instrument_mapping_verified"])
-        self.assertEqual(payload["structure_direction"], "UNKNOWN")
-        self.assertIn("SYMBOL_MAPPING_EVIDENCE_MISSING", payload["blocked_reasons"])
-        self.assertIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+
+    def test_signal_agent_fails_closed_if_strategy_provider_is_unavailable(self):
+        batch = sample_batch()
+        features = SimpleNamespace(
+            decision_ready=True, reason=None, quality=SimpleNamespace(passed=True),
+        )
+        with patch("web.dashboard._get_batch", return_value=(batch, features)), \
+             patch("web.dashboard._STRATEGY_PROVIDER.evaluate", side_effect=TimeoutError("provider unavailable")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
 
     def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
         with patch("web.dashboard._get_batch") as get_batch:
