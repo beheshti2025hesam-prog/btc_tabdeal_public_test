@@ -58,6 +58,31 @@ def test_signal_decision_journal_is_idempotent_and_outcome_free(tmp_path):
     assert path.read_bytes().endswith(b"\n")
 
 
+def test_repeated_poll_same_batches_is_idempotent_across_evaluation_timestamps(tmp_path):
+    path = tmp_path / "decisions.jsonl"
+    first = record_decision(path)
+    second = record_signal_decision(
+        path,
+        decision="NO_TRADE",
+        observed_at="2026-10-24T10:00:15+00:00",
+        symbol="BTCUSDT",
+        timeframe="15m",
+        source="binance_native_ohlcv_v1",
+        product="spot",
+        response_sha256="a" * 64,
+        htf_response_sha256="b" * 64,
+        strategy_evidence_sha256="d" * 64,
+        policy_version="hes-strategy-policy-v1",
+        status="BLOCKED",
+        market_regime="UNKNOWN",
+        rejected_at="RISK",
+        reason_codes=["RISK_CONTEXT_UNKNOWN"],
+    )
+    assert second.status == "ALREADY_RECORDED"
+    assert second.event_id == first.event_id
+    assert len(path.read_text().splitlines()) == 1
+
+
 def test_existing_forward_evidence_reader_joins_separate_outcome(tmp_path):
     journal = tmp_path / "decisions.jsonl"
     outcomes = tmp_path / "outcomes"
