@@ -18,3 +18,7 @@ header,.toolbar,.metrics{display:flex;gap:12px;align-items:center;justify-conten
 .journal-table th{color:var(--muted);font-weight:600}
 
 .muted{overflow-wrap:anywhere;word-break:break-word}
+
+.journal-scroll{max-width:100%;min-width:0}
+.journal-table{table-layout:fixed;overflow-wrap:anywhere}
+.journal-table th,.journal-table td{overflow-wrap:anywhere;word-break:break-word}
