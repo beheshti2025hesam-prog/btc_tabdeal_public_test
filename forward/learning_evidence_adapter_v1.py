@@ -76,11 +76,13 @@ def record_signal_decision(
 
     # Identity is based on immutable inputs and policy version, not the output.
     # A changed decision for identical evidence is a conflict, never a new sample.
+    # Polling the same immutable candle batches must not create a new event every
+    # refresh. Identity is source/scope/policy based; observed_at and the provider's
+    # volatile evidence digest are retained in the first record but not in its key.
     identity = {
-        "observed_at": observed_at, "symbol": symbol, "timeframe": timeframe,
+        "symbol": symbol, "timeframe": timeframe,
         "source": source, "product": product, "response_sha256": response_sha256,
         "htf_response_sha256": htf_response_sha256,
-        "strategy_evidence_sha256": strategy_evidence_sha256,
         "policy_version": policy_version,
     }
     identity_sha = sha256(json.dumps(
@@ -131,6 +133,17 @@ def record_signal_decision(
             if existing.get("event_id") == event_id:
                 if existing.get("digest") == expected:
                     return JournalWriteResult("ALREADY_RECORDED", event_id, expected)
+                # The evaluation timestamp/evidence digest may differ on a repeated
+                # poll even when the source batches and policy are identical. Treat
+                # that as the same observation only if every decision-relevant field
+                # is unchanged; any changed decision/gate/reason remains a conflict.
+                comparable_existing = dict(existing)
+                comparable_expected = dict(expected_payload)
+                for volatile in ("digest", "observed_at", "strategy_evidence_sha256"):
+                    comparable_existing.pop(volatile, None)
+                    comparable_expected.pop(volatile, None)
+                if comparable_existing == comparable_expected:
+                    return JournalWriteResult("ALREADY_RECORDED", event_id, existing.get("digest", expected))
                 raise ValueError("conflicting_duplicate_decision_event")
         raise
 
