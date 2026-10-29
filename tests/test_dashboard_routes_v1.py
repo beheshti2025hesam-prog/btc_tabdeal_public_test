@@ -226,7 +226,7 @@ class DashboardRouteTests(unittest.TestCase):
 
 
 
-    def test_signal_agent_wires_strategy_provider_through_canonical_gate_chain(self):
+    def test_signal_agent_wires_strategy_provider_through_canonical_gate_chain(self, tmp_path):
         batch = sample_batch()
         htf_batch = SimpleNamespace(**{**batch.__dict__, "interval": "4h"})
         features = SimpleNamespace(
@@ -270,7 +270,9 @@ class DashboardRouteTests(unittest.TestCase):
         )
         def get_batch(symbol, interval):
             return (batch if interval == "15m" else htf_batch, features)
-        with patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
+        journal_path = tmp_path / "decisions.jsonl"
+        with patch.dict(os.environ, {"HES_FORWARD_LEARNING_DECISION_JOURNAL": str(journal_path)}), \
+             patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
              patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider:
             with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
                 payload = json.loads(response.read())
@@ -298,7 +300,11 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["mother_orchestration"]["decision"], "NO_TRADE")
         self.assertTrue(payload["mother_witness"]["verified"])
         self.assertFalse(payload["mother_orchestration"]["execution_authorized"])
-        self.assertEqual(payload["learning_journal_status"], "NOT_CONFIGURED")
+        self.assertEqual(payload["learning_journal_status"], "RECORDED")
+        journal_rows = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(len(journal_rows), 1)
+        self.assertEqual(journal_rows[0]["decision"], "NO_TRADE")
+        self.assertNotIn("outcome", journal_rows[0])
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["execution_instrument_mapping_verified"])
 
