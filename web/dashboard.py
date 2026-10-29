@@ -16,6 +16,8 @@ from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV
 from forward.confirmation_engine_v1 import ConfirmationCheck
 from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
+from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
+from forward.learning_evidence_adapter_v1 import record_signal_decision
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -73,6 +75,7 @@ _SOURCE = PersistedGlobalFeedSource()
 _FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES)
 _SIGNAL_AGENT = SignalAgentV1(allowed_scopes=(("gateio", "spot", "BTCUSDT", "15m"),))
 _STRATEGY_PROVIDER = StrategyEvidenceProviderV1(allowed_scopes=(("gateio", "spot", "BTCUSDT"),))
+_ARBITRATION_RESOLVER = AgentDisagreementResolverV1()
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
@@ -237,23 +240,112 @@ class Handler(BaseHTTPRequestHandler):
                     risk_checks=strategy.risk_checks,
                     risk_geometry=geometry,
                 )
+                quality = result.strategy_quality
+                order_block = strategy.order_block
+                data_ok = bool(feature_result.decision_ready and getattr(feature_result.quality, "passed", False)
+                               and not batch.gaps and not htf_batch.gaps)
+                structure_ok = strategy.direction in ("BULLISH", "BEARISH") and (
+                    (strategy.regime == "UPTREND" and strategy.direction == "BULLISH")
+                    or (strategy.regime == "DOWNTREND" and strategy.direction == "BEARISH")
+                )
+                direction = "LONG" if strategy.direction == "BULLISH" else "SHORT" if strategy.direction == "BEARISH" else "UNKNOWN"
+                observed_at = strategy.observed_at
+
+                def evidence_hash(value):
+                    return hashlib.sha256(json.dumps(
+                        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str
+                    ).encode("utf-8")).hexdigest()
+
+                snapshot_sha256 = evidence_hash({
+                    "source": "gateio_public_spot",
+                    "15m_batch_sha256": batch.response_sha256,
+                    "4h_batch_sha256": htf_batch.response_sha256,
+                    "observed_at": observed_at.isoformat(),
+                })
+                confirmation_state = getattr(result.confirmation, "state", "UNKNOWN")
+                confirmation_gate = (
+                    "PASS" if confirmation_state in ("CONFIRMED_LONG", "CONFIRMED_SHORT")
+                    else "FAIL" if "REJECT" in str(confirmation_state) or "BLOCK" in str(confirmation_state)
+                    else "UNKNOWN"
+                )
+                risk_gate = (
+                    "PASS" if result.risk.state == "RISK_APPROVED"
+                    else "FAIL" if result.risk.state == "RISK_REJECTED"
+                    else "UNKNOWN"
+                )
+                strategy_state = quality.state if quality else "UNKNOWN"
+                data_state = "PASS" if data_ok else "FAIL" if getattr(feature_result, "quality", None) is not None else "UNKNOWN"
+                structure_state = "PASS" if structure_ok else "UNKNOWN"
+                structure_digest = evidence_hash({
+                    "direction": strategy.direction, "regime": strategy.regime,
+                    "labels": strategy.structure_labels, "events": strategy.structure_events,
+                    "source_sha256": batch.response_sha256,
+                })
+                strategy_digest = (
+                    quality.evidence_sha256 if quality and quality.evidence_sha256
+                    else evidence_hash([{
+                        "name": c.name, "state": c.state, "evidence_sha256": c.evidence_sha256
+                    } for c in strategy.strategy_checks])
+                )
+                confirmation_digest = evidence_hash([{
+                    "name": c.name, "state": c.state, "evidence_ref": c.evidence_ref
+                } for c in result.confirmation.checks])
+                risk_digest = evidence_hash([{
+                    "name": c.name, "state": c.state, "evidence_ref": c.evidence_ref
+                } for c in result.risk.checks])
+                assessments = (
+                    AgentAssessmentV1(
+                        "data_quality", "native-feature-pipeline-v1", data_state, "NEUTRAL",
+                        batch.venue, batch.product, batch.symbol, batch.interval, observed_at,
+                        snapshot_sha256, batch.response_sha256,
+                        () if data_ok else ("NATIVE_FEATURES_NOT_READY",),
+                    ),
+                    AgentAssessmentV1(
+                        "market_structure", "strategy-market-structure-v1", structure_state, direction,
+                        batch.venue, batch.product, batch.symbol, batch.interval, observed_at,
+                        snapshot_sha256, structure_digest,
+                        () if structure_ok else ("STRUCTURE_DIRECTION_UNKNOWN_OR_MISMATCHED",),
+                    ),
+                    AgentAssessmentV1(
+                        "strategy", _STRATEGY_PROVIDER.VERSION, strategy_state, direction,
+                        batch.venue, batch.product, batch.symbol, batch.interval, observed_at,
+                        snapshot_sha256, strategy_digest,
+                        tuple(quality.reason_codes) if quality else ("STRATEGY_QUALITY_UNKNOWN",),
+                    ),
+                    AgentAssessmentV1(
+                        "confirmation", "confirmation-engine-v1", confirmation_gate, direction,
+                        batch.venue, batch.product, batch.symbol, batch.interval, observed_at,
+                        snapshot_sha256, confirmation_digest,
+                        tuple(getattr(result.confirmation, "reason_codes", ())),
+                    ),
+                    AgentAssessmentV1(
+                        "risk", "risk-gate-v1", risk_gate, direction,
+                        batch.venue, batch.product, batch.symbol, batch.interval, observed_at,
+                        snapshot_sha256, risk_digest, tuple(result.risk.reason_codes),
+                    ),
+                )
+                arbitration = _ARBITRATION_RESOLVER.resolve(
+                    assessments=assessments, observed_at=observed_at
+                )
+
                 blocked = list(strategy.blocked_reasons) + list(result.blocked_reasons)
-                # Market-data mapping is known; executable venue-instrument mapping is not.
+                if arbitration.decision == "NO_TRADE":
+                    blocked.extend(arbitration.reason_codes)
+                # Market-data symbol mapping is verified; executable instrument mapping is not.
                 blocked.append("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED")
                 if not feature_result.decision_ready:
                     blocked.append("NATIVE_FEATURES_NOT_READY")
                 if batch.gaps or htf_batch.gaps:
                     blocked.append("NATIVE_CANDLE_GAPS_PRESENT")
-                quality = result.strategy_quality
-                order_block = strategy.order_block
+                final_decision = arbitration.decision if not blocked else "NO_TRADE"
                 payload = {
-                    "status": "BLOCKED" if blocked or result.decision.decision == "NO_TRADE" else "READY",
+                    "status": "BLOCKED" if blocked or final_decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
                     "strategy_provider_version": _STRATEGY_PROVIDER.VERSION,
-                    "decision": "NO_TRADE" if blocked else result.decision.decision,
+                    "decision": final_decision,
                     "decision_reasons": list(result.decision.reason_codes),
                     "blocked_reasons": list(dict.fromkeys(blocked)),
-                    "observed_at": strategy.observed_at.isoformat(),
+                    "observed_at": observed_at.isoformat(),
                     "symbol": batch.symbol,
                     "timeframe": batch.interval,
                     "source": "gateio_public_spot",
@@ -269,9 +361,10 @@ class Handler(BaseHTTPRequestHandler):
                     "feature_ready": feature_result.decision_ready,
                     "feature_reason": feature_result.reason,
                     "feature_quality_passed": feature_result.quality.passed,
-                    "strategy_quality_state": quality.state if quality else "UNKNOWN",
+                    "strategy_quality_state": strategy_state,
                     "strategy_quality_passed_count": quality.passed_count if quality else 0,
                     "strategy_quality_required_count": quality.required_count if quality else 5,
+                    "strategy_evidence_sha256": quality.evidence_sha256 if quality else None,
                     "structure_direction": strategy.direction,
                     "regime": strategy.regime,
                     "mfi14": strategy.mfi14,
@@ -288,8 +381,62 @@ class Handler(BaseHTTPRequestHandler):
                     "order_block_mitigated": getattr(order_block, "mitigated", None),
                     "risk_state": result.risk.state,
                     "risk_reasons": list(result.risk.reason_codes),
+                    "arbitration_decision": arbitration.decision,
+                    "arbitration_conflict_class": arbitration.conflict_class,
+                    "arbitration_reason_codes": list(arbitration.reason_codes),
+                    "arbitration_audit_sha256": arbitration.audit_sha256,
+                    "arbitration_assessments": [dict(item) for item in arbitration.assessments],
                     "execution_enabled": False,
+                    "learning_journal_status": "NOT_CONFIGURED",
+                    "learning_event_id": None,
                 }
+
+                # Forward decision journaling reuses the existing append-only writer.
+                # It is opt-in and stores no realized outcome; no-trade validation is
+                # performed later by the existing strict forward-outcome pipeline.
+                learning_journal_path = os.environ.get("HES_FORWARD_LEARNING_DECISION_JOURNAL", "").strip()
+                if learning_journal_path:
+                    if not batch.response_sha256 or not htf_batch.response_sha256:
+                        payload["learning_journal_status"] = "BLOCKED_MISSING_SOURCE_IDENTITY"
+                    else:
+                        if not data_ok:
+                            rejected_at = "DATA_QUALITY"
+                        elif not structure_ok:
+                            rejected_at = "MARKET_STRUCTURE"
+                        elif strategy_state != "PASS":
+                            rejected_at = "STRATEGY_QUALITY"
+                        elif confirmation_gate != "PASS":
+                            rejected_at = "CONFIRMATION"
+                        elif risk_gate != "PASS":
+                            rejected_at = "RISK"
+                        elif arbitration.decision == "NO_TRADE":
+                            rejected_at = "ARBITRATION"
+                        else:
+                            rejected_at = "EXECUTION_MAPPING"
+                        try:
+                            journal_result = record_signal_decision(
+                                learning_journal_path,
+                                decision=final_decision,
+                                observed_at=observed_at.isoformat(),
+                                symbol=batch.symbol,
+                                timeframe=batch.interval,
+                                source="gateio_native_ohlcv_v1",
+                                product=batch.product,
+                                response_sha256=batch.response_sha256,
+                                htf_response_sha256=htf_batch.response_sha256,
+                                strategy_evidence_sha256=quality.evidence_sha256 if quality else None,
+                                policy_version=f"{_SIGNAL_AGENT.VERSION}+{_STRATEGY_PROVIDER.VERSION}",
+                                status=payload["status"],
+                                market_regime=strategy.regime or "UNKNOWN",
+                                rejected_at=rejected_at,
+                                reason_codes=list(dict.fromkeys(blocked + list(arbitration.reason_codes))),
+                            )
+                            payload["learning_journal_status"] = journal_result.status
+                            payload["learning_event_id"] = journal_result.event_id
+                            payload["learning_event_sha256"] = journal_result.digest
+                        except Exception as exc:
+                            payload["learning_journal_status"] = "BLOCKED_JOURNAL_ERROR"
+                            payload["learning_journal_error"] = type(exc).__name__
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
                 return self._send(503, json.dumps({
