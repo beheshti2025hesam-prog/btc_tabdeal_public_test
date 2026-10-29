@@ -359,7 +359,8 @@ class Handler(BaseHTTPRequestHandler):
                     }
                 common_refs = [snapshot_sha256, batch.response_sha256, htf_batch.response_sha256]
                 confirmed = confirmation_gate == "PASS"
-                risk_approved = result.risk.state == "RISK_APPROVED" and False
+                execution_instrument_mapping_verified = False
+                risk_approved = result.risk.state == "RISK_APPROVED" and execution_instrument_mapping_verified
                 signal_ready = bool(quality and quality.state == "PASS" and result.candidate.state in ("CANDIDATE_LONG", "CANDIDATE_SHORT"))
                 specialist_reports = {
                     "data_quality": report(
