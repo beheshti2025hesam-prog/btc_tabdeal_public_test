@@ -22,3 +22,6 @@ header,.toolbar,.metrics{display:flex;gap:12px;align-items:center;justify-conten
 .journal-scroll{max-width:100%;min-width:0}
 .journal-table{table-layout:fixed;overflow-wrap:anywhere}
 .journal-table th,.journal-table td{overflow-wrap:anywhere;word-break:break-word}
+
+html,body{max-width:100%;overflow-x:clip}
+main,.panel{min-width:0}
