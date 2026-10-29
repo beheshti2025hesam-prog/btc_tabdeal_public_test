@@ -315,6 +315,25 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertTrue(payload["fail_closed"])
         self.assertFalse(payload["execution_enabled"])
 
+    def test_journal_endpoint_is_read_only_and_default_off(self):
+        with patch.dict(os.environ):
+            os.environ.pop("HES_FORWARD_LEARNING_DECISION_JOURNAL", None)
+            with urlopen(self.base + "/api/journal?limit=50") as response:
+                payload = json.loads(response.read())
+        self.assertEqual(payload["schema"], "hes.trade_journal_view.v1")
+        self.assertEqual(payload["status"], "NOT_CONFIGURED")
+        self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["events"], [])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["outcomes_inferred"])
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode()
+        self.assertIn("Trade Journal · Decision & Learning Evidence", page)
+        with urlopen(self.base + "/static/dashboard.js") as response:
+            script = response.read().decode()
+        self.assertIn("refreshJournal", script)
+        self.assertIn("td.textContent=value", script)
+
     def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
         with patch("web.dashboard._get_batch") as get_batch:
             with self.assertRaises(HTTPError) as error:
