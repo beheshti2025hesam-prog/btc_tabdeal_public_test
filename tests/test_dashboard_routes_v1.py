@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import time
+import tempfile
 import unittest
 from decimal import Decimal
 from datetime import datetime, timezone
@@ -226,7 +227,7 @@ class DashboardRouteTests(unittest.TestCase):
 
 
 
-    def test_signal_agent_wires_strategy_provider_through_canonical_gate_chain(self, tmp_path):
+    def test_signal_agent_wires_strategy_provider_through_canonical_gate_chain(self):
         batch = sample_batch()
         htf_batch = SimpleNamespace(**{**batch.__dict__, "interval": "4h"})
         features = SimpleNamespace(
@@ -270,43 +271,45 @@ class DashboardRouteTests(unittest.TestCase):
         )
         def get_batch(symbol, interval):
             return (batch if interval == "15m" else htf_batch, features)
-        journal_path = tmp_path / "decisions.jsonl"
-        with patch.dict(os.environ, {"HES_FORWARD_LEARNING_DECISION_JOURNAL": str(journal_path)}), \
-             patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
-             patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider:
-            with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
-                payload = json.loads(response.read())
-        self.assertEqual(batch_reader.call_count, 2)
-        batch_reader.assert_any_call("BTCUSDT", "15m")
-        batch_reader.assert_any_call("BTCUSDT", "4h")
-        provider.assert_called_once_with(
-            candles_15m=batch, candles_4h=htf_batch, now_ms=unittest.mock.ANY
-        )
-        self.assertEqual(payload["status"], "BLOCKED")
-        self.assertEqual(payload["decision"], "NO_TRADE")
-        self.assertEqual(payload["source"], "gateio_public_spot")
-        self.assertEqual(payload["source_reader"], "global_market_data_reader_v1")
-        self.assertEqual(payload["input_batch_sha256"], "a" * 64)
-        self.assertEqual(payload["strategy_15m_batch_sha256"], "a" * 64)
-        self.assertEqual(payload["strategy_4h_batch_sha256"], "a" * 64)
-        self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
-        self.assertEqual(payload["structure_direction"], "UNKNOWN")
-        self.assertIn("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED", payload["blocked_reasons"])
-        self.assertIn("STRATEGY_SOURCE_GAPS_PRESENT", payload["blocked_reasons"])
-        self.assertNotIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
-        self.assertEqual(payload["arbitration_decision"], "NO_TRADE")
-        self.assertEqual(payload["arbitration_conflict_class"], "UNKNOWN_EVIDENCE")
-        self.assertEqual(len(payload["arbitration_audit_sha256"]), 64)
-        self.assertEqual(payload["mother_orchestration"]["decision"], "NO_TRADE")
-        self.assertTrue(payload["mother_witness"]["verified"])
-        self.assertFalse(payload["mother_orchestration"]["execution_authorized"])
-        self.assertEqual(payload["learning_journal_status"], "RECORDED")
-        journal_rows = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
-        self.assertEqual(len(journal_rows), 1)
-        self.assertEqual(journal_rows[0]["decision"], "NO_TRADE")
-        self.assertNotIn("outcome", journal_rows[0])
-        self.assertFalse(payload["execution_enabled"])
-        self.assertFalse(payload["execution_instrument_mapping_verified"])
+        with tempfile.TemporaryDirectory() as tempdir:
+            journal_path = os.path.join(tempdir, "decisions.jsonl")
+            with patch.dict(os.environ, {"HES_FORWARD_LEARNING_DECISION_JOURNAL": journal_path}), \
+                 patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
+                 patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider:
+                with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                    payload = json.loads(response.read())
+            self.assertEqual(batch_reader.call_count, 2)
+            batch_reader.assert_any_call("BTCUSDT", "15m")
+            batch_reader.assert_any_call("BTCUSDT", "4h")
+            provider.assert_called_once_with(
+                candles_15m=batch, candles_4h=htf_batch, now_ms=unittest.mock.ANY
+            )
+            self.assertEqual(payload["status"], "BLOCKED")
+            self.assertEqual(payload["decision"], "NO_TRADE")
+            self.assertEqual(payload["source"], "gateio_public_spot")
+            self.assertEqual(payload["source_reader"], "global_market_data_reader_v1")
+            self.assertEqual(payload["input_batch_sha256"], "a" * 64)
+            self.assertEqual(payload["strategy_15m_batch_sha256"], "a" * 64)
+            self.assertEqual(payload["strategy_4h_batch_sha256"], "a" * 64)
+            self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
+            self.assertEqual(payload["structure_direction"], "UNKNOWN")
+            self.assertIn("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED", payload["blocked_reasons"])
+            self.assertIn("STRATEGY_SOURCE_GAPS_PRESENT", payload["blocked_reasons"])
+            self.assertNotIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
+            self.assertEqual(payload["arbitration_decision"], "NO_TRADE")
+            self.assertEqual(payload["arbitration_conflict_class"], "UNKNOWN_EVIDENCE")
+            self.assertEqual(len(payload["arbitration_audit_sha256"]), 64)
+            self.assertEqual(payload["mother_orchestration"]["decision"], "NO_TRADE")
+            self.assertTrue(payload["mother_witness"]["verified"])
+            self.assertFalse(payload["mother_orchestration"]["execution_authorized"])
+            self.assertEqual(payload["learning_journal_status"], "RECORDED")
+            with open(journal_path, encoding="utf-8") as handle:
+                journal_rows = [json.loads(line) for line in handle if line.strip()]
+            self.assertEqual(len(journal_rows), 1)
+            self.assertEqual(journal_rows[0]["decision"], "NO_TRADE")
+            self.assertNotIn("outcome", journal_rows[0])
+            self.assertFalse(payload["execution_enabled"])
+            self.assertFalse(payload["execution_instrument_mapping_verified"])
 
     def test_signal_agent_fails_closed_if_strategy_provider_is_unavailable(self):
         batch = sample_batch()
