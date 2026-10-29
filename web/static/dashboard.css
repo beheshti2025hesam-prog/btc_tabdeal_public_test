@@ -16,3 +16,5 @@ header,.toolbar,.metrics{display:flex;gap:12px;align-items:center;justify-conten
 .journal-table{width:100%;border-collapse:collapse;font-size:13px}
 .journal-table th,.journal-table td{text-align:left;padding:8px 6px;border-top:1px solid var(--line);vertical-align:top}
 .journal-table th{color:var(--muted);font-weight:600}
+
+.muted{overflow-wrap:anywhere;word-break:break-word}
