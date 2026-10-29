@@ -23,10 +23,10 @@
 - PR #386 — release-readiness / documentation work reference: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/386
 - The above PRs are references for investigation, not proof that they are merged, passing, or production-approved. Verify live state and exact commit SHA before relying on them.
 
-## Previously referenced documentation paths — existence not confirmed
-- `docs/RELEASE_READINESS.md`
-- `docs/checkpoints/MASTER_CHECKPOINT_2026-10-26_RELEASE_READINESS.md`
-Attempts to fetch these exact paths from the default branch returned 404. Do not assume they exist at those paths; search the repository and PR branches for their actual locations before editing or recreating.
+## Documentation paths and current branch state
+- `docs/RELEASE_READINESS.md` — created on this documentation branch as an evidence-based release contract; it is not yet on the default branch.
+- `docs/checkpoints/MASTER_CHECKPOINT_2026-10-26_RELEASE_READINESS.md` — the exact path could not be fetched from the default branch and remains unverified at that location.
+- This checkpoint and release-readiness contract are on `docs/master-checkpoint-repository-map-2026-10-29`; they are reviewable documentation changes, not merged/default-branch state.
 
 ## Anti-reinvention rules
 1. Inspect the current repository, branches, existing modules, tests, and PR diffs before implementing anything.
@@ -35,12 +35,17 @@ Attempts to fetch these exact paths from the default branch returned 404. Do not
 4. Never promote PR #346 or any candidate PR to approved/production status without exact-SHA checks, required CI/tests, artifact/provenance checks, and explicit release gates.
 5. No live trading or deployment permission is implied by this checkpoint. Maintain HOLD / NO_TRADE_ONLY until the release and safety gates pass.
 
+## Work completed on this documentation branch (2026-10-29)
+- Added `docs/RELEASE_READINESS.md` with evidence-backed blockers, release gates, the one-VPS constraint, anti-reinvention rules, and the 2026-11-19 target.
+- Added a repository map checkpoint and verified that the saved file can be read back from this branch.
+- No application code, VPS files, services, credentials, deployment, or trading behavior was changed.
+
 ## Next required discovery gates
 - Identify the real application repository/production entry point, using repository metadata, imports, deployment manifests, and live runtime evidence rather than names alone.
 - Verify whether `web/dashboard.py` and `NativeOHLCVBatch` exist in the chosen branch; identify their tests and callers.
 - Inspect PRs #297, #346, #354, #365, #375, #386: state, head/base SHAs, changed files, CI, merge status, and overlap; do not merge as a shortcut.
 - Verify the one authorized VPS and runtime target; do not assume a second VPS.
-- Complete release documentation, reproducible build/test steps, configuration and secrets guidance, rollback/recovery, health checks, and security checklist only after inspecting existing documentation and improving it rather than duplicating it.
+- Complete remaining operator documentation (reproducible build/test steps, configuration/secrets guidance, rollback/recovery, health checks, security checklist) after the real application repository/path is accessible and existing docs are inventoried; extend existing docs rather than duplicating them.
 - Target delivery date remains 2026-11-19. This is a planning target, not a claim of readiness.
 
 ## Truthful status
