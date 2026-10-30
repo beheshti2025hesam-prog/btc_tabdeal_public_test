@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime, timezone
 
-from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain, NewsItem, fetch_rss, load_source_registry, _RejectRedirects
+from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain, NewsItem, fetch_rss, fetch_gate_announcements, load_source_registry, _RejectRedirects
 from urllib.error import HTTPError
 from unittest.mock import patch
 
@@ -149,6 +149,70 @@ class NewsBrainTests(unittest.TestCase):
             path.write_text(json.dumps(bad_registry), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "before qualification"):
                 load_source_registry(path)
+
+
+    def test_gate_official_announcements_are_parsed_with_item_and_feed_hashes(self):
+        payload = json.dumps({
+            "code": 0, "data": {"total": 1, "list": [{
+                "id": 102529, "title": "Gate Announces Bitcoin (BTC) Listing",
+                "brief": "Spot trading starts soon", "release_timestamp": "1793359666",
+                "url": "/announcements/article/102529", "tags": "BTC",
+            }]}
+        }).encode("utf-8")
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return payload
+        class Opener:
+            def open(self, request, timeout):
+                self.request = request
+                self.timeout = timeout
+                return Response()
+        opener = Opener()
+        with patch("core.market_intelligence.news_brain.build_opener", return_value=opener) as builder:
+            items = fetch_gate_announcements(
+                "https://api.gateio.ws/api/v4/ann/list_article",
+                source="Gate.io Official Announcements",
+                source_id="gateio_official_announcements",
+            )
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].source_id, "gateio_official_announcements")
+        self.assertEqual(items[0].url, "https://www.gate.io/announcements/article/102529")
+        self.assertTrue(items[0].published_at.endswith("+00:00"))
+        self.assertEqual(len(items[0].feed_payload_sha256), 64)
+        self.assertEqual(len(items[0].raw_item_sha256), 64)
+        self.assertEqual(opener.request.get_method(), "POST")
+        self.assertEqual(json.loads(opener.request.data)["lang"], "en")
+        self.assertTrue(any(isinstance(handler, _RejectRedirects) for handler in builder.call_args.args))
+
+    def test_gate_announcement_bad_timestamp_is_unverified_not_guessed(self):
+        payload = json.dumps({"code": 0, "data": {"list": [{
+            "id": 1, "title": "Bitcoin exchange announcement", "brief": "BTC",
+            "release_timestamp": "not-a-timestamp", "url": "/announcements/article/1",
+        }]}}).encode("utf-8")
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return payload
+        with patch("core.market_intelligence.news_brain.build_opener", return_value=type("Opener", (), {"open": lambda self, request, timeout: Response()})()):
+            items = fetch_gate_announcements(
+                "https://api.gateio.ws/api/v4/ann/list_article",
+                source="Gate.io Official Announcements", source_id="gateio_official_announcements")
+        self.assertEqual(items[0].published_at, "")
+        brief = self.brain.analyze(items, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertIn("NEWS_TIMESTAMP_UNVERIFIED", brief.veto_flags)
+
+    def test_gate_announcement_nonzero_business_code_fails_closed(self):
+        payload = json.dumps({"code": 1, "data": {"list": []}}).encode("utf-8")
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return payload
+        with patch("core.market_intelligence.news_brain.build_opener", return_value=type("Opener", (), {"open": lambda self, request, timeout: Response()})()):
+            with self.assertRaisesRegex(ValueError, "non-zero business code"):
+                fetch_gate_announcements(
+                    "https://api.gateio.ws/api/v4/ann/list_article",
+                    source="Gate.io Official Announcements", source_id="gateio_official_announcements")
 
     def test_feed_redirects_are_rejected(self):
         class RedirectingOpener:
