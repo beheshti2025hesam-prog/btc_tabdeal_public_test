@@ -1,0 +1,222 @@
+{
+  "schema_version": "hes.news_sources.v1",
+  "policy": {
+    "enabled_by_default": false,
+    "require_https": true,
+    "qualification_required_before_enable": true,
+    "required_qualification_evidence": [
+      "source_ownership_review",
+      "feed_parse_smoke",
+      "target_runtime_reachability",
+      "freshness_check",
+      "terms_and_rate_limit_review"
+    ],
+    "note": "Only sources individually qualified and explicitly enabled are fetched. Probes were read-only from the authorized VPS on 2026-10-23. Disabled candidates are not fetched. The current crypto profile has official macro/regulatory feeds only, not a qualified crypto-native newswire."
+  },
+  "sources": [
+    {
+      "id": "fed_press_all",
+      "name": "Federal Reserve Board — All Press Releases",
+      "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+      "host": "www.federalreserve.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "official_feed_parsed_but_stale_for_72h_window",
+      "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm",
+      "last_probe_utc": "2026-10-23T18:26:03Z",
+      "last_probe_status": "HTTP 200; XML parsed; 20 items; newest item age 171.43 hours"
+    },
+    {
+      "id": "fed_monetary_policy",
+      "name": "Federal Reserve Board — Monetary Policy",
+      "url": "https://www.federalreserve.gov/feeds/press_monetary.xml",
+      "host": "www.federalreserve.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "feed_parse_failed",
+      "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm",
+      "last_probe_utc": "2026-10-23T18:26:03Z",
+      "last_probe_status": "HTTP 200 but XML parser reported unclosed CDATA section"
+    },
+    {
+      "id": "sec_press_releases",
+      "name": "US Securities and Exchange Commission — Press Releases",
+      "url": "https://www.sec.gov/news/pressreleases.rss",
+      "host": "www.sec.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "equities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "runtime_tls_timeout",
+      "evidence_url": "https://www.sec.gov/newsroom/press-releases",
+      "last_probe_utc": "2026-10-23T18:26:03Z",
+      "last_probe_status": "TLS handshake timeout from authorized VPS"
+    },
+    {
+      "id": "cftc_general_press_releases",
+      "name": "US Commodity Futures Trading Commission — General Press Releases",
+      "url": "https://www.cftc.gov/RSS/RSSGP/rssgp.xml",
+      "host": "www.cftc.gov",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.cftc.gov/RSS/index.htm",
+      "last_probe_utc": "2026-10-23T18:26:03Z",
+      "last_probe_status": "HTTP 200; RSS parsed; 10 items; newest item age 72.43 hours",
+      "terms_note": "Official CFTC government RSS feed; low-frequency publication means item freshness is evaluated per article."
+    },
+    {
+      "id": "ecb_press_releases",
+      "name": "European Central Bank — Market Information Dissemination RSS",
+      "url": "https://mid.ecb.europa.eu/rss/mid.xml",
+      "host": "mid.ecb.europa.eu",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.ecb.europa.eu/press/shared/pdf/MID-Catalogue-and-Integration-Guide.en.pdf",
+      "last_probe_utc": "2026-10-23T18:26:03Z",
+      "last_probe_status": "HTTP 200; XML parsed; 20 items; newest item age 2.44 hours",
+      "terms_note": "ECB states MID content is public domain; RSS is the recommended polling channel."
+    },
+    {
+      "id": "coindesk_news",
+      "name": "CoinDesk — News",
+      "url": "https://www.coindesk.com/arc/outboundfeeds/rss/?outputType=xml",
+      "host": "www.coindesk.com",
+      "tier": "secondary_media_candidate",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "blocked_terms_require_express_permission",
+      "evidence_url": "https://www.coindesk.com/",
+      "last_probe_utc": "2026-10-23T18:26:03Z",
+      "last_probe_status": "HTTP 200; XML parsed; 25 items; newest item age 4.45 hours",
+      "terms_note": "CoinDesk Terms of Use restrict automated access by robots/spiders/scrapers without express written permission; keep disabled until permission is confirmed."
+    },
+    {
+      "id": "cointelegraph_news",
+      "name": "Cointelegraph — News",
+      "url": "https://cointelegraph.com/rss",
+      "host": "cointelegraph.com",
+      "tier": "secondary_media_candidate",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": false,
+      "qualification_status": "runtime_tls_timeout_and_terms_unverified",
+      "evidence_url": "https://cointelegraph.com/",
+      "last_probe_utc": "2026-10-23T18:26:03Z",
+      "last_probe_status": "TLS handshake timeout from authorized VPS"
+    },
+    {
+      "id": "gateio_official_announcements",
+      "name": "Gate.io Official Announcements",
+      "url": "https://api.gateio.ws/api/v4/ann/list_article",
+      "host": "api.gateio.ws",
+      "type": "gate_announcements",
+      "tier": "official_primary",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.gate.com/docs/developers/apiv4/en/announcement/",
+      "last_probe_utc": "2026-10-30T13:48:00Z",
+      "last_probe_status": "Official API docs confirm unauthenticated POST /ann/list_article; VPS probe returned code=0, 5 rows, integer-string release_timestamp, article paths; separate official announcement WebSocket subscription acknowledged and delivered update",
+      "request": {
+        "language": "en",
+        "days": 3,
+        "page_size": 50
+      },
+      "terms_note": "Official Gate API announcement endpoint; public and no API key required. Venue operational announcements only, not a general crypto newswire."
+    }
+  ],
+  "market_profiles": {
+    "crypto": {
+      "source_ids": [
+        "ecb_press_releases",
+        "cftc_general_press_releases",
+        "gateio_official_announcements"
+      ],
+      "status": "partial_official_macro_regulatory_and_venue_announcements",
+      "note": "Official ECB/CFTC macro-regulatory feeds plus Gate.io venue announcements are enabled. This remains partial coverage, not a comprehensive crypto-news wire."
+    },
+    "fx": {
+      "source_ids": [
+        "ecb_press_releases",
+        "cftc_general_press_releases"
+      ],
+      "status": "partial_official_macro_regulatory_only"
+    },
+    "equities": {
+      "source_ids": [
+        "ecb_press_releases",
+        "cftc_general_press_releases"
+      ],
+      "status": "partial_official_macro_regulatory_only"
+    },
+    "iran_equities": {
+      "source_ids": [],
+      "status": "blocked_no_qualified_source",
+      "note": "No Iranian-market feed is enabled or qualified in this registry; do not imply domestic coverage."
+    },
+    "commodities": {
+      "source_ids": [
+        "cftc_general_press_releases",
+        "ecb_press_releases"
+      ],
+      "status": "partial_official_macro_regulatory_only"
+    }
+  }
+}
