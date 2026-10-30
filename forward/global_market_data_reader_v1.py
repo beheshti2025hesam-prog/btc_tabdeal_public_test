@@ -52,6 +52,8 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         raise MarketDataRejected("INSUFFICIENT_CLOSED_CANDLES")
     previous=None
     for row in records:
+        if row.get("schema") != "hes_global_candle_v1":
+            raise MarketDataRejected("CANDLE_SCHEMA_INVALID")
         if row.get("source") != SOURCE or row.get("symbol") != SYMBOL or row.get("timeframe") != timeframe:
             raise MarketDataRejected("SOURCE_IDENTITY_MISMATCH")
         if row.get("closed") is not True:
@@ -64,13 +66,14 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         if not all(math.isfinite(value) for value in (o,h,l,c,v)):
             raise MarketDataRejected("CANDLE_NON_FINITE_VALUE")
         quote_volume = row.get("quote_volume")
-        if quote_volume is not None:
-            try:
-                qv = float(quote_volume)
-            except (TypeError, ValueError) as exc:
-                raise MarketDataRejected("CANDLE_SCHEMA_INVALID") from exc
-            if not math.isfinite(qv) or qv < 0:
-                raise MarketDataRejected("CANDLE_QUOTE_VOLUME_INVALID")
+        if quote_volume is None:
+            raise MarketDataRejected("CANDLE_QUOTE_VOLUME_INVALID")
+        try:
+            qv = float(quote_volume)
+        except (TypeError, ValueError) as exc:
+            raise MarketDataRejected("CANDLE_SCHEMA_INVALID") from exc
+        if not math.isfinite(qv) or qv < 0:
+            raise MarketDataRejected("CANDLE_QUOTE_VOLUME_INVALID")
         if ts < 0 or ts % seconds:
             raise MarketDataRejected("CANDLE_TIMESTAMP_ALIGNMENT_INVALID")
         if close_time != ts + seconds or min(o,h,l,c) <= 0 or v < 0 or h < max(o,c,l) or l > min(o,c,h):
