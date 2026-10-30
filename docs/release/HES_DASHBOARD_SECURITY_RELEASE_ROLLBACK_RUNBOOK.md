@@ -1,6 +1,6 @@
 # HES dashboard security, release, and rollback runbook
 
-**Applies to:** the Gate.io persisted-feed + Signal Agent + canonical journal dashboard candidate in PR #394.  
+**Applies to:** the Gate.io persisted-feed + Signal Agent + canonical journal dashboard candidate in PR #398.  
 **Target date:** 2026-11-19.  
 **Current disposition:** HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.  
 **Production status:** no production deployment or production rollback has occurred. Isolated tests do not replace production authorization or a production rollback rehearsal.
@@ -34,7 +34,7 @@ The `GET /api/journal` projection is read-only. It must validate JSONL integrity
 
 ## Pre-release gate
 
-1. Confirm the approved repository, branch, exact commit SHA, clean staged release artifact, and an independent review by someone other than the PR author.
+1. Confirm the approved repository, branch, exact commit SHA, clean staged release artifact, and the recorded second-pass technical audit by the project pair (owner + assistant). This is an internal audit, not an independent human approval. The GitHub ruleset must match the declared two-person team; if it still requires an unavailable third-party approval, keep HOLD rather than bypassing it.
 2. Run the full repository suite and exact-head browser test. Browser evidence must show:
    - displayed OHLC/time/volume values match the API payload;
    - chart and Signal Agent `input_batch_sha256` values match for the same 15m request;
@@ -45,11 +45,11 @@ The `GET /api/journal` projection is read-only. It must validate JSONL integrity
 3. Verify the canonical journal and lock file paths, owner/mode, exact `HES_TRADE_JOURNAL_PATH`, file-level write exceptions, and that the dashboard service cannot write other market-data or report files.
 4. Verify freshness, closed-candle integrity, Gate.io source identity, symbol mapping evidence, independent structure/confirmation/risk evidence, execution instrument mapping, access control, service user, firewall, health checks, logs, and monitoring.
 5. Verify a staged install and rollback in an isolated environment. Capture exact SHA-256 hashes and command output; do not infer success from CI alone.
-6. Do not clean, reset, or overwrite the sole VPS dirty checkout. Do not deploy until the real frontend runtime, approved release target, permissions, and independent review are established.
+6. Do not clean, reset, or overwrite the sole VPS dirty checkout. Do not deploy until the real frontend runtime, approved release target, permissions, exact-head CI checks, and owner-verified two-person ruleset are established. Do not fabricate an independent review or bypass a GitHub rule.
 
 ## Controlled release (not yet authorized)
 
-- Build a release artifact from the independently reviewed exact SHA; record its hash and dependencies.
+- Build a release artifact from the exact SHA that passed the required CI checks and the recorded internal technical audit; record its hash and dependencies.
 - Install to a new versioned release directory, not over the current release.
 - Preserve the canonical journal file and its lock inode. Pre-create the lock file if absent before applying the service sandbox.
 - Keep the dashboard loopback-only and paper/read-only. Do not enable any exchange order adapter or collector.
@@ -66,7 +66,7 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 3. Start only the previously approved read-only dashboard service.
 4. Verify `/healthz`, Gate.io source identity, closed-candle freshness, `/api/journal` read-only projection, canonical journal hash continuity, no order endpoints, `execution_enabled=false`, `orders_placed=false`, and browser/API batch consistency.
 5. Preserve the canonical journal and lock file; do not truncate or rewrite either during rollback.
-6. Record the failed SHA, previous SHA, timestamps, service state, log excerpt, evidence hashes, and reason. Keep release status HOLD until independently reviewed.
+6. Record the failed SHA, previous SHA, timestamps, service state, log excerpt, evidence hashes, and reason. Keep release status HOLD until the project owner and assistant have reviewed the failure evidence and the owner has explicitly reauthorized release.
 
 ## Recovery/fault tests required
 
@@ -79,7 +79,7 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 
 ## Evidence ledger
 
-- Candidate PR: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/394
+- Candidate PR: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/398
 - Exact-head CI evidence must be tied to the current PR head, not inherited from earlier candidate SHAs.
 - Existing Gate.io persisted-feed soak evidence and Learning Loop journal-hash linkage are prerequisites, not production Signal→journal deployment evidence.
-- Production installation, production rollback, independent risk approval, execution instrument mapping, and independent PR review remain separate release gates.
+- Production installation and rollback, explicit owner risk approval, and verified execution instrument constraints/order lifecycle remain separate release gates. The project team is the owner and assistant; no third-party reviewer is assumed.
