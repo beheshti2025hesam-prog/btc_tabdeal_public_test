@@ -136,6 +136,17 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.provenance["source_profile_status"], "blocked_no_qualified_source")
         self.assertEqual(len(brief.provenance["registry_sha256"]), 64)
 
+    def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
+        registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        registry = load_source_registry(registry_path)
+        source = next(x for x in registry["sources"] if x["id"] == "gateio_official_announcements")
+        self.assertTrue(source["enabled"])
+        self.assertEqual(source["type"], "gate_announcements")
+        self.assertEqual(source["host"], "api.gateio.ws")
+        self.assertEqual(source["markets"], ["crypto"])
+        self.assertIn("gateio_official_announcements", registry["market_profiles"]["crypto"]["source_ids"])
+        self.assertIn("partial", registry["market_profiles"]["crypto"]["status"])
+
     def test_registry_cannot_enable_unqualified_source(self):
         bad_registry = {
             "schema_version": "hes.news_sources.v1",
