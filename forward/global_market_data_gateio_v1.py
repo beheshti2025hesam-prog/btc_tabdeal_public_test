@@ -23,6 +23,8 @@ INTERVAL_SECONDS_BY_NAME = {'15m': 900, '1h': 3600, '4h': 14400}
 if INTERVAL not in INTERVAL_SECONDS_BY_NAME:
     raise RuntimeError(f'Unsupported HES candle interval: {INTERVAL}')
 INTERVAL_SECONDS = INTERVAL_SECONDS_BY_NAME[INTERVAL]
+# Keep the hot decision feed bounded; long-term history belongs in the historical-data store.
+MAX_PERSISTED_CANDLES = 5000
 SOURCE = 'gateio_public_spot'
 DEFAULT_OUTPUTS = {'15m': '/opt/hes-trade-agent/data/forward/global_market_candles_v1.jsonl',
                    '1h': '/opt/hes-trade-agent/data/forward/global_market_candles_1h_v1.jsonl',
@@ -215,10 +217,15 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
             saved[ts] = candle
 
         added = set(saved) - before
-        if added:
+        needs_retention_rewrite = len(saved) > MAX_PERSISTED_CANDLES
+        needs_backfill_rewrite = bool(added) and bool(before) and min(added) < max(before)
+        if needs_retention_rewrite:
+            keep = sorted(saved)[-MAX_PERSISTED_CANDLES:]
+            saved = {ts: saved[ts] for ts in keep}
+            added &= set(saved)
+        if added or needs_retention_rewrite:
             ordered = [saved[ts] for ts in sorted(saved)]
-            needs_rewrite = bool(before) and min(added) < max(before)
-            if needs_rewrite:
+            if needs_backfill_rewrite or needs_retention_rewrite:
                 fd, tmp_name = tempfile.mkstemp(prefix=output.name + '.', suffix='.tmp', dir=str(output.parent))
                 try:
                     with os.fdopen(fd, 'w', encoding='utf-8') as handle:
