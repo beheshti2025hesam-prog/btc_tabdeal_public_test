@@ -63,9 +63,12 @@ def normalize_row(row: list[Any] | tuple[Any, ...], *, now: int | None = None) -
             'volume':str(volume),'quote_volume':str(quote_vol),'closed':closed,
             'observed_at':datetime.now(timezone.utc).isoformat()}
 
-def fetch_recent_closed(session: requests.Session | None = None, *, now: int | None = None) -> list[dict[str, Any]]:
+def fetch_recent_closed(session: requests.Session | None = None, *, now: int | None = None,
+                        limit: int = MAX_REST_CANDLE_POINTS) -> list[dict[str, Any]]:
+    if type(limit) is not int or not 1 <= limit <= MAX_REST_CANDLE_POINTS:
+        raise ValueError('invalid recent candle limit')
     s = session or requests.Session()
-    response = s.get(REST_URL, params={'currency_pair':SYMBOL,'interval':INTERVAL,'limit':MAX_REST_CANDLE_POINTS}, timeout=(4,8))
+    response = s.get(REST_URL, params={'currency_pair':SYMBOL,'interval':INTERVAL,'limit':limit}, timeout=(4,8))
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, list):
@@ -362,6 +365,7 @@ def run() -> None:
                     # guarantees we persist the just-closed candle even if no final WS tick arrives.
                     if subscribed and time.monotonic()-last_rest_sync >= REST_RECONCILE_SECONDS:
                         last_ts=_append_new(fetch_recent_closed(session, limit=REST_RECONCILE_LIMIT), last_ts)
+                        _backfill_missing_history(session, OUTPUT)
                         last_rest_sync=time.monotonic()
                     continue
                 msg=json.loads(raw)
