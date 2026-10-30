@@ -170,3 +170,22 @@ def test_reconnect_reset_starts_new_epoch():
     assert engine.observe(rec(100)).status == "ACCEPTED"
     engine.reset_for_reconnect()
     assert engine.observe(rec(1, session="s2")).status == "ACCEPTED"
+
+
+@pytest.mark.parametrize("record_id", [
+    "binance_spot_diff_depth_v1",
+    "binance_usdm_diff_depth_v1",
+    "okx_books_link_v1",
+    "bybit_orderbook_v1",
+    "coinbase_exchange_feed_sequence_v1",
+    "kraken_spot_v2_book_checksum_v1",
+    "gateio_spot_candle_open_time_v1",
+])
+def test_reviewed_but_unpinned_or_non_scalar_records_never_resolve(record_id):
+    raw = REGISTRY_PATH.read_bytes()
+    registry = SequenceSemanticsRegistryV1.load(
+        REGISTRY_PATH, expected_sha256=hashlib.sha256(raw).hexdigest()
+    )
+    record = registry.inspect(record_id)
+    with pytest.raises(SequenceSemanticsError):
+        registry.resolve(record_id, expected_key=record["key"])
