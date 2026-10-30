@@ -7,13 +7,13 @@ import pytest
 
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
-from forward.sequence_semantics_v1 import SequenceIntegrityV2
+from forward.sequence_semantics_v1 import SequenceIntegrityV2, TABDEAL_TRADE_SEQUENCE_KEY
 from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 
 CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 
-def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
+def test_conflicting_duplicate_reports_payload_hashes():
     guard = SequenceIntegrityV2(CAPS)
     first = {
         "source": "tabdeal_ws_forward_v1",
@@ -23,6 +23,7 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
         "side": "buy",
         "source_updated": "2026-10-09T17:00:00+00:00",
         "sequence": 41627925358,
+        "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY,
     }
     conflicting = {**first, "price": "101"}
 
