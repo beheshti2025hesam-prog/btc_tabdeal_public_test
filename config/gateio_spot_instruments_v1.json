@@ -1,0 +1,44 @@
+{
+  "schema_version": "hes.gateio_spot_instruments.v1",
+  "provider": "gateio_public_spot",
+  "product": "spot",
+  "quote_asset": "USDT",
+  "timeframes": [
+    "15m",
+    "1h",
+    "4h"
+  ],
+  "instruments": [
+    {
+      "symbol": "BTC_USDT",
+      "ui_symbol": "BTCUSDT",
+      "status": "canonical_existing",
+      "chart_enabled": true,
+      "analysis_enabled": true,
+      "execution_enabled": false
+    },
+    {
+      "symbol": "ETH_USDT",
+      "ui_symbol": "ETHUSDT",
+      "status": "observation_candidate",
+      "chart_enabled": true,
+      "analysis_enabled": false,
+      "execution_enabled": false
+    },
+    {
+      "symbol": "SOL_USDT",
+      "ui_symbol": "SOLUSDT",
+      "status": "observation_candidate",
+      "chart_enabled": true,
+      "analysis_enabled": false,
+      "execution_enabled": false
+    }
+  ],
+  "invariants": [
+    "Every symbol has a separate persisted feed path per timeframe.",
+    "No cross-symbol candle merge, volume aggregation, or synthetic bar creation.",
+    "ETH and SOL remain observation/chart only until independent quality and strategy policy gates pass.",
+    "Gate.io market data does not imply execution venue instrument mapping.",
+    "The existing BTC data files and systemd unit names remain unchanged."
+  ]
+}
