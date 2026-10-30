@@ -145,8 +145,10 @@ class NewsBrainTests(unittest.TestCase):
             feed_payload_sha256="a" * 64, raw_item_sha256="b" * 64,
             retrieved_at=NOW.isoformat(),
         )
-        with patch("core.market_intelligence.news_brain.fetch_gate_announcements", return_value=[gate_item]) as gate_fetch, \\
-             patch("core.market_intelligence.news_brain.fetch_rss", return_value=[]) as rss_fetch:
+        with (
+            patch("core.market_intelligence.news_brain.fetch_gate_announcements", return_value=[gate_item]) as gate_fetch,
+            patch("core.market_intelligence.news_brain.fetch_rss", return_value=[]) as rss_fetch,
+        ):
             brief = self.brain.run_from_registry(
                 registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         gate_fetch.assert_called_once()
