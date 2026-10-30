@@ -1,7 +1,7 @@
 {
   "schema": "hes_sequence_semantics_registry_v1",
   "registry_version": 1,
-  "policy": "UNKNOWN_IS_NOT_FALSE_AND_NEVER_GRANTS_CAPABILITY",
+  "policy": "NO_RUNTIME_CAPABILITY_UNLESS_STATUS_VERIFIED_AND_SOURCE_HASH_REVIEW_PINS_PASS",
   "records": [
     {
       "record_id": "tabdeal_fapi_broadcast_trade_sequence_v1",
@@ -41,7 +41,7 @@
         "prev_current_link": false,
         "checksum_validation": false,
         "snapshot_bootstrap": false,
-        "exact_payload_replay_only": true
+        "exact_payload_replay_only": false
       },
       "reconnect_rule": "NEW_SESSION_EPOCH_NO_CROSS_SESSION_COMPARISON",
       "duplicate_rule": "ONLY_IDENTICAL_RAW_PAYLOAD_MAY_BE_IDEMPOTENT; REPEATED_FIELD_VALUE_IS_NOT_IDENTITY",
@@ -94,7 +94,7 @@
         "prev_current_link": false,
         "checksum_validation": false,
         "snapshot_bootstrap": false,
-        "exact_payload_replay_only": true
+        "exact_payload_replay_only": false
       },
       "reconnect_rule": "NO_CROSS_REQUEST_OR_CHANNEL_COMPARISON",
       "duplicate_rule": "NO_IDENTITY_OR_CONFLICT_RULE",
@@ -141,12 +141,12 @@
       "capabilities": {
         "event_identity": false,
         "ordered_event_sequence": false,
-        "contiguous_gap_detection": true,
-        "book_update_range": true,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
         "prev_current_link": false,
         "checksum_validation": false,
-        "snapshot_bootstrap": true,
-        "exact_payload_replay_only": true
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
       },
       "bootstrap_rule": "BUFFER_WEBSOCKET_FETCH_REST_SNAPSHOT_DISCARD_u_LE_SNAPSHOT_ID_FIRST_APPLICABLE_RANGE_MUST_COVER_SNAPSHOT_ID",
       "gap_rule": "IF_NEXT_U_GT_LOCAL_u_PLUS_1_DISCARD_BOOK_AND_RESTART_SNAPSHOT_BOOTSTRAP",
@@ -198,7 +198,7 @@
         "prev_current_link": false,
         "checksum_validation": false,
         "snapshot_bootstrap": false,
-        "exact_payload_replay_only": true
+        "exact_payload_replay_only": false
       },
       "duplicate_rule": "TRADE_ID_LABEL_ALONE_DOES_NOT_AUTHORIZE_DEDUPLICATION_OR_ORDERING",
       "source_evidence": {
@@ -340,7 +340,7 @@
         "comparable_across_channels": "unknown"
       },
       "capabilities": {
-        "event_identity": true,
+        "event_identity": false,
         "ordered_event_sequence": false,
         "contiguous_gap_detection": false,
         "book_update_range": false,
@@ -390,11 +390,11 @@
       "capabilities": {
         "event_identity": false,
         "ordered_event_sequence": false,
-        "contiguous_gap_detection": true,
-        "book_update_range": true,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
         "prev_current_link": false,
         "checksum_validation": false,
-        "snapshot_bootstrap": true,
+        "snapshot_bootstrap": false,
         "exact_payload_replay_only": false
       },
       "status": "SOURCE_REVIEW_REQUIRED",
@@ -441,9 +441,9 @@
         "ordered_event_sequence": false,
         "contiguous_gap_detection": false,
         "book_update_range": false,
-        "prev_current_link": true,
+        "prev_current_link": false,
         "checksum_validation": false,
-        "snapshot_bootstrap": true,
+        "snapshot_bootstrap": false,
         "exact_payload_replay_only": false
       },
       "status": "SOURCE_REVIEWED_UNPINNED",
@@ -485,7 +485,7 @@
         "comparable_across_channels": "unknown"
       },
       "capabilities": {
-        "event_identity": true,
+        "event_identity": false,
         "ordered_event_sequence": false,
         "contiguous_gap_detection": false,
         "book_update_range": false,
@@ -540,7 +540,7 @@
         "book_update_range": false,
         "prev_current_link": false,
         "checksum_validation": false,
-        "snapshot_bootstrap": true,
+        "snapshot_bootstrap": false,
         "exact_payload_replay_only": false
       },
       "status": "SOURCE_REVIEWED_UNPINNED",
@@ -583,7 +583,7 @@
         "comparable_across_channels": "unknown"
       },
       "capabilities": {
-        "event_identity": true,
+        "event_identity": false,
         "ordered_event_sequence": false,
         "contiguous_gap_detection": false,
         "book_update_range": false,
@@ -632,8 +632,8 @@
       },
       "capabilities": {
         "event_identity": false,
-        "ordered_event_sequence": true,
-        "contiguous_gap_detection": true,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
         "book_update_range": false,
         "prev_current_link": false,
         "checksum_validation": false,
@@ -733,8 +733,8 @@
         "contiguous_gap_detection": false,
         "book_update_range": false,
         "prev_current_link": false,
-        "checksum_validation": true,
-        "snapshot_bootstrap": true,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
         "exact_payload_replay_only": false
       },
       "status": "SOURCE_REVIEWED_UNPINNED",
