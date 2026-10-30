@@ -3,7 +3,13 @@ from __future__ import annotations
 from .risk_gate_v1 import RiskGateResult
 
 class RiskPolicyV1:
-    REQUIRED=("confirmation_valid","risk_context_available","execution_disabled")
+    REQUIRED = (
+        "confirmation_valid",
+        "risk_context_available",
+        "entry_stop_target_geometry_valid",
+        "risk_reward_gate_passed",
+        "execution_disabled",
+    )
 
     def evaluate(self, *, observed_at, confirmation, checks=()):
         checks=tuple(checks); by={c.name:c for c in checks}
