@@ -578,7 +578,7 @@ class Handler(BaseHTTPRequestHandler):
                 "execution_instrument_mapping_verified":False,
                 "interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
                 "fetched_at_ms":batch.fetched_at_ms,"input_batch_sha256":batch.response_sha256,
-                "latest_age_seconds":age,"execution_enabled":False,"orders_placed":False,"orders_placed":False,
+                "latest_age_seconds":age,"execution_enabled":False,"orders_placed":False,
                 "feature_ready":feature_result.decision_ready,"feature_reason":feature_result.reason,
                 "stream_status":_STREAM_STATE["status"],"stream_reason":_STREAM_STATE["reason"],
                 "gaps":[{"expected_open_time_ms":g.expected_open_time_ms,
