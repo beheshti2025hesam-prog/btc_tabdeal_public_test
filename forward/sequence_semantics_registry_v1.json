@@ -56,7 +56,8 @@
       },
       "status": "UNKNOWN",
       "last_verified": "2026-10-10",
-      "confidence": "high_for_reviewed_public_contract_absence_low_for_runtime_semantics"
+      "confidence": "high_for_reviewed_public_contract_absence_low_for_runtime_semantics",
+      "normalized_field_path": "sequence"
     },
     {
       "record_id": "tabdeal_fapi_agg_depth_rest_sequence_v1",
