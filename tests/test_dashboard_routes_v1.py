@@ -273,7 +273,7 @@ class DashboardRouteTests(unittest.TestCase):
             return (batch if interval == "15m" else htf_batch, features)
         with tempfile.TemporaryDirectory() as tempdir:
             journal_path = os.path.join(tempdir, "decisions.jsonl")
-            with patch.dict(os.environ, {"HES_FORWARD_LEARNING_DECISION_JOURNAL": journal_path}), \
+            with patch.dict(os.environ, {"HES_TRADE_JOURNAL_PATH": journal_path}), \
                  patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
                  patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider:
                 with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
@@ -307,7 +307,7 @@ class DashboardRouteTests(unittest.TestCase):
                 journal_rows = [json.loads(line) for line in handle if line.strip()]
             self.assertEqual(len(journal_rows), 1)
             self.assertEqual(journal_rows[0]["decision"], "NO_TRADE")
-            self.assertNotIn("outcome", journal_rows[0])
+            self.assertIsNone(journal_rows[0]["outcome"])
             self.assertFalse(payload["execution_enabled"])
             self.assertFalse(payload["execution_instrument_mapping_verified"])
 
@@ -329,7 +329,7 @@ class DashboardRouteTests(unittest.TestCase):
 
     def test_journal_endpoint_is_read_only_and_default_off(self):
         with patch.dict(os.environ):
-            os.environ.pop("HES_FORWARD_LEARNING_DECISION_JOURNAL", None)
+            os.environ.pop("HES_TRADE_JOURNAL_PATH", None)
             with urlopen(self.base + "/api/journal?limit=50") as response:
                 payload = json.loads(response.read())
         self.assertEqual(payload["schema"], "hes.trade_journal_view.v1")
