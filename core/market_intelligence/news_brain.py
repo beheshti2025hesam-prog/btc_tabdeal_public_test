@@ -12,7 +12,7 @@ from email.utils import parsedate_to_datetime
 from hashlib import sha256
 from typing import Iterable, Mapping, Sequence
 from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from urllib.parse import urlsplit
 from pathlib import Path
 import json
@@ -29,6 +29,9 @@ class NewsItem:
     published_at: str = ""
     language: str = "en"
     market_tags: tuple[str, ...] = ()
+    source_id: str = ""
+    feed_payload_sha256: str = ""
+    retrieved_at: str = ""
 
 
 @dataclass(frozen=True)
@@ -151,8 +154,8 @@ def _parse_time(value: str) -> datetime | None:
             parsed = parsedate_to_datetime(value)
         except (TypeError, ValueError, OverflowError):
             return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
     return parsed.astimezone(timezone.utc)
 
 
@@ -198,7 +201,12 @@ def load_source_registry(path: str | Path) -> dict:
     return registry
 
 
-def fetch_rss(url: str, *, source: str, timeout_seconds: float = 5.0,
+class _RejectRedirects(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def fetch_rss(url: str, *, source: str, source_id: str = "", timeout_seconds: float = 5.0,
               max_bytes: int = 1_000_000) -> list[NewsItem]:
     """Fetch one operator-configured RSS/Atom feed with bounded I/O.
 
@@ -214,12 +222,16 @@ def fetch_rss(url: str, *, source: str, timeout_seconds: float = 5.0,
     request = Request(url, headers={"User-Agent": "HES-Trade-Agent-News/1.0",
                                     "Accept": "application/rss+xml, application/atom+xml, application/xml"})
     try:
-        with urlopen(request, timeout=timeout_seconds) as response:
+        # Do not follow redirects: the final host must never silently escape
+        # the operator-qualified registry host boundary.
+        with build_opener(_RejectRedirects()).open(request, timeout=timeout_seconds) as response:
             payload = response.read(max_bytes + 1)
     except (URLError, TimeoutError, OSError) as exc:
         raise ValueError(f"news source unavailable: {type(exc).__name__}") from exc
     if len(payload) > max_bytes:
         raise ValueError("feed exceeds configured size limit")
+    payload_digest = sha256(payload).hexdigest()
+    retrieved_at = _iso(datetime.now(timezone.utc))
     try:
         root = ET.fromstring(payload)
     except ET.ParseError as exc:
@@ -242,10 +254,15 @@ def fetch_rss(url: str, *, source: str, timeout_seconds: float = 5.0,
                     break
         title = fields.get("title", "")
         if title:
+            # Feed-provided links are evidence references only; retain HTTPS URLs.
+            if link and urlsplit(link).scheme != "https":
+                link = ""
             items.append(NewsItem(title=title,
                 summary=fields.get("description", fields.get("summary", fields.get("content", ""))),
                 source=source, url=link,
-                published_at=fields.get("pubdate", fields.get("published", fields.get("updated", fields.get("date", ""))))))
+                published_at=fields.get("pubdate", fields.get("published", fields.get("updated", fields.get("date", "")))),
+                source_id=source_id or source, feed_payload_sha256=payload_digest,
+                retrieved_at=retrieved_at))
     return items
 
 
@@ -269,6 +286,7 @@ class NewsIntelligenceBrain:
         that no news exists. Per-source failures are retained in provenance.
         """
         registry = load_source_registry(registry_path)
+        registry_sha256 = sha256(Path(registry_path).read_bytes()).hexdigest()
         profile = registry.get("market_profiles", {}).get(context.market, {})
         allowed_ids = set(profile.get("source_ids", []))
         sources = [source for source in registry["sources"]
@@ -277,16 +295,18 @@ class NewsIntelligenceBrain:
         if not sources:
             brief = self.analyze([], context, now=now,
                                  source_failures=[f"no_enabled_sources_for_market:{context.market}"])
-            return self._attach_profile_status(brief, profile)
+            brief = self._attach_profile_status(brief, profile)
+            return replace(brief, provenance={**brief.provenance, "registry_sha256": registry_sha256})
         items = []
         failures = []
         for source in sources:
             try:
-                items.extend(fetch_rss(source["url"], source=source["name"]))
+                items.extend(fetch_rss(source["url"], source=source["name"], source_id=source["id"]))
             except ValueError as exc:
                 failures.append(f"{source['id']}:{str(exc).split(':', 1)[0]}")
         brief = self.analyze(items, context, now=now, source_failures=failures)
-        return self._attach_profile_status(brief, profile)
+        brief = self._attach_profile_status(brief, profile)
+        return replace(brief, provenance={**brief.provenance, "registry_sha256": registry_sha256})
 
     @staticmethod
     def _attach_profile_status(brief: NewsBrief, profile: Mapping[str, object]) -> NewsBrief:
@@ -312,7 +332,11 @@ class NewsIntelligenceBrain:
         stale_count = 0
         irrelevant_count = 0
         invalid_time_count = 0
+        source_evidence: dict[tuple[str, str, str], dict[str, str]] = {}
         for item in items:
+            if item.feed_payload_sha256:
+                key = (item.source_id or item.source, item.feed_payload_sha256, item.retrieved_at)
+                source_evidence[key] = {"source_id": key[0], "feed_payload_sha256": key[1], "retrieved_at": key[2]}
             if not item.title.strip():
                 continue
             published = _parse_time(item.published_at)
@@ -408,6 +432,8 @@ class NewsIntelligenceBrain:
         veto_flags = []
         if source_failures: veto_flags.append("NEWS_SOURCE_COVERAGE_INCOMPLETE")
         if any(f.freshness == "future_timestamp" for f in findings): veto_flags.append("NEWS_TIMESTAMP_SUSPECT")
+        if invalid_time_count: veto_flags.append("NEWS_TIMESTAMP_INVALID")
+        if any(f.freshness == "unknown" for f in findings): veto_flags.append("NEWS_TIMESTAMP_UNVERIFIED")
         if any("source_identity_unverified" in f.caveats for f in findings): veto_flags.append("NEWS_SOURCE_UNVERIFIED")
         if high_impact: veto_flags.append("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION")
         status = "degraded" if source_failures else "no_relevant_news" if not findings else "ok"
@@ -434,5 +460,6 @@ class NewsIntelligenceBrain:
                         "items_returned": len(findings), "stale_items_dropped": stale_count,
                         "irrelevant_items_dropped": irrelevant_count,
                         "invalid_timestamps": invalid_time_count, "source_failures": list(source_failures),
+                        "source_evidence": list(source_evidence.values()),
                         "scores_are_probabilities": False, "news_alone_can_authorize_trade": False},
         )
