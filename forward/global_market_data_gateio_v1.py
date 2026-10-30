@@ -68,8 +68,18 @@ def fetch_recent_closed(session: requests.Session | None = None, *, now: int | N
     payload = response.json()
     if not isinstance(payload, list):
         raise ValueError('Unexpected Gate REST payload')
-    rows = [normalize_row(row, now=now) for row in payload]
-    by_ts = {item['open_time']:item for item in rows if item['closed']}
+    by_ts: dict[int, dict[str, Any]] = {}
+    for raw in payload:
+        item = normalize_row(raw, now=now)
+        if not item['closed']:
+            continue
+        ts = item['open_time']
+        previous = by_ts.get(ts)
+        if previous is not None:
+            if _semantic_candle(previous) != _semantic_candle(item):
+                raise ValueError(f'Conflicting Gate REST candle identity at open_time={ts}')
+            continue
+        by_ts[ts] = item
     return [by_ts[key] for key in sorted(by_ts)]
 
 
