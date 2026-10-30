@@ -112,6 +112,22 @@ class GateFeedTests(unittest.TestCase):
   saved={900:{}, 900 + 1002*900:{}}
   self.assertEqual(m._missing_candle_ranges(saved),[(1800,900+1000*900),(900+1001*900,900+1001*900)])
 
+ def test_recent_rest_reconciliation_uses_small_limit(self):
+  class Response:
+   def raise_for_status(self): pass
+   def json(self): return [['900','2','12','13','10','11','1']]
+  class Session:
+   def get(self,url,params,timeout):
+    self.params=params
+    return Response()
+  session=Session()
+  m.fetch_recent_closed(session,now=2000,limit=m.REST_RECONCILE_LIMIT)
+  self.assertEqual(session.params['limit'],3)
+
+ def test_recent_rest_limit_is_bounded(self):
+  with self.assertRaisesRegex(ValueError,'invalid recent candle limit'):
+   m.fetch_recent_closed(object(),limit=m.MAX_REST_CANDLE_POINTS+1)
+
  def test_rest_identical_duplicate_candle_is_idempotent(self):
   raw=['900','2','12','13','10','11','1']
   class Response:
