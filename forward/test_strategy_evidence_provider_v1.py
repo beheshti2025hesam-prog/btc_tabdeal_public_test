@@ -236,3 +236,14 @@ def test_mfi_divergence_supports_bullish_and_bearish_alternatives():
     assert detect_mfi_divergence(
         core, bearish_swings, direction="BEARISH", mfi_values=bearish_mfi
     ) is False
+
+
+def test_default_provider_rejects_binance_under_gateio_only_canonical_policy():
+    now = 1_800_000_000_000
+    fifteen = make_batch("15m", now, venue="binance", digest="a")
+    four_hour = make_batch("4h", now, venue="binance", digest="b")
+
+    with pytest.raises(ValueError, match="unsupported 15m strategy source scope"):
+        StrategyEvidenceProviderV1().evaluate(
+            candles_15m=fifteen, candles_4h=four_hour, now_ms=now
+        )
