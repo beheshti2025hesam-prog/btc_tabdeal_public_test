@@ -29,6 +29,15 @@ class GateFeedTests(unittest.TestCase):
    self.assertEqual(m._append_new([middle],2700,path),2700)
    self.assertEqual(len(path.read_text().splitlines()),3)
 
+ def test_duplicate_persisted_candle_identity_fails_closed(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'candles.jsonl'
+   c=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
+   line=__import__('json').dumps(c)
+   path.write_text(line+'\\n'+line+'\\n')
+   with self.assertRaisesRegex(ValueError,'order/duplicate'):
+    m._read_saved_candles(path)
+
  def test_conflicting_same_candle_identity_fails_closed(self):
   with tempfile.TemporaryDirectory() as d:
    path=Path(d)/'candles.jsonl'
