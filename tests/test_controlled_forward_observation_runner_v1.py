@@ -1,3 +1,4 @@
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,8 +33,7 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         session_path=session,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -60,7 +60,7 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         transport_factory=GapTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
+        sequence_registry=verified_tabdeal_test_registry(),
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
