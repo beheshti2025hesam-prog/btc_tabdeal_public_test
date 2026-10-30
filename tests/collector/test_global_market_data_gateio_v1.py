@@ -72,6 +72,44 @@ class GateFeedTests(unittest.TestCase):
   self.assertIsNotNone(m.normalize_ws_message(msg,now=1900))
   c=m.normalize_ws_message(msg,now=1900)
   self.assertEqual(c['quote_volume'],'2400'); self.assertEqual(c['volume'],'0.03')
+ def test_missing_ranges_are_chunked_at_gate_1000_point_limit(self):
+  saved={900:{}, 900 + 1002*900:{}}
+  self.assertEqual(m._missing_candle_ranges(saved),[(1800,900+1000*900),(900+1001*900,900+1001*900)])
+
+ def test_fetch_closed_range_uses_from_to_without_limit(self):
+  class Response:
+   def raise_for_status(self): pass
+   def json(self): return [['900','2','12','13','10','11','1'],['1800','2','12','13','10','11','1']]
+  class Session:
+   def get(self,url,params,timeout):
+    self.params=params
+    return Response()
+  session=Session()
+  rows=m.fetch_closed_range(session,900,1800,now=3000)
+  self.assertEqual([x['open_time'] for x in rows],[900,1800])
+  self.assertEqual(session.params,{'currency_pair':m.SYMBOL,'interval':m.INTERVAL,'from':900,'to':1800})
+  self.assertNotIn('limit',session.params)
+
+ def test_backfill_repairs_gap_older_than_recent_window(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'candles.jsonl'
+   a=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
+   b=m.normalize_row(['2700','2','12','13','10','11','1'],now=4000)
+   m._append_new([a,b],-1,path)
+   class Response:
+    def raise_for_status(self): pass
+    def json(self): return [['1800','2','12','13','10','11','1']]
+   class Session:
+    def get(self,url,params,timeout):
+     self.params=params
+     return Response()
+   session=Session()
+   self.assertEqual(m._backfill_missing_history(session,path),1)
+   rows=[__import__('json').loads(x) for x in path.read_text().splitlines()]
+   self.assertEqual([x['open_time'] for x in rows],[900,1800,2700])
+   self.assertEqual(session.params['from'],1800)
+   self.assertEqual(session.params['to'],1800)
+
  def test_idempotent_append(self):
   with tempfile.TemporaryDirectory() as d:
    path=Path(d)/'candles.jsonl'
