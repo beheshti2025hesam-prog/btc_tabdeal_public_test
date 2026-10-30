@@ -6,7 +6,7 @@ CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 
 def rec(seq, price="1"):
-    return {"sequence": seq, "price": price, "amount": "1", "symbol": "BTC_USDT"}
+    return {"sequence": seq, "price": price, "amount": "1", "symbol": "BTC_USDT", "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY}
 
 
 def test_clean_monotonic_sequence_is_safe():
