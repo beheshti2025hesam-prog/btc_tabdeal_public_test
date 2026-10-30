@@ -17,6 +17,7 @@ def verified_tabdeal_test_registry():
             "record_id": DEFAULT_TABDEAL_TRADE_RECORD_ID,
             "key": TABDEAL_TRADE_SEQUENCE_KEY,
             "semantic_class": "ORDERED_EVENT_SEQUENCE",
+            "normalized_field_path": "sequence",
             "scope": ["symbol"],
             "claims": {"ordered": True, "unique": True, "contiguous": False},
             "capabilities": {
