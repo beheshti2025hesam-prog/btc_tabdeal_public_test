@@ -46,3 +46,8 @@ A registry revision is immutable. Changes create a new revision; stale or confli
 ## Release boundary
 
 Gate.io remains the canonical chart/analysis provider for the current crypto Spot scope. An execution venue is a separate adapter and must never supply a second candle/volume source to the analysis engine. No live execution is authorized by this document.
+
+
+## Bounded live-cache policy
+
+The live collector keeps only the newest 5,000 closed candles per exact symbol/timeframe. This bounds memory, disk I/O, reader latency, and atomic rewrite cost on a long-lived VPS. The reader requires at least 200 closed candles; the 5,000-row cap leaves a large safety margin. Historical datasets must be archived and queried through the separate historical-data path rather than appended indefinitely to the hot live feed.
