@@ -452,8 +452,13 @@ class NewsIntelligenceBrain:
             aliases = _MARKET_ALIASES.get(market, (context.symbol.casefold(),) if context.symbol else ())
             market_match = any(term and _contains(text, term) for term in aliases)
             symbol_match = bool(context.symbol and _contains(text, context.symbol.casefold()))
+            crypto_venue_risk = any(_contains(text, term) for term in (
+                "trading halted", "withdrawals suspended", "deposit suspended",
+                "exchange outage", "wallet maintenance", "trading suspension",
+                "security incident",
+            ))
             category_match = (
-                market == "crypto" and any(c in categories for c in ("crypto_market", "regulation", "security", "exchange", "monetary_policy", "macro"))
+                market == "crypto" and (any(c in categories for c in ("crypto_market", "regulation", "security", "monetary_policy", "macro")) or crypto_venue_risk)
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
