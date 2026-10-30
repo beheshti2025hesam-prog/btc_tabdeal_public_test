@@ -1,65 +1,85 @@
 # HES dashboard security, release, and rollback runbook
 
-**Applies to:** the read-only persisted-feed dashboard candidate in PR #388.  
+**Applies to:** the Gate.io persisted-feed + Signal Agent + canonical journal dashboard candidate in PR #394.  
 **Target date:** 2026-11-19.  
 **Current disposition:** HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.  
-**Production status:** no production deployment or production rollback has occurred. An isolated temporary-directory versioned-release/rollback rehearsal passed; it does not replace production authorization or production rollback evidence.
+**Production status:** no production deployment or production rollback has occurred. Isolated tests do not replace production authorization or a production rollback rehearsal.
 
 ## Security boundary
 
-- Dashboard binds to `127.0.0.1:8765` by default. Do not expose it directly to the public internet; any remote access must be through an approved authenticated TLS reverse proxy and firewall policy.
-- Public market data only. No account credentials, balances, order-submit route, or live execution permission are part of this dashboard.
-- Keep `execution_enabled=false`, `orders_placed=false`, and `NO_TRADE_ONLY`; missing source, structure, strategy, mapping, or risk evidence must remain fail-closed.
-- Use the locally pinned TradingView Lightweight Charts asset. Browser requests to exchange APIs or third-party chart CDNs are a test failure.
+- Dashboard binds to `127.0.0.1:8765`. Do not expose it directly to the public internet; remote access must use an approved authenticated TLS reverse proxy and firewall policy.
+- Gate.io public Spot BTC_USDT is the sole canonical chart/analysis source. The browser consumes the persisted reader; it must not call exchange REST endpoints or external chart CDNs.
+- Exchange/broker adapters are separate execution concerns. No account credentials, balances, order-submit route, or live execution permission are part of this dashboard.
+- Keep `execution_enabled=false`, `orders_placed=false`, and `NO_TRADE_ONLY`; missing source, structure, strategy, mapping, confirmation, or risk evidence must remain fail-closed.
+- Use the locally pinned TradingView Lightweight Charts asset.
 - Responses must include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, restrictive `Permissions-Policy`, `Cache-Control: no-store`, and CSP directives `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`.
-- Dashboard client JavaScript and CSS are served as same-origin static assets; inline script/style and inline style attributes are removed. CSP `script-src` and `style-src` do not allow `unsafe-inline`. Regression tests assert this restriction.
+- Dashboard client JavaScript and CSS are same-origin static assets; inline script/style and inline style attributes are removed. CSP does not allow `unsafe-inline`.
+
+## Canonical journal write boundary
+
+Signal decisions must append to the already-existing canonical file consumed by the paper evaluator and Learning Loop:
+
+`/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl`
+
+The dashboard systemd unit must set `HES_TRADE_JOURNAL_PATH` to that exact absolute path. Do not use a release-relative `PROJECT_ROOT/data/forward` fallback: the dashboard is launched through `/opt/hes-trade-agent/current`, which resolves into an immutable versioned release.
+
+The dashboard service remains read-only for releases and market data. Its only write exceptions are the canonical journal file and its pre-created lock file:
+
+- `/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl`
+- `/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl.lock`
+
+Before starting the candidate service, verify the canonical journal already exists and is owned by `sentinelx:sentinelx`. If the lock file does not exist, create it during the privileged installation preflight as `sentinelx:sentinelx`, mode `0600`; do not replace its inode while the dashboard is running. The unit must retain `ReadOnlyPaths=/opt/hes-trade-agent/releases /opt/hes-trade-agent/data/forward` and grant only the two file-level `ReadWritePaths` exceptions above. Never grant write access to the whole `data/forward` directory. The journal writer uses an exclusive file lock, append-only records, fsync, and stable evidence-derived event IDs. Repeated polling for identical closed-candle evidence must resolve as `ALREADY_RECORDED`, not append duplicates.
+
+The `GET /api/journal` projection is read-only. It must validate JSONL integrity, duplicate event IDs, timestamps, and outcome separation; it must never infer realized outcomes. Signal decisions must keep `outcome=null` and `closed_at=null`. Paper outcomes remain separate append-only records.
 
 ## Pre-release gate
 
-1. Confirm the approved repository, branch, exact commit SHA, clean staged release artifact, and independent review.
+1. Confirm the approved repository, branch, exact commit SHA, clean staged release artifact, and an independent review by someone other than the PR author.
 2. Run the full repository suite and exact-head browser test. Browser evidence must show:
-   - all displayed OHLC/time/volume values match the API payload;
+   - displayed OHLC/time/volume values match the API payload;
    - chart and Signal Agent `input_batch_sha256` values match for the same 15m request;
    - no browser-to-exchange REST request or external chart CDN request;
    - visible candles, no console/page errors, and responsive viewport checks;
-   - Signal Agent is `BLOCKED` / `NO_TRADE` while required providers are absent and execution is disabled.
-3. Verify freshness, closed-candle integrity, source identity, symbol mapping evidence, risk/strategy approvals, access control, service user, firewall, health check, logs, and monitoring.
-4. Verify a staged install and rollback in an isolated environment before production. Capture exact SHA-256 hashes and command output; do not infer success from CI alone. The candidate now includes filesystem-only atomic version-switch/rollback tests, but those tests are not a production rollback rehearsal.
-5. Do not deploy until the frontend runtime and approved release target on the sole VPS are identified. Never clean, reset, or overwrite its dirty checkout as part of this procedure.
+   - Signal Agent remains `BLOCKED` / `NO_TRADE` while required providers are absent and execution is disabled;
+   - one immutable Signal decision is recorded for a new evidence identity, repeat polling returns `ALREADY_RECORDED`, and the existing Learning Loop sees the same canonical journal hash.
+3. Verify the canonical journal and lock file paths, owner/mode, exact `HES_TRADE_JOURNAL_PATH`, file-level write exceptions, and that the dashboard service cannot write other market-data or report files.
+4. Verify freshness, closed-candle integrity, Gate.io source identity, symbol mapping evidence, independent structure/confirmation/risk evidence, execution instrument mapping, access control, service user, firewall, health checks, logs, and monitoring.
+5. Verify a staged install and rollback in an isolated environment. Capture exact SHA-256 hashes and command output; do not infer success from CI alone.
+6. Do not clean, reset, or overwrite the sole VPS dirty checkout. Do not deploy until the real frontend runtime, approved release target, permissions, and independent review are established.
 
 ## Controlled release (not yet authorized)
 
-- Build a release artifact from the reviewed exact SHA; record its hash and dependencies.
+- Build a release artifact from the independently reviewed exact SHA; record its hash and dependencies.
 - Install to a new versioned release directory, not over the current release.
+- Preserve the canonical journal file and its lock inode. Pre-create the lock file if absent before applying the service sandbox.
 - Keep the dashboard loopback-only and paper/read-only. Do not enable any exchange order adapter or collector.
-- Validate `/healthz`, `/api/candles`, `/api/signal`, CSP/security headers, same-batch hash, freshness, and `NO_TRADE_ONLY`.
-- Switch the service target atomically only after an explicit release approval. Keep the previous release and configuration intact.
+- Install the reviewed service unit with the explicit canonical journal path and only file-level write exceptions.
+- Validate `/healthz`, `/api/candles`, `/api/signal`, `/api/journal`, CSP/security headers, same-batch hash, freshness, journal write/readback, deduplication, and `NO_TRADE_ONLY`.
+- Switch the service target atomically only after explicit release approval. Keep the previous release, service unit, and configuration intact.
 
 ## Rollback procedure
 
-Trigger rollback on failed health check, stale/invalid feed, mismatched source/batch hash, unexpected external network request, browser errors, security-header regression, service instability, or any execution-enabled/order-placed flag.
+Trigger rollback on failed health check, stale/invalid feed, mismatched source/batch hash, journal write failure, duplicate/conflicting event, unexpected external network request, browser errors, security-header regression, service instability, or any execution-enabled/order-placed flag.
 
-1. Stop the candidate dashboard service; do not stop the canonical Gate.io market-data feeds or paper evaluator.
-2. Atomically point the dashboard service to the previously recorded release and configuration. Do not use `git reset`, `git clean`, or overwrite the existing dirty checkout.
+1. Stop only the candidate dashboard service; do not stop the canonical Gate.io market-data feeds or paper evaluator.
+2. Atomically point the dashboard service to the previously recorded release and restore the previous service unit. Do not use `git reset`, `git clean`, or overwrite the existing dirty checkout.
 3. Start only the previously approved read-only dashboard service.
-4. Verify `/healthz`, source identity, closed-candle freshness, no order endpoints, `execution_enabled=false`, `orders_placed=false`, and browser/API batch consistency.
-5. Record the failed SHA, previous SHA, timestamps, service state, log excerpt, evidence hashes, and reason. Keep release status HOLD until independently reviewed.
+4. Verify `/healthz`, Gate.io source identity, closed-candle freshness, `/api/journal` read-only projection, canonical journal hash continuity, no order endpoints, `execution_enabled=false`, `orders_placed=false`, and browser/API batch consistency.
+5. Preserve the canonical journal and lock file; do not truncate or rewrite either during rollback.
+6. Record the failed SHA, previous SHA, timestamps, service state, log excerpt, evidence hashes, and reason. Keep release status HOLD until independently reviewed.
 
 ## Recovery/fault tests required
 
 - Feed stale/missing/corrupt/duplicate/gapped/open/future candle data must fail closed.
+- Missing/unwritable journal, missing lock file, malformed JSONL, duplicate identity with conflicting content, and partial trailing record must fail closed without fabricating rows.
 - Dashboard restart must not start a WebSocket collector or order path automatically.
-- Simulate feed loss, dashboard process restart, and recovery in an isolated environment; verify the dashboard returns only after fresh persisted candles validate.
+- Simulate feed loss, dashboard process restart, journal append, repeated polling, and recovery in an isolated environment.
 - Exercise rollback against a staged versioned install and prove the previous artifact hash is restored.
-- Preserve the existing 24-hour feed soak evidence, but do not treat it as a dashboard deployment/rollback test.
+- Preserve the existing Gate.io 24-hour feed soak evidence, but do not treat it as a dashboard deployment/rollback test.
 
 ## Evidence ledger
 
-- Candidate PR: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/388
-- Persisted-feed parent: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/383
-- Signal Agent source candidate (not a separate merge target): https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/387
-- Exact-head validation on 2026-10-27: full repository suite 604 passed / 8 subtests; dashboard single-path tests passed; browser render and responsive checks passed at 390px, 768px, and 1440px with no horizontal overflow; public Binance Spot WebSocket-to-REST smoke passed (read-only transport test; this is not proof of a Gate.io dashboard WebSocket, which remains disabled).
-- Isolated VPS runtime smoke on candidate SHA `a64afe129f41db66afb5b54724e1eb2cd2ab5665`: health 200 with fresh feed, 503 after the persisted 15m file was removed beyond cache expiry, 200 after restore, and 200 after process restart. Temporary checkout/process were removed; no VPS service was installed or changed.
-- Isolated versioned-release rollback rehearsal on candidate SHA `b6f5fed89350dd3c9ba42e3722a7a8f2192bd78b`: valid release health 200; intentionally invalid release rejected; atomic pointer restored to the valid release; health returned to 200 and the restored dashboard SHA-256 matched the saved pre-release digest. Temporary release directories and process were removed.
-- The new systemd unit template passed `systemd-analyze verify` in an isolated normalized staging root on 2026-10-27. This did not install the unit, reload systemd, enable/start a service, or change production files.
-- The recorded CI evidence applies only to the exact SHA shown in the corresponding workflow run. Production installation, production rollback, independent risk approval, and execution instrument mapping remain separate gates.
+- Candidate PR: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/394
+- Exact-head CI evidence must be tied to the current PR head, not inherited from earlier candidate SHAs.
+- Existing Gate.io persisted-feed soak evidence and Learning Loop journal-hash linkage are prerequisites, not production Signal→journal deployment evidence.
+- Production installation, production rollback, independent risk approval, execution instrument mapping, and independent PR review remain separate release gates.
