@@ -24,7 +24,8 @@ from core.orchestration.witness_v1 import MotherAuditWitnessV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
-SUPPORTED_SYMBOLS = {"BTCUSDT"}
+SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "SOLUSDT"}
+GATE_SYMBOLS = {"BTCUSDT": "BTC_USDT", "ETHUSDT": "ETH_USDT", "SOLUSDT": "SOL_USDT"}
 SUPPORTED_INTERVALS = {"15m", "1h", "4h"}
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
@@ -41,8 +42,9 @@ class PersistedGlobalFeedSource:
             raise ValueError("invalid persisted candle limit")
         if start_time_ms is not None or end_time_ms is not None or as_of_ms is not None:
             raise ValueError("persisted global feed does not support custom time windows")
-        market = load_market_input(root=PROJECT_ROOT)
-        if market.get("source") != "gateio_public_spot" or market.get("symbol") != "BTC_USDT":
+        source_symbol = GATE_SYMBOLS[symbol]
+        market = load_market_input(root=PROJECT_ROOT, symbol=source_symbol)
+        if market.get("source") != "gateio_public_spot" or market.get("symbol") != source_symbol:
             raise ValueError("persisted global source identity mismatch")
         rows = market["timeframes"].get(interval, [])[-limit:]
         if len(rows) < 200:
@@ -144,7 +146,7 @@ def _get_batch(symbol, interval):
 
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HES Trade Agent</title><link rel="stylesheet" href="/static/dashboard.css"><script src="/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js" integrity="sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl" crossorigin="anonymous"></script></head><body><main><header><div><div class="brand">HES Trade Agent</div><div class="sub">Global feed · persisted closed candles</div></div><span class="pill">HOLD / NO_TRADE_ONLY</span></header>
-<section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
+<section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option><option>ETHUSDT</option><option>SOLUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status">Loading validated closed candles…</div></section>
 <section class="panel"><h3 class="panel-title">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This read-only route composes validated market structure, strategy quality, confirmation, risk and arbitration. Missing execution-instrument mapping or any unapproved risk gate keeps the decision at NO_TRADE.</p></div><div class="panel"><h4 class="panel-title">Mother Orchestrator · read-only</h4><div class="metrics"><div class="metric"><small>Orchestration status</small><strong id="motherStatus">BLOCKED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace">—</strong></div></div><p class="muted" id="motherStages">Waiting for specialist evidence…</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
@@ -572,7 +574,7 @@ class Handler(BaseHTTPRequestHandler):
                 "venue":batch.venue,"product":batch.product,
                 "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
                 "trade_count_available":TRADE_COUNT_AVAILABLE,"taker_buy_flow_available":TAKER_BUY_FLOW_AVAILABLE,
-                "symbol":batch.symbol,"source_symbol":"BTC_USDT","symbol_mapping_verified":True,
+                "symbol":batch.symbol,"source_symbol":GATE_SYMBOLS[symbol],"symbol_mapping_verified":True,
                 "execution_instrument_mapping_verified":False,
                 "interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
                 "fetched_at_ms":batch.fetched_at_ms,"input_batch_sha256":batch.response_sha256,

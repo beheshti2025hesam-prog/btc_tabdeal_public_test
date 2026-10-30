@@ -1,0 +1,25 @@
+[Unit]
+Description=HES Global Market Data - Gate.io %I
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/etc/hes-trade-agent/feeds/%i.env
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/scripts/run_global_market_data_gateio_service.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/hes-trade-agent/data/forward
+
+[Install]
+WantedBy=multi-user.target

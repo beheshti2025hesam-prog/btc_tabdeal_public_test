@@ -1,0 +1,88 @@
+{
+  "schema_version": "hes.market_asset_profiles.v1",
+  "default_mode": "OBSERVATION_ONLY",
+  "execution_enabled": false,
+  "profiles": {
+    "crypto": {
+      "status": "active_provider_scope",
+      "data_provider": "gateio_public_spot",
+      "product_scope": [
+        "spot"
+      ],
+      "instrument_registry": "config/gateio_spot_instruments_v1.json",
+      "analysis_enabled_symbols": [
+        "BTC_USDT"
+      ],
+      "observation_only_symbols": [
+        "ETH_USDT",
+        "SOL_USDT"
+      ],
+      "notes": "Gate.io is the single canonical crypto market-data provider for the current release. Spot and derivatives are distinct product identities."
+    },
+    "fx": {
+      "status": "disabled_unqualified",
+      "data_provider": null,
+      "product_scope": [],
+      "required_qualification": [
+        "official_provider_contract",
+        "real_time_entitlement",
+        "timezone_and_session_calendar",
+        "bid_ask_spread_semantics",
+        "holiday_and_rollover_rules",
+        "freshness_and_gap_soak"
+      ],
+      "execution_enabled": false
+    },
+    "us_equities": {
+      "status": "disabled_unqualified",
+      "data_provider": null,
+      "product_scope": [],
+      "required_qualification": [
+        "official_provider_contract",
+        "real_time_entitlement",
+        "exchange_session_calendar",
+        "split_dividend_adjustment_policy",
+        "corporate_action_provenance",
+        "volume_semantics",
+        "freshness_and_gap_soak"
+      ],
+      "execution_enabled": false
+    },
+    "iran_equities": {
+      "status": "disabled_unqualified",
+      "data_provider": null,
+      "product_scope": [],
+      "required_qualification": [
+        "official_domestic_provider_contract",
+        "legal_access_review",
+        "market_session_calendar",
+        "price_limit_and_auction_semantics",
+        "corporate_action_policy",
+        "volume_semantics",
+        "freshness_and_gap_soak"
+      ],
+      "execution_enabled": false
+    },
+    "commodities": {
+      "status": "disabled_unqualified",
+      "data_provider": null,
+      "product_scope": [],
+      "required_qualification": [
+        "official_provider_contract",
+        "contract_specifications",
+        "expiry_and_roll_policy",
+        "session_calendar",
+        "volume_semantics",
+        "freshness_and_gap_soak"
+      ],
+      "execution_enabled": false
+    }
+  },
+  "invariants": [
+    "A market profile cannot be enabled without a qualified provider and versioned evidence.",
+    "No asset class may borrow another market's session, volume, adjustment, or instrument rules.",
+    "No second chart/analysis engine is created; new providers implement the existing NativeOHLCVSource boundary.",
+    "Execution venue mapping is independent of the market-data provider and remains disabled until venue approval.",
+    "Changes to non-crypto profiles must not alter the Gate.io BTC v1 runtime or release pointer."
+  ]
+}

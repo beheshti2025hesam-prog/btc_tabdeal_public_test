@@ -23,14 +23,14 @@ from forward.strategy_policy_v1 import REQUIRED_CHECKS, StrategyEvidenceCheckV1
 from web.dashboard import Handler
 
 
-def sample_batch(*, gaps=()):
+def sample_batch(*, gaps=(), symbol="BTCUSDT"):
     now_ms=int(time.time()*1000)
     interval_ms=900_000
     open_ms=(now_ms//interval_ms-1)*interval_ms
     close_ms=open_ms+interval_ms-1
     fetched=now_ms
     candle=SimpleNamespace(
-        venue="gateio",product="spot",symbol="BTCUSDT",interval="15m",
+        venue="gateio",product="spot",symbol=symbol,interval="15m",
         open_time_ms=open_ms,close_time_ms=close_ms,
         open=Decimal("100.00"),high=Decimal("102.00"),low=Decimal("99.00"),
         close=Decimal("101.00"),volume=Decimal("2.500"),quote_volume=Decimal("250.625"),
@@ -38,7 +38,7 @@ def sample_batch(*, gaps=()):
         taker_buy_quote_volume=None,closed=True,
     )
     return SimpleNamespace(
-        venue="gateio",product="spot",symbol="BTCUSDT",interval="15m",
+        venue="gateio",product="spot",symbol=symbol,interval="15m",
         endpoint_kind="global_market_data_reader_v1",fetched_at_ms=fetched,response_sha256="a"*64,
         candles=(candle,),gaps=tuple(gaps),open_candles_excluded=1,
     )
@@ -78,6 +78,8 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertEqual(response.headers.get_content_type(),"text/css")
             self.assertIn("#0b1220",response.read().decode())
         self.assertIn("Canonical persisted global feed",page)
+        self.assertIn("<option>ETHUSDT</option>", page)
+        self.assertIn("<option>SOLUSDT</option>", page)
         self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
         self.assertNotIn("its semantics are unverified",page)
@@ -164,6 +166,22 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["candles"][0]["volume"],"2.500")
         self.assertFalse(payload["feature_ready"])
         self.assertFalse(payload["execution_enabled"])
+
+    def test_eth_and_sol_chart_paths_keep_separate_gateio_identity(self):
+        for ui_symbol, source_symbol in (("ETHUSDT", "ETH_USDT"), ("SOLUSDT", "SOL_USDT")):
+            batch = sample_batch(symbol=ui_symbol)
+            features = SimpleNamespace(decision_ready=False, reason="INSUFFICIENT_CLOSED_CANDLES")
+            with (
+                patch("web.dashboard._SOURCE.fetch", return_value=batch) as fetch,
+                patch("web.dashboard._FEATURES.build", return_value=features),
+            ):
+                with urlopen(self.base + f"/api/candles?symbol={ui_symbol}&interval=15m") as response:
+                    payload = json.loads(response.read())
+            fetch.assert_called_once_with(symbol=ui_symbol, interval="15m", limit=240)
+            self.assertEqual(payload["symbol"], ui_symbol)
+            self.assertEqual(payload["source_symbol"], source_symbol)
+            self.assertEqual(payload["source"], "gateio_public_spot")
+            self.assertFalse(payload["execution_instrument_mapping_verified"])
 
     def test_unsupported_symbol_or_interval_fails_before_source_call(self):
         with patch("web.dashboard._SOURCE.fetch") as fetch:
