@@ -68,6 +68,78 @@ def fetch_recent_closed(session: requests.Session | None = None, *, now: int | N
     by_ts = {item['open_time']:item for item in rows if item['closed']}
     return [by_ts[key] for key in sorted(by_ts)]
 
+
+def _missing_candle_ranges(saved: dict[int, dict[str, Any]], *, max_ranges: int = 10) -> list[tuple[int, int]]:
+    """Return bounded inclusive (from, to) ranges for missing candle open times."""
+    if max_ranges < 1:
+        raise ValueError('max_ranges must be positive')
+    keys = sorted(saved)
+    ranges: list[tuple[int, int]] = []
+    for left, right in zip(keys, keys[1:]):
+        start = left + INTERVAL_SECONDS
+        end = right - INTERVAL_SECONDS
+        while start <= end and len(ranges) < max_ranges:
+            chunk_end = min(end, start + 999 * INTERVAL_SECONDS)
+            ranges.append((start, chunk_end))
+            start = chunk_end + INTERVAL_SECONDS
+        if len(ranges) >= max_ranges:
+            break
+    return ranges
+
+
+def fetch_closed_range(session: requests.Session, start_open_time: int, end_open_time: int,
+                       *, now: int | None = None) -> list[dict[str, Any]]:
+    """Fetch one documented Gate candle time range (at most 1,000 points)."""
+    if start_open_time < 0 or end_open_time < start_open_time:
+        raise ValueError('invalid candle backfill range')
+    if start_open_time % INTERVAL_SECONDS or end_open_time % INTERVAL_SECONDS:
+        raise ValueError('unaligned candle backfill range')
+    count = (end_open_time - start_open_time) // INTERVAL_SECONDS + 1
+    if count > 1000:
+        raise ValueError('candle backfill range exceeds Gate 1,000-point maximum')
+    response = session.get(
+        REST_URL,
+        params={'currency_pair': SYMBOL, 'interval': INTERVAL,
+                'from': start_open_time, 'to': end_open_time},
+        timeout=(4, 8),
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, list):
+        raise ValueError('Unexpected Gate backfill payload')
+    by_ts = {}
+    for raw in payload:
+        candle = normalize_row(raw, now=now)
+        ts = candle['open_time']
+        if start_open_time <= ts <= end_open_time and candle['closed']:
+            if ts in by_ts and _semantic_candle(by_ts[ts]) != _semantic_candle(candle):
+                raise ValueError(f'Conflicting Gate backfill candle at open_time={ts}')
+            by_ts[ts] = candle
+    return [by_ts[ts] for ts in sorted(by_ts)]
+
+
+def _backfill_missing_history(session: requests.Session, output: Path = OUTPUT,
+                              *, max_ranges: int = 10) -> int:
+    """Repair historical candle gaps with bounded Gate time-range requests."""
+    saved = _read_saved_candles(output)
+    ranges = _missing_candle_ranges(saved, max_ranges=max_ranges)
+    repaired = 0
+    for start, end in ranges:
+        candles = fetch_closed_range(session, start, end)
+        expected = (end - start) // INTERVAL_SECONDS + 1
+        returned = {int(row['open_time']) for row in candles}
+        _append_new(candles, max(saved, default=-1), output)
+        if len(returned) == expected and all(
+            ts in returned for ts in range(start, end + 1, INTERVAL_SECONDS)
+        ):
+            repaired += expected
+            print(f'HES_GLOBAL_CANDLE_BACKFILL_REPAIRED symbol={SYMBOL} tf={INTERVAL} from={start} to={end} count={expected}', flush=True)
+        else:
+            missing = expected - len(returned)
+            print(f'HES_GLOBAL_CANDLE_BACKFILL_INCOMPLETE symbol={SYMBOL} tf={INTERVAL} from={start} to={end} missing={missing}', flush=True)
+    return repaired
+
+
 def _last_saved_ts(path: Path) -> int:
     if not path.exists(): return -1
     try:
@@ -199,6 +271,7 @@ def run() -> None:
     while not STOP:
         try:
             last_ts = _append_new(fetch_recent_closed(session), last_ts)
+            _backfill_missing_history(session, OUTPUT)
             ws=websocket.create_connection(WS_URL, timeout=12, origin='https://www.gate.com')
             ws.send(json.dumps({'time':int(time.time()),'channel':'spot.candlesticks','event':'subscribe','payload':[INTERVAL,SYMBOL]}))
             deadline=time.monotonic()+10
@@ -212,6 +285,7 @@ def run() -> None:
                     # guarantees we persist the just-closed candle even if no final WS tick arrives.
                     if subscribed and time.monotonic()-last_rest_sync >= 20:
                         last_ts=_append_new(fetch_recent_closed(session), last_ts)
+                        _backfill_missing_history(session, OUTPUT)
                         last_rest_sync=time.monotonic()
                     continue
                 msg=json.loads(raw)
