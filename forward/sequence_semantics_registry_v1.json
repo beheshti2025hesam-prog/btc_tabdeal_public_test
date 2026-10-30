@@ -1,0 +1,193 @@
+{
+  "schema": "hes_sequence_semantics_registry_v1",
+  "registry_version": 1,
+  "policy": "UNKNOWN_IS_NOT_FALSE_AND_NEVER_GRANTS_CAPABILITY",
+  "records": [
+    {
+      "record_id": "tabdeal_fapi_broadcast_trade_sequence_v1",
+      "key": {
+        "venue": "tabdeal",
+        "product": "fapi_margin",
+        "endpoint": "wss://api.tabdeal.org/special_margin/broadcast/",
+        "channel": "raw_text_symbol_subscription",
+        "message_type": "trade_envelope",
+        "field_path": "trade.sequence",
+        "protocol_version": "unknown"
+      },
+      "semantic_class": "OPAQUE_METADATA",
+      "scope": ["venue", "product", "endpoint", "channel", "symbol", "connection_id", "session_id"],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": true
+      },
+      "reconnect_rule": "NEW_SESSION_EPOCH_NO_CROSS_SESSION_COMPARISON",
+      "duplicate_rule": "ONLY_IDENTICAL_RAW_PAYLOAD_MAY_BE_IDEMPOTENT; REPEATED_FIELD_VALUE_IS_NOT_IDENTITY",
+      "gap_rule": "NEVER_INFER_MISSING_EVENTS_FROM_NUMERIC_DIFFERENCES",
+      "source_evidence": {
+        "url": "https://docs.tabdeal.org/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-10",
+        "source_content_sha256": null,
+        "evidence_status": "INNER_TRADE_SCHEMA_NOT_DOCUMENTED",
+        "evidence_note": "The public documentation describes a trade envelope but does not define the inner trade object or trade.sequence semantics."
+      },
+      "status": "UNKNOWN",
+      "last_verified": "2026-10-10",
+      "confidence": "high_for_reviewed_public_contract_absence_low_for_runtime_semantics"
+    },
+    {
+      "record_id": "tabdeal_fapi_agg_depth_rest_sequence_v1",
+      "key": {
+        "venue": "tabdeal",
+        "product": "fapi_margin",
+        "endpoint": "https://api.tabdeal.org/r/fapi/v1/aggDepth",
+        "channel": "rest_response",
+        "message_type": "aggregate_depth_snapshot",
+        "field_path": "sequence",
+        "protocol_version": "unknown"
+      },
+      "semantic_class": "OPAQUE_METADATA",
+      "scope": ["venue", "product", "endpoint", "symbol", "request"],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": true
+      },
+      "reconnect_rule": "NO_CROSS_REQUEST_OR_CHANNEL_COMPARISON",
+      "duplicate_rule": "NO_IDENTITY_OR_CONFLICT_RULE",
+      "gap_rule": "NO_GAP_DETECTION",
+      "source_evidence": {
+        "url": "https://docs.tabdeal.org/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-10",
+        "source_content_sha256": null,
+        "evidence_status": "FIELD_SHOWN_SEMANTICS_NOT_DOCUMENTED",
+        "evidence_note": "A sequence field appears in an aggregate-depth REST example; its relation to WebSocket depth or broadcast messages is not documented."
+      },
+      "status": "UNKNOWN",
+      "last_verified": "2026-10-10",
+      "confidence": "high_for_reviewed_public_contract_absence_low_for_runtime_semantics"
+    },
+    {
+      "record_id": "binance_spot_diff_depth_v1",
+      "key": {
+        "venue": "binance",
+        "product": "spot",
+        "endpoint": "wss://stream.binance.com:9443/ws/<symbol>@depth",
+        "channel": "diff_depth",
+        "message_type": "depthUpdate",
+        "field_path": "U..u",
+        "protocol_version": "spot_websocket_streams_current"
+      },
+      "semantic_class": "BOOK_UPDATE_RANGE",
+      "scope": ["venue", "product", "symbol", "depth_stream_session"],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "true_within_stream_scope",
+        "contiguous": "true_within_stream_scope",
+        "ordered": "true_within_stream_scope",
+        "comparable_across_reconnect": "false",
+        "comparable_across_symbols": "false",
+        "comparable_across_channels": "false"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": true,
+        "book_update_range": true,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": true,
+        "exact_payload_replay_only": true
+      },
+      "bootstrap_rule": "BUFFER_WEBSOCKET_FETCH_REST_SNAPSHOT_DISCARD_u_LE_SNAPSHOT_ID_FIRST_APPLICABLE_RANGE_MUST_COVER_SNAPSHOT_ID",
+      "gap_rule": "IF_NEXT_U_GT_LOCAL_u_PLUS_1_DISCARD_BOOK_AND_RESTART_SNAPSHOT_BOOTSTRAP",
+      "reconnect_rule": "NEW_SESSION_AND_FRESH_SNAPSHOT_BOOTSTRAP",
+      "source_evidence": {
+        "url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "Official documentation defines U as first update ID, u as final update ID, snapshot lastUpdateId bootstrap, and U > local u + 1 as a missed-update condition. Pin a source snapshot/hash before enabling this record."
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "confidence": "high_for_documented_procedure"
+    },
+    {
+      "record_id": "binance_spot_trade_id_v1",
+      "key": {
+        "venue": "binance",
+        "product": "spot",
+        "endpoint": "wss://stream.binance.com:9443/ws/<symbol>@trade",
+        "channel": "trade",
+        "message_type": "trade",
+        "field_path": "t",
+        "protocol_version": "spot_websocket_streams_current"
+      },
+      "semantic_class": "TRADE_IDENTIFIER",
+      "scope": ["venue", "product", "symbol", "trade_stream"],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "false",
+        "comparable_across_channels": "false"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": true
+      },
+      "duplicate_rule": "TRADE_ID_LABEL_ALONE_DOES_NOT_AUTHORIZE_DEDUPLICATION_OR_ORDERING",
+      "source_evidence": {
+        "url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "The trade payload labels t as Trade ID; this registry does not infer uniqueness, monotonicity, or continuity without a pinned exact contract."
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "confidence": "high_for_field_label_low_for_unstated_semantics"
+    }
+  ]
+}
