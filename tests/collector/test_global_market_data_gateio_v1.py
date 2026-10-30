@@ -72,6 +72,19 @@ class GateFeedTests(unittest.TestCase):
   self.assertIsNotNone(m.normalize_ws_message(msg,now=1900))
   c=m.normalize_ws_message(msg,now=1900)
   self.assertEqual(c['quote_volume'],'2400'); self.assertEqual(c['volume'],'0.03')
+ def test_live_candle_file_retains_only_bounded_recent_window(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'candles.jsonl'
+   rows=[]
+   for i in range(m.MAX_PERSISTED_CANDLES + 2):
+    ts=i*900
+    rows.append(m.normalize_row([str(ts),'2','12','13','10','11','1'],now=ts+900))
+   m._append_new(rows,-1,path)
+   saved=[__import__('json').loads(x) for x in path.read_text().splitlines()]
+   self.assertEqual(len(saved),m.MAX_PERSISTED_CANDLES)
+   self.assertEqual(saved[0]['open_time'],2*900)
+   self.assertEqual(saved[-1]['open_time'],(m.MAX_PERSISTED_CANDLES+1)*900)
+
  def test_missing_ranges_are_chunked_at_gate_1000_point_limit(self):
   saved={900:{}, 900 + 1002*900:{}}
   self.assertEqual(m._missing_candle_ranges(saved),[(1800,900+1000*900),(900+1001*900,900+1001*900)])
