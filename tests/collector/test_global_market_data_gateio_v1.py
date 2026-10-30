@@ -16,6 +16,37 @@ class GateFeedTests(unittest.TestCase):
   with self.assertRaises(ValueError): m.normalize_row(['1000','2','12','11','10','11','1'],now=2000)
  def test_reject_short_row(self):
   with self.assertRaises(ValueError): m.normalize_row(['1000','2'],now=2000)
+ def test_rest_backfill_repairs_a_historical_gap_in_sorted_order(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'candles.jsonl'
+   a=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
+   b=m.normalize_row(['2700','2','12','13','10','11','1'],now=4000)
+   middle=m.normalize_row(['1800','2','12','13','10','11','1'],now=3000)
+   self.assertEqual(m._append_new([a,b],-1,path),2700)
+   self.assertEqual(m._append_new([middle],2700,path),2700)
+   rows=[__import__('json').loads(x) for x in path.read_text().splitlines()]
+   self.assertEqual([x['open_time'] for x in rows],[900,1800,2700])
+   self.assertEqual(m._append_new([middle],2700,path),2700)
+   self.assertEqual(len(path.read_text().splitlines()),3)
+
+ def test_conflicting_same_candle_identity_fails_closed(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'candles.jsonl'
+   original=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
+   conflict=dict(original); conflict['close']='12.5'
+   m._append_new([original],-1,path)
+   with self.assertRaisesRegex(ValueError,'Conflicting candle identity'):
+    m._append_new([conflict],900,path)
+   self.assertEqual(len(path.read_text().splitlines()),1)
+
+ def test_incoming_wrong_instrument_is_rejected(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'candles.jsonl'
+   candle=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
+   candle['symbol']='SOL_USDT'
+   with self.assertRaisesRegex(ValueError,'identity mismatch'):
+    m._append_new([candle],-1,path)
+
  def test_symbol_scope_can_be_explicitly_selected(self):
   original=m.SYMBOL
   try:
