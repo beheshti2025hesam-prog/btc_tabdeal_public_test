@@ -533,6 +533,11 @@ class Handler(BaseHTTPRequestHandler):
                             entry=geometry.entry if geometry else None,
                             stop_loss=geometry.stop_loss if geometry else None,
                             take_profit=geometry.take_profit if geometry else None,
+                            proposal_decision=result.decision.decision,
+                            structure_events=list(strategy.structure_events),
+                            structure_labels=list(strategy.structure_labels),
+                            confirmation_reasons=list(getattr(result.confirmation, "reason_codes", ())),
+                            risk_reasons=list(result.risk.reason_codes),
                         )
                         payload["learning_journal_status"] = journal_result.status
                         payload["learning_event_id"] = journal_result.event_id
