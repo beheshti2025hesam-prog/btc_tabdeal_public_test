@@ -155,16 +155,42 @@
       "evidence_url": "https://cointelegraph.com/",
       "last_probe_utc": "2026-10-23T18:26:03Z",
       "last_probe_status": "TLS handshake timeout from authorized VPS"
+    },
+    {
+      "id": "gateio_official_announcements",
+      "name": "Gate.io Official Announcements",
+      "url": "https://api.gateio.ws/api/v4/ann/list_article",
+      "host": "api.gateio.ws",
+      "type": "gate_announcements",
+      "tier": "official_primary",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.gate.com/docs/developers/apiv4/en/announcement/",
+      "last_probe_utc": "2026-10-30T13:48:00Z",
+      "last_probe_status": "Official API docs confirm unauthenticated POST /ann/list_article; VPS probe returned code=0, 5 rows, integer-string release_timestamp, article paths; separate official announcement WebSocket subscription acknowledged and delivered update",
+      "request": {
+        "language": "en",
+        "days": 3,
+        "page_size": 50
+      },
+      "terms_note": "Official Gate API announcement endpoint; public and no API key required. Venue operational announcements only, not a general crypto newswire."
     }
   ],
   "market_profiles": {
     "crypto": {
       "source_ids": [
         "ecb_press_releases",
-        "cftc_general_press_releases"
+        "cftc_general_press_releases",
+        "gateio_official_announcements"
       ],
-      "status": "partial_official_macro_regulatory_only",
-      "note": "No qualified crypto-native publisher feed is enabled; CoinDesk requires express permission for automated access under its published terms. Do not represent this as complete crypto-news coverage."
+      "status": "partial_official_macro_regulatory_and_venue_announcements",
+      "note": "Official ECB/CFTC macro-regulatory feeds plus Gate.io venue announcements are enabled. This remains partial coverage, not a comprehensive crypto-news wire."
     },
     "fx": {
       "source_ids": [
