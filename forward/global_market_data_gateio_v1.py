@@ -186,6 +186,7 @@ def _tail_jsonl_lines(path: Path, max_lines: int = LIVE_WINDOW_CANDLES) -> list[
 
 def _parse_saved_candles(lines: list[str]) -> dict[int, dict[str, Any]]:
     saved: dict[int, dict[str, Any]] = {}
+    previous = None
     for line_number, line in enumerate(lines, 1):
         try:
             candle = json.loads(line)
@@ -197,9 +198,10 @@ def _parse_saved_candles(lines: list[str]) -> dict[int, dict[str, Any]]:
             raise ValueError(f'Existing candle identity/state mismatch at tail line {line_number}')
         if ts < 0 or ts % INTERVAL_SECONDS or int(candle.get('close_time', -1)) != ts + INTERVAL_SECONDS:
             raise ValueError(f'Existing candle timestamp invalid at tail line {line_number}')
-        if ts in saved and _semantic_candle(saved[ts]) != _semantic_candle(candle):
-            raise ValueError(f'Conflicting candle identity at open_time={ts}')
+        if previous is not None and ts <= previous:
+            raise ValueError(f'Existing candle order/duplicate invalid at tail line {line_number}')
         saved[ts] = candle
+        previous = ts
     return saved
 
 
