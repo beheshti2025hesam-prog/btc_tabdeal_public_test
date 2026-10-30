@@ -32,7 +32,6 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     assert event.status == "REJECT_STREAM"
     assert event.reason == "CONFLICTING_DUPLICATE_IDENTITY"
     assert event.diagnostic["previous_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
-        assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
 
 
 def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
@@ -83,7 +82,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
     conflict = next(
         event for event in record["sequence_events"]
-        if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+        if event.get("reason") == "CONFLICTING_DUPLICATE_IDENTITY"
     )
     assert conflict["diagnostic"]["previous_payload_sha256"] != conflict["diagnostic"]["conflicting_payload_sha256"]
     fingerprints = conflict["transport_frame_fingerprints"]
