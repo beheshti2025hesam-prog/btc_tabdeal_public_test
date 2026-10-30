@@ -4,7 +4,7 @@ Writes normalized, closed BTC_USDT 15m candles to JSONL. Reconnects with REST
 backfill and idempotent candle-open-time keys. Does not modify legacy collectors.
 """
 from __future__ import annotations
-import json, os, signal, time
+import fcntl, json, os, signal, tempfile, time
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -59,7 +59,7 @@ def normalize_row(row: list[Any] | tuple[Any, ...], *, now: int | None = None) -
 
 def fetch_recent_closed(session: requests.Session | None = None, *, now: int | None = None) -> list[dict[str, Any]]:
     s = session or requests.Session()
-    response = s.get(REST_URL, params={'currency_pair':SYMBOL,'interval':INTERVAL,'limit':500}, timeout=(4,8))
+    response = s.get(REST_URL, params={'currency_pair':SYMBOL,'interval':INTERVAL,'limit':1000}, timeout=(4,8))
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, list):
@@ -82,17 +82,98 @@ def _last_saved_ts(path: Path) -> int:
     except OSError: pass
     return -1
 
+def _semantic_candle(candle: dict[str, Any]) -> tuple[Any, ...]:
+    return tuple(candle.get(key) for key in (
+        'schema', 'source', 'symbol', 'timeframe', 'open_time', 'close_time',
+        'open', 'high', 'low', 'close', 'volume', 'quote_volume', 'closed',
+    ))
+
+
+def _read_saved_candles(output: Path) -> dict[int, dict[str, Any]]:
+    saved: dict[int, dict[str, Any]] = {}
+    if not output.exists():
+        return saved
+    with output.open('r', encoding='utf-8') as handle:
+        for line_number, line in enumerate(handle, 1):
+            if not line.strip():
+                continue
+            try:
+                candle = json.loads(line)
+                ts = int(candle['open_time'])
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f'Existing candle file is malformed at line {line_number}') from exc
+            if (candle.get('source') != SOURCE or candle.get('symbol') != SYMBOL
+                    or candle.get('timeframe') != INTERVAL or candle.get('closed') is not True):
+                raise ValueError(f'Existing candle identity/state mismatch at line {line_number}')
+            if ts in saved and _semantic_candle(saved[ts]) != _semantic_candle(candle):
+                raise ValueError(f'Conflicting candle identity at open_time={ts}')
+            saved[ts] = candle
+    return saved
+
+
 def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTPUT) -> int:
+    """Idempotently merge closed candles by (source, symbol, timeframe, open_time).
+
+    Gate candle open_time is the candle identity within this exact product and
+    interval; it is not a generic trade/order-book sequence. Historical rows
+    arriving after reconnect are inserted by an atomic sorted rewrite so the
+    reader never sees out-of-order JSONL. Conflicting same-key payloads fail closed.
+    """
     output.parent.mkdir(parents=True, exist_ok=True)
-    newest = last_ts
-    with output.open('a', encoding='utf-8') as f:
+    lock_path = output.with_name(output.name + '.lock')
+    with lock_path.open('a+b') as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        saved = _read_saved_candles(output)
+        before = set(saved)
         for candle in candles:
-            ts=int(candle['open_time'])
-            if not candle['closed'] or ts <= newest: continue
-            f.write(json.dumps(candle, sort_keys=True, separators=(',',':'))+'\n')
-            f.flush(); os.fsync(f.fileno()); newest=ts
-            print(f"HES_GLOBAL_CANDLE source={SOURCE} symbol={SYMBOL} tf={INTERVAL} open_time={ts} closed=true", flush=True)
-    return newest
+            if candle.get('source') != SOURCE or candle.get('symbol') != SYMBOL or candle.get('timeframe') != INTERVAL:
+                raise ValueError('Incoming candle identity mismatch')
+            if candle.get('closed') is not True:
+                continue
+            ts = int(candle['open_time'])
+            if ts < 0 or ts % INTERVAL_SECONDS != 0:
+                raise ValueError(f'Invalid candle open_time alignment: {ts}')
+            if int(candle.get('close_time', -1)) != ts + INTERVAL_SECONDS:
+                raise ValueError(f'Invalid candle close_time: {ts}')
+            existing = saved.get(ts)
+            if existing is not None:
+                if _semantic_candle(existing) != _semantic_candle(candle):
+                    raise ValueError(f'Conflicting candle identity at open_time={ts}')
+                continue
+            saved[ts] = candle
+
+        added = set(saved) - before
+        if added:
+            ordered = [saved[ts] for ts in sorted(saved)]
+            needs_rewrite = bool(before) and min(added) < max(before)
+            if needs_rewrite:
+                fd, tmp_name = tempfile.mkstemp(prefix=output.name + '.', suffix='.tmp', dir=str(output.parent))
+                try:
+                    with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+                        for candle in ordered:
+                            handle.write(json.dumps(candle, sort_keys=True, separators=(',', ':')) + '\\n')
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                    if output.exists():
+                        os.chmod(tmp_name, output.stat().st_mode & 0o777)
+                    os.replace(tmp_name, output)
+                    dir_fd = os.open(str(output.parent), os.O_DIRECTORY)
+                    try:
+                        os.fsync(dir_fd)
+                    finally:
+                        os.close(dir_fd)
+                finally:
+                    if os.path.exists(tmp_name):
+                        os.unlink(tmp_name)
+            else:
+                with output.open('a', encoding='utf-8') as handle:
+                    for ts in sorted(added):
+                        handle.write(json.dumps(saved[ts], sort_keys=True, separators=(',', ':')) + '\\n')
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            for ts in sorted(added):
+                print(f"HES_GLOBAL_CANDLE source={SOURCE} symbol={SYMBOL} tf={INTERVAL} open_time={ts} closed=true", flush=True)
+        return max(saved, default=last_ts)
 
 def normalize_ws_message(message: dict[str, Any], *, now: int | None = None) -> dict[str, Any] | None:
     if message.get('channel') != 'spot.candlesticks' or message.get('event') != 'update':
