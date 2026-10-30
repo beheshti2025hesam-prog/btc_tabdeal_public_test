@@ -65,11 +65,11 @@ def test_invalid_sequence_fails_closed():
 
 
 def test_unique_sequence_state_bound_fails_closed_without_growth():
-    s = SequenceIntegrityV1(max_records=2)
+    s = SequenceIntegrityV1(capabilities=CAPS, max_records=2)
     assert s.observe(rec(10)).status == "ACCEPTED"
     assert s.observe(rec(11)).status == "ACCEPTED"
     event = s.observe(rec(12))
     assert event.status == "REJECT_STREAM"
     assert event.reason == "SEQUENCE_STATE_BOUND_EXCEEDED"
     assert event.diagnostic == {"max_records": 2}
-    assert len(s._records) == 2
+    assert s.records_count == 2
