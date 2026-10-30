@@ -25,6 +25,8 @@ if INTERVAL not in INTERVAL_SECONDS_BY_NAME:
 INTERVAL_SECONDS = INTERVAL_SECONDS_BY_NAME[INTERVAL]
 # Bound in-memory merge reads without truncating the append-only candle history.
 LIVE_WINDOW_CANDLES = 5000
+MAX_REST_CANDLE_POINTS = 1000
+MAX_BACKFILL_RANGES_PER_CYCLE = 10
 SOURCE = 'gateio_public_spot'
 DEFAULT_OUTPUTS = {'15m': '/opt/hes-trade-agent/data/forward/global_market_candles_v1.jsonl',
                    '1h': '/opt/hes-trade-agent/data/forward/global_market_candles_1h_v1.jsonl',
@@ -61,7 +63,7 @@ def normalize_row(row: list[Any] | tuple[Any, ...], *, now: int | None = None) -
 
 def fetch_recent_closed(session: requests.Session | None = None, *, now: int | None = None) -> list[dict[str, Any]]:
     s = session or requests.Session()
-    response = s.get(REST_URL, params={'currency_pair':SYMBOL,'interval':INTERVAL,'limit':1000}, timeout=(4,8))
+    response = s.get(REST_URL, params={'currency_pair':SYMBOL,'interval':INTERVAL,'limit':MAX_REST_CANDLE_POINTS}, timeout=(4,8))
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, list):
@@ -71,7 +73,7 @@ def fetch_recent_closed(session: requests.Session | None = None, *, now: int | N
     return [by_ts[key] for key in sorted(by_ts)]
 
 
-def _missing_candle_ranges(saved: dict[int, dict[str, Any]], *, max_ranges: int = 10) -> list[tuple[int, int]]:
+def _missing_candle_ranges(saved: dict[int, dict[str, Any]], *, max_ranges: int = MAX_BACKFILL_RANGES_PER_CYCLE) -> list[tuple[int, int]]:
     """Return bounded inclusive (from, to) ranges for missing candle open times."""
     if max_ranges < 1:
         raise ValueError('max_ranges must be positive')
@@ -81,7 +83,7 @@ def _missing_candle_ranges(saved: dict[int, dict[str, Any]], *, max_ranges: int 
         start = left + INTERVAL_SECONDS
         end = right - INTERVAL_SECONDS
         while start <= end and len(ranges) < max_ranges:
-            chunk_end = min(end, start + 999 * INTERVAL_SECONDS)
+            chunk_end = min(end, start + (MAX_REST_CANDLE_POINTS - 1) * INTERVAL_SECONDS)
             ranges.append((start, chunk_end))
             start = chunk_end + INTERVAL_SECONDS
         if len(ranges) >= max_ranges:
@@ -97,7 +99,7 @@ def fetch_closed_range(session: requests.Session, start_open_time: int, end_open
     if start_open_time % INTERVAL_SECONDS or end_open_time % INTERVAL_SECONDS:
         raise ValueError('unaligned candle backfill range')
     count = (end_open_time - start_open_time) // INTERVAL_SECONDS + 1
-    if count > 1000:
+    if count > MAX_REST_CANDLE_POINTS:
         raise ValueError('candle backfill range exceeds Gate 1,000-point maximum')
     response = session.get(
         REST_URL,
