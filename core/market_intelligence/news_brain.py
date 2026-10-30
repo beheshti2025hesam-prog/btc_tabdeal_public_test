@@ -453,7 +453,7 @@ class NewsIntelligenceBrain:
             market_match = any(term and _contains(text, term) for term in aliases)
             symbol_match = bool(context.symbol and _contains(text, context.symbol.casefold()))
             category_match = (
-                market == "crypto" and any(c in categories for c in ("crypto_market", "regulation", "security", "monetary_policy", "macro"))
+                market == "crypto" and any(c in categories for c in ("crypto_market", "regulation", "security", "exchange", "monetary_policy", "macro"))
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
