@@ -108,7 +108,7 @@ _CATEGORY_TERMS = {
                    "etf", "legislation", "sanction", "تحریم", "قانون", "مجوز"),
     "security": ("hack", "exploit", "breach", "stolen", "outage", "vulnerability",
                  "هک", "حمله", "سرقت"),
-    "exchange": ("exchange", "trading halted", "withdrawals suspended", "listing", "delisting",
+    "exchange": ("exchange", "trading halted", "withdrawals suspended", "listing", "delisting", "delist",
                  "صرافی", "توقف معاملات"),
     "macro": ("recession", "gdp", "jobs report", "nonfarm payroll", "unemployment",
               "treasury yield", "bond yield", "geopolitical", "war", "oil price", "نفت"),
@@ -122,7 +122,7 @@ _POSITIVE = ("approved", "approval", "inflow", "record high", "adoption", "partn
 _NEGATIVE = ("hack", "exploit", "breach", "ban", "lawsuit", "outflow", "liquidation",
              "misses expectations", "default", "bankruptcy", "war", "sanction",
              "withdrawals suspended", "bearish", "هک", "ممنوعیت", "ورشکستگی")
-_HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "hack",
+_HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "delisting", "delist", "hack",
                 "exploit", "breach", "rate decision", "cpi", "fomc", "war", "default",
                 "bankruptcy", "liquidation", "فوری")
 _MARKET_ALIASES = {
@@ -458,7 +458,7 @@ class NewsIntelligenceBrain:
                 "security incident",
             ))
             category_match = (
-                market == "crypto" and (any(c in categories for c in ("crypto_market", "regulation", "security", "monetary_policy", "macro")) or crypto_venue_risk)
+                market == "crypto" and (any(c in categories for c in ("crypto_market", "regulation", "security", "monetary_policy", "macro")) or ( "exchange" in categories and (market_match or symbol_match)) or crypto_venue_risk)
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
@@ -474,7 +474,7 @@ class NewsIntelligenceBrain:
             negative = sum(1 for term in _NEGATIVE if _contains(text, term))
             bias = "positive" if positive > negative else "negative" if negative > positive else "mixed_or_unknown"
             directional_confidence = min(0.65, abs(positive - negative) * 0.12) if positive != negative else 0.0
-            impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.25 if any(_contains(text, term) for term in _HIGH_IMPACT) else 0)
+            impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.40 if any(_contains(text, term) for term in _HIGH_IMPACT) else 0)
             impact = min(1.0, impact)
             age_minutes = (now - published).total_seconds() / 60 if published else None
             freshness = "unknown" if age_minutes is None else "future_timestamp" if age_minutes < 0 else "fresh" if age_minutes <= 180 else "recent"
