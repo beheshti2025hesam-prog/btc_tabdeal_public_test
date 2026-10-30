@@ -30,7 +30,7 @@ def test_non_contiguous_sequence_reaches_candle_boundary(tmp_path):
     as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
     frames=[frame(1,as_of-timedelta(minutes=30),100),
             frame(3,as_of-timedelta(minutes=25),101)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl", sequence_capabilities=CAPS).observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-MONOTONIC")
     assert result.status=="WAITING"
     assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
@@ -83,3 +83,12 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     # Preserve the public context count even though only the adjacent pair is inspected.
     assert [x.candles for x in prefix_contexts] == list(range(2, len(candles)+1))
     assert [x.candles for x in pair_contexts] == [x.candles for x in prefix_contexts]
+
+
+def test_path_blocks_unknown_sequence_semantics_before_parsing_or_journal(tmp_path):
+    as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+        [frame(1,as_of-timedelta(minutes=30),100)],as_of=as_of,forward_run_id="OBS-UNKNOWN-SEQ")
+    assert result.status=="BLOCKED"
+    assert result.reason=="SEQUENCE_SEMANTICS_UNVERIFIED"
+    assert not (tmp_path/"observations.jsonl").exists()
