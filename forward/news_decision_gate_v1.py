@@ -24,6 +24,9 @@ def apply_news_veto(decision: DecisionResult, brief: NewsBrief) -> DecisionResul
     allowed_status = brief.status in {"ok", "no_relevant_news"}
     allowed_action = brief.suggested_action == "CONTEXT_ONLY"
     flags = list(brief.veto_flags)
+    profile_status = brief.provenance.get("source_profile_status", "unknown")
+    if profile_status not in {"qualified_complete", "complete"} and "NEWS_SOURCE_COVERAGE_INCOMPLETE" not in flags:
+        flags.append("NEWS_SOURCE_COVERAGE_INCOMPLETE")
     if brief.status == "degraded" and "NEWS_SOURCE_COVERAGE_INCOMPLETE" not in flags:
         flags.append("NEWS_SOURCE_COVERAGE_INCOMPLETE")
 
