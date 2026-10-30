@@ -327,17 +327,17 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertTrue(payload["fail_closed"])
         self.assertFalse(payload["execution_enabled"])
 
-    def test_journal_endpoint_is_read_only_and_default_off(self):
-        with patch.dict(os.environ):
-            os.environ.pop("HES_TRADE_JOURNAL_PATH", None)
-            with urlopen(self.base + "/api/journal?limit=50") as response:
-                payload = json.loads(response.read())
+    def test_journal_endpoint_reads_canonical_journal_read_only(self):
+        with urlopen(self.base + "/api/journal?limit=50") as response:
+            payload = json.loads(response.read())
         self.assertEqual(payload["schema"], "hes.trade_journal_view.v1")
-        self.assertEqual(payload["status"], "NOT_CONFIGURED")
-        self.assertEqual(payload["count"], 0)
-        self.assertEqual(payload["events"], [])
+        self.assertIn(payload["status"], ("VERIFIED", "EMPTY"))
+        self.assertGreaterEqual(payload["count"], 0)
+        self.assertGreaterEqual(payload["decision_count"], len(payload["events"]))
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["outcomes_inferred"])
+        self.assertTrue(all(event["realized_outcome"] == "NOT_LINKED" for event in payload["events"]))
+        self.assertTrue(all(event["execution"] == "OFF" for event in payload["events"]))
         with urlopen(self.base + "/") as response:
             page = response.read().decode()
         self.assertIn("Trade Journal · Decision & Learning Evidence", page)
