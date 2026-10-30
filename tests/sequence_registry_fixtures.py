@@ -18,7 +18,7 @@ def verified_tabdeal_test_registry():
             "key": TABDEAL_TRADE_SEQUENCE_KEY,
             "semantic_class": "ORDERED_EVENT_SEQUENCE",
             "scope": ["symbol"],
-            "claims": {"ordered": True, "contiguous": False},
+            "claims": {"ordered": True, "unique": True, "contiguous": False},
             "capabilities": {
                 "event_identity": True,
                 "contiguous_gap_detection": False,
@@ -27,6 +27,7 @@ def verified_tabdeal_test_registry():
             },
             "source_evidence": {
                 "source_kind": "primary",
+                "url": "https://example.test/test-only",
                 "source_content_sha256": "a" * 64,
             },
             "status": "VERIFIED",
