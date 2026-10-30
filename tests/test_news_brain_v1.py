@@ -209,7 +209,7 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0].source_id, "gateio_official_announcements")
         self.assertEqual(items[0].url, "https://www.gate.io/announcements/article/102529")
-        self.assertTrue(items[0].published_at.endswith("+00:00"))
+        self.assertTrue(items[0].published_at.endswith("Z"))
         self.assertEqual(len(items[0].feed_payload_sha256), 64)
         self.assertEqual(len(items[0].raw_item_sha256), 64)
         brief = self.brain.analyze(
