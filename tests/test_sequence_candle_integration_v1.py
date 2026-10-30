@@ -2,6 +2,7 @@ from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone
 
 from forward.sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
+from forward.sequence_semantics_v1 import TABDEAL_TRADE_SEQUENCE_KEY
 
 
 ASOF = datetime(2026, 10, 7, 7, 0, tzinfo=timezone.utc)
@@ -17,6 +18,7 @@ def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
         "side": "buy",
         "source_updated": ts,
         "sequence": seq,
+        "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY,
     }
 
 
