@@ -387,6 +387,9 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 news_decision = apply_news_veto(news_input, news_brief)
                 effective_decision = news_decision.decision
+                news_veto_flags = sorted({code for code in news_decision.reason_codes if code.startswith("NEWS_")})
+                news_context_payload = news_brief.to_mother_payload()
+                news_context_payload["decision_veto_flags"] = news_veto_flags
 
                 # Mother is a bounded control plane over these existing outputs.
                 # It validates order/provenance/vetoes; it does not recalculate indicators.
@@ -431,7 +434,7 @@ class Handler(BaseHTTPRequestHandler):
                     ),
                     "decision": report(
                         "DECIDED", "decision-engine-v1", tuple(result.decision.reason_codes), common_refs,
-                        {"decision": effective_decision, "news_context": news_brief.to_mother_payload()},
+                        {"decision": effective_decision, "news_context": news_context_payload},
                     ),
                     "evaluation": report(
                         "OBSERVED", "forward-learning-observation-v1", ("OUTCOME_NOT_INFERRED",), common_refs,
@@ -457,7 +460,7 @@ class Handler(BaseHTTPRequestHandler):
                 if arbitration.decision == "NO_TRADE":
                     blocked.extend(arbitration.reason_codes)
                 if effective_decision == "NO_TRADE" and arbitration.decision != "NO_TRADE":
-                    blocked.extend(news_decision.reason_codes)
+                    blocked.extend(news_veto_flags)
                 # Market-data symbol mapping is verified; executable instrument mapping is not.
                 blocked.append("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED")
                 if not feature_result.decision_ready:
@@ -513,10 +516,10 @@ class Handler(BaseHTTPRequestHandler):
                     "risk_state": result.risk.state,
                     "risk_reasons": list(result.risk.reason_codes),
                     "arbitration_decision": arbitration.decision,
-                    "news_context": news_brief.to_mother_payload(),
-                    "news_veto_applied": effective_decision != arbitration.decision,
+                    "news_context": news_context_payload,
+                    "news_veto_applied": bool(news_veto_flags) and effective_decision != arbitration.decision,
                     "news_decision": effective_decision,
-                    "news_veto_flags": list(news_brief.veto_flags),
+                    "news_veto_flags": news_veto_flags,
                     "arbitration_conflict_class": arbitration.conflict_class,
                     "arbitration_reason_codes": list(arbitration.reason_codes),
                     "arbitration_audit_sha256": arbitration.audit_sha256,
@@ -548,6 +551,8 @@ class Handler(BaseHTTPRequestHandler):
                         rejected_at = "CONFIRMATION"
                     elif risk_gate != "PASS":
                         rejected_at = "RISK"
+                    elif news_veto_flags:
+                        rejected_at = "NEWS"
                     elif arbitration.decision == "NO_TRADE":
                         rejected_at = "ARBITRATION"
                     else:
