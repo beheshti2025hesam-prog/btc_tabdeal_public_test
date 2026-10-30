@@ -387,7 +387,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 news_decision = apply_news_veto(news_input, news_brief)
                 effective_decision = news_decision.decision
-                news_veto_flags = sorted({code for code in news_decision.reason_codes if code.startswith("NEWS_")})
+                news_veto_flags = sorted(set(news_decision.reason_codes) - set(arbitration.reason_codes))
                 news_context_payload = news_brief.to_mother_payload()
                 news_context_payload["decision_veto_flags"] = news_veto_flags
 
