@@ -140,7 +140,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
 def configured_decision_journal(*, journal_path: str | Path | None = None, limit: int = 50) -> dict[str, Any]:
     configured = os.environ.get("HES_TRADE_JOURNAL_PATH", "").strip()
     path = Path(configured) if configured else Path(journal_path) if journal_path is not None else None
-    if path is None:
+    if path is None or not path.is_file():
         return {
             "schema": "hes.trade_journal_view.v1",
             "status": "NOT_CONFIGURED",
