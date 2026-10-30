@@ -216,6 +216,9 @@ class Handler(BaseHTTPRequestHandler):
                     str(PROJECT_ROOT / "data" / "forward" / "trade_journal_v2.jsonl"),
                 )
                 payload = configured_decision_journal(journal_path=journal_path, limit=limit)
+                payload.setdefault("execution_enabled", False)
+                payload["orders_placed"] = False
+                payload.setdefault("outcomes_inferred", False)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except (JournalProjectionError, ValueError) as exc:
                 payload = {
