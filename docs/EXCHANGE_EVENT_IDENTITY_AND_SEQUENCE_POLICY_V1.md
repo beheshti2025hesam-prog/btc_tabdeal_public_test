@@ -56,6 +56,10 @@ A registry revision is immutable. Changes create a new revision; stale or confli
 Gate.io remains the canonical chart/analysis provider for the current crypto Spot scope. An execution venue is a separate adapter and must never supply a second candle/volume source to the analysis engine. No live execution is authorized by this document.
 
 
+## REST reconciliation cost policy
+
+Each symbol/timeframe feed bootstraps up to 1,000 recent candles only when its persisted history has fewer than 200 rows. Normal reconnects and periodic reconciliation fetch only the newest 3 candles every 60 seconds. Any gap detected in the bounded 5,000-row live window is repaired with the documented, paginated `from`/`to` requests (maximum 1,000 points per request, at most 10 ranges per cycle). This avoids downloading the same 1,000 candles every 20 seconds while preserving recovery after reconnects.
+
 ## Bounded live-read policy
 
 The append-only JSONL history is preserved in full. The live collector's normal duplicate-check/merge path and the dashboard reader inspect only the newest 5,000 rows per exact symbol/timeframe. This bounds steady-state memory, disk I/O, and reader latency without deleting history. The reader requires at least 200 closed candles; the 5,000-row window leaves a large safety margin. Only a rare historical gap repair loads and atomically rewrites the full file to keep it chronologically ordered.
