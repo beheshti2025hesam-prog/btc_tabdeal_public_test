@@ -13,7 +13,7 @@ from hashlib import sha256
 from typing import Iterable, Mapping, Sequence
 from urllib.error import URLError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin
 from pathlib import Path
 import json
 import re
@@ -32,6 +32,7 @@ class NewsItem:
     source_id: str = ""
     feed_payload_sha256: str = ""
     retrieved_at: str = ""
+    raw_item_sha256: str = ""
 
 
 @dataclass(frozen=True)
@@ -196,6 +197,11 @@ def load_source_registry(path: str | Path) -> dict:
             raise ValueError(f"source {source_id} enabled must be boolean")
         if source["enabled"] and source.get("qualification_status") != "qualified":
             raise ValueError(f"source {source_id} cannot be enabled before qualification")
+        source_type = source.get("type", "rss")
+        if source_type not in {"rss", "gate_announcements"}:
+            raise ValueError(f"source {source_id} has unsupported source type")
+        if source_type == "gate_announcements" and (parsed.hostname != "api.gateio.ws" or parsed.path != "/api/v4/ann/list_article"):
+            raise ValueError(f"source {source_id} has an unapproved Gate announcement endpoint")
         if not isinstance(source.get("markets"), list) or not source["markets"]:
             raise ValueError(f"source {source_id} must declare market coverage")
     return registry
@@ -264,7 +270,75 @@ def fetch_rss(url: str, *, source: str, source_id: str = "", timeout_seconds: fl
                 source=source, url=link,
                 published_at=fields.get("pubdate", fields.get("published", fields.get("updated", fields.get("date", "")))),
                 source_id=source_id or source, feed_payload_sha256=payload_digest,
-                retrieved_at=retrieved_at))
+                retrieved_at=retrieved_at,
+                raw_item_sha256=sha256(ET.tostring(node, encoding="utf-8")).hexdigest()))
+    return items
+
+
+
+def fetch_gate_announcements(url: str, *, source: str, source_id: str,
+                             language: str = "en", days: int = 3, page_size: int = 50,
+                             timeout_seconds: float = 5.0, max_bytes: int = 1_000_000) -> list[NewsItem]:
+    """Fetch Gate.io's documented public announcement list (no API key required)."""
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname != "api.gateio.ws" or parsed.path != "/api/v4/ann/list_article":
+        raise ValueError("unapproved Gate announcement endpoint")
+    if language not in {"en", "cn"} or type(days) is not int or not 1 <= days <= 7:
+        raise ValueError("invalid Gate announcement language or time window")
+    if type(page_size) is not int or not 1 <= page_size <= 50:
+        raise ValueError("invalid Gate announcement page size")
+    if not 0.1 <= timeout_seconds <= 15 or not 1024 <= max_bytes <= 2_000_000:
+        raise ValueError("invalid Gate announcement I/O limits")
+    body = {"page": "1", "size": str(page_size), "lang": language,
+            "timer": str(days), "filter_empty_content": 1}
+    request = Request(url, data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
+                      headers={"User-Agent": "HES-Trade-Agent-News/1.0",
+                               "Accept": "application/json",
+                               "Content-Type": "application/json"}, method="POST")
+    try:
+        with build_opener(_RejectRedirects()).open(request, timeout=timeout_seconds) as response:
+            payload = response.read(max_bytes + 1)
+    except (URLError, TimeoutError, OSError) as exc:
+        raise ValueError(f"news source unavailable: {type(exc).__name__}") from exc
+    if len(payload) > max_bytes:
+        raise ValueError("Gate announcement response exceeds configured size limit")
+    digest = sha256(payload).hexdigest()
+    retrieved_at = _iso(datetime.now(timezone.utc))
+    try:
+        document = json.loads(payload)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ValueError("invalid Gate announcement JSON") from exc
+    if document.get("code") != 0:
+        raise ValueError("Gate announcement API returned a non-zero business code")
+    rows = document.get("data", {}).get("list")
+    if not isinstance(rows, list):
+        raise ValueError("Gate announcement response list is invalid")
+    items = []
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("title"), str) or not row["title"].strip():
+            continue
+        published_at = ""
+        raw_timestamp = row.get("release_timestamp")
+        try:
+            timestamp = int(raw_timestamp)
+            if timestamp > 0 and timestamp <= int(datetime.now(timezone.utc).timestamp()) + 300:
+                published_at = _iso(datetime.fromtimestamp(timestamp, timezone.utc))
+        except (TypeError, ValueError, OverflowError, OSError):
+            pass
+        article_path = row.get("url", "")
+        article_url = ""
+        if isinstance(article_path, str) and article_path.startswith("/announcements/article/") and ".." not in article_path:
+            candidate = urljoin("https://www.gate.io", article_path)
+            parsed_article = urlsplit(candidate)
+            if parsed_article.scheme == "https" and parsed_article.hostname == "www.gate.io":
+                article_url = candidate
+        item_digest = sha256(json.dumps(row, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+        items.append(NewsItem(
+            title=row["title"].strip(), summary=str(row.get("brief") or ""),
+            source=source, url=article_url, published_at=published_at,
+            language=language, source_id=source_id, feed_payload_sha256=digest,
+            retrieved_at=retrieved_at, raw_item_sha256=item_digest,
+        ))
     return items
 
 
@@ -303,7 +377,16 @@ class NewsIntelligenceBrain:
         failures = []
         for source in sources:
             try:
-                items.extend(fetch_rss(source["url"], source=source["name"], source_id=source["id"]))
+                if source.get("type", "rss") == "gate_announcements":
+                    request_options = source.get("request", {})
+                    items.extend(fetch_gate_announcements(
+                        source["url"], source=source["name"], source_id=source["id"],
+                        language=request_options.get("language", "en"),
+                        days=request_options.get("days", 3),
+                        page_size=request_options.get("page_size", 50),
+                    ))
+                else:
+                    items.extend(fetch_rss(source["url"], source=source["name"], source_id=source["id"]))
             except ValueError as exc:
                 failures.append(f"{source['id']}:{str(exc).split(':', 1)[0]}")
         brief = self.analyze(items, context, now=now, source_failures=failures)
@@ -334,11 +417,13 @@ class NewsIntelligenceBrain:
         stale_count = 0
         irrelevant_count = 0
         invalid_time_count = 0
-        source_evidence: dict[tuple[str, str, str], dict[str, str]] = {}
+        source_evidence: dict[tuple[str, str, str, str], dict[str, str]] = {}
         for item in items:
             if item.feed_payload_sha256:
-                key = (item.source_id or item.source, item.feed_payload_sha256, item.retrieved_at)
-                source_evidence[key] = {"source_id": key[0], "feed_payload_sha256": key[1], "retrieved_at": key[2]}
+                key = (item.source_id or item.source, item.feed_payload_sha256,
+                       item.raw_item_sha256, item.retrieved_at)
+                source_evidence[key] = {"source_id": key[0], "feed_payload_sha256": key[1],
+                                        "raw_item_sha256": key[2], "retrieved_at": key[3]}
             if not item.title.strip():
                 continue
             published = _parse_time(item.published_at)
