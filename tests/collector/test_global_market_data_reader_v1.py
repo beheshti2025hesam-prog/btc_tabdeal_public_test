@@ -34,6 +34,18 @@ class ReaderTests(unittest.TestCase):
   self.assertFalse(next(x for x in registry["instruments"] if x["symbol"]=="ETH_USDT")["analysis_enabled"])
   self.assertFalse(next(x for x in registry["instruments"] if x["symbol"]=="SOL_USDT")["analysis_enabled"])
 
+ def test_gateio_feed_instances_share_one_systemd_template(self):
+  root=Path(__file__).resolve().parents[2]
+  template=(root/"deploy/systemd/hes-global-market-data-gateio@.service").read_text()
+  self.assertIn("EnvironmentFile=/etc/hes-trade-agent/feeds/%i.env",template)
+  for symbol in ("ETH_USDT","SOL_USDT"):
+   for tf in ("15m","1h","4h"):
+    instance=symbol.lower().replace("_","-")+"-"+tf
+    env=(root/f"deploy/systemd/feeds/{instance}.env").read_text()
+    self.assertIn(f"HES_GLOBAL_CANDLES_SYMBOL={symbol}",env)
+    self.assertIn(f"HES_GLOBAL_CANDLES_INTERVAL={tf}",env)
+    self.assertIn(f"global_market_candles_{symbol}_{tf}_v1.jsonl",env)
+
  def test_non_crypto_profiles_stay_disabled_without_provider(self):
   profiles=json.loads((Path(__file__).resolve().parents[2]/"config/market_asset_profiles_v1.json").read_text())
   for market in ("fx", "us_equities", "iran_equities", "commodities"):
