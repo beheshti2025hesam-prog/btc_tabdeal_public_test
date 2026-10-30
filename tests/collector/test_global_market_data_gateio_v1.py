@@ -103,6 +103,28 @@ class GateFeedTests(unittest.TestCase):
   saved={900:{}, 900 + 1002*900:{}}
   self.assertEqual(m._missing_candle_ranges(saved),[(1800,900+1000*900),(900+1001*900,900+1001*900)])
 
+ def test_rest_identical_duplicate_candle_is_idempotent(self):
+  raw=['900','2','12','13','10','11','1']
+  class Response:
+   def raise_for_status(self): pass
+   def json(self): return [raw,raw]
+  class Session:
+   def get(self,url,params,timeout): return Response()
+  rows=m.fetch_recent_closed(Session(),now=2000)
+  self.assertEqual(len(rows),1)
+  self.assertEqual(rows[0]['open_time'],900)
+
+ def test_rest_conflicting_duplicate_candle_fails_closed(self):
+  first=['900','2','12','13','10','11','1']
+  conflict=['900','2','12.5','13','10','11','1']
+  class Response:
+   def raise_for_status(self): pass
+   def json(self): return [first,conflict]
+  class Session:
+   def get(self,url,params,timeout): return Response()
+  with self.assertRaisesRegex(ValueError,'Conflicting Gate REST candle identity'):
+   m.fetch_recent_closed(Session(),now=2000)
+
  def test_fetch_closed_range_uses_from_to_without_limit(self):
   class Response:
    def raise_for_status(self): pass
