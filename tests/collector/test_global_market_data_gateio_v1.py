@@ -34,7 +34,7 @@ class GateFeedTests(unittest.TestCase):
    path=Path(d)/'candles.jsonl'
    c=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
    line=__import__('json').dumps(c)
-   path.write_text(line+'\\n'+line+'\\n')
+   path.write_text(line+'\n'+line+'\n')
    with self.assertRaisesRegex(ValueError,'order/duplicate'):
     m._read_saved_candles(path)
 
