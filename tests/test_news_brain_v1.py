@@ -136,6 +136,24 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.provenance["source_profile_status"], "blocked_no_qualified_source")
         self.assertEqual(len(brief.provenance["registry_sha256"]), 64)
 
+    def test_registry_dispatches_gate_announcements_through_existing_news_brain(self):
+        registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        gate_item = NewsItem(
+            title="Gate Announces Bitcoin Listing", source="Gate.io Official Announcements",
+            url="https://www.gate.io/announcements/article/1",
+            published_at=NOW.isoformat(), source_id="gateio_official_announcements",
+            feed_payload_sha256="a" * 64, raw_item_sha256="b" * 64,
+            retrieved_at=NOW.isoformat(),
+        )
+        with patch("core.market_intelligence.news_brain.fetch_gate_announcements", return_value=[gate_item]) as gate_fetch, \\
+             patch("core.market_intelligence.news_brain.fetch_rss", return_value=[]) as rss_fetch:
+            brief = self.brain.run_from_registry(
+                registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        gate_fetch.assert_called_once()
+        self.assertEqual(gate_fetch.call_args.kwargs["source_id"], "gateio_official_announcements")
+        self.assertEqual(rss_fetch.call_count, 2)
+        self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
+
     def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
         registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
         registry = load_source_registry(registry_path)
@@ -192,6 +210,11 @@ class NewsBrainTests(unittest.TestCase):
         self.assertTrue(items[0].published_at.endswith("+00:00"))
         self.assertEqual(len(items[0].feed_payload_sha256), 64)
         self.assertEqual(len(items[0].raw_item_sha256), 64)
+        brief = self.brain.analyze(
+            items, MarketContext("crypto", "BTCUSDT", "range"),
+            now=datetime.fromtimestamp(1793359666, timezone.utc),
+        )
+        self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], items[0].raw_item_sha256)
         self.assertEqual(opener.request.get_method(), "POST")
         self.assertEqual(json.loads(opener.request.data)["lang"], "en")
         self.assertTrue(any(isinstance(handler, _RejectRedirects) for handler in builder.call_args.args))
