@@ -4,14 +4,15 @@ from forward.global_market_data_reader_v1 import read_closed_candles, MarketData
 NL=chr(10)
 
 class ReaderTests(unittest.TestCase):
- def make_file(self, root, tf="15m", count=3, start=9000):
+ def make_file(self, root, tf="15m", count=3, start=9000, symbol="BTC_USDT"):
   secs={"15m":900,"1h":3600,"4h":14400}[tf]
   rel={"15m":"data/forward/global_market_candles_v1.jsonl","1h":"data/forward/global_market_candles_1h_v1.jsonl","4h":"data/forward/global_market_candles_4h_v1.jsonl"}[tf]
+  if symbol != "BTC_USDT": rel=f"data/forward/global_market_candles_{symbol}_{tf}_v1.jsonl"
   p=Path(root)/rel; p.parent.mkdir(parents=True,exist_ok=True)
   rows=[]
   for i in range(count):
    ts=start+i*secs
-   rows.append({"source":"gateio_public_spot","symbol":"BTC_USDT","timeframe":tf,"open_time":ts,"close_time":ts+secs,"open":"10","high":"12","low":"9","close":"11","volume":"1","closed":True,"observed_at":"2026-10-24T00:00:00+00:00"})
+   rows.append({"source":"gateio_public_spot","symbol":symbol,"timeframe":tf,"open_time":ts,"close_time":ts+secs,"open":"10","high":"12","low":"9","close":"11","volume":"1","closed":True,"observed_at":"2026-10-24T00:00:00+00:00"})
   p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
   return p
 
@@ -19,6 +20,17 @@ class ReaderTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    self.make_file(d,count=3,start=9000)
    self.assertEqual(len(read_closed_candles("15m",root=d,now=9000+3*900,min_bars=3)),3)
+
+ def test_accept_eth_and_sol_symbol_scopes(self):
+  for symbol in ("ETH_USDT", "SOL_USDT"):
+   with tempfile.TemporaryDirectory() as d:
+    self.make_file(d,count=3,start=9000,symbol=symbol)
+    self.assertEqual(len(read_closed_candles("15m",root=d,now=9000+3*900,min_bars=3,symbol=symbol)),3)
+
+ def test_reject_unsupported_symbol(self):
+  with tempfile.TemporaryDirectory() as d:
+   with self.assertRaisesRegex(MarketDataRejected,"UNSUPPORTED_SYMBOL"):
+    read_closed_candles("15m",root=d,now=20000,min_bars=3,symbol="DOGE_USDT")
 
  def test_reject_gap(self):
   with tempfile.TemporaryDirectory() as d:
