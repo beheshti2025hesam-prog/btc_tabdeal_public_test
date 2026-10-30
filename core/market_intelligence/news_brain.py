@@ -255,8 +255,10 @@ def fetch_rss(url: str, *, source: str, source_id: str = "", timeout_seconds: fl
         title = fields.get("title", "")
         if title:
             # Feed-provided links are evidence references only; retain HTTPS URLs.
-            if link and urlsplit(link).scheme != "https":
-                link = ""
+            if link:
+                parsed_link = urlsplit(link)
+                if parsed_link.scheme != "https" or not parsed_link.hostname:
+                    link = ""
             items.append(NewsItem(title=title,
                 summary=fields.get("description", fields.get("summary", fields.get("content", ""))),
                 source=source, url=link,
