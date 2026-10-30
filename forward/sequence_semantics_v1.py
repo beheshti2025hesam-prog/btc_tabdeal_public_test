@@ -168,7 +168,7 @@ class SequenceIntegrityV2:
         self._count = 0
 
 
-DEFAULT_REGISTRY_SHA256 = "e99125f9abb30ae0687f5d070c44671b6ae684f3ef1587052c5ed87cfbbd583c"
+DEFAULT_REGISTRY_SHA256 = "d4ca2bf1843fc32ac4bd0800b02d9e435083e74de48010c4b08294d255fee479"
 DEFAULT_TABDEAL_TRADE_RECORD_ID = "tabdeal_fapi_broadcast_trade_sequence_v1"
 TABDEAL_TRADE_SEQUENCE_KEY = {
     "venue": "tabdeal",
