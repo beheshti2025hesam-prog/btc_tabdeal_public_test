@@ -75,8 +75,8 @@ class GateFeedTests(unittest.TestCase):
  def test_idempotent_append(self):
   with tempfile.TemporaryDirectory() as d:
    path=Path(d)/'candles.jsonl'
-   c=m.normalize_row(['1000','2','12','13','10','11','1'],now=2000)
-   self.assertEqual(m._append_new([c],-1,path),1000)
-   self.assertEqual(m._append_new([c],1000,path),1000)
+   c=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
+   self.assertEqual(m._append_new([c],-1,path),900)
+   self.assertEqual(m._append_new([c],900,path),900)
    self.assertEqual(len(path.read_text().splitlines()),1)
 if __name__=='__main__': unittest.main()
