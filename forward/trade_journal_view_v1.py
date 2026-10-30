@@ -47,6 +47,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
     events: list[dict[str, Any]] = []
     seen: set[str] = set()
     total_records = 0
+    decision_total = 0
     try:
         with file_path.open("rb") as handle:
             for line_no, raw_line in enumerate(handle, start=1):
@@ -69,6 +70,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
                 seen.add(event_id)
                 if record.get("decision") not in _ALLOWED_DECISIONS:
                     continue
+                decision_total += 1
                 if record.get("outcome") is not None or record.get("closed_at") is not None:
                     raise JournalProjectionError(f"outcome_leakage_in_decision_journal:{line_no}")
                 observed_at = record.get("observed_at")
@@ -127,7 +129,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
         "schema": "hes.trade_journal_view.v1",
         "status": "VERIFIED",
         "count": total_records,
-        "decision_count": sum(1 for _ in events),
+        "decision_count": decision_total,
         "events": events[:limit],
         "truncated": total_records > limit,
         "execution_enabled": False,
