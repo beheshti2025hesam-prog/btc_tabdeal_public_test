@@ -87,6 +87,8 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
                 raise MarketDataRejected("CANDLE_SCHEMA_INVALID") from exc
             if not math.isfinite(qv) or qv < 0:
                 raise MarketDataRejected("CANDLE_QUOTE_VOLUME_INVALID")
+        if ts < 0 or ts % seconds:
+            raise MarketDataRejected("CANDLE_TIMESTAMP_ALIGNMENT_INVALID")
         if close_time != ts + seconds or min(o,h,l,c) <= 0 or v < 0 or h < max(o,c,l) or l > min(o,c,h):
             raise MarketDataRejected("CANDLE_OHLC_INVALID")
         if previous is not None:
