@@ -81,6 +81,8 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertEqual(response.headers.get_content_type(),"text/css")
             self.assertIn("#0b1220",response.read().decode())
         self.assertIn("Canonical persisted global feed",page)
+        self.assertIn("News Radar", page)
+        self.assertIn("id=\"newsStatus\"", page)
         self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
         self.assertNotIn("its semantics are unverified",page)
@@ -367,6 +369,8 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
         self.assertIn("refreshJournal", script)
+        self.assertIn("newsStatus", script)
+        self.assertIn("newsFlags", script)
         self.assertIn("td.textContent=value", script)
 
     def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
