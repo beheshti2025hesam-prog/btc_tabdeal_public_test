@@ -27,6 +27,10 @@ class SequenceIntegrityV1:
     def last_sequence(self) -> int | None:
         return self._engine.last_sequence
 
+    @property
+    def records_count(self) -> int:
+        return self._engine._count
+
     def observe(self, record: dict):
         return self._engine.observe(record)
 
