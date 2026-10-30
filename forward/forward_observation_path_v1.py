@@ -15,6 +15,7 @@ from itertools import islice
 
 from .tabdeal_readonly_adapter_v1 import parse_trade_frame
 from .sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
+from .sequence_semantics_v1 import SequenceCapabilitiesV1
 from .clean_structure_context_v1 import CleanStructureContextV1
 from .clean_structure_stability_v1 import CleanStructureStabilityV1
 from .clean_regime_observation_v1 import CleanRegimeObservationV1
@@ -39,10 +40,12 @@ class ForwardObservationPathResult:
     diagnostics: tuple[dict[str, Any], ...] = ()
 
 class ForwardObservationPathV1:
-    def __init__(self, journal_path: str | Path, *, max_records: int = 100_000):
+    def __init__(self, journal_path: str | Path, *, max_records: int = 100_000,
+                 sequence_capabilities: SequenceCapabilitiesV1 | None = None):
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
+        self.sequence_capabilities = sequence_capabilities
         self.journal = ObservationJournalV1(journal_path)
         self.writer = ObservationJournalIntegrationV1(self.journal)
 
@@ -62,6 +65,13 @@ class ForwardObservationPathV1:
             raise ValueError("as_of must be timezone-aware")
         if not forward_run_id.strip():
             raise ValueError("forward_run_id required")
+        if (self.sequence_capabilities is None
+                or not self.sequence_capabilities.supports_scalar_sequence_integrity):
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "SEQUENCE_SEMANTICS_UNVERIFIED",
+                ({"network_started": False, "journal_written": False},),
+            )
 
         bounded_frames = list(islice(frames, self.max_records + 1))
         if len(bounded_frames) > self.max_records:
@@ -71,7 +81,7 @@ class ForwardObservationPathV1:
                 ({"max_records": self.max_records},),
             )
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
-        result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
+        result = SequenceAwareCandleIngestionV1(capabilities=self.sequence_capabilities, max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
                                                 None, None, None, False, None, "SEQUENCE_UNSAFE",
