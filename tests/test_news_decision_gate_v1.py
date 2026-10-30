@@ -38,18 +38,12 @@ class NewsDecisionGateTests(unittest.TestCase):
         self.assertEqual(result.decision, "NO_TRADE")
         self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", result.reason_codes)
 
-    def test_unknown_source_profile_fails_closed(self):
-        brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
-        result = apply_news_veto(self.long, brief)
-        self.assertEqual(result.decision, "NO_TRADE")
-        self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", result.reason_codes)
-
-    def test_partial_source_profile_vetoes_directional_decision(self):
+    def test_partial_source_profile_is_visible_but_not_an_automatic_veto(self):
         brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         object.__setattr__(brief, "provenance", {**brief.provenance, "source_profile_status": "partial_official_macro_regulatory_only"})
         result = apply_news_veto(self.long, brief)
-        self.assertEqual(result.decision, "NO_TRADE")
-        self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", result.reason_codes)
+        self.assertEqual(result, self.long)
+        self.assertEqual(brief.provenance["source_profile_status"], "partial_official_macro_regulatory_only")
 
     def test_unknown_schema_fails_closed(self):
         brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
