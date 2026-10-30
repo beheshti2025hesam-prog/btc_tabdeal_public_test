@@ -36,6 +36,20 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.findings[0].title, "Bitcoin ETF sees large inflows")
         self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
 
+    def test_asset_specific_exchange_delisting_is_high_impact_crypto_risk(self):
+        item = NewsItem(
+            "Gate announces Bitcoin (BTC) delisting and trading suspension",
+            source="Gate.io Official Announcements",
+            url="https://www.gate.io/announcements/article/123",
+            published_at="2026-10-23T11:45:00Z",
+        )
+        brief = self.brain.analyze(
+            [item], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(len(brief.findings), 1)
+        self.assertIn("exchange", brief.findings[0].categories)
+        self.assertIn("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION", brief.veto_flags)
+        self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
+
     def test_generic_fx_reference_rates_are_not_crypto_news(self):
         brief = self.brain.analyze(
             [NewsItem("Euro foreign exchange reference rates", source="ECB",
