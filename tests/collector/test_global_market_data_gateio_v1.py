@@ -35,7 +35,7 @@ class GateFeedTests(unittest.TestCase):
    path=Path(d)/'candles.jsonl'
    c=m.normalize_row(['900','2','12','13','10','11','1'],now=2000)
    c.pop('quote_volume')
-   path.write_text(__import__('json').dumps(c)+'\\n')
+   path.write_text(__import__('json').dumps(c)+'\n')
    with self.assertRaisesRegex(ValueError,'payload invalid'):
     m._read_saved_candles(path)
 
