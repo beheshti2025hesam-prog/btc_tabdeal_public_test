@@ -54,6 +54,11 @@ def record_signal_decision(
     take_profit: str | None = None,
     rr: float | None = None,
     quality_score: float | None = None,
+    proposal_decision: str = "UNKNOWN",
+    structure_events: Iterable[str] = (),
+    structure_labels: Iterable[str] = (),
+    confirmation_reasons: Iterable[str] = (),
+    risk_reasons: Iterable[str] = (),
 ) -> JournalWriteResult:
     """Append one immutable Signal Agent decision to the existing journal."""
     if decision not in {"LONG", "SHORT", "NO_TRADE"}:
@@ -82,8 +87,15 @@ def record_signal_decision(
     if isinstance(reason_codes, (str, bytes)):
         raise ValueError("invalid_reason_codes")
     reasons = list(reason_codes)
-    if any(not isinstance(reason, str) or not reason.strip() for reason in reasons):
-        raise ValueError("invalid_reason_codes")
+    structures = list(structure_events)
+    labels = list(structure_labels)
+    confirmation_codes = list(confirmation_reasons)
+    risk_codes = list(risk_reasons)
+    for values in (reasons, structures, labels, confirmation_codes, risk_codes):
+        if any(not isinstance(item, str) or not item.strip() for item in values):
+            raise ValueError("invalid_reason_codes")
+    if not isinstance(proposal_decision, str) or not proposal_decision.strip():
+        raise ValueError("invalid_proposal_decision")
     for name, value in (("entry", entry), ("stop_loss", stop_loss), ("take_profit", take_profit)):
         if value is not None and (not isinstance(value, str) or not value.strip()):
             raise ValueError("invalid_" + name)
@@ -104,6 +116,13 @@ def record_signal_decision(
         "timeframe": timeframe,
         "market_regime": market_regime,
         "direction": direction if direction in {"LONG", "SHORT"} else "NONE",
+        "proposal_direction": direction if direction in {"LONG", "SHORT"} else "NONE",
+        "proposal_decision": proposal_decision,
+        "proposal_entry": entry,
+        "proposal_stop_loss": stop_loss,
+        "proposal_take_profit": take_profit,
+        "proposal_rr": rr,
+        "proposal_reasons": reasons,
         "signal_state": signal_state,
         "confirmation_state": confirmation_state,
         "risk_state": risk_state,
@@ -127,6 +146,19 @@ def record_signal_decision(
         "rejected_at": rejected_at,
         "reason_codes": reasons,
         "gate_reasons": reasons,
+        "gate_evidence": {
+            "structure": {
+                "status": "OBSERVED" if market_regime != "UNKNOWN" else "UNKNOWN",
+                "regime": market_regime,
+                "events": structures,
+                "labels": labels,
+            },
+            "strategy": {"state": signal_state, "reason_codes": reasons},
+            "confirmation": {"state": confirmation_state, "reason_codes": confirmation_codes},
+            "risk": {"state": risk_state, "reason_codes": risk_codes},
+            "execution_enabled": False,
+            "orders_placed": False,
+        },
         "execution_enabled": False,
         "orders_placed": False,
     }
