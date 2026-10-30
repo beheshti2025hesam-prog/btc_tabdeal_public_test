@@ -164,6 +164,19 @@ class SequenceIntegrityV2:
         self._count = 0
 
 
+DEFAULT_REGISTRY_SHA256 = "4e39ddd20a2729e4fdddc8c53f785b49d0269714210c9b5af14ab32184b76385"
+DEFAULT_TABDEAL_TRADE_RECORD_ID = "tabdeal_fapi_broadcast_trade_sequence_v1"
+TABDEAL_TRADE_SEQUENCE_KEY = {
+    "venue": "tabdeal",
+    "product": "fapi_margin",
+    "endpoint": "wss://api.tabdeal.org/special_margin/broadcast/",
+    "channel": "raw_text_symbol_subscription",
+    "message_type": "trade_envelope",
+    "field_path": "trade.sequence",
+    "protocol_version": "unknown",
+}
+
+
 class SequenceSemanticsRegistryV1:
     SCHEMA = "hes_sequence_semantics_registry_v1"
 
@@ -214,6 +227,17 @@ class SequenceSemanticsRegistryV1:
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_JSON_INVALID") from exc
         return cls(payload, raw_sha256=actual)
+
+    @classmethod
+    def load_default(cls) -> "SequenceSemanticsRegistryV1":
+        path = Path(__file__).with_name("sequence_semantics_registry_v1.json")
+        return cls.load(path, expected_sha256=DEFAULT_REGISTRY_SHA256)
+
+    def resolve_tabdeal_trade_sequence(self) -> SequenceCapabilitiesV1:
+        return self.resolve(
+            DEFAULT_TABDEAL_TRADE_RECORD_ID,
+            expected_key=TABDEAL_TRADE_SEQUENCE_KEY,
+        )
 
     def inspect(self, record_id: str) -> dict[str, Any]:
         try:
