@@ -87,6 +87,7 @@ def test_verified_record_requires_pinned_primary_source_hash():
                 "venue", "product", "endpoint", "channel", "message_type",
                 "field_path", "protocol_version"
             )},
+            "scope": ["symbol"],
             "claims": {},
             "capabilities": {},
             "status": "VERIFIED",
