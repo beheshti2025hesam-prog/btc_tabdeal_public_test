@@ -323,7 +323,7 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertIn("STRATEGY_SOURCE_GAPS_PRESENT", payload["blocked_reasons"])
             self.assertNotIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
             self.assertEqual(payload["arbitration_decision"], "LONG")
-            self.assertEqual(payload["arbitration_conflict_class"], "UNKNOWN_EVIDENCE")
+            self.assertEqual(payload["arbitration_conflict_class"], "NONE")
             self.assertEqual(len(payload["arbitration_audit_sha256"]), 64)
             self.assertEqual(payload["mother_orchestration"]["decision"], "NO_TRADE")
             self.assertTrue(payload["mother_witness"]["verified"])
