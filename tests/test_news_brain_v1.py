@@ -69,6 +69,15 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
         self.assertIn("Market regime is unknown", " ".join(brief.market_implications))
 
+    def test_naive_timestamp_is_rejected_and_vetoed(self):
+        brief = self.brain.analyze(
+            [NewsItem("Bitcoin ETF approved", source="wire", url="https://wire.test/naive",
+                      published_at="2026-10-23T11:00:00")],
+            MarketContext("crypto", "BTC", "range"), now=NOW)
+        self.assertIn("NEWS_TIMESTAMP_INVALID", brief.veto_flags)
+        self.assertIn("publication_time_unverified", brief.findings[0].caveats)
+        self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
+
     def test_future_timestamp_is_flagged(self):
         brief = self.brain.analyze([NewsItem("Bitcoin ETF approved", source="wire",
             url="https://wire.test/future", published_at="2026-10-23T13:00:00Z")],
@@ -123,6 +132,7 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
         self.assertTrue(brief.provenance["source_failures"])
         self.assertEqual(brief.provenance["source_profile_status"], "blocked_no_qualified_source")
+        self.assertEqual(len(brief.provenance["registry_sha256"]), 64)
 
     def test_registry_cannot_enable_unqualified_source(self):
         bad_registry = {
