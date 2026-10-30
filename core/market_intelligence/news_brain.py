@@ -323,7 +323,7 @@ def fetch_gate_announcements(url: str, *, source: str, source_id: str,
         raw_timestamp = row.get("release_timestamp")
         try:
             timestamp = int(raw_timestamp)
-            if timestamp > 0 and timestamp <= int(datetime.now(timezone.utc).timestamp()):
+            if timestamp > 0 and timestamp <= int(datetime.now(timezone.utc).timestamp()) + 30 * 24 * 3600:
                 published_at = _iso(datetime.fromtimestamp(timestamp, timezone.utc))
         except (TypeError, ValueError, OverflowError, OSError):
             pass
