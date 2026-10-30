@@ -191,6 +191,7 @@ class SequenceSemanticsRegistryV1:
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_HASH_INVALID")
         self.registry_sha256 = raw_sha256
         self._records: dict[str, dict[str, Any]] = {}
+        self._keys: set[tuple[str, ...]] = set()
         for record in records:
             if not isinstance(record, dict):
                 raise SequenceSemanticsError("SEQUENCE_REGISTRY_RECORD_INVALID")
@@ -203,10 +204,29 @@ class SequenceSemanticsRegistryV1:
                 for name in ("venue", "product", "endpoint", "channel", "message_type", "field_path", "protocol_version")
             ):
                 raise SequenceSemanticsError("SEQUENCE_REGISTRY_KEY_INVALID")
+            key_tuple = tuple(key[name] for name in (
+                "venue", "product", "endpoint", "channel", "message_type",
+                "field_path", "protocol_version"
+            ))
+            if key_tuple in self._keys:
+                raise SequenceSemanticsError("SEQUENCE_REGISTRY_DUPLICATE_SCOPE_KEY")
+            self._keys.add(key_tuple)
+            scope = record.get("scope")
+            if (not isinstance(scope, list) or not scope
+                    or any(not isinstance(item, str) or not item.strip() for item in scope)
+                    or len(set(scope)) != len(scope)):
+                raise SequenceSemanticsError("SEQUENCE_REGISTRY_SCOPE_INVALID")
             claims = record.get("claims")
             capabilities = record.get("capabilities")
             if not isinstance(claims, dict) or not isinstance(capabilities, dict):
                 raise SequenceSemanticsError("SEQUENCE_REGISTRY_CAPABILITIES_INVALID")
+            if any(type(value) is not bool for value in capabilities.values()):
+                raise SequenceSemanticsError("SEQUENCE_REGISTRY_CAPABILITY_TYPE_INVALID")
+            if record.get("status") not in {
+                "UNKNOWN", "SOURCE_REVIEWED_UNPINNED", "SOURCE_REVIEW_REQUIRED",
+                "VERIFIED", "RETIRED"
+            }:
+                raise SequenceSemanticsError("SEQUENCE_REGISTRY_STATUS_INVALID")
             if record.get("status") == "VERIFIED":
                 evidence = record.get("source_evidence")
                 if not isinstance(evidence, dict) or not _sha256(evidence.get("source_content_sha256")):
