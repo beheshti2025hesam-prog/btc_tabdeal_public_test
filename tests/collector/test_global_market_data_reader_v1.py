@@ -21,6 +21,16 @@ class ReaderTests(unittest.TestCase):
    self.make_file(d,count=3,start=9000)
    self.assertEqual(len(read_closed_candles("15m",root=d,now=9000+3*900,min_bars=3)),3)
 
+ def test_reader_uses_bounded_tail_without_truncating_history(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=self.make_file(d,count=5002,start=0)
+   original_count=len(p.read_text().splitlines())
+   rows=read_closed_candles("15m",root=d,now=5002*900,min_bars=200)
+   self.assertEqual(len(rows),5000)
+   self.assertEqual(rows[0]["open_time"],1800)
+   self.assertEqual(rows[-1]["open_time"],5001*900)
+   self.assertEqual(len(p.read_text().splitlines()),original_count)
+
  def test_accept_eth_and_sol_symbol_scopes(self):
   for symbol in ("ETH_USDT", "SOL_USDT"):
    with tempfile.TemporaryDirectory() as d:
