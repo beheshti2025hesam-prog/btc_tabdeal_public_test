@@ -5,6 +5,7 @@ p = ROOT / 'forward/global_market_data_gateio_v1.py'
 spec = importlib.util.spec_from_file_location('gatefeed', p)
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
+from forward import global_market_data_reader_v1 as reader
 
 class GateFeedTests(unittest.TestCase):
  def test_normalize_closed_candle(self):
@@ -81,6 +82,9 @@ class GateFeedTests(unittest.TestCase):
   self.assertIsNotNone(m.normalize_ws_message(msg,now=1900))
   c=m.normalize_ws_message(msg,now=1900)
   self.assertEqual(c['quote_volume'],'2400'); self.assertEqual(c['volume'],'0.03')
+ def test_collector_and_reader_share_the_same_live_window(self):
+  self.assertEqual(m.LIVE_WINDOW_CANDLES,reader.LIVE_WINDOW_CANDLES)
+
  def test_live_merge_window_is_bounded_without_truncating_history(self):
   with tempfile.TemporaryDirectory() as d:
    path=Path(d)/'candles.jsonl'
