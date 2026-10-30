@@ -27,6 +27,11 @@ def record_decision(path, decision="NO_TRADE", observed_at="2026-10-24T10:00:00+
         signal_state="CANDIDATE_LONG",
         confirmation_state="CONFIRMED_LONG",
         risk_state="RISK_REJECTED" if decision == "NO_TRADE" else "RISK_APPROVED",
+        proposal_decision="CANDIDATE_LONG",
+        structure_events=["BOS"],
+        structure_labels=["BULLISH_STRUCTURE"],
+        confirmation_reasons=["CONFIRMATION_PENDING"],
+        risk_reasons=["RISK_CONTEXT_UNKNOWN"],
     )
 
 
@@ -65,3 +70,5 @@ def test_signal_decision_preserves_independent_gate_states(tmp_path):
     assert row["confirmation_state"] == "CONFIRMED_LONG"
     assert row["risk_state"] == "RISK_REJECTED"
     assert row["direction"] == "LONG"
+    assert row["proposal_direction"] == "LONG"
+    assert row["gate_evidence"]["risk"]["state"] == "RISK_REJECTED"
