@@ -212,7 +212,7 @@ class Handler(BaseHTTPRequestHandler):
                 if batch.gaps:
                     raise ValueError("persisted_candle_gaps_present")
                 payload = {
-                    "status": "ok", "mode": "NO_TRADE_ONLY", "execution_enabled": False,
+                    "status": "ok", "mode": "NO_TRADE_ONLY", "execution_enabled": False, "orders_placed": False,
                     "source": "gateio_public_spot", "source_reader": "global_market_data_reader_v1",
                     "source_symbol": "BTC_USDT", "symbol_mapping_verified": True,
                     "execution_instrument_mapping_verified": False,
@@ -224,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
                 payload = {
                     "status": "blocked", "mode": "NO_TRADE_ONLY",
                     "error": "market_data_unavailable", "reason": type(exc).__name__,
-                    "fail_closed": True, "execution_enabled": False,
+                    "fail_closed": True, "execution_enabled": False, "orders_placed": False,
                     "symbol_mapping_verified": False, "execution_instrument_mapping_verified": False,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
@@ -237,12 +237,15 @@ class Handler(BaseHTTPRequestHandler):
                     str(PROJECT_ROOT / "data" / "forward" / "trade_journal_v2.jsonl"),
                 )
                 payload = configured_decision_journal(journal_path=journal_path, limit=limit)
+                payload.setdefault("execution_enabled", False)
+                payload["orders_placed"] = False
+                payload.setdefault("outcomes_inferred", False)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except (JournalProjectionError, ValueError) as exc:
                 payload = {
                     "schema": "hes.trade_journal_view.v1", "status": "BLOCKED",
                     "error": str(exc), "events": [], "count": 0,
-                    "execution_enabled": False, "outcomes_inferred": False,
+                    "execution_enabled": False, "orders_placed": False, "outcomes_inferred": False,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/signal":
@@ -250,7 +253,7 @@ class Handler(BaseHTTPRequestHandler):
             symbol = q.get("symbol", ["BTCUSDT"])[0]
             interval = q.get("interval", ["15m"])[0]
             if symbol != "BTCUSDT" or interval != "15m":
-                return self._send(400, b'{"error":"unsupported_signal_scope","decision":"NO_TRADE","execution_enabled":false}', "application/json")
+                return self._send(400, b'{"error":"unsupported_signal_scope","decision":"NO_TRADE","execution_enabled":false,"orders_placed":false}', "application/json")
             try:
                 # Reuse the canonical persisted reader for both the chart-aligned 15m
                 # batch and its 4h context. No independent candle fetch or indicator engine.
@@ -526,7 +529,7 @@ class Handler(BaseHTTPRequestHandler):
                     "arbitration_assessments": [dict(item) for item in arbitration.assessments],
                     "mother_orchestration": mother_envelope,
                     "mother_witness": mother_witness,
-                    "execution_enabled": False,
+                    "execution_enabled": False, "orders_placed": False,
                     "learning_journal_status": "NOT_CONFIGURED",
                     "learning_event_id": None,
                 }
@@ -601,7 +604,7 @@ class Handler(BaseHTTPRequestHandler):
                     "status": "BLOCKED",
                     "decision": "NO_TRADE",
                     "fail_closed": True,
-                    "execution_enabled": False,
+                    "execution_enabled": False, "orders_placed": False,
                 }).encode(), "application/json")
         if p.path!="/api/candles": return self._send(404,b'{"error":"not_found"}',"application/json")
         q=parse_qs(p.query); symbol=q.get("symbol",["BTCUSDT"])[0]; interval=q.get("interval",["15m"])[0]
@@ -634,7 +637,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._send(503,json.dumps({"error":"market_data_unavailable",
                 "reason":type(exc).__name__,"fail_closed":True,"execution_enabled":False}).encode(),"application/json")
-    def do_POST(self): return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false}',"application/json")
+    def do_POST(self): return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false,"orders_placed":false}',"application/json")
     def log_message(self,fmt,*args):
         if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
 
