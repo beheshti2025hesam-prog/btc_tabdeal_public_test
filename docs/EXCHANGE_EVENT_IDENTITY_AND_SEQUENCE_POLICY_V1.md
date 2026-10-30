@@ -20,6 +20,12 @@ The current HES collector consumes **Gate.io Public Spot candlesticks only**. It
 
 Official Gate.io Spot API documentation specifies that `GET /spot/candlesticks` returns Unix-second candle timestamps, the OHLCV field order, supported intervals, and a maximum of 1,000 points per query. Source: https://www.gate.com/docs/developers/apiv4/en/spot/
 
+## Reuse boundary with existing sequence contracts
+
+The repository already has `forward/sequence_integrity_contract_v1.json`, `forward/sequence_integrity_v1.py`, and `forward/sequence_candle_integration_contract_v1.json`. Those existing contracts govern the prior forward **trade-observation sequence** path. They are not a generic sequence specification for every market-data product and must not be applied to Gate.io candle timestamps.
+
+This Gate.io Spot candle path has no trade/order-book sequence field. It uses the exact candle-open-time identity described above. The existing trade-sequence state machine is not copied, forked, or inserted into this candle reader; the two paths remain explicitly separate.
+
 ## Unknown by default for every other adapter
 
 No other venue/product/channel has an active HES sequence capability in this release. A future adapter must add a separately reviewed, append-only evidence record before it can use any sequence-like field for:
