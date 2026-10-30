@@ -151,7 +151,7 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
                 try:
                     with os.fdopen(fd, 'w', encoding='utf-8') as handle:
                         for candle in ordered:
-                            handle.write(json.dumps(candle, sort_keys=True, separators=(',', ':')) + '\\n')
+                            handle.write(json.dumps(candle, sort_keys=True, separators=(',', ':')) + '\n')
                         handle.flush()
                         os.fsync(handle.fileno())
                     if output.exists():
@@ -168,7 +168,7 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
             else:
                 with output.open('a', encoding='utf-8') as handle:
                     for ts in sorted(added):
-                        handle.write(json.dumps(saved[ts], sort_keys=True, separators=(',', ':')) + '\\n')
+                        handle.write(json.dumps(saved[ts], sort_keys=True, separators=(',', ':')) + '\n')
                     handle.flush()
                     os.fsync(handle.fileno())
             for ts in sorted(added):
