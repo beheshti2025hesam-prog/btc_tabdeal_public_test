@@ -73,6 +73,16 @@ class ReaderTests(unittest.TestCase):
    p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; rows[2]["open_time"]+=900; rows[2]["close_time"]+=900; p.write_text(NL.join(json.dumps(x) for x in rows))
    with self.assertRaisesRegex(MarketDataRejected,"CANDLE_INTERVAL_GAP"): read_closed_candles("15m",root=d,now=20000,min_bars=3)
 
+ def test_reject_misaligned_candle_open_time(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=self.make_file(d,count=3,start=9000)
+   rows=[json.loads(x) for x in p.read_text().splitlines()]
+   rows[1]["open_time"]+=1
+   rows[1]["close_time"]+=1
+   p.write_text(NL.join(json.dumps(x) for x in rows)+NL)
+   with self.assertRaisesRegex(MarketDataRejected,"CANDLE_TIMESTAMP_ALIGNMENT_INVALID"):
+    read_closed_candles("15m",root=d,now=12000,min_bars=3)
+
  def test_reject_wrong_source(self):
   with tempfile.TemporaryDirectory() as d:
    p=self.make_file(d,count=3,start=9000); rows=[json.loads(x) for x in p.read_text().splitlines()]; rows[0]["source"]="tabdeal"; p.write_text(NL.join(json.dumps(x) for x in rows))
