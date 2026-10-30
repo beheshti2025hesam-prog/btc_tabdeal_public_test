@@ -1,9 +1,11 @@
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone
 
 from forward.sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
 
 
 ASOF = datetime(2026, 10, 7, 7, 0, tzinfo=timezone.utc)
+CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 
 def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
@@ -19,7 +21,7 @@ def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
 
 
 def test_clean_sequence_reaches_closed_candle():
-    s = SequenceAwareCandleIngestionV1()
+    s = SequenceAwareCandleIngestionV1(capabilities=CAPS)
     result = s.ingest(
         [
             rec(1, "2026-10-07T06:30:00+00:00", "100"),
