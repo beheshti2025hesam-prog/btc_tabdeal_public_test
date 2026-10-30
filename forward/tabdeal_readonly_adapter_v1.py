@@ -41,5 +41,21 @@ def parse_trade_frame(frame: dict[str,Any], *, as_of: datetime) -> dict[str,Any]
     if str(side).lower() not in {"buy","sell","b","s"}: raise ValueError("unsupported side")
     if type(sequence) is not int or sequence < 0: raise ValueError("invalid sequence")
     seq=sequence
-    return {"source":SOURCE,"symbol":SYMBOL,"price":str(price),"amount":str(amount),
-            "side":str(side),"source_updated":updated,"sequence":seq}
+    return {
+        "source": SOURCE,
+        "symbol": SYMBOL,
+        "price": str(price),
+        "amount": str(amount),
+        "side": str(side),
+        "source_updated": updated,
+        "sequence": seq,
+        "sequence_contract_key": {
+            "venue": "tabdeal",
+            "product": "fapi_margin",
+            "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+            "channel": "raw_text_symbol_subscription",
+            "message_type": "trade_envelope",
+            "field_path": "trade.sequence",
+            "protocol_version": "unknown",
+        },
+    }
