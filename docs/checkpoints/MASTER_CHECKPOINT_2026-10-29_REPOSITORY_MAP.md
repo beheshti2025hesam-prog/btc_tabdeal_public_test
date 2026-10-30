@@ -101,3 +101,12 @@ The README was fetched from the default branch. The checkpoint is intentionally 
 6. Run full regression and real-browser render/pixel verification on one exact release SHA; document recovery and rollback.
 
 Safety invariants: `execution_enabled=false`, `orders_placed=false`, `policy_mutation_enabled=false`. GitHub is technical truth; this checkpoint is a review-branch document and is not yet default-branch state.
+
+
+## Continuation update — 2026-10-30
+
+- Focused local regressions: 66 passed across 10 existing Gate.io, NO_TRADE, learning, strategy-gate, and risk test modules. These ran against the dirty checkout, not the immutable release artifact; the release artifact lacks the tests tree, so this is not exact-release proof.
+- Existing Gate.io 24h soak log SHA-256: cc457ea7172d9d011b0e6faf39eea34d55ab43bfbe56966e38e1bba88924e7b7. Its final record says 1,439 samples, 86,400 seconds, passed=true, finished 2026-10-29 06:33:53 UTC. Historical log preserved; the soak service is inactive after the completed run. This proves that run's sampling result, not independent audit or current exact-release lineage.
+- PR #394 exact head 770ff7b0eeab6b79537e60ddd9f2e06751c1b559 has successful GitHub Actions: full repository regression run 40902025442; browser render/pixel run 40902025517; Gate.io Spot WebSocket-to-REST smoke run 40902025502. The WebSocket smoke reconciled one closed Spot kline to REST; this is bounded smoke, not a 24h stream soak. PR #394 has no submitted reviews and remains Draft/Open.
+- PR #388 head 2e8d3859ef154b030e0965ad4479f3fad36ae4c0 also has successful full-suite, browser, and single-path CI from runs 40474732832, 40474732841, and 40474732907. PRs #383/#387/#388/#394 overlap or stack; do not merge siblings independently.
+- Release remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. Open blockers: independent strategy/confirmation and risk approval; executable instrument mapping; reconcile dirty checkout with exact runtime SHA; off-host encrypted backup and external alerting; independent review; soak evidence lineage. No orders, deployment, or policy changes were made.
