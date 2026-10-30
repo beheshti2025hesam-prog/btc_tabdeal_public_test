@@ -624,7 +624,7 @@ class Handler(BaseHTTPRequestHandler):
                 "execution_instrument_mapping_verified":False,
                 "interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
                 "fetched_at_ms":batch.fetched_at_ms,"input_batch_sha256":batch.response_sha256,
-                "latest_age_seconds":age,"execution_enabled":False,
+                "latest_age_seconds":age,"execution_enabled":False,"orders_placed":False,
                 "feature_ready":feature_result.decision_ready,"feature_reason":feature_result.reason,
                 "stream_status":_STREAM_STATE["status"],"stream_reason":_STREAM_STATE["reason"],
                 "gaps":[{"expected_open_time_ms":g.expected_open_time_ms,
@@ -636,7 +636,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200,json.dumps(payload,separators=(",",":")).encode(),"application/json")
         except Exception as exc:
             return self._send(503,json.dumps({"error":"market_data_unavailable",
-                "reason":type(exc).__name__,"fail_closed":True,"execution_enabled":False}).encode(),"application/json")
+                "reason":type(exc).__name__,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
     def do_POST(self): return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false,"orders_placed":false}',"application/json")
     def log_message(self,fmt,*args):
         if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
