@@ -221,3 +221,16 @@ def test_registry_rejects_string_booleans_in_capability_flags(tmp_path):
         SequenceSemanticsRegistryV1.load(
             path, expected_sha256=hashlib.sha256(raw).hexdigest()
         )
+
+
+def test_exact_venue_product_channel_key_mismatch_blocks():
+    engine = SequenceIntegrityV2(caps())
+    value = rec(10)
+    value["sequence_contract_key"] = {
+        "venue": "other", "product": "spot", "endpoint": "wss://test.invalid",
+        "channel": "trade", "message_type": "trade", "field_path": "sequence",
+        "protocol_version": "v1",
+    }
+    result = engine.observe(value)
+    assert result.status == "BLOCKED"
+    assert result.reason == "SEQUENCE_CONTRACT_KEY_MISMATCH"
