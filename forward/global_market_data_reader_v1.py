@@ -7,6 +7,8 @@ import json, math, time
 from pathlib import Path
 from typing import Any
 
+LIVE_WINDOW_CANDLES = 5000
+
 SOURCE = "gateio_public_spot"
 SYMBOL = "BTC_USDT"
 SPECS = {
