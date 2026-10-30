@@ -197,7 +197,7 @@ class ControlledForwardObservationRunnerV1:
                 **event,
                 "transport_frame_fingerprints": frame_metadata_by_sequence.get(str(event.get("sequence")), []),
             }
-            if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+            if event.get("reason") == "CONFLICTING_DUPLICATE_IDENTITY"
             else event
             for event in result.diagnostics
         )
