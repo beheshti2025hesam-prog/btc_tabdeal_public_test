@@ -38,6 +38,7 @@ class SequenceCapabilitiesV1:
     exact_payload_replay_only: bool
     registry_sha256: str
     source_content_sha256: str
+    review_revision: str
     status: str
 
     @property
@@ -46,7 +47,7 @@ class SequenceCapabilitiesV1:
             self.status == "VERIFIED"
             and _sha256(self.registry_sha256)
             and _sha256(self.source_content_sha256)
-            and bool(self.record_id and self.field_path and self.scope)
+            and bool(self.record_id and self.field_path and self.scope and self.review_revision)
         )
 
     @property
@@ -212,6 +213,8 @@ class SequenceSemanticsRegistryV1:
                     raise SequenceSemanticsError("VERIFIED_RECORD_SOURCE_HASH_MISSING")
                 if evidence.get("source_kind") != "primary":
                     raise SequenceSemanticsError("VERIFIED_RECORD_PRIMARY_SOURCE_REQUIRED")
+                if not isinstance(record.get("independent_review_revision"), str) or not record["independent_review_revision"].strip():
+                    raise SequenceSemanticsError("VERIFIED_RECORD_REVIEW_REVISION_MISSING")
             self._records[record_id] = record
 
     @classmethod
@@ -270,5 +273,6 @@ class SequenceSemanticsRegistryV1:
             exact_payload_replay_only=caps.get("exact_payload_replay_only") is True,
             registry_sha256=self.registry_sha256,
             source_content_sha256=evidence["source_content_sha256"],
+            review_revision=record["independent_review_revision"],
             status=record["status"],
         )
