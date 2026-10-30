@@ -211,7 +211,11 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(p.query)
             try:
                 limit = int(q.get("limit", ["50"])[0])
-                payload = configured_decision_journal(limit=limit)
+                journal_path = os.environ.get(
+                    "HES_TRADE_JOURNAL_PATH",
+                    str(PROJECT_ROOT / "data" / "forward" / "trade_journal_v2.jsonl"),
+                )
+                payload = configured_decision_journal(journal_path=journal_path, limit=limit)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except (JournalProjectionError, ValueError) as exc:
                 payload = {
@@ -394,7 +398,7 @@ class Handler(BaseHTTPRequestHandler):
                     ),
                     "evaluation": report(
                         "OBSERVED", "forward-learning-observation-v1", ("OUTCOME_NOT_INFERRED",), common_refs,
-                        {"journal_status": "OPT_IN"},
+                        {"journal_status": "CANONICAL_TRADE_JOURNAL"},
                     ),
                 }
                 report_digest = evidence_hash(specialist_reports)
@@ -481,52 +485,61 @@ class Handler(BaseHTTPRequestHandler):
                     "learning_event_id": None,
                 }
 
-                # Forward decision journaling reuses the existing append-only writer.
-                # It is opt-in and stores no realized outcome; no-trade validation is
-                # performed later by the existing strict forward-outcome pipeline.
-                learning_journal_path = os.environ.get("HES_FORWARD_LEARNING_DECISION_JOURNAL", "").strip()
-                if learning_journal_path:
-                    if not batch.response_sha256 or not htf_batch.response_sha256:
-                        payload["learning_journal_status"] = "BLOCKED_MISSING_SOURCE_IDENTITY"
+                # Every Signal Agent decision is appended to the same canonical
+                # trade_journal_v2 used by the existing paper evaluator and Learning Loop.
+                # No parallel decision journal or outcome ledger is created.
+                journal_path = os.environ.get(
+                    "HES_TRADE_JOURNAL_PATH",
+                    str(PROJECT_ROOT / "data" / "forward" / "trade_journal_v2.jsonl"),
+                )
+                if not batch.response_sha256 or not htf_batch.response_sha256:
+                    payload["learning_journal_status"] = "BLOCKED_MISSING_SOURCE_IDENTITY"
+                else:
+                    if not data_ok:
+                        rejected_at = "DATA_QUALITY"
+                    elif not structure_ok:
+                        rejected_at = "MARKET_STRUCTURE"
+                    elif strategy_state != "PASS":
+                        rejected_at = "STRATEGY_QUALITY"
+                    elif confirmation_gate != "PASS":
+                        rejected_at = "CONFIRMATION"
+                    elif risk_gate != "PASS":
+                        rejected_at = "RISK"
+                    elif arbitration.decision == "NO_TRADE":
+                        rejected_at = "ARBITRATION"
                     else:
-                        if not data_ok:
-                            rejected_at = "DATA_QUALITY"
-                        elif not structure_ok:
-                            rejected_at = "MARKET_STRUCTURE"
-                        elif strategy_state != "PASS":
-                            rejected_at = "STRATEGY_QUALITY"
-                        elif confirmation_gate != "PASS":
-                            rejected_at = "CONFIRMATION"
-                        elif risk_gate != "PASS":
-                            rejected_at = "RISK"
-                        elif arbitration.decision == "NO_TRADE":
-                            rejected_at = "ARBITRATION"
-                        else:
-                            rejected_at = "EXECUTION_MAPPING"
-                        try:
-                            journal_result = record_signal_decision(
-                                learning_journal_path,
-                                decision=final_decision,
-                                observed_at=observed_at.isoformat(),
-                                symbol=batch.symbol,
-                                timeframe=batch.interval,
-                                source="gateio_native_ohlcv_v1",
-                                product=batch.product,
-                                response_sha256=batch.response_sha256,
-                                htf_response_sha256=htf_batch.response_sha256,
-                                strategy_evidence_sha256=quality.evidence_sha256 if quality else None,
-                                policy_version=f"{_SIGNAL_AGENT.VERSION}+{_STRATEGY_PROVIDER.VERSION}",
-                                status=payload["status"],
-                                market_regime=strategy.regime or "UNKNOWN",
-                                rejected_at=rejected_at,
-                                reason_codes=list(dict.fromkeys(blocked + list(arbitration.reason_codes))),
-                            )
-                            payload["learning_journal_status"] = journal_result.status
-                            payload["learning_event_id"] = journal_result.event_id
-                            payload["learning_event_sha256"] = journal_result.digest
-                        except Exception as exc:
-                            payload["learning_journal_status"] = "BLOCKED_JOURNAL_ERROR"
-                            payload["learning_journal_error"] = type(exc).__name__
+                        rejected_at = "EXECUTION_MAPPING"
+                    try:
+                        journal_result = record_signal_decision(
+                            journal_path,
+                            decision=final_decision,
+                            observed_at=observed_at.isoformat(),
+                            symbol=batch.symbol,
+                            timeframe=batch.interval,
+                            source="gateio_native_ohlcv_v1",
+                            product=batch.product,
+                            response_sha256=batch.response_sha256,
+                            htf_response_sha256=htf_batch.response_sha256,
+                            strategy_evidence_sha256=quality.evidence_sha256 if quality else None,
+                            policy_version=f"{_SIGNAL_AGENT.VERSION}+{_STRATEGY_PROVIDER.VERSION}",
+                            status=payload["status"],
+                            market_regime=strategy.regime or "UNKNOWN",
+                            rejected_at=rejected_at,
+                            reason_codes=list(dict.fromkeys(blocked + list(arbitration.reason_codes))),
+                            direction=direction if direction in ("LONG", "SHORT") else "NONE",
+                            signal_state=result.candidate.state,
+                            confirmation_state=confirmation_state,
+                            risk_state=result.risk.state,
+                            entry=geometry.entry if geometry else None,
+                            stop_loss=geometry.stop_loss if geometry else None,
+                            take_profit=geometry.take_profit if geometry else None,
+                        )
+                        payload["learning_journal_status"] = journal_result.status
+                        payload["learning_event_id"] = journal_result.event_id
+                        payload["learning_event_sha256"] = journal_result.digest
+                    except Exception as exc:
+                        payload["learning_journal_status"] = "BLOCKED_JOURNAL_ERROR"
+                        payload["learning_journal_error"] = type(exc).__name__
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
                 return self._send(503, json.dumps({
