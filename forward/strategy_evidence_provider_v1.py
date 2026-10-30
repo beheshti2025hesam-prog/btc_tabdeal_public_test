@@ -1,4 +1,4 @@
-"""Evidence-only strategy provider built on the canonical Binance Spot OHLCV path.
+"""Evidence-only strategy provider built on the canonical Gate.io Spot OHLCV path.
 
 Reuses the existing native candle adapter and EMA/swing calculators. MFI14 and
 ADX14 are implemented here because the repository has no existing implementation
@@ -222,7 +222,7 @@ class StrategyEvidenceProviderV1:
     MINIMUM_HTF_CANDLES = 200
     MAX_SOURCE_FETCH_SKEW_MS = 300_000
 
-    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT"), ("gateio", "spot", "BTCUSDT"))):
+    def __init__(self, *, allowed_scopes=(("gateio", "spot", "BTCUSDT"),)):
         """Allow only explicitly supported scopes whose required fields are present.
 
         Gate.io Spot is supported for OHLCV/base-volume features only. Its native
@@ -237,14 +237,10 @@ class StrategyEvidenceProviderV1:
             for scope in self.allowed_scopes
         ):
             raise ValueError("allowed_scopes must contain venue/product/symbol triples")
-        # Preserve explicitly approved Binance Spot symbols; Gate.io support is
-        # deliberately narrower until its source-specific field contract is proven.
-        if any(
-            not (scope[0] == "binance" and scope[1] == "spot" and scope[2])
-            and scope != ("gateio", "spot", "BTCUSDT")
-            for scope in self.allowed_scopes
-        ):
-            raise ValueError("unsupported scope; a source-specific provider is required for non-approved volume semantics")
+        # The canonical analysis source is Gate.io Spot BTCUSDT only.
+        # Other venues require an explicitly reviewed source contract.
+        if any(scope != ("gateio", "spot", "BTCUSDT") for scope in self.allowed_scopes):
+            raise ValueError("unsupported scope; canonical strategy evidence is Gate.io Spot BTCUSDT only")
 
     @staticmethod
     def _check(name, state, ref, digest, observed_at):
