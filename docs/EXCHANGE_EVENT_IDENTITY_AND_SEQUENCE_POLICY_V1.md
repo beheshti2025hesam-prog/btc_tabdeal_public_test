@@ -11,11 +11,13 @@ The current HES collector consumes **Gate.io Public Spot candlesticks only**. It
 - REST endpoint: `GET /api/v4/spot/candlesticks`
 - WebSocket channel: `spot.candlesticks`, event `update`
 - Exact WebSocket instrument identity: `result.n = <interval>_<currency_pair>` (for example `15m_BTC_USDT`). An interval-only or mismatched symbol value is rejected.
+- REST candle row contract: `[timestamp, quote_volume, close, high, low, open, base_volume]`; HES stores `volume=base_volume` and `quote_volume=quote_volume` without swapping them.
 - REST candle timestamp: row index 0, Unix seconds.
 - WebSocket candle timestamp: `result.t`, Unix seconds.
 - HES candle identity: `(source, product=spot, symbol, timeframe, open_time)`.
 - For a known fixed interval, HES checks expected candle-open-time cadence. This is **candle-series gap detection**, not a trade-stream or order-book sequence detector.
 - Candle timestamps are absolute epoch times and can deduplicate the same candle across reconnects only within the same exact source/product/symbol/timeframe scope. Never compare them with trade IDs, order-book IDs, another product, or another venue.
+- Persisted rows must carry the canonical `hes_global_candle_v1` schema and both base/quote volume fields; OHLC and timestamp alignment are validated.
 - A conflicting payload for the same candle identity is rejected; an exact semantic replay is idempotent. Missing historical candles returned by REST are merged by timestamp into a sorted, atomically replaced JSONL file under an exclusive per-feed lock.
 
 Official Gate.io Spot API documentation specifies that `GET /spot/candlesticks` returns Unix-second candle timestamps, the OHLCV field order, supported intervals, and a maximum of 1,000 points per query. Source: https://www.gate.com/docs/developers/apiv4/en/spot/
