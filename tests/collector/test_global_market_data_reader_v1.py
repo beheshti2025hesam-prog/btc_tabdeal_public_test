@@ -27,6 +27,13 @@ class ReaderTests(unittest.TestCase):
     self.make_file(d,count=3,start=9000,symbol=symbol)
     self.assertEqual(len(read_closed_candles("15m",root=d,now=9000+3*900,min_bars=3,symbol=symbol)),3)
 
+ def test_registry_scopes_match_reader_symbol_allowlist(self):
+  registry=json.loads((Path(__file__).resolve().parents[2]/"config/gateio_spot_instruments_v1.json").read_text())
+  self.assertEqual(registry["provider"],"gateio_public_spot")
+  self.assertEqual({x["symbol"] for x in registry["instruments"]},{"BTC_USDT","ETH_USDT","SOL_USDT"})
+  self.assertFalse(next(x for x in registry["instruments"] if x["symbol"]=="ETH_USDT")["analysis_enabled"])
+  self.assertFalse(next(x for x in registry["instruments"] if x["symbol"]=="SOL_USDT")["analysis_enabled"])
+
  def test_reject_unsupported_symbol(self):
   with tempfile.TemporaryDirectory() as d:
    with self.assertRaisesRegex(MarketDataRejected,"UNSUPPORTED_SYMBOL"):
