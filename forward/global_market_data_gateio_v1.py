@@ -27,6 +27,8 @@ INTERVAL_SECONDS = INTERVAL_SECONDS_BY_NAME[INTERVAL]
 LIVE_WINDOW_CANDLES = 5000
 MAX_REST_CANDLE_POINTS = 1000
 MAX_BACKFILL_RANGES_PER_CYCLE = 10
+REST_RECONCILE_LIMIT = 3
+REST_RECONCILE_SECONDS = 60
 SOURCE = 'gateio_public_spot'
 DEFAULT_OUTPUTS = {'15m': '/opt/hes-trade-agent/data/forward/global_market_candles_v1.jsonl',
                    '1h': '/opt/hes-trade-agent/data/forward/global_market_candles_1h_v1.jsonl',
@@ -331,6 +333,12 @@ def normalize_ws_message(message: dict[str, Any], *, now: int | None = None) -> 
         return None
 
 
+
+def _initial_rest_limit(output: Path = OUTPUT) -> int:
+    """Bootstrap history once; reconnects use a tiny delta plus bounded gap repair."""
+    return MAX_REST_CANDLE_POINTS if len(_read_saved_candles(output)) < 200 else REST_RECONCILE_LIMIT
+
+
 def run() -> None:
     signal.signal(signal.SIGTERM, _stop); signal.signal(signal.SIGINT, _stop)
     last_ts = _last_saved_ts(OUTPUT)
@@ -339,7 +347,7 @@ def run() -> None:
     backoff=2
     while not STOP:
         try:
-            last_ts = _append_new(fetch_recent_closed(session), last_ts)
+            last_ts = _append_new(fetch_recent_closed(session, limit=_initial_rest_limit(OUTPUT)), last_ts)
             _backfill_missing_history(session, OUTPUT)
             ws=websocket.create_connection(WS_URL, timeout=12, origin='https://www.gate.com')
             ws.send(json.dumps({'time':int(time.time()),'channel':'spot.candlesticks','event':'subscribe','payload':[INTERVAL,SYMBOL]}))
@@ -352,9 +360,8 @@ def run() -> None:
                     if time.monotonic()>deadline and not subscribed: raise RuntimeError('WebSocket subscription timed out')
                     # Candlestick WS updates describe the current candle; REST reconciliation
                     # guarantees we persist the just-closed candle even if no final WS tick arrives.
-                    if subscribed and time.monotonic()-last_rest_sync >= 20:
-                        last_ts=_append_new(fetch_recent_closed(session), last_ts)
-                        _backfill_missing_history(session, OUTPUT)
+                    if subscribed and time.monotonic()-last_rest_sync >= REST_RECONCILE_SECONDS:
+                        last_ts=_append_new(fetch_recent_closed(session, limit=REST_RECONCILE_LIMIT), last_ts)
                         last_rest_sync=time.monotonic()
                     continue
                 msg=json.loads(raw)
