@@ -81,7 +81,7 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
         session_path=session,
         ws_factory=EmptyWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
+        sequence_registry=verified_tabdeal_test_registry(),
         sequence_contract_evidence_ref="test-fixture:authoritative-contract",
     )
     result = runner.run(
