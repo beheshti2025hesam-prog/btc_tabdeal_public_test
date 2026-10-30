@@ -104,6 +104,16 @@ def normalize_ws_message(message: dict[str, Any], *, now: int | None = None) -> 
         return None
 
 
+def _close_ws(ws: Any) -> None:
+    """Close a Gate.io socket on both normal exit and reconnect/error paths."""
+    if ws is None:
+        return
+    try:
+        ws.close()
+    except Exception:
+        pass
+
+
 def run() -> None:
     signal.signal(signal.SIGTERM, _stop); signal.signal(signal.SIGINT, _stop)
     last_ts = _last_saved_ts(OUTPUT)
@@ -111,6 +121,7 @@ def run() -> None:
     session=requests.Session(); session.headers.update({'User-Agent':'HES-Trade-Agent/1.0 public-market-data'})
     backoff=2
     while not STOP:
+        ws = None
         try:
             last_ts = _append_new(fetch_recent_closed(session), last_ts)
             ws=websocket.create_connection(WS_URL, timeout=12, origin='https://www.gate.com')
@@ -137,8 +148,11 @@ def run() -> None:
                 candle=normalize_ws_message(msg)
                 if candle is None: continue
                 if candle['closed']: last_ts=_append_new([candle], last_ts)
-            ws.close()
+            _close_ws(ws)
+            ws = None
         except Exception as exc:
+            _close_ws(ws)
+            ws = None
             print(f'HES_GLOBAL_MARKET_RECONNECT error={type(exc).__name__} wait_s={backoff}', flush=True)
             time.sleep(backoff); backoff=min(backoff*2,60)
     print('HES_GLOBAL_MARKET_STOP', flush=True)
