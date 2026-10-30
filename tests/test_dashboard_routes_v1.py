@@ -287,14 +287,16 @@ class DashboardRouteTests(unittest.TestCase):
                 MarketContext("crypto", "BTCUSDT", "unknown", "15m", observed_at.isoformat(), "gateio"),
                 now=observed_at,
             )
-            with patch.dict(os.environ, {"HES_TRADE_JOURNAL_PATH": journal_path}), \
-                 patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
-                 patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider, \
-                 patch("web.dashboard._NEWS_BRAIN.run_from_registry", return_value=news_brief) as news_provider, \\
-                 patch("web.dashboard._ARBITRATION_RESOLVER.resolve", return_value=SimpleNamespace(
-                     decision="LONG", reason_codes=(), conflict_class="NONE",
-                     audit_sha256="b" * 64, assessments=(),
-                 )):
+            with (
+                patch.dict(os.environ, {"HES_TRADE_JOURNAL_PATH": journal_path}),
+                patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader,
+                patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider,
+                patch("web.dashboard._NEWS_BRAIN.run_from_registry", return_value=news_brief) as news_provider,
+                patch("web.dashboard._ARBITRATION_RESOLVER.resolve", return_value=SimpleNamespace(
+                    decision="LONG", reason_codes=(), conflict_class="NONE",
+                    audit_sha256="b" * 64, assessments=(),
+                )),
+            ):
                 with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
                     payload = json.loads(response.read())
             self.assertEqual(batch_reader.call_count, 2)
