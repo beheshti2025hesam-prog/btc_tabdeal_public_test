@@ -30,6 +30,7 @@ def verified_tabdeal_test_registry():
                 "source_content_sha256": "a" * 64,
             },
             "status": "VERIFIED",
+            "independent_review_revision": "synthetic-test-only",
         }],
     }
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
