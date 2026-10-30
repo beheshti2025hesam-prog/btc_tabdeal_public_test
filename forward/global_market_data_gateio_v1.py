@@ -23,8 +23,8 @@ INTERVAL_SECONDS_BY_NAME = {'15m': 900, '1h': 3600, '4h': 14400}
 if INTERVAL not in INTERVAL_SECONDS_BY_NAME:
     raise RuntimeError(f'Unsupported HES candle interval: {INTERVAL}')
 INTERVAL_SECONDS = INTERVAL_SECONDS_BY_NAME[INTERVAL]
-# Keep the hot decision feed bounded; long-term history belongs in the historical-data store.
-MAX_PERSISTED_CANDLES = 5000
+# Bound in-memory merge reads without truncating the append-only candle history.
+LIVE_WINDOW_CANDLES = 5000
 SOURCE = 'gateio_public_spot'
 DEFAULT_OUTPUTS = {'15m': '/opt/hes-trade-agent/data/forward/global_market_candles_v1.jsonl',
                    '1h': '/opt/hes-trade-agent/data/forward/global_market_candles_1h_v1.jsonl',
@@ -163,26 +163,58 @@ def _semantic_candle(candle: dict[str, Any]) -> tuple[Any, ...]:
     ))
 
 
-def _read_saved_candles(output: Path) -> dict[int, dict[str, Any]]:
+def _tail_jsonl_lines(path: Path, max_lines: int = LIVE_WINDOW_CANDLES) -> list[str]:
+    """Read a bounded tail without scanning the full long-lived append-only file."""
+    if max_lines < 1:
+        raise ValueError('max_lines must be positive')
+    with path.open('rb') as handle:
+        handle.seek(0, os.SEEK_END)
+        position = handle.tell()
+        chunks: list[bytes] = []
+        data = b''
+        while position > 0 and data.count(b'\n') <= max_lines:
+            size = min(64 * 1024, position)
+            position -= size
+            handle.seek(position)
+            chunks.insert(0, handle.read(size))
+            data = b''.join(chunks)
+    lines = data.splitlines()
+    if position > 0 and lines:
+        lines = lines[1:]
+    return [line.decode('utf-8') for line in lines[-max_lines:] if line.strip()]
+
+
+def _parse_saved_candles(lines: list[str]) -> dict[int, dict[str, Any]]:
     saved: dict[int, dict[str, Any]] = {}
-    if not output.exists():
-        return saved
-    with output.open('r', encoding='utf-8') as handle:
-        for line_number, line in enumerate(handle, 1):
-            if not line.strip():
-                continue
-            try:
-                candle = json.loads(line)
-                ts = int(candle['open_time'])
-            except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-                raise ValueError(f'Existing candle file is malformed at line {line_number}') from exc
-            if (candle.get('source') != SOURCE or candle.get('symbol') != SYMBOL
-                    or candle.get('timeframe') != INTERVAL or candle.get('closed') is not True):
-                raise ValueError(f'Existing candle identity/state mismatch at line {line_number}')
-            if ts in saved and _semantic_candle(saved[ts]) != _semantic_candle(candle):
-                raise ValueError(f'Conflicting candle identity at open_time={ts}')
-            saved[ts] = candle
+    for line_number, line in enumerate(lines, 1):
+        try:
+            candle = json.loads(line)
+            ts = int(candle['open_time'])
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f'Existing candle file is malformed at tail line {line_number}') from exc
+        if (candle.get('source') != SOURCE or candle.get('symbol') != SYMBOL
+                or candle.get('timeframe') != INTERVAL or candle.get('closed') is not True):
+            raise ValueError(f'Existing candle identity/state mismatch at tail line {line_number}')
+        if ts < 0 or ts % INTERVAL_SECONDS or int(candle.get('close_time', -1)) != ts + INTERVAL_SECONDS:
+            raise ValueError(f'Existing candle timestamp invalid at tail line {line_number}')
+        if ts in saved and _semantic_candle(saved[ts]) != _semantic_candle(candle):
+            raise ValueError(f'Conflicting candle identity at open_time={ts}')
+        saved[ts] = candle
     return saved
+
+
+def _read_saved_candles(output: Path) -> dict[int, dict[str, Any]]:
+    if not output.exists():
+        return {}
+    return _parse_saved_candles(_tail_jsonl_lines(output))
+
+
+def _read_all_saved_candles(output: Path) -> dict[int, dict[str, Any]]:
+    if not output.exists():
+        return {}
+    with output.open('r', encoding='utf-8') as handle:
+        return _parse_saved_candles([line for line in handle if line.strip()])
+
 
 
 def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTPUT) -> int:
@@ -217,15 +249,24 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
             saved[ts] = candle
 
         added = set(saved) - before
-        needs_retention_rewrite = len(saved) > MAX_PERSISTED_CANDLES
         needs_backfill_rewrite = bool(added) and bool(before) and min(added) < max(before)
-        if needs_retention_rewrite:
-            keep = sorted(saved)[-MAX_PERSISTED_CANDLES:]
-            saved = {ts: saved[ts] for ts in keep}
-            added &= set(saved)
-        if added or needs_retention_rewrite:
-            ordered = [saved[ts] for ts in sorted(saved)]
-            if needs_backfill_rewrite or needs_retention_rewrite:
+        if needs_backfill_rewrite:
+            full_saved = _read_all_saved_candles(output)
+            full_before = set(full_saved)
+            for ts in added:
+                candle = saved[ts]
+                existing = full_saved.get(ts)
+                if existing is not None:
+                    if _semantic_candle(existing) != _semantic_candle(candle):
+                        raise ValueError(f'Conflicting candle identity at open_time={ts}')
+                else:
+                    full_saved[ts] = candle
+            saved = full_saved
+            added = set(saved) - full_before
+
+        if added:
+            if needs_backfill_rewrite:
+                ordered = [saved[ts] for ts in sorted(saved)]
                 fd, tmp_name = tempfile.mkstemp(prefix=output.name + '.', suffix='.tmp', dir=str(output.parent))
                 try:
                     with os.fdopen(fd, 'w', encoding='utf-8') as handle:
