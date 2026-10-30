@@ -1,3 +1,4 @@
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,8 +33,7 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         session_path=session,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -60,8 +60,7 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
         transport_factory=GapTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
@@ -81,8 +80,7 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
         session_path=session,
         ws_factory=EmptyWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -108,8 +106,7 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -134,8 +131,7 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
         transport_factory=BrokenTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -164,8 +160,7 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
         transport_factory=OverLimitTransport,
         ws_factory=FakeWS,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
         max_records=3,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
@@ -195,20 +190,17 @@ def test_runner_blocks_before_network_or_session_without_verified_sequence_contr
     assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
     assert result.run_id == "NOT_STARTED"
     assert result.records_received == 0
-    assert result.diagnostics == ({
-        "network_started": False,
-        "session_written": False,
-        "sequence_contract_evidence_required": True,
-    },)
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert result.diagnostics[0]["registry_reason"] == "SEQUENCE_SEMANTICS_NOT_VERIFIED"
     assert not session.exists()
     assert not journal.exists()
 
 
-def test_runner_requires_evidence_reference_even_when_verified_flag_is_true(tmp_path: Path):
+def test_runner_uses_pinned_default_registry_and_blocks_unknown_tabdeal_contract(tmp_path: Path):
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "journal.jsonl",
         session_path=tmp_path / "session.jsonl",
-        sequence_contract_verified=True,
         ws_factory=FakeWS,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))

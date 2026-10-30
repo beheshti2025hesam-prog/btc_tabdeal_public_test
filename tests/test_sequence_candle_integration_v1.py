@@ -1,9 +1,12 @@
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone
 
 from forward.sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
+from forward.sequence_semantics_v1 import TABDEAL_TRADE_SEQUENCE_KEY
 
 
 ASOF = datetime(2026, 10, 7, 7, 0, tzinfo=timezone.utc)
+CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 
 def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
@@ -15,11 +18,12 @@ def rec(seq, ts="2026-10-07T06:30:00+00:00", price="100"):
         "side": "buy",
         "source_updated": ts,
         "sequence": seq,
+        "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY,
     }
 
 
 def test_clean_sequence_reaches_closed_candle():
-    s = SequenceAwareCandleIngestionV1()
+    s = SequenceAwareCandleIngestionV1(capabilities=CAPS)
     result = s.ingest(
         [
             rec(1, "2026-10-07T06:30:00+00:00", "100"),
@@ -33,7 +37,7 @@ def test_clean_sequence_reaches_closed_candle():
 
 
 def test_identical_duplicate_does_not_duplicate_candle_input():
-    s = SequenceAwareCandleIngestionV1()
+    s = SequenceAwareCandleIngestionV1(capabilities=CAPS)
     r = rec(1)
     result = s.ingest([r, dict(r)], as_of=ASOF)
     assert result.safe_for_decision is True
@@ -42,7 +46,7 @@ def test_identical_duplicate_does_not_duplicate_candle_input():
 
 
 def test_conflicting_duplicate_stops_candle_formation():
-    s = SequenceAwareCandleIngestionV1()
+    s = SequenceAwareCandleIngestionV1(capabilities=CAPS)
     result = s.ingest([rec(1), rec(1, price="101")], as_of=ASOF)
     assert result.safe_for_decision is False
     assert result.candles == ()
@@ -50,7 +54,7 @@ def test_conflicting_duplicate_stops_candle_formation():
 
 
 def test_non_contiguous_sequence_is_accepted_as_monotonic_progress():
-    s = SequenceAwareCandleIngestionV1()
+    s = SequenceAwareCandleIngestionV1(capabilities=CAPS)
     result = s.ingest([rec(1), rec(3)], as_of=ASOF)
     assert result.safe_for_decision is True
     assert result.events[-1].status == "ACCEPTED"
@@ -58,7 +62,7 @@ def test_non_contiguous_sequence_is_accepted_as_monotonic_progress():
 
 
 def test_reconnect_requires_explicit_reset_before_new_continuity():
-    s = SequenceAwareCandleIngestionV1()
+    s = SequenceAwareCandleIngestionV1(capabilities=CAPS)
     first = s.ingest([rec(10)], as_of=ASOF)
     assert first.safe_for_decision is True
     s.sequence.reset_for_reconnect()

@@ -1,5 +1,8 @@
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone, timedelta
 from forward.forward_observation_path_v1 import ForwardObservationPathV1
+
+CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 def frame(seq, when, price):
     return {"type":"trade","symbol":"BTC_USDT","price":str(price),"amount":"0.01",
@@ -11,7 +14,7 @@ def test_full_forward_observation_path(tmp_path):
             frame(2,as_of-timedelta(minutes=25),101),
             frame(3,as_of-timedelta(minutes=15),102),
             frame(4,as_of-timedelta(minutes=10),104)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl", sequence_capabilities=CAPS).observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-001")
     assert result.status=="OBSERVED"
     assert result.frames_accepted==4
@@ -27,7 +30,7 @@ def test_non_contiguous_sequence_reaches_candle_boundary(tmp_path):
     as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
     frames=[frame(1,as_of-timedelta(minutes=30),100),
             frame(3,as_of-timedelta(minutes=25),101)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl", sequence_capabilities=CAPS).observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-MONOTONIC")
     assert result.status=="WAITING"
     assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
@@ -38,7 +41,7 @@ def test_open_candle_is_not_observed(tmp_path):
     as_of=datetime(2026,10,7,12,10,tzinfo=timezone.utc)
     frames=[frame(1,as_of-timedelta(minutes=2),100),
             frame(2,as_of-timedelta(minutes=1),101)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl", sequence_capabilities=CAPS).observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-OPEN")
     assert result.status=="WAITING"
     assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
@@ -46,7 +49,7 @@ def test_open_candle_is_not_observed(tmp_path):
 
 def test_path_fails_closed_before_processing_over_limit_input(tmp_path):
     as_of = datetime(2026, 10, 7, 12, 31, tzinfo=timezone.utc)
-    path = ForwardObservationPathV1(tmp_path / "observations.jsonl", max_records=2)
+    path = ForwardObservationPathV1(tmp_path / "observations.jsonl", max_records=2, sequence_capabilities=CAPS)
     frames = [frame(1, as_of-timedelta(minutes=30), 100),
               frame(2, as_of-timedelta(minutes=25), 101),
               frame(3, as_of-timedelta(minutes=15), 102)]
@@ -80,3 +83,12 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
     # Preserve the public context count even though only the adjacent pair is inspected.
     assert [x.candles for x in prefix_contexts] == list(range(2, len(candles)+1))
     assert [x.candles for x in pair_contexts] == [x.candles for x in prefix_contexts]
+
+
+def test_path_blocks_unknown_sequence_semantics_before_parsing_or_journal(tmp_path):
+    as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+        [frame(1,as_of-timedelta(minutes=30),100)],as_of=as_of,forward_run_id="OBS-UNKNOWN-SEQ")
+    assert result.status=="BLOCKED"
+    assert result.reason=="SEQUENCE_SEMANTICS_UNVERIFIED"
+    assert not (tmp_path/"observations.jsonl").exists()

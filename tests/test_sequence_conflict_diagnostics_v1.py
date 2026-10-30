@@ -7,11 +7,14 @@ import pytest
 
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
-from forward.sequence_integrity_v1 import SequenceIntegrityV1
+from forward.sequence_semantics_v1 import SequenceIntegrityV2, TABDEAL_TRADE_SEQUENCE_KEY
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
+
+CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 
-def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
-    guard = SequenceIntegrityV1()
+def test_conflicting_duplicate_reports_payload_hashes():
+    guard = SequenceIntegrityV2(CAPS)
     first = {
         "source": "tabdeal_ws_forward_v1",
         "symbol": "BTC_USDT",
@@ -20,6 +23,7 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
         "side": "buy",
         "source_updated": "2026-10-09T17:00:00+00:00",
         "sequence": 41627925358,
+        "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY,
     }
     conflicting = {**first, "price": "101"}
 
@@ -27,11 +31,8 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     event = guard.observe(conflicting)
 
     assert event.status == "REJECT_STREAM"
-    assert event.reason == "CONFLICTING_DUPLICATE_SEQUENCE"
-    assert event.diagnostic["differing_fields"] == ["price"]
-    assert event.diagnostic["first_values"] == {"price": "100"}
-    assert event.diagnostic["conflicting_values"] == {"price": "101"}
-    assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
+    assert event.reason == "CONFLICTING_DUPLICATE_IDENTITY"
+    assert event.diagnostic["previous_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
 
 
 def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
@@ -70,8 +71,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
         transport_factory=ConflictTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
@@ -83,9 +83,9 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
     conflict = next(
         event for event in record["sequence_events"]
-        if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+        if event.get("reason") == "CONFLICTING_DUPLICATE_IDENTITY"
     )
-    assert conflict["diagnostic"]["differing_fields"] == ["price"]
+    assert conflict["diagnostic"]["previous_payload_sha256"] != conflict["diagnostic"]["conflicting_payload_sha256"]
     fingerprints = conflict["transport_frame_fingerprints"]
     assert len(fingerprints) == 2
     assert fingerprints[0]["raw_frame_sha256"] != fingerprints[1]["raw_frame_sha256"]
@@ -161,8 +161,7 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
         transport_factory=MetadataOverflowTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
