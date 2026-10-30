@@ -50,7 +50,7 @@ def risk_checks(state="PASS", observed_at=OBS):
 def evaluate(**kwargs):
     defaults = dict(
         observed_at=OBS,
-        venue="binance",
+        venue="gateio",
         product="spot",
         symbol="BTCUSDT",
         timeframe="15m",
@@ -265,6 +265,13 @@ def test_non_finite_risk_geometry_fails_closed():
     assert result.decision.decision == "NO_TRADE"
     assert "RISK_GEOMETRY_INVALID_NUMBER" in result.blocked_reasons
 
+
+
+
+def test_default_signal_agent_rejects_binance_scope():
+    result = evaluate(venue="binance")
+    assert result.decision.decision == "NO_TRADE"
+    assert "STRATEGY_SCOPE_UNSUPPORTED" in result.blocked_reasons
 
 
 def test_wrong_market_profile_fails_closed_even_with_strategy_checks():
