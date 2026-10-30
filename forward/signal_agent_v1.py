@@ -49,7 +49,7 @@ class SignalAgentResult:
 class SignalAgentV1:
     """Deterministic Signal -> Confirmation -> Risk -> Decision chain.
 
-    The active analysis profile is explicitly Binance Spot BTCUSDT / 15m.
+    The default analysis profile is the approved canonical Gate.io Spot BTCUSDT / 15m source.
     Other venue/product/symbol/timeframe scopes fail closed until a separately
     configured and versioned policy approves them. No orders are submitted.
     """
@@ -58,7 +58,7 @@ class SignalAgentV1:
     MIN_REWARD_RISK = Decimal("3")
     REQUIRED_PRECHECKS = ("structure_direction_aligned", "signal_quality_gate_passed")
 
-    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT", "15m"),)) -> None:
+    def __init__(self, *, allowed_scopes=(("gateio", "spot", "BTCUSDT", "15m"),)) -> None:
         self.allowed_scopes = tuple(tuple(scope) for scope in allowed_scopes)
         if not self.allowed_scopes or any(len(scope) != 4 or any(not isinstance(v, str) or not v for v in scope) for scope in self.allowed_scopes):
             raise ValueError("allowed_scopes must contain explicit venue/product/symbol/timeframe tuples")
