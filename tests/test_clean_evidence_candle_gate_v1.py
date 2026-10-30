@@ -2,6 +2,7 @@ from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone, timedelta
 
 from forward.clean_evidence_candle_gate_v1 import CleanEvidenceCandleGateV1
+from forward.sequence_semantics_v1 import TABDEAL_TRADE_SEQUENCE_KEY
 
 CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
@@ -15,6 +16,7 @@ def rec(seq, ts, price="100"):
         "side": "buy",
         "source_updated": ts.isoformat(),
         "sequence": seq,
+        "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY,
     }
 
 
