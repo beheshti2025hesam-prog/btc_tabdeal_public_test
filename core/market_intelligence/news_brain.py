@@ -308,9 +308,11 @@ def fetch_gate_announcements(url: str, *, source: str, source_id: str,
         document = json.loads(payload)
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise ValueError("invalid Gate announcement JSON") from exc
+    if not isinstance(document, dict) or not isinstance(document.get("data"), dict):
+        raise ValueError("Gate announcement response schema is invalid")
     if document.get("code") != 0:
         raise ValueError("Gate announcement API returned a non-zero business code")
-    rows = document.get("data", {}).get("list")
+    rows = document["data"].get("list")
     if not isinstance(rows, list):
         raise ValueError("Gate announcement response list is invalid")
     items = []
