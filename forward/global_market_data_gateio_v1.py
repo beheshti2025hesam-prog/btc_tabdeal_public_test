@@ -205,11 +205,18 @@ def _parse_saved_candles(lines: list[str]) -> dict[int, dict[str, Any]]:
             ts = int(candle['open_time'])
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ValueError(f'Existing candle file is malformed at tail line {line_number}') from exc
-        if (candle.get('source') != SOURCE or candle.get('symbol') != SYMBOL
+        if (candle.get('schema') != 'hes_global_candle_v1'
+                or candle.get('source') != SOURCE or candle.get('symbol') != SYMBOL
                 or candle.get('timeframe') != INTERVAL or candle.get('closed') is not True):
             raise ValueError(f'Existing candle identity/state mismatch at tail line {line_number}')
         if ts < 0 or ts % INTERVAL_SECONDS or int(candle.get('close_time', -1)) != ts + INTERVAL_SECONDS:
             raise ValueError(f'Existing candle timestamp invalid at tail line {line_number}')
+        try:
+            normalize_row([ts, candle.get('quote_volume'), candle.get('close'), candle.get('high'),
+                           candle.get('low'), candle.get('open'), candle.get('volume')],
+                          now=ts + INTERVAL_SECONDS)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f'Existing candle payload invalid at tail line {line_number}') from exc
         if previous is not None and ts <= previous:
             raise ValueError(f'Existing candle order/duplicate invalid at tail line {line_number}')
         saved[ts] = candle
