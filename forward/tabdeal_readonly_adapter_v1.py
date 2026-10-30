@@ -31,7 +31,7 @@ def parse_trade_frame(frame: dict[str,Any], *, as_of: datetime) -> dict[str,Any]
     symbol=frame.get("symbol") or frame.get("s")
     if symbol != SYMBOL: raise ValueError("unsupported symbol")
     price=frame.get("price",frame.get("p")); amount=frame.get("amount",frame.get("q"))
-    side=frame.get("side",frame.get("S")); sequence=frame.get("sequence",frame.get("seq",frame.get("id")))
+    side=frame.get("side",frame.get("S")); sequence=frame.get("sequence")
     ts=frame.get("source_updated",frame.get("timestamp",frame.get("T",frame.get("time"))))
     if any(v is None for v in (price,amount,side,sequence,ts)): raise ValueError("incomplete trade frame")
     updated=_timestamp(ts)
@@ -39,7 +39,7 @@ def parse_trade_frame(frame: dict[str,Any], *, as_of: datetime) -> dict[str,Any]
     if dt > as_of.astimezone(timezone.utc): raise ValueError("future source observation")
     if Decimal(str(price)) <= 0 or Decimal(str(amount)) <= 0: raise ValueError("price and amount must be positive")
     if str(side).lower() not in {"buy","sell","b","s"}: raise ValueError("unsupported side")
-    seq=int(sequence)
-    if seq < 0: raise ValueError("invalid sequence")
+    if type(sequence) is not int or sequence < 0: raise ValueError("invalid sequence")
+    seq=sequence
     return {"source":SOURCE,"symbol":SYMBOL,"price":str(price),"amount":str(amount),
             "side":str(side),"source_updated":updated,"sequence":seq}
