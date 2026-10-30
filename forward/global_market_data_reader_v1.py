@@ -52,7 +52,7 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
             position = handle.tell()
             chunks = []
             data = b''
-            while position > 0 and data.count(bytes([10])) <= 5000:
+            while position > 0 and data.count(bytes([10])) <= LIVE_WINDOW_CANDLES:
                 size = min(64 * 1024, position)
                 position -= size
                 handle.seek(position)
@@ -61,7 +61,7 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         lines = data.splitlines()
         if position > 0 and lines:
             lines = lines[1:]
-        for line in lines[-5000:]:
+        for line in lines[-LIVE_WINDOW_CANDLES:]:
             if line.strip():
                 records.append(json.loads(line))
     except (OSError, json.JSONDecodeError) as exc:
