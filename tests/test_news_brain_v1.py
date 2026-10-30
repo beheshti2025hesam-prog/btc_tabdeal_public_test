@@ -111,7 +111,7 @@ class NewsBrainTests(unittest.TestCase):
         self.assertTrue(registry["sources"])
         enabled = [source for source in registry["sources"] if source["enabled"]]
         self.assertEqual({source["id"] for source in enabled},
-                         {"ecb_press_releases", "cftc_general_press_releases"})
+                         {"ecb_press_releases", "cftc_general_press_releases", "gateio_official_announcements"})
         self.assertTrue(all(source["qualification_status"] == "qualified" for source in enabled))
         self.assertFalse(next(source for source in registry["sources"]
                               if source["id"] == "coindesk_news")["enabled"])
