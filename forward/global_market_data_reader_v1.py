@@ -15,14 +15,31 @@ SPECS = {
     "4h": (14400, "data/forward/global_market_candles_4h_v1.jsonl"),
 }
 
+SYMBOL_PATHS = {
+    "BTC_USDT": SPECS,
+    "ETH_USDT": {
+        "15m": (900, "data/forward/global_market_candles_ETH_USDT_15m_v1.jsonl"),
+        "1h": (3600, "data/forward/global_market_candles_ETH_USDT_1h_v1.jsonl"),
+        "4h": (14400, "data/forward/global_market_candles_ETH_USDT_4h_v1.jsonl"),
+    },
+    "SOL_USDT": {
+        "15m": (900, "data/forward/global_market_candles_SOL_USDT_15m_v1.jsonl"),
+        "1h": (3600, "data/forward/global_market_candles_SOL_USDT_1h_v1.jsonl"),
+        "4h": (14400, "data/forward/global_market_candles_SOL_USDT_4h_v1.jsonl"),
+    },
+}
+
 class MarketDataRejected(ValueError):
     pass
 
 def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | None = None,
-                        min_bars: int = 200) -> list[dict[str, Any]]:
-    if timeframe not in SPECS:
+                        min_bars: int = 200, symbol: str = SYMBOL) -> list[dict[str, Any]]:
+    if symbol not in SYMBOL_PATHS:
+        raise MarketDataRejected("UNSUPPORTED_SYMBOL")
+    specs = SYMBOL_PATHS[symbol]
+    if timeframe not in specs:
         raise MarketDataRejected("UNSUPPORTED_TIMEFRAME")
-    seconds, relative_path = SPECS[timeframe]
+    seconds, relative_path = specs[timeframe]
     path = Path(root) / relative_path
     if not path.is_file():
         raise MarketDataRejected("CANDLE_FILE_MISSING")
@@ -37,7 +54,7 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         raise MarketDataRejected("INSUFFICIENT_CLOSED_CANDLES")
     previous=None
     for row in records:
-        if row.get("source") != SOURCE or row.get("symbol") != SYMBOL or row.get("timeframe") != timeframe:
+        if row.get("source") != SOURCE or row.get("symbol") != symbol or row.get("timeframe") != timeframe:
             raise MarketDataRejected("SOURCE_IDENTITY_MISMATCH")
         if row.get("closed") is not True:
             raise MarketDataRejected("OPEN_CANDLE_REJECTED")
@@ -73,12 +90,14 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
     return records
 
 def load_market_input(*, root: str | Path = ".", now: int | None = None,
-                      min_bars: int = 200) -> dict[str, Any]:
-    feeds={tf:read_closed_candles(tf,root=root,now=now,min_bars=min_bars) for tf in ("15m","1h","4h")}
+                      min_bars: int = 200, symbol: str = SYMBOL) -> dict[str, Any]:
+    if symbol not in SYMBOL_PATHS:
+        raise MarketDataRejected("UNSUPPORTED_SYMBOL")
+    feeds={tf:read_closed_candles(tf,root=root,now=now,min_bars=min_bars,symbol=symbol) for tf in ("15m","1h","4h")}
     return {
         "schema":"hes_global_market_input_v1",
         "source":SOURCE,
-        "symbol":SYMBOL,
+        "symbol":symbol,
         "timeframes":feeds,
         "observed_at":max(row["observed_at"] for rows in feeds.values() for row in rows),
     }
