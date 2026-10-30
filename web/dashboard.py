@@ -21,6 +21,9 @@ from forward.learning_evidence_adapter_v1 import record_signal_decision
 from forward.trade_journal_view_v1 import configured_decision_journal, JournalProjectionError
 from core.orchestration.mother_v1 import MotherOrchestratorV1, precomputed_specialists_v1
 from core.orchestration.witness_v1 import MotherAuditWitnessV1
+from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
+from forward.decision_engine_v1 import DecisionResult
+from forward.news_decision_gate_v1 import apply_news_veto
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -81,6 +84,8 @@ _STRATEGY_PROVIDER = StrategyEvidenceProviderV1(allowed_scopes=(("gateio", "spot
 _ARBITRATION_RESOLVER = AgentDisagreementResolverV1()
 _MOTHER_ORCHESTRATOR = MotherOrchestratorV1(precomputed_specialists_v1())
 _MOTHER_WITNESS = MotherAuditWitnessV1()
+_NEWS_BRAIN = NewsIntelligenceBrain()
+_NEWS_REGISTRY = PROJECT_ROOT / "config" / "news_sources_v1.json"
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
@@ -350,6 +355,23 @@ class Handler(BaseHTTPRequestHandler):
                 arbitration = _ARBITRATION_RESOLVER.resolve(
                     assessments=assessments, observed_at=observed_at
                 )
+                # Reuse the existing free-first news brain. News is metadata/veto
+                # only; it cannot create a direction or bypass confirmation/risk.
+                news_brief = _NEWS_BRAIN.run_from_registry(
+                    _NEWS_REGISTRY,
+                    MarketContext(
+                        market="crypto", symbol=batch.symbol, regime=strategy.regime or "unknown",
+                        timeframe=batch.interval, observed_at=observed_at.isoformat(), venue=batch.venue,
+                    ),
+                )
+                news_input = DecisionResult(
+                    observed_at=observed_at, decision=arbitration.decision,
+                    reason_codes=tuple(arbitration.reason_codes),
+                    evidence_refs=(batch.response_sha256, htf_batch.response_sha256),
+                    quality_score=result.decision.quality_score,
+                )
+                news_decision = apply_news_veto(news_input, news_brief)
+                effective_decision = news_decision.decision
 
                 # Mother is a bounded control plane over these existing outputs.
                 # It validates order/provenance/vetoes; it does not recalculate indicators.
@@ -394,7 +416,7 @@ class Handler(BaseHTTPRequestHandler):
                     ),
                     "decision": report(
                         "DECIDED", "decision-engine-v1", tuple(result.decision.reason_codes), common_refs,
-                        {"decision": arbitration.decision},
+                        {"decision": effective_decision, "news_context": news_brief.to_mother_payload()},
                     ),
                     "evaluation": report(
                         "OBSERVED", "forward-learning-observation-v1", ("OUTCOME_NOT_INFERRED",), common_refs,
@@ -419,6 +441,8 @@ class Handler(BaseHTTPRequestHandler):
                 blocked = list(strategy.blocked_reasons) + list(result.blocked_reasons)
                 if arbitration.decision == "NO_TRADE":
                     blocked.extend(arbitration.reason_codes)
+                if effective_decision == "NO_TRADE" and arbitration.decision != "NO_TRADE":
+                    blocked.extend(news_decision.reason_codes)
                 # Market-data symbol mapping is verified; executable instrument mapping is not.
                 blocked.append("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED")
                 if not feature_result.decision_ready:
@@ -429,7 +453,7 @@ class Handler(BaseHTTPRequestHandler):
                     blocked.append("MOTHER_AUDIT_WITNESS_FAILED")
                 if mother_result.decision == "NO_TRADE":
                     blocked.extend(mother_result.reason_codes)
-                final_decision = arbitration.decision if not blocked and mother_result.decision != "NO_TRADE" else "NO_TRADE"
+                final_decision = effective_decision if not blocked and mother_result.decision != "NO_TRADE" else "NO_TRADE"
                 payload = {
                     "status": "BLOCKED" if blocked or final_decision == "NO_TRADE" else "READY",
                     "agent_version": _SIGNAL_AGENT.VERSION,
@@ -474,6 +498,10 @@ class Handler(BaseHTTPRequestHandler):
                     "risk_state": result.risk.state,
                     "risk_reasons": list(result.risk.reason_codes),
                     "arbitration_decision": arbitration.decision,
+                    "news_context": news_brief.to_mother_payload(),
+                    "news_veto_applied": effective_decision != arbitration.decision,
+                    "news_decision": effective_decision,
+                    "news_veto_flags": list(news_brief.veto_flags),
                     "arbitration_conflict_class": arbitration.conflict_class,
                     "arbitration_reason_codes": list(arbitration.reason_codes),
                     "arbitration_audit_sha256": arbitration.audit_sha256,
