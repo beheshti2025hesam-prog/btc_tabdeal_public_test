@@ -29,6 +29,7 @@ def caps(**overrides):
         exact_payload_replay_only=True,
         registry_sha256="a" * 64,
         source_content_sha256="b" * 64,
+        review_revision="synthetic-test-only",
         status="VERIFIED",
     )
     values.update(overrides)
