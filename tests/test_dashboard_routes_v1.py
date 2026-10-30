@@ -171,8 +171,10 @@ class DashboardRouteTests(unittest.TestCase):
         for ui_symbol, source_symbol in (("ETHUSDT", "ETH_USDT"), ("SOLUSDT", "SOL_USDT")):
             batch = sample_batch(symbol=ui_symbol)
             features = SimpleNamespace(decision_ready=False, reason="INSUFFICIENT_CLOSED_CANDLES")
-            with patch("web.dashboard._SOURCE.fetch", return_value=batch) as fetch, \\
-                 patch("web.dashboard._FEATURES.build", return_value=features):
+            with (
+                patch("web.dashboard._SOURCE.fetch", return_value=batch) as fetch,
+                patch("web.dashboard._FEATURES.build", return_value=features),
+            ):
                 with urlopen(self.base + f"/api/candles?symbol={ui_symbol}&interval=15m") as response:
                     payload = json.loads(response.read())
             fetch.assert_called_once_with(symbol=ui_symbol, interval="15m", limit=240)
