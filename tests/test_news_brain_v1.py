@@ -4,7 +4,9 @@ import unittest
 from pathlib import Path
 from datetime import datetime, timezone
 
-from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain, NewsItem, fetch_rss, load_source_registry
+from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain, NewsItem, fetch_rss, load_source_registry, _RejectRedirects
+from urllib.error import HTTPError
+from unittest.mock import patch
 
 NOW = datetime(2026, 10, 23, 12, 0, tzinfo=timezone.utc)
 
@@ -147,6 +149,15 @@ class NewsBrainTests(unittest.TestCase):
             path.write_text(json.dumps(bad_registry), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "before qualification"):
                 load_source_registry(path)
+
+    def test_feed_redirects_are_rejected(self):
+        class RedirectingOpener:
+            def open(self, request, timeout):
+                raise HTTPError(request.full_url, 302, "redirect", {}, None)
+        with patch("core.market_intelligence.news_brain.build_opener", return_value=RedirectingOpener()) as builder:
+            with self.assertRaisesRegex(ValueError, "news source unavailable: HTTPError"):
+                fetch_rss("https://example.test/feed", source="test")
+            self.assertTrue(any(isinstance(handler, _RejectRedirects) for handler in builder.call_args.args))
 
     def test_non_https_feed_rejected_before_network(self):
         with self.assertRaisesRegex(ValueError, "HTTPS"):
