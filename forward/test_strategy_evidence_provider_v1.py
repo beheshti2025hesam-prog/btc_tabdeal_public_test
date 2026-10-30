@@ -60,8 +60,8 @@ def test_mfi14_and_adx14_return_finite_values_from_closed_ohlcv():
 
 def test_provider_emits_six_provenance_bound_checks_and_separate_risk_context():
     now = 1_800_000_000_000
-    fifteen = make_batch("15m", now, digest="a")
-    four_hour = make_batch("4h", now, digest="b")
+    fifteen = make_batch("15m", now, venue="gateio", digest="a")
+    four_hour = make_batch("4h", now, venue="gateio", digest="b")
     result = StrategyEvidenceProviderV1().evaluate(
         candles_15m=fifteen, candles_4h=four_hour, now_ms=now
     )
@@ -104,14 +104,14 @@ def test_provider_accepts_gateio_spot_base_quote_evidence_without_fabricated_flo
 
 def test_provider_fails_closed_on_source_gaps():
     now = 1_800_000_000_000
-    fifteen = make_batch("15m", now, digest="a")
+    fifteen = make_batch("15m", now, venue="gateio", digest="a")
     gap = CandleGap(
         expected_open_time_ms=fifteen.candles[-1].open_time_ms,
         next_observed_open_time_ms=fifteen.candles[-1].open_time_ms + 2 * INTERVAL_MS["15m"],
         missing_intervals=1,
     )
     fifteen = replace(fifteen, gaps=(gap,))
-    four_hour = make_batch("4h", now, digest="b")
+    four_hour = make_batch("4h", now, venue="gateio", digest="b")
     result = StrategyEvidenceProviderV1().evaluate(
         candles_15m=fifteen, candles_4h=four_hour, now_ms=now
     )
@@ -122,8 +122,8 @@ def test_provider_fails_closed_on_source_gaps():
 
 def test_provider_fails_closed_on_stale_candles():
     now = 1_800_000_000_000
-    fifteen = make_batch("15m", now, digest="a")
-    four_hour = make_batch("4h", now, digest="b")
+    fifteen = make_batch("15m", now, venue="gateio", digest="a")
+    four_hour = make_batch("4h", now, venue="gateio", digest="b")
     result = StrategyEvidenceProviderV1().evaluate(
         candles_15m=fifteen, candles_4h=four_hour, now_ms=now + 10 * 60 * 60 * 1000
     )
@@ -143,8 +143,8 @@ def test_provider_rejects_wrong_market_or_symbol_scope():
 
 def test_provider_rejects_wrong_timeframe_pair():
     now = 1_800_000_000_000
-    fifteen = make_batch("15m", now, digest="a")
-    wrong = make_batch("1h", now, digest="b")
+    fifteen = make_batch("15m", now, venue="gateio", digest="a")
+    wrong = make_batch("1h", now, venue="gateio", digest="b")
     with pytest.raises(ValueError, match="requires 15m and 4h"):
         StrategyEvidenceProviderV1().evaluate(
             candles_15m=fifteen, candles_4h=wrong, now_ms=now
@@ -192,18 +192,16 @@ def test_mfi14_known_monotonic_flow_edges():
     assert adx[1] > adx[2]
 
 
-def test_provider_reuses_same_logic_for_an_explicitly_approved_spot_symbol():
+def test_provider_rejects_noncanonical_spot_symbol_even_when_scope_is_requested():
     now = 1_800_000_000_000
-    fifteen = make_batch("15m", now, symbol="ETHUSDT", digest="d")
-    four_hour = make_batch("4h", now, symbol="ETHUSDT", digest="e")
-    provider = StrategyEvidenceProviderV1(allowed_scopes=(("binance", "spot", "ETHUSDT"),))
-    result = provider.evaluate(candles_15m=fifteen, candles_4h=four_hour, now_ms=now)
-    assert result.symbol == "ETHUSDT"
-    assert len(result.strategy_checks) == 6
+    fifteen = make_batch("15m", now, venue="gateio", symbol="ETHUSDT", digest="d")
+    four_hour = make_batch("4h", now, venue="gateio", symbol="ETHUSDT", digest="e")
+    with pytest.raises(ValueError, match="unsupported scope"):
+        StrategyEvidenceProviderV1(allowed_scopes=(("gateio", "spot", "ETHUSDT"),))
 
 
-def test_provider_does_not_allow_unverified_non_binance_volume_profiles():
-    with pytest.raises(ValueError, match="source-specific provider"):
+def test_provider_rejects_unreviewed_non_gateio_venue_scope():
+    with pytest.raises(ValueError, match="unsupported scope"):
         StrategyEvidenceProviderV1(allowed_scopes=(("wallex", "spot", "BTCUSDT"),))
 
 
