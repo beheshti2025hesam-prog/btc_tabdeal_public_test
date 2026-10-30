@@ -240,6 +240,8 @@ class SequenceSemanticsRegistryV1:
                     raise SequenceSemanticsError("VERIFIED_RECORD_REVIEW_REVISION_MISSING")
                 if not isinstance(evidence.get("url"), str) or not evidence["url"].startswith("https://"):
                     raise SequenceSemanticsError("VERIFIED_RECORD_PRIMARY_URL_MISSING")
+                if not isinstance(record.get("normalized_field_path"), str) or not record["normalized_field_path"].strip():
+                    raise SequenceSemanticsError("VERIFIED_RECORD_NORMALIZED_FIELD_PATH_MISSING")
                 if record.get("semantic_class") == "ORDERED_EVENT_SEQUENCE" and claims.get("ordered") is not True:
                     raise SequenceSemanticsError("VERIFIED_ORDERED_SEQUENCE_CLAIM_MISSING")
                 if capabilities.get("event_identity") is True and claims.get("unique") is not True:
@@ -297,7 +299,7 @@ class SequenceSemanticsRegistryV1:
             record_id=record_id,
             contract_key=tuple(sorted(expected_key.items())),
             semantic_class=record["semantic_class"],
-            field_path=record["key"]["field_path"],
+            field_path=record.get("normalized_field_path", record["key"]["field_path"]),
             scope=tuple(record.get("scope", ())),
             ordered=record.get("claims", {}).get("ordered") is True,
             event_identity=caps.get("event_identity") is True,
