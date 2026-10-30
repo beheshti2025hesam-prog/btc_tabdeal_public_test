@@ -215,6 +215,16 @@ class SequenceSemanticsRegistryV1:
                     raise SequenceSemanticsError("VERIFIED_RECORD_PRIMARY_SOURCE_REQUIRED")
                 if not isinstance(record.get("independent_review_revision"), str) or not record["independent_review_revision"].strip():
                     raise SequenceSemanticsError("VERIFIED_RECORD_REVIEW_REVISION_MISSING")
+                if not isinstance(evidence.get("url"), str) or not evidence["url"].startswith("https://"):
+                    raise SequenceSemanticsError("VERIFIED_RECORD_PRIMARY_URL_MISSING")
+                if record.get("semantic_class") == "ORDERED_EVENT_SEQUENCE" and claims.get("ordered") is not True:
+                    raise SequenceSemanticsError("VERIFIED_ORDERED_SEQUENCE_CLAIM_MISSING")
+                if capabilities.get("event_identity") is True and claims.get("unique") is not True:
+                    raise SequenceSemanticsError("EVENT_IDENTITY_REQUIRES_UNIQUENESS_CLAIM")
+                if capabilities.get("contiguous_gap_detection") is True and claims.get("contiguous") is not True:
+                    raise SequenceSemanticsError("GAP_DETECTION_REQUIRES_CONTIGUITY_CLAIM")
+                if capabilities.get("book_update_range") is True and record.get("semantic_class") != "BOOK_UPDATE_RANGE":
+                    raise SequenceSemanticsError("BOOK_RANGE_CAPABILITY_SCOPE_INVALID")
             self._records[record_id] = record
 
     @classmethod
