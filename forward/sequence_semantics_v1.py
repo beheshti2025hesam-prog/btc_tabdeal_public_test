@@ -27,6 +27,7 @@ def _sha256(value: object) -> bool:
 @dataclass(frozen=True)
 class SequenceCapabilitiesV1:
     record_id: str
+    contract_key: tuple[tuple[str, str], ...]
     semantic_class: str
     field_path: str
     scope: tuple[str, ...]
@@ -47,7 +48,7 @@ class SequenceCapabilitiesV1:
             self.status == "VERIFIED"
             and _sha256(self.registry_sha256)
             and _sha256(self.source_content_sha256)
-            and bool(self.record_id and self.field_path and self.scope and self.review_revision)
+            and bool(self.record_id and self.contract_key and self.field_path and self.scope and self.review_revision)
         )
 
     @property
@@ -96,6 +97,8 @@ class SequenceIntegrityV2:
             return SequenceEventV2(None, "BLOCKED", "SEQUENCE_SEMANTICS_UNVERIFIED")
         if not isinstance(record, dict):
             return SequenceEventV2(None, "BLOCKED", "SEQUENCE_RECORD_INVALID")
+        if record.get("sequence_contract_key") != dict(caps.contract_key):
+            return SequenceEventV2(None, "BLOCKED", "SEQUENCE_CONTRACT_KEY_MISMATCH")
 
         scope_values: list[tuple[str, str]] = []
         for field_name in caps.scope:
@@ -292,6 +295,7 @@ class SequenceSemanticsRegistryV1:
             raise SequenceSemanticsError("SEQUENCE_FIELD_IS_NOT_SCALAR_ORDERED_SEQUENCE")
         return SequenceCapabilitiesV1(
             record_id=record_id,
+            contract_key=tuple(sorted(expected_key.items())),
             semantic_class=record["semantic_class"],
             field_path=record["key"]["field_path"],
             scope=tuple(record.get("scope", ())),
