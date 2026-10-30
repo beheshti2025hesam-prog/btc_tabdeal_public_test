@@ -27,12 +27,19 @@ class NewsDecisionGateTests(unittest.TestCase):
 
     def test_clean_context_only_brief_preserves_decision(self):
         brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        object.__setattr__(brief, "provenance", {**brief.provenance, "source_profile_status": "qualified_complete"})
         self.assertEqual(brief.suggested_action, "CONTEXT_ONLY")
         self.assertEqual(apply_news_veto(self.long, brief), self.long)
 
     def test_disabled_source_coverage_vetoes_directional_decision(self):
         brief = self.brain.run_from_registry(
             "config/news_sources_v1.json", MarketContext("iran_equities", "TSE", "unknown"), now=NOW)
+        result = apply_news_veto(self.long, brief)
+        self.assertEqual(result.decision, "NO_TRADE")
+        self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", result.reason_codes)
+
+    def test_unknown_source_profile_fails_closed(self):
+        brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         result = apply_news_veto(self.long, brief)
         self.assertEqual(result.decision, "NO_TRADE")
         self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", result.reason_codes)
