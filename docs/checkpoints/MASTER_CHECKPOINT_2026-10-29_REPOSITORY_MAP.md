@@ -58,3 +58,46 @@ The README was fetched from the default branch. The checkpoint is intentionally 
 - Issue #393 / PR #394 is the existing strategy-evidence fix candidate. Reuse the existing StrategyEvidenceProvider and feature/confirmation/risk modules; do not create a parallel strategy engine. Gate.io base/quote volume may be used according to documented semantics; trade count and taker-buy flow remain UNKNOWN/unavailable and must never be fabricated or treated as passing.
 - PR #394 remains candidate-only until exact-head CI, independent structure/confirmation and risk approvals, execution instrument mapping, and native Gate.io dashboard stream evidence are independently checked.
 - Current release posture remains `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`. No merge, deployment, live order, or threshold tuning is authorized by this checkpoint.
+
+
+## Master checkpoint refresh — 2026-10-30 (verified live state)
+
+**Disposition: PARTIAL / HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. Delivery target remains 2026-11-19.** This update records read-only checks and a refresh of existing reports; it does not authorize merge, deployment, service restart, policy mutation, or trading.
+
+### Canonical architecture lock
+- Gate.io public Spot `BTC_USDT` is the sole canonical source for market data, closed candles, chart, and analysis/indicator input. Existing persisted feed + `global_market_data_reader_v1` remain the path.
+- Execution venue adapters are separate and limited to order submission/status once separately approved. Do not use execution-venue candles for analysis, mix source batches, or reconstruct candle data from trade sequence IDs.
+- Reuse the existing dashboard, reader, feature pipeline, validators, journal, and learning loop. No parallel frontend or duplicate engine.
+
+### Live verification — 2026-10-30 06:05 UTC
+- Sole reachable VPS: SentinelX ping/state OK. Checkout `/opt/hes-trade-agent`, branch `feat/gateio-global-market-data-v1`, HEAD `060d0d36ae6140a03d9a74495bb3899637ed3827`.
+- Working tree has 130 short-status entries, including tracked deletions and untracked files. Preserve the dirty tree; do not reset, clean, checkout, overwrite, or bulk-stage/commit. This is not a clean approved release SHA.
+- Gate.io 15m/1h/4h feeds, read-only dashboard, strategy learning loop, and paper evaluator are active. Dashboard health HTTP 200; 240 candles; chart and signal use identical batch SHA-256 `6b3de9c20ade59c06e53a73a1713485ca21e11573d6216dc3688deb3cdcc7353`; latest closed candle age about 330 seconds at check.
+- Existing frontend/data contract gate: 15/15 PASS. Static assets and candle/signal APIs respond; POST `/api/signal` returns 405. Signal remains `NO_TRADE`; `execution_enabled=false`; `execution_instrument_mapping_verified=false`. This is HTTP/API verification, not fresh browser pixel parity or release approval.
+- Existing 24-hour decision report refreshed at `2026-10-30T06:05:29Z`: 96 `NO_TRADE` decisions. No orders and no policy mutation.
+- Matured 24–48h cohort: 96 decisions; 95 complete gap-free 24h horizons, one remains incomplete until exact boundary coverage; zero tracker boundary mismatches. At 24h, 2 avoided-loss hypotheses and 2 missed-profit hypotheses among 4 decisions with valid directional geometry; 91/95 decisions are unclassifiable because no valid frozen directional setup/risk geometry exists; 79 are large-move context only. These are gross counterfactual hypotheses, not causal proof or net profitability; cost model is unconfigured.
+- Learning report: zero gate-approved candidates and zero resolved eligible outcomes; win rate remains null/not calculable. Do not claim all no-trade decisions were correct or assign profit/loss savings.
+- Core services remained active after the check; no restart was needed.
+
+### Release blockers
+1. Strategy structure/confirmation and strategy-quality providers remain unapproved/unwired; fail-closed `NO_TRADE` is correct for the current unknown/unconfirmed state.
+2. Independent risk approval and executable venue instrument mapping remain unverified.
+3. Fresh browser render/pixel parity and full regression on one exact clean release SHA are still required.
+4. Reconcile dirty checkout and active runtime to one reviewed immutable release SHA without disturbing user files.
+5. Encrypted off-host backup/external alerting and remaining operational recovery/security gates remain open.
+6. The 24h Gate.io soak service is currently inactive; validate historical soak final-summary/hash lineage against the candidate/runtime before claiming the gate covers today's release.
+
+### Delivery controls
+- 2026-11-12: scope freeze and go/no-go.
+- 2026-11-16: release candidate only after exact-SHA tests, source/chart parity, soak/restart resilience, backup/rollback, security audit, and independent review pass.
+- 2026-11-19: target delivery, not permission to waive mandatory gates.
+
+### Next actions
+1. Preserve and inventory dirty/untracked file hashes; reconcile runtime and source lineage.
+2. Verify existing soak evidence and artifact hashes; if insufficient, use the existing Gate.io soak mechanism for one uninterrupted run and independent audit.
+3. Review overlapping PR ancestry/exact heads (#383/#387/#388 and #397) before any merge.
+4. Wire and test source-compatible Gate.io structure/strategy-quality evidence using existing modules.
+5. Complete independent risk approval and executable instrument mapping.
+6. Run full regression and real-browser render/pixel verification on one exact release SHA; document recovery and rollback.
+
+Safety invariants: `execution_enabled=false`, `orders_placed=false`, `policy_mutation_enabled=false`. GitHub is technical truth; this checkpoint is a review-branch document and is not yet default-branch state.
