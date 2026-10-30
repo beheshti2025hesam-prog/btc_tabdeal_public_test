@@ -45,7 +45,7 @@ def normalize_row(row: list[Any] | tuple[Any, ...], *, now: int | None = None) -
         quote_vol, close, high, low, open_, volume = (Decimal(str(x)) for x in row[1:7])
     except (ValueError, TypeError, InvalidOperation) as exc:
         raise ValueError('Invalid numeric candle field') from exc
-    if ts < 0 or min(open_, high, low, close, volume, quote_vol) < 0:
+    if ts < 0 or min(open_, high, low, close) <= 0 or min(volume, quote_vol) < 0:
         raise ValueError('Negative timestamp, price, or volume')
     if high < max(open_, close, low) or low > min(open_, close, high):
         raise ValueError('Inconsistent OHLC bounds')
@@ -179,7 +179,7 @@ def normalize_ws_message(message: dict[str, Any], *, now: int | None = None) -> 
     if message.get('channel') != 'spot.candlesticks' or message.get('event') != 'update':
         return None
     result = message.get('result')
-    if not isinstance(result, dict) or result.get('n') not in (f'{INTERVAL}_{SYMBOL}', INTERVAL):
+    if not isinstance(result, dict) or result.get('n') != f'{INTERVAL}_{SYMBOL}':
         return None
     # Gate WS: v=quote volume, a=base volume; n is "<interval>_<pair>".
     row = [result.get('t'), result.get('v', '0'), result.get('c'), result.get('h'),
