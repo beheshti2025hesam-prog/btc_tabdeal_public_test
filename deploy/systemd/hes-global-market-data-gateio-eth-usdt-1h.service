@@ -1,0 +1,27 @@
+[Unit]
+Description=HES Global Market Data - Gate.io ETH_USDT 1h Candle Feed
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent
+Environment=PYTHONUNBUFFERED=1
+Environment=HES_GLOBAL_CANDLES_SYMBOL=ETH_USDT
+Environment=HES_GLOBAL_CANDLES_INTERVAL=1h
+Environment=HES_GLOBAL_CANDLES_OUTPUT=/opt/hes-trade-agent/data/forward/global_market_candles_ETH_USDT_1h_v1.jsonl
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/scripts/run_global_market_data_gateio_service.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/hes-trade-agent/data/forward
+
+[Install]
+WantedBy=multi-user.target
