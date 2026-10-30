@@ -45,11 +45,25 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         raise MarketDataRejected("CANDLE_FILE_MISSING")
     records=[]
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
+        with path.open('rb') as handle:
+            handle.seek(0, 2)
+            position = handle.tell()
+            chunks = []
+            data = b''
+            while position > 0 and data.count(bytes([10])) <= 5000:
+                size = min(64 * 1024, position)
+                position -= size
+                handle.seek(position)
+                chunks.insert(0, handle.read(size))
+                data = b''.join(chunks)
+        lines = data.splitlines()
+        if position > 0 and lines:
+            lines = lines[1:]
+        for line in lines[-5000:]:
             if line.strip():
                 records.append(json.loads(line))
     except (OSError, json.JSONDecodeError) as exc:
-        raise MarketDataRejected("CANDLE_FILE_UNREADABLE") from exc
+        raise MarketDataRejected('CANDLE_FILE_UNREADABLE') from exc
     if len(records) < min_bars:
         raise MarketDataRejected("INSUFFICIENT_CLOSED_CANDLES")
     previous=None
