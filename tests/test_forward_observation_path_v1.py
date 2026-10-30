@@ -41,7 +41,7 @@ def test_open_candle_is_not_observed(tmp_path):
     as_of=datetime(2026,10,7,12,10,tzinfo=timezone.utc)
     frames=[frame(1,as_of-timedelta(minutes=2),100),
             frame(2,as_of-timedelta(minutes=1),101)]
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl", sequence_capabilities=CAPS).observe(
         frames,as_of=as_of,forward_run_id="OBS-E2E-OPEN")
     assert result.status=="WAITING"
     assert result.reason=="INSUFFICIENT_CLOSED_CANDLES"
@@ -87,7 +87,7 @@ def test_adjacent_pair_structure_context_matches_prefix_semantics():
 
 def test_path_blocks_unknown_sequence_semantics_before_parsing_or_journal(tmp_path):
     as_of=datetime(2026,10,7,12,31,tzinfo=timezone.utc)
-    result=ForwardObservationPathV1(tmp_path/"observations.jsonl").observe(
+    result=ForwardObservationPathV1(tmp_path/"observations.jsonl", sequence_capabilities=CAPS).observe(
         [frame(1,as_of-timedelta(minutes=30),100)],as_of=as_of,forward_run_id="OBS-UNKNOWN-SEQ")
     assert result.status=="BLOCKED"
     assert result.reason=="SEQUENCE_SEMANTICS_UNVERIFIED"
