@@ -86,6 +86,9 @@ _MOTHER_ORCHESTRATOR = MotherOrchestratorV1(precomputed_specialists_v1())
 _MOTHER_WITNESS = MotherAuditWitnessV1()
 _NEWS_BRAIN = NewsIntelligenceBrain()
 _NEWS_REGISTRY = PROJECT_ROOT / "config" / "news_sources_v1.json"
+_NEWS_CACHE_LOCK = Lock()
+_NEWS_CACHE = {}
+_NEWS_CACHE_TTL_SECONDS = 60
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
@@ -137,6 +140,19 @@ def _stream_worker():
                               reconcile_history=_stream_reconcile, stop_event=_STREAM_STOP)
     except Exception as exc:
         _STREAM_STATE.update(status="blocked", reason=type(exc).__name__)
+
+def _get_news_brief(context):
+    key = (context.market, context.symbol, context.regime, context.timeframe, context.venue)
+    now = time.monotonic()
+    with _NEWS_CACHE_LOCK:
+        cached = _NEWS_CACHE.get(key)
+        if cached and now - cached[0] <= _NEWS_CACHE_TTL_SECONDS:
+            return cached[1]
+    brief = _NEWS_BRAIN.run_from_registry(_NEWS_REGISTRY, context)
+    with _NEWS_CACHE_LOCK:
+        _NEWS_CACHE[key] = (time.monotonic(), brief)
+    return brief
+
 
 def _get_batch(symbol, interval):
     now_ms = int(time.time() * 1000)
@@ -357,8 +373,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 # Reuse the existing free-first news brain. News is metadata/veto
                 # only; it cannot create a direction or bypass confirmation/risk.
-                news_brief = _NEWS_BRAIN.run_from_registry(
-                    _NEWS_REGISTRY,
+                news_brief = _get_news_brief(
                     MarketContext(
                         market="crypto", symbol=batch.symbol, regime=strategy.regime or "unknown",
                         timeframe=batch.interval, observed_at=observed_at.isoformat(), venue=batch.venue,
