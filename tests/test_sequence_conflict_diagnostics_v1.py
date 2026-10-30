@@ -160,8 +160,7 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
         transport_factory=MetadataOverflowTransport,
         ws_factory=object,
         max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        sequence_registry=verified_tabdeal_test_registry(),
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
