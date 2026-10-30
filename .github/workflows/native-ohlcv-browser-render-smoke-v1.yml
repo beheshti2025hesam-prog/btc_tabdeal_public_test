@@ -30,6 +30,7 @@ jobs:
       - name: Prepare persisted global-feed data for browser smoke
         env:
           CI: "true"
+          PYTHONPATH: .
           HES_DASHBOARD_SMOKE_FIXTURE: "1"
         run: python scripts/prepare_gateio_dashboard_smoke_data.py
       - name: Start read-only dashboard
