@@ -26,13 +26,16 @@ def atomic_switch(link: Path, target: Path) -> None:
 
 
 class DashboardReleaseRollbackTests(unittest.TestCase):
-    def test_service_template_is_loopback_only_read_only_and_fail_closed(self):
+    def test_service_template_is_loopback_only_and_grants_only_narrow_journal_write(self):
         unit = (Path(__file__).resolve().parents[1] / "deploy/systemd/hes-readonly-dashboard.service").read_text(encoding="utf-8")
         for required in (
             "User=sentinelx",
             "WorkingDirectory=/opt/hes-trade-agent/current",
             "Environment=HES_DASHBOARD_HOST=127.0.0.1",
             "Environment=HES_DASHBOARD_PORT=8765",
+            "Environment=HES_TRADE_JOURNAL_PATH=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl",
+            "ConditionPathExists=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl",
+            "ConditionPathExists=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl.lock",
             "ExecStart=/opt/hes-trade-agent/.venv/bin/python -m web.dashboard",
             "NoNewPrivileges=true",
             "PrivateTmp=true",
@@ -40,9 +43,12 @@ class DashboardReleaseRollbackTests(unittest.TestCase):
             "ProtectHome=true",
             "MemoryDenyWriteExecute=true",
             "Restart=on-failure",
+            "ReadOnlyPaths=/opt/hes-trade-agent/releases /opt/hes-trade-agent/data/forward",
+            "ReadWritePaths=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl /opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl.lock",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, unit)
+        self.assertNotIn("ReadWritePaths=/opt/hes-trade-agent/data/forward\n", unit)
         self.assertNotIn("HES_BINANCE_STREAM_ENABLED=1", unit)
         self.assertNotIn("order", unit.lower().split("execstart", 1)[-1])
 
