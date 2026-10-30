@@ -189,3 +189,29 @@ def test_reviewed_but_unpinned_or_non_scalar_records_never_resolve(record_id):
     record = registry.inspect(record_id)
     with pytest.raises(SequenceSemanticsError):
         registry.resolve(record_id, expected_key=record["key"])
+
+
+def test_registry_rejects_duplicate_exact_scope_keys(tmp_path):
+    payload = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+    duplicate = json.loads(json.dumps(payload["records"][0]))
+    duplicate["record_id"] = "duplicate-record-id"
+    payload["records"].append(duplicate)
+    raw = json.dumps(payload).encode()
+    path = tmp_path / "duplicate.json"
+    path.write_bytes(raw)
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_REGISTRY_DUPLICATE_SCOPE_KEY"):
+        SequenceSemanticsRegistryV1.load(
+            path, expected_sha256=hashlib.sha256(raw).hexdigest()
+        )
+
+
+def test_registry_rejects_string_booleans_in_capability_flags(tmp_path):
+    payload = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+    payload["records"][0]["capabilities"]["event_identity"] = "false"
+    raw = json.dumps(payload).encode()
+    path = tmp_path / "string-bool.json"
+    path.write_bytes(raw)
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_REGISTRY_CAPABILITY_TYPE_INVALID"):
+        SequenceSemanticsRegistryV1.load(
+            path, expected_sha256=hashlib.sha256(raw).hexdigest()
+        )
