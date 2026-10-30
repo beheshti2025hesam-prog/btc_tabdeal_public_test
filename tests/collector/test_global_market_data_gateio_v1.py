@@ -112,6 +112,14 @@ class GateFeedTests(unittest.TestCase):
   saved={900:{}, 900 + 1002*900:{}}
   self.assertEqual(m._missing_candle_ranges(saved),[(1800,900+1000*900),(900+1001*900,900+1001*900)])
 
+ def test_bootstrap_fetches_history_once_then_uses_delta(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'candles.jsonl'
+   self.assertEqual(m._initial_rest_limit(path),m.MAX_REST_CANDLE_POINTS)
+   rows=[m.normalize_row([str(i*900),'2','12','13','10','11','1'],now=i*900+900) for i in range(200)]
+   m._append_new(rows,-1,path)
+   self.assertEqual(m._initial_rest_limit(path),m.REST_RECONCILE_LIMIT)
+
  def test_recent_rest_reconciliation_uses_small_limit(self):
   class Response:
    def raise_for_status(self): pass
