@@ -34,6 +34,13 @@ class ReaderTests(unittest.TestCase):
   self.assertFalse(next(x for x in registry["instruments"] if x["symbol"]=="ETH_USDT")["analysis_enabled"])
   self.assertFalse(next(x for x in registry["instruments"] if x["symbol"]=="SOL_USDT")["analysis_enabled"])
 
+ def test_non_crypto_profiles_stay_disabled_without_provider(self):
+  profiles=json.loads((Path(__file__).resolve().parents[2]/"config/market_asset_profiles_v1.json").read_text())
+  for market in ("fx", "us_equities", "iran_equities", "commodities"):
+   self.assertEqual(profiles["profiles"][market]["status"], "disabled_unqualified")
+   self.assertIsNone(profiles["profiles"][market]["data_provider"])
+   self.assertFalse(profiles["profiles"][market]["execution_enabled"])
+
  def test_reject_unsupported_symbol(self):
   with tempfile.TemporaryDirectory() as d:
    with self.assertRaisesRegex(MarketDataRejected,"UNSUPPORTED_SYMBOL"):
