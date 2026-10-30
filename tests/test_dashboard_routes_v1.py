@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 import web.dashboard as dashboard
+from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
 from forward.confirmation_engine_v1 import ConfirmationCheck
 from forward.risk_gate_v1 import RiskCheck
 from forward.strategy_policy_v1 import REQUIRED_CHECKS, StrategyEvidenceCheckV1
@@ -48,6 +49,8 @@ class DashboardRouteTests(unittest.TestCase):
     def setUp(self):
         with dashboard._CACHE_LOCK:
             dashboard._CACHE.clear()
+        with dashboard._NEWS_CACHE_LOCK:
+            dashboard._NEWS_CACHE.clear()
 
     @classmethod
     def setUpClass(cls):
@@ -273,9 +276,14 @@ class DashboardRouteTests(unittest.TestCase):
             return (batch if interval == "15m" else htf_batch, features)
         with tempfile.TemporaryDirectory() as tempdir:
             journal_path = os.path.join(tempdir, "decisions.jsonl")
+            news_brief = NewsIntelligenceBrain().analyze(
+                [], MarketContext("crypto", "BTCUSDT", "unknown", "15m", observed_at.isoformat(), "gateio"),
+                now=observed_at,
+            )
             with patch.dict(os.environ, {"HES_TRADE_JOURNAL_PATH": journal_path}), \
                  patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
-                 patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider:
+                 patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider, \
+                 patch("web.dashboard._NEWS_BRAIN.run_from_registry", return_value=news_brief) as news_provider:
                 with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
                     payload = json.loads(response.read())
             self.assertEqual(batch_reader.call_count, 2)
@@ -288,6 +296,8 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertEqual(payload["decision"], "NO_TRADE")
             self.assertEqual(payload["source"], "gateio_public_spot")
             self.assertEqual(payload["source_reader"], "global_market_data_reader_v1")
+            self.assertEqual(payload["news_context"]["schema_version"], "hes.news_brief.v1")
+            self.assertTrue(news_provider.called)
             self.assertEqual(payload["input_batch_sha256"], "a" * 64)
             self.assertEqual(payload["strategy_15m_batch_sha256"], "a" * 64)
             self.assertEqual(payload["strategy_4h_batch_sha256"], "a" * 64)
