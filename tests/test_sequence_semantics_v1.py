@@ -18,6 +18,7 @@ REGISTRY_PATH = ROOT / "forward" / "sequence_semantics_registry_v1.json"
 def caps(**overrides):
     values = dict(
         record_id="test:ordered",
+        contract_key=tuple(sorted({"venue":"test","product":"spot","endpoint":"wss://test.invalid","channel":"trade","message_type":"trade","field_path":"sequence","protocol_version":"v1"}.items())),
         semantic_class="ORDERED_EVENT_SEQUENCE",
         field_path="sequence",
         scope=("venue", "product", "channel", "symbol", "session_id"),
@@ -40,6 +41,10 @@ def rec(sequence, *, price="100", session="s1", raw_hash=None):
     value = {
         "venue": "test",
         "product": "spot",
+        "endpoint": "wss://test.invalid",
+        "message_type": "trade",
+        "protocol_version": "v1",
+        "sequence_contract_key": {"venue":"test","product":"spot","endpoint":"wss://test.invalid","channel":"trade","message_type":"trade","field_path":"sequence","protocol_version":"v1"},
         "channel": "trade",
         "symbol": "BTCUSDT",
         "session_id": session,
