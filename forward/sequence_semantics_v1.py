@@ -165,12 +165,12 @@ class SequenceIntegrityV2:
         self._count = 0
 
 
-DEFAULT_REGISTRY_SHA256 = "4e39ddd20a2729e4fdddc8c53f785b49d0269714210c9b5af14ab32184b76385"
+DEFAULT_REGISTRY_SHA256 = "e428727fb0cdcb1a18968ae82a46ef33c619cbe81bc51a6bf746adccebd700c6"
 DEFAULT_TABDEAL_TRADE_RECORD_ID = "tabdeal_fapi_broadcast_trade_sequence_v1"
 TABDEAL_TRADE_SEQUENCE_KEY = {
     "venue": "tabdeal",
     "product": "fapi_margin",
-    "endpoint": "wss://api.tabdeal.org/special_margin/broadcast/",
+    "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
     "channel": "raw_text_symbol_subscription",
     "message_type": "trade_envelope",
     "field_path": "trade.sequence",
