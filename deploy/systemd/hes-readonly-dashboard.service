@@ -1,9 +1,11 @@
 [Unit]
 Description=HES Trade Agent read-only persisted-feed dashboard
-Documentation=https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/388
+Documentation=https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/394
 After=network-online.target hes-global-market-data-gateio.service
 Wants=network-online.target
 ConditionPathExists=/opt/hes-trade-agent/current/web/dashboard.py
+ConditionPathExists=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl
+ConditionPathExists=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl.lock
 
 [Service]
 Type=simple
@@ -14,6 +16,7 @@ Environment=PYTHONPATH=/opt/hes-trade-agent/current
 Environment=HES_DASHBOARD_HOST=127.0.0.1
 Environment=HES_DASHBOARD_PORT=8765
 Environment=HES_DASHBOARD_ACCESS_LOG=0
+Environment=HES_TRADE_JOURNAL_PATH=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl
 ExecStart=/opt/hes-trade-agent/.venv/bin/python -m web.dashboard
 Restart=on-failure
 RestartSec=5
@@ -38,6 +41,9 @@ RestrictRealtime=true
 SystemCallArchitectures=native
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 ReadOnlyPaths=/opt/hes-trade-agent/releases /opt/hes-trade-agent/data/forward
+# Narrow write exceptions: only the existing canonical append-only decision journal
+# and its pre-created flock file. Do not grant write access to reports or market data.
+ReadWritePaths=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl /opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl.lock
 
 [Install]
 WantedBy=multi-user.target
