@@ -1,8 +1,8 @@
-"""Bridge Signal Agent decisions into the existing forward-evidence journal.
+"""Signal Agent adapter to the canonical HES trade journal.
 
-Realized outcomes remain separate immutable JSON artifacts consumed by the
-existing build_report_from_forward_evidence reader. This module does not invent
-an outcome format, infer results, tune policy, or authorize execution.
+This deliberately reuses ForwardJournalV1 and trade_journal_v2.jsonl, which
+are already consumed by the paper evaluator and strategy_learning_loop_v1.
+It does not create a second journal, outcome ledger, or learning loop.
 """
 from __future__ import annotations
 
@@ -12,12 +12,7 @@ import json
 from pathlib import Path
 from typing import Iterable
 
-from .forward_observation_writer_v1 import (
-    ForwardObservationWriterV1,
-    observation_digest,
-)
-from .learning_loop_v1 import ForwardEvidenceRun, build_report_from_forward_evidence
-from .runtime_guard_v1 import RuntimeContext
+from .forward_journal_v1 import ForwardJournalV1
 
 
 @dataclass(frozen=True)
@@ -25,6 +20,12 @@ class JournalWriteResult:
     status: str
     event_id: str
     digest: str
+
+
+def _digest(record: dict) -> str:
+    return sha256(json.dumps(
+        record, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    ).encode("utf-8")).hexdigest()
 
 
 def record_signal_decision(
@@ -44,23 +45,33 @@ def record_signal_decision(
     market_regime: str,
     rejected_at: str,
     reason_codes: Iterable[str],
+    direction: str = "NONE",
+    signal_state: str = "UNKNOWN",
+    confirmation_state: str = "UNKNOWN",
+    risk_state: str = "UNKNOWN",
+    entry: str | None = None,
+    stop_loss: str | None = None,
+    take_profit: str | None = None,
+    rr: float | None = None,
+    quality_score: float | None = None,
 ) -> JournalWriteResult:
-    """Persist an idempotent, immutable decision observation with no outcome."""
-    if not isinstance(decision, str) or decision not in {"LONG", "SHORT", "NO_TRADE"}:
+    """Append one immutable Signal Agent decision to the existing journal."""
+    if decision not in {"LONG", "SHORT", "NO_TRADE"}:
         raise ValueError("invalid_decision")
     for name, value in (
         ("observed_at", observed_at), ("symbol", symbol), ("timeframe", timeframe),
         ("source", source), ("product", product), ("policy_version", policy_version),
         ("status", status), ("market_regime", market_regime),
+        ("signal_state", signal_state), ("confirmation_state", confirmation_state),
+        ("risk_state", risk_state),
     ):
         if not isinstance(value, str) or not value.strip():
             raise ValueError("invalid_" + name)
+    if direction not in {"LONG", "SHORT", "NONE", "UNKNOWN"}:
+        raise ValueError("invalid_direction")
     if not isinstance(rejected_at, str):
         raise ValueError("invalid_rejected_at")
-    for name, value in (
-        ("response_sha256", response_sha256),
-        ("htf_response_sha256", htf_response_sha256),
-    ):
+    for name, value in (("response_sha256", response_sha256), ("htf_response_sha256", htf_response_sha256)):
         if not isinstance(value, str) or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
             raise ValueError("invalid_" + name)
     if strategy_evidence_sha256 is not None and (
@@ -73,89 +84,73 @@ def record_signal_decision(
     reasons = list(reason_codes)
     if any(not isinstance(reason, str) or not reason.strip() for reason in reasons):
         raise ValueError("invalid_reason_codes")
+    for name, value in (("entry", entry), ("stop_loss", stop_loss), ("take_profit", take_profit)):
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise ValueError("invalid_" + name)
 
-    # Identity is based on immutable inputs and policy version, not the output.
-    # A changed decision for identical evidence is a conflict, never a new sample.
-    # Polling the same immutable candle batches must not create a new event every
-    # refresh. Identity is source/scope/policy based; observed_at and the provider's
-    # volatile evidence digest are retained in the first record but not in its key.
+    # Identity is bound to the exact persisted source batches and policy version.
+    # Re-polling the same closed-candle evidence cannot create duplicate decisions.
     identity = {
-        "symbol": symbol, "timeframe": timeframe,
-        "source": source, "product": product, "response_sha256": response_sha256,
-        "htf_response_sha256": htf_response_sha256,
+        "symbol": symbol, "timeframe": timeframe, "source": source, "product": product,
+        "response_sha256": response_sha256, "htf_response_sha256": htf_response_sha256,
         "policy_version": policy_version,
     }
-    identity_sha = sha256(json.dumps(
-        identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
-    ).encode("utf-8")).hexdigest()
-    run_id = "signal-" + identity_sha
-    event_id = run_id + ":decision"
-    no_trade_reason = ";".join(reasons) if decision == "NO_TRADE" and reasons else (
-        "NO_TRADE_GATED" if decision == "NO_TRADE" else None
-    )
+    identity_sha = _digest(identity)
+    event_id = "hes-signal-" + identity_sha
     payload = {
         "event_id": event_id,
         "observed_at": observed_at,
         "symbol": symbol,
         "timeframe": timeframe,
-        "status": status,
-        "source": source,
-        "evidence_source": f"{source}:15m={response_sha256}:4h={htf_response_sha256}",
-        "product": product,
-        "artifact_kind": "SIGNAL_DECISION",
-        "decision": decision,
-        "no_trade_reason": no_trade_reason,
         "market_regime": market_regime,
-        "decision_gate": rejected_at or "SIGNAL_AGENT",
-        "rejected_at": rejected_at,
-        "reason_codes": reasons,
+        "direction": direction if direction in {"LONG", "SHORT"} else "NONE",
+        "signal_state": signal_state,
+        "confirmation_state": confirmation_state,
+        "risk_state": risk_state,
+        "decision": decision,
+        "entry": entry,
+        "stop_loss": stop_loss,
+        "take_profit": take_profit,
+        "rr": rr,
+        "quality_score": quality_score,
+        "no_trade_reason": "|".join(reasons) if decision == "NO_TRADE" and reasons else None,
+        "outcome": None,
+        "closed_at": None,
+        "evidence_source": source,
+        "source": source,
+        "product": product,
         "response_sha256": response_sha256,
         "htf_response_sha256": htf_response_sha256,
         "strategy_evidence_sha256": strategy_evidence_sha256,
         "policy_version": policy_version,
-        "source_period": "forward",
-        "population": "forward",
-        "execution": "OFF",
+        "decision_gate": rejected_at or "SIGNAL_AGENT",
+        "rejected_at": rejected_at,
+        "reason_codes": reasons,
+        "gate_reasons": reasons,
+        "execution_enabled": False,
+        "orders_placed": False,
     }
-    context = RuntimeContext(source=source, observed_at=observed_at, forward_run_id=run_id)
+    journal_path = Path(journal_path)
     try:
-        digest = ForwardObservationWriterV1(journal_path).append(payload, context=context)
-        return JournalWriteResult("RECORDED", event_id, digest)
+        ForwardJournalV1(journal_path).append_decision(payload)
+        return JournalWriteResult("RECORDED", event_id, _digest(payload))
     except ValueError as exc:
-        if "duplicate observation event_id" not in str(exc):
+        if str(exc) != "duplicate event_id":
             raise
-        expected_payload = {**payload, "artifact_type": "FORWARD_OBSERVATION", "artifact_version": "1.0"}
-        expected = observation_digest(expected_payload)
-        for line in Path(journal_path).read_text(encoding="utf-8").splitlines():
+        # The writer's lock makes duplicate detection atomic. Re-read the existing
+        # record and accept only an identical decision; changed decisions fail closed.
+        for line in journal_path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             existing = json.loads(line)
-            if existing.get("event_id") == event_id:
-                if existing.get("digest") == expected:
-                    return JournalWriteResult("ALREADY_RECORDED", event_id, expected)
-                # The evaluation timestamp/evidence digest may differ on a repeated
-                # poll even when the source batches and policy are identical. Treat
-                # that as the same observation only if every decision-relevant field
-                # is unchanged; any changed decision/gate/reason remains a conflict.
-                comparable_existing = dict(existing)
-                comparable_expected = dict(expected_payload)
-                for volatile in ("digest", "observed_at", "strategy_evidence_sha256"):
-                    comparable_existing.pop(volatile, None)
-                    comparable_expected.pop(volatile, None)
-                if comparable_existing == comparable_expected:
-                    return JournalWriteResult("ALREADY_RECORDED", event_id, existing.get("digest", expected))
-                raise ValueError("conflicting_duplicate_decision_event")
+            if existing.get("event_id") != event_id:
+                continue
+            comparable_existing = dict(existing)
+            comparable_expected = dict(payload)
+            for volatile in ("observed_at", "strategy_evidence_sha256"):
+                comparable_existing.pop(volatile, None)
+                comparable_expected.pop(volatile, None)
+            if comparable_existing == comparable_expected:
+                return JournalWriteResult("ALREADY_RECORDED", event_id, _digest(existing))
+            raise ValueError("conflicting_duplicate_decision_event") from exc
         raise
-
-
-def build_forward_learning_report(
-    journal_path: str | Path,
-    outcome_dir: str | Path,
-    *,
-    now=None,
-    min_group_size: int = 5,
-) -> ForwardEvidenceRun:
-    """Delegate to the existing strict reader and immutable outcome contract."""
-    return build_report_from_forward_evidence(
-        journal_path, outcome_dir, now=now, min_group_size=min_group_size
-    )
