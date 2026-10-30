@@ -58,6 +58,112 @@ class SequenceCapabilitiesV1:
         )
 
 
+@dataclass(frozen=True)
+class SequenceEventV2:
+    sequence: int | None
+    status: str
+    reason: str | None = None
+    diagnostic: dict[str, Any] | None = None
+
+
+class SequenceIntegrityV2:
+    """Apply only a verified scalar ordered-sequence contract.
+
+    Book ranges, timestamps, trade identifiers without ordering guarantees,
+    and opaque fields are intentionally rejected by this scalar state machine.
+    """
+
+    def __init__(self, capabilities: SequenceCapabilitiesV1 | None, *, max_records: int = 100_000):
+        if max_records <= 0:
+            raise ValueError("max_records must be positive")
+        self.capabilities = capabilities
+        self.max_records = max_records
+        self.last_sequence: int | None = None
+        self._scope: tuple[tuple[str, str], ...] | None = None
+        self._identity_hashes: dict[int, str] = {}
+        self._raw_hashes: set[str] = set()
+        self._count = 0
+
+    @staticmethod
+    def _digest(record: dict[str, Any]) -> str:
+        canonical = json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def observe(self, record: dict[str, Any]) -> SequenceEventV2:
+        caps = self.capabilities
+        if caps is None or not caps.supports_scalar_sequence_integrity:
+            return SequenceEventV2(None, "BLOCKED", "SEQUENCE_SEMANTICS_UNVERIFIED")
+        if not isinstance(record, dict):
+            return SequenceEventV2(None, "BLOCKED", "SEQUENCE_RECORD_INVALID")
+
+        scope_values: list[tuple[str, str]] = []
+        for field_name in caps.scope:
+            value = record.get(field_name)
+            if value is None or isinstance(value, (dict, list)):
+                return SequenceEventV2(None, "BLOCKED", "SEQUENCE_SCOPE_FIELD_MISSING")
+            scope_values.append((field_name, str(value)))
+        scope = tuple(scope_values)
+        if self._scope is None:
+            self._scope = scope
+        elif scope != self._scope:
+            return SequenceEventV2(None, "BLOCKED", "SEQUENCE_SCOPE_CHANGED")
+
+        value: Any = record
+        try:
+            for part in caps.field_path.split("."):
+                value = value[part]
+        except (KeyError, TypeError):
+            return SequenceEventV2(None, "BLOCKED", "SEQUENCE_FIELD_MISSING")
+        if type(value) is not int or value < 0:
+            return SequenceEventV2(None, "BLOCKED", "SEQUENCE_VALUE_MUST_BE_NONNEGATIVE_INTEGER")
+        seq = value
+
+        raw_hash = record.get("raw_payload_sha256")
+        if raw_hash is not None and not _sha256(raw_hash):
+            return SequenceEventV2(seq, "BLOCKED", "RAW_PAYLOAD_HASH_INVALID")
+        if caps.exact_payload_replay_only and _sha256(raw_hash) and raw_hash in self._raw_hashes:
+            return SequenceEventV2(seq, "IDEMPOTENT_DUPLICATE", "EXACT_RAW_PAYLOAD_REPLAY")
+
+        payload_hash = raw_hash if _sha256(raw_hash) else self._digest(record)
+        if caps.event_identity and seq in self._identity_hashes:
+            if self._identity_hashes[seq] == payload_hash:
+                return SequenceEventV2(seq, "IDEMPOTENT_DUPLICATE", "IDENTICAL_EVENT_IDENTITY")
+            return SequenceEventV2(
+                seq, "REJECT_STREAM", "CONFLICTING_DUPLICATE_IDENTITY",
+                {"previous_payload_sha256": self._identity_hashes[seq],
+                 "conflicting_payload_sha256": payload_hash},
+            )
+
+        if self.last_sequence is not None:
+            if seq < self.last_sequence:
+                return SequenceEventV2(seq, "ANOMALY", "OUT_OF_ORDER_SEQUENCE")
+            if caps.contiguous and caps.gap_detection and seq > self.last_sequence + 1:
+                return SequenceEventV2(
+                    seq, "REJECT_STREAM", "MISSING_EVENT",
+                    {"last_sequence": self.last_sequence, "next_sequence": seq},
+                )
+
+        if self._count >= self.max_records:
+            return SequenceEventV2(seq, "REJECT_STREAM", "SEQUENCE_STATE_BOUND_EXCEEDED",
+                                   {"max_records": self.max_records})
+        self._count += 1
+        if caps.event_identity:
+            self._identity_hashes[seq] = payload_hash
+        if caps.exact_payload_replay_only and _sha256(raw_hash):
+            self._raw_hashes.add(raw_hash)
+        if self.last_sequence is None or seq > self.last_sequence:
+            self.last_sequence = seq
+        return SequenceEventV2(seq, "ACCEPTED")
+
+    def reset_for_reconnect(self) -> None:
+        """Start a new session epoch; never compare IDs across reconnects by default."""
+        self.last_sequence = None
+        self._scope = None
+        self._identity_hashes.clear()
+        self._raw_hashes.clear()
+        self._count = 0
+
+
 class SequenceSemanticsRegistryV1:
     SCHEMA = "hes_sequence_semantics_registry_v1"
 
