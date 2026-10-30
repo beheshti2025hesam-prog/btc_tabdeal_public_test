@@ -57,6 +57,16 @@ class GateFeedTests(unittest.TestCase):
    self.assertEqual(m.normalize_ws_message(msg,now=1900)["symbol"],"ETH_USDT")
   finally:
    m.SYMBOL=original
+ def test_ws_rejects_interval_only_or_wrong_symbol_identity(self):
+  base={'channel':'spot.candlesticks','event':'update','result':{'n':'15m','t':'1000','v':'2400','a':'0.03','c':'12','h':'13','l':'10','o':'11'}}
+  self.assertIsNone(m.normalize_ws_message(base,now=1900))
+  base['result']['n']='15m_SOL_USDT'
+  self.assertIsNone(m.normalize_ws_message(base,now=1900))
+
+ def test_reject_zero_price(self):
+  with self.assertRaisesRegex(ValueError,'Negative timestamp, price, or volume'):
+   m.normalize_row(['1000','2','12','13','0','11','1'],now=2000)
+
  def test_ws_name_format_and_volume_fields(self):
   msg={'channel':'spot.candlesticks','event':'update','result':{'n':'15m_BTC_USDT','t':'1000','v':'2400','a':'0.03','c':'12','h':'13','l':'10','o':'11'}}
   self.assertIsNotNone(m.normalize_ws_message(msg,now=1900))
