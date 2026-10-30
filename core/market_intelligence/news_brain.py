@@ -323,7 +323,7 @@ def fetch_gate_announcements(url: str, *, source: str, source_id: str,
         raw_timestamp = row.get("release_timestamp")
         try:
             timestamp = int(raw_timestamp)
-            if timestamp > 0 and timestamp <= int(datetime.now(timezone.utc).timestamp()) + 300:
+            if timestamp > 0 and timestamp <= int(datetime.now(timezone.utc).timestamp()):
                 published_at = _iso(datetime.fromtimestamp(timestamp, timezone.utc))
         except (TypeError, ValueError, OverflowError, OSError):
             pass
@@ -472,11 +472,11 @@ class NewsIntelligenceBrain:
             impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.25 if any(_contains(text, term) for term in _HIGH_IMPACT) else 0)
             impact = min(1.0, impact)
             age_minutes = (now - published).total_seconds() / 60 if published else None
-            freshness = "unknown" if age_minutes is None else "future_timestamp" if age_minutes < -5 else "fresh" if age_minutes <= 180 else "recent"
+            freshness = "unknown" if age_minutes is None else "future_timestamp" if age_minutes < 0 else "fresh" if age_minutes <= 180 else "recent"
             caveats = []
             if age_minutes is None:
                 caveats.append("publication_time_unverified")
-            if age_minutes is not None and age_minutes < -5:
+            if age_minutes is not None and age_minutes < 0:
                 caveats.append("publication_time_in_future")
             if not item.url:
                 caveats.append("source_url_missing")
