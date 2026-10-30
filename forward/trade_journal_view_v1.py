@@ -34,7 +34,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
             return {"schema": "hes.trade_journal_view.v1", "status": "EMPTY", "count": 0, "decision_count": 0, "events": []}
         with file_path.open("rb") as handle:
             handle.seek(-1, 2)
-            if handle.read(1) != b"\\n":
+            if handle.read(1) != b"\n":
                 raise JournalProjectionError("partial_trailing_record")
     except JournalProjectionError:
         raise
@@ -53,7 +53,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
             for line_no, raw_line in enumerate(handle, start=1):
                 if len(raw_line) > MAX_LINE_BYTES:
                     raise JournalProjectionError(f"record_size_limit_exceeded:{line_no}")
-                if not raw_line.endswith(b"\\n"):
+                if not raw_line.endswith(b"\n"):
                     raise JournalProjectionError("partial_trailing_record")
                 try:
                     record = json.loads(raw_line.decode("utf-8", errors="strict"))
@@ -112,7 +112,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
                     "policy_version": record.get("policy_version", "UNKNOWN"),
                     "response_sha256": record.get("response_sha256"),
                     "htf_response_sha256": record.get("htf_response_sha256"),
-                    "event_sha256": sha256(raw_line.rstrip(b"\\r\\n")).hexdigest(),
+                    "event_sha256": sha256(raw_line.rstrip(b"\r\n")).hexdigest(),
                     "execution": "OFF" if record.get("execution_enabled") is False and record.get("orders_placed") is False else "UNKNOWN",
                     "realized_outcome": "NOT_LINKED",
                 })
