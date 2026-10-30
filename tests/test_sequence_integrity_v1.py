@@ -1,11 +1,12 @@
 from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
+from forward.sequence_semantics_v1 import TABDEAL_TRADE_SEQUENCE_KEY
 
 CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 
 def rec(seq, price="100"):
-    return {"sequence": seq, "symbol": "BTC_USDT", "price": price}
+    return {"sequence": seq, "symbol": "BTC_USDT", "price": price, "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY}
 
 
 def test_first_sequence_accepted():
