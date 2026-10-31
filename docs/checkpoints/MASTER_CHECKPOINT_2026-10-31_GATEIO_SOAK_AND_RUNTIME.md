@@ -242,3 +242,37 @@ No production code, release pointer, service state, credentials, or order state 
 
 ### Current disposition
 **Proceed with isolated release preparation and forward-only evaluation design; do not merge, deploy, restart, enable order execution, or place trades yet.** The correct next technical move is to prepare a SHA-pinned immutable #394 release package and rollback manifest without touching the active release or dirty worktree. HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY remains mandatory.
+
+
+## Forward execution pass — 2026-10-31: exact PR #394 release package and rollback preflight
+
+### Exact-source package and immutable release verification
+- Downloaded the GitHub source archive for exact PR #394 head `8e31d65939c16ed35eb0e7b44274b7ac5670525e` to `/srv/hes-evidence/pr394-8e31d65939c16ed35eb0e7b44274b7ac5670525e-source.tar.gz`.
+- Source archive SHA-256: `0558057918f2e5867a16c7d41b0d777f49c4d95061549dabc237f1901f72f983`.
+- Compared every one of the **507 files** in the exact GitHub archive against the already-present immutable candidate directory `/opt/hes-trade-agent/releases/8e31d65939c16ed35eb0e7b44274b7ac5670525e`: **0 missing, 0 mismatches**. The directory is root-owned and mode 0555. This establishes the directory's source-content identity with the exact PR archive; no source files were modified.
+- Verified the candidate systemd unit's Git blob SHA matches the exact GitHub file blob SHA `8ea89d284b3c76ba6827a0b8133d113a54e6f985`. It adds only the explicit canonical journal path and its pre-created lock file as narrow `ReadWritePaths`; it does not make the whole forward-data directory writable.
+- Exact archive test execution in a temporary extraction, using the existing project virtualenv: **643 passed, 24 subtests passed**. Focused canonical journal projection test: **6 passed**. No dependencies were installed and no repository checkout/worktree was reset or cleaned.
+- The earlier direct pytest attempt against the immutable release path without setting the project root on `PYTHONPATH` failed during import and attempted to create pytest cache files in the read-only release. It made no source changes. The correct exact-archive run above passed; cache was disabled and the temporary extraction was removed.
+
+### Rollback preflight artifacts created
+- Saved the current dashboard systemd unit as `/srv/hes-evidence/20261031-pr394-predeployment-current-dashboard.service.rollback`; SHA-256 `c8bcf9639a4fb4ad0847e5c8c9d19b2181cd7cca1d685d610327d89a436c3fe9`.
+- Created `/srv/hes-evidence/20261031-pr394-predeployment-release-rollback-manifest.json` with exact candidate SHA/archive checksum, current immutable release pointer, current unit checksum and backup path, canonical journal snapshot hash/size, endpoint status, and explicit authorization flags. Manifest SHA-256: `4123bee5e16f037637bdfad5f44421c03733de7ecd8f56d6d63c8aa3fa8d5f9c`.
+- Canonical journal snapshot at manifest time: SHA-256 `3a307d9b7afc6412d0055bb61541f6701d3b53517a96eccd4c0084fa51d3b137`, 2,202,407 bytes. This pass did not write to the journal; the snapshot is a time-specific rollback/audit reference, not a static file guarantee.
+
+### Fresh production state after preparation (read-only)
+- Current pointer remains `/opt/hes-trade-agent/releases/2e8d3859ef154b030e0965ad4479f3fad36ae4c0` (PR #388); dashboard service active.
+- `/healthz` HTTP 200; `/api/candles` HTTP 200; `/api/signal` HTTP 200 with `BLOCKED / NO_TRADE`; `/api/journal` HTTP 404. Execution remains disabled.
+- No current symlink change, systemd unit installation, service restart, SentinelX policy edit, PR merge, journal write, credential access, or order submission occurred.
+
+### Remaining operator/reviewer gates
+- PR #394 remains open/Draft and has no submitted independent reviews. The full test pass and source identity check do not replace independent human review.
+- SentinelX's active service policy still does not permit `hes-readonly-dashboard.service`. Only the operator can approve adding under `services:`:
+  ```yaml
+  hes-readonly-dashboard.service:
+    actions: [status, restart]
+  ```
+  Do not grant start/stop and do not self-edit SentinelX policy.
+- After independent review and the operator policy edit, a separate explicit release approval is still required before switching `current` and restarting the dashboard. Execution authorization remains a distinct later decision.
+
+### Disposition
+The exact PR #394 source package is now checksum-pinned, its pre-existing immutable release directory is proven byte-for-byte equal across all 507 archive files, the exact-head test suite passes, and a local rollback manifest/unit backup are prepared. This is release preparation, **not deployment**. Preserve `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; do not merge, deploy, restart, enable execution, or trade until the independent review and operator/release gates are satisfied.
