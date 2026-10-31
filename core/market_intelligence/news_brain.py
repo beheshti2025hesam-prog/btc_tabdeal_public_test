@@ -204,6 +204,29 @@ def load_source_registry(path: str | Path) -> dict:
             raise ValueError(f"source {source_id} has an unapproved Gate announcement endpoint")
         if not isinstance(source.get("markets"), list) or not source["markets"]:
             raise ValueError(f"source {source_id} must declare market coverage")
+        if source.get("source_scope") not in {"international", "domestic", "venue"}:
+            raise ValueError(f"source {source_id} must declare a valid source_scope")
+    source_map = {source["id"]: source for source in sources}
+    profiles = registry.get("market_profiles", {})
+    if not isinstance(profiles, dict):
+        raise ValueError("market_profiles must be an object")
+    for market, profile in profiles.items():
+        if not isinstance(profile, dict):
+            raise ValueError(f"market profile {market} must be an object")
+        source_ids = profile.get("source_ids", [])
+        if not isinstance(source_ids, list) or any(source_id not in source_map for source_id in source_ids):
+            raise ValueError(f"market profile {market} has invalid source_ids")
+        scoped_ids = []
+        for scope in ("international", "domestic", "venue"):
+            ids = profile.get(f"{scope}_source_ids")
+            if not isinstance(ids, list):
+                raise ValueError(f"market profile {market} must declare {scope}_source_ids")
+            for source_id in ids:
+                if source_id not in source_ids or source_map[source_id]["source_scope"] != scope:
+                    raise ValueError(f"market profile {market} has invalid {scope} source mapping")
+            scoped_ids.extend(ids)
+        if set(scoped_ids) != set(source_ids) or len(scoped_ids) != len(set(scoped_ids)):
+            raise ValueError(f"market profile {market} source scopes must partition source_ids")
     return registry
 
 
@@ -402,6 +425,7 @@ class NewsIntelligenceBrain:
                 checked_at = datetime.now(timezone.utc)
                 source_health.append({
                     "source_id": source["id"],
+                    "source_scope": source["source_scope"],
                     "status": "ok" if source_items else "ok_empty",
                     "checked_at": _iso(checked_at),
                     "item_count": len(source_items),
@@ -416,6 +440,7 @@ class NewsIntelligenceBrain:
                 checked_at = datetime.now(timezone.utc)
                 source_health.append({
                     "source_id": source["id"],
+                    "source_scope": source["source_scope"],
                     "status": "failed",
                     "checked_at": _iso(checked_at),
                     "item_count": 0,
