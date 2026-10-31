@@ -154,7 +154,7 @@ def _cache_monitored_news_brief(brief):
 _NEWS_MONITOR = NewsMonitorV1(
     brain=_NEWS_BRAIN, registry_path=_NEWS_REGISTRY, context=_NEWS_CONTEXT,
     snapshot_path=_NEWS_MONITOR_SNAPSHOT, interval_seconds=_NEWS_MONITOR_INTERVAL,
-    on_brief=_cache_monitored_news_brief,
+    on_brief=_cache_monitored_news_brief, poll_lock=_NEWS_REFRESH_LOCK,
 )
 _NEWS_MONITOR_STOP = Event()
 _NEWS_MONITOR_THREAD = None
