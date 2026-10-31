@@ -361,7 +361,7 @@ class NewsIntelligenceBrain:
         """Collect from enabled market sources, then build the Mother Agent brief.
 
         No enabled source is treated as incomplete coverage, not as evidence
-        that no news exists. Per-source failures are retained in provenance.
+        that no news exists. Per-source health and failures are retained.
         """
         registry = load_source_registry(registry_path)
         registry_sha256 = sha256(Path(registry_path).read_bytes()).hexdigest()
@@ -374,26 +374,60 @@ class NewsIntelligenceBrain:
             brief = self.analyze([], context, now=now,
                                  source_failures=[f"no_enabled_sources_for_market:{context.market}"])
             brief = self._attach_profile_status(brief, profile)
-            return replace(brief, provenance={**brief.provenance, "registry_sha256": registry_sha256})
+            return replace(brief, provenance={
+                **brief.provenance, "registry_sha256": registry_sha256, "source_health": []
+            })
         items = []
         failures = []
+        source_health = []
         for source in sources:
+            fetched_at = datetime.now(timezone.utc)
             try:
                 if source.get("type", "rss") == "gate_announcements":
                     request_options = source.get("request", {})
-                    items.extend(fetch_gate_announcements(
+                    source_items = fetch_gate_announcements(
                         source["url"], source=source["name"], source_id=source["id"],
                         language=request_options.get("language", "en"),
                         days=request_options.get("days", 3),
                         page_size=request_options.get("page_size", 50),
-                    ))
+                    )
                 else:
-                    items.extend(fetch_rss(source["url"], source=source["name"], source_id=source["id"]))
+                    source_items = fetch_rss(
+                        source["url"], source=source["name"], source_id=source["id"]
+                    )
+                items.extend(source_items)
+                published_times = [
+                    parsed for item in source_items
+                    if (parsed := _parse_time(item.published_at)) is not None
+                ]
+                source_health.append({
+                    "source_id": source["id"],
+                    "status": "ok" if source_items else "ok_empty",
+                    "fetched_at": _iso(fetched_at),
+                    "item_count": len(source_items),
+                    "newest_published_at": _iso(max(published_times)) if published_times else None,
+                    "feed_payload_sha256": (
+                        source_items[0].feed_payload_sha256 if source_items else None
+                    ),
+                })
             except ValueError as exc:
-                failures.append(f"{source['id']}:{str(exc).split(':', 1)[0]}")
+                error_code = str(exc).split(":", 1)[0]
+                failures.append(f"{source['id']}:{error_code}")
+                source_health.append({
+                    "source_id": source["id"],
+                    "status": "failed",
+                    "fetched_at": _iso(fetched_at),
+                    "item_count": 0,
+                    "newest_published_at": None,
+                    "feed_payload_sha256": None,
+                    "error_code": error_code,
+                })
         brief = self.analyze(items, context, now=now, source_failures=failures)
         brief = self._attach_profile_status(brief, profile)
-        return replace(brief, provenance={**brief.provenance, "registry_sha256": registry_sha256})
+        return replace(brief, provenance={
+            **brief.provenance, "registry_sha256": registry_sha256,
+            "source_health": source_health,
+        })
 
     @staticmethod
     def _attach_profile_status(brief: NewsBrief, profile: Mapping[str, object]) -> NewsBrief:
