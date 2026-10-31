@@ -85,7 +85,7 @@ class NewsBrainTests(unittest.TestCase):
         )
         self.assertEqual(brief.suggested_action, "CONTEXT_ONLY")
         self.assertFalse(brief.veto_flags)
-        self.assertIn("Market regime is unknown", " ".join(brief.market_implications))
+        self.assertEqual(brief.context["regime"], "unknown")
 
     def test_naive_timestamp_is_rejected_and_vetoed(self):
         brief = self.brain.analyze(
