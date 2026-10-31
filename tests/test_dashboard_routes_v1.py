@@ -83,6 +83,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Canonical persisted global feed",page)
         self.assertIn("News Radar", page)
         self.assertIn("id=\"newsStatus\"", page)
+        self.assertIn("id=\"newsMonitor\"", page)
         self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
         self.assertNotIn("its semantics are unverified",page)
@@ -122,6 +123,31 @@ class DashboardRouteTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             urlopen(Request(self.base+"/api/candles",data=b"{}",method="POST"))
         self.assertEqual(error.exception.code,405)
+
+    def test_news_monitor_endpoint_returns_verified_persisted_snapshot(self):
+        snapshot = {
+            "schema_version": "hes.news_monitor_snapshot.v1",
+            "monitor": {"status": "OK", "interval_seconds": 60, "last_poll_at": "2026-10-31T12:00:00Z"},
+            "brief": {"schema_version": "hes.news_brief.v1", "status": "ok"},
+            "brief_sha256": "a" * 64,
+        }
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", return_value=snapshot):
+            with urlopen(self.base + "/api/news") as response:
+                payload = json.loads(response.read())
+        self.assertEqual(payload["schema_version"], "hes.news_monitor_snapshot.v1")
+        self.assertEqual(payload["monitor"]["status"], "OK")
+        self.assertFalse(payload.get("execution_enabled", False))
+
+    def test_news_monitor_endpoint_fails_closed_for_stale_or_missing_snapshot(self):
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", side_effect=ValueError("snapshot stale")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/news")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
 
     def test_health_fails_closed_when_persisted_feed_is_unavailable(self):
         with patch("web.dashboard._get_batch",side_effect=TimeoutError("feed unavailable")):
