@@ -226,7 +226,8 @@ class DashboardRouteTests(unittest.TestCase):
                  patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                 server_factory.return_value.serve_forever.return_value = None
                 dashboard.main()
-        worker_thread.assert_not_called()
+        worker_thread.assert_called_once()
+        self.assertEqual(worker_thread.call_args.kwargs["name"], "hes-news-monitor")
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         server_factory.return_value.serve_forever.assert_called_once_with()
 
@@ -240,7 +241,8 @@ class DashboardRouteTests(unittest.TestCase):
                          patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                         server_factory.return_value.serve_forever.return_value = None
                         dashboard.main()
-                worker_thread.assert_not_called()
+                worker_thread.assert_called_once()
+                self.assertEqual(worker_thread.call_args.kwargs["name"], "hes-news-monitor")
                 self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
 
 
@@ -252,7 +254,8 @@ class DashboardRouteTests(unittest.TestCase):
                  patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                 server_factory.return_value.serve_forever.return_value = None
                 dashboard.main()
-        worker_thread.assert_not_called()
+        worker_thread.assert_called_once()
+        self.assertEqual(worker_thread.call_args.kwargs["name"], "hes-news-monitor")
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 
