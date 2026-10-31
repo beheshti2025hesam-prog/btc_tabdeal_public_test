@@ -696,6 +696,7 @@ def main():
     host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
     server=ThreadingHTTPServer((host,port),Handler)
     global _NEWS_MONITOR_THREAD
+    _NEWS_MONITOR_STOP.clear()
     _NEWS_MONITOR_THREAD = Thread(target=_NEWS_MONITOR.run_forever, args=(_NEWS_MONITOR_STOP,), name="hes-news-monitor", daemon=True)
     _NEWS_MONITOR_THREAD.start()
     print(f"HES read-only dashboard listening on http://{host}:{port}",flush=True)
