@@ -32,11 +32,11 @@ class NewsMonitorTests(unittest.TestCase):
     def _brief(self, status="ok", failures=None):
         return SimpleNamespace(
             status=status,
-            provenance={"source_failures": failures or []},
+            provenance={"source_failures": failures or [], "source_profile_status": "partial_official_macro_regulatory_and_venue_announcements"},
             to_dict=lambda: {
                 "schema_version": "hes.news_brief.v1",
                 "status": status,
-                "provenance": {"source_failures": failures or []},
+                "provenance": {"source_failures": failures or [], "source_profile_status": "partial_official_macro_regulatory_and_venue_announcements"},
                 "suggested_action": "CONTEXT_ONLY",
             },
         )
@@ -46,6 +46,7 @@ class NewsMonitorTests(unittest.TestCase):
         snapshot = self.monitor.poll_once()
         self.assertEqual(snapshot["schema_version"], SCHEMA_VERSION)
         self.assertEqual(snapshot["monitor"]["status"], "OK")
+        self.assertEqual(snapshot["monitor"]["source_profile_status"], "partial_official_macro_regulatory_and_venue_announcements")
         self.assertTrue(self.path.is_file())
         loaded = self.monitor.read_snapshot()
         self.assertEqual(loaded["brief"]["schema_version"], "hes.news_brief.v1")
