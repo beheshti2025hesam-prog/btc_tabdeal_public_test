@@ -113,7 +113,7 @@ class NewsMonitorTests(unittest.TestCase):
         self.brain.run_from_registry.return_value = self._brief()
         self.monitor.poll_once()
         data = json.loads(self.path.read_text(encoding="utf-8"))
-        data["monitor"]["status"] = "OK"
+        data["monitor"]["status"] = "BLOCKED"
         data["monitor"]["source_failures"] = []
         self.path.write_text(json.dumps(data), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "snapshot digest mismatch"):
