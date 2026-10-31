@@ -100,6 +100,16 @@ class NewsMonitorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "future"):
             future_monitor.read_snapshot(max_age_seconds=180)
 
+    def test_monitor_metadata_tampering_is_rejected_by_snapshot_digest(self):
+        self.brain.run_from_registry.return_value = self._brief()
+        self.monitor.poll_once()
+        data = json.loads(self.path.read_text(encoding="utf-8"))
+        data["monitor"]["status"] = "OK"
+        data["monitor"]["source_failures"] = []
+        self.path.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "snapshot digest mismatch"):
+            self.monitor.read_snapshot()
+
     def test_invalid_interval_rejected(self):
         with self.assertRaises(ValueError):
             NewsMonitorV1(
