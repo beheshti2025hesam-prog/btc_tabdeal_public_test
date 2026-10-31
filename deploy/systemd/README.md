@@ -34,7 +34,8 @@ The existing entrypoint is `web.dashboard`; this service template does not intro
 - Binds to loopback only (`127.0.0.1:8765)); do not expose it directly to the internet.
 - Uses the versioned-release pointer `/opt/hes-trade-agent/current`; each release must be immutable and contain the exact reviewed source SHA.
 - Reads canonical persisted candles from `/opt/hes-trade-agent/data/forward`; do not copy a stale feed into the release directory for deployment.
-- Runs as `sentinelx`, with a read-only filesystem sandbox, private temporary directory, no-new-privileges, and no writable project paths.
+- Runs as `sentinelx`, with a read-only filesystem sandbox, private temporary directory, no-new-privileges, and no writable project paths. The News Radar snapshot is stored only in the systemd-managed `/var/lib/hes-news-monitor` state directory (`StateDirectory=hes-news-monitor`, mode `0750`); systemd provisions the directory and grants this service its scoped write access without making the release tree writable.
+- Starts one in-process News Radar monitor on dashboard startup (immediate poll, then 60-second interval) and persists its versioned brief/provenance atomically under `/var/lib/hes-news-monitor`. The monitor uses only already-qualified sources and is fail-closed when its snapshot is missing, corrupt, future-dated, or stale.
 - Does not enable the Gate.io collector, WebSocket stream, or order execution. The dashboard's stream remains disabled and the API is read-only.
 - `ConditionPathExists` prevents startup before a staged release pointer exists.
 
