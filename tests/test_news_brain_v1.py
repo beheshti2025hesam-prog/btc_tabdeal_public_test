@@ -177,6 +177,25 @@ class NewsBrainTests(unittest.TestCase):
         self.assertIsNotNone(gate_health["feed_payload_sha256"])
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
 
+    def test_registry_records_source_failures_without_hiding_successful_empty_feeds(self):
+        registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        def fetch_rss_side_effect(url, *, source, source_id="", **kwargs):
+            if source_id == "ecb_press_releases":
+                raise ValueError("news source unavailable: TimeoutError")
+            return []
+        with (
+            patch("core.market_intelligence.news_brain.fetch_rss", side_effect=fetch_rss_side_effect),
+            patch("core.market_intelligence.news_brain.fetch_gate_announcements", return_value=[]),
+        ):
+            brief = self.brain.run_from_registry(
+                registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        health = {x["source_id"]: x for x in brief.provenance["source_health"]}
+        self.assertEqual(health["ecb_press_releases"]["status"], "failed")
+        self.assertEqual(health["ecb_press_releases"]["error_code"], "news source unavailable")
+        self.assertEqual(health["cftc_general_press_releases"]["status"], "ok_empty")
+        self.assertIn("ecb_press_releases:news source unavailable", brief.provenance["source_failures"])
+        self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", brief.veto_flags)
+
     def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
         registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
         registry = load_source_registry(registry_path)
