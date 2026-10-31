@@ -161,7 +161,17 @@ _NEWS_MONITOR_THREAD = None
 
 def _get_news_brief(context):
     key = (context.market, context.symbol, context.regime, context.timeframe, context.venue)
+    monitored_key = (_NEWS_CONTEXT.market, _NEWS_CONTEXT.symbol, _NEWS_CONTEXT.regime, _NEWS_CONTEXT.timeframe, _NEWS_CONTEXT.venue)
     now = time.monotonic()
+    # The continuous monitor is the primary collector. Its brief is context-only;
+    # strategy regime remains a separate specialist input and is never inferred from news.
+    if (context.market, context.symbol, context.timeframe, context.venue) == (
+        _NEWS_CONTEXT.market, _NEWS_CONTEXT.symbol, _NEWS_CONTEXT.timeframe, _NEWS_CONTEXT.venue
+    ):
+        with _NEWS_CACHE_LOCK:
+            monitored = _NEWS_CACHE.get(monitored_key)
+            if monitored and now - monitored[0] <= _NEWS_CACHE_TTL_SECONDS:
+                return monitored[1]
     with _NEWS_CACHE_LOCK:
         cached = _NEWS_CACHE.get(key)
         if cached and now - cached[0] <= _NEWS_CACHE_TTL_SECONDS:
