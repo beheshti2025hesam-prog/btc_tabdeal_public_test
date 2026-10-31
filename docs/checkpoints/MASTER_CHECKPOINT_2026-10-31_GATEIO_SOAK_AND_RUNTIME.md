@@ -151,3 +151,32 @@ No production code, release pointer, service state, credentials, or order state 
 - `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; execution OFF; no production deployment.
 - Remaining hard blockers: independent review of the correct stacked parent chain; production `/api/journal` parity via the reviewed existing canonical-journal candidate; validated structure/strategy-quality providers and complete confirmation/risk evidence; execution venue/instrument proof; approved SentinelX policy registration for dashboard status/restart; protected encrypted off-host backup and tested restore; independent security review.
 - Delivery target remains 2026-11-19. Continue from this checkpoint without rebuilding existing components or repeating the completed 24-hour soak.
+
+
+## Follow-up architecture/dependency correction — 2026-10-31
+
+### Exact PR ancestry verified from GitHub metadata and commit comparison
+- PR #383: `fix/dashboard-persisted-global-feed-20261025` based on `fix/gateio-base-volume-contract-20261025`; head `bf6627571802f2d1aaac930dc22fb6437b11ac04`.
+- PR #388: `integration/gateio-persisted-feed-signal-agent-20261026` based on PR #383 head; head `2e8d3859ef154b030e0965ad4479f3fad36ae4c0`. This is exactly the commit currently selected by production `current`.
+- PR #394: `fix/gateio-strategy-evidence-scope-20261028` based on PR #383 head; head `8e31d65939c16ed35eb0e7b44274b7ac5670525e`. GitHub commit comparison confirms #388 head is an ancestor of #394 and #394 is 61 commits ahead of #388. Therefore #394 is the natural strategy-provider continuation of the #388 runtime lineage.
+- PR #398: `consolidated/gateio-dashboard-signal-agent-v1` based on `main`, head `c4635fbd828e85b067a89b136513eb259b21dff8`. It is a separate consolidated branch, not a simple child of #394. Exact comparison #398-head → #394-head reports diverged (211 commits ahead, 12 behind); do not merge #398 and #394 as if they were consecutive or combine by blind cherry-pick. Select and review one canonical lineage; existing #388 → #394 is closest to the live deployed base, while #398 is a separately tested consolidation candidate.
+- PR #399 is based on #398 head (base SHA `268fa7524c12e085d010437bf50bdb163fa7277a`); PR #404 is based on #399 head (base SHA `f162978ed32744296c02fb37b4f1babaf843ffa8`). These news candidates therefore belong to the #398 lineage and must not be stacked onto #394 without a reviewed integration/rebase.
+- All six PRs (#383/#388/#394/#398/#399/#404) remain open and Draft at this check. None has an independently requested reviewer recorded. Review listing: #383/#388/#394/#399/#404 have zero submitted reviews; #398 has four COMMENTED submissions by the repository owner only, no independent approval.
+- Fresh GitHub Actions query for exact #394 head reports four completed successful workflows: Gate.io Dashboard Full Repository Regression; Native OHLCV WebSocket Live Smoke v1; Native OHLCV Dashboard Single Path v1; Native OHLCV Browser Render Smoke v1. The WebSocket workflow is bounded smoke, not proof of a continuous live stream.
+
+### Production journal route gap — root cause narrowed
+- Read-only inspection confirms the active dashboard process PID 83194 has WorkingDirectory and PYTHONPATH `/opt/hes-trade-agent/current`, and the current symlink resolves to release `2e8d3859ef154b030e0965ad4479f3fad36ae4c0` (PR #388 head). The production release's `web/dashboard.py` does not contain an `/api/journal` route; this directly explains production HTTP 404.
+- The isolated PR #398 candidate source does contain `/api/journal` and reads the existing canonical `trade_journal_v2.jsonl` through `configured_decision_journal`; its existing tests cover the route and fail-closed behavior. It is candidate evidence only, not production parity. The live canonical journal exists (about 2.2 MB); it was not opened for content, modified, copied, or exposed in this pass.
+- The active dashboard systemd unit uses `/opt/hes-trade-agent/current`, but its current policy is not registered in SentinelX's allowed services map. Do not restart it until the operator-approved minimal `status,restart` policy registration is in place. No systemd, SentinelX policy, or runtime change was made.
+- No deployment was performed. A safe fix requires selecting the canonical lineage, independent review, exact-head revalidation, approved SentinelX control, backup/rollback gate, then an explicitly approved release switch. Do not patch the old release in place.
+
+### Fresh operational state
+- Dashboard PID 83194 remains active on loopback; production symlink remains at #388 head.
+- Current health/candles/signal batch hash remains `1332ea109566ecce12298d77ccaabff01ea5da7a50cbc11c2fdc923e3f68a21c`; 240 closed BTCUSDT 15m candles; reported latest age ~36 seconds at the probe. Signal remains BLOCKED/NO_TRADE.
+- Gate.io candle units `hes-global-market-data-gateio.service`, `...-1h.service`, and `...-4h.service` are active. The completed soak unit is inactive/dead as expected. The previously referenced exact unit name `...-15m.service` is not installed; do not treat this naming mismatch as a data-feed outage.
+- Working tree remains dirty and protected; no reset/checkout/cleanup, service restart, pointer change, journal mutation, credentials access, or order occurred.
+
+### Decision
+- Prefer the #388 → #394 lineage for further technical work because it extends the exact deployed #388 base and has the strategy-provider change; keep #398/#399/#404 as a separate consolidation/news branch requiring explicit reconciliation, not as a merge target for #394.
+- Hard gates remain independent review, operator-approved SentinelX service permission, production journal route release, structure/strategy quality and risk validation, execution instrument evidence, off-host encrypted backup/restore, and security review.
+- Disposition remains `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; target 2026-11-19.
