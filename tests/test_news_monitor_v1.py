@@ -32,11 +32,11 @@ class NewsMonitorTests(unittest.TestCase):
     def _brief(self, status="ok", failures=None):
         return SimpleNamespace(
             status=status,
-            provenance={"source_failures": failures or [], "source_profile_status": "partial_official_macro_regulatory_and_venue_announcements"},
+            provenance={"source_failures": failures or [], "source_profile_status": "partial_official_macro_regulatory_and_venue_announcements", "source_health": [{"source_id": "fed_press_all", "status": "ok_empty", "item_count": 0}]},
             to_dict=lambda: {
                 "schema_version": "hes.news_brief.v1",
                 "status": status,
-                "provenance": {"source_failures": failures or [], "source_profile_status": "partial_official_macro_regulatory_and_venue_announcements"},
+                "provenance": {"source_failures": failures or [], "source_profile_status": "partial_official_macro_regulatory_and_venue_announcements", "source_health": [{"source_id": "fed_press_all", "status": "ok_empty", "item_count": 0}]},
                 "suggested_action": "CONTEXT_ONLY",
             },
         )
@@ -47,6 +47,7 @@ class NewsMonitorTests(unittest.TestCase):
         self.assertEqual(snapshot["schema_version"], SCHEMA_VERSION)
         self.assertEqual(snapshot["monitor"]["status"], "OK")
         self.assertEqual(snapshot["monitor"]["source_profile_status"], "partial_official_macro_regulatory_and_venue_announcements")
+        self.assertEqual(snapshot["monitor"]["source_health"][0]["status"], "ok_empty")
         self.assertTrue(self.path.is_file())
         loaded = self.monitor.read_snapshot()
         self.assertEqual(loaded["brief"]["schema_version"], "hes.news_brief.v1")
