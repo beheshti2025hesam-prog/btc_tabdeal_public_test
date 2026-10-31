@@ -1,7 +1,7 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -58,6 +58,7 @@ class NewsMonitorTests(unittest.TestCase):
         self.brain.run_from_registry.return_value = self._brief("degraded", ["ecb_press_releases:timeout"])
         snapshot = self.monitor.poll_once()
         self.assertEqual(snapshot["monitor"]["status"], "DEGRADED")
+        self.assertIsNone(snapshot["monitor"]["last_success_at"])
         self.assertEqual(snapshot["brief"]["provenance"]["source_failures"],
                          ["ecb_press_releases:timeout"])
 
@@ -78,6 +79,24 @@ class NewsMonitorTests(unittest.TestCase):
         self.path.write_text(json.dumps(data), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "digest mismatch"):
             self.monitor.read_snapshot()
+
+    def test_failure_preserves_previous_success_timestamp(self):
+        self.brain.run_from_registry.return_value = self._brief()
+        first = self.monitor.poll_once()
+        previous_success = first["monitor"]["last_success_at"]
+        failed = self.monitor.record_failure(ValueError("temporary"))
+        self.assertEqual(failed["monitor"]["last_success_at"], previous_success)
+
+    def test_future_poll_timestamp_is_rejected_by_reader(self):
+        future_monitor = NewsMonitorV1(
+            brain=self.brain, registry_path=self.monitor.registry_path,
+            context=self.context, snapshot_path=self.path, interval_seconds=60,
+            clock=lambda: NOW + timedelta(days=1),
+        )
+        self.brain.run_from_registry.return_value = self._brief()
+        future_monitor.poll_once()
+        with self.assertRaisesRegex(ValueError, "future"):
+            future_monitor.read_snapshot(max_age_seconds=180)
 
     def test_invalid_interval_rejected(self):
         with self.assertRaises(ValueError):
