@@ -53,3 +53,16 @@
 - `policy_mutation_enabled=false`
 - Release: `HOLD / NO_TRADE_ONLY`
 - No secrets or credentials were read, no orders were submitted, no service was restarted, and the production release pointer was not changed during this audit.
+
+
+## Follow-up exact runtime verification — 2026-10-31
+
+A second read-only verification pass confirmed:
+- Gate.io soak sample IDs are exactly continuous from 1 through 1,440; all 1,440 sample records have `ok=true`; elapsed seconds are monotonic; every sample is scoped to `gateio_public_spot / BTC_USDT`; exactly one final `passed=true` summary exists.
+- SHA-256 of the completed soak JSONL at verification time: `155d426162ecb301a0423b20f906455f459180f4126017f3da0513844b34788e`.
+- The three live dashboard routes returned HTTP 200: `/healthz`, `/api/candles`, and `/api/signal`.
+- `/api/candles` returned 240 candles for BTCUSDT / 15m. The batch digest was identical across health, candles, and signal: `80a3c0db66f4d3356887b7b169df255d98037c4e48d2dd5a6d335c30e05fb56c`. This confirms current same-batch identity across these API responses, not browser-render parity.
+- The signal endpoint remained `BLOCKED / NO_TRADE`, with `execution_enabled=false`; no order route was called. This is the correct fail-closed result while structure/strategy-quality providers and execution-instrument evidence are absent.
+- Latest candle age was approximately 419 seconds during this pass; the API reported the stream disabled. Keep the existing feed/REST freshness contract as the source of truth; do not describe WebSocket as verified live merely because the 24-hour persisted-feed soak passed.
+
+No production code, release pointer, service state, credentials, or order state was changed by this verification. The soak's completion is an evidence milestone, not authorization to merge/deploy or enable execution.
