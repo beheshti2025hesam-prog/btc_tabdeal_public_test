@@ -168,6 +168,11 @@ class NewsBrainTests(unittest.TestCase):
         gate_fetch.assert_called_once()
         self.assertEqual(gate_fetch.call_args.kwargs["source_id"], "gateio_official_announcements")
         self.assertEqual(rss_fetch.call_count, 6)
+        health = brief.provenance["source_health"]
+        self.assertEqual(len(health), 7)
+        self.assertEqual(sum(x["status"] == "ok" for x in health), 1)
+        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 6)
+        self.assertIn("feed_payload_sha256", health[0])
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
 
     def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
