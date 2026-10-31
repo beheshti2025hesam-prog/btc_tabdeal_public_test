@@ -11,7 +11,7 @@
       "freshness_check",
       "terms_and_rate_limit_review"
     ],
-    "note": "Enabled sources were re-probed from the authorized VPS on 2026-10-31 using HTTPS with redirects rejected. Current crypto coverage is official macro/regulatory plus Gate.io venue announcements; still partial and not a comprehensive crypto-native newswire."
+    "note": "Enabled official feeds were individually re-probed from the authorized VPS on 2026-10-31 with HTTPS and redirects rejected. Current crypto coverage combines official macro/regulatory/central-bank sources and Gate.io venue announcements; still partial, not a comprehensive crypto-native newswire."
   },
   "sources": [
     {
@@ -181,6 +181,72 @@
         "page_size": 50
       },
       "terms_note": "Official Gate API announcement endpoint; public and no API key required. Venue operational announcements only, not a general crypto newswire."
+    },
+    {
+      "id": "bis_media_releases",
+      "name": "Bank for International Settlements — Media Releases",
+      "url": "https://www.bis.org/doclist/all_pressrels.rss",
+      "host": "www.bis.org",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.bis.org/rss",
+      "last_probe_utc": "2026-10-31T06:06:30Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; RSS parsed; 10 items; newest pubDate 2026-10-29T00:00:00Z (54.12h old at probe)",
+      "terms_note": "Official BIS RSS page provides a dedicated media-release feed and describes RSS as the intended update channel. HES consumes feed metadata and summaries only; no article-page scraping."
+    },
+    {
+      "id": "boj_whats_new",
+      "name": "Bank of Japan — English What's New RSS",
+      "url": "https://www.boj.or.jp/en/rss/whatsnew.xml",
+      "host": "www.boj.or.jp",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.boj.or.jp/en/tips.htm",
+      "last_probe_utc": "2026-10-31T06:06:30Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 51 items; newest published 2026-10-30T17:00:00+09:00 (22.12h old at probe)",
+      "terms_note": "Official Bank of Japan page documents RSS distribution of dates and titles from its What's New section. English feed only; metadata and feed summaries are consumed, not article scraping."
+    },
+    {
+      "id": "boc_news",
+      "name": "Bank of Canada — News RSS",
+      "url": "https://www.bankofcanada.ca/utility/news/feed/",
+      "host": "www.bankofcanada.ca",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.bankofcanada.ca/rss-feeds/",
+      "last_probe_utc": "2026-10-31T06:06:30Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 10 items; newest date 2026-10-28T09:47:20Z (68.34h old at probe)",
+      "terms_note": "Official Bank of Canada RSS page lists News feeds and describes RSS subscription. Low-frequency source; freshness is evaluated per item. HES consumes feed metadata and summaries only."
     }
   ],
   "market_profiles": {
@@ -189,26 +255,35 @@
         "ecb_press_releases",
         "cftc_general_press_releases",
         "fed_press_all",
-        "gateio_official_announcements"
+        "gateio_official_announcements",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_and_venue_announcements",
-      "note": "Official ECB/CFTC/Federal Reserve macro-regulatory feeds plus Gate.io venue announcements are enabled. This remains partial coverage, not a comprehensive crypto-native newswire."
+      "status": "partial_official_macro_regulatory_central_bank_and_venue_announcements",
+      "note": "Qualified official ECB/CFTC/Federal Reserve/BIS/Bank of Japan/Bank of Canada macro-regulatory feeds plus Gate.io venue announcements. This is stronger official macro and venue coverage but remains partial; no qualified crypto-native independent newswire is enabled."
     },
     "fx": {
       "source_ids": [
         "ecb_press_releases",
         "cftc_general_press_releases",
-        "fed_press_all"
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_only"
+      "status": "partial_official_macro_regulatory_central_bank"
     },
     "equities": {
       "source_ids": [
         "ecb_press_releases",
         "cftc_general_press_releases",
-        "fed_press_all"
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_only"
+      "status": "partial_official_macro_regulatory_central_bank"
     },
     "iran_equities": {
       "source_ids": [],
@@ -219,9 +294,12 @@
       "source_ids": [
         "cftc_general_press_releases",
         "ecb_press_releases",
-        "fed_press_all"
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_only"
+      "status": "partial_official_macro_regulatory_central_bank"
     }
   }
 }
