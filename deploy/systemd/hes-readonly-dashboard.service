@@ -23,6 +23,8 @@ RestartSec=5
 TimeoutStopSec=15
 KillSignal=SIGTERM
 UMask=0077
+StateDirectory=hes-news-monitor
+StateDirectoryMode=0750
 TasksMax=64
 LimitNOFILE=1024
 
