@@ -1,0 +1,19 @@
+name: Continuous News Radar v1
+on:
+  push:
+    branches: ["feat/news-radar-continuous-monitor-v1"]
+  pull_request:
+    branches: ["main", "consolidated/gateio-dashboard-signal-agent-v1"]
+permissions:
+  contents: read
+jobs:
+  news-monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m py_compile core/market_intelligence/news_brain.py core/market_intelligence/news_monitor.py web/dashboard.py
+      - run: python -m unittest tests.test_news_brain_v1 tests.test_news_decision_gate_v1 tests.test_news_monitor_v1
+      - run: node --check web/static/dashboard.js
