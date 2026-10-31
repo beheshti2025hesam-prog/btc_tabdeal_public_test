@@ -129,3 +129,25 @@ No production code, release pointer, service state, credentials, or order state 
 ### State unchanged
 - No policy file was edited; no service was restarted; no release pointer or production journal was changed; no credentials were accessed; no order was submitted.
 - Current disposition remains `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`, `execution_enabled=false`, `orders_placed=false`. Target delivery remains 2026-11-19.
+
+## Follow-up execution pass — 2026-10-31: fresh runtime + independent-review audit
+
+### Fresh read-only production probe
+- Dashboard unit remains active and the production pointer is still `/opt/hes-trade-agent/releases/2e8d3859ef154b030e0965ad4479f3fad36ae4c0`.
+- `GET /healthz`: HTTP 200; `status=ok`; `NO_TRADE_ONLY`; `execution_enabled=false`; Gate.io Public Spot / `global_market_data_reader_v1` / BTC_USDT; current batch SHA-256 `1332ea109566ecce12298d77ccaabff01ea5da7a50cbc11c2fdc923e3f68a21c`; reported latest candle age about 36 seconds.
+- `GET /api/candles`: HTTP 200; 240 BTCUSDT 15m candles; same batch SHA-256 `1332ea109566ecce12298d77ccaabff01ea5da7a50cbc11c2fdc923e3f68a21c`.
+- `GET /api/signal`: HTTP 200; `BLOCKED / NO_TRADE`; same batch SHA-256. Remaining explicit blockers include structure direction/validated structure provider, strategy-quality provider not wired, HTF/pullback/reversal/MFI/ADX confirmation evidence, 3:1 risk geometry, and execution instrument mapping evidence. Do not weaken these gates.
+- `GET /api/journal`: HTTP 404 `not_found`. The production candidate-parity blocker remains unresolved.
+- Exact installed Gate.io units: `hes-global-market-data-gateio.service`, `...-1h.service`, and `...-4h.service` are active; the completed `...-soak.service` is inactive/dead as expected after successful completion. The generic `...-15m.service` name used in an earlier probe was not an installed unit; do not record it as a failed feed. The active generic Gate.io unit plus fresh persisted candles and the 24h soak remain the evidence. No WebSocket-live claim.
+- Worktree remains dirty; no cleanup/reset/branch switch was attempted. No service restart, release-pointer change, journal write, credentials access, or order occurred.
+
+### PR independent-review audit
+- Re-queried submitted reviews for PRs #383, #388, #394, #398, #399 and #404.
+- #383, #388, #394, #399 and #404 have zero submitted reviews in the current review listing.
+- #398 has four submitted review records, all authored by the repository owner and all state `COMMENTED`; none is an independent approval. Evidence comments do not satisfy independent review.
+- Therefore the stacked parent chain still lacks independent review. No merge, retarget, or release action is justified. Preserve dependency order and reconcile the chain only after an independent reviewer is available.
+
+### Current disposition
+- `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; execution OFF; no production deployment.
+- Remaining hard blockers: independent review of the correct stacked parent chain; production `/api/journal` parity via the reviewed existing canonical-journal candidate; validated structure/strategy-quality providers and complete confirmation/risk evidence; execution venue/instrument proof; approved SentinelX policy registration for dashboard status/restart; protected encrypted off-host backup and tested restore; independent security review.
+- Delivery target remains 2026-11-19. Continue from this checkpoint without rebuilding existing components or repeating the completed 24-hour soak.
