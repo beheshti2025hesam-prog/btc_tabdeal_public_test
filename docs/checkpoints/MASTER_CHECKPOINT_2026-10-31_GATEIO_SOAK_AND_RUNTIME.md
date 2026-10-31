@@ -206,3 +206,39 @@ No production code, release pointer, service state, credentials, or order state 
 ### Decision / next gate
 - The existing PR #394 journal projection and idempotent writer are compatible with the current real journal and pass all six focused tests. This is a strong integration candidate and avoids rebuilding the journal/Learning Loop.
 - Still no production route parity, no independent PR review, no operator policy authorization, no systemd release switch, and no execution approval. Keep `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; no live order.
+
+
+## Deep-review decision and next execution sequence — 2026-10-31
+
+### What is now re-confirmed
+- PR #394 exact head remains `8e31d65939c16ed35eb0e7b44274b7ac5670525e`; PR is open, Draft, and GitHub reports mergeable, but mergeability is not approval.
+- Four exact-head Actions runs independently fetched from GitHub are completed/successful:
+  - Full repository regression: 41023654434
+  - Native OHLCV Dashboard Single Path: 41023654430
+  - Native OHLCV WebSocket Live Smoke: 41023654427
+  - Native OHLCV Browser Render Smoke: 41023654546
+  The WebSocket run is bounded smoke, not a 24-hour soak.
+- PR body reports full repository regression 643 passed + 24 subtests; exact-head Actions conclusion was independently checked. This does not replace a human code review.
+- PR #394 explicitly preserves Gate.io Spot BTC_USDT as the single canonical analysis/chart source, uses one persisted batch for chart and Signal, and keeps execution separate/disabled. Dashboard contains no order endpoint; POST is rejected and unsupported order path returns 404 in tests.
+- PR #394 writes Signal decisions to the existing canonical `trade_journal_v2.jsonl` and projects that same journal without inventing outcomes. Runtime compatibility and focused tests are now independently verified above.
+- Current production dashboard remains the #388 release. Its `/api/journal` route is absent (404), so journal UI/API is not yet in production. This is a release integration gap, not evidence that the journal file or Learning Loop is missing.
+
+### Correct priority — do not jump to deployment
+1. **Close review/release governance first:** obtain an independent human reviewer for PR #394 and explicit owner/operator approval for the narrow SentinelX service allowlist entry. No reviewer identity is known; do not fabricate one or self-approve.
+2. **Prepare a controlled release candidate, isolated from the dirty checkout:** verify exact SHA and provenance, preserve the current release as rollback, check systemd unit diff, and preflight the journal/lock file. Do not overwrite `current`, reset the dirty worktree, or restart services before the release gate.
+3. **Deploy only after gates 1–2:** use a new immutable release directory; install only the reviewed PR #394 files; apply its narrow journal/lock `ReadWritePaths`; add the dashboard service allowlist only after operator edit; restart only the dashboard through the now-allowed status/restart policy. Verify `/healthz`, `/api/candles`, `/api/signal`, `/api/journal`, matching source/batch hashes, journal idempotency, and service sandbox. Keep loopback-only.
+4. **Complete forward-only counterfactual evaluation:** connect the already-existing no-trade outcome tracker to the canonical journal/Learning Loop, preserve entry-time snapshots, compare hypothetical LONG/SHORT outcomes with fees/slippage/funding and a predeclared horizon, classify prevented loss vs missed opportunity vs indeterminate, and never infer outcome from future data without a timestamped evaluation record. Existing PR #394 journal projection intentionally does not claim this outcome validation is complete.
+5. **Only then address execution adapter:** first establish a separate execution contract and instrument mapping proof for the chosen exchange/broker (Tabdeal is the initial target, subject to verified API behavior). Test precision, min notional, leverage, position mode, order idempotency, partial fills, cancel/replace, reconnect reconciliation, and kill switch in paper/test environment. No exchange candles may replace Gate.io analysis candles. No live order until separately authorized.
+
+### Hard blockers that require operator/reviewer input
+- Add under `services:` in `/etc/sentinelx/config.yaml` only:
+  ```yaml
+  hes-readonly-dashboard.service:
+    actions: [status, restart]
+  ```
+  Do not grant start/stop. Agent must not edit its own SentinelX policy.
+- An independent reviewer must be nominated/requested by the repository owner; self-authored comments or CI cannot satisfy independent review.
+- Production release/rollback authority and later execution authorization remain separate decisions.
+
+### Current disposition
+**Proceed with isolated release preparation and forward-only evaluation design; do not merge, deploy, restart, enable order execution, or place trades yet.** The correct next technical move is to prepare a SHA-pinned immutable #394 release package and rollback manifest without touching the active release or dirty worktree. HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY remains mandatory.
