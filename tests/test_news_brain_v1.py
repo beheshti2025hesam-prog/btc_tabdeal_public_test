@@ -79,11 +79,13 @@ class NewsBrainTests(unittest.TestCase):
         self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", brief.veto_flags)
         self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
 
-    def test_unknown_regime_never_turns_news_into_directional_trade(self):
-        brief = self.brain.analyze([NewsItem("Bitcoin ETF sees inflows", source="wire",
-            url="https://wire.test/1")], MarketContext("crypto", "BTC", "unknown"), now=NOW)
-        self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
-        self.assertIn("Market regime is unknown", " ".join(brief.market_implications))
+    def test_unknown_regime_is_context_not_a_news_veto(self):
+        brief = self.brain.analyze(
+            [], MarketContext("crypto", "BTC", "unknown", venue="gateio"), now=NOW
+        )
+        self.assertEqual(brief.suggested_action, "CONTEXT_ONLY")
+        self.assertFalse(brief.veto_flags)
+        self.assertEqual(brief.context["regime"], "unknown")
 
     def test_naive_timestamp_is_rejected_and_vetoed(self):
         brief = self.brain.analyze(
@@ -125,12 +127,25 @@ class NewsBrainTests(unittest.TestCase):
         self.assertTrue(registry["sources"])
         enabled = [source for source in registry["sources"] if source["enabled"]]
         self.assertEqual({source["id"] for source in enabled},
-                         {"ecb_press_releases", "cftc_general_press_releases", "gateio_official_announcements"})
+                         {"ecb_press_releases", "cftc_general_press_releases", "fed_press_all", "bis_media_releases", "boj_whats_new", "boc_news", "gateio_official_announcements"})
         self.assertTrue(all(source["qualification_status"] == "qualified" for source in enabled))
         self.assertFalse(next(source for source in registry["sources"]
                               if source["id"] == "coindesk_news")["enabled"])
         self.assertEqual(registry["market_profiles"]["iran_equities"]["status"],
                          "blocked_no_qualified_source")
+
+    def test_market_profile_partitions_international_domestic_and_venue_sources(self):
+        registry = load_source_registry(
+            Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        )
+        crypto = registry["market_profiles"]["crypto"]
+        self.assertEqual(crypto["domestic_source_ids"], [])
+        self.assertEqual(crypto["venue_source_ids"], ["gateio_official_announcements"])
+        self.assertEqual(set(crypto["international_source_ids"]) | set(crypto["venue_source_ids"]),
+                         set(crypto["source_ids"]))
+        scopes = {source["id"]: source["source_scope"] for source in registry["sources"]}
+        self.assertEqual(scopes["gateio_official_announcements"], "venue")
+        self.assertEqual(scopes["fed_press_all"], "international")
 
     def test_unverified_source_vetoes_trade_context(self):
         brief = self.brain.analyze(
@@ -167,8 +182,35 @@ class NewsBrainTests(unittest.TestCase):
                 registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         gate_fetch.assert_called_once()
         self.assertEqual(gate_fetch.call_args.kwargs["source_id"], "gateio_official_announcements")
-        self.assertEqual(rss_fetch.call_count, 2)
+        self.assertEqual(rss_fetch.call_count, 6)
+        health = brief.provenance["source_health"]
+        self.assertEqual(len(health), 7)
+        self.assertEqual(sum(x["status"] == "ok" for x in health), 1)
+        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 6)
+        gate_health = next(x for x in health if x["source_id"] == "gateio_official_announcements")
+        self.assertEqual(gate_health["status"], "ok")
+        self.assertEqual(gate_health["source_scope"], "venue")
+        self.assertIsNotNone(gate_health["feed_payload_sha256"])
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
+
+    def test_registry_records_source_failures_without_hiding_successful_empty_feeds(self):
+        registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        def fetch_rss_side_effect(url, *, source, source_id="", **kwargs):
+            if source_id == "ecb_press_releases":
+                raise ValueError("news source unavailable: TimeoutError")
+            return []
+        with (
+            patch("core.market_intelligence.news_brain.fetch_rss", side_effect=fetch_rss_side_effect),
+            patch("core.market_intelligence.news_brain.fetch_gate_announcements", return_value=[]),
+        ):
+            brief = self.brain.run_from_registry(
+                registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        health = {x["source_id"]: x for x in brief.provenance["source_health"]}
+        self.assertEqual(health["ecb_press_releases"]["status"], "failed")
+        self.assertEqual(health["ecb_press_releases"]["error_code"], "news source unavailable")
+        self.assertEqual(health["cftc_general_press_releases"]["status"], "ok_empty")
+        self.assertIn("ecb_press_releases:news source unavailable", brief.provenance["source_failures"])
+        self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", brief.veto_flags)
 
     def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
         registry_path = Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"

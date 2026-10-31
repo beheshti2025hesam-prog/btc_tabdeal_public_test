@@ -26,8 +26,8 @@ class NewsDecisionGateTests(unittest.TestCase):
         self.assertEqual(result.quality_score, 0.8)
 
     def test_clean_context_only_brief_preserves_decision(self):
-        brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
-        object.__setattr__(brief, "provenance", {**brief.provenance, "source_profile_status": "qualified_complete"})
+        brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "unknown"), now=NOW)
+        object.__setattr__(brief, "provenance", {**brief.provenance, "source_profile_status": "partial_official_macro_regulatory_central_bank_and_venue_announcements"})
         self.assertEqual(brief.suggested_action, "CONTEXT_ONLY")
         self.assertEqual(apply_news_veto(self.long, brief), self.long)
 
@@ -40,10 +40,10 @@ class NewsDecisionGateTests(unittest.TestCase):
 
     def test_partial_source_profile_is_visible_but_not_an_automatic_veto(self):
         brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
-        object.__setattr__(brief, "provenance", {**brief.provenance, "source_profile_status": "partial_official_macro_regulatory_only"})
+        object.__setattr__(brief, "provenance", {**brief.provenance, "source_profile_status": "partial_official_macro_regulatory_central_bank_and_venue_announcements"})
         result = apply_news_veto(self.long, brief)
         self.assertEqual(result, self.long)
-        self.assertEqual(brief.provenance["source_profile_status"], "partial_official_macro_regulatory_only")
+        self.assertEqual(brief.provenance["source_profile_status"], "partial_official_macro_regulatory_central_bank_and_venue_announcements")
 
     def test_unknown_schema_fails_closed(self):
         brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)

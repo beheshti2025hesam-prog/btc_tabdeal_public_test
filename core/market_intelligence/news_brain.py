@@ -204,6 +204,29 @@ def load_source_registry(path: str | Path) -> dict:
             raise ValueError(f"source {source_id} has an unapproved Gate announcement endpoint")
         if not isinstance(source.get("markets"), list) or not source["markets"]:
             raise ValueError(f"source {source_id} must declare market coverage")
+        if source.get("source_scope") not in {"international", "domestic", "venue"}:
+            raise ValueError(f"source {source_id} must declare a valid source_scope")
+    source_map = {source["id"]: source for source in sources}
+    profiles = registry.get("market_profiles", {})
+    if not isinstance(profiles, dict):
+        raise ValueError("market_profiles must be an object")
+    for market, profile in profiles.items():
+        if not isinstance(profile, dict):
+            raise ValueError(f"market profile {market} must be an object")
+        source_ids = profile.get("source_ids", [])
+        if not isinstance(source_ids, list) or any(source_id not in source_map for source_id in source_ids):
+            raise ValueError(f"market profile {market} has invalid source_ids")
+        scoped_ids = []
+        for scope in ("international", "domestic", "venue"):
+            ids = profile.get(f"{scope}_source_ids")
+            if not isinstance(ids, list):
+                raise ValueError(f"market profile {market} must declare {scope}_source_ids")
+            for source_id in ids:
+                if source_id not in source_ids or source_map[source_id]["source_scope"] != scope:
+                    raise ValueError(f"market profile {market} has invalid {scope} source mapping")
+            scoped_ids.extend(ids)
+        if set(scoped_ids) != set(source_ids) or len(scoped_ids) != len(set(scoped_ids)):
+            raise ValueError(f"market profile {market} source scopes must partition source_ids")
     return registry
 
 
@@ -361,7 +384,7 @@ class NewsIntelligenceBrain:
         """Collect from enabled market sources, then build the Mother Agent brief.
 
         No enabled source is treated as incomplete coverage, not as evidence
-        that no news exists. Per-source failures are retained in provenance.
+        that no news exists. Per-source health and failures are retained.
         """
         registry = load_source_registry(registry_path)
         registry_sha256 = sha256(Path(registry_path).read_bytes()).hexdigest()
@@ -374,26 +397,63 @@ class NewsIntelligenceBrain:
             brief = self.analyze([], context, now=now,
                                  source_failures=[f"no_enabled_sources_for_market:{context.market}"])
             brief = self._attach_profile_status(brief, profile)
-            return replace(brief, provenance={**brief.provenance, "registry_sha256": registry_sha256})
+            return replace(brief, provenance={
+                **brief.provenance, "registry_sha256": registry_sha256, "source_health": []
+            })
         items = []
         failures = []
+        source_health = []
         for source in sources:
             try:
                 if source.get("type", "rss") == "gate_announcements":
                     request_options = source.get("request", {})
-                    items.extend(fetch_gate_announcements(
+                    source_items = fetch_gate_announcements(
                         source["url"], source=source["name"], source_id=source["id"],
                         language=request_options.get("language", "en"),
                         days=request_options.get("days", 3),
                         page_size=request_options.get("page_size", 50),
-                    ))
+                    )
                 else:
-                    items.extend(fetch_rss(source["url"], source=source["name"], source_id=source["id"]))
+                    source_items = fetch_rss(
+                        source["url"], source=source["name"], source_id=source["id"]
+                    )
+                items.extend(source_items)
+                published_times = [
+                    parsed for item in source_items
+                    if (parsed := _parse_time(item.published_at)) is not None
+                ]
+                checked_at = datetime.now(timezone.utc)
+                source_health.append({
+                    "source_id": source["id"],
+                    "source_scope": source["source_scope"],
+                    "status": "ok" if source_items else "ok_empty",
+                    "checked_at": _iso(checked_at),
+                    "item_count": len(source_items),
+                    "newest_published_at": _iso(max(published_times)) if published_times else None,
+                    "feed_payload_sha256": (
+                        source_items[0].feed_payload_sha256 if source_items else None
+                    ),
+                })
             except ValueError as exc:
-                failures.append(f"{source['id']}:{str(exc).split(':', 1)[0]}")
+                error_code = str(exc).split(":", 1)[0]
+                failures.append(f"{source['id']}:{error_code}")
+                checked_at = datetime.now(timezone.utc)
+                source_health.append({
+                    "source_id": source["id"],
+                    "source_scope": source["source_scope"],
+                    "status": "failed",
+                    "checked_at": _iso(checked_at),
+                    "item_count": 0,
+                    "newest_published_at": None,
+                    "feed_payload_sha256": None,
+                    "error_code": error_code,
+                })
         brief = self.analyze(items, context, now=now, source_failures=failures)
         brief = self._attach_profile_status(brief, profile)
-        return replace(brief, provenance={**brief.provenance, "registry_sha256": registry_sha256})
+        return replace(brief, provenance={
+            **brief.provenance, "registry_sha256": registry_sha256,
+            "source_health": source_health,
+        })
 
     @staticmethod
     def _attach_profile_status(brief: NewsBrief, profile: Mapping[str, object]) -> NewsBrief:
@@ -516,8 +576,6 @@ class NewsIntelligenceBrain:
             implications.append("Check venue/asset operational risk and liquidity before considering any signal.")
         if any("monetary_policy" in f.categories or "macro" in f.categories for f in high_impact):
             implications.append("Re-check volatility and spread around macro-event windows; news alone does not set direction.")
-        if context.regime in {"unknown", "insufficient_data"}:
-            implications.append("Market regime is unknown; do not convert news bias into a directional trade.")
         if source_failures:
             implications.append("News coverage is incomplete because one or more configured sources failed.")
         if not findings:
@@ -548,7 +606,7 @@ class NewsIntelligenceBrain:
             status=status, headline=headline, findings=tuple(findings),
             market_implications=tuple(implications),
             mother_agent_summary="; ".join(summary_bits),
-            suggested_action="NO_TRADE_PENDING_CONFIRMATION" if veto_flags or context.regime in {"unknown", "insufficient_data"} else "CONTEXT_ONLY",
+            suggested_action="NO_TRADE_PENDING_CONFIRMATION" if veto_flags else "CONTEXT_ONLY",
             veto_flags=tuple(veto_flags),
             provenance={"method": "deterministic_keyword_rules_v1", "sources_seen": len(candidates),
                         "items_returned": len(findings), "stale_items_dropped": stale_count,

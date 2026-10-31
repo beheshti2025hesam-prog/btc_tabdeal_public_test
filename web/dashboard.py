@@ -1,6 +1,7 @@
 """Integrated read-only HES dashboard; deliberately contains no order routes."""
 from __future__ import annotations
 from datetime import datetime, timezone
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Lock, Thread
@@ -22,6 +23,7 @@ from forward.trade_journal_view_v1 import configured_decision_journal, JournalPr
 from core.orchestration.mother_v1 import MotherOrchestratorV1, precomputed_specialists_v1
 from core.orchestration.witness_v1 import MotherAuditWitnessV1
 from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
+from core.market_intelligence.news_monitor import NewsMonitorV1
 from forward.decision_engine_v1 import DecisionResult
 from forward.news_decision_gate_v1 import apply_news_veto
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
@@ -89,6 +91,10 @@ _NEWS_REGISTRY = PROJECT_ROOT / "config" / "news_sources_v1.json"
 _NEWS_CACHE_LOCK = Lock()
 _NEWS_CACHE = {}
 _NEWS_CACHE_TTL_SECONDS = 60
+_NEWS_REFRESH_LOCK = Lock()
+_NEWS_CONTEXT = MarketContext(market="crypto", symbol="BTCUSDT", regime="unknown", timeframe="15m", venue="gateio")
+_NEWS_MONITOR_INTERVAL = int(os.environ.get("HES_NEWS_MONITOR_INTERVAL_SECONDS", "60"))
+_NEWS_MONITOR_SNAPSHOT = Path(os.environ.get("HES_NEWS_MONITOR_SNAPSHOT", "/var/lib/hes-news-monitor/news_brief_latest.json"))
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
@@ -141,17 +147,55 @@ def _stream_worker():
     except Exception as exc:
         _STREAM_STATE.update(status="blocked", reason=type(exc).__name__)
 
+def _cache_monitored_news_brief(brief):
+    key = (_NEWS_CONTEXT.market, _NEWS_CONTEXT.symbol, _NEWS_CONTEXT.regime, _NEWS_CONTEXT.timeframe, _NEWS_CONTEXT.venue)
+    with _NEWS_CACHE_LOCK:
+        _NEWS_CACHE[key] = (time.monotonic(), brief)
+
+_NEWS_MONITOR = NewsMonitorV1(
+    brain=_NEWS_BRAIN, registry_path=_NEWS_REGISTRY, context=_NEWS_CONTEXT,
+    snapshot_path=_NEWS_MONITOR_SNAPSHOT, interval_seconds=_NEWS_MONITOR_INTERVAL,
+    on_brief=_cache_monitored_news_brief, poll_lock=_NEWS_REFRESH_LOCK,
+)
+_NEWS_MONITOR_STOP = Event()
+_NEWS_MONITOR_THREAD = None
+
 def _get_news_brief(context):
     key = (context.market, context.symbol, context.regime, context.timeframe, context.venue)
+    monitored_key = (_NEWS_CONTEXT.market, _NEWS_CONTEXT.symbol, _NEWS_CONTEXT.regime, _NEWS_CONTEXT.timeframe, _NEWS_CONTEXT.venue)
     now = time.monotonic()
+    # The continuous monitor is the primary collector. Its brief is context-only;
+    # strategy regime remains a separate specialist input and is never inferred from news.
+    if (context.market, context.symbol, context.timeframe, context.venue) == (
+        _NEWS_CONTEXT.market, _NEWS_CONTEXT.symbol, _NEWS_CONTEXT.timeframe, _NEWS_CONTEXT.venue
+    ):
+        with _NEWS_CACHE_LOCK:
+            monitored = _NEWS_CACHE.get(monitored_key)
+            if monitored and now - monitored[0] <= _NEWS_CACHE_TTL_SECONDS:
+                # Keep the monitored news evidence but bind the current signal's
+                # regime/time metadata into the Mother payload.
+                current_context = dict(monitored[1].context)
+                current_context.update({
+                    "market": context.market, "symbol": context.symbol,
+                    "regime": context.regime, "timeframe": context.timeframe,
+                    "venue": context.venue, "observed_at": context.observed_at,
+                })
+                return replace(monitored[1], context=current_context)
     with _NEWS_CACHE_LOCK:
         cached = _NEWS_CACHE.get(key)
         if cached and now - cached[0] <= _NEWS_CACHE_TTL_SECONDS:
             return cached[1]
-    brief = _NEWS_BRAIN.run_from_registry(_NEWS_REGISTRY, context)
-    with _NEWS_CACHE_LOCK:
-        _NEWS_CACHE[key] = (time.monotonic(), brief)
-    return brief
+    # Serialize cache misses so concurrent dashboard requests never fan out duplicate source polls.
+    with _NEWS_REFRESH_LOCK:
+        now = time.monotonic()
+        with _NEWS_CACHE_LOCK:
+            cached = _NEWS_CACHE.get(key)
+            if cached and now - cached[0] <= _NEWS_CACHE_TTL_SECONDS:
+                return cached[1]
+        brief = _NEWS_BRAIN.run_from_registry(_NEWS_REGISTRY, context)
+        with _NEWS_CACHE_LOCK:
+            _NEWS_CACHE[key] = (time.monotonic(), brief)
+        return brief
 
 
 def _get_batch(symbol, interval):
@@ -168,7 +212,7 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status">Loading validated closed candles…</div></section>
-<section class="panel"><h3 class="panel-title">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This read-only route composes validated market structure, strategy quality, confirmation, risk and arbitration. Missing execution-instrument mapping or any unapproved risk gate keeps the decision at NO_TRADE.</p></div><div class="panel"><h4 class="panel-title">Mother Orchestrator · read-only</h4><div class="metrics"><div class="metric"><small>Orchestration status</small><strong id="motherStatus">BLOCKED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace">—</strong></div></div><p class="muted" id="motherStages">Waiting for specialist evidence…</p></div><div class="panel"><h4 class="panel-title">News Radar · read-only</h4><div class="metrics"><div class="metric"><small>News status</small><strong id="newsStatus">UNKNOWN</strong></div><div class="metric"><small>News action</small><strong id="newsAction">CONTEXT ONLY</strong></div></div><p class="muted" id="newsSummary">Waiting for qualified source context…</p><p class="muted" id="newsFlags">No news flags loaded.</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
+<section class="panel"><h3 class="panel-title">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This read-only route composes validated market structure, strategy quality, confirmation, risk and arbitration. Missing execution-instrument mapping or any unapproved risk gate keeps the decision at NO_TRADE.</p></div><div class="panel"><h4 class="panel-title">Mother Orchestrator · read-only</h4><div class="metrics"><div class="metric"><small>Orchestration status</small><strong id="motherStatus">BLOCKED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace">—</strong></div></div><p class="muted" id="motherStages">Waiting for specialist evidence…</p></div><div class="panel"><h4 class="panel-title">News Radar · read-only</h4><div class="metrics"><div class="metric"><small>News status</small><strong id="newsStatus">UNKNOWN</strong></div><div class="metric"><small>News action</small><strong id="newsAction">CONTEXT ONLY</strong></div></div><p class="muted" id="newsSummary">Waiting for qualified source context…</p><p class="muted" id="newsFlags">No news flags loaded.</p><p class="muted" id="newsMonitor">Continuous monitor: waiting for first verified poll…</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel"><h3 class="panel-title">Decision and safety gates</h3><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel" id="journalPanel"><div class="toolbar"><div><h3 class="panel-title">Trade Journal · Decision & Learning Evidence</h3><div class="muted">Immutable forward decisions only. Executed trades and realized outcomes are not inferred from a signal.</div></div><button id="journalRefresh" type="button">Refresh journal</button></div><p class="muted" id="journalStatus" role="status">Loading journal…</p><div class="journal-scroll"><table class="journal-table"><thead><tr><th>Time (UTC)</th><th>Market</th><th>Decision</th><th>Gate / reason</th><th>Outcome</th><th>Evidence</th></tr></thead><tbody id="journalRows"><tr><td colspan="6" class="muted">No journal entries loaded.</td></tr></tbody></table></div></section>
 <div class="footer">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. Copyright (c) 2025 TradingView, Inc. The chart reads the same validated persisted Gate.io candles through the canonical global-market reader used by the analysis input path; the dashboard does not make a second REST candle request. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io's documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.</div></main>
@@ -228,6 +272,18 @@ class Handler(BaseHTTPRequestHandler):
                     "symbol_mapping_verified": False, "execution_instrument_mapping_verified": False,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+        if p.path == "/api/news":
+            try:
+                snapshot = _NEWS_MONITOR.read_snapshot(max_age_seconds=max(180, _NEWS_MONITOR_INTERVAL * 3))
+                monitor = snapshot["monitor"]
+                if monitor["status"] == "BLOCKED" or snapshot.get("brief") is None:
+                    raise ValueError("news_monitor_blocked")
+                return self._send(200, json.dumps(snapshot, separators=(",", ":")).encode(), "application/json")
+            except Exception as exc:
+                return self._send(503, json.dumps({
+                    "status": "BLOCKED", "error": type(exc).__name__,
+                    "fail_closed": True, "execution_enabled": False, "orders_placed": False,
+                }, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/journal":
             q = parse_qs(p.query)
             try:
@@ -648,6 +704,17 @@ def main():
     _STREAM_STATE.update(status="disabled", reason="gateio_stream_not_enabled")
     host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
     server=ThreadingHTTPServer((host,port),Handler)
-    print(f"HES read-only dashboard listening on http://{host}:{port}",flush=True); server.serve_forever()
+    global _NEWS_MONITOR_THREAD
+    _NEWS_MONITOR_STOP.clear()
+    _NEWS_MONITOR_THREAD = Thread(target=_NEWS_MONITOR.run_forever, args=(_NEWS_MONITOR_STOP,), name="hes-news-monitor", daemon=True)
+    _NEWS_MONITOR_THREAD.start()
+    print(f"HES read-only dashboard listening on http://{host}:{port}",flush=True)
+    try:
+        server.serve_forever()
+    finally:
+        _NEWS_MONITOR_STOP.set()
+        if _NEWS_MONITOR_THREAD.is_alive():
+            _NEWS_MONITOR_THREAD.join(timeout=5)
+        server.server_close()
 
 if __name__=="__main__": main()

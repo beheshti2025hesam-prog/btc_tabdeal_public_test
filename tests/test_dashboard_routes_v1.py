@@ -83,6 +83,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Canonical persisted global feed",page)
         self.assertIn("News Radar", page)
         self.assertIn("id=\"newsStatus\"", page)
+        self.assertIn("id=\"newsMonitor\"", page)
         self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
         self.assertNotIn("its semantics are unverified",page)
@@ -122,6 +123,47 @@ class DashboardRouteTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             urlopen(Request(self.base+"/api/candles",data=b"{}",method="POST"))
         self.assertEqual(error.exception.code,405)
+
+    def test_monitored_news_brief_is_recontextualized_for_current_signal(self):
+        monitor_context = MarketContext("crypto", "BTCUSDT", "unknown", "15m", venue="gateio")
+        signal_context = MarketContext(
+            "crypto", "BTCUSDT", "uptrend", "15m",
+            observed_at="2026-10-31T06:10:00Z", venue="gateio",
+        )
+        brief = dashboard._NEWS_BRAIN.analyze([], monitor_context, now=datetime.now(timezone.utc))
+        monitor_key = ("crypto", "BTCUSDT", "unknown", "15m", "gateio")
+        with patch.dict(dashboard._NEWS_CACHE, {monitor_key: (time.monotonic(), brief)}):
+            with patch.object(dashboard._NEWS_BRAIN, "run_from_registry") as fetch:
+                result = dashboard._get_news_brief(signal_context)
+        self.assertEqual(result.context["regime"], "uptrend")
+        self.assertEqual(result.context["observed_at"], "2026-10-31T06:10:00Z")
+        self.assertEqual(result.suggested_action, "CONTEXT_ONLY")
+        fetch.assert_not_called()
+
+    def test_news_monitor_endpoint_returns_verified_persisted_snapshot(self):
+        snapshot = {
+            "schema_version": "hes.news_monitor_snapshot.v1",
+            "monitor": {"status": "OK", "interval_seconds": 60, "last_poll_at": "2026-10-31T12:00:00Z"},
+            "brief": {"schema_version": "hes.news_brief.v1", "status": "ok"},
+            "brief_sha256": "a" * 64,
+        }
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", return_value=snapshot):
+            with urlopen(self.base + "/api/news") as response:
+                payload = json.loads(response.read())
+        self.assertEqual(payload["schema_version"], "hes.news_monitor_snapshot.v1")
+        self.assertEqual(payload["monitor"]["status"], "OK")
+        self.assertFalse(payload.get("execution_enabled", False))
+
+    def test_news_monitor_endpoint_fails_closed_for_stale_or_missing_snapshot(self):
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", side_effect=ValueError("snapshot stale")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/news")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
 
     def test_health_fails_closed_when_persisted_feed_is_unavailable(self):
         with patch("web.dashboard._get_batch",side_effect=TimeoutError("feed unavailable")):
@@ -200,7 +242,8 @@ class DashboardRouteTests(unittest.TestCase):
                  patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                 server_factory.return_value.serve_forever.return_value = None
                 dashboard.main()
-        worker_thread.assert_not_called()
+        worker_thread.assert_called_once()
+        self.assertEqual(worker_thread.call_args.kwargs["name"], "hes-news-monitor")
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         server_factory.return_value.serve_forever.assert_called_once_with()
 
@@ -214,7 +257,8 @@ class DashboardRouteTests(unittest.TestCase):
                          patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                         server_factory.return_value.serve_forever.return_value = None
                         dashboard.main()
-                worker_thread.assert_not_called()
+                worker_thread.assert_called_once()
+                self.assertEqual(worker_thread.call_args.kwargs["name"], "hes-news-monitor")
                 self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
 
 
@@ -226,7 +270,8 @@ class DashboardRouteTests(unittest.TestCase):
                  patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                 server_factory.return_value.serve_forever.return_value = None
                 dashboard.main()
-        worker_thread.assert_not_called()
+        worker_thread.assert_called_once()
+        self.assertEqual(worker_thread.call_args.kwargs["name"], "hes-news-monitor")
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 

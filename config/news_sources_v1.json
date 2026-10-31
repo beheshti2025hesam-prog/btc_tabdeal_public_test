@@ -11,7 +11,7 @@
       "freshness_check",
       "terms_and_rate_limit_review"
     ],
-    "note": "Only sources individually qualified and explicitly enabled are fetched. Probes were read-only from the authorized VPS on 2026-10-23. Disabled candidates are not fetched. The current crypto profile has official macro/regulatory feeds only, not a qualified crypto-native newswire."
+    "note": "Enabled official feeds were individually re-probed from the authorized VPS on 2026-10-31 with HTTPS and redirects rejected. Current crypto coverage combines official macro/regulatory/central-bank sources and Gate.io venue announcements; still partial, not a comprehensive crypto-native newswire."
   },
   "sources": [
     {
@@ -29,11 +29,13 @@
       "languages": [
         "en"
       ],
-      "enabled": false,
-      "qualification_status": "official_feed_parsed_but_stale_for_72h_window",
+      "enabled": true,
+      "qualification_status": "qualified",
       "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm",
-      "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "HTTP 200; XML parsed; 20 items; newest item age 171.43 hours"
+      "last_probe_utc": "2026-10-31T06:05:00Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 20 items; newest pubDate 2026-10-29T20:30:00Z (33.59h old at probe); FOMC statement 60.09h old",
+      "terms_note": "Official Federal Reserve Board RSS distribution page lists All Press Releases and describes RSS readers/aggregators as the intended access method. HES consumes feed metadata/headlines and links only, at one request per 60-second poll; no article scraping or full-text republishing.",
+      "source_scope": "international"
     },
     {
       "id": "fed_monetary_policy",
@@ -54,7 +56,8 @@
       "qualification_status": "feed_parse_failed",
       "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm",
       "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "HTTP 200 but XML parser reported unclosed CDATA section"
+      "last_probe_status": "HTTP 200 but XML parser reported unclosed CDATA section",
+      "source_scope": "international"
     },
     {
       "id": "sec_press_releases",
@@ -73,7 +76,8 @@
       "qualification_status": "runtime_tls_timeout",
       "evidence_url": "https://www.sec.gov/newsroom/press-releases",
       "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "TLS handshake timeout from authorized VPS"
+      "last_probe_status": "TLS handshake timeout from authorized VPS",
+      "source_scope": "international"
     },
     {
       "id": "cftc_general_press_releases",
@@ -93,9 +97,10 @@
       "enabled": true,
       "qualification_status": "qualified",
       "evidence_url": "https://www.cftc.gov/RSS/index.htm",
-      "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "HTTP 200; RSS parsed; 10 items; newest item age 72.43 hours",
-      "terms_note": "Official CFTC government RSS feed; low-frequency publication means item freshness is evaluated per article."
+      "last_probe_utc": "2026-10-31T06:05:00Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; RSS parsed; 10 items; newest pubDate 2026-10-28T17:00:53Z (61.07h old at probe); low-frequency official feed",
+      "terms_note": "Official CFTC government RSS feed; low-frequency publication means item freshness is evaluated per article.",
+      "source_scope": "international"
     },
     {
       "id": "ecb_press_releases",
@@ -115,9 +120,10 @@
       "enabled": true,
       "qualification_status": "qualified",
       "evidence_url": "https://www.ecb.europa.eu/press/shared/pdf/MID-Catalogue-and-Integration-Guide.en.pdf",
-      "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "HTTP 200; XML parsed; 20 items; newest item age 2.44 hours",
-      "terms_note": "ECB states MID content is public domain; RSS is the recommended polling channel."
+      "last_probe_utc": "2026-10-31T06:05:00Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 20 items; newest pubDate 2026-10-31T01:30:00Z (4.59h old at probe)",
+      "terms_note": "ECB states MID content is public domain; RSS is the recommended polling channel.",
+      "source_scope": "international"
     },
     {
       "id": "coindesk_news",
@@ -136,7 +142,8 @@
       "evidence_url": "https://www.coindesk.com/",
       "last_probe_utc": "2026-10-23T18:26:03Z",
       "last_probe_status": "HTTP 200; XML parsed; 25 items; newest item age 4.45 hours",
-      "terms_note": "CoinDesk Terms of Use restrict automated access by robots/spiders/scrapers without express written permission; keep disabled until permission is confirmed."
+      "terms_note": "CoinDesk Terms of Use restrict automated access by robots/spiders/scrapers without express written permission; keep disabled until permission is confirmed.",
+      "source_scope": "international"
     },
     {
       "id": "cointelegraph_news",
@@ -154,7 +161,8 @@
       "qualification_status": "runtime_tls_timeout_and_terms_unverified",
       "evidence_url": "https://cointelegraph.com/",
       "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "TLS handshake timeout from authorized VPS"
+      "last_probe_status": "TLS handshake timeout from authorized VPS",
+      "source_scope": "international"
     },
     {
       "id": "gateio_official_announcements",
@@ -179,7 +187,77 @@
         "days": 3,
         "page_size": 50
       },
-      "terms_note": "Official Gate API announcement endpoint; public and no API key required. Venue operational announcements only, not a general crypto newswire."
+      "terms_note": "Official Gate API announcement endpoint; public and no API key required. Venue operational announcements only, not a general crypto newswire.",
+      "source_scope": "venue"
+    },
+    {
+      "id": "bis_media_releases",
+      "name": "Bank for International Settlements — Media Releases",
+      "url": "https://www.bis.org/doclist/all_pressrels.rss",
+      "host": "www.bis.org",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.bis.org/rss",
+      "last_probe_utc": "2026-10-31T06:06:30Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; RSS parsed; 10 items; newest pubDate 2026-10-29T00:00:00Z (54.12h old at probe)",
+      "terms_note": "Official BIS RSS page provides a dedicated media-release feed and describes RSS as the intended update channel. HES consumes feed metadata and summaries only; no article-page scraping.",
+      "source_scope": "international"
+    },
+    {
+      "id": "boj_whats_new",
+      "name": "Bank of Japan — English What's New RSS",
+      "url": "https://www.boj.or.jp/en/rss/whatsnew.xml",
+      "host": "www.boj.or.jp",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.boj.or.jp/en/tips.htm",
+      "last_probe_utc": "2026-10-31T06:06:30Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 51 items; newest published 2026-10-30T17:00:00+09:00 (22.12h old at probe)",
+      "terms_note": "Official Bank of Japan page documents RSS distribution of dates and titles from its What's New section. English feed only; metadata and feed summaries are consumed, not article scraping.",
+      "source_scope": "international"
+    },
+    {
+      "id": "boc_news",
+      "name": "Bank of Canada — News RSS",
+      "url": "https://www.bankofcanada.ca/utility/news/feed/",
+      "host": "www.bankofcanada.ca",
+      "tier": "official_primary",
+      "markets": [
+        "crypto",
+        "fx",
+        "equities",
+        "commodities"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://www.bankofcanada.ca/rss-feeds/",
+      "last_probe_utc": "2026-10-31T06:06:30Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 10 items; newest date 2026-10-28T09:47:20Z (68.34h old at probe)",
+      "terms_note": "Official Bank of Canada RSS page lists News feeds and describes RSS subscription. Low-frequency source; freshness is evaluated per item. HES consumes feed metadata and summaries only.",
+      "source_scope": "international"
     }
   ],
   "market_profiles": {
@@ -187,36 +265,97 @@
       "source_ids": [
         "ecb_press_releases",
         "cftc_general_press_releases",
-        "gateio_official_announcements"
+        "fed_press_all",
+        "gateio_official_announcements",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_and_venue_announcements",
-      "note": "Official ECB/CFTC macro-regulatory feeds plus Gate.io venue announcements are enabled. This remains partial coverage, not a comprehensive crypto-news wire."
+      "status": "partial_official_macro_regulatory_central_bank_and_venue_announcements",
+      "note": "Qualified official ECB/CFTC/Federal Reserve/BIS/Bank of Japan/Bank of Canada macro-regulatory feeds plus Gate.io venue announcements. This is stronger official macro and venue coverage but remains partial; no qualified crypto-native independent newswire is enabled.",
+      "international_source_ids": [
+        "ecb_press_releases",
+        "cftc_general_press_releases",
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
+      ],
+      "domestic_source_ids": [],
+      "venue_source_ids": [
+        "gateio_official_announcements"
+      ]
     },
     "fx": {
       "source_ids": [
         "ecb_press_releases",
-        "cftc_general_press_releases"
+        "cftc_general_press_releases",
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_only"
+      "status": "partial_official_macro_regulatory_central_bank",
+      "international_source_ids": [
+        "ecb_press_releases",
+        "cftc_general_press_releases",
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
+      ],
+      "domestic_source_ids": [],
+      "venue_source_ids": []
     },
     "equities": {
       "source_ids": [
         "ecb_press_releases",
-        "cftc_general_press_releases"
+        "cftc_general_press_releases",
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_only"
+      "status": "partial_official_macro_regulatory_central_bank",
+      "international_source_ids": [
+        "ecb_press_releases",
+        "cftc_general_press_releases",
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
+      ],
+      "domestic_source_ids": [],
+      "venue_source_ids": []
     },
     "iran_equities": {
       "source_ids": [],
       "status": "blocked_no_qualified_source",
-      "note": "No Iranian-market feed is enabled or qualified in this registry; do not imply domestic coverage."
+      "note": "No Iranian-market feed is enabled or qualified in this registry; do not imply domestic coverage.",
+      "international_source_ids": [],
+      "domestic_source_ids": [],
+      "venue_source_ids": []
     },
     "commodities": {
       "source_ids": [
         "cftc_general_press_releases",
-        "ecb_press_releases"
+        "ecb_press_releases",
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
       ],
-      "status": "partial_official_macro_regulatory_only"
+      "status": "partial_official_macro_regulatory_central_bank",
+      "international_source_ids": [
+        "cftc_general_press_releases",
+        "ecb_press_releases",
+        "fed_press_all",
+        "bis_media_releases",
+        "boj_whats_new",
+        "boc_news"
+      ],
+      "domestic_source_ids": [],
+      "venue_source_ids": []
     }
   }
 }
