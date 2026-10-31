@@ -93,7 +93,7 @@ _NEWS_CACHE_TTL_SECONDS = 60
 _NEWS_REFRESH_LOCK = Lock()
 _NEWS_CONTEXT = MarketContext(market="crypto", symbol="BTCUSDT", regime="unknown", timeframe="15m", venue="gateio")
 _NEWS_MONITOR_INTERVAL = int(os.environ.get("HES_NEWS_MONITOR_INTERVAL_SECONDS", "60"))
-_NEWS_MONITOR_SNAPSHOT = Path(os.environ.get("HES_NEWS_MONITOR_SNAPSHOT", str(PROJECT_ROOT / "data" / "news" / "news_brief_latest.json")))
+_NEWS_MONITOR_SNAPSHOT = Path(os.environ.get("HES_NEWS_MONITOR_SNAPSHOT", "/var/lib/hes-news-monitor/news_brief_latest.json"))
 _CACHE_LOCK = Lock()
 _CACHE = {}
 _STREAM_STOP = Event()
