@@ -70,7 +70,8 @@ class NewsMonitorV1:
         degraded = brief.status == "degraded" or bool(brief.provenance.get("source_failures"))
         self.last_status = "DEGRADED" if degraded else "OK"
         self.last_error = None
-        self.last_success_at = self.last_poll_at
+        if not degraded:
+            self.last_success_at = self.last_poll_at
         snapshot = {
             "schema_version": SCHEMA_VERSION,
             "monitor": {
@@ -159,7 +160,12 @@ class NewsMonitorV1:
                 observed = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
             except ValueError as exc:
                 raise ValueError("news monitor timestamp invalid") from exc
-            if observed.tzinfo is None or (_utc_now() - observed.astimezone(timezone.utc)).total_seconds() > max_age_seconds:
+            if observed.tzinfo is None:
+                raise ValueError("news monitor timestamp timezone missing")
+            age_seconds = (_utc_now() - observed.astimezone(timezone.utc)).total_seconds()
+            if age_seconds < -30:
+                raise ValueError("news monitor timestamp is in the future")
+            if age_seconds > max_age_seconds:
                 raise ValueError("news monitor snapshot stale")
         return snapshot
 
