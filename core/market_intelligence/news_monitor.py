@@ -42,6 +42,7 @@ class NewsMonitorV1:
         snapshot_path: str | Path,
         interval_seconds: int = 60,
         clock: Callable[[], datetime] = _utc_now,
+        on_brief: Callable[[object], None] | None = None,
     ) -> None:
         if type(interval_seconds) is not int or not 15 <= interval_seconds <= 3600:
             raise ValueError("interval_seconds must be an integer from 15 to 3600")
@@ -51,6 +52,7 @@ class NewsMonitorV1:
         self.snapshot_path = Path(snapshot_path)
         self.interval_seconds = interval_seconds
         self.clock = clock
+        self.on_brief = on_brief
         self.last_poll_at: str | None = None
         self.last_success_at: str | None = None
         self.last_status = "NOT_STARTED"
@@ -88,6 +90,8 @@ class NewsMonitorV1:
             "brief_sha256": brief_digest,
         }
         self._atomic_write(snapshot)
+        if self.on_brief is not None:
+            self.on_brief(brief)
         return snapshot
 
     def record_failure(self, exc: Exception) -> dict:
