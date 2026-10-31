@@ -124,6 +124,22 @@ class DashboardRouteTests(unittest.TestCase):
             urlopen(Request(self.base+"/api/candles",data=b"{}",method="POST"))
         self.assertEqual(error.exception.code,405)
 
+    def test_monitored_news_brief_is_recontextualized_for_current_signal(self):
+        monitor_context = MarketContext("crypto", "BTCUSDT", "unknown", "15m", venue="gateio")
+        signal_context = MarketContext(
+            "crypto", "BTCUSDT", "uptrend", "15m",
+            observed_at="2026-10-31T06:10:00Z", venue="gateio",
+        )
+        brief = dashboard._NEWS_BRAIN.analyze([], monitor_context, now=datetime.now(timezone.utc))
+        monitor_key = ("crypto", "BTCUSDT", "unknown", "15m", "gateio")
+        with patch.dict(dashboard._NEWS_CACHE, {monitor_key: (time.monotonic(), brief)}):
+            with patch.object(dashboard._NEWS_BRAIN, "run_from_registry") as fetch:
+                result = dashboard._get_news_brief(signal_context)
+        self.assertEqual(result.context["regime"], "uptrend")
+        self.assertEqual(result.context["observed_at"], "2026-10-31T06:10:00Z")
+        self.assertEqual(result.suggested_action, "CONTEXT_ONLY")
+        fetch.assert_not_called()
+
     def test_news_monitor_endpoint_returns_verified_persisted_snapshot(self):
         snapshot = {
             "schema_version": "hes.news_monitor_snapshot.v1",
