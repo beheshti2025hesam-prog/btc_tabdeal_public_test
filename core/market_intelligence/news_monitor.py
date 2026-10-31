@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from threading import Event
+from threading import Event, Lock
 from typing import Callable
 
 from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
@@ -43,6 +43,7 @@ class NewsMonitorV1:
         interval_seconds: int = 60,
         clock: Callable[[], datetime] = _utc_now,
         on_brief: Callable[[object], None] | None = None,
+        poll_lock: Lock | None = None,
     ) -> None:
         if type(interval_seconds) is not int or not 15 <= interval_seconds <= 3600:
             raise ValueError("interval_seconds must be an integer from 15 to 3600")
@@ -53,47 +54,50 @@ class NewsMonitorV1:
         self.interval_seconds = interval_seconds
         self.clock = clock
         self.on_brief = on_brief
+        self.poll_lock = poll_lock or Lock()
         self.last_poll_at: str | None = None
         self.last_success_at: str | None = None
         self.last_status = "NOT_STARTED"
         self.last_error: str | None = None
 
     def poll_once(self) -> dict:
-        started = self.clock()
-        if started.tzinfo is None or started.utcoffset() is None:
-            raise ValueError("monitor clock must return a timezone-aware datetime")
-        started = started.astimezone(timezone.utc)
-        self.last_poll_at = started.isoformat(timespec="seconds").replace("+00:00", "Z")
-        brief = self.brain.run_from_registry(self.registry_path, self.context, now=started)
-        brief_data = brief.to_dict()
-        brief_digest = sha256(_canonical(brief_data)).hexdigest()
-        degraded = brief.status == "degraded" or bool(brief.provenance.get("source_failures"))
-        self.last_status = "DEGRADED" if degraded else "OK"
-        self.last_error = None
-        if not degraded:
-            self.last_success_at = self.last_poll_at
-        snapshot = {
-            "schema_version": SCHEMA_VERSION,
-            "monitor": {
-                "status": self.last_status,
-                "interval_seconds": self.interval_seconds,
-                "last_poll_at": self.last_poll_at,
-                "last_success_at": self.last_success_at,
-                "last_error": None,
-            },
-            "context": {
-                "market": self.context.market,
-                "symbol": self.context.symbol,
-                "venue": self.context.venue,
-                "timeframe": self.context.timeframe,
-            },
-            "brief": brief_data,
-            "brief_sha256": brief_digest,
-        }
-        self._atomic_write(snapshot)
-        if self.on_brief is not None:
-            self.on_brief(brief)
-        return snapshot
+        # Share the same lock as request-time cache misses to avoid duplicate source fan-out.
+        with self.poll_lock:
+            started = self.clock()
+            if started.tzinfo is None or started.utcoffset() is None:
+                raise ValueError("monitor clock must return a timezone-aware datetime")
+            started = started.astimezone(timezone.utc)
+            self.last_poll_at = started.isoformat(timespec="seconds").replace("+00:00", "Z")
+            brief = self.brain.run_from_registry(self.registry_path, self.context, now=started)
+            brief_data = brief.to_dict()
+            brief_digest = sha256(_canonical(brief_data)).hexdigest()
+            degraded = brief.status == "degraded" or bool(brief.provenance.get("source_failures"))
+            self.last_status = "DEGRADED" if degraded else "OK"
+            self.last_error = None
+            if not degraded:
+                self.last_success_at = self.last_poll_at
+            snapshot = {
+                "schema_version": SCHEMA_VERSION,
+                "monitor": {
+                    "status": self.last_status,
+                    "interval_seconds": self.interval_seconds,
+                    "last_poll_at": self.last_poll_at,
+                    "last_success_at": self.last_success_at,
+                    "last_error": None,
+                },
+                "context": {
+                    "market": self.context.market,
+                    "symbol": self.context.symbol,
+                    "venue": self.context.venue,
+                    "timeframe": self.context.timeframe,
+                },
+                "brief": brief_data,
+                "brief_sha256": brief_digest,
+            }
+            self._atomic_write(snapshot)
+            if self.on_brief is not None:
+                self.on_brief(brief)
+            return snapshot
 
     def record_failure(self, exc: Exception) -> dict:
         now = self.clock()
