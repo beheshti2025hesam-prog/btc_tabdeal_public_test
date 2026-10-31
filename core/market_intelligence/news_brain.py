@@ -551,8 +551,6 @@ class NewsIntelligenceBrain:
             implications.append("Check venue/asset operational risk and liquidity before considering any signal.")
         if any("monetary_policy" in f.categories or "macro" in f.categories for f in high_impact):
             implications.append("Re-check volatility and spread around macro-event windows; news alone does not set direction.")
-        if context.regime in {"unknown", "insufficient_data"}:
-            implications.append("Market regime is unknown; do not convert news bias into a directional trade.")
         if source_failures:
             implications.append("News coverage is incomplete because one or more configured sources failed.")
         if not findings:
