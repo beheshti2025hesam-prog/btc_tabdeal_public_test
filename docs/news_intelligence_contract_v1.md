@@ -23,7 +23,7 @@ Qualified public news sources → existing RSS/Atom and Gate.io announcement ada
 
 ## 3. Source qualification — verified from the authorized VPS
 
-Only sources explicitly enabled in `config/news_sources_v1.json` are fetched. On 2026-10-31 each enabled feed below was checked from the authorized VPS using HTTPS with redirects rejected and XML parsed:
+Only sources explicitly enabled in `config/news_sources_v1.json` are fetched. Every source declares `source_scope=international|domestic|venue`; each market profile explicitly partitions `source_ids` into `international_source_ids`, `domestic_source_ids`, and `venue_source_ids`. The registry rejects missing, duplicated, or mismatched scope mappings. On 2026-10-31 each enabled feed below was checked from the authorized VPS using HTTPS with redirects rejected and XML parsed:
 
 | Source | Result at probe | Role |
 |---|---|---|
