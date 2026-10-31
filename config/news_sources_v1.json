@@ -11,7 +11,7 @@
       "freshness_check",
       "terms_and_rate_limit_review"
     ],
-    "note": "Only sources individually qualified and explicitly enabled are fetched. Probes were read-only from the authorized VPS on 2026-10-23. Disabled candidates are not fetched. The current crypto profile has official macro/regulatory feeds only, not a qualified crypto-native newswire."
+    "note": "Qualified public sources are polled only from the authorized VPS. Current crypto profile uses official macro/regulatory and Gate.io venue announcements; coverage remains partial, not a comprehensive crypto-native wire."
   },
   "sources": [
     {
@@ -29,11 +29,12 @@
       "languages": [
         "en"
       ],
-      "enabled": false,
-      "qualification_status": "official_feed_parsed_but_stale_for_72h_window",
+      "enabled": true,
+      "qualification_status": "qualified",
       "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm",
-      "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "HTTP 200; XML parsed; 20 items; newest item age 171.43 hours"
+      "last_probe_utc": "2026-10-31T06:04:00Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 20 items; newest pubDate 2026-10-29T20:30:00Z (33.57h old at probe); FOMC statement 60.07h old; source RSS page explicitly documents use via reader/aggregator",
+      "terms_note": "Official Federal Reserve Board RSS distribution page lists All Press Releases and describes RSS readers/aggregators as the intended access method. HES consumes feed metadata/headlines and links only, at one request per 60-second poll; no article scraping or full-text republishing."
     },
     {
       "id": "fed_monetary_policy",
@@ -187,22 +188,25 @@
       "source_ids": [
         "ecb_press_releases",
         "cftc_general_press_releases",
+        "fed_press_all",
         "gateio_official_announcements"
       ],
       "status": "partial_official_macro_regulatory_and_venue_announcements",
-      "note": "Official ECB/CFTC macro-regulatory feeds plus Gate.io venue announcements are enabled. This remains partial coverage, not a comprehensive crypto-news wire."
+      "note": "Official ECB/CFTC/Federal Reserve macro-regulatory feeds plus Gate.io venue announcements are enabled. This remains partial coverage, not a comprehensive crypto-native newswire."
     },
     "fx": {
       "source_ids": [
         "ecb_press_releases",
-        "cftc_general_press_releases"
+        "cftc_general_press_releases",
+        "fed_press_all"
       ],
       "status": "partial_official_macro_regulatory_only"
     },
     "equities": {
       "source_ids": [
         "ecb_press_releases",
-        "cftc_general_press_releases"
+        "cftc_general_press_releases",
+        "fed_press_all"
       ],
       "status": "partial_official_macro_regulatory_only"
     },
@@ -214,7 +218,8 @@
     "commodities": {
       "source_ids": [
         "cftc_general_press_releases",
-        "ecb_press_releases"
+        "ecb_press_releases",
+        "fed_press_all"
       ],
       "status": "partial_official_macro_regulatory_only"
     }
