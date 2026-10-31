@@ -86,6 +86,7 @@ class NewsMonitorV1:
                     "last_error": None,
                     "source_profile_status": str(brief.provenance.get("source_profile_status", "unknown")),
                     "source_failures": list(brief.provenance.get("source_failures", [])),
+                    "source_health": list(brief.provenance.get("source_health", [])),
                 },
                 "context": {
                     "market": self.context.market,
@@ -119,6 +120,7 @@ class NewsMonitorV1:
                 "last_error": self.last_error,
                 "source_profile_status": "unknown",
                 "source_failures": [],
+                "source_health": [],
             },
             "context": {
                 "market": self.context.market,
