@@ -30,10 +30,10 @@ Each atomic snapshot contains:
 - schema version `hes.news_monitor_snapshot.v1`;
 - poll status, interval, last poll, last fully successful poll, and last error type;
 - market/symbol/venue/timeframe context;
-- the full versioned news brief, its source provenance and source failures;
+- the full versioned news brief, per-source health (`ok`, `ok_empty`, `failed`), item counts, newest publication timestamps, available feed digests, source provenance and source failures;
 - SHA-256 digest of the canonical brief JSON.
 
-The writer uses a same-directory temporary file, flush/fsync, and atomic replace. The reader validates schema, digest, status, timezone-aware timestamp, future-clock tolerance, and maximum age.
+The writer uses a same-directory temporary file, flush/fsync, and atomic replace. The reader validates schema, digest, status, timezone-aware timestamp, future-clock tolerance, and maximum age. Per-source telemetry distinguishes a successful empty feed from a failed fetch; an empty feed is never silently reported as a source failure.
 
 ## Health states
 
