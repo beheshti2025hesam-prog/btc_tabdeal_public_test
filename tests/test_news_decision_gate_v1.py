@@ -43,7 +43,7 @@ class NewsDecisionGateTests(unittest.TestCase):
         object.__setattr__(brief, "provenance", {**brief.provenance, "source_profile_status": "partial_official_macro_regulatory_central_bank_and_venue_announcements"})
         result = apply_news_veto(self.long, brief)
         self.assertEqual(result, self.long)
-        self.assertEqual(brief.provenance["source_profile_status"], "partial_official_macro_regulatory_only")
+        self.assertEqual(brief.provenance["source_profile_status"], "partial_official_macro_regulatory_central_bank_and_venue_announcements")
 
     def test_unknown_schema_fails_closed(self):
         brief = self.brain.analyze([], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
