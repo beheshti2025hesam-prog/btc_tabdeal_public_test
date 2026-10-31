@@ -1,47 +1,88 @@
-# HES News Intelligence Brain v1
+# HES News Intelligence — v1 Runtime and Evidence Contract
 
-## Role
-Configured news feeds -> RSS/Atom adapter -> deduplication/freshness checks -> market-aware relevance and impact ranking -> compact `hes.news_brief.v1` -> Mother Orchestrator. This is context and risk evidence, not a standalone signal generator.
+**Disposition:** implementation candidates only; production is not deployed. Keep `HOLD / NO_TRADE_ONLY` until the stacked PRs pass independent review, release gates, and controlled deployment.
 
-## Constraints
-- Free-first: Python standard library only; no paid API, LLM, or extra package required.
-- Market-agnostic: context fields (market, symbol, venue, timeframe, regime), item market tags and configured sources select context. Initial lexicons cover crypto, FX, equities, Iran equities and commodities; expand through tests, not hard-coded Mother Core branches.
-- Source URLs remain operator configuration. HTTPS-only, bounded response size/timeout; source failures are explicit.
-- Deterministic and explainable: findings include matched terms, categories, reasons, freshness, relevance/impact scores and caveats. Scores are heuristics, not probabilities.
-- News never overrides canonical market data, price/volume confirmation, data-quality checks or Risk Gate. High-impact items and incomplete source coverage require confirmation / fail closed.
-- No order placement, collector auto-start, deployment, trading or runtime configuration change.
+## 1. Role and boundaries
 
-## Source qualification
-Maintain a separate registry containing source name, URL, market coverage, language, source tier, enabled flag and last-success metadata. Prefer official exchange/regulator/central-bank releases for primary facts, then reputable newswires, then secondary commentary. Keep domestic and international sources distinct for venue-aware profiles. The registry records current qualification state; only sources explicitly marked enabled after the documented checks are fetched.
+Qualified public news sources → existing RSS/Atom and Gate.io announcement adapters → deduplication/freshness checks → deterministic market-aware relevance/impact ranking → `hes.news_brief.v1` → existing `/api/signal` decision boundary → Mother payload and journal.
 
-## Mother Agent handoff
-`NewsBrief` serializes as `hes.news_brief.v1` JSON: market context; status (`ok`, `degraded`, `no_relevant_news`); ranked findings; conditional market implications; suggested action (`NO_TRADE_PENDING_CONFIRMATION` or `CONTEXT_ONLY`); veto flags; and provenance including the explicit rule that scores are not probabilities and news alone cannot authorize a trade.
+- Gate.io Public Spot remains the sole canonical source for live chart, candle, indicator, and market-data inputs.
+- Gate.io announcements are venue-operational news only; they are not market-price or candle data.
+- The exchange adapter remains execution/order-status only.
+- News is evidence/context and a risk veto. It never creates LONG/SHORT, replaces the signal engine, bypasses confirmation or Risk Gate, or authorizes an order.
+- Market regime is supplied by the strategy/data path. An unknown regime is not itself a news veto; news must not impersonate the regime specialist.
+- No order placement, trading, collector auto-start, or deployment is part of this implementation.
 
-## Decision-boundary adapter
+## 2. Existing implementation lineage — reuse, no duplicate engine
 
-`forward/news_decision_gate_v1.py` provides the optional `apply_news_veto(decision, brief)` boundary. Call it after the ordinary `DecisionEngineV1.evaluate` result and before journaling or dispatch. A high-impact item, source-coverage failure, unverified source, suspicious timestamp, unknown schema or non-context-only action converts a directional LONG/SHORT result to `NO_TRADE`; an existing `NO_TRADE` remains unchanged. The adapter does not change the existing DecisionEngine or RiskPolicy and never submits orders. It is implemented and unit-tested as a callable boundary, but the live Mother Orchestrator call site has not been verified or wired because the actual application entry point is not present in the inspected VPS project tree.
+- **PR #358:** canonical free-first `NewsIntelligenceBrain`, registry, RSS/Atom and Gate.io announcement adapters, versioned brief, and deterministic heuristics.
+- **PR #399:** existing dashboard `/api/signal` integration candidate. It applies `apply_news_veto` after arbitration and before the Mother payload/journal boundary; the news payload includes provenance and veto flags. It does not create a second Mother orchestrator.
+- **PR #404:** stacked Draft candidate adding continuous polling, durable source-health snapshots, read-only `/api/news`, and News Radar monitor freshness in the existing dashboard.
+- **PR #359:** competing duplicate news engine; do not merge or extend it.
+- PR #399 and #404 remain Draft candidates. Their ancestry must be reviewed in order; #404 is based on the #399 integration branch.
 
-## Limitations and acceptance gates
-1. Keyword rules can miss nuance, sarcasm, negation, translations, syndication duplicates and novel events. Direction stays `mixed_or_unknown` unless simple positive/negative terms differ.
-2. A source URL does not prove authority; source registry qualification is separate.
-3. Caller supplies regime/symbol from the canonical analysis path; this module does not fetch market data.
-4. Do not wire into live decisions until tests pass, feed-source policy is reviewed, source failures reach Mother Agent, and integration tests prove Risk Gate veto remains dominant.
-5. This PR does not schedule feeds or enable a live process. Runtime integration and target-VPS connectivity remain separate gates.
+## 3. Source qualification — verified from the authorized VPS
 
-## Initial source registry status (2026-10-23)
+Only sources explicitly enabled in `config/news_sources_v1.json` are fetched. On 2026-10-31 each enabled feed below was checked from the authorized VPS using HTTPS with redirects rejected and XML parsed:
 
-`config/news_sources_v1.json` is an explicit source registry, not an auto-discovery list. A read-only probe from the authorized VPS verified:
-- **Enabled / qualified:** CFTC general press-release RSS (`HTTP 200`, XML parsed, 10 items) and ECB Market Information Dissemination RSS (`HTTP 200`, XML parsed, 20 items; newest item was about 2.44 hours old at probe time). The ECB's official integration guide says MID uses RSS and that MID-published information is public domain.
-- **Disabled:** Federal Reserve all-press feed parsed but its newest item was about 171 hours old; the monetary-policy feed returned malformed XML (unclosed CDATA); SEC RSS and Cointelegraph timed out during TLS handshakes; the legacy ECB press RSS endpoint also timed out.
-- **CoinDesk disabled for policy, despite a successful feed parse:** its published Terms of Use restrict automated access by robots/spiders/scrapers without express written permission. Do not use it unless that permission is confirmed.
-- **Iran equities blocked:** no Iranian-market news source has been qualified. Do not imply domestic coverage.
+| Source | Result at probe | Role |
+|---|---|---|
+| ECB Market Information Dissemination | HTTP 200; 20 items; newest ~4.6h | Macro/regulatory |
+| CFTC general press releases | HTTP 200; 10 items; newest ~61.1h | US derivatives/regulatory |
+| Federal Reserve all press releases | HTTP 200; 20 items; newest ~33.6h | US central-bank policy |
+| BIS media releases | HTTP 200; 10 items; newest ~54.1h | Global financial stability/regulation |
+| Bank of Japan English What's New | HTTP 200; 51 items; newest ~22.1h | Central-bank/market context |
+| Bank of Canada News RSS | HTTP 200; 10 items; newest ~68.3h | Central-bank/macro context |
+| Gate.io official announcements | Existing documented public endpoint; existing tests and adapter | Venue-operational context |
 
-The current crypto profile is explicitly `partial_official_macro_regulatory_only`: it has official macro/regulatory feeds but no qualified crypto-native newswire. Article freshness is independently filtered (72-hour default), and stale/irrelevant items are counted and excluded. These probe results establish connectivity only for the observed moment, not permanent availability.
+Official RSS directories/pages:
+- ECB: https://www.ecb.europa.eu/home/html/rss.en.html
+- CFTC: https://www.cftc.gov/RSS/index.htm
+- Federal Reserve: https://www.federalreserve.gov/feeds/feeds.htm
+- BIS: https://www.bis.org/rss
+- Bank of Japan: https://www.boj.or.jp/en/tips.htm
+- Bank of Canada: https://www.bankofcanada.ca/rss-feeds/
 
-Official source references:
-- Federal Reserve RSS directory: https://www.federalreserve.gov/feeds/feeds.htm
-- SEC press-release RSS page: https://www.sec.gov/newsroom/press-releases
-- CFTC RSS directory: https://www.cftc.gov/RSS/index.htm
-- ECB RSS directory: https://www.ecb.europa.eu/home/html/rss.en.html
-- ECB MID integration guide: https://www.ecb.europa.eu/press/shared/pdf/MID-Catalogue-and-Integration-Guide.en.pdf
-- CoinDesk Terms of Use: https://www.coindesk.com/terms
+**Coverage remains partial.** The crypto profile now has six official macro/regulatory/central-bank feeds plus Gate.io venue announcements. It is not a comprehensive crypto-native independent newswire. CoinDesk remains disabled because its terms restrict automated access without express written permission. Cointelegraph did not pass VPS TLS/qualification checks. The Block, Decrypt, CryptoSlate, and Kraken content are not enabled where terms prohibit automated access or require prior written permission. GDELT was not enabled because the API endpoint was not reachable from the authorized VPS during the probe. No publisher has been silently enabled on the basis of a guessed endpoint.
+
+**Iran equities remain unqualified for domestic coverage.** No local Iranian market-news source has passed the source, terms, freshness, and VPS-reachability gates. Do not claim domestic coverage.
+
+## 4. Intelligence and safety semantics
+
+- Free-first Python standard library implementation; no paid news API, LLM, or extra package is required.
+- Scores are deterministic heuristics, not calibrated probabilities.
+- Findings retain source identity, item URL, publication time, freshness, matched terms, categories, impact/relevance scores, feed hash, and raw-item hash.
+- Each configured source records `ok`, `ok_empty`, or `failed`, checked timestamp, item count, newest publication timestamp, and available feed digest. A successful empty feed is not mislabeled as a failure.
+- Missing or failed source coverage is explicit and fail-closed. High-impact events, suspicious timestamps, unverified source identity, unknown schema, or incomplete source coverage can veto a directional decision.
+- The news brief does not infer strategy regime. Unknown regime remains metadata for the strategy specialist and does not independently convert a clean news brief into `NO_TRADE`.
+
+## 5. Continuous monitor candidate (PR #404)
+
+- Starts as a worker inside the existing read-only dashboard service; no second systemd service or parallel dashboard is created.
+- Immediate poll on service startup, then fixed 60-second start-to-start cadence by default (configurable 15–3600 seconds); one shared lock prevents overlapping or duplicate request-time polling.
+- Persists `hes.news_monitor_snapshot.v1` atomically under `/var/lib/hes-news-monitor/news_brief_latest.json`.
+- The staged `deploy/systemd/30-news-monitor-state.conf.example` drop-in adds a private `StateDirectory=hes-news-monitor` (mode `0750`) for the existing service user. The immutable release tree remains read-only.
+- Snapshot integrity includes a brief digest and a full-envelope digest covering monitor metadata. Reader validates schema, digests, status, timezone-aware timestamps, future-clock tolerance, and freshness.
+- `GET /api/news` is read-only. Missing, corrupt, future-dated, or stale snapshots return HTTP 503 with `fail_closed=true`, `execution_enabled=false`, and `orders_placed=false`.
+- Dashboard shows monitor status, source-profile coverage, and per-source `OK / empty / failed` counts.
+- This release monitors one context: crypto / BTCUSDT / Gate.io / 15m. More symbols/markets require explicit qualified context profiles; do not silently broaden the poll fan-out.
+
+## 6. Production audit and release gates
+
+- The active VPS release inspected on 2026-10-31 was `/opt/hes-trade-agent/releases/2e8d3859ef154b030e0965ad4479f3fad36ae4c0`; it had no News Radar/news-brain/news-monitor integration. Candidate code is not live production capability.
+- The working checkout is dirty and must remain untouched: branch `feat/gateio-global-market-data-v1`, HEAD `060d0d36ae61`, 13 unstaged changes and 129 untracked paths. No reset/clean/checkout/overwrite.
+- The existing `hes-readonly-dashboard.service` runs as `sentinelx` with `ProtectSystem=strict`; the news monitor state-directory drop-in is staged but not installed.
+- SentinelX policy currently does not register `hes-readonly-dashboard.service` under `services:`. The operator must explicitly add only `status` and `restart` actions before this agent can manage the dashboard service through the service API. Do not edit `/etc/sentinelx/config.yaml` from the agent.
+- Exact-head targeted and full repository CI must pass on the latest PR #404 head; independent review of the stacked #398 → #399 → #404 chain is required.
+- Release approval is required before installing the drop-in, running `systemctl daemon-reload`, changing the release pointer, or restarting the dashboard. Verify ownership, state-directory access, artifact hash, health endpoints, rollback target, and browser/API evidence first.
+- Keep execution disabled and preserve `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY` until every release gate passes.
+
+## 7. Delivery schedule
+
+- Scope freeze: **2026-11-12**.
+- Release candidate target: **2026-11-16**, conditional on all gates.
+- Application delivery target: **2026-11-19**.
+
+## 8. Maintenance rules
+
+Keep source qualification, adapters, market profiles, and policy separate. Never auto-discover or scrape new publishers, never infer terms permission, never mix news with the canonical Gate.io market-data path, and never tune risk thresholds merely to make a test pass. Add a source only after official ownership, terms, HTTPS/no-redirect behavior, freshness, schema, and VPS reachability are evidenced.
