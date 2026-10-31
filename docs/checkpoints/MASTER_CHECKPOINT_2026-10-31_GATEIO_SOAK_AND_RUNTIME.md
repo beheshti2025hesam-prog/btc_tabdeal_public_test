@@ -180,3 +180,29 @@ No production code, release pointer, service state, credentials, or order state 
 - Prefer the #388 → #394 lineage for further technical work because it extends the exact deployed #388 base and has the strategy-provider change; keep #398/#399/#404 as a separate consolidation/news branch requiring explicit reconciliation, not as a merge target for #394.
 - Hard gates remain independent review, operator-approved SentinelX service permission, production journal route release, structure/strategy quality and risk validation, execution instrument evidence, off-host encrypted backup/restore, and security review.
 - Disposition remains `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; target 2026-11-19.
+
+
+## Forward execution step — 2026-10-31: journal candidate exercised against real canonical data (read-only)
+
+### Exact PR #394 journal projection verification
+- Retrieved exact-head source `8e31d65939c16ed35eb0e7b44274b7ac5670525e` for the existing `forward/trade_journal_view_v1.py`, `learning_evidence_adapter_v1.py`, and `forward_journal_v1.py`; no new engine or journal was created.
+- Ran the exact PR #394 projection implementation on the production canonical file `/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl` in read-only mode. Result: `VERIFIED`, 486 total records, 460 directional/NO_TRADE decision records, first 5 projected rows returned. The projection does not infer outcomes and keeps execution disabled.
+- Before/after journal SHA-256 was identical: `d4a6ccc03f8d6a7b0e9d17e856dca68f5b6f54df79345daa885b43cb689b6d20`; file size 2,197,141 bytes. No event was appended or modified.
+- Ran the exact PR #394 `tests/test_trade_journal_view_v1.py` in an isolated temporary directory using the existing project virtualenv and exact source files. Result: **6 passed**. The first attempt with system Python failed because pytest is not installed there; the second, using `/opt/hes-trade-agent/.venv/bin/python`, passed. No dependency was installed.
+- Verified the existing journal writer's idempotency key is derived from symbol/timeframe/source/product + 15m batch hash + 4h batch hash + policy version. Repeated identical evidence returns `ALREADY_RECORDED`; changed evidence for the same event fails closed. This prevents dashboard polling from duplicating the same closed-candle decision.
+- This is an actual source-on-production-data compatibility proof, not yet production HTTP route parity; current production `/api/journal` still returns 404 until a reviewed release is approved.
+
+### Service access / sandbox compatibility
+- Current dashboard runs as `sentinelx:sentinelx`. The existing canonical journal and its lock file are owned by that user; both are readable and writable at the Unix permission layer.
+- Current systemd unit has `ProtectSystem=strict` and marks `/opt/hes-trade-agent/data/forward` read-only, with no `ReadWritePaths`. Therefore the new Signal Agent append path in PR #394 would be denied by systemd sandbox unless the reviewed unit adds only the two narrow exceptions for the existing journal and its existing lock file. Exact PR #394 unit already expresses those narrow `ReadWritePaths`; it does not grant broad write access to the data directory.
+- Current `/etc/sentinelx/config.yaml` service allowlist includes `sentinelx-cloud-core` and `hes-strategy-learning-loop.service`, but not `hes-readonly-dashboard.service`. Existing policy playbook explicitly says not to self-edit the agent's own policy. Required operator change is only:
+  ```yaml
+  hes-readonly-dashboard.service:
+    actions: [status, restart]
+  ```
+  Add under `services:`; do not add start/stop. After operator makes that change, restart `sentinelx-cloud-core` through its already-allowed service control and verify the dashboard service status. No policy edit or service restart was performed in this pass.
+- Candidate systemd unit also requires the existing journal and lock file to exist; both currently exist. No chmod/chown or other permission changes were needed.
+
+### Decision / next gate
+- The existing PR #394 journal projection and idempotent writer are compatible with the current real journal and pass all six focused tests. This is a strong integration candidate and avoids rebuilding the journal/Learning Loop.
+- Still no production route parity, no independent PR review, no operator policy authorization, no systemd release switch, and no execution approval. Keep `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; no live order.
