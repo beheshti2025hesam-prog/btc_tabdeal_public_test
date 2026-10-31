@@ -167,7 +167,7 @@ class NewsBrainTests(unittest.TestCase):
                 registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         gate_fetch.assert_called_once()
         self.assertEqual(gate_fetch.call_args.kwargs["source_id"], "gateio_official_announcements")
-        self.assertEqual(rss_fetch.call_count, 2)
+        self.assertEqual(rss_fetch.call_count, 3)
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
 
     def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
