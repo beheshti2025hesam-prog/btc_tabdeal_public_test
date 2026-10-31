@@ -103,3 +103,29 @@ No production code, release pointer, service state, credentials, or order state 
 4. Keep News Radar partial/transparent; keep ETH/SOL observation-only and other asset classes disabled until per-scope validation and soak.
 5. Complete independent security review and establish an encrypted off-host backup plus tested restore before release; no scanner is currently installed, so no vulnerability-clearance claim is justified.
 6. Keep `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; no production deployment, live order, or execution enablement is authorized by this checkpoint. Target remains 2026-11-19.
+
+## Follow-up execution pass — 2026-10-31: deployment-control boundary and strategy-provider candidate
+
+### New actionable finding: dashboard service is not registered in SentinelX policy
+- Fresh SentinelX capability/status check confirms the single host is running SentinelX Core 0.23.34; `hes-readonly-dashboard.service` is NOT in the allowed `services` map. The registered services currently include nginx, docker, sentinelx-cloud-core and hes-strategy-learning-loop.service.
+- A read-only `sentinel_service_status` request for `hes-readonly-dashboard.service` returned `service_not_allowed`. This is a control-plane permission blocker, not evidence that systemd or the dashboard itself is down. The active dashboard had previously been verified on loopback port 8765, and the live `/api/journal` route gap remains.
+- The policy file `/etc/sentinelx/config.yaml` explicitly documents that an agent must not edit its own policy when the file is outside a writable file_ops path. Do not bypass that boundary with `script_run`, sudo shell tricks, or an unreviewed config mutation. Operator-controlled minimal fix, if approved: add under `services:` a narrowly scoped entry `hes-readonly-dashboard.service: { actions: [status, restart] }`, then restart `sentinelx-cloud-core` from the approved service control path and re-check capabilities/status. Do not add `stop`, `start`, or broad commands. Until the operator makes that policy change, dashboard service restart/status via SentinelX is blocked by design.
+
+### Current strategy-provider candidate is PR #394, not a new engine
+- PR #394 (`8e31d65939c16ed35eb0e7b44274b7ac5670525e`) is the more relevant strategy-provider candidate on the Gate.io canonical path. It explicitly uses Gate.io Spot BTC_USDT/15m, the existing `ForwardJournalV1` and `trade_journal_v2.jsonl`, and removes an unused parallel learning-loop report engine. It is a stacked candidate based on PR #383 and is 96 commits ahead of its base and 211 commits ahead of `main`; it must not be retargeted or merged directly into main.
+- PR #394 exact-head CI evidence: full repository suite **643 passed + 24 subtests** (run `41023654434`), dashboard/native single-path PASS (`41023654430`), browser render PASS (`41023654546`), bounded WebSocket smoke PASS (`41023654427`). The WebSocket smoke is bounded only, not a 24-hour live Gate.io stream soak. Isolated replay verified same-batch identity, idempotent append, no inferred outcomes, and no execution; production route parity and release are still pending.
+- PR #394 has **no submitted reviews** at this check. PR #398 also has comments/evidence but no approval review. A source/test pass is not an independent review. Do not merge either branch or duplicate-merge ancestor candidates.
+- PR #399 continues the existing NewsIntelligenceBrain on top of #398; it is stacked and does not have independent actions until its base is accepted. PR #359 is a separate parallel news component and must not be combined with #399; reuse the integrated path, do not create a second news engine.
+
+### Required next order, updated to avoid duplicate work
+1. Keep Gate.io Public Spot BTC_USDT as the single chart/candle/analysis source; exchange/broker adapters remain a separate execution path. Do not add Binance or Tabdeal as competing live analysis feeds.
+2. Reconcile and review the parent chain before release: #383 → #388/#398 lineage → #394 strategy-provider superset, with #399/#404 news integration and #401 execution contract only after the correct base is accepted. Avoid merging both an ancestor and its superset independently. Confirm exact current head and CI after every base update.
+3. Resolve the SentinelX service policy through an operator-approved minimal config change, then verify service registration and the current production route behavior. Do not bypass SentinelX policy from a script.
+4. Close the production `/api/journal` gap using the existing canonical journal, only after independent review and an explicit release/rollback gate; no second journal and no deployment from the dirty checkout.
+5. Keep strategy, confirmation, risk, and instrument mapping fail-closed. The current `NO_TRADE` remains correct until independent evidence qualifies an entry; Gate.io data feed does not authorize Gate.io execution.
+6. Keep news partial and veto/context-only; ETH/SOL observation-only; other asset classes disabled. Require per-scope evidence before promotion.
+7. Before any release, complete independent review, protected encrypted off-host backup plus restore drill, security review, and production rollback verification.
+
+### State unchanged
+- No policy file was edited; no service was restarted; no release pointer or production journal was changed; no credentials were accessed; no order was submitted.
+- Current disposition remains `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`, `execution_enabled=false`, `orders_placed=false`. Target delivery remains 2026-11-19.
