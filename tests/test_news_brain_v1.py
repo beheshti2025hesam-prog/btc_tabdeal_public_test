@@ -134,6 +134,19 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(registry["market_profiles"]["iran_equities"]["status"],
                          "blocked_no_qualified_source")
 
+    def test_market_profile_partitions_international_domestic_and_venue_sources(self):
+        registry = load_source_registry(
+            Path(__file__).resolve().parents[1] / "config" / "news_sources_v1.json"
+        )
+        crypto = registry["market_profiles"]["crypto"]
+        self.assertEqual(crypto["domestic_source_ids"], [])
+        self.assertEqual(crypto["venue_source_ids"], ["gateio_official_announcements"])
+        self.assertEqual(set(crypto["international_source_ids"]) | set(crypto["venue_source_ids"]),
+                         set(crypto["source_ids"]))
+        scopes = {source["id"]: source["source_scope"] for source in registry["sources"]}
+        self.assertEqual(scopes["gateio_official_announcements"], "venue")
+        self.assertEqual(scopes["fed_press_all"], "international")
+
     def test_unverified_source_vetoes_trade_context(self):
         brief = self.brain.analyze(
             [NewsItem("Bitcoin ETF approved", url="https://unknown.test/item")],
@@ -176,6 +189,7 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 6)
         gate_health = next(x for x in health if x["source_id"] == "gateio_official_announcements")
         self.assertEqual(gate_health["status"], "ok")
+        self.assertEqual(gate_health["source_scope"], "venue")
         self.assertIsNotNone(gate_health["feed_payload_sha256"])
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
 
