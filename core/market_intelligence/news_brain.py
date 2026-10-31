@@ -381,7 +381,6 @@ class NewsIntelligenceBrain:
         failures = []
         source_health = []
         for source in sources:
-            fetched_at = datetime.now(timezone.utc)
             try:
                 if source.get("type", "rss") == "gate_announcements":
                     request_options = source.get("request", {})
@@ -400,10 +399,11 @@ class NewsIntelligenceBrain:
                     parsed for item in source_items
                     if (parsed := _parse_time(item.published_at)) is not None
                 ]
+                checked_at = datetime.now(timezone.utc)
                 source_health.append({
                     "source_id": source["id"],
                     "status": "ok" if source_items else "ok_empty",
-                    "fetched_at": _iso(fetched_at),
+                    "checked_at": _iso(checked_at),
                     "item_count": len(source_items),
                     "newest_published_at": _iso(max(published_times)) if published_times else None,
                     "feed_payload_sha256": (
@@ -413,10 +413,11 @@ class NewsIntelligenceBrain:
             except ValueError as exc:
                 error_code = str(exc).split(":", 1)[0]
                 failures.append(f"{source['id']}:{error_code}")
+                checked_at = datetime.now(timezone.utc)
                 source_health.append({
                     "source_id": source["id"],
                     "status": "failed",
-                    "fetched_at": _iso(fetched_at),
+                    "checked_at": _iso(checked_at),
                     "item_count": 0,
                     "newest_published_at": None,
                     "feed_payload_sha256": None,
