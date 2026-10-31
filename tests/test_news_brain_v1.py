@@ -125,7 +125,7 @@ class NewsBrainTests(unittest.TestCase):
         self.assertTrue(registry["sources"])
         enabled = [source for source in registry["sources"] if source["enabled"]]
         self.assertEqual({source["id"] for source in enabled},
-                         {"ecb_press_releases", "cftc_general_press_releases", "fed_press_all", "gateio_official_announcements"})
+                         {"ecb_press_releases", "cftc_general_press_releases", "fed_press_all", "bis_media_releases", "boj_whats_new", "boc_news", "gateio_official_announcements"})
         self.assertTrue(all(source["qualification_status"] == "qualified" for source in enabled))
         self.assertFalse(next(source for source in registry["sources"]
                               if source["id"] == "coindesk_news")["enabled"])
@@ -167,7 +167,7 @@ class NewsBrainTests(unittest.TestCase):
                 registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         gate_fetch.assert_called_once()
         self.assertEqual(gate_fetch.call_args.kwargs["source_id"], "gateio_official_announcements")
-        self.assertEqual(rss_fetch.call_count, 3)
+        self.assertEqual(rss_fetch.call_count, 6)
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
 
     def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
