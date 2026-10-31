@@ -1,6 +1,7 @@
 """Integrated read-only HES dashboard; deliberately contains no order routes."""
 from __future__ import annotations
 from datetime import datetime, timezone
+from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Event, Lock, Thread
@@ -171,7 +172,15 @@ def _get_news_brief(context):
         with _NEWS_CACHE_LOCK:
             monitored = _NEWS_CACHE.get(monitored_key)
             if monitored and now - monitored[0] <= _NEWS_CACHE_TTL_SECONDS:
-                return monitored[1]
+                # Keep the monitored news evidence but bind the current signal's
+                # regime/time metadata into the Mother payload.
+                current_context = dict(monitored[1].context)
+                current_context.update({
+                    "market": context.market, "symbol": context.symbol,
+                    "regime": context.regime, "timeframe": context.timeframe,
+                    "venue": context.venue, "observed_at": context.observed_at,
+                })
+                return replace(monitored[1], context=current_context)
     with _NEWS_CACHE_LOCK:
         cached = _NEWS_CACHE.get(key)
         if cached and now - cached[0] <= _NEWS_CACHE_TTL_SECONDS:
