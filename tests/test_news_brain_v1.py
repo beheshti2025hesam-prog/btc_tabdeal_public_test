@@ -172,7 +172,9 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(len(health), 7)
         self.assertEqual(sum(x["status"] == "ok" for x in health), 1)
         self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 6)
-        self.assertIn("feed_payload_sha256", health[0])
+        gate_health = next(x for x in health if x["source_id"] == "gateio_official_announcements")
+        self.assertEqual(gate_health["status"], "ok")
+        self.assertIsNotNone(gate_health["feed_payload_sha256"])
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
 
     def test_gate_announcements_are_qualified_only_for_crypto_venue_context(self):
