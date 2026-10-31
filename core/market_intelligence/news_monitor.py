@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 from threading import Event, Lock
 from typing import Callable
 
@@ -135,7 +136,14 @@ class NewsMonitorV1:
         return snapshot
 
     def run_forever(self, stop_event: Event) -> None:
+        # Fixed start-to-start cadence without overlapping polls or catch-up bursts.
+        next_run = time.monotonic()
         while not stop_event.is_set():
+            delay = max(0.0, next_run - time.monotonic())
+            if delay and stop_event.wait(delay):
+                break
+            if stop_event.is_set():
+                break
             try:
                 self.poll_once()
             except Exception as exc:
@@ -145,7 +153,9 @@ class NewsMonitorV1:
                     # The dashboard still fails closed if persistence itself is unavailable.
                     self.last_status = "BLOCKED"
                     self.last_error = "SNAPSHOT_PERSISTENCE_FAILED"
-            stop_event.wait(self.interval_seconds)
+            next_run += self.interval_seconds
+            if next_run <= time.monotonic():
+                next_run = time.monotonic() + self.interval_seconds
 
     def read_snapshot(self, *, max_age_seconds: int | None = None) -> dict:
         raw = self.snapshot_path.read_bytes()
