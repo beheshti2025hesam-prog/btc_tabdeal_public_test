@@ -64,6 +64,15 @@ class NewsMonitorTests(unittest.TestCase):
         self.assertEqual(snapshot["brief"]["provenance"]["source_failures"],
                          ["ecb_press_releases:timeout"])
 
+    def test_run_forever_performs_immediate_poll_and_stops_cleanly(self):
+        from threading import Event
+        stop = Event()
+        self.brain.run_from_registry.return_value = self._brief()
+        self.monitor.on_brief = lambda brief: stop.set()
+        self.monitor.run_forever(stop)
+        self.brain.run_from_registry.assert_called_once()
+        self.assertEqual(self.monitor.last_status, "OK")
+
     def test_worker_failure_writes_blocked_state_and_preserves_last_success(self):
         self.brain.run_from_registry.side_effect = ValueError("registry unavailable")
         snapshot = self.monitor.record_failure(ValueError("registry unavailable"))
