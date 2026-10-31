@@ -66,3 +66,40 @@ A second read-only verification pass confirmed:
 - Latest candle age was approximately 419 seconds during this pass; the API reported the stream disabled. Keep the existing feed/REST freshness contract as the source of truth; do not describe WebSocket as verified live merely because the 24-hour persisted-feed soak passed.
 
 No production code, release pointer, service state, credentials, or order state was changed by this verification. The soak's completion is an evidence milestone, not authorization to merge/deploy or enable execution.
+
+
+## Follow-up candidate/runtime gate — 2026-10-31 (latest read-only pass)
+
+### Executable milestone completed: exact-head candidate + canonical-journal copy smoke
+- Re-verified PR #398 exact head `c4635fbd828e85b067a89b136513eb259b21dff8`; its source archive SHA-256 is `48e02ea47724f8fb9378a872dcfdf6cfc99a67d176601c6170f3786c242ce7f3`.
+- Fresh isolated runtime smoke at `/srv/hes-evidence/pr398-c4635fbd828e85b067a89b136513eb259b21dff8-fresh-runtime-smoke-20261031.json`: 9/9 assertions passed; focused candidate tests 107 passed plus 8 subtests. The candidate read only copies of current Gate.io persisted candles; all test writes stayed in temporary locations.
+- Separate canonical-journal copy smoke at `/srv/hes-evidence/pr398-c4635fbd828e85b067a89b136513eb259b21dff8-journal-copy-smoke-20261031.json`: all read routes returned 200; candidate read 441 decision records; duplicate polling was idempotent; journal copy grew from 466 to 467 total records for the first event and remained unchanged on repeat; hash-before/after was recorded in the evidence file. This did not write the production journal.
+- Same-batch digest was identical across candidate health/candles/signal for each smoke. Mother witness verified, decision stayed `NO_TRADE`, execution authorization false, and `POST /api/order` returned 405 with no order. Candidate rejection evidence included missing pullback/reversal/ADX gates, confirmation quorum not met, strategy quality FAIL, and unverified execution-instrument mapping. Do not weaken these gates to manufacture an entry.
+- Evidence JSON SHA-256: fresh smoke `d3bdc14346406837dbabaf1a868f9c7d2ebda2de810c0378960d8ea155450068`; canonical-journal copy smoke `e6c5b0f0128ea5bca033c45a3a18283d657738460fafb14fa44fdfa71c78ce96`.
+
+### Current production runtime recheck
+- Existing read-only dashboard and Gate.io 15m/1h/4h services were all `active`.
+- Production `/healthz` returned 200, `NO_TRADE_ONLY`, `execution_enabled=false`, source `gateio_public_spot`, reader `global_market_data_reader_v1`, symbol `BTC_USDT`, and input batch SHA-256 `80a3c0db66f4d3356887b7b169df255d98037c4e48d2dd5a6d335c30e05fb56c`. Latest candle age was about 517 seconds at this probe; the runtime reported stream disabled. Continue monitoring freshness; do not call this a verified live WebSocket stream.
+- Production `GET /api/journal` still returned HTTP 404. This is the concrete candidate-to-production parity gap; the isolated candidate already passes the route, but production has not been switched.
+- Production symlink remains `/opt/hes-trade-agent/current -> releases/2e8d3859ef154b030e0965ad4479f3fad36ae4c0`. No pointer change, service restart, code overwrite, credential access, or order was made.
+
+### Current checkout identity correction / workspace protection
+- Latest read-only project snapshot reports `/opt/hes-trade-agent` branch `feat/gateio-global-market-data-v1`, HEAD `060d0d36ae61`, dirty with 13 unstaged changes and 129 untracked paths. This supersedes earlier casual references to branch `main` for the current checkout. Preserve the workspace exactly; do not clean/reset/switch branches or deploy from it.
+- The host's `vps-second-261930` string is a hostname, not a second VPS. There is still one VPS only.
+
+### Candidate dependency map — review before any release action
+- PR #398 (`c4635fbd...`): Gate.io canonical data + dashboard/Signal/Mother/journal candidate; 30/30 recorded CI checks passed, but PR remains Draft/open and production parity is incomplete.
+- PR #399 and #404: reuse the existing NewsIntelligenceBrain; #404 adds continuous durable monitoring to close the request-triggered-refresh gap. News coverage remains explicitly partial and must not originate a signal.
+- PR #400: ETH/SOL are observation/chart candidates only; BTC remains the only strategy-approved scope. Other asset classes remain disabled pending provider/calendar/volume semantics and evidence.
+- PR #401: carries forward the existing venue-neutral ExecutionAdapter contract; no concrete live venue is approved. Gate.io is market-data-only, not an execution authorization.
+- PR #402: capability-driven sequence semantics; capabilities stay disabled until exact-scope primary evidence and independent pins exist.
+- PR #403: fixes a mocked Gate.io WebSocket reconnect resource leak; mocked fault injection is not a live WebSocket proof.
+- These candidates are stacked and must not be merged out of order. Exact-head CI, independent review, the authorized production app/path and outbound policy, protected backup/restore, and release/rollback approval remain gates. No PR status or historical test report by itself authorizes production rollout.
+
+### Next non-duplicative action order
+1. Reconcile the exact dependency/base/head chain for #398 → #399 → #404 and the separately scoped #400/#401/#402/#403 candidates; require current exact-head CI and independent review before any merge.
+2. Close production `/api/journal` parity only by the reviewed #398 candidate path, using the existing canonical journal and idempotency contract; do not patch in a second journal or deploy the old/dirty checkout.
+3. Qualify strategy evidence on the same canonical closed-candle batch. Keep Mother/Risk Gate fail-closed until strategy candidate approval, confirmation quorum, structure, risk geometry, and execution instrument evidence are independently satisfied.
+4. Keep News Radar partial/transparent; keep ETH/SOL observation-only and other asset classes disabled until per-scope validation and soak.
+5. Complete independent security review and establish an encrypted off-host backup plus tested restore before release; no scanner is currently installed, so no vulnerability-clearance claim is justified.
+6. Keep `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`; no production deployment, live order, or execution enablement is authorized by this checkpoint. Target remains 2026-11-19.
