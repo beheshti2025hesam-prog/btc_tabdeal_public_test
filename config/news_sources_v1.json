@@ -11,7 +11,7 @@
       "freshness_check",
       "terms_and_rate_limit_review"
     ],
-    "note": "Qualified public sources are polled only from the authorized VPS. Current crypto profile uses official macro/regulatory and Gate.io venue announcements; coverage remains partial, not a comprehensive crypto-native wire."
+    "note": "Enabled sources were re-probed from the authorized VPS on 2026-10-31 using HTTPS with redirects rejected. Current crypto coverage is official macro/regulatory plus Gate.io venue announcements; still partial and not a comprehensive crypto-native newswire."
   },
   "sources": [
     {
@@ -32,8 +32,8 @@
       "enabled": true,
       "qualification_status": "qualified",
       "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm",
-      "last_probe_utc": "2026-10-31T06:04:00Z",
-      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 20 items; newest pubDate 2026-10-29T20:30:00Z (33.57h old at probe); FOMC statement 60.07h old; source RSS page explicitly documents use via reader/aggregator",
+      "last_probe_utc": "2026-10-31T06:05:00Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 20 items; newest pubDate 2026-10-29T20:30:00Z (33.59h old at probe); FOMC statement 60.09h old",
       "terms_note": "Official Federal Reserve Board RSS distribution page lists All Press Releases and describes RSS readers/aggregators as the intended access method. HES consumes feed metadata/headlines and links only, at one request per 60-second poll; no article scraping or full-text republishing."
     },
     {
@@ -94,8 +94,8 @@
       "enabled": true,
       "qualification_status": "qualified",
       "evidence_url": "https://www.cftc.gov/RSS/index.htm",
-      "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "HTTP 200; RSS parsed; 10 items; newest item age 72.43 hours",
+      "last_probe_utc": "2026-10-31T06:05:00Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; RSS parsed; 10 items; newest pubDate 2026-10-28T17:00:53Z (61.07h old at probe); low-frequency official feed",
       "terms_note": "Official CFTC government RSS feed; low-frequency publication means item freshness is evaluated per article."
     },
     {
@@ -116,8 +116,8 @@
       "enabled": true,
       "qualification_status": "qualified",
       "evidence_url": "https://www.ecb.europa.eu/press/shared/pdf/MID-Catalogue-and-Integration-Guide.en.pdf",
-      "last_probe_utc": "2026-10-23T18:26:03Z",
-      "last_probe_status": "HTTP 200; XML parsed; 20 items; newest item age 2.44 hours",
+      "last_probe_utc": "2026-10-31T06:05:00Z",
+      "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 20 items; newest pubDate 2026-10-31T01:30:00Z (4.59h old at probe)",
       "terms_note": "ECB states MID content is public domain; RSS is the recommended polling channel."
     },
     {
