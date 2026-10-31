@@ -154,6 +154,11 @@ class NewsMonitorV1:
         snapshot = json.loads(raw.decode("utf-8"))
         if not isinstance(snapshot, dict) or snapshot.get("schema_version") != SCHEMA_VERSION:
             raise ValueError("news monitor snapshot schema mismatch")
+        snapshot_digest = snapshot.get("snapshot_sha256")
+        unsigned_snapshot = dict(snapshot)
+        unsigned_snapshot.pop("snapshot_sha256", None)
+        if not isinstance(snapshot_digest, str) or sha256(_canonical(unsigned_snapshot)).hexdigest() != snapshot_digest:
+            raise ValueError("news monitor snapshot digest mismatch")
         brief = snapshot.get("brief")
         digest = snapshot.get("brief_sha256")
         if brief is not None:
@@ -180,6 +185,8 @@ class NewsMonitorV1:
         return snapshot
 
     def _atomic_write(self, snapshot: dict) -> None:
+        snapshot.pop("snapshot_sha256", None)
+        snapshot["snapshot_sha256"] = sha256(_canonical(snapshot)).hexdigest()
         payload = _canonical(snapshot)
         self.snapshot_path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_name = tempfile.mkstemp(prefix=".news-monitor-", suffix=".tmp",
