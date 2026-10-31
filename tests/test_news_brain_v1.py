@@ -79,10 +79,12 @@ class NewsBrainTests(unittest.TestCase):
         self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", brief.veto_flags)
         self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
 
-    def test_unknown_regime_never_turns_news_into_directional_trade(self):
-        brief = self.brain.analyze([NewsItem("Bitcoin ETF sees inflows", source="wire",
-            url="https://wire.test/1")], MarketContext("crypto", "BTC", "unknown"), now=NOW)
-        self.assertEqual(brief.suggested_action, "NO_TRADE_PENDING_CONFIRMATION")
+    def test_unknown_regime_is_context_not_a_news_veto(self):
+        brief = self.brain.analyze(
+            [], MarketContext("crypto", "BTC", "unknown", venue="gateio"), now=NOW
+        )
+        self.assertEqual(brief.suggested_action, "CONTEXT_ONLY")
+        self.assertFalse(brief.veto_flags)
         self.assertIn("Market regime is unknown", " ".join(brief.market_implications))
 
     def test_naive_timestamp_is_rejected_and_vetoed(self):
