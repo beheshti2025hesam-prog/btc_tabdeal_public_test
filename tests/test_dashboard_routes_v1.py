@@ -420,6 +420,7 @@ class DashboardRouteTests(unittest.TestCase):
             blocked_reasons=(),
             strategy_quality=SimpleNamespace(
                 state="PASS", evidence_sha256="d" * 64, reason_codes=(),
+                passed_count=5, required_count=5,
             ),
         )
         arbitration = SimpleNamespace(
