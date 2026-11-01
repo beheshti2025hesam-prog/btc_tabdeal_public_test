@@ -274,7 +274,7 @@ class StrategyEvidenceProviderV1:
         for batch in (candles_15m, candles_4h):
             if batch.venue == "gateio":
                 if batch.product != "spot" or batch.endpoint_kind not in {
-                    "spot_candlesticks", "global_market_data_reader_v1", "klines"
+                    "spot_candlesticks", "global_market_data_reader_v1"
                 }:
                     raise ValueError("unsupported Gate.io evidence endpoint contract")
                 if any(
