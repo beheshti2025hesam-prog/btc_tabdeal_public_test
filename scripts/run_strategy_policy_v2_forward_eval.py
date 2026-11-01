@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """Forward-only evaluator with a mandatory final NO_TRADE gate; never places orders."""
 from __future__ import annotations
-
-import json
-import os
-import sys
-import time
+import json, os, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +17,7 @@ STATE = BASE / "strategy_policy_v2_eval_state.json"
 OBS = BASE / "strategy_policy_v2_eval_observations.jsonl"
 REPORT = BASE / "strategy_policy_v2_eval_report.json"
 STATE_SCHEMA = "hes_strategy_policy_v2_eval_state_v1"
+OBS_SCHEMA = "hes_strategy_policy_v2_gated_observation"
 
 
 class LegacyStateRequiresReview(RuntimeError):
@@ -28,14 +25,9 @@ class LegacyStateRequiresReview(RuntimeError):
 
 
 def empty_state() -> dict:
-    return {
-        "schema": STATE_SCHEMA,
-        "policy_version": POLICY_VERSION,
-        "final_gate_version": GATE_VERSION,
-        "last_seen": None,
-        "active": [],
-        "observations": 0,
-    }
+    return {"schema": STATE_SCHEMA, "policy_version": POLICY_VERSION,
+            "final_gate_version": GATE_VERSION, "last_seen": None,
+            "active": [], "observations": 0}
 
 
 def load_state(path: Path) -> dict:
@@ -45,13 +37,60 @@ def load_state(path: Path) -> dict:
         state = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise LegacyStateRequiresReview("EVALUATOR_STATE_UNREADABLE") from exc
-    if (state.get("schema") != STATE_SCHEMA
-            or state.get("policy_version") != POLICY_VERSION
+    if (state.get("schema") != STATE_SCHEMA or state.get("policy_version") != POLICY_VERSION
             or state.get("final_gate_version") != GATE_VERSION):
         raise LegacyStateRequiresReview("LEGACY_STATE_REQUIRES_MANUAL_REVIEW")
     if state.get("active"):
         raise LegacyStateRequiresReview("ACTIVE_CANDIDATES_REQUIRE_MANUAL_REVIEW")
     return state
+
+
+def load_observation_progress(path: Path) -> tuple[int | None, int]:
+    """Recover append-before-state crash window; reject legacy/mixed or unsafe records."""
+    if not path.exists():
+        return None, 0
+    last_seen = None
+    count = 0
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for line_number, line in enumerate(lines, start=1):
+            if not line.strip():
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise LegacyStateRequiresReview(f"OBSERVATION_LOG_UNREADABLE:{line_number}") from exc
+            if (not isinstance(record, dict) or record.get("schema") != OBS_SCHEMA
+                    or record.get("policy_version") != POLICY_VERSION
+                    or record.get("final_gate_version") != GATE_VERSION):
+                raise LegacyStateRequiresReview(f"OBSERVATION_LOG_VERSION_REQUIRES_REVIEW:{line_number}")
+            candle_time = record.get("candle_close_time")
+            decision = record.get("decision")
+            if (not isinstance(candle_time, int) or isinstance(candle_time, bool)
+                    or not isinstance(decision, dict) or decision.get("decision") != "NO_TRADE"
+                    or decision.get("direction") != "NONE"
+                    or record.get("execution_enabled") is not False
+                    or record.get("orders_placed") is not False):
+                raise LegacyStateRequiresReview(f"OBSERVATION_LOG_SAFETY_REQUIRES_REVIEW:{line_number}")
+            last_seen = candle_time if last_seen is None else max(last_seen, candle_time)
+            count += 1
+    except OSError as exc:
+        raise LegacyStateRequiresReview("OBSERVATION_LOG_UNREADABLE") from exc
+    return last_seen, count
+
+
+def reconcile_state_with_observations(state: dict, observation_path: Path) -> dict:
+    """Recover an already-fsynced observation if the process died before state replacement."""
+    observed_last_seen, observed_count = load_observation_progress(observation_path)
+    current_last_seen = state.get("last_seen")
+    if observed_last_seen is not None and (current_last_seen is None or observed_last_seen > current_last_seen):
+        state["last_seen"] = observed_last_seen
+    state["observations"] = max(int(state.get("observations", 0)), observed_count)
+    return state
+
+
+def should_observe_candle(candle_time: int, last_seen: int | None) -> bool:
+    return last_seen is None or candle_time > last_seen
 
 
 def write_json_atomic(path: Path, value: dict) -> None:
@@ -72,6 +111,10 @@ def append_record(path: Path, record: dict) -> None:
 def main() -> int:
     try:
         state = load_state(STATE)
+        reconciled = reconcile_state_with_observations(state, OBS)
+        if reconciled != state:
+            state = reconciled
+            write_json_atomic(STATE, state)
     except LegacyStateRequiresReview as exc:
         print(json.dumps({"schema": "hes_strategy_policy_v2_eval_start_blocked",
                           "error": str(exc), "decision": "NO_TRADE",
@@ -84,7 +127,7 @@ def main() -> int:
             source = load_market_input(root=ROOT)
             frames = source["timeframes"]
             candle_time = int(frames["15m"][-1]["close_time"])
-            if candle_time != state.get("last_seen"):
+            if should_observe_candle(candle_time, state.get("last_seen")):
                 features = {timeframe: snapshot(timeframe, rows) for timeframe, rows in frames.items()}
                 proposal = evaluate(features)
                 decision = enforce_final_gates(proposal)
@@ -95,18 +138,11 @@ def main() -> int:
                                       "orders_placed": False}), flush=True)
                     return 3
                 observation = {
-                    "schema": "hes_strategy_policy_v2_gated_observation",
-                    "observed_at": datetime.now(timezone.utc).isoformat(),
-                    "candle_close_time": candle_time,
-                    "source": source["source"],
-                    "symbol": source["symbol"],
-                    "policy_version": POLICY_VERSION,
-                    "final_gate_version": GATE_VERSION,
-                    "policy_proposal": proposal.as_dict(),
-                    "decision": decision.as_dict(),
-                    "outcome": None,
-                    "execution_enabled": False,
-                    "orders_placed": False,
+                    "schema": OBS_SCHEMA, "observed_at": datetime.now(timezone.utc).isoformat(),
+                    "candle_close_time": candle_time, "source": source["source"], "symbol": source["symbol"],
+                    "policy_version": POLICY_VERSION, "final_gate_version": GATE_VERSION,
+                    "policy_proposal": proposal.as_dict(), "decision": decision.as_dict(),
+                    "outcome": None, "execution_enabled": False, "orders_placed": False,
                 }
                 append_record(OBS, observation)
                 state["last_seen"] = candle_time
@@ -116,21 +152,14 @@ def main() -> int:
             report = {
                 "schema": "hes_strategy_policy_v2_forward_evaluation",
                 "updated_at": datetime.now(timezone.utc).isoformat(),
-                "source": source["source"],
-                "symbol": source["symbol"],
-                "closed_15m_candle_time": candle_time,
-                "policy_version": POLICY_VERSION,
-                "final_gate_version": GATE_VERSION,
-                "observations": state["observations"],
-                "active_candidates": 0,
-                "resolved_trades": 0,
-                "resolved_win_rate_pct": None,
-                "target_win_rate_pct": 90.0,
-                "target_met": False,
+                "source": source["source"], "symbol": source["symbol"],
+                "closed_15m_candle_time": candle_time, "policy_version": POLICY_VERSION,
+                "final_gate_version": GATE_VERSION, "observations": state["observations"],
+                "active_candidates": 0, "resolved_trades": 0, "resolved_win_rate_pct": None,
+                "target_win_rate_pct": 90.0, "target_met": False,
                 "minimum_resolved_trades_for_target_claim": 30,
                 "directional_candidates_blocked_until_gates_wired": True,
-                "execution_enabled": False,
-                "orders_placed": False,
+                "execution_enabled": False, "orders_placed": False,
                 "caveat": "Forward paper observation only; no directional candidates or live trading until independent structure, confirmation, and risk gates are approved.",
             }
             write_json_atomic(REPORT, report)
