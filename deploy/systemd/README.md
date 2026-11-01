@@ -39,3 +39,8 @@ The existing entrypoint is `web.dashboard`; this service template does not intro
 - `ConditionPathExists` prevents startup before a staged release pointer exists.
 
 **Release gate:** installing this file, creating the production release pointer, running `systemctl daemon-reload`, starting or enabling the unit, and any remote ingress configuration require explicit release approval. Do not run those commands as part of CI or the staging rehearsal. First validate the unit, service user/group, filesystem permissions, exact artifact hash, health gate, browser/API batch identity, and rollback target in an isolated environment.
+
+
+## Dashboard News Monitor state directory
+
+For a release that includes News Radar, install the optional drop-in from `30-news-monitor-state.conf.example` under the existing `hes-readonly-dashboard.service.d/` directory. It uses systemd `StateDirectory=hes-news-monitor` to grant only `/var/lib/hes-news-monitor` as writable monitor state while `ProtectSystem=strict` and the existing read-only release/data boundaries remain intact. Do not add broad `ReadWritePaths` exceptions. Apply only during an approved release window; then run `systemctl daemon-reload` and the controlled service restart/health/rollback checklist. The monitor polls every 300 seconds by default and writes an integrity-protected snapshot; the dashboard reads it via `/api/news`.
