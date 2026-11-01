@@ -90,3 +90,8 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 - Exact-head CI evidence must be tied to the current PR head, not inherited from earlier candidate SHAs.
 - Existing Gate.io persisted-feed soak evidence and Learning Loop journal-hash linkage are prerequisites, not production Signal→journal deployment evidence.
 - Production installation and rollback, explicit owner risk approval, and verified execution instrument constraints/order lifecycle remain separate release gates. The project team is the owner and assistant; no third-party reviewer is assumed.
+
+
+## Versioned paper-service path boundary
+
+- The paper evaluator and Learning Loop must execute from /opt/hes-trade-agent/current and use HES_DATA_ROOT=/opt/hes-trade-agent for shared mutable evidence. Never point a release service at the mutable working tree.

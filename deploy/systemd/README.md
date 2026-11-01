@@ -40,3 +40,12 @@ The existing entrypoint is `web.dashboard`; this service template does not intro
 - `ConditionPathExists` prevents startup before a staged release pointer exists.
 
 **Release gate:** installing this file, creating the production release pointer, running `systemctl daemon-reload`, starting or enabling the unit, and any remote ingress configuration require explicit release approval. Do not run those commands as part of CI or the staging rehearsal. First validate the unit, service user/group, filesystem permissions, exact artifact hash, health gate, browser/API batch identity, and rollback target in an isolated environment.
+
+
+## Strategy V2 paper services
+
+- Install the reviewed evaluator and learning-loop units from this directory during the controlled release.
+- Both services execute code only through /opt/hes-trade-agent/current and use HES_DATA_ROOT=/opt/hes-trade-agent for shared mutable evidence.
+- Only data/forward and logs are writable; source code under current remains immutable.
+- The paper evaluator reads persisted Gate.io Public Spot candles and appends paper decision/candidate/outcome events. The Learning Loop reads the same canonical journal and writes validation/report artifacts. Neither service can submit exchange orders.
+- Do not leave either unit pointed at /opt/hes-trade-agent/scripts in the mutable working tree.
