@@ -60,7 +60,7 @@ The legacy `/api/signal` V1 route is diagnostic compatibility only. The dashboar
 - Install to a new versioned release directory, not over the current release.
 - Preserve the canonical journal file and its lock inode. Pre-create the lock file if absent before applying the service sandbox.
 - Keep the dashboard loopback-only and paper/read-only. Do not enable any exchange order adapter or collector.
-- Install the reviewed service unit with the explicit canonical journal path and only file-level write exceptions.
+- Install the reviewed service unit with the explicit canonical journal path and no journal write exception; grant only the scoped News Radar StateDirectory under /var/lib/hes-news-monitor.
 - Validate `/healthz`, `/api/candles`, `/api/signal`, `/api/journal`, CSP/security headers, same-batch hash, freshness, journal write/readback, deduplication, and `NO_TRADE_ONLY`.
 - Switch the service target atomically only after explicit release approval. Keep the previous release, service unit, and configuration intact.
 
