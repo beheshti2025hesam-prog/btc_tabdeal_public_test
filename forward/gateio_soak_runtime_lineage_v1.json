@@ -1,0 +1,68 @@
+{
+  "files": [
+    {
+      "path": "scripts/soak_gateio_feed_24h_v2.py",
+      "sha256": "435404c3694455015ef9d26c23544e44f5809dbf2dceefea3401704f8d0328a8"
+    },
+    {
+      "path": "forward/global_market_data_reader_v1.py",
+      "sha256": "ef39445a1356de71a25d174ce30dd88dffb0d6377ac623c186203a3e5d120e41"
+    },
+    {
+      "path": "forward/global_market_data_gateio_v1.py",
+      "sha256": "128f4af844d6ad477568bb82706ee5d00f3701004cc81479f71ff04cad87c06f"
+    },
+    {
+      "path": "scripts/run_global_market_data_gateio_service.py",
+      "sha256": "280992fe64c1a2d4d97ded6992a5f0ab9b275e7ce440872891ebf4a45bf76919"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio.service",
+      "sha256": "09ba175f34357e458cc2b09a6da1051ee8aace1d4227b33fbb27ce1b9ca56311"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio-1h.service",
+      "sha256": "c0a9811d8cf196fbde4778a816d75d00349574b4a3fa2bc49b1d053b36d35921"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio-4h.service",
+      "sha256": "ee7bf5fae7173f703f21aa8eab55fd6624c7c4c5b06a0f14d8e91f1fd12733e9"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio-soak.service",
+      "sha256": "724bd70c95346e1b97630faa6b82ed4135df62667bd6bd8c892b6941883837b6"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio.service.d/20-hes-security-umask.conf",
+      "sha256": "d2bb7c9f85695671b5056a03cbf3ed19a2b8ccd98cceb8dfd91383441024d1a7"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio.service.d/30-hes-sandbox.conf",
+      "sha256": "9b163ec5e21ac45e2d8292f1b7c92ea40f3e392c5cfba3639b298a0581c60a84"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio-1h.service.d/20-hes-security-umask.conf",
+      "sha256": "d2bb7c9f85695671b5056a03cbf3ed19a2b8ccd98cceb8dfd91383441024d1a7"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio-1h.service.d/30-hes-sandbox.conf",
+      "sha256": "9b163ec5e21ac45e2d8292f1b7c92ea40f3e392c5cfba3639b298a0581c60a84"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio-4h.service.d/20-hes-security-umask.conf",
+      "sha256": "d2bb7c9f85695671b5056a03cbf3ed19a2b8ccd98cceb8dfd91383441024d1a7"
+    },
+    {
+      "path": "/etc/systemd/system/hes-global-market-data-gateio-4h.service.d/30-hes-sandbox.conf",
+      "sha256": "9b163ec5e21ac45e2d8292f1b7c92ea40f3e392c5cfba3639b298a0581c60a84"
+    },
+    {
+      "path": "data/forward/gateio_feed_soak_24h_v2.jsonl",
+      "sha256": "155d426162ecb301a0423b20f906455f459180f4126017f3da0513844b34788e"
+    }
+  ],
+  "schema": "hes_gateio_soak_runtime_lineage_v1",
+  "source": "gateio_public_spot",
+  "source_commit": "2e8d3859ef154b030e0965ad4479f3fad36ae4c0",
+  "symbol": "BTC_USDT"
+}
