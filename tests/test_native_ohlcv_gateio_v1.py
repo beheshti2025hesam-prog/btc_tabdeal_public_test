@@ -73,9 +73,11 @@ def test_query_uses_gateio_symbol_and_public_endpoint():
 
 def test_documented_base_quote_volume_features_ready_without_fabricating_taker_flow():
     from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
-    from forward.native_ohlcv_gateio_v1 import (VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES,
+    from forward.native_ohlcv_gateio_v1 import (CANDLE_SCHEMA_CONTRACT_VERSION,
+        VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES,
         VOLUME_SEMANTICS_CONTRACT_VERSION, VOLUME_SEMANTICS_SOURCE_DOC_URL,
         TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE)
+    assert CANDLE_SCHEMA_CONTRACT_VERSION == "gateio_spot_candlestick_v2"
     assert VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES is True
     assert VOLUME_SEMANTICS_CONTRACT_VERSION == "gateio_spot_candlestick_volume_v1"
     assert VOLUME_SEMANTICS_SOURCE_DOC_URL.startswith("https://www.gate.com/docs/")
