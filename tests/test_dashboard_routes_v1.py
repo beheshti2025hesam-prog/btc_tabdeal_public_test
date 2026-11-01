@@ -17,6 +17,9 @@ from urllib.request import Request, urlopen
 from unittest.mock import patch
 
 import web.dashboard as dashboard
+from forward.native_ohlcv_gateio_v1 import (
+    GATEIO_SPOT_SYMBOL_MAP, gateio_spot_source_symbol, verify_gateio_spot_symbol_mapping,
+)
 from forward.confirmation_engine_v1 import ConfirmationCheck
 from forward.risk_gate_v1 import RiskCheck
 from forward.strategy_policy_v1 import REQUIRED_CHECKS, StrategyEvidenceCheckV1
@@ -59,6 +62,17 @@ class DashboardRouteTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown();cls.server.server_close();cls.thread.join(timeout=2)
+
+
+    def test_gateio_spot_symbol_mapping_is_explicit_and_shared_with_adapter(self):
+        self.assertEqual(gateio_spot_source_symbol("BTCUSDT"), "BTC_USDT")
+        self.assertTrue(verify_gateio_spot_symbol_mapping("BTCUSDT", "BTC_USDT"))
+        self.assertFalse(verify_gateio_spot_symbol_mapping("BTCUSDT", "BTCUSDT"))
+        self.assertFalse(verify_gateio_spot_symbol_mapping("ETHUSDT", "BTC_USDT"))
+        with self.assertRaises(ValueError):
+            gateio_spot_source_symbol("UNKNOWN")
+        with self.assertRaises(TypeError):
+            GATEIO_SPOT_SYMBOL_MAP["BTCUSDT"] = "WRONG_PAIR"
 
     def test_dashboard_uses_pinned_chart_library_and_native_source_label(self):
         with urlopen(self.base+"/") as response:
