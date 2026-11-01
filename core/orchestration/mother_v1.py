@@ -209,6 +209,8 @@ class MotherOrchestratorV1:
             return False, "INVALID_EVIDENCE_REFS:" + name
         if any(not isinstance(ref, str) or not ref or len(ref) > 512 for ref in result.evidence_refs):
             return False, "INVALID_EVIDENCE_REFS:" + name
+        if not result.evidence_refs:
+            return False, "MISSING_EVIDENCE_REFS:" + name
         if len(result.evidence_refs) != len(set(result.evidence_refs)):
             return False, "DUPLICATE_EVIDENCE_REFS:" + name
         return True, None
