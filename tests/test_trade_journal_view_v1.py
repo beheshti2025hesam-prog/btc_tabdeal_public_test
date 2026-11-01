@@ -88,6 +88,11 @@ def test_rejects_outcome_leakage_in_decision_record(tmp_path):
         read_decision_journal(path)
 
 
+def test_optional_canonical_identity_and_execution_contract(tmp_path):
+    path = tmp_path / "trade_journal_v2.jsonl"
+    write_signal(path)
+    with pytest.raises(JournalProjectionError, match="unexpected_source"):
+        read_decision_journal(path, expected_source="gateio_public_spot")
 def test_rejects_invalid_limit(tmp_path):
     path = tmp_path / "trade_journal_v2.jsonl"
     write_signal(path)
