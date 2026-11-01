@@ -20,7 +20,7 @@ Run the existing `NewsIntelligenceBrain` continuously inside the existing read-o
 - It performs one immediate poll at startup, then polls every 300 seconds (5 minutes) by default.
 - `HES_NEWS_MONITOR_INTERVAL_SECONDS` may be set from 15 to 3600 seconds.
 - The same lock serializes monitor polls and request-time cache misses, preventing duplicate concurrent source fan-out.
-- Existing `/api/signal` continues to use the canonical news brain and the same market-scoped brief. The monitor's cached brief is reused for the BTCUSDT/crypto/Gate.io/15m context; the strategy regime remains a separate specialist input.
+- The legacy `/api/signal` V1 route is retired with HTTP 410 and is not polled by the dashboard. News Radar is displayed as context-only evidence; Strategy Policy V2 remains the canonical decision/report path and does not consume News as a directional authorization input in this release.
 
 ## Durable evidence
 
