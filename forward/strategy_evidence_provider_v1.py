@@ -1,9 +1,9 @@
-"""Evidence-only strategy provider built on the canonical Binance Spot OHLCV path.
+"""Evidence-only strategy provider for explicitly supported native OHLCV scopes.
 
-Reuses the existing native candle adapter and EMA/swing calculators. MFI14 and
-ADX14 are implemented here because the repository has no existing implementation
-of those indicators. This module never places orders or treats missing evidence
-as a pass.
+Reuses existing candle, EMA/swing, confirmation, risk and order-block modules.
+Gate.io Spot supports OHLC, base volume and quote volume; trade count and
+taker-buy flow are absent and must remain unknown. This module never places
+orders or treats missing evidence as a pass.
 """
 from __future__ import annotations
 
@@ -222,15 +222,19 @@ class StrategyEvidenceProviderV1:
     MINIMUM_HTF_CANDLES = 200
     MAX_SOURCE_FETCH_SKEW_MS = 300_000
 
-    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT"),)):
+    SUPPORTED_SCOPE_FAMILIES = frozenset({("binance", "spot"), ("gateio", "spot")})
+
+    def __init__(self, *, allowed_scopes=(("gateio", "spot", "BTCUSDT"),)):
         self.allowed_scopes = tuple(tuple(scope) for scope in allowed_scopes)
         if not self.allowed_scopes or any(
             len(scope) != 3 or any(not isinstance(value, str) or not value for value in scope)
             for scope in self.allowed_scopes
         ):
             raise ValueError("allowed_scopes must contain venue/product/symbol triples")
-        if any(scope[:2] != ("binance", "spot") for scope in self.allowed_scopes):
-            raise ValueError("this provider requires a source-specific provider for non-Binance-Spot volume semantics")
+        if any(scope[:2] not in self.SUPPORTED_SCOPE_FAMILIES for scope in self.allowed_scopes):
+            raise ValueError("unsupported source family; use a source-specific evidence contract")
+        if any(scope[0] == "gateio" and scope[2] not in {"BTCUSDT", "ETHUSDT", "SOLUSDT"} for scope in self.allowed_scopes):
+            raise ValueError("unsupported Gate.io Spot strategy symbol")
 
     @staticmethod
     def _check(name, state, ref, digest, observed_at):
@@ -264,6 +268,22 @@ class StrategyEvidenceProviderV1:
             raise ValueError("unsupported 15m strategy source scope")
         if scope_4h not in self.allowed_scopes:
             raise ValueError("unsupported 4h strategy source scope")
+        # Gate.io Spot candlesticks provide native base/quote volume but no
+        # trade count or taker-buy flow. Reject any adapter that populates
+        # those unavailable fields instead of silently trusting synthesized data.
+        for batch in (candles_15m, candles_4h):
+            if batch.venue == "gateio":
+                if batch.product != "spot" or batch.endpoint_kind not in {
+                    "spot_candlesticks", "global_market_data_reader_v1", "klines"
+                }:
+                    raise ValueError("unsupported Gate.io evidence endpoint contract")
+                if any(
+                    candle.trade_count is not None
+                    or candle.taker_buy_volume is not None
+                    or candle.taker_buy_quote_volume is not None
+                    for candle in batch.candles
+                ):
+                    raise ValueError("Gate.io unavailable trade-flow fields must remain unknown")
         if candles_15m.interval != "15m" or candles_4h.interval != "4h":
             raise ValueError("strategy provider requires 15m and 4h batches")
         if type(now_ms) is not int or now_ms < 0:
