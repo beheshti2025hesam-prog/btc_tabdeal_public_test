@@ -77,10 +77,14 @@ jobs:
                   raise ValueError("empty_or_invalid_candle_response")
               parsed = []
               for row in rows:
-                  if not isinstance(row, list) or len(row) != 7:
-                      raise ValueError("gateio_candle_schema_drift_expected_7_fields")
+                  if not isinstance(row, list) or len(row) != 8:
+                      raise ValueError("gateio_candle_schema_drift_expected_8_fields")
                   open_s = int(row[0])
-                  # Gate.io Spot order: timestamp, quote volume, close, high, low, open, base volume.
+                  # Gate.io Spot order: timestamp, quote volume, close, high, low,
+                  # open, base volume, closed-window flag.
+                  if row[7] not in ("true", "false"):
+                      raise ValueError("gateio_closed_window_flag_invalid")
+                  venue_closed = row[7] == "true"
                   quote, close, high, low, open_, volume = (
                       dec(row[1], "quote_volume"), dec(row[2], "close"),
                       dec(row[3], "high"), dec(row[4], "low"),
@@ -92,7 +96,7 @@ jobs:
                       raise ValueError("invalid_ohlc_bounds")
                   if open_s % seconds:
                       raise ValueError("misaligned_candle_timestamp")
-                  if open_s + seconds > now_s:
+                  if not venue_closed or open_s + seconds > now_s:
                       continue
                   parsed.append({
                       "open_time_s": open_s,
@@ -112,6 +116,8 @@ jobs:
                   raise ValueError("latest_closed_candle_stale")
               report["profiles"][interval] = {
                   "endpoint": "/api/v4/spot/candlesticks",
+                  "wire_field_count": 8,
+                  "closed_flag_field": "string boolean at index 7",
                   "request_query": {"currency_pair": "BTC_USDT", "interval": interval, "limit": 5},
                   "raw_response_sha256": raw_sha,
                   "closed_candles_checked": len(parsed),
