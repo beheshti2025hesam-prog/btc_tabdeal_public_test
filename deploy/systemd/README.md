@@ -36,6 +36,7 @@ The existing entrypoint is `web.dashboard`; this service template does not intro
 - Reads canonical persisted candles from `/opt/hes-trade-agent/data/forward`; do not copy a stale feed into the release directory for deployment.
 - Runs as `sentinelx`, with a read-only filesystem sandbox, private temporary directory, no-new-privileges, and no writable project paths.
 - Does not enable the Gate.io collector, WebSocket stream, or order execution. The dashboard's stream remains disabled and the API is read-only.
+- News Radar state is isolated under `/var/lib/hes-news-monitor` by `30-news-monitor-state.conf.example`; this does not grant write access to market data or the canonical trade journal.
 - `ConditionPathExists` prevents startup before a staged release pointer exists.
 
 **Release gate:** installing this file, creating the production release pointer, running `systemctl daemon-reload`, starting or enabling the unit, and any remote ingress configuration require explicit release approval. Do not run those commands as part of CI or the staging rehearsal. First validate the unit, service user/group, filesystem permissions, exact artifact hash, health gate, browser/API batch identity, and rollback target in an isolated environment.
