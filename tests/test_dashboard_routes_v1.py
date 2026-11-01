@@ -115,6 +115,55 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("TradingView",notice)
         self.assertIn("Apache License",license_text)
 
+    def test_news_radar_panel_is_read_only_and_not_a_market_data_source(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode()
+        self.assertIn('id="newsRadarPanel"', page)
+        self.assertIn("Gate.io remains the sole live market-data source", page)
+        with urlopen(self.base + "/static/dashboard.js") as response:
+            script = response.read().decode()
+        self.assertIn("fetch('/api/news'", script)
+        self.assertNotIn("fetch('/api/signal", script)
+
+    def test_news_endpoint_returns_verified_snapshot(self):
+        snapshot = {
+            "schema_version": "hes.news_monitor_snapshot.v1",
+            "monitor": {"status": "OK", "last_poll_at": "2026-11-01T12:00:00Z",
+                        "source_profile_status": "partial_official_macro_regulatory_central_bank_and_venue_announcements",
+                        "source_health": [{"source_id": "fed_press_all", "source_scope": "international", "status": "ok_empty"}]},
+            "brief": {"schema_version": "hes.news_brief.v1", "status": "no_relevant_news",
+                      "headline": "No high-impact relevant item", "findings": [], "veto_flags": [],
+                      "provenance": {"source_failures": []}},
+        }
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", return_value=snapshot):
+            with urlopen(self.base + "/api/news") as response:
+                payload = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        self.assertEqual(payload["monitor"]["status"], "OK")
+        self.assertEqual(payload["brief"]["schema_version"], "hes.news_brief.v1")
+
+    def test_news_endpoint_fails_closed_for_stale_or_corrupt_snapshot(self):
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", side_effect=ValueError("news monitor snapshot stale")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/news")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
+    def test_legacy_signal_route_is_retired_without_running_or_writing(self):
+        with patch.object(dashboard, "_get_batch", side_effect=AssertionError("legacy route must not fetch")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 410)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
     def test_health_and_execution_boundary(self):
         batch=sample_batch()
         with patch("web.dashboard._get_batch",return_value=(batch,SimpleNamespace())):
