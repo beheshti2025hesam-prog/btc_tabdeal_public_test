@@ -99,10 +99,11 @@ class NewsMonitorTests(unittest.TestCase):
         self.assertEqual(failed["monitor"]["last_success_at"], previous_success)
 
     def test_future_poll_timestamp_is_rejected_by_reader(self):
+        future_time = datetime.now(timezone.utc) + timedelta(days=1)
         future_monitor = NewsMonitorV1(
             brain=self.brain, registry_path=self.monitor.registry_path,
             context=self.context, snapshot_path=self.path, interval_seconds=60,
-            clock=lambda: NOW + timedelta(days=1),
+            clock=lambda: future_time,
         )
         self.brain.run_from_registry.return_value = self._brief()
         future_monitor.poll_once()
