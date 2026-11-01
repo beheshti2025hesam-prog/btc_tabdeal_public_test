@@ -55,7 +55,6 @@ class OrchestrationResult:
     def as_dict(self) -> dict[str, Any]:
         rows = []
         for stage in self.stages:
-            payload = stage.payload if isinstance(stage.payload, Mapping) else {}
             row: dict[str, Any] = {
                 "agent": stage.agent,
                 "agent_version": stage.agent_version,
@@ -64,7 +63,7 @@ class OrchestrationResult:
                 "evidence_refs": list(stage.evidence_refs),
             }
             if stage.agent == "decision":
-                row["decision"] = _safe_decision(payload.get("decision"))
+                row["decision"] = _safe_decision(_decision_value(stage.payload))
             rows.append(row)
         return {
             "schema_version": self.schema_version,
