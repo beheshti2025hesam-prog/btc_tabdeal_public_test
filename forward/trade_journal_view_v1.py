@@ -22,7 +22,16 @@ class JournalProjectionError(ValueError):
     """The canonical journal cannot safely be projected to the UI."""
 
 
-def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | None = None) -> dict[str, Any]:
+def read_decision_journal(
+    path: str | Path,
+    *,
+    limit: int = 50,
+    now: datetime | None = None,
+    expected_source: str | None = None,
+    expected_symbol: str | None = None,
+    expected_policy_version: str | None = None,
+    require_execution_off: bool = False,
+) -> dict[str, Any]:
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_ROWS:
         raise JournalProjectionError("invalid_limit")
     file_path = Path(path)
@@ -71,6 +80,17 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
                 if record.get("decision") not in _ALLOWED_DECISIONS:
                     continue
                 decision_total += 1
+                source = record.get("source") or record.get("evidence_source")
+                if expected_source is not None and source != expected_source:
+                    raise JournalProjectionError(f"unexpected_source:{line_no}")
+                if expected_symbol is not None and record.get("symbol") != expected_symbol:
+                    raise JournalProjectionError(f"unexpected_symbol:{line_no}")
+                if expected_policy_version is not None and record.get("policy_version") != expected_policy_version:
+                    raise JournalProjectionError(f"unexpected_policy_version:{line_no}")
+                if require_execution_off and (
+                    record.get("execution_enabled") is not False or record.get("orders_placed") is not False
+                ):
+                    raise JournalProjectionError(f"execution_boundary_violation:{line_no}")
                 if record.get("outcome") is not None or record.get("closed_at") is not None:
                     raise JournalProjectionError(f"outcome_leakage_in_decision_journal:{line_no}")
                 observed_at = record.get("observed_at")
@@ -107,7 +127,7 @@ def read_decision_journal(path: str | Path, *, limit: int = 50, now: datetime | 
                     "confirmation_state": record.get("confirmation_state", "UNKNOWN"),
                     "risk_state": record.get("risk_state", "UNKNOWN"),
                     "reason_codes": reasons,
-                    "source": record.get("source", evidence_source),
+                    "source": source,
                     "product": record.get("product", "UNKNOWN"),
                     "policy_version": record.get("policy_version", "UNKNOWN"),
                     "response_sha256": record.get("response_sha256"),
