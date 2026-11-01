@@ -27,7 +27,7 @@ class MotherV2DashboardViewTests(unittest.TestCase):
         report = {
             "schema": "hes_strategy_policy_v2_forward_evaluation",
             "policy_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
-            "updated_at": (updated_at or observed + timedelta(minutes=1)).isoformat(),
+            "updated_at": updated_at if isinstance(updated_at, str) else (updated_at or observed + timedelta(minutes=1)).isoformat(),
             "closed_15m_candle_time": self.candle_time,
             "final_gate_version": "hes-strategy-policy-final-gate-v1.0.0",
             "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.0",
