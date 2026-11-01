@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """Read-only forward paper observation; one record per unique closed 15m candle."""
 from __future__ import annotations
-
-import json
-import os
-import sys
-import time
+import json, os, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,6 +16,7 @@ OUT = ROOT / "data/forward/strategy_policy_v2_forward.jsonl"
 
 
 def load_last_seen(path: Path) -> int | None:
+    """Read only the current policy/gate cohort; old cohorts cannot suppress new observations."""
     if not path.is_file():
         return None
     last = None
@@ -27,12 +24,25 @@ def load_last_seen(path: Path) -> int | None:
         for line in handle:
             try:
                 record = json.loads(line)
+                if not isinstance(record, dict):
+                    continue
+                proposal = record.get("policy_proposal")
+                version = record.get("policy_version")
+                if version is None and isinstance(proposal, dict):
+                    version = proposal.get("policy_version")
+                if version != POLICY_VERSION or record.get("final_gate_version") != GATE_VERSION:
+                    continue
                 value = record.get("candle_close_time")
-                if isinstance(value, int):
-                    last = value
+                if isinstance(value, int) and not isinstance(value, bool):
+                    last = value if last is None else max(last, value)
             except (json.JSONDecodeError, AttributeError):
                 continue
     return last
+
+
+def should_process_candle(candle_time: int, last_seen: int | None) -> bool:
+    """Only advance; do not replay older candles or append the same close twice."""
+    return last_seen is None or candle_time > last_seen
 
 
 def append_record(path: Path, record: dict) -> None:
@@ -50,7 +60,7 @@ def main() -> int:
             source = load_market_input(root=ROOT)
             rows = source["timeframes"]["15m"]
             candle_time = int(rows[-1]["close_time"])
-            if candle_time != seen:
+            if should_process_candle(candle_time, seen):
                 features = {timeframe: snapshot(timeframe, bars)
                             for timeframe, bars in source["timeframes"].items()}
                 proposal = evaluate(features)
@@ -67,6 +77,7 @@ def main() -> int:
                     "candle_close_time": candle_time,
                     "source": source["source"],
                     "symbol": source["symbol"],
+                    "policy_version": POLICY_VERSION,
                     "features": {
                         timeframe: {key: values.get(key) for key in (
                             "last_closed_at_utc", "close", "ema50", "ema200", "rsi14",
