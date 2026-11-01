@@ -75,11 +75,20 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
     except JournalProjectionError as exc:
         raise StrategyV2DashboardError("canonical_journal_invalid:" + str(exc)) from exc
     structure = gate.get("structure")
+    if not isinstance(structure, dict):
+        raise StrategyV2DashboardError("v2_market_structure_evidence_missing")
+    market_observed_at = _timestamp(structure.get("observed_at"))
+    market_age = (current - market_observed_at).total_seconds()
+    if market_age < -5 or market_age > max_age_seconds:
+        raise StrategyV2DashboardError("v2_market_evidence_stale_or_future")
     return {
         "schema": "hes.strategy_v2_dashboard_view.v1", "status": "VERIFIED",
         "agent_version": version, "source": EXPECTED_SOURCE, "symbol": EXPECTED_SYMBOL,
         "timeframe": "15m", "updated_at": updated.isoformat(),
-        "report_age_seconds": round(max(0.0, age), 3), "report_sha256": sha256(raw).hexdigest(),
+        "report_age_seconds": round(max(0.0, age), 3),
+        "market_evidence_observed_at": market_observed_at.isoformat(),
+        "market_evidence_age_seconds": round(max(0.0, market_age), 3),
+        "report_sha256": sha256(raw).hexdigest(),
         "decision": "NO_TRADE", "direction": "NONE",
         "market_regime": structure.get("regime", "UNKNOWN") if isinstance(structure, dict) else "UNKNOWN",
         **counts, "resolved_win_rate_pct": report.get("resolved_win_rate_pct"),
