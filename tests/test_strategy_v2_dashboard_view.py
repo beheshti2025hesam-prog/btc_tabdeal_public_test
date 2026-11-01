@@ -27,7 +27,7 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
             "schema": "hes_strategy_policy_v2_forward_evaluation",
             "policy_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
             "updated_at": self.now.isoformat(),
-            "closed_15m_candle_time": 1793548800,
+            "closed_15m_candle_time": 1793547900,
             "final_gate_version": "hes-strategy-policy-final-gate-v1.0.0",
             "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.0",
             "source": "gateio_public_spot",
@@ -52,7 +52,9 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
             "event_id": "hes-v2-BTC_USDT-15m-1793547900",
             "observed_at": self.now.isoformat(), "symbol": "BTC_USDT",
             "timeframe": "15m", "decision": "NO_TRADE", "direction": "NONE",
-            "evidence_source": "gateio_public_spot", "outcome": None, "closed_at": None,
+            "source": None, "evidence_source": "gateio_public_spot",
+            "policy_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
+            "outcome": None, "closed_at": None,
             "execution_enabled": False, "orders_placed": False,
             "no_trade_reason": "NO_VALID_CANDIDATE",
         }
@@ -69,10 +71,47 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
         self.assertEqual(result["decision"], "NO_TRADE")
         self.assertEqual(result["market_regime"], "RANGE")
         self.assertEqual(result["agent_version"], "hes-btcusdt-mtf-confirmed-breakout-v2.0.0")
+        self.assertEqual(result["closed_15m_candle_time"], 1793547900)
+        self.assertEqual(result["final_gate_version"], "hes-strategy-policy-final-gate-v1.0.0")
+        self.assertEqual(result["gate_pipeline_version"], "hes-strategy-gate-pipeline-v1.0.0")
         self.assertEqual(result["journal"]["decision_count"], 1)
+        self.assertEqual(result["journal"]["events"][0]["source"], "gateio_public_spot")
         self.assertFalse(result["execution_enabled"])
         self.assertFalse(result["orders_placed"])
         self.assertFalse(result["outcomes_inferred"])
+
+    def test_wrong_policy_version_fails_closed(self):
+        self.write_report(policy_version="unapproved-policy")
+        with self.assertRaisesRegex(StrategyV2DashboardError, "policy_version_mismatch"):
+            self.read()
+
+    def test_wrong_journal_source_fails_closed(self):
+        row = json.loads(self.journal.read_text(encoding="utf-8"))
+        row["evidence_source"] = "binance_public_spot"
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
+        with self.assertRaisesRegex(StrategyV2DashboardError, "unexpected_source"):
+            self.read()
+
+    def test_wrong_journal_symbol_fails_closed(self):
+        row = json.loads(self.journal.read_text(encoding="utf-8"))
+        row["symbol"] = "ETH_USDT"
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
+        with self.assertRaisesRegex(StrategyV2DashboardError, "unexpected_symbol"):
+            self.read()
+
+    def test_wrong_journal_policy_version_fails_closed(self):
+        row = json.loads(self.journal.read_text(encoding="utf-8"))
+        row["policy_version"] = "unapproved-policy"
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
+        with self.assertRaisesRegex(StrategyV2DashboardError, "unexpected_policy_version"):
+            self.read()
+
+    def test_journal_execution_flags_fail_closed(self):
+        row = json.loads(self.journal.read_text(encoding="utf-8"))
+        row["orders_placed"] = bool(1)
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
+        with self.assertRaisesRegex(StrategyV2DashboardError, "execution_boundary_violation"):
+            self.read()
 
     def test_stale_report_fails_closed(self):
         self.write_report(updated_at=(self.now - timedelta(seconds=1801)).isoformat())
