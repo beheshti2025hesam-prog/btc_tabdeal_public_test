@@ -117,6 +117,8 @@ class MotherAuditWitnessV1:
                 return self._fail("WITNESS_STAGE_REASONS_DUPLICATED:" + name)
             if not isinstance(refs, list) or any(not isinstance(x, str) or not x for x in refs):
                 return self._fail("WITNESS_STAGE_EVIDENCE_INVALID:" + name)
+            if not refs:
+                return self._fail("WITNESS_STAGE_EVIDENCE_MISSING:" + name)
             if len(refs) != len(set(refs)):
                 return self._fail("WITNESS_STAGE_EVIDENCE_DUPLICATED:" + name)
             row_decision = stage.get("decision") if name == "decision" else None
