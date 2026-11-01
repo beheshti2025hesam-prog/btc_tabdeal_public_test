@@ -34,7 +34,7 @@
       "evidence_url": "https://www.federalreserve.gov/feeds/feeds.htm",
       "last_probe_utc": "2026-10-31T06:05:00Z",
       "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 20 items; newest pubDate 2026-10-29T20:30:00Z (33.59h old at probe); FOMC statement 60.09h old",
-      "terms_note": "Official Federal Reserve Board RSS distribution page lists All Press Releases and describes RSS readers/aggregators as the intended access method. HES consumes feed metadata/headlines and links only, at one request per 60-second poll; no article scraping or full-text republishing.",
+      "terms_note": "Official Federal Reserve Board RSS distribution page lists All Press Releases and describes RSS readers/aggregators as the intended access method. HES consumes feed metadata/headlines and links only, at one request per 300-second poll; no article scraping or full-text republishing.",
       "source_scope": "international"
     },
     {
