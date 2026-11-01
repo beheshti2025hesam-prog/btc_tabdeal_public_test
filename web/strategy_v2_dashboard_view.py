@@ -52,6 +52,13 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
     version = report.get("policy_version")
     if not isinstance(version, str) or not version:
         raise StrategyV2DashboardError("v2_policy_version_missing")
+    closed_candle_time = report.get("closed_15m_candle_time")
+    if isinstance(closed_candle_time, bool) or not isinstance(closed_candle_time, int) or closed_candle_time <= 0:
+        raise StrategyV2DashboardError("v2_closed_candle_identity_missing")
+    final_gate_version = report.get("final_gate_version")
+    gate_pipeline_version = report.get("gate_pipeline_version")
+    if not isinstance(final_gate_version, str) or not final_gate_version or not isinstance(gate_pipeline_version, str) or not gate_pipeline_version:
+        raise StrategyV2DashboardError("v2_gate_version_missing")
     updated = _timestamp(report.get("updated_at"))
     age = (current - updated).total_seconds()
     if age < -5 or age > max_age_seconds:
@@ -85,6 +92,9 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
         "schema": "hes.strategy_v2_dashboard_view.v1", "status": "VERIFIED",
         "agent_version": version, "source": EXPECTED_SOURCE, "symbol": EXPECTED_SYMBOL,
         "timeframe": "15m", "updated_at": updated.isoformat(),
+        "closed_15m_candle_time": closed_candle_time,
+        "final_gate_version": final_gate_version,
+        "gate_pipeline_version": gate_pipeline_version,
         "report_age_seconds": round(max(0.0, age), 3),
         "market_evidence_observed_at": market_observed_at.isoformat(),
         "market_evidence_age_seconds": round(max(0.0, market_age), 3),
