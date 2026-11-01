@@ -183,6 +183,65 @@ def test_provider_does_not_allow_unverified_non_binance_volume_profiles():
         StrategyEvidenceProviderV1(allowed_scopes=(("wallex", "spot", "BTCUSDT"),))
 
 
+def test_provider_accepts_explicit_gateio_spot_scope_without_fabricated_flow_fields():
+    now = 1_800_000_000_000
+
+    def gateio_batch(interval, digest):
+        batch = make_batch(
+            interval, now, venue="gateio", product="spot", symbol="BTCUSDT", digest=digest
+        )
+        candles = tuple(replace(
+            candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+        ) for candle in batch.candles)
+        return replace(
+            batch, endpoint_kind="global_market_data_reader_v1", candles=candles
+        )
+
+    fifteen = gateio_batch("15m", "a")
+    four_hour = gateio_batch("4h", "b")
+    result = StrategyEvidenceProviderV1(
+        allowed_scopes=(("gateio", "spot", "BTCUSDT"),)
+    ).evaluate(candles_15m=fifteen, candles_4h=four_hour, now_ms=now)
+
+    assert result.venue == "gateio"
+    assert result.product == "spot"
+    assert result.symbol == "BTCUSDT"
+    assert len(result.strategy_checks) == 6
+    assert all(c.state in {"PASS", "FAIL", "UNKNOWN"} for c in result.strategy_checks)
+    assert all(c.trade_count is None for c in fifteen.candles)
+    assert all(c.taker_buy_volume is None and c.taker_buy_quote_volume is None for c in fifteen.candles)
+
+
+def test_provider_rejects_fabricated_gateio_trade_flow_fields():
+    now = 1_800_000_000_000
+
+    def gateio_batch(interval, digest):
+        batch = make_batch(
+            interval, now, venue="gateio", product="spot", symbol="BTCUSDT", digest=digest
+        )
+        candles = tuple(replace(
+            candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+        ) for candle in batch.candles)
+        return replace(
+            batch, endpoint_kind="global_market_data_reader_v1", candles=candles
+        )
+
+    fifteen = gateio_batch("15m", "a")
+    four_hour = gateio_batch("4h", "b")
+    fabricated = replace(
+        fifteen.candles[-1],
+        trade_count=123,
+        taker_buy_volume=Decimal("1"),
+        taker_buy_quote_volume=Decimal("20000"),
+    )
+    fifteen = replace(fifteen, candles=fifteen.candles[:-1] + (fabricated,))
+    provider = StrategyEvidenceProviderV1(
+        allowed_scopes=(("gateio", "spot", "BTCUSDT"),)
+    )
+    with pytest.raises(ValueError, match="unavailable trade-flow fields must remain unknown"):
+        provider.evaluate(candles_15m=fifteen, candles_4h=four_hour, now_ms=now)
+
+
 def test_mfi_divergence_supports_bullish_and_bearish_alternatives():
     now = 1_800_000_000_000
     batch = make_batch("15m", now, count=80)
