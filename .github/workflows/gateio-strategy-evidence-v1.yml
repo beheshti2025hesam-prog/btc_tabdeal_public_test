@@ -1,0 +1,42 @@
+name: Gate.io Strategy Evidence Provider v1
+on:
+  push:
+    branches:
+      - fix/gateio-strategy-evidence-v1-20261101
+  pull_request:
+    branches:
+      - integration/gateio-persisted-feed-signal-agent-20261026
+permissions:
+  contents: read
+jobs:
+  strategy-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Assert exact checked-out SHA
+        run: |
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          echo "EXACT_CHECKOUT_SHA=$(git rev-parse HEAD)"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt pytest
+      - name: Run strategy evidence provider tests
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q forward/test_strategy_evidence_provider_v1.py
+      - name: Run complete repository regression
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q
+      - name: Assert execution remains disabled in dashboard integration
+        run: |
+          grep -q 'execution_enabled' forward/risk_policy_v1.py
+          echo "GATEIO_STRATEGY_EVIDENCE_TESTS=PASS"
+          echo "LIVE_EXECUTION=OFF"
