@@ -71,6 +71,7 @@ class MotherV2DashboardViewTests(unittest.TestCase):
             "observed_at": (observed_at or datetime(2026, 11, 1, 16, 0, 5, tzinfo=timezone.utc)).isoformat(),
             "symbol": "BTC_USDT", "timeframe": "15m", "decision": decision, "direction": "NONE",
             "evidence_source": "gateio_public_spot", "source": "gateio_public_spot",
+            "policy_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
             "market_regime": "RANGE", "signal_state": "NO_TRADE",
             "confirmation_state": confirmation_state, "risk_state": risk_state,
             "no_trade_reason": "NO_CONFIRMED_20_BAR_BREAKOUT",
