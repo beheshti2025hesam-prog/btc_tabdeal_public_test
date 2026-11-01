@@ -37,6 +37,6 @@ jobs:
         run: python -m pytest -q
       - name: Assert execution remains disabled in dashboard integration
         run: |
-          grep -q 'execution_enabled' forward/risk_policy_v1.py
+          grep -q 'execution_disabled' forward/risk_policy_v1.py
           echo "GATEIO_STRATEGY_EVIDENCE_TESTS=PASS"
           echo "LIVE_EXECUTION=OFF"
