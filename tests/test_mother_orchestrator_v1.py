@@ -148,6 +148,10 @@ def test_duplicate_and_malformed_evidence_refs_fail_closed():
     assert MotherOrchestratorV1(a).run(CONTEXT).status == "BLOCKED_INVALID_RESULT"
     a = agents(signal=Stub("signal", refs=("x" * 513,)))
     assert MotherOrchestratorV1(a).run(CONTEXT).status == "BLOCKED_INVALID_RESULT"
+    a = agents(signal=Stub("signal", refs=()))
+    result = MotherOrchestratorV1(a).run(CONTEXT)
+    assert result.status == "BLOCKED_INVALID_RESULT"
+    assert "MISSING_EVIDENCE_REFS:signal" in result.reason_codes
 
 
 def test_precomputed_adapter_reuses_versioned_existing_specialist_reports():
