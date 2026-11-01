@@ -44,12 +44,12 @@ The legacy `/api/signal` V1 route is diagnostic compatibility only. The dashboar
 1. Confirm the approved repository, branch, exact commit SHA, clean staged release artifact, and the recorded second-pass technical audit by the project pair (owner + assistant). This is an internal audit, not an independent human approval. The GitHub ruleset must match the declared two-person team; if it still requires an unavailable third-party approval, keep HOLD rather than bypassing it.
 2. Run the full repository suite and exact-head browser test. Browser evidence must show:
    - displayed OHLC/time/volume values match the API payload;
-   - chart and Signal Agent `input_batch_sha256` values match for the same 15m request;
+   - chart values match the Gate.io `global_market_data_reader_v1` API batch; V2 report source/symbol and market-evidence freshness are independently verified;
    - no browser-to-exchange REST request or external chart CDN request;
    - visible candles, no console/page errors, and responsive viewport checks;
-   - Signal Agent remains `BLOCKED` / `NO_TRADE` while required providers are absent and execution is disabled;
-   - one immutable Signal decision is recorded for a new evidence identity, repeat polling returns `ALREADY_RECORDED`, and the existing Learning Loop sees the same canonical journal hash.
-3. Verify the canonical journal and lock file paths, owner/mode, exact `HES_TRADE_JOURNAL_PATH`, file-level write exceptions, and that the dashboard service cannot write other market-data or report files.
+   - canonical Strategy V2 remains `NO_TRADE` / fail-closed when report or journal evidence is missing or stale; the legacy V1 diagnostic route is not polled by the UI;
+   - the existing V2 evaluator owns journal writes; `/api/strategy-v2` and `/api/journal` are read-only; repeated dashboard polling leaves the canonical journal hash unchanged; the Learning Loop sees the same journal hash.
+3. Verify the canonical journal and lock file paths, owner/mode, exact `HES_TRADE_JOURNAL_PATH`, the dashboard's read-only sandbox with no `ReadWritePaths` exceptions, and that the dashboard service cannot write market-data, journal, or report files.
 4. Verify freshness, closed-candle integrity, Gate.io source identity, symbol mapping evidence, independent structure/confirmation/risk evidence, execution instrument mapping, access control, service user, firewall, health checks, logs, and monitoring.
 5. Verify a staged install and rollback in an isolated environment. Capture exact SHA-256 hashes and command output; do not infer success from CI alone.
 6. Do not clean, reset, or overwrite the sole VPS dirty checkout. Do not deploy until the real frontend runtime, approved release target, permissions, exact-head CI checks, and owner-verified two-person ruleset are established. Do not fabricate an independent review or bypass a GitHub rule.
