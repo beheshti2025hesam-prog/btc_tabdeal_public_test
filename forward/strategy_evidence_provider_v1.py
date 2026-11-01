@@ -232,7 +232,7 @@ class StrategyEvidenceProviderV1:
         ):
             raise ValueError("allowed_scopes must contain venue/product/symbol triples")
         if any(scope[:2] not in self.SUPPORTED_SCOPE_FAMILIES for scope in self.allowed_scopes):
-            raise ValueError("unsupported source family; use a source-specific evidence contract")
+            raise ValueError("unsupported source family; use a source-specific provider contract")
         if any(scope[0] == "gateio" and scope[2] not in {"BTCUSDT", "ETHUSDT", "SOLUSDT"} for scope in self.allowed_scopes):
             raise ValueError("unsupported Gate.io Spot strategy symbol")
 
