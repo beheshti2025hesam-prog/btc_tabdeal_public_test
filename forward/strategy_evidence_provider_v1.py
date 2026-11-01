@@ -278,6 +278,21 @@ class StrategyEvidenceProviderV1:
             raise ValueError("unsupported 15m strategy source scope")
         if scope_4h not in self.allowed_scopes:
             raise ValueError("unsupported 4h strategy source scope")
+        # Bind Gate.io evidence to the known Spot candle path. Its public
+        # candle schema does not contain trade count or taker-buy flow.
+        for batch in (candles_15m, candles_4h):
+            if batch.venue == "gateio":
+                if batch.product != "spot" or batch.endpoint_kind not in {
+                    "spot_candlesticks", "global_market_data_reader_v1"
+                }:
+                    raise ValueError("unsupported Gate.io evidence endpoint contract")
+                if any(
+                    candle.trade_count is not None
+                    or candle.taker_buy_volume is not None
+                    or candle.taker_buy_quote_volume is not None
+                    for candle in batch.candles
+                ):
+                    raise ValueError("Gate.io unavailable trade-flow fields must remain unknown")
         if candles_15m.interval != "15m" or candles_4h.interval != "4h":
             raise ValueError("strategy provider requires 15m and 4h batches")
         if type(now_ms) is not int or now_ms < 0:
