@@ -9,6 +9,7 @@ Official schema: https://www.gate.com/docs/developers/apiv4/en/spot/
 """
 from __future__ import annotations
 import hashlib, json, time
+from types import MappingProxyType
 from decimal import Decimal, InvalidOperation
 from typing import Callable
 from urllib.parse import urlencode
@@ -21,7 +22,27 @@ VOLUME_SEMANTICS_SOURCE_DOC_URL = "https://www.gate.com/docs/developers/apiv4/en
 VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES = True
 TRADE_COUNT_AVAILABLE = False
 TAKER_BUY_FLOW_AVAILABLE = False
-_SYMBOLS = {"BTCUSDT": "BTC_USDT", "ETHUSDT": "ETH_USDT", "SOLUSDT": "SOL_USDT"}
+# One authoritative canonical-symbol -> Gate.io Spot currency-pair mapping.
+# Dashboard, persisted-reader boundary and adapter contract must use this same table.
+GATEIO_SPOT_SYMBOL_MAP = MappingProxyType({
+    "BTCUSDT": "BTC_USDT",
+    "ETHUSDT": "ETH_USDT",
+    "SOLUSDT": "SOL_USDT",
+})
+_SYMBOLS = GATEIO_SPOT_SYMBOL_MAP
+
+
+def gateio_spot_source_symbol(canonical_symbol: str) -> str:
+    """Resolve an HES canonical symbol to the exact Gate.io Spot pair."""
+    if type(canonical_symbol) is not str or canonical_symbol not in GATEIO_SPOT_SYMBOL_MAP:
+        raise ValueError("unsupported Gate.io Spot canonical symbol")
+    return GATEIO_SPOT_SYMBOL_MAP[canonical_symbol]
+
+
+def verify_gateio_spot_symbol_mapping(canonical_symbol: str, source_symbol: str) -> bool:
+    """Verify source identity against the authoritative adapter mapping; never infer it."""
+    return (type(canonical_symbol) is str and type(source_symbol) is str
+            and GATEIO_SPOT_SYMBOL_MAP.get(canonical_symbol) == source_symbol)
 SUPPORTED_INTERVALS = frozenset({"1m", "5m", "15m", "1h", "4h", "1d"})
 _TIMEOUT = 10
 
