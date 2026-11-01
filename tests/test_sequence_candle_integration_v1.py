@@ -50,7 +50,7 @@ def test_conflicting_duplicate_stops_candle_formation():
     result = s.ingest([rec(1), rec(1, price="101")], as_of=ASOF)
     assert result.safe_for_decision is False
     assert result.candles == ()
-    assert result.events[-1].reason == "CONFLICTING_DUPLICATE_SEQUENCE"
+    assert result.events[-1].reason == "CONFLICTING_DUPLICATE_IDENTITY"
 
 
 def test_non_contiguous_sequence_is_accepted_as_monotonic_progress():
@@ -58,7 +58,6 @@ def test_non_contiguous_sequence_is_accepted_as_monotonic_progress():
     result = s.ingest([rec(1), rec(3)], as_of=ASOF)
     assert result.safe_for_decision is True
     assert result.events[-1].status == "ACCEPTED"
-
 
 
 def test_reconnect_requires_explicit_reset_before_new_continuity():
