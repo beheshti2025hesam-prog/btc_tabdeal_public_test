@@ -43,6 +43,7 @@ jobs:
               "source": "https://api.gateio.ws/api/v4/spot/candlesticks",
               "retrieved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
               "execution_enabled": False,
+              "candle_schema_contract": "gateio_spot_candlestick_v2",
               "trade_count_available": False,
               "taker_buy_flow_available": False,
               "profiles": {},
