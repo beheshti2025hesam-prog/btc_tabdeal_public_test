@@ -44,7 +44,7 @@ jobs:
               "product": "spot",
               "symbol": "BTC_USDT",
               "source": "https://api.gateio.ws/api/v4/spot/candlesticks",
-              "retrieved_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "retrieved_at_utc": None,
               "execution_enabled": False,
               "candle_schema_contract": "gateio_spot_candlestick_v2",
               "trade_count_available": False,
@@ -63,7 +63,6 @@ jobs:
                   raise ValueError(f"{name}_not_finite")
               return result
 
-          now_s = int(time.time())
           for interval, seconds in profiles.items():
               query = urlencode({"currency_pair": "BTC_USDT", "interval": interval, "limit": 5})
               request = Request(
@@ -75,6 +74,7 @@ jobs:
                   if response.status != 200:
                       raise RuntimeError(f"gateio_http_{response.status}")
                   raw = response.read()
+              response_received_s = int(time.time())
               raw_sha = hashlib.sha256(raw).hexdigest()
               rows = json.loads(raw.decode("utf-8"))
               if not isinstance(rows, list) or not rows:
@@ -100,7 +100,7 @@ jobs:
                       raise ValueError("invalid_ohlc_bounds")
                   if open_s % seconds:
                       raise ValueError("misaligned_candle_timestamp")
-                  if not venue_closed or open_s + seconds > now_s:
+                  if not venue_closed or open_s + seconds > response_received_s:
                       continue
                   parsed.append({
                       "open_time_s": open_s,
@@ -115,7 +115,7 @@ jobs:
               for previous, current in zip(parsed, parsed[1:]):
                   if current["open_time_s"] - previous["open_time_s"] != seconds:
                       raise ValueError("closed_candle_gap_or_duplicate")
-              age_s = now_s - parsed[-1]["close_time_s"]
+              age_s = response_received_s - parsed[-1]["close_time_s"]
               if age_s < 0 or age_s > seconds + 60:
                   raise ValueError("latest_closed_candle_stale")
               report["profiles"][interval] = {
@@ -124,6 +124,7 @@ jobs:
                   "closed_flag_field": "string boolean at index 7",
                   "request_query": {"currency_pair": "BTC_USDT", "interval": interval, "limit": 5},
                   "raw_response_sha256": raw_sha,
+                  "response_received_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(response_received_s)),
                   "closed_candles_checked": len(parsed),
                   "latest_closed_open_time_s": parsed[-1]["open_time_s"],
                   "latest_closed_close_time_s": parsed[-1]["close_time_s"],
@@ -133,6 +134,7 @@ jobs:
                   "trade_count": "UNKNOWN_NOT_PROVIDED",
                   "taker_buy_flow": "UNKNOWN_NOT_PROVIDED",
               }
+          report["retrieved_at_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
           with open("artifacts/gateio-public-candle-evidence.json", "w", encoding="utf-8") as out:
               json.dump(report, out, sort_keys=True, separators=(",", ":"))
           print(json.dumps(report, sort_keys=True, separators=(",", ":")))
