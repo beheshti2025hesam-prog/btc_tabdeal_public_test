@@ -20,7 +20,7 @@
 ## 2. Latest verified code/run ledger
 
 ### PR #410 — Gate.io source schema + Signal Agent wiring
-- State: OPEN, Draft, unmerged; head `b7fef1132e65729bd2d40e1d0d98cd948983ca48`.
+- State: OPEN, Draft, unmerged; current PR head `354e9a1653e7483da982343df95c354dd9d9ecea` adds only this checkpoint document. Last executable-code head tested by the listed runs: `b7fef1132e65729bd2d40e1d0d98cd948983ca48`; no executable code changed in the checkpoint-only commit.
 - Full repository regression: **611 passed + 19 subtests** — [run 41338857463](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41338857463).
 - Dashboard single-path: PASS — [run 41338857469](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41338857469).
 - Browser chart/render/responsive proof: PASS — [run 41338857462](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41338857462); artifact SHA-256 `853be5bae065dd58d7bebf8774e32034bbe01abb58169f41caeb3dd1dc60ca36`.
@@ -39,7 +39,7 @@
 
 ## 3. Run audit — disposition and required follow-up
 
-- Verified recent workflows on the exact heads listed above are completed/successful as noted; workflow success means the test/evidence job ran successfully, not that every release gate passed.
+- The listed PR #410 workflows passed on executable-code head `b7fef1132e65729bd2d40e1d0d98cd948983ca48`; current PR head `354e9a1653e7483da982343df95c354dd9d9ecea` adds checkpoint documentation only. Workflow success means the test/evidence job ran successfully, not that every release gate passed.
 - Do not compare raw test counts across different branches as a progress metric: suite contents differ by branch/stack.
 - PR #407's exact current head has no fresh PR-triggered workflow evidence and is non-mergeable. Treat #408 as its candidate successor; avoid duplicate work on #407.
 - PR #410 Gate.io REST and browser evidence is current and passing, but Gate.io WebSocket is not validated by the Binance-only smoke.
