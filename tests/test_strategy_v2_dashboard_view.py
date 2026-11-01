@@ -82,28 +82,28 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
     def test_wrong_journal_source_fails_closed(self):
         row = json.loads(self.journal.read_text(encoding="utf-8"))
         row["evidence_source"] = "binance_public_spot"
-        self.journal.write_text(json.dumps(row) + "\\n", encoding="utf-8")
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
         with self.assertRaisesRegex(StrategyV2DashboardError, "unexpected_source"):
             self.read()
 
     def test_wrong_journal_symbol_fails_closed(self):
         row = json.loads(self.journal.read_text(encoding="utf-8"))
         row["symbol"] = "ETH_USDT"
-        self.journal.write_text(json.dumps(row) + "\\n", encoding="utf-8")
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
         with self.assertRaisesRegex(StrategyV2DashboardError, "unexpected_symbol"):
             self.read()
 
     def test_wrong_journal_policy_version_fails_closed(self):
         row = json.loads(self.journal.read_text(encoding="utf-8"))
         row["policy_version"] = "unapproved-policy"
-        self.journal.write_text(json.dumps(row) + "\\n", encoding="utf-8")
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
         with self.assertRaisesRegex(StrategyV2DashboardError, "unexpected_policy_version"):
             self.read()
 
     def test_journal_execution_flags_fail_closed(self):
         row = json.loads(self.journal.read_text(encoding="utf-8"))
         row["orders_placed"] = bool(1)
-        self.journal.write_text(json.dumps(row) + "\\n", encoding="utf-8")
+        self.journal.write_text(json.dumps(row) + chr(10), encoding="utf-8")
         with self.assertRaisesRegex(StrategyV2DashboardError, "execution_boundary_violation"):
             self.read()
 
