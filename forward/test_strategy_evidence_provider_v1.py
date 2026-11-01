@@ -82,6 +82,8 @@ def test_provider_accepts_gateio_spot_base_quote_evidence_without_fabricated_flo
     now = 1_800_000_000_000
     fifteen = make_batch("15m", now, venue="gateio", digest="a")
     four_hour = make_batch("4h", now, venue="gateio", digest="b")
+    fifteen = replace(fifteen, endpoint_kind="global_market_data_reader_v1")
+    four_hour = replace(four_hour, endpoint_kind="global_market_data_reader_v1")
     # Gate.io's candle contract does not expose trade count or taker-buy flow.
     fifteen = replace(fifteen, candles=tuple(replace(
         candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
@@ -100,6 +102,49 @@ def test_provider_accepts_gateio_spot_base_quote_evidence_without_fabricated_flo
     assert result.mfi14 is not None  # Uses documented base volume, not taker flow.
     assert all(c.state in {"PASS", "FAIL", "UNKNOWN"} for c in result.strategy_checks)
     assert all(c.state == "PASS" for c in result.risk_checks if c.name == "execution_disabled")
+
+
+def test_provider_rejects_fabricated_gateio_trade_flow_fields():
+    now = 1_800_000_000_000
+    fifteen = make_batch("15m", now, venue="gateio", digest="a")
+    four_hour = make_batch("4h", now, venue="gateio", digest="b")
+    fifteen = replace(fifteen, endpoint_kind="global_market_data_reader_v1")
+    four_hour = replace(four_hour, endpoint_kind="global_market_data_reader_v1")
+    fifteen = replace(fifteen, candles=tuple(replace(
+        candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+    ) for candle in fifteen.candles))
+    four_hour = replace(four_hour, candles=tuple(replace(
+        candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+    ) for candle in four_hour.candles))
+    fabricated = replace(
+        fifteen.candles[-1],
+        trade_count=123,
+        taker_buy_volume=Decimal("1"),
+        taker_buy_quote_volume=Decimal("20000"),
+    )
+    fifteen = replace(fifteen, candles=fifteen.candles[:-1] + (fabricated,))
+    with pytest.raises(ValueError, match="unavailable trade-flow fields must remain unknown"):
+        StrategyEvidenceProviderV1().evaluate(
+            candles_15m=fifteen, candles_4h=four_hour, now_ms=now
+        )
+
+
+def test_provider_rejects_unqualified_gateio_endpoint_alias():
+    now = 1_800_000_000_000
+    fifteen = make_batch("15m", now, venue="gateio", digest="a")
+    four_hour = make_batch("4h", now, venue="gateio", digest="b")
+    fifteen = replace(fifteen, endpoint_kind="klines")
+    four_hour = replace(four_hour, endpoint_kind="klines")
+    fifteen = replace(fifteen, candles=tuple(replace(
+        candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+    ) for candle in fifteen.candles))
+    four_hour = replace(four_hour, candles=tuple(replace(
+        candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+    ) for candle in four_hour.candles))
+    with pytest.raises(ValueError, match="unsupported Gate.io evidence endpoint contract"):
+        StrategyEvidenceProviderV1().evaluate(
+            candles_15m=fifteen, candles_4h=four_hour, now_ms=now
+        )
 
 
 def test_provider_fails_closed_on_source_gaps():
