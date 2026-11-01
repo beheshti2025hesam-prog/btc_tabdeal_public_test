@@ -14,14 +14,15 @@ from forward.native_ohlcv_gateio_v1 import (
     TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE,
     gateio_spot_source_symbol, verify_gateio_spot_symbol_mapping)
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
+from forward.trade_journal_view_v1 import configured_decision_journal, JournalProjectionError
 from forward.confirmation_engine_v1 import ConfirmationCheck
 from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
 from forward.strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
 from forward.agent_disagreement_resolver_v1 import AgentAssessmentV1, AgentDisagreementResolverV1
 from forward.learning_evidence_adapter_v1 import record_signal_decision
-from forward.trade_journal_view_v1 import configured_decision_journal, JournalProjectionError
 from core.orchestration.mother_v1 import MotherOrchestratorV1, precomputed_specialists_v1
 from core.orchestration.witness_v1 import MotherAuditWitnessV1
+from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard, StrategyV2DashboardError
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -150,7 +151,8 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <section class="panel"><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status">Loading validated closed candles…</div></section>
-<section class="panel"><h3 class="panel-title">Signal Agent v1 · BTCUSDT / 15m</h3><div class="metrics"><div class="metric"><small>Decision</small><strong id="signalDecision">NO_TRADE</strong></div><div class="metric"><small>Agent status</small><strong id="signalStatus">Checking gates…</strong></div><div class="metric"><small>Feature quality</small><strong id="signalFeatureQuality">—</strong></div><div class="metric"><small>Strategy quality</small><strong id="signalStrategyQuality">UNKNOWN</strong></div><div class="metric"><small>Strategy quorum</small><strong id="signalStrategyQuorum">0/5</strong></div><div class="metric"><small>Order block score</small><strong id="signalOrderBlock">UNAVAILABLE</strong></div><div class="metric"><small>Risk gate</small><strong id="signalRisk">—</strong></div></div><p class="muted" id="signalReasons">Waiting for validated evidence…</p><div class="gate"><strong>Execution: disabled</strong><p class="muted">This read-only route composes validated market structure, strategy quality, confirmation, risk and arbitration. Missing execution-instrument mapping or any unapproved risk gate keeps the decision at NO_TRADE.</p></div><div class="panel"><h4 class="panel-title">Mother Orchestrator · read-only</h4><div class="metrics"><div class="metric"><small>Orchestration status</small><strong id="motherStatus">BLOCKED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace">—</strong></div></div><p class="muted" id="motherStages">Waiting for specialist evidence…</p></div><div class="metrics"><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
+<section class="panel" id="strategyV2Panel"><h3 class="panel-title">Canonical Strategy V2 · Paper evaluator</h3><div class="metrics"><div class="metric"><small>Canonical decision</small><strong id="v2Decision">NO_TRADE</strong></div><div class="metric"><small>Evidence status</small><strong id="v2Status">Checking report…</strong></div><div class="metric"><small>Market regime</small><strong id="v2Regime">UNKNOWN</strong></div><div class="metric"><small>Policy version</small><strong id="v2Version">—</strong></div><div class="metric"><small>Paper outcomes</small><strong id="v2Outcomes">—</strong></div><div class="metric"><small>Decision journal</small><strong id="v2Journal">—</strong></div></div><p class="muted" id="v2Reasons">Waiting for the canonical V2 evaluator report…</p><div class="gate"><strong>Gate.io data only · execution disabled</strong><p class="muted" id="v2Evidence">This panel is a read-only projection of the existing Strategy Policy V2 evaluator and canonical journal. It does not calculate a second strategy or submit orders.</p></div></section>
+<section class="panel"><h3 class="panel-title">Legacy V1 diagnostic</h3><p class="muted">Not polled by this dashboard and not used for canonical decisions. The canonical paper decision is the existing Strategy Policy V2 result shown above.</p></section>
 <section class="panel"><h3 class="panel-title">Decision and safety gates</h3><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel" id="journalPanel"><div class="toolbar"><div><h3 class="panel-title">Trade Journal · Decision & Learning Evidence</h3><div class="muted">Immutable forward decisions only. Executed trades and realized outcomes are not inferred from a signal.</div></div><button id="journalRefresh" type="button">Refresh journal</button></div><p class="muted" id="journalStatus" role="status">Loading journal…</p><div class="journal-scroll"><table class="journal-table"><thead><tr><th>Time (UTC)</th><th>Market</th><th>Decision</th><th>Gate / reason</th><th>Outcome</th><th>Evidence</th></tr></thead><tbody id="journalRows"><tr><td colspan="6" class="muted">No journal entries loaded.</td></tr></tbody></table></div></section>
 <div class="footer">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. Copyright (c) 2025 TradingView, Inc. The chart reads the same validated persisted Gate.io candles through the canonical global-market reader used by the analysis input path; the dashboard does not make a second REST candle request. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io's documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.</div></main>
@@ -230,6 +232,19 @@ class Handler(BaseHTTPRequestHandler):
                     "execution_enabled": False, "orders_placed": False, "outcomes_inferred": False,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+        if p.path == "/api/strategy-v2":
+            try:
+                payload = read_strategy_v2_dashboard()
+                return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+            except StrategyV2DashboardError as exc:
+                payload = {
+                    "schema": "hes.strategy_v2_dashboard_view.v1", "status": "BLOCKED",
+                    "decision": "NO_TRADE", "direction": "NONE", "reason": str(exc),
+                    "source": "gateio_public_spot", "execution_enabled": False,
+                    "orders_placed": False, "outcomes_inferred": False, "fail_closed": True,
+                }
+                return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+        # Legacy V1 diagnostic compatibility only; the dashboard UI never polls this writer path.
         if p.path == "/api/signal":
             q = parse_qs(p.query)
             symbol = q.get("symbol", ["BTCUSDT"])[0]
@@ -370,8 +385,7 @@ class Handler(BaseHTTPRequestHandler):
                 common_refs = [snapshot_sha256, batch.response_sha256, htf_batch.response_sha256]
                 confirmed = confirmation_gate == "PASS"
                 execution_instrument_mapping_verified = False
-                # Execution-instrument mapping is a separate downstream gate; it must not falsify the paper Risk Gate result.
-                risk_approved = result.risk.state == "RISK_APPROVED"
+                risk_approved = result.risk.state == "RISK_APPROVED" and execution_instrument_mapping_verified
                 signal_ready = bool(quality and quality.state == "PASS" and result.candidate.state in ("CANDIDATE_LONG", "CANDIDATE_SHORT"))
                 specialist_reports = {
                     "data_quality": report(

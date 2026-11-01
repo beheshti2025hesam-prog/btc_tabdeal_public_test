@@ -1,0 +1,99 @@
+"""Read-only projection of the canonical HES Strategy Policy V2 evaluator."""
+from __future__ import annotations
+from datetime import datetime, timezone
+from hashlib import sha256
+import json, os
+from pathlib import Path
+from typing import Any
+from forward.trade_journal_view_v1 import read_decision_journal, JournalProjectionError
+
+DEFAULT_REPORT_PATH = Path("/opt/hes-trade-agent/data/forward/strategy_policy_v2_eval_report.json")
+DEFAULT_JOURNAL_PATH = Path("/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl")
+EXPECTED_SCHEMA = "hes_strategy_policy_v2_forward_evaluation"
+EXPECTED_SOURCE = "gateio_public_spot"
+EXPECTED_SYMBOL = "BTC_USDT"
+
+class StrategyV2DashboardError(ValueError):
+    """Canonical V2 evidence is unavailable or unsafe to display."""
+
+def _timestamp(value: Any) -> datetime:
+    if not isinstance(value, str):
+        raise StrategyV2DashboardError("invalid_report_timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise StrategyV2DashboardError("invalid_report_timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise StrategyV2DashboardError("naive_report_timestamp")
+    return parsed.astimezone(timezone.utc)
+
+def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
+                               max_age_seconds=1800, journal_limit=20):
+    if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int) or max_age_seconds < 1:
+        raise StrategyV2DashboardError("invalid_freshness_policy")
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise StrategyV2DashboardError("verifier_clock_not_timezone_aware")
+    current = current.astimezone(timezone.utc)
+    report_file = Path(report_path or os.environ.get("HES_STRATEGY_V2_REPORT_PATH", str(DEFAULT_REPORT_PATH)))
+    try:
+        if report_file.is_symlink() or not report_file.is_file() or report_file.stat().st_size > 1_000_000:
+            raise StrategyV2DashboardError("v2_report_unavailable_or_invalid")
+        raw = report_file.read_bytes()
+        report = json.loads(raw.decode("utf-8", errors="strict"))
+    except StrategyV2DashboardError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StrategyV2DashboardError("v2_report_unavailable_or_invalid") from exc
+    if not isinstance(report, dict) or report.get("schema") != EXPECTED_SCHEMA:
+        raise StrategyV2DashboardError("v2_report_schema_mismatch")
+    if report.get("source") != EXPECTED_SOURCE or report.get("symbol") != EXPECTED_SYMBOL:
+        raise StrategyV2DashboardError("v2_report_market_identity_mismatch")
+    version = report.get("policy_version")
+    if not isinstance(version, str) or not version:
+        raise StrategyV2DashboardError("v2_policy_version_missing")
+    updated = _timestamp(report.get("updated_at"))
+    age = (current - updated).total_seconds()
+    if age < -5 or age > max_age_seconds:
+        raise StrategyV2DashboardError("v2_report_stale_or_future")
+    if report.get("execution_enabled") is not False or report.get("orders_placed") is not False:
+        raise StrategyV2DashboardError("v2_execution_boundary_violation")
+    if report.get("directional_candidates_blocked_until_gates_approved") is not True:
+        raise StrategyV2DashboardError("v2_directional_gate_not_locked")
+    gate = report.get("latest_gate_evidence")
+    if not isinstance(gate, dict) or gate.get("source") != EXPECTED_SOURCE or gate.get("final_decision") != "NO_TRADE":
+        raise StrategyV2DashboardError("v2_latest_gate_evidence_invalid")
+    counts = {}
+    for key in ("active_candidates", "wins", "losses", "timeouts"):
+        value = report.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise StrategyV2DashboardError("v2_invalid_" + key)
+        counts[key] = value
+    journal_file = Path(journal_path or os.environ.get("HES_TRADE_JOURNAL_PATH", str(DEFAULT_JOURNAL_PATH)))
+    try:
+        journal = read_decision_journal(journal_file, limit=journal_limit, now=current)
+    except JournalProjectionError as exc:
+        raise StrategyV2DashboardError("canonical_journal_invalid:" + str(exc)) from exc
+    structure = gate.get("structure")
+    if not isinstance(structure, dict):
+        raise StrategyV2DashboardError("v2_market_structure_evidence_missing")
+    market_observed_at = _timestamp(structure.get("observed_at"))
+    market_age = (current - market_observed_at).total_seconds()
+    if market_age < -5 or market_age > max_age_seconds:
+        raise StrategyV2DashboardError("v2_market_evidence_stale_or_future")
+    return {
+        "schema": "hes.strategy_v2_dashboard_view.v1", "status": "VERIFIED",
+        "agent_version": version, "source": EXPECTED_SOURCE, "symbol": EXPECTED_SYMBOL,
+        "timeframe": "15m", "updated_at": updated.isoformat(),
+        "report_age_seconds": round(max(0.0, age), 3),
+        "market_evidence_observed_at": market_observed_at.isoformat(),
+        "market_evidence_age_seconds": round(max(0.0, market_age), 3),
+        "report_sha256": sha256(raw).hexdigest(),
+        "decision": "NO_TRADE", "direction": "NONE",
+        "market_regime": structure.get("regime", "UNKNOWN") if isinstance(structure, dict) else "UNKNOWN",
+        **counts, "resolved_win_rate_pct": report.get("resolved_win_rate_pct"),
+        "target_policy_status": report.get("target_policy_status", "UNKNOWN"),
+        "directional_candidates_blocked_until_gates_approved": True,
+        "latest_gate_evidence": gate, "journal": journal,
+        "execution_enabled": False, "orders_placed": False, "outcomes_inferred": False,
+    }
