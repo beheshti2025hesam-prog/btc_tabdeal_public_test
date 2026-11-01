@@ -16,6 +16,7 @@ from urllib.request import Request, urlopen
 from .native_ohlcv_v1 import INTERVAL_MS, CandleGap, NativeCandle, NativeOHLCVBatch, validate_native_batch
 
 REST_URL = "https://api.gateio.ws/api/v4/spot/candlesticks"
+CANDLE_SCHEMA_CONTRACT_VERSION = "gateio_spot_candlestick_v2"
 VOLUME_SEMANTICS_CONTRACT_VERSION = "gateio_spot_candlestick_volume_v1"
 VOLUME_SEMANTICS_SOURCE_DOC_URL = "https://www.gate.com/docs/developers/apiv4/en/spot/"
 VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES = True
