@@ -244,6 +244,7 @@ class Handler(BaseHTTPRequestHandler):
                     "orders_placed": False, "outcomes_inferred": False, "fail_closed": True,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+        # Legacy V1 diagnostic compatibility only; the dashboard UI never polls this writer path.
         if p.path == "/api/signal":
             q = parse_qs(p.query)
             symbol = q.get("symbol", ["BTCUSDT"])[0]
