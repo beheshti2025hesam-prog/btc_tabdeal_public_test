@@ -11,7 +11,8 @@ from forward.native_ohlcv_v1 import INTERVAL_MS, NativeCandle, NativeOHLCVBatch,
 from forward.global_market_data_reader_v1 import load_market_input
 from forward.native_ohlcv_gateio_v1 import (
     VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES, VOLUME_SEMANTICS_CONTRACT_VERSION,
-    TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE)
+    TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE,
+    gateio_spot_source_symbol, verify_gateio_spot_symbol_mapping)
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from forward.confirmation_engine_v1 import ConfirmationCheck
 from forward.signal_agent_v1 import RiskGeometryV1, SignalAgentV1
@@ -25,6 +26,8 @@ from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_klin
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
 SUPPORTED_SYMBOLS = {"BTCUSDT"}
+CANONICAL_ANALYSIS_SYMBOL = "BTCUSDT"
+GATEIO_SOURCE_SYMBOL = gateio_spot_source_symbol(CANONICAL_ANALYSIS_SYMBOL)
 SUPPORTED_INTERVALS = {"15m", "1h", "4h"}
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
@@ -42,7 +45,7 @@ class PersistedGlobalFeedSource:
         if start_time_ms is not None or end_time_ms is not None or as_of_ms is not None:
             raise ValueError("persisted global feed does not support custom time windows")
         market = load_market_input(root=PROJECT_ROOT)
-        if market.get("source") != "gateio_public_spot" or market.get("symbol") != "BTC_USDT":
+        if market.get("source") != "gateio_public_spot" or not verify_gateio_spot_symbol_mapping(symbol, market.get("symbol")):
             raise ValueError("persisted global source identity mismatch")
         rows = market["timeframes"].get(interval, [])[-limit:]
         if len(rows) < 200:
@@ -193,7 +196,7 @@ class Handler(BaseHTTPRequestHandler):
                 payload = {
                     "status": "ok", "mode": "NO_TRADE_ONLY", "execution_enabled": False, "orders_placed": False,
                     "source": "gateio_public_spot", "source_reader": "global_market_data_reader_v1",
-                    "source_symbol": "BTC_USDT", "symbol_mapping_verified": True,
+                    "source_symbol": gateio_spot_source_symbol(batch.candles[-1].symbol), "symbol_mapping_verified": verify_gateio_spot_symbol_mapping(batch.candles[-1].symbol, gateio_spot_source_symbol(batch.candles[-1].symbol)),
                     "execution_instrument_mapping_verified": False,
                     "input_batch_sha256": batch.response_sha256,
                     "latest_age_seconds": latest_age_seconds,
@@ -445,8 +448,8 @@ class Handler(BaseHTTPRequestHandler):
                     "timeframe": batch.interval,
                     "source": "gateio_public_spot",
                     "source_reader": batch.endpoint_kind,
-                    "source_symbol": "BTC_USDT",
-                    "symbol_mapping_verified": True,
+                    "source_symbol": gateio_spot_source_symbol(batch.symbol),
+                    "symbol_mapping_verified": verify_gateio_spot_symbol_mapping(batch.symbol, gateio_spot_source_symbol(batch.symbol)),
                     "execution_instrument_mapping_verified": False,
                     "product": batch.product,
                     "input_batch_sha256": batch.response_sha256,
@@ -572,7 +575,7 @@ class Handler(BaseHTTPRequestHandler):
                 "venue":batch.venue,"product":batch.product,
                 "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
                 "trade_count_available":TRADE_COUNT_AVAILABLE,"taker_buy_flow_available":TAKER_BUY_FLOW_AVAILABLE,
-                "symbol":batch.symbol,"source_symbol":"BTC_USDT","symbol_mapping_verified":True,
+                "symbol":batch.symbol,"source_symbol":gateio_spot_source_symbol(batch.symbol),"symbol_mapping_verified":verify_gateio_spot_symbol_mapping(batch.symbol,gateio_spot_source_symbol(batch.symbol)),
                 "execution_instrument_mapping_verified":False,
                 "interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
                 "fetched_at_ms":batch.fetched_at_ms,"input_batch_sha256":batch.response_sha256,
