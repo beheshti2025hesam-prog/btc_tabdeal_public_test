@@ -389,5 +389,70 @@ class DashboardRouteTests(unittest.TestCase):
                     urlopen(Request(self.base+path, data=b"{}", method="POST"))
                 self.assertEqual(error.exception.code, 405)
 
+
+    def test_mother_risk_approval_is_independent_of_execution_mapping(self):
+        batch = sample_batch()
+        htf_batch = SimpleNamespace(**{
+            **batch.__dict__, "interval": "4h", "response_sha256": "b" * 64,
+        })
+        features = SimpleNamespace(
+            decision_ready=True, reason=None, quality=SimpleNamespace(passed=True),
+        )
+        observed_at = datetime.now(timezone.utc)
+        strategy = SimpleNamespace(
+            VERSION="test-strategy-v1", observed_at=observed_at, venue="gateio",
+            product="spot", symbol="BTCUSDT", timeframe="15m", regime="UPTREND",
+            direction="BULLISH", structure_labels=("HH", "HL"),
+            structure_events=("BOS",), strategy_checks=(), confirmation_checks=(),
+            risk_checks=(), risk_geometry=None, mfi14=60, adx14=30, plus_di14=25,
+            minus_di14=10, ema50_15m=100, ema50_4h=99, ema200_4h=95,
+            blocked_reasons=(), order_block=None, mfi_divergence=None,
+        )
+        result = SimpleNamespace(
+            candidate=SimpleNamespace(state="CANDIDATE_LONG"),
+            confirmation=SimpleNamespace(
+                state="CONFIRMED_LONG", checks=(), reason_codes=(),
+            ),
+            risk=SimpleNamespace(
+                state="RISK_APPROVED", checks=(), reason_codes=(),
+            ),
+            decision=SimpleNamespace(decision="LONG", reason_codes=()),
+            blocked_reasons=(),
+            strategy_quality=SimpleNamespace(
+                state="PASS", evidence_sha256="d" * 64, reason_codes=(),
+            ),
+        )
+        arbitration = SimpleNamespace(
+            decision="LONG", conflict_class="NONE", reason_codes=(),
+            audit_sha256="c" * 64, assessments=(),
+        )
+
+        def get_batch(symbol, interval):
+            return (batch if interval == "15m" else htf_batch, features)
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            journal_path = os.path.join(tempdir, "decisions.jsonl")
+            with patch.dict(os.environ, {"HES_TRADE_JOURNAL_PATH": journal_path}), \
+                 patch("web.dashboard._get_batch", side_effect=get_batch), \
+                 patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy), \
+                 patch.object(dashboard._SIGNAL_AGENT, "evaluate", return_value=result), \
+                 patch.object(dashboard._ARBITRATION_RESOLVER, "resolve", return_value=arbitration):
+                with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
+                    payload = json.loads(response.read())
+
+            self.assertEqual(payload["mother_orchestration"]["decision"], "LONG")
+            risk_stage = next(
+                stage for stage in payload["mother_orchestration"]["stages"]
+                if stage["agent"] == "risk"
+            )
+            self.assertEqual(risk_stage["state"], "APPROVED")
+            self.assertTrue(payload["mother_witness"]["verified"])
+            # The read-only dashboard still blocks a directional output until the
+            # separate executable-instrument mapping gate is proven.
+            self.assertEqual(payload["decision"], "NO_TRADE")
+            self.assertIn("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED", payload["blocked_reasons"])
+            self.assertFalse(payload["execution_enabled"])
+            self.assertFalse(payload["orders_placed"])
+
 if __name__=="__main__":
     unittest.main()
