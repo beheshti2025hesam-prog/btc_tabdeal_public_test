@@ -59,7 +59,7 @@ def prepare_fixture(tmp: Path, records):
     for name in paths:
         target = audit._resolve_manifest_path(name, root, system_root)
         target.parent.mkdir(parents=True, exist_ok=True)
-        content = ("".join(json.dumps(row, sort_keys=True) + "\\n" for row in records)).encode() if name == "data/forward/gateio_feed_soak_24h_v2.jsonl" else ("fixture:" + name).encode()
+        content = ("".join(json.dumps(row, sort_keys=True) + "\n" for row in records)).encode() if name == "data/forward/gateio_feed_soak_24h_v2.jsonl" else ("fixture:" + name).encode()
         target.write_bytes(content)
         files.append({"path": name, "sha256": hashlib.sha256(content).hexdigest()})
     manifest = {
