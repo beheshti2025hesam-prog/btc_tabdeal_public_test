@@ -242,6 +242,29 @@ def test_provider_rejects_fabricated_gateio_trade_flow_fields():
         provider.evaluate(candles_15m=fifteen, candles_4h=four_hour, now_ms=now)
 
 
+def test_provider_rejects_unqualified_gateio_endpoint_alias():
+    now = 1_800_000_000_000
+
+    def gateio_batch(interval, digest):
+        batch = make_batch(
+            interval, now, venue="gateio", product="spot", symbol="BTCUSDT", digest=digest
+        )
+        candles = tuple(replace(
+            candle, trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None
+        ) for candle in batch.candles)
+        return replace(batch, endpoint_kind="klines", candles=candles)
+
+    provider = StrategyEvidenceProviderV1(
+        allowed_scopes=(("gateio", "spot", "BTCUSDT"),)
+    )
+    with pytest.raises(ValueError, match="unsupported Gate.io evidence endpoint contract"):
+        provider.evaluate(
+            candles_15m=gateio_batch("15m", "a"),
+            candles_4h=gateio_batch("4h", "b"),
+            now_ms=now,
+        )
+
+
 def test_mfi_divergence_supports_bullish_and_bearish_alternatives():
     now = 1_800_000_000_000
     batch = make_batch("15m", now, count=80)
