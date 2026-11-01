@@ -1,11 +1,7 @@
 """Append-only forward journal primitives.
 
-Forward baseline hardening:
-- single-writer lock around read/duplicate-check/append
-- fail closed on malformed, partial, or ambiguous existing JSONL
-- bounded record size and strict event identity validation
-- fsync after append
-- decision records never accept future outcomes
+The same append-only writer handles decision, paper-candidate and paper-outcome
+records. It never mutates a prior decision; later outcomes are separate events.
 """
 from __future__ import annotations
 
@@ -13,13 +9,13 @@ from contextlib import contextmanager
 from pathlib import Path
 import json
 import os
+import stat
 from typing import Any, Iterator, Mapping
 
 try:
     import fcntl
 except ImportError:  # pragma: no cover - supported runtime is Linux
     fcntl = None
-
 
 DECISIONS = {"LONG", "SHORT", "NO_TRADE"}
 REQUIRED_FIELDS = {
@@ -35,22 +31,21 @@ def _validate_decision_record(record: Mapping[str, Any]) -> None:
         raise ValueError(f"missing journal fields:{','.join(missing)}")
     if record["decision"] not in DECISIONS:
         raise ValueError("invalid decision")
-    if not isinstance(record["event_id"], str) or not record["event_id"]:
+    if not isinstance(record["event_id"], str) or not record["event_id"].strip():
         raise ValueError("event_id is required")
     if not isinstance(record["evidence_source"], (str, list, tuple)):
         raise ValueError("evidence_source is required")
-    if "outcome" in record and record["outcome"] is not None:
+    if record.get("outcome") is not None:
         raise ValueError("future outcome leakage: decision record must have outcome=None")
-    if "closed_at" in record and record["closed_at"] is not None:
+    if record.get("closed_at") is not None:
         raise ValueError("future outcome leakage: decision record must have closed_at=None")
 
 
 class ForwardJournalV1:
-    """Single-writer append-only decision journal.
+    """Single-writer append-only JSONL writer with per-file process locking.
 
-    The lock covers the complete check-and-append critical section, so two
-    writers cannot both pass the duplicate check for the same event_id.
-    Existing records are fully validated before a new append is allowed.
+    Legacy rows without event_id remain readable for backward compatibility;
+    every newly appended row must carry a unique, non-empty event_id.
     """
 
     def __init__(self, path: str | Path):
@@ -60,6 +55,8 @@ class ForwardJournalV1:
     @contextmanager
     def _write_lock(self) -> Iterator[None]:
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.lock_path.is_symlink():
+            raise ValueError("journal lock path must not be a symlink")
         with self.lock_path.open("a+", encoding="utf-8") as lock_file:
             if fcntl is None:
                 raise RuntimeError("atomic single-writer locking requires fcntl on the supported runtime")
@@ -74,12 +71,17 @@ class ForwardJournalV1:
             raise ValueError("journal path must not be a symlink")
         if not self.path.exists():
             return set()
-        if not self.path.is_file():
+        if not stat.S_ISREG(self.path.stat().st_mode):
             raise ValueError("journal path is not a regular file")
 
         ids: set[str] = set()
         with self.path.open("rb") as handle:
-            for line_number, raw_line in enumerate(handle, start=1):
+            line_number = 0
+            while True:
+                raw_line = handle.readline(MAX_LINE_BYTES + 1)
+                if not raw_line:
+                    break
+                line_number += 1
                 if len(raw_line) > MAX_LINE_BYTES:
                     raise ValueError(f"journal record size limit exceeded at line {line_number}")
                 if not raw_line.endswith(b"\n"):
@@ -92,33 +94,48 @@ class ForwardJournalV1:
                     raise ValueError(f"journal contains malformed JSON at line {line_number}") from exc
                 if not isinstance(item, dict):
                     raise ValueError(f"journal record is not an object at line {line_number}")
-                event_id = item.get("event_id")
+                # A small number of pre-existing paper-ledger rows predate event_id.
+                # Preserve them, but never create another unidentifiable row.
+                if "event_id" not in item:
+                    continue
+                event_id = item["event_id"]
                 if not isinstance(event_id, str) or not event_id.strip():
-                    raise ValueError(f"journal record missing valid event_id at line {line_number}")
+                    raise ValueError(f"journal record has invalid event_id at line {line_number}")
                 if event_id in ids:
                     raise ValueError(f"journal contains duplicate event_id at line {line_number}")
                 ids.add(event_id)
         return ids
 
-    def append_decision(self, record: Mapping[str, Any]) -> None:
-        _validate_decision_record(record)
+    def append_event(self, record: Mapping[str, Any]) -> bool:
+        """Append any immutable journal event; return False for an existing event_id."""
+        if not isinstance(record, Mapping):
+            raise ValueError("journal record must be a mapping")
+        event_id = record.get("event_id")
+        if not isinstance(event_id, str) or not event_id.strip():
+            raise ValueError("event_id is required")
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._write_lock():
-            if record["event_id"] in self._ids():
-                raise ValueError("duplicate event_id")
+            if event_id in self._ids():
+                return False
 
-            payload = dict(record)
-            payload.setdefault("outcome", None)
-            payload.setdefault("closed_at", None)
-            line = json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n"
-            if len(line.encode("utf-8")) > MAX_LINE_BYTES:
+            line = json.dumps(dict(record), ensure_ascii=False, sort_keys=True) + "\n"
+            encoded = line.encode("utf-8")
+            if len(encoded) > MAX_LINE_BYTES:
                 raise ValueError("journal record size limit exceeded")
+            with self.path.open("ab") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+        return True
 
-            with self.path.open("a", encoding="utf-8") as f:
-                f.write(line)
-                f.flush()
-                os.fsync(f.fileno())
+    def append_decision(self, record: Mapping[str, Any]) -> None:
+        _validate_decision_record(record)
+        payload = dict(record)
+        payload.setdefault("outcome", None)
+        payload.setdefault("closed_at", None)
+        if not self.append_event(payload):
+            raise ValueError("duplicate event_id")
 
     def append_outcome(self, *, event_id: str, outcome: str, closed_at: str) -> None:
         raise NotImplementedError(
