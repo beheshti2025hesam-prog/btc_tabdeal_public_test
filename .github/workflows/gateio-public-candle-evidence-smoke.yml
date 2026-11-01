@@ -13,13 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Checkout exact candidate
+      - name: Checkout exact PR head or pushed commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
-      - name: Assert exact checkout SHA
+      - name: Assert exact candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           echo "EXACT_CHECKOUT_SHA=$(git rev-parse HEAD)"
       - name: Verify live public Gate.io Spot candle contract
         run: |
@@ -137,6 +140,6 @@ jobs:
       - name: Upload evidence artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gateio-public-candle-evidence-${{ github.sha }}
+          name: gateio-public-candle-evidence-${{ github.event.pull_request.head.sha || github.sha }}
           path: artifacts/gateio-public-candle-evidence.json
           if-no-files-found: error
