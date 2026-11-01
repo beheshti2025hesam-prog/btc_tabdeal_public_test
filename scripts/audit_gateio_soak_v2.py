@@ -66,6 +66,8 @@ def verify_lineage(manifest_path: str | Path, *, root: str | Path,
         manifest = json.loads(raw)
     except json.JSONDecodeError:
         return ["LINEAGE_MANIFEST_INVALID_JSON"]
+    if not isinstance(manifest, dict):
+        return ["LINEAGE_MANIFEST_INVALID_SCHEMA"]
     if (manifest.get("schema") != "hes_gateio_soak_runtime_lineage_v1"
             or manifest.get("source") != "gateio_public_spot"
             or manifest.get("symbol") != "BTC_USDT"
