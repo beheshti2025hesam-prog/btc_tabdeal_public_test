@@ -81,12 +81,13 @@ def load_observation_progress(path: Path) -> tuple[int | None, int]:
 
 def reconcile_state_with_observations(state: dict, observation_path: Path) -> dict:
     """Recover an already-fsynced observation if the process died before state replacement."""
+    reconciled = dict(state)
     observed_last_seen, observed_count = load_observation_progress(observation_path)
-    current_last_seen = state.get("last_seen")
+    current_last_seen = reconciled.get("last_seen")
     if observed_last_seen is not None and (current_last_seen is None or observed_last_seen > current_last_seen):
-        state["last_seen"] = observed_last_seen
-    state["observations"] = max(int(state.get("observations", 0)), observed_count)
-    return state
+        reconciled["last_seen"] = observed_last_seen
+    reconciled["observations"] = max(int(reconciled.get("observations", 0)), observed_count)
+    return reconciled
 
 
 def should_observe_candle(candle_time: int, last_seen: int | None) -> bool:
