@@ -1,0 +1,5 @@
+[Service]
+# systemd provisions /var/lib/hes-news-monitor owned by the existing service user.
+# ProtectSystem=strict remains enabled; no project or release path becomes writable.
+StateDirectory=hes-news-monitor
+StateDirectoryMode=0750
