@@ -7,8 +7,8 @@ from forward.native_ohlcv_gateio_v1 import GateioSpotKlineSource
 BASE_S=1_800_000_000
 STEP=900
 
-def row(ts, *, close="100.25", base="2.50", quote="250.625"):
-    return [str(ts),quote,close,"102.00","99.00","100.00",base,"true"]
+def row(ts, *, close="100.25", base="2.50", quote="250.625", closed="true"):
+    return [str(ts),quote,close,"102.00","99.00","100.00",base,closed]
 
 def make_source(rows, *, fetched_ms=BASE_S*1000+STEP*1000*5):
     body=json.dumps(rows,separators=(",",":")).encode()
@@ -32,6 +32,20 @@ def test_open_candle_is_excluded_and_counted():
     assert len(batch.candles)==1 and batch.candles[0].open_time_ms==BASE_S*1000
     assert batch.open_candles_excluded==1
 
+def test_venue_open_flag_excludes_row_even_when_timestamp_is_old():
+    now = (BASE_S + STEP * 5) * 1000
+    source, _ = make_source([row(BASE_S, closed="false")], fetched_ms=now)
+    batch = source.fetch(symbol="BTCUSDT", interval="15m", limit=10, as_of_ms=now)
+    assert batch.candles == ()
+    assert batch.open_candles_excluded == 1
+
+
+def test_invalid_venue_closed_flag_fails_closed():
+    source, _ = make_source([[str(BASE_S), "250", "100", "102", "99", "100", "2.5", "yes"]])
+    with pytest.raises(ValueError, match="closed-window flag"):
+        source.fetch(symbol="BTCUSDT", interval="15m", limit=10)
+
+
 def test_gaps_are_reported_not_filled():
     source,_=make_source([row(BASE_S+3*STEP),row(BASE_S)])
     batch=source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
@@ -45,9 +59,9 @@ def test_conflicting_duplicates_and_bad_identity_fail_closed():
         source.fetch(symbol="BTC-USD",interval="15m",limit=10)
 
 def test_nonfinite_and_invalid_ohlc_rejected():
-    source,_=make_source([[str(BASE_S),"NaN","100","102","99","100","2.5"]])
+    source,_=make_source([[str(BASE_S),"NaN","100","102","99","100","2.5","true"]])
     with pytest.raises(ValueError): source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
-    source,_=make_source([[str(BASE_S),"250","100","98","99","100","2.5"]])
+    source,_=make_source([[str(BASE_S),"250","100","98","99","100","2.5","true"]])
     with pytest.raises(ValueError,match="OHLC bounds"): source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
 
 def test_query_uses_gateio_symbol_and_public_endpoint():
