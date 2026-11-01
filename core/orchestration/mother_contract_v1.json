@@ -21,6 +21,7 @@
     "Missing, extra, malformed, stale, future, or unprovenanced stage evidence fails closed; duplicate reason codes and evidence references within a stage are rejected.",
     "Risk must explicitly return APPROVED before a directional decision stage may run.",
     "No stage may authorize execution.",
+    "Execution-instrument mapping is a separate downstream execution gate and must not be conflated with Risk Gate approval for read-only observation.",
     "The orchestrator coordinates existing specialist outputs and must not recompute indicators, market structure, strategy, risk, or outcomes.",
     "The orchestrator does not fetch external data or submit orders.",
     "Evaluation in this stage sequence means decision-observation validation, not realized performance evaluation.",
