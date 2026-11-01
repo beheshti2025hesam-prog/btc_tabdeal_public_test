@@ -97,6 +97,17 @@ def test_short_decision_mapping_is_preserved():
     assert r.status == "OBSERVATION_ONLY" and r.decision == "SHORT"
 
 
+def test_object_backed_decision_payload_is_serialized_consistently():
+    class DecisionPayload:
+        decision = "SHORT"
+
+    a = agents(decision=Stub("decision", payload=DecisionPayload()))
+    result = MotherOrchestratorV1(a).run(CONTEXT)
+    assert result.status == "OBSERVATION_ONLY"
+    assert result.decision == "SHORT"
+    assert result.as_dict()["stages"][-2]["decision"] == "SHORT"
+
+
 def test_no_trade_is_a_valid_decision_not_a_successful_trade():
     a = agents(decision=Stub("decision", payload={"decision": "NO_TRADE"}))
     r = MotherOrchestratorV1(a).run(CONTEXT)
