@@ -224,7 +224,7 @@ class StrategyEvidenceProviderV1:
 
     SUPPORTED_SCOPE_FAMILIES = frozenset({("binance", "spot"), ("gateio", "spot")})
 
-    def __init__(self, *, allowed_scopes=(("gateio", "spot", "BTCUSDT"),)):
+    def __init__(self, *, allowed_scopes=(("binance", "spot", "BTCUSDT"),)):
         self.allowed_scopes = tuple(tuple(scope) for scope in allowed_scopes)
         if not self.allowed_scopes or any(
             len(scope) != 3 or any(not isinstance(value, str) or not value for value in scope)
