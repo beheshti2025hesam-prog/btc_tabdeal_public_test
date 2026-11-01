@@ -345,6 +345,8 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
         self.assertIn("refreshJournal", script)
+        self.assertIn("j.decision_count", script)
+        self.assertIn("total journal records", script)
         self.assertIn("td.textContent=value", script)
 
     def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
