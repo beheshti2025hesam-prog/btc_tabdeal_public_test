@@ -12,6 +12,7 @@ DEFAULT_JOURNAL_PATH = Path("/opt/hes-trade-agent/data/forward/trade_journal_v2.
 EXPECTED_SCHEMA = "hes_strategy_policy_v2_forward_evaluation"
 EXPECTED_SOURCE = "gateio_public_spot"
 EXPECTED_SYMBOL = "BTC_USDT"
+EXPECTED_POLICY_VERSION = "hes-btcusdt-mtf-confirmed-breakout-v2.0.0"
 
 class StrategyV2DashboardError(ValueError):
     """Canonical V2 evidence is unavailable or unsafe to display."""
@@ -52,6 +53,8 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
     version = report.get("policy_version")
     if not isinstance(version, str) or not version:
         raise StrategyV2DashboardError("v2_policy_version_missing")
+    if version != EXPECTED_POLICY_VERSION:
+        raise StrategyV2DashboardError("v2_policy_version_mismatch")
     closed_candle_time = report.get("closed_15m_candle_time")
     if isinstance(closed_candle_time, bool) or not isinstance(closed_candle_time, int) or closed_candle_time <= 0:
         raise StrategyV2DashboardError("v2_closed_candle_identity_missing")
@@ -78,7 +81,15 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
         counts[key] = value
     journal_file = Path(journal_path or os.environ.get("HES_TRADE_JOURNAL_PATH", str(DEFAULT_JOURNAL_PATH)))
     try:
-        journal = read_decision_journal(journal_file, limit=journal_limit, now=current)
+        journal = read_decision_journal(
+            journal_file,
+            limit=journal_limit,
+            now=current,
+            expected_source=EXPECTED_SOURCE,
+            expected_symbol=EXPECTED_SYMBOL,
+            expected_policy_version=EXPECTED_POLICY_VERSION,
+            require_execution_off=True,
+        )
     except JournalProjectionError as exc:
         raise StrategyV2DashboardError("canonical_journal_invalid:" + str(exc)) from exc
     structure = gate.get("structure")
