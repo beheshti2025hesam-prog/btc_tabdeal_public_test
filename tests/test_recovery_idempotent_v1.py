@@ -5,7 +5,16 @@ from forward.sequence_semantics_v1 import TABDEAL_TRADE_SEQUENCE_KEY
 CAPS = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 def rec(seq, price="100"):
-    return {"source":"tabdeal_ws_forward_v1","symbol":"BTC_USDT","price":price,"amount":"1","side":"buy","source_updated":"2026-10-07T06:30:00+00:00","sequence":seq}
+    return {
+        "source": "tabdeal_ws_forward_v1",
+        "symbol": "BTC_USDT",
+        "price": price,
+        "amount": "1",
+        "side": "buy",
+        "source_updated": "2026-10-07T06:30:00+00:00",
+        "sequence": seq,
+        "sequence_contract_key": TABDEAL_TRADE_SEQUENCE_KEY,
+    }
 
 def test_start_creates_first_clean_segment():
     c=ForwardRecoveryControllerV1(capabilities=CAPS); e=c.start()
