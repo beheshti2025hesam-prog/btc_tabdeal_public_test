@@ -36,7 +36,7 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
             "execution_enabled": False, "orders_placed": False,
             "latest_gate_evidence": {
                 "source": "gateio_public_spot", "final_decision": "NO_TRADE",
-                "structure": {"regime": "RANGE"},
+                "structure": {"regime": "RANGE", "observed_at": self.now.isoformat()},
                 "confirmation": {"reason_codes": ["NO_VALID_CANDIDATE"]},
                 "risk": {"reason_codes": ["CONFIRMATION_NOT_VALID"]},
             },
@@ -74,6 +74,13 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
     def test_stale_report_fails_closed(self):
         self.write_report(updated_at=(self.now - timedelta(seconds=1801)).isoformat())
         with self.assertRaisesRegex(StrategyV2DashboardError, "stale_or_future"):
+            self.read()
+
+    def test_stale_market_evidence_fails_closed_even_if_report_is_fresh(self):
+        gate = self.read()["latest_gate_evidence"]
+        gate["structure"]["observed_at"] = (self.now - timedelta(seconds=1801)).isoformat()
+        self.write_report(latest_gate_evidence=gate)
+        with self.assertRaisesRegex(StrategyV2DashboardError, "market_evidence_stale_or_future"):
             self.read()
 
     def test_wrong_market_source_fails_closed(self):
