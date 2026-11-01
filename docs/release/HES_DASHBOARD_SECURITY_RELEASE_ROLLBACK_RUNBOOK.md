@@ -39,6 +39,16 @@ The `GET /api/journal` projection and the canonical `GET /api/strategy-v2` proje
 
 The legacy `/api/signal` V1 route is diagnostic compatibility only. The dashboard UI does not poll it, it is not the canonical trading decision, and the read-only service sandbox prevents it from mutating the journal. Do not grant journal write permissions to make that legacy route operational.
 
+## News Radar state boundary
+
+The dashboard consumes the existing `NewsIntelligenceBrain` and qualified source registry; it does not create a second market-data feed or decision engine. Its continuous monitor writes only the durable snapshot at `/var/lib/hes-news-monitor/news_brief_latest.json`. The dashboard process reads and validates the snapshot through `GET /api/news`; missing, corrupt, future-dated, or stale snapshots return HTTP 503 and display BLOCKED.
+
+Provision the snapshot directory with the optional systemd drop-in example `deploy/systemd/30-news-monitor-state.conf.example`, which uses `StateDirectory=hes-news-monitor` and `StateDirectoryMode=0750`. This is a scoped systemd-managed state directory; do not add broad `ReadWritePaths` exceptions and do not make the release tree, report, or journal writable. The existing Strategy V2 evaluator remains the sole writer of the canonical trade journal.
+
+Default poll interval is 300 seconds (5 minutes), configurable only within 15–3600 seconds. The source registry remains authoritative: disabled or unqualified sources are never fetched, source coverage remains explicitly partial, and an empty successful feed is distinct from a failed source. News is context only; it cannot create LONG/SHORT, override Risk Gate, or authorize execution. Gate.io remains the sole live candle/chart/indicator source; Gate.io announcement feeds are venue-operational context only.
+
+The legacy `/api/signal` V1 route is retired with HTTP 410 and must never be polled by the dashboard. It must not run a second strategy or attempt journal writes.
+
 ## Pre-release gate
 
 1. Confirm the approved repository, branch, exact commit SHA, clean staged release artifact, and the recorded second-pass technical audit by the project pair (owner + assistant). This is an internal audit, not an independent human approval. The GitHub ruleset must match the declared two-person team; if it still requires an unavailable third-party approval, keep HOLD rather than bypassing it.
