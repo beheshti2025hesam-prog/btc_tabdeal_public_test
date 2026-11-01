@@ -56,6 +56,14 @@ def test_witness_accepts_fail_closed_risk_veto_with_partial_stage_chain():
     assert witness.verified is True
 
 
+def test_witness_rejects_missing_stage_evidence_refs():
+    output = MotherOrchestratorV1(agent_map()).run(CONTEXT).as_dict()
+    output["stages"][0]["evidence_refs"] = []
+    result = MotherAuditWitnessV1().verify(output)
+    assert result.verified is False
+    assert result.reason_codes == ("WITNESS_STAGE_EVIDENCE_MISSING:data_quality",)
+
+
 def test_witness_rejects_tampered_audit_fields():
     output = MotherOrchestratorV1(agent_map()).run(CONTEXT).as_dict()
     tampered = deepcopy(output)
