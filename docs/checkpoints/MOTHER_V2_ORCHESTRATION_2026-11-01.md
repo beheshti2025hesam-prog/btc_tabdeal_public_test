@@ -42,3 +42,11 @@ No new strategy or market-data engine was created.
 - Execution remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. Gate.io is market-data-only; no exchange is approved for leveraged/live execution.
 - The exact 24-hour Gate.io persisted-feed soak passed its independent audit: 1,440 samples, 86,400 seconds, zero malformed rows, contiguous IDs, no >90-second gaps, stable source hash, and required feed services active with zero restarts. This validates the recorded soak only; it does not prove profitability, live WebSocket continuity, execution mapping, risk approval or release authorization.
 - Delivery target remains 2026-11-19. The 2026-11-04 chart acceptance milestone remains time-critical.
+
+## Exact-head verification trigger — 2026-11-02
+
+- The current PR #408 candidate code head previously recorded is `f25569a7d22e4e9382d05e9df61e5142b9381ce3`; local/VPS regression was reported as 742 passed + 66 subtests, but no GitHub Actions runs were associated with that exact SHA.
+- This documentation-only checkpoint refresh is intended to trigger the existing PR validation workflows on the new exact branch head. It does not change executable code, alter the dependency chain, or authorize merge/deployment.
+- Gate.io Public Spot BTC_USDT remains the only market-data/chart/candle/indicator source. Mother consumes the existing Strategy V2 report and matching canonical journal event; it must not fetch market data or recalculate strategy/risk.
+- Execution remains OFF. No order placement, exchange account connection, service mutation, deployment, or production pointer change.
+- Treat the workflow result on the resulting new SHA as the first exact-head CI evidence for this checkpoint; prior green runs on older SHAs do not transfer.
