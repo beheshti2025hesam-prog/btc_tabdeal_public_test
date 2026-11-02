@@ -139,3 +139,10 @@ A gate is PASS only when linked evidence identifies exact SHA, workflow/run, art
 - A bounded 35-second run of the candidate collector was performed in an isolated checkout with output directed to `/tmp`. It fetched 499 closed Gate.io Spot BTC_USDT 15m candles, subscribed to Gate.io WebSocket, and stopped on SIGTERM with its stop marker. Temp output passed closed/unique/contiguous/source/symbol/timeframe checks. The production collector services and production output files were not touched.
 - Separate read-only live smoke confirmed the canonical REST adapter returned 2 closed candles with zero gaps and the Gate.io WebSocket accepted `spot.candlesticks` / `15m_BTC_USDT` and returned 2 updates with required fields. This proves basic live endpoint reachability only, not recovery from an induced real outage or long soak.
 - G3 remains PARTIAL until isolated real-socket interruption/reconnect/backfill evidence and authorized deployed-runtime parity/soak are complete. G4/G7 remain PARTIAL; G5/G6/G8 remain BLOCKED. Keep HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY; no merge/deploy/account connection/order execution.
+
+
+### Controlled real-socket reconnect + REST idempotency — 2026-11-02 07:17 UTC
+
+- In an isolated candidate checkout, connected to real Gate.io public WebSocket, subscribed to `15m_BTC_USDT`, received a valid update, explicitly closed the socket, reconnected a fresh socket, and received another valid update; both subscriptions succeeded without errors.
+- The canonical native REST adapter then returned 4 closed 15m candles with zero reported gaps. Existing atomic merge wrote only to a `/tmp` file; replaying the same REST batch preserved 4 unique, contiguous rows with no duplicates. Production services and files remained untouched.
+- Combined with the exact-SHA automated reconnect/backfill test, this demonstrates basic real-endpoint close/reconnect and idempotent REST reconciliation. It is not a forced network failure inside the running collector process, a long-duration soak, or deployed runtime parity. G3 stays PARTIAL until those evidence gates pass.
