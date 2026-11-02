@@ -236,3 +236,15 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 
 - Keep services untouched; add a deterministic, non-production fault-injection harness that proves process interruption → bounded reconnect → REST gap backfill → idempotent recovery, then run it against the same canonical adapter and record exact SHA/artifacts. Only after this can G3 advance. Do not simulate by killing production services.
 - Release status remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. No PR merged, no production pointer changed, no exchange account connected, no order executed.
+
+
+## Reconnect recovery integration-test checkpoint — 2026-11-02 (later update)
+
+- Added `tests/collector/test_gateio_reconnect_recovery_integration.py` to exercise the actual collector loop through a simulated WebSocket transport disconnect, bounded reconnect, second REST sync, real atomic merge/persistence, and deduplication. The test writes only into pytest's temporary directory; it does not stop or modify the live collector services.
+- Test-authoring caught and fixed a test isolation issue: `_append_new` has a definition-time default output path, so the integration test now explicitly injects its temporary output path. The initial test failure was test setup, not a collector regression; rerun after the fix passed.
+- Exact code/test SHA: `9c6b1723272c69d2cdfabaf90efe22c5a794a388`.
+- Exact SHA local validation: focused collector suite `18 passed in 0.21s`; full repository `629 passed, 19 subtests passed in 4.98s`.
+- Five GitHub Actions workflows for this exact SHA were observed `in_progress` at checkpoint time; no green result is claimed until they finish. Earlier five-workflow green evidence applies only to `daa7d9f1d48bc132e1c6a5c5c1558d2e0cf0b156`.
+- PR #410 head is now `9c6b1723272c69d2cdfabaf90efe22c5a794a388`, OPEN/Draft/unmerged, mergeable reported true. No merge or deployment performed.
+- Scope limitation: the integration test proves deterministic reconnect + REST sync + atomic persistence in a controlled fake-transport scenario. It does not prove real network interruption/recovery, exchange-side continuity, deployed runtime parity, 24h WebSocket resilience, or strategy profitability. G3 remains PARTIAL/BLOCKED until live-safe evidence and remaining fault-injection checks are completed.
+- No production service was stopped/restarted; no exchange account was connected; no order was placed. Release stays HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.
