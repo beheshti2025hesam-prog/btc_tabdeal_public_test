@@ -279,6 +279,22 @@ class StrategyEvidenceProviderV1:
         if type(now_ms) is not int or now_ms < 0:
             raise ValueError("now_ms must be a non-negative integer")
 
+        # Gate.io's supported candle contract has OHLC/base+quote volume only.
+        # Do not accept generic endpoint aliases or fabricated trade/taker flow.
+        for batch in (candles_15m, candles_4h):
+            if batch.venue == "gateio":
+                if batch.product != "spot" or batch.endpoint_kind not in {
+                    "spot_candlesticks", "global_market_data_reader_v1"
+                }:
+                    raise ValueError("unsupported Gate.io evidence endpoint contract")
+                if any(
+                    candle.trade_count is not None
+                    or candle.taker_buy_volume is not None
+                    or candle.taker_buy_quote_volume is not None
+                    for candle in batch.candles
+                ):
+                    raise ValueError("Gate.io unavailable trade-flow fields must remain unknown")
+
         as_of_ms = min(candles_15m.fetched_at_ms, candles_4h.fetched_at_ms)
         observed_at = datetime.fromtimestamp(as_of_ms / 1000, tz=timezone.utc)
         if as_of_ms > now_ms + 60_000:
