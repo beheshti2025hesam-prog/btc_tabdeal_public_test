@@ -29,7 +29,7 @@ This is the release-control contract for the existing HES Trade Agent. It is not
 
 ### Candidate PR #410
 
-Current branch head after documentation-only updates: `c4dd3bc658c7fe90c30bb4fc852303e97d2ff23c`, OPEN/Draft/unmerged. Five GitHub Actions workflows completed successfully on preceding documentation-inclusive head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`; the newest docs-only head has no associated PR-triggered workflow runs. The five runs were: full repository regression, native OHLCV dashboard single-path tests, browser render/responsive test, bounded Spot WebSocket-to-REST smoke and Gate.io public candle contract smoke. Run links:
+At the initial documentation review, PR #410 was OPEN/Draft/unmerged at head `c4dd3bc658c7fe90c30bb4fc852303e97d2ff23c`; later follow-up commits only corrected documentation provenance. Five GitHub Actions workflows completed successfully on preceding documentation-inclusive head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`; the later docs-only follow-up commits have no associated PR-triggered workflow runs. The five runs were: full repository regression, native OHLCV dashboard single-path tests, browser render/responsive test, bounded Spot WebSocket-to-REST smoke and Gate.io public candle contract smoke. Run links:
 
 - https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254312
 - https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254341
