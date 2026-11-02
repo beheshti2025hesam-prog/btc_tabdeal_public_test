@@ -187,3 +187,28 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 - The uploaded sequence-semantics document was read in full. It is research-only and does not justify applying trade-sequence logic to the Gate.io OHLCV candle path. Venue sequence semantics remain adapter-specific and UNKNOWN unless a concrete execution/order-book feature needs them.
 - The original dirty VPS checkout remains at SHA `060d0d36ae6140a03d9a74495bb3899637ed3827`; it was not reset, cleaned, checked out over, or overwritten. Candidate work was isolated under `/tmp/hes-pr408-rebase-20261102` and `/tmp/hes-pr410-gateio-collector-20261102`; a pre-rebase backup branch exists.
 - No PR merged; no service restarted; no production pointer changed; no exchange account connected; no order executed. Delivery target remains **2026-11-19**.
+
+
+## Continuation update — 2026-11-02 (collector reproducibility + tests)
+
+### Exact current branch and candidate evidence
+
+- PR #410 remains OPEN/Draft/unmerged and mergeable. Current exact head at this audit: `daa7d9f1d48bc132e1c6a5c5c1558d2e0cf0b156`; base branch `integration/gateio-persisted-feed-signal-agent-20261026`, base SHA `2e8d3859ef154b030e0965ad4479f3fad36ae4c0`.
+- Five PR-triggered Actions workflows are green on the exact current head: full repository regression, native OHLCV single path, browser render, bounded WS smoke, Gate.io candle contract smoke. These runs prove the candidate state only; no merge or production deployment is implied.
+- A separate isolated candidate checkout ran the Gate.io collector + canonical reader tests: **23 passed** (0.30s), and Python compileall passed for collector, service wrapper and 24h soak script. This is local VPS-side validation, not a GitHub Actions artifact. The isolated checkout was rebased onto current remote; the local commit was dropped because identical patch content was already upstream. No force-push was performed.
+
+### Existing collector reproducibility and semantic fix
+
+- The existing Gate.io collector, 15m/1h/4h systemd unit templates, security/sandbox drop-ins, optional 24h read-only soak unit, wrapper, README and focused tests are now present in the PR branch; no second collector was introduced.
+- Collector REST bootstrap/reconciliation reuses `GateioSpotKlineSource` and the canonical `gateio_spot_candlestick_v2` adapter contract. Internal key `BTCUSDT` → persisted venue symbol `BTC_USDT` mapping is explicit.
+- Corrected WS semantic mapping: Gate.io `a` is base volume and `v` is quote volume. Missing base or quote volume is rejected; quote volume is never silently substituted for base volume. Unsupported trade count/taker-buy flow stays UNKNOWN.
+- Reconciliation is keyed by candle open time, idempotent for identical rows, repairs missing recent candles from REST, and fails closed on conflicting duplicates, malformed identity/numerics, unresolved gaps or non-closed rows. Snapshot writes use temp-file + fsync + atomic replace. These behaviours have focused tests.
+- The 24h soak script now resolves repository-relative paths and accepts an explicit output path. Systemd templates document the existing VPS layout; they are not installed/restarted by this code change.
+
+### Explicit limitations and next gates
+
+- Existing runtime services remain untouched. Do not assume the newly versioned templates have been installed or that deployed service/runtime parity is proven.
+- Keep Gate.io public Spot REST closed candles as the canonical chart/analysis feed. WS is a supplemental collector transport, not a browser data path and not a second analytical source. REST reconciliation remains authoritative.
+- Do not claim 24h collector recovery is newly proven by the 23-test unit run. Deterministic process restart/backfill fault injection and deployed runtime parity remain open release gates.
+- The source-to-render chart proof and current PR CI remain candidate evidence. Full dependency-stack final-SHA reconciliation, independent strategy/risk review, sufficient Gate.io forward observations, authoritative execution instrument mapping, rollback/restore evidence and explicit go/no-go remain required.
+- No PR merged; no live service restarted; no current-pointer change; no exchange account connection; no order executed. Execution remains disabled.
