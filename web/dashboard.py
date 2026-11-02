@@ -27,6 +27,12 @@ CANONICAL_ANALYSIS_SYMBOL = "BTCUSDT"
 GATEIO_SOURCE_SYMBOL = gateio_spot_source_symbol(CANONICAL_ANALYSIS_SYMBOL)
 SUPPORTED_INTERVALS = {"15m", "1h", "4h"}
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+def _market_data_root() -> Path:
+    """Resolve the shared mutable data root, separate from immutable release code."""
+    configured = os.environ.get("HES_GLOBAL_MARKET_DATA_ROOT")
+    return Path(configured).expanduser() if configured else PROJECT_ROOT
+
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
 CHART_ASSET_FILE = Path(__file__).resolve().parent / "static" / "third_party" / "lightweight-charts" / "5.0.8" / "lightweight-charts.standalone.production.js"
 class PersistedGlobalFeedSource:
@@ -41,7 +47,7 @@ class PersistedGlobalFeedSource:
             raise ValueError("invalid persisted candle limit")
         if start_time_ms is not None or end_time_ms is not None or as_of_ms is not None:
             raise ValueError("persisted global feed does not support custom time windows")
-        market = load_market_input(root=PROJECT_ROOT)
+        market = load_market_input(root=_market_data_root())
         if market.get("source") != "gateio_public_spot" or not verify_gateio_spot_symbol_mapping(symbol, market.get("symbol")):
             raise ValueError("persisted global source identity mismatch")
         rows = market["timeframes"].get(interval, [])[-limit:]
