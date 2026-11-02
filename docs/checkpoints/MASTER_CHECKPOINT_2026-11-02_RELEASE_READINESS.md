@@ -438,7 +438,7 @@ This plan is documentation only; it does not authorize or perform a deployment.
 - Its head is `95abd96f1823c9ac83a813b19e56d250f6bca1ff`; comparison with current main reports 211 commits ahead / 30 behind and a divergent merge base. Its changed-file set includes the historical dashboard, Signal Agent, Native OHLCV and strategy tree in addition to the new collector/service artifacts.
 - Do NOT retarget or merge PR #410 wholesale: this would reintroduce overlapping dashboard/data/strategy history and duplicate older implementation paths.
 - The existing `forward/native_ohlcv_v1.py` and `forward/native_ohlcv_gateio_v1.py` are already present on main. PR #410's additional `forward/global_market_data_gateio_v1.py` background collector and separate `global_market_candles*.jsonl` outputs are absent from main. Its service units and public candle smoke workflow are also absent. This is a distinct collector/service path and must be proven necessary and reconciled with the canonical existing native OHLCV pipeline before any selective port. Do not introduce a second source or persisted candle pipeline.
-- PR #410's existing five workflows passed on its old exact head, but they do not validate a port into the current canonical stack. No PR #410 changes have been copied or activated as part of this step.
+- PR #410's existing five workflows passed on its old exact head, but they do not validate a port into the current canonical stack. A selective code-only port of its non-duplicative Gate.io collector/service assets is now present in PR #408; see the new integration addendum below. No service has been installed or activated.
 
 ### Architecture and safety boundaries
 - Gate.io Public Spot remains the sole authoritative market-data source for chart/candles/indicators. Use the existing native OHLCV adapter/reader as canonical; no browser exchange fetch or parallel chart/indicator engine.
@@ -451,3 +451,25 @@ This plan is documentation only; it does not authorize or perform a deployment.
 - Fixed target remains **2026-11-19**.
 - Preserve **2026-11-04 chart acceptance** as the next critical milestone. Finish the PR #410 collector decision and exact-head runtime/read-only acceptance without delaying chart acceptance.
 - If mandatory runtime or safety gates remain open at delivery, ship only the verified read-only/paper scope.
+
+
+## Gate.io persisted collector + source-contract integration addendum — 2026-11-02
+
+### Canonical producer/consumer wiring
+- Main-targeted PR #408 now selectively includes the missing persistent producer for the existing `global_market_data_reader_v1` contract.
+- Reuses the main-branch `GateioSpotKlineSource` adapter. One persistent collector writes the exact three shared JSONL paths consumed by the existing dashboard/analysis reader: 15m `global_market_candles_v1.jsonl`, 1h `global_market_candles_1h_v1.jsonl`, 4h `global_market_candles_4h_v1.jsonl`.
+- WebSocket is a wake-up channel only; persisted OHLCV is re-fetched via the shared REST adapter. Base and quote volume remain separate; trade count/taker-buy flow remain unavailable.
+- Selectively ported: `forward/global_market_data_gateio_v1.py`, its reconnect/persistence tests, service entry point, 15m/1h/4h systemd templates and sandbox drop-ins, optional 24h read-only soak, Gate.io public candle contract smoke workflow, README/service documentation, and optional pinned WebSocket client dependency. Existing `native_ohlcv_v1.py`, `native_ohlcv_gateio_v1.py`, reader, dashboard and feature pipeline were not replaced.
+- Gate.io adapter hardened in place: requires exactly eight documented Spot candle fields and validates the eighth closed-window flag; records with false flag are excluded even if their timestamp appears closed. Adds explicit `gateio_spot_candlestick_v2` contract constant.
+- Strategy evidence provider hardened in place: Gate.io accepts only the documented Spot candle endpoints and rejects fabricated trade-count/taker-buy fields. No Binance support from the legacy branch was copied.
+- Dashboard and optional soak now read from `HES_GLOBAL_MARKET_DATA_ROOT`; staged dashboard/soak units set it to `/opt/hes-trade-agent`, matching collector outputs under `/opt/hes-trade-agent/data/forward`. This avoids reading candle files from an immutable release directory. Added a regression test and documented the deployment path contract.
+
+### Exact-head status
+- Latest candidate branch remains PR #408, target `main`, Draft/HOLD.
+- The latest commit after source-contract hardening and tests is `43e674185c03dcacc6f15b5f1c3fb7999b1d7501`; exact-head CI was triggered and is pending. Prior green runs for earlier SHAs do not validate this revision.
+- PR #411 was closed as superseded after its three UX files were integrated directly into PR #408.
+- PR #410 has not been merged wholesale; its branch remains a historical source. Do not merge or retarget it. After PR #408 exact-head checks pass, close PR #410 as superseded and retain only the selective, tested changes in PR #408.
+
+### Runtime boundary
+- These are code and systemd templates only. No unit installed, daemon-reloaded, enabled, started, restarted or stopped; no 24-hour soak run; no VPS changes; no order execution. Keep execution OFF / NO_TRADE_ONLY.
+- Before any live feed service activation, require explicit owner approval, exact release SHA, staged unit/security validation, and controlled read-only soak. Delivery target remains 2026-11-19; chart acceptance milestone remains 2026-11-04.
