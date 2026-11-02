@@ -52,6 +52,19 @@ class PositionSizingTests(unittest.TestCase):
                 self.assertFalse(result.approved)
                 self.assertEqual(result.reason, "non_finite_input")
 
+
+    def test_rejects_nan_and_negative_infinity_for_every_numeric_field(self):
+        for field in ("equity", "entry_price", "stop_price", "risk_fraction",
+                      "fee_fraction_per_side", "slippage_fraction_per_side",
+                      "max_notional_fraction"):
+            for invalid in (math.nan, -math.inf):
+                with self.subTest(field=field, invalid=invalid):
+                    values = dict(equity=10000, entry_price=100, stop_price=98)
+                    values[field] = invalid
+                    result = size_position(PositionSizingInput(**values))
+                    self.assertFalse(result.approved)
+                    self.assertEqual(result.reason, "non_finite_input")
+
     def test_rejects_oversized_integer_without_raising(self):
         result = size_position(PositionSizingInput(10**10000, 100, 98))
         self.assertFalse(result.approved)
