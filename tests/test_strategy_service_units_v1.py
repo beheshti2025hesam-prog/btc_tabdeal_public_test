@@ -35,5 +35,16 @@ def test_readonly_dashboard_waits_for_all_canonical_gateio_timeframes():
         assert service in unit.split("After=", 1)[1].splitlines()[0]
         assert service in unit.split("Wants=", 1)[1].splitlines()[0]
     assert "Environment=HES_GLOBAL_MARKET_DATA_ROOT=/opt/hes-trade-agent" in unit
+    assert "Environment=HES_STRATEGY_V2_REPORT_PATH=/opt/hes-trade-agent/data/forward/strategy_policy_v2_eval_report.json" in unit
+    assert "ConditionPathExists=/opt/hes-trade-agent/data/forward/strategy_policy_v2_eval_report.json" in unit
+    assert "Environment=HES_TRADE_JOURNAL_PATH=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl" in unit
+    assert "Environment=HES_NEWS_MONITOR_SNAPSHOT=/var/lib/hes-news-monitor/news_brief_latest.json" in unit
     assert "ReadOnlyPaths=/opt/hes-trade-agent/releases /opt/hes-trade-agent/data/forward" in unit
     assert "ReadWritePaths=" not in unit
+
+
+def test_news_monitor_state_is_scoped_to_systemd_state_directory():
+    dropin = (ROOT / "deploy/systemd/hes-readonly-dashboard.service.d/30-hes-news-monitor-state.conf").read_text()
+    assert "StateDirectory=hes-news-monitor" in dropin
+    assert "StateDirectoryMode=0750" in dropin
+    assert "ReadWritePaths=/opt/hes-trade-agent" not in dropin

@@ -4,6 +4,7 @@ Documentation=https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/
 After=network-online.target hes-global-market-data-gateio.service hes-global-market-data-gateio-1h.service hes-global-market-data-gateio-4h.service
 Wants=network-online.target hes-global-market-data-gateio.service hes-global-market-data-gateio-1h.service hes-global-market-data-gateio-4h.service
 ConditionPathExists=/opt/hes-trade-agent/current/web/dashboard.py
+ConditionPathExists=/opt/hes-trade-agent/data/forward/strategy_policy_v2_eval_report.json
 ConditionPathExists=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl
 
 [Service]
@@ -15,8 +16,10 @@ Environment=PYTHONPATH=/opt/hes-trade-agent/current
 Environment=HES_DASHBOARD_HOST=127.0.0.1
 Environment=HES_DASHBOARD_PORT=8765
 Environment=HES_DASHBOARD_ACCESS_LOG=0
+Environment=HES_STRATEGY_V2_REPORT_PATH=/opt/hes-trade-agent/data/forward/strategy_policy_v2_eval_report.json
 Environment=HES_TRADE_JOURNAL_PATH=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl
 Environment=HES_GLOBAL_MARKET_DATA_ROOT=/opt/hes-trade-agent
+Environment=HES_NEWS_MONITOR_SNAPSHOT=/var/lib/hes-news-monitor/news_brief_latest.json
 ExecStart=/opt/hes-trade-agent/.venv/bin/python -m web.dashboard
 Restart=on-failure
 RestartSec=5
