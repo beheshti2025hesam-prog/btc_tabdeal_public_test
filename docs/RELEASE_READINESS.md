@@ -122,3 +122,12 @@ A gate is PASS only when linked evidence identifies exact SHA, workflow/run, art
 ## 7. Release decision
 
 **HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.** The software delivery target remains 2026-11-19, but the mandatory runtime-resilience, independent decision/risk approval, OOS, execution-mapping and final-review gates are not all passed. Do not merge, deploy, enable execution or place orders based solely on candidate CI success.
+
+
+## Continuation audit — 2026-11-02
+
+- Current PR #410 head at audit: `daa7d9f1d48bc132e1c6a5c5c1558d2e0cf0b156`. Five PR-triggered workflows pass on that exact SHA: repository regression, native OHLCV single path, browser render, bounded WS smoke and Gate.io candle contract smoke. The local focused collector+reader run also passed 23 tests and compileall; this is additional local evidence, not a replacement for final-stack CI.
+- Existing Gate.io collector and its 15m/1h/4h systemd templates, sandbox/security drop-ins, optional soak unit, wrapper, documentation and tests are now versioned in the candidate PR branch. REST uses the existing canonical `GateioSpotKlineSource`; no parallel market-data adapter is introduced.
+- Volume semantics are explicit: Gate.io WS `a` = base volume and `v` = quote volume. Missing values are rejected rather than substituted. Recent REST reconciliation repairs gaps; conflicting duplicates/unresolved gaps fail closed; writes are atomic. Unsupported flow fields remain UNKNOWN.
+- No production service or pointer was changed. G3 remains PARTIAL until restart/backfill fault-injection and deployed parity evidence exist; G4/G7 remain PARTIAL; G5/G6/G8 remain BLOCKED. Release remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.
+- Master Checkpoint continuation is recorded in `docs/checkpoints/MASTER_CHECKPOINT_2026-11-02_RELEASE_READINESS.md`. This documentation update is not a claim that CI passed on the subsequent documentation commit.
