@@ -4,6 +4,7 @@ import fcntl, json, math, os, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
+MARKET_DATA_ROOT=Path(os.environ.get("HES_GLOBAL_MARKET_DATA_ROOT", str(ROOT))).expanduser()
 sys.path.insert(0,str(ROOT))
 from forward.global_market_data_reader_v1 import load_market_input
 SERVICES=('hes-global-market-data-gateio.service','hes-global-market-data-gateio-1h.service','hes-global-market-data-gateio-4h.service')
@@ -15,7 +16,7 @@ LOG=Path(os.environ.get('HES_GATEIO_SOAK_LOG', str(ROOT/'data/forward/gateio_fee
 def sample(seq,start):
  rec={'schema':'hes_gateio_soak_sample_v2','sample':seq,'observed_at':datetime.now(timezone.utc).isoformat(),'elapsed_seconds':int(time.monotonic()-start)}
  try:
-  data=load_market_input(root=ROOT)
+  data=load_market_input(root=MARKET_DATA_ROOT)
   rec['source']=data.get('source'); rec['symbol']=data.get('symbol')
   if rec['source']!='gateio_public_spot' or rec['symbol']!='BTC_USDT': raise ValueError('UNEXPECTED_SOURCE_OR_SYMBOL')
   details={}
