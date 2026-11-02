@@ -22,3 +22,12 @@ def test_opportunity_scope_is_configurable_without_copying_policy_logic():
         structure_labels=("HH", "HL"), structure_events=("HL",),
     )
     assert result.state == "CANDIDATE_LONG"
+
+
+def test_invalid_or_duplicate_allowed_scopes_are_rejected():
+    import pytest
+
+    with pytest.raises(ValueError):
+        OpportunityPolicyV1(allowed_scopes=(("BTC_USDT", "15m"), ("BTC_USDT", "15m")))
+    with pytest.raises(ValueError):
+        OpportunityPolicyV1(allowed_scopes=(("", "15m"),))
