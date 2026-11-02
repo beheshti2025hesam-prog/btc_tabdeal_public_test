@@ -22,6 +22,7 @@ def verified_tabdeal_test_registry():
             "claims": {"ordered": True, "unique": True, "contiguous": False},
             "capabilities": {
                 "event_identity": True,
+                "ordered_event_sequence": True,
                 "contiguous_gap_detection": False,
                 "snapshot_bootstrap": False,
                 "exact_payload_replay_only": True,
