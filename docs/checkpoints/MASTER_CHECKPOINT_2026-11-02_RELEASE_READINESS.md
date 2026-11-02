@@ -25,7 +25,7 @@ Canonical repository: `beheshti2025hesam-prog/btc_tabdeal_public_test`. Default 
 ### PR #410 — Gate.io candle contract + existing Signal Agent wiring
 
 - URL: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/410
-- State: OPEN, Draft, unmerged. Branch head after documentation-only follow-ups: `b8f019c2ce1905edb8837a7fc15cf04ce1771c38`.
+- State: OPEN, Draft, unmerged. Later commits in this PR lineage update documentation only; the exact code-bearing SHA with CI evidence is recorded below.
 - Latest code-bearing SHA with exact-head CI: `9bb1dc7067744e52fa98b8158b932282b13c1b58`. Later branch commits only updated documentation; do not transfer CI claims to the docs-only head.
 - Five workflows passed on `9bb1dc7...`:
   - Full repository regression, **611 passed + 19 subtests**: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716943
