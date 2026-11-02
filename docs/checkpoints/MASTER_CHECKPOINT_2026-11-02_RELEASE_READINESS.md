@@ -314,3 +314,21 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 - Live checkout `/opt/hes-trade-agent` is on branch `feat/gateio-global-market-data-v1`, HEAD `060d0d36ae6140a03d9a74495bb3899637ed3827`, with extensive pre-existing tracked and untracked modifications. Do not reset, clean, checkout over, or overwrite it.
 - Runtime/candidate SHA-256 hashes differ: live `forward/global_market_data_gateio_v1.py` = `128f4af844d6ad477568bb82706ee5d00f3701004cc81479f71ff04cad87c06f`; candidate = `f7b6edeb1874ee390912780d7777c9decd56fe658939889e9590864e63a61786`. Live wrapper = `280992fe64c1a2d4d97ded6992a5f0ab9b275e7ce440872891ebf4a45bf76919`; candidate wrapper = `87ff152a6cf74a762fe21fa57fec43b04d40af7a7c7841155f0f5184bc9a90a3`. Runtime parity is therefore NOT proven; do not deploy by copying candidate files into this dirty checkout.
 - Safe next operation is a file-by-file, non-mutating diff and explicit release-stack reconciliation to establish the smallest authorized migration/rollback plan. Any installation/restart needs an explicit change window/authorization and backup/rollback evidence. G7/G4 remain PARTIAL; G3 remains PARTIAL; release HOLD.
+
+
+### Installed systemd template parity check — 2026-11-02
+
+- Compared all three candidate unit templates (`15m`, `1h`, `4h`) against the installed unit files on the single VPS: all three match byte-for-byte.
+- Compared both `20-hes-security-umask.conf` and `30-hes-sandbox.conf` drop-ins for all three services: all six installed drop-ins match their versioned candidate files byte-for-byte.
+- This closes the unit-file text-parity question, but not collector-code parity: live runtime collector/wrapper SHA-256 differs from candidate (recorded above). No unit reload, restart, install, or production code change was performed.
+
+### Minimum safe migration plan (not executed)
+
+1. Resolve/review the final PR dependency stack and exact combined SHA; require exact-SHA CI and independent review.
+2. Before any live code change, capture a read-only snapshot of the dirty checkout, tracked/untracked inventory, current `current` pointer target, active unit/drop-in hashes, current data-file hashes/row counts, and service health. Do not use `git reset`, `git clean`, branch checkout, or overwrite the existing checkout.
+3. Build a separate versioned release directory/checkout; validate venv/dependencies and all tests there. Stage new collector code and canonical adapter without touching the active checkout.
+4. Prepare an explicit backup and tested rollback script; validate syntax and filesystem ownership/permissions under `sentinelx` and existing systemd sandbox restrictions.
+5. Only during an explicitly authorized change window: switch service WorkingDirectory/ExecStart or atomically switch a release pointer; restart one service at a time; verify candle freshness, no gaps/duplicates, WS subscription, REST backfill, service health, and frontend/analysis same-batch parity; roll back immediately on any failed gate.
+6. Keep all trading execution disabled. No account/venue order adapter changes until independent G5/G6 approvals and explicit authorization.
+
+This plan is documentation only; it does not authorize or perform a deployment.
