@@ -29,4 +29,27 @@ class PositionSizingTests(unittest.TestCase):
         self.assertTrue(r.approved)
         self.assertLessEqual(r.notional, 5000)
 
+    def test_rejects_malformed_numeric_inputs_without_raising(self):
+        for field in ("equity", "entry_price", "stop_price", "risk_fraction",
+                      "fee_fraction_per_side", "slippage_fraction_per_side",
+                      "max_notional_fraction"):
+            for invalid in (None, "100", True):
+                with self.subTest(field=field, invalid=invalid):
+                    values = dict(equity=10000, entry_price=100, stop_price=98)
+                    values[field] = invalid
+                    result = size_position(PositionSizingInput(**values))
+                    self.assertFalse(result.approved)
+                    self.assertEqual(result.reason, "invalid_numeric_input")
+
+    def test_rejects_infinite_numeric_inputs(self):
+        for field in ("equity", "entry_price", "stop_price", "risk_fraction",
+                      "fee_fraction_per_side", "slippage_fraction_per_side",
+                      "max_notional_fraction"):
+            with self.subTest(field=field):
+                values = dict(equity=10000, entry_price=100, stop_price=98)
+                values[field] = math.inf
+                result = size_position(PositionSizingInput(**values))
+                self.assertFalse(result.approved)
+                self.assertEqual(result.reason, "non_finite_input")
+
 if __name__ == '__main__': unittest.main()
