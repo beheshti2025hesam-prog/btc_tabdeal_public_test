@@ -29,7 +29,7 @@ This is the release-control contract for the existing HES Trade Agent. It is not
 
 ### Candidate PR #410
 
-Current head: `98df5dc9485f3d0ae564b7093dff17e1324a87dd`, OPEN/Draft/unmerged. Five exact-revision GitHub Actions workflows completed successfully: full repository regression, native OHLCV dashboard single-path tests, browser render/responsive test, bounded Spot WebSocket-to-REST smoke and Gate.io public candle contract smoke. Run links:
+Current branch head after documentation-only updates: `c4dd3bc658c7fe90c30bb4fc852303e97d2ff23c`, OPEN/Draft/unmerged. Five GitHub Actions workflows completed successfully on preceding documentation-inclusive head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`; the newest docs-only head has no associated PR-triggered workflow runs. The five runs were: full repository regression, native OHLCV dashboard single-path tests, browser render/responsive test, bounded Spot WebSocket-to-REST smoke and Gate.io public candle contract smoke. Run links:
 
 - https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254312
 - https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254341
@@ -54,7 +54,7 @@ Blind forward OOS verdict remains `G6_BLOCKED_INSUFFICIENT_FORWARD_OBSERVATIONS`
 | Gate | PASS requires | Current disposition |
 |---|---|---|
 | G0 — Scope and lineage | Canonical repo, exact SHA, reconciled PR ancestry, known VPS/runtime lineage | PARTIAL |
-| G1 — Build and tests | Required tests/workflows on the exact proposed release SHA; negative tests and artifacts | PARTIAL (#410 passes; #408 exact head pending) |
+| G1 — Build and tests | Required tests/workflows on the exact proposed release SHA; negative tests and artifacts | PARTIAL (#410 runs pass on preceding SHA; latest docs-only SHA not rerun; #408 exact head pending) |
 | G2 — Data integrity | Gate.io source identity, closed/fresh bars, same-batch chart/analysis, gaps/duplicates/schema/numeric checks | PARTIAL (bounded REST/browser proof; WS recovery open) |
 | G3 — Runtime resilience | Gate.io WS disconnect/reconnect, REST reconciliation/backfill, duplicate/gap handling, restart and authorized-runtime soak | BLOCKED |
 | G4 — Frontend integration | Existing real entrypoint, browser evidence and deployed route/runtime parity on the reconciled release stack | PARTIAL |
