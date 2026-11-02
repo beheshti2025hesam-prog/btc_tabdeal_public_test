@@ -29,7 +29,7 @@ This is the release-control contract for the existing HES Trade Agent. It is not
 
 ### Candidate PR #410
 
-PR #410 code-bearing SHA `9bb1dc7067744e52fa98b8158b932282b13c1b58` passed all five exact-head workflows after the existing browser workflow was pinned to Ubuntu 24.04. Later PR #410 commits only updated documentation; current branch head at this snapshot is `b8f019c2ce1905edb8837a7fc15cf04ce1771c38`.
+PR #410 code-bearing SHA `9bb1dc7067744e52fa98b8158b932282b13c1b58` passed all five exact-head workflows after the existing browser workflow was pinned to Ubuntu 24.04. Later PR #410 commits only updated documentation; do not transfer the CI claim to those documentation-only SHAs.
 
 - Full repository regression, **611 passed + 19 subtests**: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716943
 - Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716890
