@@ -338,3 +338,35 @@ This plan is documentation only; it does not authorize or perform a deployment.
 
 - After the above checkpoint/release-doc updates, checked out exact branch head `b20805e309a3240aeed6e65e5da85a43063f5415` in the isolated candidate checkout and reran the complete repository suite: **629 passed, 19 subtests passed in 5.00s**. `compileall` for the Gate.io collector, service wrapper and 24h soak script also passed.
 - The five GitHub Actions are green on code/test SHA `9c6b1723272c69d2cdfabaf90efe22c5a794a388`; later changes up to `b20805e...` are documentation-only, and local full-suite verification now also covers `b20805e...`. No claim that CI workflows ran on this documentation-only head.
+
+
+## UX review and accessibility optimization — 2026-11-02
+
+### Existing product surface reviewed
+- Reused the existing dashboard and its current Market, Strategy V2, Mother, News Radar, Safety, and Journal panels. No parallel frontend, dashboard, chart, journal, or data engine was created.
+- Existing Gate.io chart and analysis single-path boundary remains unchanged: Gate.io Public Spot BTC_USDT → persisted `global_market_data_reader_v1` → existing feature/specialist projections. The browser does not fetch exchange candles directly.
+- Existing read-only API boundary and execution-off state remain unchanged. No order controls or write routes were introduced.
+
+### UX gaps addressed in the existing dashboard
+- Added keyboard-accessible skip navigation and a sticky, horizontally scrollable section navigator for the six existing panels.
+- Corrected heading hierarchy and gave each section a stable anchor and accessible label.
+- Added polite live announcements for changing market/evidence/journal status.
+- Added a screen-reader table caption and scoped journal column headers.
+- Added visible keyboard focus styles, mobile-friendly navigation overflow, and reduced-motion-aware scrolling.
+- Kept the existing English default, dark visual system, pinned local chart library, and existing API/data architecture. No new runtime dependency.
+
+### Exact-head evidence — PR #411
+- PR: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/411
+- Candidate head: `0b7722a23bbad428056c706101f54e7bc13cc33b`; based on PR #408 head `cf2fad0c7363a33181bc94c3b2e4f6155d8b0a72`.
+- Full repository regression: **792 passed, 70 subtests passed** — run https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41406455450.
+- Dashboard/native single-path regression: **PASS** — run https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41406455359.
+- Browser render/responsive smoke: **PASS** — run https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41406455515.
+- Browser artifact ZIP SHA-256: `1db83fe010ad002805571247570f8b0c3afaf1ca9f6935cc0aed8089d7a849c5`.
+- PR #411 is OPEN/Draft/unmerged; it is stacked on #408. Do not merge it independently or bypass #398 → #405 → #406 → #408.
+
+### Remaining UX/release acceptance
+- The automated candidate render is not deployed-runtime proof. G4 remains PARTIAL until the complete PR stack is reconciled and the deployed dashboard routes are verified against the approved release SHA.
+- Manual keyboard/screen-reader acceptance has not been performed; automated semantic/DOM and browser checks are the evidence currently available.
+- No language toggle was added: the existing application default remains English, and no new product-language requirement was approved in this UX task.
+- No deployment, service restart, production pointer change, account connection, or order execution occurred. Keep HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.
+- Delivery target remains **2026-11-19**; protect the **2026-11-04 chart acceptance milestone** and prioritize final stack/runtime reconciliation over further visual redesign.
