@@ -27,16 +27,18 @@ Canonical repository: `beheshti2025hesam-prog/btc_tabdeal_public_test`. Default 
 - URL: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/410
 - State at checkpoint: OPEN, Draft, unmerged.
 - Branch: `fix/gateio-signal-strategy-wiring-20261029`.
-- Exact current branch head after the documentation-only additions: `c4dd3bc658c7fe90c30bb4fc852303e97d2ff23c`.
-- Executable candidate code head: `b7fef1132e65729bd2d40e1d0d98cd948983ca48`. The five workflows listed below completed on documentation-inclusive PR head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`. The subsequent commits adding and correcting these release documents changed documentation only; no workflow runs were returned for the newest docs-only follow-up commits. Do not mislabel the older runs as checks executed on those follow-up SHAs. Do not mislabel the older runs as checks executed on `c4dd3bc...`.
-- Five PR-triggered workflows on the current head completed successfully:
-  - Full repository regression: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254312
-  - Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254341
-  - Browser render/responsive proof: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254344
-  - Bounded live Spot WebSocket-to-REST smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254318
-  - Gate.io public candle contract smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254363
-- Every listed workflow's exact-revision assertion and job concluded SUCCESS. The WebSocket smoke is a bounded one-candle transport/reconciliation test; it is **not** proof of Gate.io's full disconnect/reconnect/recovery behavior or a 24-hour WebSocket soak.
-- Existing candidate evidence: chart and Signal Agent consume the same persisted Gate.io batch; 239 closed candles rendered; responsive widths 390/768/1440; no browser-to-exchange market-data request; decision remains BLOCKED / NO_TRADE and execution disabled.
+- Exact current PR head: `9bb1dc7067744e52fa98b8158b932282b13c1b58` (OPEN, Draft, mergeable at last check).
+- A real CI failure on preceding head `622d8f5eacbcd4806a937496ce6c6b50ec2dcefc` was traced to Playwright 1.56.1 not supporting the GitHub-hosted Ubuntu 26.04 runner. The existing browser workflow was narrowly fixed to pin `ubuntu-24.04`; no chart, feed, strategy or dashboard implementation was duplicated or changed for this fix.
+- **Five exact-head workflows passed on `9bb1dc7067744e52fa98b8158b932282b13c1b58`:**
+  - Full repository regression, **611 passed + 19 subtests**: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716943
+  - Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716890
+  - Browser render/responsive proof: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716857
+  - Bounded Spot WebSocket smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716982
+  - Gate.io public candle contract smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399717171
+- Browser artifact ID `13120483810`, ZIP digest `sha256:8bad8bfecd9e40911cdfcd8e0c9e6a0a20d1f3016a29b552f603b3eae2d621de`. Artifact JSON records `status=PASS`, 239 closed candles, same-batch chart/signal hash `eb4eaf64dfaa1eb7244d20fc8a60b7536f6e140480c36c690e81c4cd7685b17b`, close/volume match, all candle values match API batch, responsive 390/768/1440 widths without overflow, no browser market-data request and no external chart CDN.
+- Signal remains `BLOCKED / NO_TRADE`; `execution_enabled=false` and `execution_instrument_mapping_verified=false`. This is the expected safe result while execution mapping and independent approvals are absent.
+- The bounded WebSocket smoke is a **Binance Spot transport** test only; it is not Gate.io WebSocket recovery evidence. Gate.io stream recovery remains open. The Gate.io REST candle contract smoke passed on this exact SHA.
+- These are candidate exact-head CI proofs, not release approval or live execution authorization.
 - Gate.io Spot candle schema is versioned as `gateio_spot_candlestick_v2`; the adapter validates all 8 fields including the closed-window flag, excludes open bars and fails closed for missing/invalid flags.
 - Gate.io trade-count/taker-buy values not supplied by this source remain UNKNOWN.
 - PR #410 remains candidate-only. Green CI does not constitute independent strategy/risk approval or release authorization.
@@ -62,7 +64,7 @@ Canonical repository: `beheshti2025hesam-prog/btc_tabdeal_public_test`. Default 
 - The previously recorded 24-hour persisted Gate.io REST-feed soak audit passed (1,440 samples / 86,400 seconds, zero invalid rows, no gap above 90 seconds, no feed-service restarts) in the #398 lineage. Reuse that evidence; do not rerun it merely to duplicate a report.
 - That persisted REST-feed soak does **not** prove Gate.io WebSocket reconnect/recovery, strategy profitability, or execution readiness.
 - The blind forward OOS evaluator remains **G6_BLOCKED_INSUFFICIENT_FORWARD_OBSERVATIONS**. A successful workflow job is not a successful scientific/strategy verdict.
-- Earlier #408 browser and full-suite evidence is stale for the newer #408 SHA. Current #408 full suite is locally reported only, pending exact-head GitHub Actions and browser evidence.
+- #408's latest code-head suite remains local/VPS evidence only; its latest documentation head has no Actions runs, and its base branch is behind current #406. Rebase is the earliest dependency blocker before fresh exact-head CI/browser can be accepted.
 - No claim of independent human review, independent strategy/structure/confirmation approval, independent risk approval, executable instrument mapping, or live-trading readiness is supported.
 - Production and execution remain HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.
 
@@ -93,7 +95,7 @@ Overall estimate is planning evidence, not code coverage, profitability, or perm
 | Gate | Current status | Remaining evidence / action |
 |---|---|---|
 | G0 Scope and lineage | PARTIAL | Reconfirm exact PR ancestry and VPS runtime lineage; preserve dirty worktree |
-| G1 Build and tests | PARTIAL | #410 five workflows pass on `98df5dc...` (not newest docs-only `c4dd3bc...`); #408 current SHA still needs exact-head Actions/browser |
+| G1 Build and tests | PARTIAL | #410 five exact-head workflows pass on `9bb1dc7...`; #408 requires rebase onto current #406 then exact-head CI/browser |
 | G2 Market-data integrity | PARTIAL/PASS for bounded scope | Gate.io 8-field REST schema and same-batch chart/analysis proven; complete WS recovery remains open |
 | G3 Runtime resilience | BLOCKED | Gate.io WS disconnect, reconnect, REST reconciliation/backfill, duplicate/gap tests and authorized-runtime soak |
 | G4 Frontend integration | PARTIAL | Candidate browser render proven; verify current deployed routes/runtime against reconciled release stack |
@@ -106,7 +108,7 @@ A PASS must be tied to exact SHA, run, artifact/hash, scope and limitations. Imp
 
 ## 6. Ordered work plan to protect 2026-11-19
 
-1. **2026-11-02 to 2026-11-04:** keep chart acceptance as the immediate milestone; obtain exact-head #408 Actions/browser evidence; validate #410 current evidence and reconcile its relationship to the main stack. No duplicated chart work.
+1. **2026-11-02 to 2026-11-04:** chart same-batch acceptance evidence is now present on #410 exact head; reconcile #410's relationship to the Mother stack and rebase #408 onto current #406, then obtain exact-head #408 CI/browser. No duplicated chart work.
 2. **2026-11-05 to 2026-11-09:** complete Gate.io WebSocket recovery/fault-injection evidence using the existing collector; verify runtime lineage and authorized-runtime soak without disturbing the dirty VPS checkout.
 3. **2026-11-10 to 2026-11-12:** obtain independent strategy/structure/confirmation and risk review; verify execution instrument mapping from authoritative venue contract while keeping execution OFF. Freeze scope on Nov 12.
 4. **2026-11-13 to 2026-11-16:** reconcile the complete non-overlapping PR stack; run exact-final-SHA CI/browser checks; prepare release notes, known limitations, configuration/secret handling, operator runbook, health checks and rollback.
@@ -129,3 +131,12 @@ A PASS must be tied to exact SHA, run, artifact/hash, scope and limitations. Imp
 ## 8. Resume instruction
 
 Resume from this checkpoint. First refresh exact PR heads/status and the earliest unmet release gate. Continue only with existing code paths. Never infer approval from a green workflow. No merge, production deployment, service restart, pointer change, account connection or order execution without explicit authorization and all mandatory gates passing.
+
+## Execution update — 2026-11-02 (verified after initial checkpoint)
+
+- Fixed the browser smoke runner incompatibility by pinning the existing workflow to Ubuntu 24.04. The subsequent exact-head CI on PR #410 passed 5/5 workflows; full repository suite 611 passed + 19 subtests.
+- Browser artifact confirms Gate.io Public Spot BTC_USDT → `global_market_data_reader_v1` is the chart/signal input path; 239 closed candles, identical chart/signal/API batch hash, close/volume and all-candle parity, responsive render at 390/768/1440, no direct browser market-data request. Artifact ZIP SHA-256: `8bad8bfecd9e40911cdfcd8e0c9e6a0a20d1f3016a29b552f603b3eae2d621de`.
+- Browser evidence explicitly reports execution instrument mapping unverified, signal BLOCKED/NO_TRADE and execution disabled. This is a correct safety block, not a defect to bypass.
+- PR #408 branch ancestry was refreshed: it is 9 commits behind current PR #406 and 32 commits ahead; its base/head have diverged. Rebase/reconciliation is required before exact-head CI and merge evaluation. Do not synthesize a merge tree or overwrite the VPS working tree.
+- Uploaded 2026-10-10 sequence-semantics document was read in full. It is research-only and explicitly says no repository diff or implementation proof was reviewed. It does not justify adding sequence logic to the Gate.io candle/indicator path. Keep sequence capabilities adapter-scoped and UNKNOWN unless an actual stream/order-book or execution feature needs them.
+- PR #408 received a checkpoint-only update at `43820404038e083022e016146301af8828c65472`; no Actions run was returned for this docs-only commit. Its earlier local code tests remain tied to `f25569a...`, not to the documentation SHA.
