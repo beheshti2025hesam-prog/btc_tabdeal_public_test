@@ -1,0 +1,2 @@
+# Optional dependency required only for live Binance Spot kline transport.
+websocket-client==1.8.0

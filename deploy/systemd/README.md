@@ -24,3 +24,18 @@ After that approval, copy `20-local-durable-watchdog.conf.example` to
 run `systemctl daemon-reload`, and perform the supervised test. Do not enable the service for boot or start a 48-hour observation until the test evidence is reviewed.
 
 The drop-in changes the unit to `Type=notify`, enables a 75-second systemd watchdog, and sets local-durable mode. The base unit already uses `Restart=always`; watchdog timeout therefore causes a process restart. Invalid local evidence still fails closed at startup.
+
+
+## Read-only dashboard (staged; not installed)
+
+The existing entrypoint is `web.dashboard`; this service template does not introduce another UI or data source:
+`hes-readonly-dashboard.service`.
+
+- Binds to loopback only (`127.0.0.1:8765)); do not expose it directly to the internet.
+- Uses the versioned-release pointer `/opt/hes-trade-agent/current`; each release must be immutable and contain the exact reviewed source SHA.
+- Reads canonical persisted candles from `/opt/hes-trade-agent/data/forward`; do not copy a stale feed into the release directory for deployment.
+- Runs as `sentinelx`, with a read-only filesystem sandbox, private temporary directory, no-new-privileges, and no writable project paths.
+- Does not enable the Gate.io collector, WebSocket stream, or order execution. The dashboard's stream remains disabled and the API is read-only.
+- `ConditionPathExists` prevents startup before a staged release pointer exists.
+
+**Release gate:** installing this file, creating the production release pointer, running `systemctl daemon-reload`, starting or enabling the unit, and any remote ingress configuration require explicit release approval. Do not run those commands as part of CI or the staging rehearsal. First validate the unit, service user/group, filesystem permissions, exact artifact hash, health gate, browser/API batch identity, and rollback target in an isolated environment.

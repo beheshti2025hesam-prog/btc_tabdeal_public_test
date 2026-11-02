@@ -61,3 +61,39 @@ def test_append_is_valid_json_and_outcome_is_immutable(tmp_path):
         journal.append_outcome(
             event_id="event-1", outcome="WIN", closed_at="2026-10-07T11:00:00+00:00"
         )
+
+
+def test_partial_trailing_record_fails_closed_without_mutation(tmp_path):
+    path = tmp_path / "observations.jsonl"
+    path.write_text(json.dumps(record("existing")), encoding="utf-8")
+    before = path.read_bytes()
+
+    with pytest.raises(ValueError, match="incomplete trailing record"):
+        ForwardJournalV1(path).append_decision(record("new-event"))
+
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "existing, message",
+    [
+        ('{"symbol":"BTC_USDT"}\n', "missing valid event_id"),
+        ('[]\n', "not an object"),
+        ('\n', "blank record"),
+        ('{"event_id":"same"}\n{"event_id":"same"}\n', "duplicate event_id"),
+    ],
+)
+def test_ambiguous_existing_records_fail_closed(tmp_path, existing, message):
+    path = tmp_path / "observations.jsonl"
+    path.write_text(existing, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        ForwardJournalV1(path).append_decision(record("new-event"))
+
+
+def test_oversized_existing_record_fails_closed(tmp_path):
+    path = tmp_path / "observations.jsonl"
+    path.write_bytes(b'{"event_id":"' + b"x" * (1024 * 1024) + b'"}\n')
+
+    with pytest.raises(ValueError, match="size limit"):
+        ForwardJournalV1(path).append_decision(record("new-event"))
