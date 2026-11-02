@@ -83,6 +83,54 @@ def test_registry_hash_is_pinned_and_tampering_is_rejected(tmp_path):
         )
 
 
+def test_verified_ordered_sequence_requires_explicit_ordered_capability(tmp_path):
+    payload = {
+        "schema": "hes_sequence_semantics_registry_v1",
+        "records": [{
+            "record_id": "verified-ordered-with-capability-disabled",
+            "key": {name: "x" for name in (
+                "venue", "product", "endpoint", "channel", "message_type",
+                "field_path", "protocol_version"
+            )},
+            "semantic_class": "ORDERED_EVENT_SEQUENCE",
+            "scope": ["symbol", "session_id"],
+            "claims": {"ordered": True, "unique": False, "contiguous": False},
+            "capabilities": {
+                "event_identity": False,
+                "ordered_event_sequence": False,
+                "contiguous_gap_detection": False,
+                "book_update_range": False,
+                "prev_current_link": False,
+                "checksum_validation": False,
+                "snapshot_bootstrap": False,
+                "exact_payload_replay_only": False,
+            },
+            "status": "VERIFIED",
+            "source_evidence": {
+                "url": "https://example.invalid/primary-contract",
+                "source_kind": "primary",
+                "source_content_sha256": "b" * 64,
+            },
+            "independent_review_revision": "test-review-1",
+            "normalized_field_path": "sequence",
+        }],
+    }
+    raw = json.dumps(payload).encode()
+    path = tmp_path / "registry.json"
+    path.write_bytes(raw)
+    registry = SequenceSemanticsRegistryV1.load(
+        path, expected_sha256=hashlib.sha256(raw).hexdigest()
+    )
+    with pytest.raises(
+        SequenceSemanticsError,
+        match="VERIFIED_ORDERED_SEQUENCE_CAPABILITY_MISSING",
+    ):
+        registry.resolve(
+            "verified-ordered-with-capability-disabled",
+            expected_key=payload["records"][0]["key"],
+        )
+
+
 def test_verified_record_requires_pinned_primary_source_hash():
     payload = {
         "schema": "hes_sequence_semantics_registry_v1",
