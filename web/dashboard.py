@@ -18,6 +18,7 @@ from forward.trade_journal_view_v1 import configured_decision_journal, JournalPr
 from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
 from core.market_intelligence.news_monitor import NewsMonitorV1
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard, StrategyV2DashboardError
+from web.mother_v2_dashboard_view import read_mother_v2_dashboard, MotherV2DashboardError
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -151,6 +152,7 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status">Loading validated closed candles…</div></section>
 <section class="panel" id="strategyV2Panel"><h3 class="panel-title">Canonical Strategy V2 · Paper evaluator</h3><div class="metrics"><div class="metric"><small>Canonical decision</small><strong id="v2Decision">NO_TRADE</strong></div><div class="metric"><small>Evidence status</small><strong id="v2Status">Checking report…</strong></div><div class="metric"><small>Market regime</small><strong id="v2Regime">UNKNOWN</strong></div><div class="metric"><small>Policy version</small><strong id="v2Version">—</strong></div><div class="metric"><small>Paper outcomes</small><strong id="v2Outcomes">—</strong></div><div class="metric"><small>Decision journal</small><strong id="v2Journal">—</strong></div></div><p class="muted" id="v2Reasons">Waiting for the canonical V2 evaluator report…</p><div class="gate"><strong>Gate.io data only · execution disabled</strong><p class="muted" id="v2Evidence">This panel is a read-only projection of the existing Strategy Policy V2 evaluator and canonical journal. It does not calculate a second strategy or submit orders.</p></div></section>
+<section class="panel" id="motherPanel"><h3 class="panel-title">Mother Orchestrator · canonical V2 evidence chain</h3><div class="metrics"><div class="metric"><small>Orchestration</small><strong id="motherStatus">BLOCKED</strong></div><div class="metric"><small>Independent witness</small><strong id="motherWitness">NOT VERIFIED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace">—</strong></div></div><p class="muted" id="motherReasons">Waiting for matched Strategy V2 report and journal evidence…</p><ul id="motherStages"><li class="muted">No verified orchestration stages.</li></ul><div class="gate"><strong>Observation only · execution disabled</strong><p class="muted" id="motherEvidence">Mother coordinates the existing Strategy V2 specialist outputs. It does not recalculate market data, indicators, strategy or risk, and cannot authorize orders.</p></div></section>
 <section class="panel" id="newsRadarPanel"><h3 class="panel-title">News Radar · read-only evidence</h3><div class="metrics"><div class="metric"><small>Monitor</small><strong id="newsStatus">BLOCKED</strong></div><div class="metric"><small>Qualified coverage</small><strong id="newsCoverage">UNKNOWN</strong></div><div class="metric"><small>Sources OK / empty / failed</small><strong id="newsSources">0 / 0 / 0</strong></div><div class="metric"><small>International / domestic / venue</small><strong id="newsScopes">0 / 0 / 0</strong></div><div class="metric"><small>Last poll (UTC)</small><strong id="newsLastPoll">—</strong></div></div><p class="muted" id="newsSummary">Waiting for verified news evidence…</p><p class="muted" id="newsFlags">News does not originate trade direction or authorize execution.</p><ul id="newsItems"><li class="muted">No verified headlines loaded.</li></ul><div class="gate"><strong>Context only · no trade authorization</strong><p class="muted">Gate.io remains the sole live market-data source. Gate.io announcements are venue-operational news only; candles, indicators and chart data never come from news feeds. News coverage is explicitly partial where shown.</p></div></section>
 <section class="panel"><h3 class="panel-title">Decision and safety gates</h3><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel" id="journalPanel"><div class="toolbar"><div><h3 class="panel-title">Trade Journal · Decision & Learning Evidence</h3><div class="muted">Immutable forward decisions only. Executed trades and realized outcomes are not inferred from a signal.</div></div><button id="journalRefresh" type="button">Refresh journal</button></div><p class="muted" id="journalStatus" role="status">Loading journal…</p><div class="journal-scroll"><table class="journal-table"><thead><tr><th>Time (UTC)</th><th>Market</th><th>Decision</th><th>Gate / reason</th><th>Outcome</th><th>Evidence</th></tr></thead><tbody id="journalRows"><tr><td colspan="6" class="muted">No journal entries loaded.</td></tr></tbody></table></div></section>
@@ -241,6 +243,20 @@ class Handler(BaseHTTPRequestHandler):
                     "decision": "NO_TRADE", "direction": "NONE", "reason": str(exc),
                     "source": "gateio_public_spot", "execution_enabled": False,
                     "orders_placed": False, "outcomes_inferred": False, "fail_closed": True,
+                }
+                return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+        if p.path == "/api/mother":
+            try:
+                strategy_view = read_strategy_v2_dashboard()
+                payload = read_mother_v2_dashboard(strategy_view=strategy_view)
+                return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+            except (StrategyV2DashboardError, MotherV2DashboardError) as exc:
+                payload = {
+                    "schema": "hes.mother_v2_dashboard_view.v1", "status": "BLOCKED_EVIDENCE",
+                    "decision": "NO_TRADE", "reason_codes": [str(exc)], "stages": [],
+                    "witness": {"verified": False, "reason_codes": ["MOTHER_EVIDENCE_UNVERIFIED"]},
+                    "execution_authorized": False, "execution_enabled": False,
+                    "orders_placed": False, "fail_closed": True,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/news":

@@ -10,9 +10,9 @@ def test_code_root_follows_current_release_symlink(tmp_path, monkeypatch):
     scripts.mkdir(parents=True)
     helper = scripts / "runtime_paths_v1.py"
     helper.write_text(
-        "from pathlib import Path\\nimport os\\n"
-        "CODE_ROOT = Path(__file__).resolve().parents[1]\\n"
-        "DATA_ROOT = Path(os.environ.get('HES_DATA_ROOT', '/opt/hes-trade-agent')).expanduser().resolve()\\n",
+        "from pathlib import Path\nimport os\n"
+        "CODE_ROOT = Path(__file__).resolve().parents[1]\n"
+        "DATA_ROOT = Path(os.environ.get('HES_DATA_ROOT', '/opt/hes-trade-agent')).expanduser().resolve()\n",
         encoding="utf-8",
     )
     current = tmp_path / "current"

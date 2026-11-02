@@ -30,3 +30,27 @@ def test_invalid_atr_blocks_signal():
 def test_risk_fraction_capped():
     f={'15m':base('15m',110,100,120,60,65,'UP','ABOVE'),'1h':base('1h',110,100,120,60,65,'NONE','ABOVE'),'4h':base('4h',110,100,120,60,65,'NONE','ABOVE')}
     assert evaluate(f,risk_fraction=.02).decision=='NO_TRADE'
+
+def test_rejects_non_finite_and_boolean_market_features():
+    for bad in (float("inf"), float("-inf"), float("nan"), True, "60"):
+        features={'15m':base('15m',110,100,120,60,65,'UP','ABOVE'),'1h':base('1h',110,100,120,60,65,'NONE','ABOVE'),'4h':base('4h',110,100,120,60,65,'NONE','ABOVE')}
+        features['15m']['rsi14']=bad
+        d=evaluate(features)
+        assert d.decision=='NO_TRADE' and d.checks=={'data':'FAIL'}
+
+def test_rejects_out_of_range_indicators_and_nonfinite_rr():
+    features={'15m':base('15m',110,100,120,60,65,'UP','ABOVE'),'1h':base('1h',110,100,120,60,65,'NONE','ABOVE'),'4h':base('4h',110,100,120,60,65,'NONE','ABOVE')}
+    features['15m']['mfi14']=101
+    assert evaluate(features).decision=='NO_TRADE'
+    features['15m']['mfi14']=65
+    assert evaluate(features,min_rr=float('nan')).decision=='NO_TRADE'
+    assert evaluate(features,min_rr=float('inf')).decision=='NO_TRADE'
+
+def test_rejects_boolean_risk_fraction():
+    features={'15m':base('15m',110,100,120,60,65,'UP','ABOVE'),'1h':base('1h',110,100,120,60,65,'NONE','ABOVE'),'4h':base('4h',110,100,120,60,65,'NONE','ABOVE')}
+    assert evaluate(features,risk_fraction=True).decision=='NO_TRADE'
+
+def test_rejects_oversized_integer_feature_without_raising():
+    features={'15m':base('15m',110,100,120,60,65,'UP','ABOVE'),'1h':base('1h',110,100,120,60,65,'NONE','ABOVE'),'4h':base('4h',110,100,120,60,65,'NONE','ABOVE')}
+    features['15m']['close']=10**10000
+    assert evaluate(features).decision=='NO_TRADE'

@@ -125,6 +125,48 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("fetch('/api/news'", script)
         self.assertNotIn("fetch('/api/signal", script)
 
+    def test_mother_panel_and_browser_poll_are_present(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode()
+        self.assertIn('id="motherPanel"', page)
+        self.assertIn("Mother Orchestrator · canonical V2 evidence chain", page)
+        with urlopen(self.base + "/static/dashboard.js") as response:
+            script = response.read().decode()
+        self.assertIn("fetch('/api/mother'", script)
+        self.assertIn("witness", script)
+
+    def test_mother_endpoint_returns_independently_witnessed_observation(self):
+        strategy_view = {"status": "VERIFIED"}
+        payload = {
+            "schema": "hes.mother_v2_dashboard_view.v1", "status": "BLOCKED_GATE",
+            "decision": "NO_TRADE", "stages": [{"agent": "confirmation", "state": "UNCONFIRMED"}],
+            "witness": {"verified": True}, "execution_authorized": False,
+            "execution_enabled": False, "orders_placed": False,
+        }
+        with patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy_view), \
+             patch.object(dashboard, "read_mother_v2_dashboard", return_value=payload) as mother:
+            with urlopen(self.base + "/api/mother") as response:
+                result = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        mother.assert_called_once_with(strategy_view=strategy_view)
+        self.assertTrue(result["witness"]["verified"])
+        self.assertFalse(result["execution_authorized"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
+
+    def test_mother_endpoint_fails_closed_without_verified_evidence(self):
+        with patch.object(dashboard, "read_strategy_v2_dashboard",
+                          side_effect=dashboard.StrategyV2DashboardError("stale report")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/mother")
+        self.assertEqual(error.exception.code, 503)
+        result = json.loads(error.exception.read())
+        self.assertEqual(result["decision"], "NO_TRADE")
+        self.assertFalse(result["witness"]["verified"])
+        self.assertTrue(result["fail_closed"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
+
     def test_news_endpoint_returns_verified_snapshot(self):
         snapshot = {
             "schema_version": "hes.news_monitor_snapshot.v1",
