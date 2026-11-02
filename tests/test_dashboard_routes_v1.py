@@ -400,5 +400,12 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn(".section-nav", css)
         self.assertIn(":focus-visible", css)
 
+
+    def test_market_data_root_uses_shared_mutable_store_not_release_directory(self):
+        self.assertEqual(dashboard._market_data_root(), dashboard.PROJECT_ROOT)
+        with patch.dict(os.environ, {"HES_GLOBAL_MARKET_DATA_ROOT": "/opt/hes-trade-agent"}):
+            self.assertEqual(str(dashboard._market_data_root()), "/opt/hes-trade-agent")
+
+
 if __name__=="__main__":
     unittest.main()
