@@ -49,6 +49,10 @@ The previously recorded 24-hour persisted Gate.io REST-feed soak audit passed in
 
 Blind forward OOS verdict remains `G6_BLOCKED_INSUFFICIENT_FORWARD_OBSERVATIONS`. A successful workflow job is not an OOS/strategy pass.
 
+
+### Uploaded sequence-semantics research note
+The supplied `HES_Trade_Agent__Exchange_Sequence_Semantics_and_C.md` is explicitly a 2026-10-10 draft and research-only artifact. Its own limitations say it did not inspect the repository or prove the current implementation. Preserve it as historical protocol research, not as a current Gate.io feed guarantee or release acceptance artifact. The active Gate.io OHLCV/chart path does not depend on individual-trade sequence semantics; do not reopen or port Tabdeal/Binance sequence assumptions into the Gate.io candle reader. Revisit the research only if a concrete execution/order-book feature needs a venue-specific event-identity or ordering contract, and then require current primary evidence plus adapter-scoped tests.
+
 ## 4. Mandatory release gates
 
 | Gate | PASS requires | Current disposition |
