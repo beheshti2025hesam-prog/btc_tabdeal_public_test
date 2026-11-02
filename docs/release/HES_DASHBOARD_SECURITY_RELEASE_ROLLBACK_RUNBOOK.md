@@ -31,7 +31,7 @@ The existing Strategy Policy V2 paper evaluator is the canonical writer of the s
 
 `/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl`
 
-The dashboard systemd unit must set `HES_TRADE_JOURNAL_PATH` to that exact absolute path. Do not use a release-relative `PROJECT_ROOT/data/forward` fallback: the dashboard is launched through `/opt/hes-trade-agent/current`, which resolves into an immutable versioned release.
+The dashboard systemd unit must set `HES_TRADE_JOURNAL_PATH` to that exact absolute path. The dashboard systemd unit must also set `HES_GLOBAL_MARKET_DATA_ROOT=/opt/hes-trade-agent` so the immutable `/opt/hes-trade-agent/current` code release reads the same shared persisted Gate.io candle files written by the collector services under `/opt/hes-trade-agent/data/forward`; never resolve candle files relative to the immutable release directory. Do not use a release-relative `PROJECT_ROOT/data/forward` fallback: the dashboard is launched through `/opt/hes-trade-agent/current`, which resolves into an immutable versioned release.
 
 The dashboard is a read-only consumer. Keep `ReadOnlyPaths=/opt/hes-trade-agent/releases /opt/hes-trade-agent/data/forward` and grant **no** `ReadWritePaths` exception to the dashboard. The dashboard must never append, edit, truncate, rotate, or lock the canonical journal. The evaluator owns the append-only write path, exclusive lock, fsync, stable evidence-derived event IDs, and duplicate suppression. Its existing lock file remains owned by `sentinelx:sentinelx`, mode `0600`; the dashboard does not access it.
 
