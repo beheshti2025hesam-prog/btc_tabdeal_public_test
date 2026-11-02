@@ -29,15 +29,15 @@ This is the release-control contract for the existing HES Trade Agent. It is not
 
 ### Candidate PR #410
 
-At the initial documentation review, PR #410 was OPEN/Draft/unmerged at head `c4dd3bc658c7fe90c30bb4fc852303e97d2ff23c`; later follow-up commits only corrected documentation provenance. Five GitHub Actions workflows completed successfully on preceding documentation-inclusive head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`; the later docs-only follow-up commits have no associated PR-triggered workflow runs. The five runs were: full repository regression, native OHLCV dashboard single-path tests, browser render/responsive test, bounded Spot WebSocket-to-REST smoke and Gate.io public candle contract smoke. Run links:
+PR #410 exact current head `9bb1dc7067744e52fa98b8158b932282b13c1b58` passed all five workflows after pinning the existing browser smoke job to Ubuntu 24.04. Full repository regression: **611 passed + 19 subtests**. Run links:
 
-- https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254312
-- https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254341
-- https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254344
-- https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254318
-- https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254363
+- Full repository regression: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716943
+- Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716890
+- Browser render/responsive proof: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716857
+- Bounded Binance Spot WebSocket transport smoke (not Gate.io recovery): https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716982
+- Gate.io public candle contract smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399717171
 
-The bounded WebSocket smoke is not proof of full Gate.io disconnect/reconnect/recovery or a 24-hour WebSocket soak. Candidate chart/signal same-batch evidence, 239 closed bars and responsive render are recorded in PR #410. Gate.io Spot schema `gateio_spot_candlestick_v2` validates its 8-field response and closed-window flag; unsupported trade-count/taker-buy fields remain UNKNOWN.
+Browser artifact digest: `sha256:8bad8bfecd9e40911cdfcd8e0c9e6a0a20d1f3016a29b552f603b3eae2d621de`. It proves 239 closed Gate.io candles, identical chart/signal batch hash, displayed close/volume and all candle values matching the API batch, responsive widths 390/768/1440 without overflow, and no browser-to-market-data request. Signal remains BLOCKED/NO_TRADE and execution OFF. The bounded WebSocket job is Binance Spot transport only; Gate.io WebSocket reconnect/recovery and 24-hour soak remain open. Gate.io Spot schema `gateio_spot_candlestick_v2` validates its 8-field response and closed-window flag; unsupported trade-count/taker-buy fields remain UNKNOWN.
 
 ### Candidate PR #408
 
@@ -58,7 +58,7 @@ The supplied `HES_Trade_Agent__Exchange_Sequence_Semantics_and_C.md` is explicit
 | Gate | PASS requires | Current disposition |
 |---|---|---|
 | G0 — Scope and lineage | Canonical repo, exact SHA, reconciled PR ancestry, known VPS/runtime lineage | PARTIAL |
-| G1 — Build and tests | Required tests/workflows on the exact proposed release SHA; negative tests and artifacts | PARTIAL (#410 runs pass on preceding SHA; latest docs-only SHA not rerun; #408 exact head pending) |
+| G1 — Build and tests | Required tests/workflows on the exact proposed release SHA; negative tests and artifacts | PARTIAL (#410 exact head 9bb1dc7 passes 5/5 workflows; #408 must rebase onto current #406 and then pass exact-head CI/browser) |
 | G2 — Data integrity | Gate.io source identity, closed/fresh bars, same-batch chart/analysis, gaps/duplicates/schema/numeric checks | PARTIAL (bounded REST/browser proof; WS recovery open) |
 | G3 — Runtime resilience | Gate.io WS disconnect/reconnect, REST reconciliation/backfill, duplicate/gap handling, restart and authorized-runtime soak | BLOCKED |
 | G4 — Frontend integration | Existing real entrypoint, browser evidence and deployed route/runtime parity on the reconciled release stack | PARTIAL |
