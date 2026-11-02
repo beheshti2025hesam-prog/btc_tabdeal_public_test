@@ -27,8 +27,8 @@ Canonical repository: `beheshti2025hesam-prog/btc_tabdeal_public_test`. Default 
 - URL: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/410
 - State at checkpoint: OPEN, Draft, unmerged.
 - Branch: `fix/gateio-signal-strategy-wiring-20261029`.
-- Exact current head: `98df5dc9485f3d0ae564b7093dff17e1324a87dd`.
-- Executable candidate code head previously tested: `b7fef1132e65729bd2d40e1d0d98cd948983ca48`; later commits in this checkpoint lineage are documentation-only. Exact-head Actions also completed on current PR head `98df5dc...`.
+- Exact current branch head after the documentation-only additions: `c4dd3bc658c7fe90c30bb4fc852303e97d2ff23c`.
+- Executable candidate code head: `b7fef1132e65729bd2d40e1d0d98cd948983ca48`. The five workflows listed below completed on documentation-inclusive PR head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`. The subsequent commits adding these release documents changed documentation only; no workflow runs were returned for the newest docs-only head `c4dd3bc...`. Do not mislabel the older runs as checks executed on `c4dd3bc...`.
 - Five PR-triggered workflows on the current head completed successfully:
   - Full repository regression: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254312
   - Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254341
@@ -58,7 +58,7 @@ Canonical repository: `beheshti2025hesam-prog/btc_tabdeal_public_test`. Default 
 
 ## 3. Release evidence and honest interpretation
 
-- Current PR #410 workflows are green on the exact current documentation-inclusive head. This verifies the jobs and assertions listed above, not the entire production runtime.
+- PR #410's five workflows are green on prior documentation-inclusive head `98df5dc...`; the newest documentation-only head is `c4dd3bc...` and has no associated PR-triggered workflow runs in the current check. The workflow evidence verifies the jobs and assertions listed above on their recorded SHA, not the entire production runtime.
 - The previously recorded 24-hour persisted Gate.io REST-feed soak audit passed (1,440 samples / 86,400 seconds, zero invalid rows, no gap above 90 seconds, no feed-service restarts) in the #398 lineage. Reuse that evidence; do not rerun it merely to duplicate a report.
 - That persisted REST-feed soak does **not** prove Gate.io WebSocket reconnect/recovery, strategy profitability, or execution readiness.
 - The blind forward OOS evaluator remains **G6_BLOCKED_INSUFFICIENT_FORWARD_OBSERVATIONS**. A successful workflow job is not a successful scientific/strategy verdict.
@@ -89,7 +89,7 @@ Overall estimate is planning evidence, not code coverage, profitability, or perm
 | Gate | Current status | Remaining evidence / action |
 |---|---|---|
 | G0 Scope and lineage | PARTIAL | Reconfirm exact PR ancestry and VPS runtime lineage; preserve dirty worktree |
-| G1 Build and tests | PARTIAL | #410 exact-head workflows pass; #408 current SHA still needs exact-head Actions/browser |
+| G1 Build and tests | PARTIAL | #410 five workflows pass on `98df5dc...` (not newest docs-only `c4dd3bc...`); #408 current SHA still needs exact-head Actions/browser |
 | G2 Market-data integrity | PARTIAL/PASS for bounded scope | Gate.io 8-field REST schema and same-batch chart/analysis proven; complete WS recovery remains open |
 | G3 Runtime resilience | BLOCKED | Gate.io WS disconnect, reconnect, REST reconciliation/backfill, duplicate/gap tests and authorized-runtime soak |
 | G4 Frontend integration | PARTIAL | Candidate browser render proven; verify current deployed routes/runtime against reconciled release stack |
