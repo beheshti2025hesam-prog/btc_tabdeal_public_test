@@ -5,7 +5,7 @@
 **Purpose:** resume from the current evidence and release state without rediscovery, duplicate implementation, or denominator drift.
 
 > **Project memory contract:** Memory = project map/context; GitHub = technical truth; Chat = conversation log.  
-> **Release disposition:** HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. This checkpoint does not authorize merge, production pointer change, deployment, service mutation, account connection, execution enablement, or live orders.
+> **Release disposition:** Dashboard/frontend integration is merged and deployed as an immutable read-only release on the sole VPS. Trading remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY; no account connection, execution enablement, or live orders are authorized.
 
 ## 1. Locked architecture and non-negotiable constraints
 
@@ -485,3 +485,41 @@ This plan is documentation only; it does not authorize or perform a deployment.
 - PR #410 has been closed as superseded after selective, non-duplicative collector/service/source-contract changes were ported into PR #408. Its stale dashboard/strategy history and its legacy Binance support were not copied. PR #411 remains closed as superseded after UX changes were folded into #408.
 - No VPS service install, daemon reload, enable/start/restart, 24h soak, deployment, credential access, account access or order execution occurred. Keep all runtime actions pending explicit owner approval and release gates.
 - Current release target remains **2026-11-19**; chart acceptance remains **2026-11-04**. The current PR is a validated code candidate, not a deployed production release.
+
+
+## Superseding final update — integrated dashboard/frontend deployment — 2026-11-02 16:12 UTC
+
+This section supersedes earlier candidate-only statements in this checkpoint about PR #408 remaining Draft/unmerged and the dashboard not yet being deployed. Historical evidence above remains historical.
+
+### Consolidation and repository state
+- Canonical PR #408 was marked ready after the owner-directed completion request and the project-pair technical audit, then merged to `main` as **`388d4aa326ce4e678f63400f7ad4b53ae76b7b20`**.
+- Exact tested candidate head immediately before merge: `47adc610f70452c9ea23c1d2fd939013563466e5`; merged commit tree is identical: `e9d0d8097b87d1e4e4348c6665683e3416c64f2c`.
+- Exact candidate Actions: **32/32 succeeded**. Full repository regression: **817 passed, 70 subtests passed**. A clean detached clone on the VPS independently reproduced **817 passed, 70 subtests passed**. `systemd-analyze verify` accepted the dashboard and all three Gate.io unit templates; only an unrelated pre-existing Xray warning was emitted.
+- Browser render on the exact candidate tree: PASS; 239 closed candles; chart/API/all-candle batch parity; displayed close and volume match source; no direct browser exchange request or external chart CDN; responsive widths 390/768/1440 with no horizontal overflow. Artifact ZIP SHA-256: `20408c4894f520b136662e5543aa897be2b49588dc4799bcb5ea05c00de8d94a`.
+- Gate.io public candle contract smoke: PASS for 15m and 4h; documented eight-field Spot schema and closed-window flag verified; continuity PASS; trade count and taker-buy flow remain UNKNOWN/not provided. Artifact ZIP SHA-256: `bbccdab8f9087b93459c90bb9d4d7ed64da41cedb9660f610e254e0d0e1d02e3`.
+- PRs #405, #406 and #407 were closed as superseded by the merged consolidated PR #408. PRs #410 and #411 remain superseded/closed; no duplicate dashboard or candle path was retained.
+
+### Immutable VPS release and rollback lineage
+- The single VPS now runs immutable release: `/opt/hes-trade-agent/releases/388d4aa326ce4e678f63400f7ad4b53ae76b7b20`.
+- Archive SHA-256: `6f77f27ae288572058f9a13b6a72897ed8349b0ccaaccb0b521ebb702c30c37e`.
+- `/opt/hes-trade-agent/current` was switched atomically from previous release `/opt/hes-trade-agent/releases/2e8d3859ef154b030e0965ad4479f3fad36ae4c0` to the new immutable release.
+- Before switching, the exact previous dashboard unit and existing drop-ins were preserved under `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/`.
+- Installed the exact repository dashboard systemd unit plus `30-hes-news-monitor-state.conf`; explicit shared paths are configured for the Strategy V2 report, canonical journal, Gate.io market-data root and News Radar snapshot. `StateDirectory=hes-news-monitor` provisions only the News Radar writable state directory.
+- Daemon reload and controlled dashboard restart succeeded. `hes-readonly-dashboard.service` is ACTIVE, runs as `sentinelx:sentinelx`, binds only `127.0.0.1:8765`, has `ProtectSystem=strict`, `NoNewPrivileges=yes`, `ReadOnlyPaths=/opt/hes-trade-agent/releases /opt/hes-trade-agent/data/forward`, and **no ReadWritePaths exception**.
+- Existing 15m/1h/4h Gate.io feed services remained active; no feed service was duplicated or restarted by the dashboard.
+
+### Deployed runtime acceptance
+- Actual deployed runtime returned HTTP 200 for `/`, all dashboard static assets and pinned Lightweight Charts, `/healthz`, `/api/candles` for 15m/1h/4h, `/api/strategy-v2`, `/api/mother`, `/api/news`, and `/api/journal`.
+- All three candle intervals returned 240 candles from `gateio_public_spot` through `global_market_data_reader_v1`, with zero reported gaps. Symbol mapping is verified for the market-data symbol; execution-instrument mapping remains unverified.
+- Strategy V2 projection: `VERIFIED / NO_TRADE`. Mother: `BLOCKED_GATE / NO_TRADE` with `NO_VALID_CANDIDATE`; independent audit witness verified. This is the intended fail-closed outcome, not a defect to bypass.
+- News Radar: `OK`; current profile explicitly reports partial official macro/regulatory/central-bank and venue-announcement coverage. Runtime poll showed 6 sources OK, 1 OK-empty, 0 failed. No qualified domestic/Iran-equities source is enabled; do not imply domestic coverage or a comprehensive crypto-native newswire.
+- Journal projection: `VERIFIED`, 717 records. POST to `/api/journal` returned 405. CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy and no-store headers were verified.
+- A 285.6-second read-only runtime soak sampled 15 times. Every health, 15m/1h/4h candle, Strategy V2, Mother, News and Journal request returned HTTP 200; the service remained active; all candle batches remained gap-free; News Monitor completed two polls (16:05:01Z and 16:10:01Z); the canonical journal SHA-256 remained unchanged at `c0b6d18471596921f775091b886ee48d5e87a809aa9e3fe007cdbdeafa1fb004`.
+- The original dirty checkout at `/opt/hes-trade-agent` was not cleaned, reset, checked out over, or overwritten. Its pre-existing modifications/untracked files remain preserved.
+
+### Final scope and remaining independent gates
+- **Integrated dashboard/frontend section: deployed and runtime-accepted for read-only/paper scope.** No parallel app, chart, feed, strategy, journal or indicator engine was created.
+- Overall trading remains `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`. No account connection, exchange orders or execution enablement occurred.
+- This frontend release does not prove the requested >90% paper win rate or the ≤3 high-quality signals/day target. Strategy/structure/confirmation quality, independent risk approval, execution-instrument mapping and adequate forward-only paper observations remain separate gates.
+- News coverage remains deliberately partial and clearly labelled; unqualified sources remain disabled.
+- Fixed milestones remain chart acceptance **2026-11-04** and delivery **2026-11-19**. Preserve the rollback release and do not modify the sole dirty checkout.
