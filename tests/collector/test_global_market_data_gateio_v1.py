@@ -242,3 +242,11 @@ def test_closed_ws_message_triggers_rest_persistence_only(monkeypatch):
 
     assert appended == [rest_rows, rest_rows]
     assert socket.closed is True
+
+
+def test_default_collector_paths_are_repository_relative():
+    expected_root = Path(__file__).resolve().parents[2]
+    assert collector.ROOT == expected_root
+    assert collector.DEFAULT_OUTPUTS["15m"] == expected_root / "data/forward/global_market_candles_v1.jsonl"
+    assert collector.DEFAULT_OUTPUTS["1h"] == expected_root / "data/forward/global_market_candles_1h_v1.jsonl"
+    assert collector.DEFAULT_OUTPUTS["4h"] == expected_root / "data/forward/global_market_candles_4h_v1.jsonl"
