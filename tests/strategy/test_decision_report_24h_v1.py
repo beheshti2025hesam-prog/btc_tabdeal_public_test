@@ -2,7 +2,8 @@ import importlib.util
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-MODULE=Path('/opt/hes-trade-agent/scripts/run_decision_report_24h_v1.py')
+REPO_ROOT=Path(__file__).resolve().parents[2]
+MODULE=REPO_ROOT/'scripts'/'run_decision_report_24h_v1.py'
 spec=importlib.util.spec_from_file_location('decision_report_24h_v1', MODULE)
 mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
 
