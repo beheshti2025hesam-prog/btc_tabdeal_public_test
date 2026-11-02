@@ -523,3 +523,27 @@ This section supersedes earlier candidate-only statements in this checkpoint abo
 - This frontend release does not prove the requested >90% paper win rate or the ≤3 high-quality signals/day target. Strategy/structure/confirmation quality, independent risk approval, execution-instrument mapping and adequate forward-only paper observations remain separate gates.
 - News coverage remains deliberately partial and clearly labelled; unqualified sources remain disabled.
 - Fixed milestones remain chart acceptance **2026-11-04** and delivery **2026-11-19**. Preserve the rollback release and do not modify the sole dirty checkout.
+
+
+## Follow-on operational verification — 2026-11-02 (read-only; no runtime changes)
+
+- Operator confirmed Windows dashboard access via SSH local forwarding using existing private key `%USERPROFILE%\\.ssh\\hes-vps-2026`, SSH TCP 9011, local `127.0.0.1:8765` -> remote `127.0.0.1:8765`. Initial failure was client key selection only; explicit key authenticated. No new key/user/firewall rule/public dashboard listener was created.
+- Rechecked the single VPS read-only: dashboard root and healthz HTTP 200; dashboard unit active/running, NRestarts=0; Gate.io 15m/1h/4h feed units active/running, NRestarts=0.
+- All three candle API endpoints returned 240 candles and zero gaps. Latest closed candles at this check: 15m and 1h close time 2026-11-02T16:59:59.999Z; 4h close time 2026-11-02T15:59:59.999Z. Data path remains Gate.io Public Spot -> `global_market_data_reader_v1` -> existing candle API.
+- Strategy V2 returned `VERIFIED / NO_TRADE`; Mother returned `BLOCKED_GATE / NO_TRADE`; healthz remains `NO_TRADE_ONLY`, `execution_enabled=false`, `orders_placed=false`, and `execution_instrument_mapping_verified=false`.
+- Journal API now reports 721 records and `VERIFIED` (prior checkpoint reported 717; count advanced by four). Canonical journal was not modified.
+- Frontend assets (dashboard JS, CSS, pinned local Lightweight Charts 5.0.8 bundle) each returned HTTP 200. Dashboard JavaScript passed `node --check`. Strict same-origin CSP, frame denial, nosniff, no-referrer, restrictive Permissions-Policy, and no-store headers were verified.
+- These checks establish endpoint/asset/runtime correctness, but **do not constitute a new real-browser visual acceptance**. Browser render, chart interactions/resizing, and user-facing layout acceptance remain open.
+- No code, service configuration, firewall, account, exchange execution, or journal mutation was performed during this follow-on verification.
+
+### Source-backed sequence-semantics safety requirement
+The attached `HES_Trade_Agent__Exchange_Sequence_Semantics_and_C.md` (research v1.0-draft, retrieved 2026-10-10) requires venue/product/endpoint/channel/message-type/field-specific, evidence-versioned sequence semantics. `unknown` is a first-class state; numeric field names alone never establish ordering, uniqueness, contiguity, gap detection, or cross-reconnect comparability. Tabdeal FAPI broadcast `trade.sequence` remains opaque/unknown under the cited public contract. No numeric gap detector, monotonicity rule, or conflict-key assumption may be enabled without new primary evidence. Exact-payload replay is distinct from repeated opaque values.
+The research file is explicitly marked research-only and says no repository changes, captures, deployments, or orders were performed. Its recommendations are not proof the registry/tests are implemented. Required backlog: append-only sequence registry with evidence; product/channel adapter split; exact replay vs conflict; fail-closed supervisor; SEQ-001..016 fixtures; protocol drift CI; pinned sources; and actual PR diff review.
+Preserve the data/execution boundary: Gate.io is the authoritative market-data/chart/candle/indicator source; execution, if separately authorized after all gates, belongs to the selected exchange/broker app. Do not infer an execution path from the Gate.io data adapter.
+
+### Remaining acceptance gates / delivery control
+- Visual browser acceptance remains open.
+- Verify sequence registry/tests in the actual repository before claiming implementation.
+- News Radar coverage, independent strategy/risk approval, execution instrument mapping, and sufficient forward-only paper evidence remain open.
+- At most three signals/day and >90% paper win rate are acceptance objectives, not achieved results or promises. Never loosen gates or manufacture signals to meet them.
+- Keep chart acceptance milestone 2026-11-04 and app delivery target 2026-11-19. Preserve rollback and the single VPS.
