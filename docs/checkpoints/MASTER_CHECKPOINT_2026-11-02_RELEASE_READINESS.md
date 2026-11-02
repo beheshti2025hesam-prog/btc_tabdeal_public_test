@@ -258,3 +258,13 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 - `Native OHLCV Browser Render Smoke v1`: in progress at last poll.
 - `Native OHLCV WebSocket Live Smoke v1`: in progress at last poll.
 - The exact-SHA local suite is green, but CI is not yet fully green. Recheck these three in-progress runs before treating candidate validation as complete.
+
+
+## Follow-up continuation checkpoint — exact CI and release-gate refresh (2026-11-02)
+
+- Refreshed all five PR-triggered GitHub Actions for exact test SHA `9c6b1723272c69d2cdfabaf90efe22c5a794a388`: all five completed successfully: Native OHLCV Dashboard Single Path v1; Gate.io Public Candle Evidence Smoke v1; Native OHLCV Browser Render Smoke v1; Native OHLCV WebSocket Live Smoke v1; Gate.io Dashboard Full Repository Regression.
+- Exact SHA local focused collector/recovery tests: `18 passed in 0.22s`; the same SHA previously passed full suite `629 passed, 19 subtests`. Docs-only checkpoint commits followed this code/test SHA; do not claim those workflows ran on the latest docs head.
+- PR #410 is OPEN, Draft, unmerged; current branch head after checkpoint updates: `ae897412667460813ef002c3cd71b90367c6387b`; base branch `integration/gateio-persisted-feed-signal-agent-20261026`, base SHA `2e8d3859ef154b030e0965ad4479f3fad36ae4c0`, mergeable reported true. No merge was authorized or performed.
+- Reconciled remaining release blockers from `docs/RELEASE_READINESS.md`: G0 lineage PARTIAL; G1 PARTIAL until final combined-stack exact SHA; G2 PASS for bounded Gate.io Spot scope; G3 PARTIAL (live WS/REST fault injection and authorized-runtime recovery/parity missing); G4 PARTIAL (deployed route/runtime parity missing); G5 BLOCKED (independent strategy/risk approval and sufficient forward OOS evidence missing); G6 BLOCKED/OFF (execution venue mapping/precision/minimums/idempotency/fill-status-fee reconciliation and separate authorization missing); G7 PARTIAL (runtime roots and rollback proof missing); G8 BLOCKED (final stack review/release artifacts/go-no-go missing).
+- Do not repeat the prior 24h REST soak solely to duplicate evidence. Next safe technical step is an isolated, non-production, live-safe WS/REST outage harness with recorded source responses, then exact candidate stack reconciliation. Do not stop/restart production services as fault injection; runtime changes require authorization and must preserve the dirty live checkout.
+- Release remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. No production service/pointer changed; no account connected; no live order placed. Delivery target remains 2026-11-19.
