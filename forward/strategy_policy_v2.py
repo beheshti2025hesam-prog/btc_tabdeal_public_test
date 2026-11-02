@@ -36,7 +36,12 @@ class PolicyDecision:
 
 def _is_finite_number(value: Any) -> bool:
     # bool is an int subclass in Python; never accept it as market/risk data.
-    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError, ValueError):
+        return False
 
 
 def evaluate(
