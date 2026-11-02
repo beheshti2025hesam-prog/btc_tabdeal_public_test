@@ -28,7 +28,7 @@ Canonical repository: `beheshti2025hesam-prog/btc_tabdeal_public_test`. Default 
 - State at checkpoint: OPEN, Draft, unmerged.
 - Branch: `fix/gateio-signal-strategy-wiring-20261029`.
 - Exact current branch head after the documentation-only additions: `c4dd3bc658c7fe90c30bb4fc852303e97d2ff23c`.
-- Executable candidate code head: `b7fef1132e65729bd2d40e1d0d98cd948983ca48`. The five workflows listed below completed on documentation-inclusive PR head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`. The subsequent commits adding these release documents changed documentation only; no workflow runs were returned for the newest docs-only head `c4dd3bc...`. Do not mislabel the older runs as checks executed on `c4dd3bc...`.
+- Executable candidate code head: `b7fef1132e65729bd2d40e1d0d98cd948983ca48`. The five workflows listed below completed on documentation-inclusive PR head `98df5dc9485f3d0ae564b7093dff17e1324a87dd`. The subsequent commits adding and correcting these release documents changed documentation only; no workflow runs were returned for the newest docs-only follow-up commits. Do not mislabel the older runs as checks executed on those follow-up SHAs. Do not mislabel the older runs as checks executed on `c4dd3bc...`.
 - Five PR-triggered workflows on the current head completed successfully:
   - Full repository regression: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254312
   - Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41339254341
