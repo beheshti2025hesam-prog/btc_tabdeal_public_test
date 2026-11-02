@@ -146,3 +146,10 @@ A gate is PASS only when linked evidence identifies exact SHA, workflow/run, art
 - In an isolated candidate checkout, connected to real Gate.io public WebSocket, subscribed to `15m_BTC_USDT`, received a valid update, explicitly closed the socket, reconnected a fresh socket, and received another valid update; both subscriptions succeeded without errors.
 - The canonical native REST adapter then returned 4 closed 15m candles with zero reported gaps. Existing atomic merge wrote only to a `/tmp` file; replaying the same REST batch preserved 4 unique, contiguous rows with no duplicates. Production services and files remained untouched.
 - Combined with the exact-SHA automated reconnect/backfill test, this demonstrates basic real-endpoint close/reconnect and idempotent REST reconciliation. It is not a forced network failure inside the running collector process, a long-duration soak, or deployed runtime parity. G3 stays PARTIAL until those evidence gates pass.
+
+
+### Isolated collector process restart and live REST gap repair — 2026-11-02 07:18 UTC
+
+- Ran the candidate collector twice with temp-only output; each process was bounded to 8 seconds and stopped via SIGTERM. First run fetched 499 closed contiguous 15m Gate.io candles and subscribed to WS. Injected one missing recent row into the temporary output only; the second fresh process used the canonical REST adapter and logged `added=1 backfilled=1`, repaired the row, resubscribed to WS and stopped cleanly.
+- Final temp output: 499 rows, closed, unique, contiguous, correct `gateio_public_spot/BTC_USDT/15m` identity. Production services and files untouched.
+- This is controlled real-endpoint process-restart/backfill evidence, not a prolonged soak or deployed candidate runtime parity. G3 remains PARTIAL until authorized runtime lineage/soak and broader fault modes are proven.
