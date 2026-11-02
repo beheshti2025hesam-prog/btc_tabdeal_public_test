@@ -216,3 +216,23 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 ### Full-suite result added after focused tests
 
 - On isolated checkout at code-bearing SHA `daa7d9f1d48bc132e1c6a5c5c1558d2e0cf0b156`, full repository test suite passed: **628 passed, 19 subtests passed (5.98s)**. This is local execution evidence; the five GitHub Actions runs are separately tied to the same code-bearing SHA. Documentation-only commits after this SHA are not claimed as independently rerun.
+
+
+## Runtime health and live-analysis checkpoint — 2026-11-02
+
+### Live VPS evidence (read-only inspection)
+
+- All three existing collector services were `active/running`: `hes-global-market-data-gateio.service`, `hes-global-market-data-gateio-1h.service`, `hes-global-market-data-gateio-4h.service`. Their current main PIDs were 687, 685, 686; each reported `NRestarts=0` and the last service start was 2026-10-28 06:33:50 UTC. No service was restarted or reloaded.
+- Persisted feed integrity scan: 15m 1,347 rows, 1h 711 rows, 4h 552 rows. All rows parsed; all were closed, ordered, unique, and had zero interval gaps; source/symbol/timeframe identity was inspected via the existing reader contract. Latest open times: 15m 2026-11-02 06:45 UTC, 1h 06:00 UTC, 4h 00:00 UTC. The scan time showed the last closed candle age below the reader's 2-interval stale threshold. This is a point-in-time integrity check, not a new 24h soak or reconnect fault-injection proof.
+- Ran the existing `scripts/run_gateio_analysis_v1.py` against persisted Gate.io closed candles. It wrote the existing decision snapshot `data/forward/gateio_analysis_decision_v1.json`: observed_at `2026-11-02T07:00:00Z`, source `gateio_public_spot`, symbol `BTC_USDT`, timeframe `15m`, decision `NO_TRADE`, direction `NONE`, regime `UNKNOWN`, reason `NO_CANDIDATE`, confirmation `NOT_CONFIGURED`, risk `RISK_NOT_APPROVED`, `execution_enabled=false`, `orders_placed=false`. This is a safe fail-closed integration smoke, not a strategy-performance claim.
+- The original live checkout `/opt/hes-trade-agent` remains dirty with many pre-existing tracked/untracked files. It was not reset, cleaned, checked out over, or modified for code. The only operational side effect from the existing analysis script was its intended decision-snapshot output; collector data files were not edited manually.
+
+### Exact candidate references
+
+- PR #410 remains OPEN/Draft/unmerged. Head at this checkpoint: `1d17a273b2ddbbc43f7b84091d656f8734f83e95`; base `integration/gateio-persisted-feed-signal-agent-20261026` at `2e8d3859ef154b030e0965ad4479f3fad36ae4c0`; mergeable: `true`.
+- Last code-bearing SHA with the five green PR workflows and local full suite is `daa7d9f1d48bc132e1c6a5c5c1558d2e0cf0b156`; documentation-only commits follow it. Full local suite: 628 passed + 19 subtests. Do not transfer that test claim to the later documentation head without rerunning exact-head CI.
+
+### Next execution step
+
+- Keep services untouched; add a deterministic, non-production fault-injection harness that proves process interruption → bounded reconnect → REST gap backfill → idempotent recovery, then run it against the same canonical adapter and record exact SHA/artifacts. Only after this can G3 advance. Do not simulate by killing production services.
+- Release status remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. No PR merged, no production pointer changed, no exchange account connected, no order executed.
