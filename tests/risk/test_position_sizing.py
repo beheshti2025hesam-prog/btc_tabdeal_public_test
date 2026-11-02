@@ -52,4 +52,9 @@ class PositionSizingTests(unittest.TestCase):
                 self.assertFalse(result.approved)
                 self.assertEqual(result.reason, "non_finite_input")
 
+    def test_rejects_oversized_integer_without_raising(self):
+        result = size_position(PositionSizingInput(10**10000, 100, 98))
+        self.assertFalse(result.approved)
+        self.assertEqual(result.reason, "non_finite_input")
+
 if __name__ == '__main__': unittest.main()
