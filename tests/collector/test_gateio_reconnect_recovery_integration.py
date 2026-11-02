@@ -29,6 +29,9 @@ def test_disconnect_reconnect_rest_sync_recovers_and_deduplicates(tmp_path, monk
     """Exercise the real merge/persist path across a simulated WS disconnect."""
     output = tmp_path / "gateio-candles.jsonl"
     monkeypatch.setattr(collector, "OUTPUT", output)
+    # _append_new has a definition-time default path; inject the temp path explicitly.
+    real_append = collector._append_new
+    monkeypatch.setattr(collector, "_append_new", lambda rows, last_ts: real_append(rows, last_ts, output))
     monkeypatch.setattr(collector, "STOP", False)
     monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
