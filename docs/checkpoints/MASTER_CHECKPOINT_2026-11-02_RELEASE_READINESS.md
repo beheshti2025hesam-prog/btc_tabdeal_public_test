@@ -332,3 +332,9 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 6. Keep all trading execution disabled. No account/venue order adapter changes until independent G5/G6 approvals and explicit authorization.
 
 This plan is documentation only; it does not authorize or perform a deployment.
+
+
+### Latest documentation-head local verification — 2026-11-02
+
+- After the above checkpoint/release-doc updates, checked out exact branch head `b20805e309a3240aeed6e65e5da85a43063f5415` in the isolated candidate checkout and reran the complete repository suite: **629 passed, 19 subtests passed in 5.00s**. `compileall` for the Gate.io collector, service wrapper and 24h soak script also passed.
+- The five GitHub Actions are green on code/test SHA `9c6b1723272c69d2cdfabaf90efe22c5a794a388`; later changes up to `b20805e...` are documentation-only, and local full-suite verification now also covers `b20805e...`. No claim that CI workflows ran on this documentation-only head.
