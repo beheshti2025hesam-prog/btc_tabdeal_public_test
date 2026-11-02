@@ -131,3 +131,9 @@ def test_closed_paper_outcome_is_linked_to_older_candidate_without_mislabeling_w
     assert paper['outcome_candidate_gate_decisions']=={'NO_TRADE':1}
     assert paper['outcome_unmatched_candidate_count']==0
     assert 'may refer to candidates from earlier windows' in report['window_basis']
+
+
+def test_report_script_path_is_resolved_from_repository_root():
+    expected = Path(__file__).resolve().parents[2] / "scripts" / "run_decision_report_24h_v1.py"
+    assert MODULE == expected
+    assert MODULE.is_file()
