@@ -378,5 +378,27 @@ class DashboardRouteTests(unittest.TestCase):
                     urlopen(Request(self.base+path, data=b"{}", method="POST"))
                 self.assertEqual(error.exception.code, 405)
 
+
+    def test_dashboard_has_accessible_section_navigation_and_semantic_landmarks(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode("utf-8")
+        self.assertIn('href="#main-content"', page)
+        self.assertIn('<main id="main-content" tabindex="-1">', page)
+        self.assertIn('<h1 class="brand">HES Trade Agent</h1>', page)
+        self.assertIn('<nav class="section-nav" aria-label="Dashboard sections">', page)
+        for section_id in ("marketPanel", "strategyV2Panel", "motherPanel",
+                           "newsRadarPanel", "safetyPanel", "journalPanel"):
+            with self.subTest(section_id=section_id):
+                self.assertIn(f'id="{section_id}"', page)
+                self.assertIn(f'href="#{section_id}"', page)
+        self.assertIn('id="message" role="status" aria-live="polite"', page)
+        self.assertIn('id="journalStatus" role="status" aria-live="polite"', page)
+        self.assertIn('<caption class="sr-only">', page)
+        with urlopen(self.base + "/static/dashboard.css") as response:
+            css = response.read().decode("utf-8")
+        self.assertIn(".skip-link:focus", css)
+        self.assertIn(".section-nav", css)
+        self.assertIn(":focus-visible", css)
+
 if __name__=="__main__":
     unittest.main()
