@@ -402,3 +402,17 @@ This plan is documentation only; it does not authorize or perform a deployment.
 
 ### Delivery
 - Delivery target remains **2026-11-19**; preserve the **2026-11-04 chart acceptance milestone**. Do not let this bounded legacy-protocol hardening displace Gate.io chart acceptance or final frontend/backend stack reconciliation.
+
+
+### Exact-head CI closure — 2026-11-02
+- Corrected PR #402 head `a49bfa8d87964b247c47b4090d827f47bfe4899c`: **26/26 GitHub Actions workflow runs completed successfully**.
+- Critical exact-head evidence:
+  - Controlled Forward Observation Runner: PASS — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41407726023
+  - Clean Forward Evidence Verification: PASS — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41407726070
+  - Forward Integration Verification: PASS — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41407725993
+  - Collector Persistence Hardening: PASS — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41407726013
+  - Local Durable Collector Safety: PASS — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41407726124
+  - Identity Integrity: PASS — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41407726141
+  - Actions Execution Canary: PASS — https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41407725992
+- The first run's fixture collection failure is superseded by the corrected exact-head results above. The fixture now explicitly sets its synthetic-only ordered capability; the production registry remains unchanged and all real exchange capabilities remain disabled/unpinned.
+- PR #402 remains OPEN/Draft/unmerged. Green CI verifies the tested code, not missing source hashes, independent human review, VPS regression, runtime activation, or permission to execute. Maintain HOLD / NO_TRADE_ONLY for the legacy Tabdeal path.
