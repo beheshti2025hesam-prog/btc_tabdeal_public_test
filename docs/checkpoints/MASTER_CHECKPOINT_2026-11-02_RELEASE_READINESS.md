@@ -376,3 +376,29 @@ This plan is documentation only; it does not authorize or perform a deployment.
 - PR #411 is a UI-only child of PR #408. PR #410 is a separate Gate.io/Signal Agent candidate and also changes `web/dashboard.py`; therefore #411's successful tests do not prove that the #408 Mother/News dashboard and #410 Gate.io/Signal Agent changes have already been combined.
 - During final stack reconciliation, preserve the six-panel navigation/accessibility improvements while integrating the existing backend/API changes. Reuse one dashboard entrypoint and one chart path; do not keep competing dashboard implementations.
 - Re-run exact-final-SHA full regression, dashboard single-path, browser render and responsive checks after the combined stack is assembled. Until then G4 remains PARTIAL and PR #411 remains Draft/unmerged.
+
+
+## Exchange sequence semantics hardening — 2026-11-02
+
+### Existing implementation reused
+- Reviewed supplied research file `HES_Trade_Agent__Exchange_Sequence_Semantics_and_C.md` against existing PR #402; no second registry or sequence engine was created.
+- PR #402 already adds the exact-scope capability registry and fail-closed legacy Tabdeal observation boundary. Its 17 registry entries keep unsupported/unpinned semantics disabled; Gate.io candle open time is explicitly treated as a candle bucket key, not a trade sequence.
+- Active HES market-data architecture remains Gate.io persisted closed-OHLCV for chart/candles/indicators. This sequence-registry work does not replace or duplicate that feed, nor does it connect directly to order execution.
+
+### Code-review defect found and corrected on existing PR #402
+- Defect: a registry record could state `semantic_class=ORDERED_EVENT_SEQUENCE` and `claims.ordered=true` while explicitly setting `capabilities.ordered_event_sequence=false`. The old resolver derived runtime permission from the claim, not the capability flag.
+- Fix: VERIFIED ordered records now require the explicit ordered capability and the resolver reads the capability flag. Added a negative regression test for the contradictory record.
+- Commits on PR #402 branch: `49903050b04f0acbe14574b66aa96281f3c456c4`, `a04c0139d58ea096c97131e8286a884481cdf2df`, `a49bfa8d87964b247c47b4090d827f47bfe4899c`.
+- First exact-head workflow exposed an expected fixture mismatch: the synthetic-only verified test registry did not declare the now-required capability. Updated the fixture to explicitly grant `ordered_event_sequence=true`; no production registry capability was enabled by this fixture change.
+- PR #412 was closed as superseded; the two code/test changes were applied directly to PR #402 to preserve the existing main-targeted CI path and avoid a duplicate stacked PR.
+
+### Current evidence / release boundary
+- PR #402: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/402; remains OPEN/Draft/HOLD and unmerged.
+- Current PR head after fixture correction: `a49bfa8d87964b247c47b4090d827f47bfe4899c`.
+- Exact-head GitHub Actions were triggered for that SHA; at checkpoint update, focused Controlled Forward Runner, Clean Forward Evidence, Forward Integration, and collector persistence workflows were still running. The preceding exact-head attempt failed in two test modules at collection because of the synthetic fixture mismatch; this is corrected in the latest head and must be rechecked before claiming pass.
+- Earlier PR #402 head `50b6b3593714c163d1bba4d9a18a12cfab83adc4` had successful Controlled Forward Runner, Clean Forward Evidence, Forward Integration, Local Durable Collector and Collector Persistence workflows, but those results do not substitute for the latest SHA.
+- Registry source hashes/review pins are still incomplete; Tabdeal trade.sequence remains UNKNOWN. No live collector, exchange credentials, VPS changes, account access, order, or execution enablement.
+- Keep HOLD / NO_TRADE_ONLY for the legacy Tabdeal sequence path. This is a code hardening candidate, not evidence to activate it.
+
+### Delivery
+- Delivery target remains **2026-11-19**; preserve the **2026-11-04 chart acceptance milestone**. Do not let this bounded legacy-protocol hardening displace Gate.io chart acceptance or final frontend/backend stack reconciliation.
