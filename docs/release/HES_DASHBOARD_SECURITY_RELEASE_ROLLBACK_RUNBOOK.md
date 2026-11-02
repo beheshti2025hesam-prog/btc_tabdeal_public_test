@@ -1,9 +1,9 @@
 # HES dashboard security, release, and rollback runbook
 
-**Applies to:** the Gate.io persisted-feed + Signal Agent + canonical journal dashboard candidate in PR #398.  
+**Applies to:** the merged Gate.io persisted-feed + Strategy V2 + Mother V2 + News Radar + canonical journal dashboard release in PR #408 (main commit 388d4aa326ce4e678f63400f7ad4b53ae76b7b20).  
 **Target date:** 2026-11-19.  
 **Current disposition:** HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.  
-**Production status:** no production deployment or production rollback has occurred. Isolated tests do not replace production authorization or a production rollback rehearsal.
+**Runtime status:** the read-only dashboard has been deployed and runtime-accepted on the sole VPS. Trading remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY; no account connection or live order execution has occurred.
 
 ## Security boundary
 
@@ -54,7 +54,7 @@ The legacy `/api/signal` V1 route is diagnostic compatibility only. The dashboar
 5. Verify a staged install and rollback in an isolated environment. Capture exact SHA-256 hashes and command output; do not infer success from CI alone.
 6. Do not clean, reset, or overwrite the sole VPS dirty checkout. Do not deploy until the real frontend runtime, approved release target, permissions, exact-head CI checks, and owner-verified two-person ruleset are established. Do not fabricate an independent review or bypass a GitHub rule.
 
-## Controlled release (not yet authorized)
+## Controlled release procedure
 
 - Build a release artifact from the exact SHA that passed the required CI checks and the recorded internal technical audit; record its hash and dependencies.
 - Install to a new versioned release directory, not over the current release.
@@ -95,3 +95,24 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 ## Versioned paper-service path boundary
 
 - The paper evaluator and Learning Loop must execute from /opt/hes-trade-agent/current and use HES_DATA_ROOT=/opt/hes-trade-agent for shared mutable evidence. Never point a release service at the mutable working tree.
+
+
+## Deployment record — 2026-11-02 (read-only dashboard)
+
+- PR #408 was merged to `main` as `388d4aa326ce4e678f63400f7ad4b53ae76b7b20`. The exact candidate tree tested by 32/32 Actions and 817 passed + 70 subtests is identical to the merge tree.
+- Immutable release installed at `/opt/hes-trade-agent/releases/388d4aa326ce4e678f63400f7ad4b53ae76b7b20`; archive SHA-256 `6f77f27ae288572058f9a13b6a72897ed8349b0ccaaccb0b521ebb702c30c37e`.
+- Atomic current symlink switch: previous `/opt/hes-trade-agent/releases/2e8d3859ef154b030e0965ad4479f3fad36ae4c0`; current `/opt/hes-trade-agent/releases/388d4aa326ce4e678f63400f7ad4b53ae76b7b20`.
+- Exact previous service unit and existing drop-ins backed up to `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/`. No Git reset/clean/checkout or modification of the original dirty working tree.
+- Installed `/etc/systemd/system/hes-readonly-dashboard.service` from the release and `30-hes-news-monitor-state.conf`; `systemd-analyze verify` and daemon-reload passed; controlled service restart succeeded.
+- Effective service: user/group `sentinelx:sentinelx`; loopback `127.0.0.1:8765`; `ProtectSystem=strict`, `NoNewPrivileges=yes`, canonical release/data `ReadOnlyPaths`, no `ReadWritePaths`; one scoped `StateDirectory=hes-news-monitor`.
+- Runtime smoke: root, static assets, pinned chart asset, health, candles 15m/1h/4h, Strategy V2, Mother, News and Journal all HTTP 200; POST /api/journal HTTP 405. All intervals returned 240 gap-free Gate.io candles through `global_market_data_reader_v1`.
+- Strategy V2 = VERIFIED/NO_TRADE. Mother = BLOCKED_GATE/NO_TRADE (`NO_VALID_CANDIDATE`), witness verified. News Radar = OK with partial official macro/regulatory/central-bank and venue-announcement coverage; no qualified domestic/Iran-equities source is enabled. Journal = VERIFIED, 717 records.
+- A 285.6-second read-only soak sampled 15 times; all checked endpoints stayed HTTP 200, the dashboard stayed active, all candle batches stayed gap-free, the News Monitor polled twice, and journal SHA-256 remained unchanged (`c0b6d18471596921f775091b886ee48d5e87a809aa9e3fe007cdbdeafa1fb004`).
+- Browser render exact-tree CI: PASS, 239 candles, chart/API parity, responsive 390/768/1440, no browser exchange request or external chart CDN. Artifact SHA-256 `20408c4894f520b136662e5543aa897be2b49588dc4799bcb5ea05c00de8d94a`.
+- Trading authorization is unchanged: HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY; execution instrument mapping, independent risk/strategy approval and sufficient forward-only paper evidence remain separate gates.
+
+### Rollback lineage for this deployment
+- Previous release target: `/opt/hes-trade-agent/releases/2e8d3859ef154b030e0965ad4479f3fad36ae4c0`.
+- Previous service unit: `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/hes-readonly-dashboard.service`.
+- Previous drop-ins: `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/hes-readonly-dashboard.service.d/`.
+- On rollback, restore the backed-up unit and drop-ins, atomically restore the previous current symlink, daemon-reload, restart only `hes-readonly-dashboard.service`, then re-run the endpoint/security/journal-hash smoke. Do not stop Gate.io feed services or the paper evaluator, and never touch the canonical journal or lock file.
