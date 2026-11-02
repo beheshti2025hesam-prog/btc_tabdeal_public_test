@@ -288,3 +288,12 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 - This materially advances G3 evidence from deterministic test to short real-endpoint collector run, but **does not** prove WS recovery after real interruption, long-duration soak on the candidate code, or deployed candidate runtime parity. Keep G3 PARTIAL. Do not rerun the historical 24h REST soak just to duplicate existing evidence; next targeted proof is controlled, isolated reconnect/backfill after actual socket interruption, then runtime-lineage/soak under authorized change control.
 - Exact code/test SHA remains `9c6b1723272c69d2cdfabaf90efe22c5a794a388` with all 5 PR workflows green and local suite 629 passed + 19 subtests. Docs-only commits after it are not covered by that code SHA's CI.
 - Release remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY; no production service/pointer changed; no account connected; no order executed.
+
+
+## Controlled real-socket reconnect + REST backfill proof — 2026-11-02 07:17 UTC
+
+- In an isolated candidate checkout, opened a real Gate.io public WebSocket, subscribed to `spot.candlesticks` / `15m_BTC_USDT`, received one valid update, deliberately closed the socket, then opened a fresh socket and received another valid update. Both subscriptions succeeded with no WS errors.
+- After reconnect, fetched the canonical native REST adapter batch (`GateioSpotKlineSource.fetch(symbol='BTCUSDT', interval='15m', limit=5)`); 4 closed candles returned with zero adapter-reported gaps. Persisted only to `/tmp/hes_gateio_live_reconnect_backfill_20261102.jsonl` via the existing atomic merge helper, then replayed the identical batch. The second merge did not duplicate rows.
+- Result: 4 persisted closed rows; unique timestamps; contiguous 900-second spacing; all source/symbol/timeframe identities correct; repeat merge retained the same last open time. Exact test window 2026-11-02T07:17:28Z–07:17:36Z. No credentials, no trading endpoints, no production file/service changes.
+- Interpretation: this is real-endpoint socket close + fresh-subscription + REST reconciliation/idempotency evidence, paired with the automated collector-loop reconnect test. It does not force the collector process itself to experience a network exception while live, prove prolonged stability, or prove deployed candidate runtime parity. G3 remains PARTIAL pending authorized runtime lineage/soak and broader failure modes.
+- Release remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. No PR merge, deployment, service restart, account connection or order execution.
