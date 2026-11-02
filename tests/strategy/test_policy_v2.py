@@ -49,3 +49,8 @@ def test_rejects_out_of_range_indicators_and_nonfinite_rr():
 def test_rejects_boolean_risk_fraction():
     features={'15m':base('15m',110,100,120,60,65,'UP','ABOVE'),'1h':base('1h',110,100,120,60,65,'NONE','ABOVE'),'4h':base('4h',110,100,120,60,65,'NONE','ABOVE')}
     assert evaluate(features,risk_fraction=True).decision=='NO_TRADE'
+
+def test_rejects_oversized_integer_feature_without_raising():
+    features={'15m':base('15m',110,100,120,60,65,'UP','ABOVE'),'1h':base('1h',110,100,120,60,65,'NONE','ABOVE'),'4h':base('4h',110,100,120,60,65,'NONE','ABOVE')}
+    features['15m']['close']=10**10000
+    assert evaluate(features).decision=='NO_TRADE'
