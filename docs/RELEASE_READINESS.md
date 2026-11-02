@@ -29,15 +29,23 @@ This is the release-control contract for the existing HES Trade Agent. It is not
 
 ### Candidate PR #410
 
-PR #410 code-bearing SHA `9bb1dc7067744e52fa98b8158b932282b13c1b58` passed all five exact-head workflows after the existing browser workflow was pinned to Ubuntu 24.04. Later PR #410 commits only updated documentation; do not transfer the CI claim to those documentation-only SHAs.
+PR #410 is OPEN/Draft and GitHub reports mergeable. Latest code-bearing SHA `a0abac7d23893cf8d628041d8033ec9b5bee119e` passed all five exact-head workflows. Later checkpoint/release-document updates are docs-only; do not transfer CI claims to those docs-only SHAs.
 
-- Full repository regression, **611 passed + 19 subtests**: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716943
-- Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716890
-- Browser render/responsive proof: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716857
-- Bounded Binance Spot WebSocket transport smoke (not Gate.io recovery): https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399716982
-- Gate.io public candle contract smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41399717171
+- Full repository regression, **628 passed + 19 subtests**: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41403395583
+- Native OHLCV dashboard single path: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41403395695
+- Browser render/responsive proof: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41403395666
+- Native WebSocket live smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41403395650 (**Binance Spot**, not Gate.io recovery evidence)
+- Gate.io public candle contract smoke: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/41403395640
 
-Browser artifact SHA-256: `8bad8bfecd9e40911cdfcd8e0c9e6a0a20d1f3016a29b552f603b3eae2d621de`. It proves 239 closed Gate.io candles, same-batch chart/signal/API parity, close/volume match, responsive 390/768/1440 widths without overflow, and no browser market-data request or external chart CDN. Signal remains BLOCKED/NO_TRADE and execution OFF.
+Browser artifact ID `13121903096`, SHA-256 `92ca42d3941ea0ff435af87b351cb20f02d226b7387648404cb36f2ed28d7296`; the exact-head browser render/responsive workflow passed.
+
+The existing Gate.io collector has now been versioned in this PR rather than rebuilt: collector, service wrapper, read-only 24h soak script, operator README, 15m/1h/4h systemd units, matching security/sandbox drop-ins, optional soak unit, and portable tests.
+
+The collector reuses `GateioSpotKlineSource` for the canonical eight-field REST parser. WebSocket messages are wake-up notifications only; both base-volume `a` and quote-volume `v` must be present, neither is substituted, and persisted candle records always come from the shared REST adapter. It maintains at most 500 contiguous closed candles, atomically repairs recent missing bars when available, fails closed on malformed rows/conflicts/unresolved gaps, reconciles REST at least every 20 seconds, and uses bounded reconnect backoff.
+
+Targeted Gate.io collector/native-adapter/reader tests: **33 passed**. Full repository suite passed locally and in GitHub Actions: **628 passed + 19 subtests**. `systemd-analyze verify` accepted the four service units; the only warning was for an unrelated pre-existing Xray unit. No unit was installed, reloaded, enabled, started, stopped or restarted.
+
+The browser-facing dashboard stream remains disabled by design. The backend collector uses Gate.io WS as a wake-up and REST for persisted closed-candle values. The collector changes are candidate-only and **not deployed**; the running VPS services remain on the pre-existing dirty runtime checkout.
 
 ### Candidate PR #408
 
@@ -59,7 +67,7 @@ Rebase fixes: explicit Opportunity Policy scopes (default Gate.io BTC_USDT/15m);
 - Canonical source remains Gate.io Public Spot BTC_USDT. Chart and analysis consume the same persisted closed-candle batch via `global_market_data_reader_v1`; execution remains a separate adapter.
 - The three existing Gate.io candle collector services (15m, 1h, 4h), readonly dashboard, paper evaluator and learning loop were ACTIVE with `NRestarts=0` at the read-only audit. Latest persisted bars were 06:15Z (15m), 06:00Z (1h), 04:00Z (4h).
 - The previously recorded 24-hour Gate.io REST-feed soak passed: 1,440 samples / 86,400 seconds, zero invalid rows, no gap above 90 seconds, no feed-service restarts. Reuse this evidence; do not repeat it just to duplicate a report.
-- Gate.io WebSocket is disabled. The accepted chart/analysis path is REST closed candles; WebSocket reconnect is not a release requirement unless a concrete strategy need is established. The Binance Spot WebSocket smoke on #410 is not Gate.io evidence.
+- The browser-facing dashboard stream is disabled. The backend Gate.io collector uses WebSocket as a wake-up channel and the shared native REST adapter for all persisted closed-candle values. The Binance Spot WebSocket smoke on #410 is not Gate.io recovery evidence. The exact-head collector tests cover deterministic reconnect/backoff and backfill; live Gate.io WS/REST fault-injection remains open.
 - Runtime lineage remains PARTIAL: dashboard runs from `/opt/hes-trade-agent/current` → `releases/2e8d3859...`; paper evaluator and learning loop run from `/opt/hes-trade-agent` root, branch `feat/gateio-global-market-data-v1`, SHA `060d0d36...`, dirty worktree. This split was read-only inspected and left unchanged.
 
 ### Paper journal and Learning Loop
@@ -81,7 +89,7 @@ The supplied sequence-semantics document remains research-only. It does not just
 | G0 — Scope and lineage | Canonical repo, exact SHA, reconciled PR ancestry, known VPS/runtime lineage | PARTIAL (PR #408 now aligns to #406; dashboard vs paper/learning code roots still differ) |
 | G1 — Build and tests | Required tests/workflows on exact proposed release SHA; negative tests and artifacts | PARTIAL (#410 5/5 and #408 4/4 candidate workflows pass; final combined-stack SHA still required) |
 | G2 — Data integrity | Gate.io source identity, closed/fresh bars, same-batch chart/analysis, gaps/duplicates/schema/numeric checks | PASS for bounded Gate.io Spot scope (8-field REST schema, 239-bar parity, latest age 55.5s, prior 24h REST soak) |
-| G3 — Runtime resilience | Existing REST collector continuity, stale/gap detection, restart/backfill recovery and duplicate handling | PARTIAL (services active, zero restarts; deterministic restart/backfill fault-injection proof remains) |
+| G3 — Runtime resilience | Existing Gate.io WS/REST collector continuity, stale/gap detection, bounded reconnect, REST backfill and duplicate/conflict handling | PARTIAL (collector is versioned and deterministic reconnect/backfill tests pass; live WS/REST fault-injection and authorized-runtime recovery evidence remain) |
 | G4 — Frontend integration | Existing real entrypoint, browser evidence and deployed route/runtime parity on reconciled release stack | PARTIAL (candidate browser proof passes; deployed runtime parity remains open) |
 | G5 — Decision safety | Independent structure/confirmation/strategy-quality approval, independent risk approval, fail-closed negative tests and adequate Gate.io-based forward outcomes | BLOCKED |
 | G6 — Execution boundary | Authoritative execution venue contract, symbol/instrument mapping, precision/minimums, idempotency, order/fill/status/fee reconciliation and separate authorization | BLOCKED / OFF |
