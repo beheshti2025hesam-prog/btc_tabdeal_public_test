@@ -212,3 +212,7 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 - Do not claim 24h collector recovery is newly proven by the 23-test unit run. Deterministic process restart/backfill fault injection and deployed runtime parity remain open release gates.
 - The source-to-render chart proof and current PR CI remain candidate evidence. Full dependency-stack final-SHA reconciliation, independent strategy/risk review, sufficient Gate.io forward observations, authoritative execution instrument mapping, rollback/restore evidence and explicit go/no-go remain required.
 - No PR merged; no live service restarted; no current-pointer change; no exchange account connection; no order executed. Execution remains disabled.
+
+### Full-suite result added after focused tests
+
+- On isolated checkout at code-bearing SHA `daa7d9f1d48bc132e1c6a5c5c1558d2e0cf0b156`, full repository test suite passed: **628 passed, 19 subtests passed (5.98s)**. This is local execution evidence; the five GitHub Actions runs are separately tied to the same code-bearing SHA. Documentation-only commits after this SHA are not claimed as independently rerun.
