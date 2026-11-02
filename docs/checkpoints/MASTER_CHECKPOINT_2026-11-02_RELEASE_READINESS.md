@@ -175,6 +175,13 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 - The blind OOS workflow completed successfully as a workflow, but the verdict is still `G6_BLOCKED_INSUFFICIENT_FORWARD_OBSERVATIONS` (95 forward observations vs 4,000 required).
 - Its frozen source `data/trades.csv` is legacy Tabdeal trade-event data, not the canonical Gate.io candle feed. Preserve the old artifact as historical research only; it cannot approve the current Gate.io strategy. The Gate.io-based decision journal is the current forward evidence path.
 
+### Documentation consolidation completed
+
+- Updated `docs/PROJECT_DNA.md` with the Gate.io single-source boundary for the current BTC_USDT release, the separate execution adapter, the no-reinvention rule, 20-year maintainability controls, the two-person operating model, and the GitHub/Master Checkpoint source-of-truth contract.
+- Updated `docs/release/HES_DASHBOARD_SECURITY_RELEASE_ROLLBACK_RUNBOOK.md` to distinguish the backend Gate.io WS/REST collector from the disabled browser-facing stream, keep collector services separate from dashboard pointer changes, and record current exact-SHA evidence and remaining release gates.
+- Updated `docs/RELEASE_READINESS.md` and `deploy/systemd/README.md`; the existing Gate.io service templates and soak procedure are now discoverable from the release documentation.
+- These are documentation-only changes after code-bearing PR #410 SHA `a0abac7...`; no new code validation is claimed for documentation commits.
+
 ### Safe execution boundary and original workspace preservation
 
 - The uploaded sequence-semantics document was read in full. It is research-only and does not justify applying trade-sequence logic to the Gate.io OHLCV candle path. Venue sequence semantics remain adapter-specific and UNKNOWN unless a concrete execution/order-book feature needs them.
