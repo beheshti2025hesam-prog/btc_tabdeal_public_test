@@ -370,3 +370,9 @@ This plan is documentation only; it does not authorize or perform a deployment.
 - No language toggle was added: the existing application default remains English, and no new product-language requirement was approved in this UX task.
 - No deployment, service restart, production pointer change, account connection, or order execution occurred. Keep HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.
 - Delivery target remains **2026-11-19**; protect the **2026-11-04 chart acceptance milestone** and prioritize final stack/runtime reconciliation over further visual redesign.
+
+
+### Dashboard stack integration note — important
+- PR #411 is a UI-only child of PR #408. PR #410 is a separate Gate.io/Signal Agent candidate and also changes `web/dashboard.py`; therefore #411's successful tests do not prove that the #408 Mother/News dashboard and #410 Gate.io/Signal Agent changes have already been combined.
+- During final stack reconciliation, preserve the six-panel navigation/accessibility improvements while integrating the existing backend/API changes. Reuse one dashboard entrypoint and one chart path; do not keep competing dashboard implementations.
+- Re-run exact-final-SHA full regression, dashboard single-path, browser render and responsive checks after the combined stack is assembled. Until then G4 remains PARTIAL and PR #411 remains Draft/unmerged.
