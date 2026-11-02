@@ -116,3 +116,21 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 - Previous service unit: `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/hes-readonly-dashboard.service`.
 - Previous drop-ins: `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/hes-readonly-dashboard.service.d/`.
 - On rollback, restore the backed-up unit and drop-ins, atomically restore the previous current symlink, daemon-reload, restart only `hes-readonly-dashboard.service`, then re-run the endpoint/security/journal-hash smoke. Do not stop Gate.io feed services or the paper evaluator, and never touch the canonical journal or lock file.
+
+
+## Operator access from Termius (SSH local port forwarding)
+
+The dashboard is deliberately loopback-only. Do not publish port 8765.
+
+1. Open the existing saved VPS host in Termius. Keep its existing hostname/address, SSH username and key; SSH port is `9011`.
+2. Open that host's **Port Forwarding** settings and add a **Local** rule:
+   - Local/source port: `8765`
+   - Destination/remote host: `127.0.0.1`
+   - Destination/remote port: `8765`
+3. Connect the SSH session and keep it connected while viewing the dashboard.
+4. In the device browser, open `http://127.0.0.1:8765`.
+5. If local port 8765 is already occupied, choose local port `18765` and open `http://127.0.0.1:18765`; leave remote destination host/port unchanged.
+
+Security verification on 2026-11-02: SSH listens on TCP 9011; effective policy has public-key auth enabled, password auth disabled, TCP forwarding enabled, GatewayPorts disabled, X11 forwarding disabled, MaxAuthTries 3. nftables input policy is DROP and permits new SSH TCP 9011 and HTTPS TCP 443; dashboard TCP 8765 is not an inbound allow rule. Dashboard listens only on 127.0.0.1:8765. The local tunnel therefore carries dashboard access inside the authenticated SSH connection without opening a public dashboard port.
+
+Do not change SSH users/keys, enable password auth, add a public 8765 rule, or expose the unauthenticated dashboard via public reverse proxy as part of this procedure.

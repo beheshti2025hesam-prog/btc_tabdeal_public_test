@@ -523,3 +523,12 @@ This section supersedes earlier candidate-only statements in this checkpoint abo
 - This frontend release does not prove the requested >90% paper win rate or the ≤3 high-quality signals/day target. Strategy/structure/confirmation quality, independent risk approval, execution-instrument mapping and adequate forward-only paper observations remain separate gates.
 - News coverage remains deliberately partial and clearly labelled; unqualified sources remain disabled.
 - Fixed milestones remain chart acceptance **2026-11-04** and delivery **2026-11-19**. Preserve the rollback release and do not modify the sole dirty checkout.
+
+
+## Secure operator access — Termius SSH local forwarding — 2026-11-02
+
+- Dashboard intentionally binds only to `127.0.0.1:8765`; it is not exposed on the VPS public interface. No public dashboard listener or reverse-proxy route was added.
+- SSH daemon effective policy: TCP port `9011`, public-key authentication enabled, password authentication disabled, TCP forwarding enabled, `GatewayPorts no`, `X11Forwarding no`, `MaxAuthTries 3`. The active nftables input chain has default-drop policy and explicitly accepts new SSH connections on TCP `9011` (and existing HTTPS TCP `443`); dashboard port `8765` is not allowed inbound.
+- For operator viewing, reuse the existing saved Termius SSH host/key profile; create a **Local** port-forward rule: local/source port `8765` → remote/destination host `127.0.0.1`, destination port `8765`. Keep the SSH host's existing port `9011` and saved username/key. Open `http://127.0.0.1:8765` on the device while the SSH tunnel is connected. If local port 8765 is occupied, use local port `18765` and open `http://127.0.0.1:18765`; remote destination remains `127.0.0.1:8765`.
+- This is an SSH-encrypted local tunnel, not a public URL. Do not add a public port 8765 firewall rule, bind the dashboard to `0.0.0.0`, or expose an unauthenticated dashboard through a public reverse proxy.
+- The assistant cannot manipulate the user's Termius Android UI or access the private key material; the saved host/key profile is reused by the user when creating the local forwarding rule.
