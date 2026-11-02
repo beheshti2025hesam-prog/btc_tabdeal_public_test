@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 from .native_ohlcv_v1 import INTERVAL_MS, CandleGap, NativeCandle, NativeOHLCVBatch, validate_native_batch
 
 REST_URL = "https://api.gateio.ws/api/v4/spot/candlesticks"
+CANDLE_SCHEMA_CONTRACT_VERSION = "gateio_spot_candlestick_v2"
 VOLUME_SEMANTICS_CONTRACT_VERSION = "gateio_spot_candlestick_volume_v1"
 VOLUME_SEMANTICS_SOURCE_DOC_URL = "https://www.gate.com/docs/developers/apiv4/en/spot/"
 VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES = True
@@ -91,14 +92,17 @@ class GateioSpotKlineSource:
         interval_ms=INTERVAL_MS[interval]
         canonical={}; open_excluded=0
         for row in rows:
-            if not isinstance(row,(list,tuple)) or len(row)<7: raise ValueError("Gate.io candle row must contain at least seven fields")
+            if not isinstance(row,(list,tuple)) or len(row) != 8: raise ValueError("Gate.io candle row must contain exactly eight documented fields")
             if type(row[0]) not in (str,int) or type(row[0]) is bool: raise ValueError("invalid Gate.io candle timestamp")
             try: open_ms=int(row[0])*1000
             except (ValueError,TypeError) as exc: raise ValueError("invalid Gate.io candle timestamp") from exc
-            # Gate.io order: timestamp, quote volume, close, high, low, open, base volume.
+            # Gate.io order: timestamp, quote volume, close, high, low, open,
+            # base volume, closed-window flag.
             quote=_wire_decimal(row[1],"quote_volume"); close=_wire_decimal(row[2],"close")
             high=_wire_decimal(row[3],"high"); low=_wire_decimal(row[4],"low")
             open_=_wire_decimal(row[5],"open"); volume=_wire_decimal(row[6],"volume")
+            if row[7] not in ("true", "false"): raise ValueError("invalid Gate.io closed-window flag")
+            venue_closed = row[7] == "true"
             if open_ms < 0 or open_ms % interval_ms: raise ValueError("misaligned Gate.io candle timestamp")
             if min(open_,high,low,close) <= 0 or min(volume,quote) < 0: raise ValueError("invalid Gate.io OHLCV values")
             if high < max(open_,low,close) or low > min(open_,high,close): raise ValueError("invalid Gate.io OHLC bounds")
@@ -106,13 +110,13 @@ class GateioSpotKlineSource:
             if open_ms > cutoff: raise ValueError("Gate.io returned a future candle")
             if start_time_ms is not None and open_ms < start_time_ms: continue
             if end_time_ms is not None and open_ms > end_time_ms: continue
-            key=(open_ms,close_ms,open_,high,low,close,volume,quote)
+            key=(open_ms,close_ms,open_,high,low,close,volume,quote,venue_closed)
             if open_ms in canonical and canonical[open_ms] != key: raise ValueError("conflicting duplicate Gate.io candle")
             canonical[open_ms]=key
-        open_excluded = sum(1 for key in canonical.values() if key[1] >= cutoff)
+        open_excluded = sum(1 for key in canonical.values() if key[1] >= cutoff or not key[8])
         candles=[]
-        for open_ms,close_ms,open_,high,low,close,volume,quote in sorted(canonical.values(),key=lambda x:x[0]):
-            if close_ms >= cutoff: continue
+        for open_ms,close_ms,open_,high,low,close,volume,quote,venue_closed in sorted(canonical.values(),key=lambda x:x[0]):
+            if not venue_closed or close_ms >= cutoff: continue
             candles.append(NativeCandle(venue=self.venue,product=self.product,symbol=symbol,interval=interval,
                 open_time_ms=open_ms,close_time_ms=close_ms,open=open_,high=high,low=low,close=close,
                 volume=volume,quote_volume=quote,trade_count=None,taker_buy_volume=None,taker_buy_quote_volume=None,closed=True))

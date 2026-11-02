@@ -36,6 +36,30 @@ The existing entrypoint is `web.dashboard`; this service template does not intro
 - Reads canonical persisted candles from `/opt/hes-trade-agent/data/forward`; do not copy a stale feed into the release directory for deployment.
 - Runs as `sentinelx`, with a read-only filesystem sandbox, private temporary directory, no-new-privileges, and no writable project paths.
 - Does not enable the Gate.io collector, WebSocket stream, or order execution. The dashboard's stream remains disabled and the API is read-only.
+- News Radar state is isolated under `/var/lib/hes-news-monitor` by `30-news-monitor-state.conf.example`; this does not grant write access to market data or the canonical trade journal.
 - `ConditionPathExists` prevents startup before a staged release pointer exists.
 
 **Release gate:** installing this file, creating the production release pointer, running `systemctl daemon-reload`, starting or enabling the unit, and any remote ingress configuration require explicit release approval. Do not run those commands as part of CI or the staging rehearsal. First validate the unit, service user/group, filesystem permissions, exact artifact hash, health gate, browser/API batch identity, and rollback target in an isolated environment.
+
+
+## Strategy V2 paper services
+
+- Install the reviewed evaluator and learning-loop units from this directory during the controlled release.
+- Both services execute code only through /opt/hes-trade-agent/current and use HES_DATA_ROOT=/opt/hes-trade-agent for shared mutable evidence.
+- Only data/forward and logs are writable; source code under current remains immutable.
+- The paper evaluator reads persisted Gate.io Public Spot candles and appends paper decision/candidate/outcome events. The Learning Loop reads the same canonical journal and writes validation/report artifacts. Neither service can submit exchange orders.
+- Do not leave either unit pointed at /opt/hes-trade-agent/scripts in the mutable working tree.
+
+
+## Gate.io public market-data collector (versioned service templates)
+
+The existing Gate.io collector is a separate market-data service; it does not change the read-only dashboard unit or enable a browser WebSocket stream.
+
+- hes-global-market-data-gateio.service collects 15m closed candles.
+- hes-global-market-data-gateio-1h.service collects 1h closed candles.
+- hes-global-market-data-gateio-4h.service collects 4h closed candles.
+- hes-global-market-data-gateio-soak.service is an optional 24-hour read-only integrity soak; do not enable it by default.
+- The collector reuses GateioSpotKlineSource for REST reconciliation, so the eight-field closed-candle contract has one parser. WebSocket messages are wake-up notifications only, require both base (a) and quote (v) volume, and are never persisted as candle records.
+- The persisted file is a rolling window of at most 500 contiguous closed candles. Recent missing candles are merged by open time and atomically repaired; unresolved gaps or conflicting duplicates fail closed.
+- Matching systemd drop-ins preserve the deployed UMask=0077 and sandbox restrictions. The service units use /opt/hes-trade-agent and sentinelx because that is the current VPS layout; adapt these paths/account names for other hosts.
+- Installing units, daemon-reload, enabling, starting, restarting, or changing service state remains a separately authorized operational action. CI and code review must never run those actions.

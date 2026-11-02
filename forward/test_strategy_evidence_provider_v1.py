@@ -33,15 +33,15 @@ def make_batch(interval, now_ms, *, symbol="BTCUSDT", venue="binance", product="
             low=Decimal(str(low)), close=Decimal(str(close)),
             volume=Decimal(str(volume)),
             quote_volume=Decimal(str(volume * close)),
-            trade_count=100,
-            taker_buy_volume=Decimal(str(volume * 0.55)),
-            taker_buy_quote_volume=Decimal(str(volume * close * 0.55)),
+            trade_count=100 if venue != "gateio" else None,
+            taker_buy_volume=Decimal(str(volume * 0.55)) if venue != "gateio" else None,
+            taker_buy_quote_volume=Decimal(str(volume * close * 0.55)) if venue != "gateio" else None,
             closed=True,
         ))
         previous_close = close
     return NativeOHLCVBatch(
         venue=venue, product=product, symbol=symbol, interval=interval,
-        endpoint_kind="klines", fetched_at_ms=now_ms,
+        endpoint_kind="spot_candlesticks" if venue == "gateio" else "klines", fetched_at_ms=now_ms,
         response_sha256=digest * 64, candles=tuple(candles), gaps=(),
         open_candles_excluded=1,
     )

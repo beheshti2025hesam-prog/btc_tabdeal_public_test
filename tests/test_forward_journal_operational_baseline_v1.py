@@ -77,7 +77,6 @@ def test_partial_trailing_record_fails_closed_without_mutation(tmp_path):
 @pytest.mark.parametrize(
     "existing, message",
     [
-        ('{"symbol":"BTC_USDT"}\n', "missing valid event_id"),
         ('[]\n', "not an object"),
         ('\n', "blank record"),
         ('{"event_id":"same"}\n{"event_id":"same"}\n', "duplicate event_id"),
@@ -89,6 +88,18 @@ def test_ambiguous_existing_records_fail_closed(tmp_path, existing, message):
 
     with pytest.raises(ValueError, match=message):
         ForwardJournalV1(path).append_decision(record("new-event"))
+
+
+def test_legacy_existing_record_without_event_id_is_preserved(tmp_path):
+    path = tmp_path / "observations.jsonl"
+    legacy = {"symbol": "BTC_USDT"}
+    path.write_text(json.dumps(legacy) + "\n", encoding="utf-8")
+
+    ForwardJournalV1(path).append_decision(record("new-event"))
+
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    expected_new = {**record("new-event"), "outcome": None, "closed_at": None}
+    assert rows == [legacy, expected_new]
 
 
 def test_oversized_existing_record_fails_closed(tmp_path):

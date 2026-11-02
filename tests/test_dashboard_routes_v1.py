@@ -115,6 +115,97 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("TradingView",notice)
         self.assertIn("Apache License",license_text)
 
+    def test_news_radar_panel_is_read_only_and_not_a_market_data_source(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode()
+        self.assertIn('id="newsRadarPanel"', page)
+        self.assertIn("Gate.io remains the sole live market-data source", page)
+        with urlopen(self.base + "/static/dashboard.js") as response:
+            script = response.read().decode()
+        self.assertIn("fetch('/api/news'", script)
+        self.assertNotIn("fetch('/api/signal", script)
+
+    def test_mother_panel_and_browser_poll_are_present(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode()
+        self.assertIn('id="motherPanel"', page)
+        self.assertIn("Mother Orchestrator · canonical V2 evidence chain", page)
+        with urlopen(self.base + "/static/dashboard.js") as response:
+            script = response.read().decode()
+        self.assertIn("fetch('/api/mother'", script)
+        self.assertIn("witness", script)
+
+    def test_mother_endpoint_returns_independently_witnessed_observation(self):
+        strategy_view = {"status": "VERIFIED"}
+        payload = {
+            "schema": "hes.mother_v2_dashboard_view.v1", "status": "BLOCKED_GATE",
+            "decision": "NO_TRADE", "stages": [{"agent": "confirmation", "state": "UNCONFIRMED"}],
+            "witness": {"verified": True}, "execution_authorized": False,
+            "execution_enabled": False, "orders_placed": False,
+        }
+        with patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy_view), \
+             patch.object(dashboard, "read_mother_v2_dashboard", return_value=payload) as mother:
+            with urlopen(self.base + "/api/mother") as response:
+                result = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        mother.assert_called_once_with(strategy_view=strategy_view)
+        self.assertTrue(result["witness"]["verified"])
+        self.assertFalse(result["execution_authorized"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
+
+    def test_mother_endpoint_fails_closed_without_verified_evidence(self):
+        with patch.object(dashboard, "read_strategy_v2_dashboard",
+                          side_effect=dashboard.StrategyV2DashboardError("stale report")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/mother")
+        self.assertEqual(error.exception.code, 503)
+        result = json.loads(error.exception.read())
+        self.assertEqual(result["decision"], "NO_TRADE")
+        self.assertFalse(result["witness"]["verified"])
+        self.assertTrue(result["fail_closed"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
+
+    def test_news_endpoint_returns_verified_snapshot(self):
+        snapshot = {
+            "schema_version": "hes.news_monitor_snapshot.v1",
+            "monitor": {"status": "OK", "last_poll_at": "2026-11-01T12:00:00Z",
+                        "source_profile_status": "partial_official_macro_regulatory_central_bank_and_venue_announcements",
+                        "source_health": [{"source_id": "fed_press_all", "source_scope": "international", "status": "ok_empty"}]},
+            "brief": {"schema_version": "hes.news_brief.v1", "status": "no_relevant_news",
+                      "headline": "No high-impact relevant item", "findings": [], "veto_flags": [],
+                      "provenance": {"source_failures": []}},
+        }
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", return_value=snapshot):
+            with urlopen(self.base + "/api/news") as response:
+                payload = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        self.assertEqual(payload["monitor"]["status"], "OK")
+        self.assertEqual(payload["brief"]["schema_version"], "hes.news_brief.v1")
+
+    def test_news_endpoint_fails_closed_for_stale_or_corrupt_snapshot(self):
+        with patch.object(dashboard._NEWS_MONITOR, "read_snapshot", side_effect=ValueError("news monitor snapshot stale")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/news")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
+    def test_legacy_signal_route_is_retired_without_running_or_writing(self):
+        with patch.object(dashboard, "_get_batch", side_effect=AssertionError("legacy route must not fetch")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m")
+        self.assertEqual(error.exception.code, 410)
+        payload = json.loads(error.exception.read())
+        self.assertEqual(payload["decision"], "NO_TRADE")
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
     def test_health_and_execution_boundary(self):
         batch=sample_batch()
         with patch("web.dashboard._get_batch",return_value=(batch,SimpleNamespace())):
@@ -201,7 +292,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertFalse(payload["execution_enabled"])
 
 
-    def test_dashboard_main_does_not_start_websocket_by_default(self):
+    def test_dashboard_main_starts_only_the_news_monitor_worker_by_default(self):
         dashboard._STREAM_STATE.update(status="disabled", reason=None, last_event_ms=None)
         with patch.dict(os.environ):
             os.environ.pop("HES_BINANCE_STREAM_ENABLED", None)
@@ -209,12 +300,14 @@ class DashboardRouteTests(unittest.TestCase):
                  patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                 server_factory.return_value.serve_forever.return_value = None
                 dashboard.main()
-        worker_thread.assert_not_called()
+        worker_thread.assert_called_once()
+        self.assertEqual(worker_thread.call_args.kwargs["target"], dashboard._NEWS_MONITOR.run_forever)
+        self.assertEqual(worker_thread.call_args.kwargs["name"], "hes-news-monitor")
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         server_factory.return_value.serve_forever.assert_called_once_with()
 
 
-    def test_dashboard_main_requires_exact_opt_in_value_for_websocket(self):
+    def test_dashboard_main_never_starts_legacy_websocket_for_nonexact_opt_in_values(self):
         for value in ("", "true", "yes", "2", " 1"):
             with self.subTest(value=value):
                 dashboard._STREAM_STATE.update(status="disabled", reason=None, last_event_ms=None)
@@ -223,9 +316,9 @@ class DashboardRouteTests(unittest.TestCase):
                          patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                         server_factory.return_value.serve_forever.return_value = None
                         dashboard.main()
-                worker_thread.assert_not_called()
+                worker_thread.assert_called_once()
+                self.assertEqual(worker_thread.call_args.kwargs["target"], dashboard._NEWS_MONITOR.run_forever)
                 self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
-
 
 
     def test_dashboard_main_never_starts_legacy_binance_websocket_in_gateio_mode(self):
@@ -235,111 +328,13 @@ class DashboardRouteTests(unittest.TestCase):
                  patch("web.dashboard.ThreadingHTTPServer") as server_factory:
                 server_factory.return_value.serve_forever.return_value = None
                 dashboard.main()
-        worker_thread.assert_not_called()
+        worker_thread.assert_called_once()
+        self.assertEqual(worker_thread.call_args.kwargs["target"], dashboard._NEWS_MONITOR.run_forever)
         self.assertEqual(dashboard._STREAM_STATE["status"], "disabled")
         self.assertEqual(dashboard._STREAM_STATE["reason"], "gateio_stream_not_enabled")
 
 
 
-    def test_signal_agent_wires_strategy_provider_through_canonical_gate_chain(self):
-        batch = sample_batch()
-        htf_batch = SimpleNamespace(**{**batch.__dict__, "interval": "4h"})
-        features = SimpleNamespace(
-            decision_ready=False,
-            reason="VOLUME_SEMANTICS_UNAPPROVED",
-            quality=SimpleNamespace(passed=False),
-        )
-        observed_at = datetime.fromtimestamp(batch.fetched_at_ms / 1000, timezone.utc)
-        checks = tuple(
-            StrategyEvidenceCheckV1(
-                name=name, state="UNKNOWN", evidence_ref="test:" + name,
-                evidence_sha256=f"{i + 1:064x}", provider="test-provider",
-                provider_version="1", observed_at=observed_at,
-            )
-            for i, name in enumerate(REQUIRED_CHECKS)
-        )
-        confirmation = tuple(
-            ConfirmationCheck(name, "UNKNOWN", "test:" + name, observed_at)
-            for name in (
-                "structure_direction_aligned", "candidate_valid",
-                "direction_regime_alignment", "structural_event_present",
-            )
-        )
-        risk = tuple(
-            RiskCheck(name, "UNKNOWN", "test:" + name, observed_at)
-            for name in (
-                "confirmation_valid", "risk_context_available",
-                "entry_stop_target_geometry_valid", "risk_reward_gate_passed",
-                "execution_disabled",
-            )
-        )
-        strategy = SimpleNamespace(
-            VERSION="test-provider-v1", observed_at=observed_at, venue="gateio",
-            product="spot", symbol="BTCUSDT", timeframe="15m", regime="UNKNOWN",
-            direction="UNKNOWN", structure_labels=(), structure_events=(),
-            strategy_checks=checks, confirmation_checks=confirmation, risk_checks=risk,
-            risk_geometry=None, mfi14=None, adx14=None, plus_di14=None, minus_di14=None,
-            ema50_15m=None, ema50_4h=None, ema200_4h=None,
-            blocked_reasons=("STRATEGY_SOURCE_GAPS_PRESENT",), order_block=None,
-            mfi_divergence=None,
-        )
-        def get_batch(symbol, interval):
-            return (batch if interval == "15m" else htf_batch, features)
-        with tempfile.TemporaryDirectory() as tempdir:
-            journal_path = os.path.join(tempdir, "decisions.jsonl")
-            with patch.dict(os.environ, {"HES_TRADE_JOURNAL_PATH": journal_path}), \
-                 patch("web.dashboard._get_batch", side_effect=get_batch) as batch_reader, \
-                 patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy) as provider:
-                with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
-                    payload = json.loads(response.read())
-            self.assertEqual(batch_reader.call_count, 2)
-            batch_reader.assert_any_call("BTCUSDT", "15m")
-            batch_reader.assert_any_call("BTCUSDT", "4h")
-            provider.assert_called_once_with(
-                candles_15m=batch, candles_4h=htf_batch, now_ms=unittest.mock.ANY
-            )
-            self.assertEqual(payload["status"], "BLOCKED")
-            self.assertEqual(payload["decision"], "NO_TRADE")
-            self.assertEqual(payload["source"], "gateio_public_spot")
-            self.assertEqual(payload["source_reader"], "global_market_data_reader_v1")
-            self.assertEqual(payload["input_batch_sha256"], "a" * 64)
-            self.assertEqual(payload["strategy_15m_batch_sha256"], "a" * 64)
-            self.assertEqual(payload["strategy_4h_batch_sha256"], "a" * 64)
-            self.assertEqual(payload["strategy_quality_state"], "UNKNOWN")
-            self.assertEqual(payload["structure_direction"], "UNKNOWN")
-            self.assertIn("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED", payload["blocked_reasons"])
-            self.assertIn("STRATEGY_SOURCE_GAPS_PRESENT", payload["blocked_reasons"])
-            self.assertNotIn("STRATEGY_QUALITY_PROVIDER_NOT_WIRED", payload["blocked_reasons"])
-            self.assertEqual(payload["arbitration_decision"], "NO_TRADE")
-            self.assertEqual(payload["arbitration_conflict_class"], "UNKNOWN_EVIDENCE")
-            self.assertEqual(len(payload["arbitration_audit_sha256"]), 64)
-            self.assertEqual(payload["mother_orchestration"]["decision"], "NO_TRADE")
-            self.assertTrue(payload["mother_witness"]["verified"])
-            self.assertFalse(payload["mother_orchestration"]["execution_authorized"])
-            self.assertEqual(payload["learning_journal_status"], "RECORDED")
-            with open(journal_path, encoding="utf-8") as handle:
-                journal_rows = [json.loads(line) for line in handle if line.strip()]
-            self.assertEqual(len(journal_rows), 1)
-            self.assertEqual(journal_rows[0]["decision"], "NO_TRADE")
-            self.assertIsNone(journal_rows[0]["outcome"])
-            self.assertFalse(payload["execution_enabled"])
-            self.assertFalse(payload["execution_instrument_mapping_verified"])
-
-    def test_signal_agent_fails_closed_if_strategy_provider_is_unavailable(self):
-        batch = sample_batch()
-        features = SimpleNamespace(
-            decision_ready=True, reason=None, quality=SimpleNamespace(passed=True),
-        )
-        with patch("web.dashboard._get_batch", return_value=(batch, features)), \
-             patch("web.dashboard._STRATEGY_PROVIDER.evaluate", side_effect=TimeoutError("provider unavailable")):
-            with self.assertRaises(HTTPError) as error:
-                urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m")
-        self.assertEqual(error.exception.code, 503)
-        payload = json.loads(error.exception.read())
-        self.assertEqual(payload["decision"], "NO_TRADE")
-        self.assertEqual(payload["status"], "BLOCKED")
-        self.assertTrue(payload["fail_closed"])
-        self.assertFalse(payload["execution_enabled"])
 
     def test_journal_endpoint_fails_closed_when_canonical_journal_is_unavailable(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -363,12 +358,6 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("total journal records", script)
         self.assertIn("td.textContent=value", script)
 
-    def test_signal_agent_rejects_unsupported_scope_before_data_fetch(self):
-        with patch("web.dashboard._get_batch") as get_batch:
-            with self.assertRaises(HTTPError) as error:
-                urlopen(self.base + "/api/signal?symbol=ETHUSDT&interval=15m")
-        self.assertEqual(error.exception.code, 400)
-        get_batch.assert_not_called()
 
     def test_security_headers_and_read_only_methods(self):
         with urlopen(self.base+"/") as response:
@@ -390,70 +379,33 @@ class DashboardRouteTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, 405)
 
 
-    def test_mother_risk_approval_is_independent_of_execution_mapping(self):
-        batch = sample_batch()
-        htf_batch = SimpleNamespace(**{
-            **batch.__dict__, "interval": "4h", "response_sha256": "b" * 64,
-        })
-        features = SimpleNamespace(
-            decision_ready=True, reason=None, quality=SimpleNamespace(passed=True),
-        )
-        observed_at = datetime.now(timezone.utc)
-        strategy = SimpleNamespace(
-            VERSION="test-strategy-v1", observed_at=observed_at, venue="gateio",
-            product="spot", symbol="BTCUSDT", timeframe="15m", regime="UPTREND",
-            direction="BULLISH", structure_labels=("HH", "HL"),
-            structure_events=("BOS",), strategy_checks=(), confirmation_checks=(),
-            risk_checks=(), risk_geometry=None, mfi14=60, adx14=30, plus_di14=25,
-            minus_di14=10, ema50_15m=100, ema50_4h=99, ema200_4h=95,
-            blocked_reasons=(), order_block=None, mfi_divergence=None,
-        )
-        result = SimpleNamespace(
-            candidate=SimpleNamespace(state="CANDIDATE_LONG"),
-            confirmation=SimpleNamespace(
-                state="CONFIRMED_LONG", checks=(), reason_codes=(),
-            ),
-            risk=SimpleNamespace(
-                state="RISK_APPROVED", checks=(), reason_codes=(),
-            ),
-            decision=SimpleNamespace(decision="LONG", reason_codes=()),
-            blocked_reasons=(),
-            strategy_quality=SimpleNamespace(
-                state="PASS", evidence_sha256="d" * 64, reason_codes=(),
-                passed_count=5, required_count=5,
-            ),
-        )
-        arbitration = SimpleNamespace(
-            decision="LONG", conflict_class="NONE", reason_codes=(),
-            audit_sha256="c" * 64, assessments=(),
-        )
+    def test_dashboard_has_accessible_section_navigation_and_semantic_landmarks(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode("utf-8")
+        self.assertIn('href="#main-content"', page)
+        self.assertIn('<main id="main-content" tabindex="-1">', page)
+        self.assertIn('<h1 class="brand">HES Trade Agent</h1>', page)
+        self.assertIn('<nav class="section-nav" aria-label="Dashboard sections">', page)
+        for section_id in ("marketPanel", "strategyV2Panel", "motherPanel",
+                           "newsRadarPanel", "safetyPanel", "journalPanel"):
+            with self.subTest(section_id=section_id):
+                self.assertIn(f'id="{section_id}"', page)
+                self.assertIn(f'href="#{section_id}"', page)
+        self.assertIn('id="message" role="status" aria-live="polite"', page)
+        self.assertIn('id="journalStatus" role="status" aria-live="polite"', page)
+        self.assertIn('<caption class="sr-only">', page)
+        with urlopen(self.base + "/static/dashboard.css") as response:
+            css = response.read().decode("utf-8")
+        self.assertIn(".skip-link:focus", css)
+        self.assertIn(".section-nav", css)
+        self.assertIn(":focus-visible", css)
 
-        def get_batch(symbol, interval):
-            return (batch if interval == "15m" else htf_batch, features)
 
-        with tempfile.TemporaryDirectory() as tempdir:
-            journal_path = os.path.join(tempdir, "decisions.jsonl")
-            with patch.dict(os.environ, {"HES_TRADE_JOURNAL_PATH": journal_path}), \
-                 patch("web.dashboard._get_batch", side_effect=get_batch), \
-                 patch("web.dashboard._STRATEGY_PROVIDER.evaluate", return_value=strategy), \
-                 patch.object(dashboard._SIGNAL_AGENT, "evaluate", return_value=result), \
-                 patch.object(dashboard._ARBITRATION_RESOLVER, "resolve", return_value=arbitration):
-                with urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m") as response:
-                    payload = json.loads(response.read())
+    def test_market_data_root_uses_shared_mutable_store_not_release_directory(self):
+        self.assertEqual(dashboard._market_data_root(), dashboard.PROJECT_ROOT)
+        with patch.dict(os.environ, {"HES_GLOBAL_MARKET_DATA_ROOT": "/opt/hes-trade-agent"}):
+            self.assertEqual(str(dashboard._market_data_root()), "/opt/hes-trade-agent")
 
-            self.assertEqual(payload["mother_orchestration"]["decision"], "LONG")
-            risk_stage = next(
-                stage for stage in payload["mother_orchestration"]["stages"]
-                if stage["agent"] == "risk"
-            )
-            self.assertEqual(risk_stage["state"], "APPROVED")
-            self.assertTrue(payload["mother_witness"]["verified"])
-            # The read-only dashboard still blocks a directional output until the
-            # separate executable-instrument mapping gate is proven.
-            self.assertEqual(payload["decision"], "NO_TRADE")
-            self.assertIn("EXECUTION_INSTRUMENT_MAPPING_UNVERIFIED", payload["blocked_reasons"])
-            self.assertFalse(payload["execution_enabled"])
-            self.assertFalse(payload["orders_placed"])
 
 if __name__=="__main__":
     unittest.main()

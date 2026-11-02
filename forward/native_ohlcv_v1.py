@@ -1,8 +1,8 @@
-"""Read-only native OHLCV adapters for exchange-provided candles.
+"""Venue-neutral normalized OHLCV contracts for public market-data adapters.
 
-The primary market-data path is venue candle data, not candles reconstructed
-from trades. Network access is explicit, public-only, and limited to the
-hard-coded Binance public endpoints below. No keys, orders, or account APIs.
+The current HES analysis source is Gate.io Spot. Concrete venue adapters live
+in separate modules and must validate their own documented wire schemas.
+This contract contains no credentials, account APIs, or order execution.
 """
 from __future__ import annotations
 

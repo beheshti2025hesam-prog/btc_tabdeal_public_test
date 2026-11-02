@@ -45,9 +45,9 @@ def test_conflicting_duplicates_and_bad_identity_fail_closed():
         source.fetch(symbol="BTC-USD",interval="15m",limit=10)
 
 def test_nonfinite_and_invalid_ohlc_rejected():
-    source,_=make_source([[str(BASE_S),"NaN","100","102","99","100","2.5"]])
+    source,_=make_source([[str(BASE_S),"NaN","100","102","99","100","2.5","true"]])
     with pytest.raises(ValueError): source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
-    source,_=make_source([[str(BASE_S),"250","100","98","99","100","2.5"]])
+    source,_=make_source([[str(BASE_S),"250","100","98","99","100","2.5","true"]])
     with pytest.raises(ValueError,match="OHLC bounds"): source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
 
 def test_query_uses_gateio_symbol_and_public_endpoint():
@@ -93,3 +93,22 @@ def test_native_batch_rejects_partially_available_taker_flow():
     bad_batch=replace(batch,candles=(bad_candle,))
     with pytest.raises(ValueError,match="both be available or both be unavailable"):
         validate_native_batch(bad_batch)
+
+
+def test_exact_eight_field_contract_and_venue_closed_flag_are_enforced():
+    with pytest.raises(ValueError, match="exactly eight documented fields"):
+        source,_=make_source([[str(BASE_S),"250","100","102","99","100","2.5"]])
+        source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
+    source,_=make_source([[str(BASE_S),"250","100","102","99","100","2.5","maybe"]])
+    with pytest.raises(ValueError,match="closed-window flag"):
+        source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
+    source,_=make_source([[str(BASE_S),"250","100","102","99","100","2.5","false"]])
+    batch=source.fetch(symbol="BTCUSDT",interval="15m",limit=10)
+    assert batch.candles == ()
+    assert batch.open_candles_excluded == 1
+
+
+def test_gateio_schema_contract_version_is_explicit():
+    from forward.native_ohlcv_gateio_v1 import CANDLE_SCHEMA_CONTRACT_VERSION
+    assert CANDLE_SCHEMA_CONTRACT_VERSION == "gateio_spot_candlestick_v2"
+
