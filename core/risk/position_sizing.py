@@ -43,7 +43,11 @@ def size_position(data: PositionSizingInput) -> PositionSizingResult:
     # before math.isfinite/arithmetic so invalid external payloads fail closed.
     if any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in vals):
         return PositionSizingResult(False, 0, 0, 0, 0, 0, "invalid_numeric_input")
-    if not all(math.isfinite(value) for value in vals):
+    try:
+        finite_inputs = all(math.isfinite(value) for value in vals)
+    except (OverflowError, TypeError, ValueError):
+        finite_inputs = False
+    if not finite_inputs:
         return PositionSizingResult(False, 0, 0, 0, 0, 0, "non_finite_input")
     if data.equity <= 0 or data.entry_price <= 0 or data.stop_price <= 0:
         return PositionSizingResult(False, 0, 0, 0, 0, 0, "non_positive_equity_or_price")
