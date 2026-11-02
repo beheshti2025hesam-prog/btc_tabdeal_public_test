@@ -466,10 +466,22 @@ This plan is documentation only; it does not authorize or perform a deployment.
 
 ### Exact-head status
 - Latest candidate branch remains PR #408, target `main`, Draft/HOLD.
-- The latest commit after source-contract hardening and tests is `43e674185c03dcacc6f15b5f1c3fb7999b1d7501`; exact-head CI was triggered and is pending. Prior green runs for earlier SHAs do not validate this revision.
+- The source-contract hardening commit `43e674185c03dcacc6f15b5f1c3fb7999b1d7501` first exposed four Signal Agent regression fixture failures because old synthetic Gate.io batches used the generic `klines` endpoint label and fabricated trade/taker fields. The production guard was retained; the fixture was corrected to use `spot_candlesticks` and unknown flow values in commit `6192f16e98deb646b72d5d64058dae4de08b0bbd`.
 - PR #411 was closed as superseded after its three UX files were integrated directly into PR #408.
 - PR #410 has not been merged wholesale; its branch remains a historical source. Do not merge or retarget it. After PR #408 exact-head checks pass, close PR #410 as superseded and retain only the selective, tested changes in PR #408.
 
 ### Runtime boundary
 - These are code and systemd templates only. No unit installed, daemon-reloaded, enabled, started, restarted or stopped; no 24-hour soak run; no VPS changes; no order execution. Keep execution OFF / NO_TRADE_ONLY.
 - Before any live feed service activation, require explicit owner approval, exact release SHA, staged unit/security validation, and controlled read-only soak. Delivery target remains 2026-11-19; chart acceptance milestone remains 2026-11-04.
+
+
+## Final exact-code validation — 2026-11-02
+
+- Canonical integration PR #408 latest code SHA: `6192f16e98deb646b72d5d64058dae4de08b0bbd`, target `main`, remains Draft/HOLD and unmerged.
+- Exact SHA checks: **30/30 succeeded**. Full repository pytest suite: **816 passed, 70 subtests passed**.
+- Specific passing evidence includes: Gate.io public candle contract smoke; Signal Agent + Existing Gate regression; Native OHLCV Dashboard Single Path; Native OHLCV Browser Render; Forward Integration Verification; Signed Source Evidence Contract; Controlled Forward Observation; Clean Forward Evidence Verification; Local Durable Collector; Capital Risk Boundary; and Actions Execution Canary.
+- The four Signal Agent test failures on prior SHA `3658f5ac5bfe6306e3d9b02304ad6ee03843357d` were test-fixture mismatches, not a reason to weaken the Gate.io endpoint/unknown-flow guard. The corrected fixture uses the documented endpoint and unavailable fields remain `None`; the exact final SHA passed.
+- Dashboard service now `Wants=` and `After=` the 15m, 1h and 4h canonical Gate.io collector units. The shared data root is explicit and read-only to the dashboard.
+- PR #410 has been closed as superseded after selective, non-duplicative collector/service/source-contract changes were ported into PR #408. Its stale dashboard/strategy history and its legacy Binance support were not copied. PR #411 remains closed as superseded after UX changes were folded into #408.
+- No VPS service install, daemon reload, enable/start/restart, 24h soak, deployment, credential access, account access or order execution occurred. Keep all runtime actions pending explicit owner approval and release gates.
+- Current release target remains **2026-11-19**; chart acceptance remains **2026-11-04**. The current PR is a validated code candidate, not a deployed production release.
