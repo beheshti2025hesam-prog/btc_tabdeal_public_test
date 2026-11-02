@@ -248,3 +248,13 @@ Resume from this checkpoint. First refresh exact PR heads/status and the earlies
 - PR #410 head is now `9c6b1723272c69d2cdfabaf90efe22c5a794a388`, OPEN/Draft/unmerged, mergeable reported true. No merge or deployment performed.
 - Scope limitation: the integration test proves deterministic reconnect + REST sync + atomic persistence in a controlled fake-transport scenario. It does not prove real network interruption/recovery, exchange-side continuity, deployed runtime parity, 24h WebSocket resilience, or strategy profitability. G3 remains PARTIAL/BLOCKED until live-safe evidence and remaining fault-injection checks are completed.
 - No production service was stopped/restarted; no exchange account was connected; no order was placed. Release stays HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.
+
+
+### CI status refresh for reconnect-test SHA `9c6b1723272c69d2cdfabaf90efe22c5a794a388`
+
+- `Native OHLCV Dashboard Single Path v1`: completed / success.
+- `Gate.io Public Candle Evidence Smoke v1`: completed / success.
+- `Gate.io Dashboard Full Repository Regression`: in progress at last poll.
+- `Native OHLCV Browser Render Smoke v1`: in progress at last poll.
+- `Native OHLCV WebSocket Live Smoke v1`: in progress at last poll.
+- The exact-SHA local suite is green, but CI is not yet fully green. Recheck these three in-progress runs before treating candidate validation as complete.
