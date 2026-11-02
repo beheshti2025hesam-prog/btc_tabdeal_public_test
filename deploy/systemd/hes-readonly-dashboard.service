@@ -16,6 +16,7 @@ Environment=HES_DASHBOARD_HOST=127.0.0.1
 Environment=HES_DASHBOARD_PORT=8765
 Environment=HES_DASHBOARD_ACCESS_LOG=0
 Environment=HES_TRADE_JOURNAL_PATH=/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl
+Environment=HES_GLOBAL_MARKET_DATA_ROOT=/opt/hes-trade-agent
 ExecStart=/opt/hes-trade-agent/.venv/bin/python -m web.dashboard
 Restart=on-failure
 RestartSec=5
