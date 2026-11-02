@@ -242,8 +242,11 @@ class SequenceSemanticsRegistryV1:
                     raise SequenceSemanticsError("VERIFIED_RECORD_PRIMARY_URL_MISSING")
                 if not isinstance(record.get("normalized_field_path"), str) or not record["normalized_field_path"].strip():
                     raise SequenceSemanticsError("VERIFIED_RECORD_NORMALIZED_FIELD_PATH_MISSING")
-                if record.get("semantic_class") == "ORDERED_EVENT_SEQUENCE" and claims.get("ordered") is not True:
-                    raise SequenceSemanticsError("VERIFIED_ORDERED_SEQUENCE_CLAIM_MISSING")
+                if record.get("semantic_class") == "ORDERED_EVENT_SEQUENCE":
+                    if claims.get("ordered") is not True:
+                        raise SequenceSemanticsError("VERIFIED_ORDERED_SEQUENCE_CLAIM_MISSING")
+                    if capabilities.get("ordered_event_sequence") is not True:
+                        raise SequenceSemanticsError("VERIFIED_ORDERED_SEQUENCE_CAPABILITY_MISSING")
                 if capabilities.get("event_identity") is True and claims.get("unique") is not True:
                     raise SequenceSemanticsError("EVENT_IDENTITY_REQUIRES_UNIQUENESS_CLAIM")
                 if capabilities.get("contiguous_gap_detection") is True and claims.get("contiguous") is not True:
@@ -301,7 +304,7 @@ class SequenceSemanticsRegistryV1:
             semantic_class=record["semantic_class"],
             field_path=record.get("normalized_field_path", record["key"]["field_path"]),
             scope=tuple(record.get("scope", ())),
-            ordered=record.get("claims", {}).get("ordered") is True,
+            ordered=caps.get("ordered_event_sequence") is True,
             event_identity=caps.get("event_identity") is True,
             contiguous=record.get("claims", {}).get("contiguous") is True,
             gap_detection=caps.get("contiguous_gap_detection") is True,
