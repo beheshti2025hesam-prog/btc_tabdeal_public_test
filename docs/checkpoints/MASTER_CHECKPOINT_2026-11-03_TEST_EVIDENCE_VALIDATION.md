@@ -59,3 +59,22 @@
 
 ## Status
 **Evidence validation: IN PROGRESS — not fully accepted.** Existing CI/runtime evidence is substantial, but the remaining gates above prevent declaring this section mature or the trading system release-ready.
+
+## 8. Addendum — 2026-11-03 release-readiness recheck
+
+### New candidate work discovered (all remain unmerged)
+- **PR #424** (`590fefbfa66bdc1da0381186410e5135753dab33`): existing Gate.io canonical feed + 1m chart/advisory entry layer. Requires exact-head CI, browser acceptance and the 1m feed soak; missing setup context correctly blocks entry.
+- **PR #425** (`81a881d620acef56e8890255bfc6571c9ff21e9a`): binds 1m timing to validated 15m setup provenance; requires exact-head CI.
+- **PR #426** (`b105cae51a1a75b98d7beec80ea2cbefc4a622ba`): append-only precision journal/outcome evaluator; requires exact-head CI and verified cost evidence.
+- **PR #428** (`4b45749dd8728cf911cb322634aa57863c4a9013`): fail-closed acceptance gate; its description reports 621 local tests passing, but required GitHub checks and actual VPS precision ledger/OOS evidence remain open. It explicitly keeps execution OFF.
+- **PR #423** (`b68458f2fd52879002dd30ed2e49285e70be985c`): Fed calendar is context-only and not a chart-release blocker unless the existing acceptance scope says otherwise.
+
+### Release decision
+- The actual frontend/chart surface has substantial recorded evidence in PR #408/#415 and this checkpoint, but the separate browser visual acceptance due 2026-11-04 must still be explicitly recorded; do not infer it is complete from API/asset checks or automated tests alone.
+- The open PR stack is not approved for merge/deploy merely because local tests pass. Review exact-head CI, dependencies/base SHAs, and regression results before any integration.
+- Paper target remains at most 3 actionable entries per UTC day (a cap, not a quota) and strictly greater than 90% win rate over at least 100 resolved forward-only outcomes, with verified fees/slippage and independent out-of-sample evidence. Current official status remains NOT MET until that evidence exists. Do not claim 90% or increase signal count to fill a quota.
+- Preserve Gate.io public Spot BTC_USDT as the sole authoritative market-data source; 15m retains setup authority, 1m only times entry; execution and orders remain disabled.
+- Keep the single existing VPS and dirty checkout intact. Do not reset it, install/enable candidate services, change production pointers, or create another frontend/runtime while exact authorized paths and rollback lineage are being verified.
+
+### Current status after recheck
+**RELEASE HOLD — PAPER-TEST-ONLY / NO_TRADE_ONLY.** Delivery target remains 2026-11-19; the 2026-11-04 chart acceptance milestone is at risk until visual evidence is recorded. This addendum is a checkpoint update, not release authorization, a merge approval, or proof that all gates have passed.
