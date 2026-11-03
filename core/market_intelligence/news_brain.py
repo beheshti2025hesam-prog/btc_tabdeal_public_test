@@ -632,9 +632,20 @@ class NewsIntelligenceBrain:
         findings.sort(key=lambda f: (f.impact * f.relevance, f.confidence, f.published_at), reverse=True)
         findings = findings[:self.max_findings]
         high_impact = [f for f in findings if f.impact >= self.high_impact_threshold and f.relevance >= 0.45]
+        cluster_rows = {}
+        for finding in high_impact:
+            cluster_id = _event_cluster_key(finding.title, finding.item_id)
+            row = cluster_rows.setdefault(cluster_id, {"event_id": cluster_id, "item_count": 0, "sources": set()})
+            row["item_count"] += 1
+            row["sources"].add(finding.source)
+        high_impact_clusters = [
+            {"event_id": key, "item_count": row["item_count"], "source_count": len(row["sources"]),
+             "sources": sorted(row["sources"])}
+            for key, row in sorted(cluster_rows.items())
+        ]
         implications = []
-        if high_impact:
-            implications.append(f"{len(high_impact)} high-impact item(s) are relevant enough to require a confirmation check.")
+        if high_impact_clusters:
+            implications.append(f"{len(high_impact_clusters)} high-impact event cluster(s) require a confirmation check ({len(high_impact)} source item(s)).")
         if any("security" in f.categories or "exchange" in f.categories for f in high_impact):
             implications.append("Check venue/asset operational risk and liquidity before considering any signal.")
         if any("monetary_policy" in f.categories or "macro" in f.categories for f in high_impact):
@@ -652,11 +663,12 @@ class NewsIntelligenceBrain:
         if any("source_identity_unverified" in f.caveats for f in findings): veto_flags.append("NEWS_SOURCE_UNVERIFIED")
         if high_impact: veto_flags.append("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION")
         status = "degraded" if source_failures else "no_relevant_news" if not findings else "ok"
-        headline = (f"{len(high_impact)} high-impact relevant item(s)" if high_impact else
-                    "No high-impact relevant item crossed the review threshold")
+        headline = (f"{len(high_impact_clusters)} high-impact event cluster(s)" if high_impact_clusters else
+                    "No high-impact relevant event cluster crossed the review threshold")
         summary_bits = [f"market={context.market}", f"symbol={context.symbol or 'unspecified'}",
                         f"regime={context.regime}", f"news_status={status}",
-                        f"relevant_items={len(findings)}", f"high_impact={len(high_impact)}",
+                        f"relevant_items={len(findings)}", f"high_impact_items={len(high_impact)}",
+                        f"high_impact_events={len(high_impact_clusters)}",
                         "directional_claim=unconfirmed"]
         if findings:
             top = findings[0]
@@ -676,5 +688,8 @@ class NewsIntelligenceBrain:
                         "irrelevant_items_dropped": irrelevant_count,
                         "invalid_timestamps": invalid_time_count, "source_failures": list(source_failures),
                         "source_evidence": list(source_evidence.values()),
+                        "high_impact_item_count": len(high_impact),
+                        "high_impact_event_count": len(high_impact_clusters),
+                        "high_impact_event_clusters": high_impact_clusters,
                         "scores_are_probabilities": False, "news_alone_can_authorize_trade": False},
         )
