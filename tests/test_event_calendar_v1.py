@@ -40,7 +40,7 @@ class FedEventCalendarTests(unittest.TestCase):
         <h4><a id='2026'>2026 FOMC Meetings</a></h4>
         <div class='row fomc-meeting'>
           <div class='fomc-meeting__month'><strong>December</strong></div>
-          <div class='fomc-meeting__date'>8-9</div>
+          <div class='fomc-meeting__date'>8-9*</div>
         </div>
         <h4><a id='2027'>2027 FOMC Meetings</a></h4>
         <div class='row fomc-meeting'>
