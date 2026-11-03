@@ -228,7 +228,7 @@ def parse_stat_calendar(payload: bytes, *, today: date, horizon_days: int, sourc
     return events
 
 
-def fetch_fed_event_calendar(*, now: datetime | None = None, horizon_days: int = 30) -> dict:
+def fetch_fed_event_calendar(*, now: datetime | None = None, horizon_days: int = 45) -> dict:
     """Fetch official Fed statistical releases and FOMC dates; never infer impact."""
     if not 1 <= horizon_days <= 90:
         raise ValueError("horizon_days must be between 1 and 90")
