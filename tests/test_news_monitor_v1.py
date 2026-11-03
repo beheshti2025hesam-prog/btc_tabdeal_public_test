@@ -107,10 +107,12 @@ class NewsMonitorTests(unittest.TestCase):
         ledger.parent.mkdir(parents=True, exist_ok=True)
         ledger.write_text("{not-json}\n", encoding="utf-8")
         brief = self._brief()
-        brief.to_dict = lambda: {**brief.to_dict(), "findings": [{
+        base = brief.to_dict()
+        base["findings"] = [{
             "item_id": "news-item-002", "title": "Bitcoin hack",
             "url": "https://news.example/2",
-        }]}
+        }]
+        brief.to_dict = lambda: base
         self.brain.run_from_registry.return_value = brief
         with self.assertRaisesRegex(ValueError, "ledger line 1 is invalid"):
             self.monitor.poll_once()
