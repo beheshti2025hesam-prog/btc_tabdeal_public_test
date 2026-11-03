@@ -224,6 +224,7 @@ def parse_stat_calendar(payload: bytes, *, today: date, horizon_days: int, sourc
                 source_url=FED_STATCALENDAR_URL, payload_sha256=source_sha256,
                 event_type="FED_STAT_RELEASE",
             ))
+    events.sort(key=lambda item: (item["start_date"], item["local_time"] or "99:99", item["title"]))
     return events
 
 
