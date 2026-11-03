@@ -72,7 +72,10 @@ def load_observation_progress(path: Path) -> tuple[int | None, int]:
                     or record.get("execution_enabled") is not False
                     or record.get("orders_placed") is not False):
                 raise LegacyStateRequiresReview(f"OBSERVATION_LOG_SAFETY_REQUIRES_REVIEW:{line_number}")
-            last_seen = candle_time if last_seen is None else max(last_seen, candle_time)
+            if last_seen is not None and candle_time <= last_seen:
+                reason = "DUPLICATE" if candle_time == last_seen else "NON_MONOTONIC"
+                raise LegacyStateRequiresReview(f"OBSERVATION_LOG_{reason}_CANDLE:{line_number}")
+            last_seen = candle_time
             count += 1
     except OSError as exc:
         raise LegacyStateRequiresReview("OBSERVATION_LOG_UNREADABLE") from exc
