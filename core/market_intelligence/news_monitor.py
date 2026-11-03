@@ -232,6 +232,95 @@ class NewsMonitorV1:
                 raise ValueError("news monitor snapshot stale")
         return snapshot
 
+    def _append_event_ledger(self, brief: dict, brief_digest: str, observed_at: datetime) -> dict:
+        """Persist each source item once for later Gate.io candle-window attribution."""
+        ledger_path = self.snapshot_path.with_name("news_events.jsonl")
+        provenance = brief.get("provenance", {})
+        evidence_by_url = {
+            row.get("url"): row for row in provenance.get("source_evidence", [])
+            if isinstance(row, dict) and isinstance(row.get("url"), str)
+        }
+        cluster_by_item = {}
+        for cluster in provenance.get("high_impact_event_clusters", []):
+            if not isinstance(cluster, dict):
+                continue
+            for item_id in cluster.get("item_ids", []):
+                cluster_by_item[item_id] = cluster.get("event_id")
+        ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(ledger_path, os.O_CREAT | os.O_RDWR | os.O_APPEND, 0o640)
+        appended = 0
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            if os.fstat(fd).st_size > 50_000_000:
+                raise ValueError("news event ledger exceeds 50 MB safety limit")
+            os.lseek(fd, 0, os.SEEK_SET)
+            chunks = []
+            while True:
+                chunk = os.read(fd, 1024 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            raw = b"".join(chunks)
+            seen = set()
+            if raw:
+                for line_number, line in enumerate(raw.splitlines(), 1):
+                    try:
+                        record = json.loads(line.decode("utf-8"))
+                    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                        raise ValueError(f"news event ledger line {line_number} is invalid") from exc
+                    digest = record.pop("record_sha256", None)
+                    if not isinstance(digest, str) or sha256(_canonical(record)).hexdigest() != digest:
+                        raise ValueError(f"news event ledger line {line_number} digest mismatch")
+                    event_id = record.get("event_id")
+                    if not isinstance(event_id, str) or not event_id:
+                        raise ValueError(f"news event ledger line {line_number} event id missing")
+                    seen.add(event_id)
+            for finding in brief.get("findings", []):
+                if not isinstance(finding, dict):
+                    continue
+                event_id = finding.get("item_id")
+                if not isinstance(event_id, str) or not event_id or event_id in seen:
+                    continue
+                evidence = evidence_by_url.get(finding.get("url"), {})
+                record = {
+                    "schema_version": "hes.news_event_record.v1",
+                    "event_id": event_id,
+                    "event_cluster_id": cluster_by_item.get(event_id),
+                    "first_seen_at": observed_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+                    "published_at": finding.get("published_at"),
+                    "source_id": evidence.get("source_id"),
+                    "source": finding.get("source"),
+                    "url": finding.get("url"),
+                    "feed_payload_sha256": evidence.get("feed_payload_sha256"),
+                    "raw_item_sha256": evidence.get("raw_item_sha256"),
+                    "retrieved_at": evidence.get("retrieved_at"),
+                    "brief_sha256": brief_digest,
+                    "title": finding.get("title"),
+                    "impact": finding.get("impact"),
+                    "relevance": finding.get("relevance"),
+                    "directional_bias": finding.get("directional_bias"),
+                    "categories": finding.get("categories", []),
+                    "freshness": finding.get("freshness"),
+                    "caveats": finding.get("caveats", []),
+                }
+                record["record_sha256"] = sha256(_canonical(record)).hexdigest()
+                os.write(fd, _canonical(record) + b"\n")
+                seen.add(event_id)
+                appended += 1
+            os.fsync(fd)
+            return {
+                "schema_version": "hes.news_event_record.v1",
+                "status": "OK",
+                "records_appended": appended,
+                "records_total": len(seen),
+                "last_append_at": observed_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            }
+        finally:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
+
     def _atomic_write(self, snapshot: dict) -> None:
         snapshot.pop("snapshot_sha256", None)
         snapshot["snapshot_sha256"] = sha256(_canonical(snapshot)).hexdigest()
