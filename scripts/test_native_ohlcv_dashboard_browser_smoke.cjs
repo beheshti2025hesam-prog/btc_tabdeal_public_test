@@ -171,12 +171,12 @@ const { chromium } = require("playwright");
       strategy_v2_symbol: strategyV2Payload.symbol || "BTC_USDT",
       strategy_v2_execution_enabled: strategyV2Payload.execution_enabled,
       candle_count: candlePayload.candles.length,
-      chart_canvas: ui.canvas,
+      chart_canvas: oneMinuteUi.canvas,
       chart_library_loaded: ui.chartLibraryLoaded,
       chart_series_exists: ui.chartSeriesExists,
       chart_script_integrity: ui.chartScriptIntegrity,
       chart_asset_response: chartAssetResponse,
-      visible_candle_pixels: candlePixels,
+      visible_candle_pixels: oneMinutePixels,
       console_errors: consoleErrors,
       page_errors: pageErrors,
       request_failures: requestFailures,
@@ -279,6 +279,30 @@ const { chromium } = require("playwright");
       }
       assert.equal(chart.volume, source.volume, `1m chart volume differs at candle ${i}`);
     }
+    const oneMinutePixels = await page.evaluate(() => {
+      const canvases = [...document.querySelectorAll("#chart canvas")];
+      let green = 0;
+      let red = 0;
+      let sampled = 0;
+      for (const canvas of canvases) {
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx || canvas.width === 0 || canvas.height === 0) continue;
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        for (let p = 0; p < pixels.length; p += 16) {
+          const r = pixels[p], g = pixels[p + 1], b = pixels[p + 2], alpha = pixels[p + 3];
+          if (alpha < 160) continue;
+          sampled++;
+          if (Math.abs(r - 54) < 35 && Math.abs(g - 201) < 45 && Math.abs(b - 143) < 45) green++;
+          if (Math.abs(r - 241) < 35 && Math.abs(g - 107) < 45 && Math.abs(b - 117) < 45) red++;
+        }
+      }
+      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
+    });
+    const oneMinuteVisiblePixels = oneMinutePixels.green_candle_color_pixels + oneMinutePixels.red_candle_color_pixels;
+    assert.ok(oneMinutePixels.canvas_count > 0 && oneMinuteVisiblePixels >= 8,
+      "1m candlesticks are not visibly rendered: " + JSON.stringify(oneMinutePixels));
+    const expectedOneMinuteStamp = new Date(oneMinuteLast.close_time).toISOString().replace("T", " ").replace(".000Z", " UTC");
+    assert.equal(oneMinuteUi.stamp, expectedOneMinuteStamp, "1m displayed UTC time differs from source batch");
     const oneMinuteResponsiveViewports = [];
     for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 1000 }]) {
       await page.setViewportSize(viewport);
@@ -339,7 +363,7 @@ const { chromium } = require("playwright");
       chart_input_batch_matches_api_batch: true,
       chart_all_candles_match_api_batch: true,
       execution_enabled: false,
-      message: ui.message
+      message: oneMinuteUi.message
     };
     require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(evidence, null, 2) + "\n");
     process.stdout.write(JSON.stringify(evidence) + "\n");
