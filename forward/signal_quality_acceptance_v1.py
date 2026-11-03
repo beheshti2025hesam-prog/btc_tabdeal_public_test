@@ -22,7 +22,7 @@ def load_contract(root: str | Path) -> tuple[dict, str]:
         raise ValueError("contract must preserve three-signals-per-day cap")
     if constraints.get("no_signal_quota") is not True or constraints.get("no_trade_is_valid_output") is not True:
         raise ValueError("contract must preserve no-quota / NO_TRADE semantics")
-    if gate.get("performance_cohort") not in ("PREAPPROVAL_PAPER_ELIGIBLE", "GATE_APPROVED_ONLY"):
+    if gate.get("performance_cohort") not in ("PREAPPROVAL_PAPER_ELIGIBLE", "GATE_APPROVED_ONLY", "PRECISION_ENTRY_PAPER_ELIGIBLE"):
         raise ValueError("unsupported paper performance cohort")
     return contract, hashlib.sha256(raw).hexdigest()
 
@@ -53,6 +53,8 @@ def daily_signal_counts(candidates: list[dict], *, performance_cohort: str) -> d
     for row in candidates:
         if performance_cohort == "PREAPPROVAL_PAPER_ELIGIBLE":
             actionable = row.get("preapproval_paper_eligible") is True
+        elif performance_cohort == "PRECISION_ENTRY_PAPER_ELIGIBLE":
+            actionable = row.get("schema") == "hes_precision_entry_paper_candidate_v1" and row.get("paper_only") is True and row.get("preapproval_paper_eligible") is True
         elif performance_cohort == "GATE_APPROVED_ONLY":
             actionable = row.get("final_gate_decision") in ("LONG", "SHORT")
         else:
@@ -81,7 +83,11 @@ def evaluate_acceptance(*, root: str | Path, metrics: dict, candidates: list[dic
     target = float(gate["win_rate_pct"])
     cohort = gate.get("performance_cohort", "GATE_APPROVED_ONLY")
     reasons = []
-    if cohort == "PREAPPROVAL_PAPER_ELIGIBLE":
+    if cohort == "PRECISION_ENTRY_PAPER_ELIGIBLE":
+        resolved = int(metrics.get("precision_paper_resolved", metrics.get("resolved", 0)) or 0)
+        win_rate = metrics.get("precision_paper_win_rate_pct", metrics.get("win_rate_pct"))
+        unscorable = int(metrics.get("precision_paper_unscorable_outcomes", metrics.get("unscorable_outcomes", 0)) or 0)
+    elif cohort == "PREAPPROVAL_PAPER_ELIGIBLE":
         resolved = int(metrics.get("preapproval_paper_resolved", metrics.get("resolved", 0)) or 0)
         win_rate = metrics.get("preapproval_paper_win_rate_pct", metrics.get("win_rate_pct"))
         unscorable = int(metrics.get("preapproval_paper_unscorable_outcomes", metrics.get("unscorable_outcomes", 0)) or 0)
