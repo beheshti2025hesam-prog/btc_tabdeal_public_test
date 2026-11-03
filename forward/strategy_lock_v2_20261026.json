@@ -78,10 +78,10 @@
     ],
     "minimum_sample_size": 100,
     "target_win_rate": 0.9,
-    "note": "Paper acceptance uses only candidates whose data, structure, confirmation, risk and geometry checks all pass. Final policy/live approval remains separate and execution stays disabled. Require strictly >90% over at least 100 resolved paper-eligible trades, maximum 3 actionable signals per UTC day (cap, never quota), clean linkage, verified fees/slippage and independent out-of-sample evidence. Never mix paper-eligible, final-gate-approved, and research-only cohorts.",
+    "note": "Final paper acceptance uses only 1m READY candidates whose 15m setup, data, structure, confirmation, risk and geometry gates all passed. 15m preapproval candidates remain baseline-only and do not count toward acceptance. Final policy/live approval remains separate and execution stays disabled. Require strictly >90% over at least 100 resolved precision paper trades, maximum 3 actionable signals per UTC day (cap, never quota), clean linkage, verified fees/slippage and independent out-of-sample evidence.",
     "target_win_rate_operator": ">",
     "maximum_actionable_signals_per_utc_day": 3,
-    "performance_cohort": "PREAPPROVAL_PAPER_ELIGIBLE",
+    "performance_cohort": "PRECISION_ENTRY_PAPER_ELIGIBLE",
     "acceptance_contract": "docs/execution/SIGNAL_QUALITY_ACCEPTANCE_CONTRACT_V1.json"
   },
   "acceptance_gates": {
