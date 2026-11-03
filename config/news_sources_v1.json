@@ -11,7 +11,7 @@
       "freshness_check",
       "terms_and_rate_limit_review"
     ],
-    "note": "Enabled sources are individually qualified for ownership/terms, bounded HTTPS no-redirect parsing, target VPS reachability and publication freshness. Decrypt is enabled only for private non-commercial use under its Terms of Service. InvestIn.News NewsDesk is a secondary AI-summarized feed with original publisher and AI label preserved."
+    "note": "Enabled sources are individually qualified for ownership/terms, bounded HTTPS no-redirect parsing, target VPS reachability and publication freshness. Decrypt is enabled only for private non-commercial use under its Terms of Service. InvestIn.News NewsDesk is a secondary AI-summarized feed with original publisher and AI label preserved. Neither source can authorize or independently confirm a trade."
   },
   "sources": [
     {
@@ -314,7 +314,7 @@
         "decrypt_news"
       ],
       "status": "partial_official_macro_regulatory_central_bank_and_venue_announcements",
-      "note": "Qualified official ECB/CFTC/Federal Reserve/BIS/Bank of Japan/Bank of Canada macro-regulatory feeds, Gate.io venue announcements, direct Decrypt crypto RSS for private non-commercial use, and a secondary AI-summarized NewsDesk with original publisher attribution. Coverage remains partial: Decrypt's terms restrict use to non-commercial contexts; NewsDesk is secondary; CoinDesk and Cointelegraph remain disabled.",
+      "note": "Qualified official ECB/CFTC/Federal Reserve/BIS/Bank of Japan/Bank of Canada macro-regulatory feeds, Gate.io venue announcements, direct Decrypt crypto RSS for private non-commercial use, and a secondary AI-summarized NewsDesk with original publisher attribution. Coverage remains partial: Decrypt and NewsDesk are secondary media/aggregation inputs, not primary source confirmation; CoinDesk and Cointelegraph remain disabled.",
       "international_source_ids": [
         "ecb_press_releases",
         "cftc_general_press_releases",
