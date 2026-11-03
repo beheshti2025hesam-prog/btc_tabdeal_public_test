@@ -525,6 +525,7 @@ class NewsIntelligenceBrain:
                 "exchange outage", "wallet maintenance", "trading suspension",
                 "security incident",
             ))
+            tagged_match = bool(explicit_tags & {market, context.symbol.casefold()})
             category_match = (
                 market == "crypto" and (
                     any(c in categories for c in ("regulation", "security", "monetary_policy", "macro"))
@@ -537,7 +538,6 @@ class NewsIntelligenceBrain:
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
                 or market in {"commodities", "metals"} and any(c in categories for c in ("macro",))
             )
-            tagged_match = bool(explicit_tags & {market, context.symbol.casefold()})
             relevance = 0.15 + (0.40 if market_match else 0) + (0.25 if symbol_match else 0) + (0.20 if category_match else 0) + (0.25 if tagged_match else 0)
             relevance = min(1.0, relevance)
             if relevance < self.min_relevance:
