@@ -102,7 +102,7 @@ def build_paper_candidate(*, setup_context: Mapping[str, Any], candle: Mapping[s
         "stop_price": float(setup_context["stop_price"]),
         "target_price": float(setup_context["target_price"]),
         "max_hold_seconds": MAX_HOLD_SECONDS,
-        "paper_only": True,
+        "paper_only": True,\n        "preapproval_paper_eligible": True,
         "execution_enabled": False,
         "orders_placed": False,
     }
@@ -207,18 +207,21 @@ def run_cycle(*, now: datetime | None = None) -> dict:
             now_s=now_s,
             setup_context=context,
         )
+        setup_seen = any(row.get("setup_id") == context.get("setup_id") for row in candidate_rows)
+        day_count = sum(_utc_day(int(row["entry_time"])) == _utc_day(int(bars[-1]["close_time"])) for row in candidate_rows)
+        if engine.get("state") == "READY" and setup_seen:
+            engine = {**engine, "state":"BLOCKED", "reason_codes":list(engine.get("reason_codes",[]))+["DUPLICATE_SETUP_SUPPRESSED"]}
+        elif engine.get("state") == "READY" and day_count >= DAILY_SIGNAL_CAP:
+            engine = {**engine, "state":"BLOCKED", "reason_codes":list(engine.get("reason_codes",[]))+["DAILY_SIGNAL_CAP_REACHED"]}
         event = build_precision_event(
             setup_context=context, candle=bars[-1], engine_result=engine, observed_at=current
         )
         appended_event = EVENTS.append_event(event)
         if engine.get("state") == "READY":
-            setup_seen = any(row.get("setup_id") == context.get("setup_id") for row in candidate_rows)
-            day_count = sum(_utc_day(int(row["entry_time"])) == _utc_day(int(bars[-1]["close_time"])) for row in candidate_rows)
-            if not setup_seen and day_count < DAILY_SIGNAL_CAP:
-                candidate = build_paper_candidate(setup_context=context, candle=bars[-1], observed_at=current)
-                appended_candidate = CANDIDATES.append_event(candidate)
-                if appended_candidate:
-                    candidate_rows.append(candidate)
+            candidate = build_paper_candidate(setup_context=context, candle=bars[-1], observed_at=current)
+            appended_candidate = CANDIDATES.append_event(candidate)
+            if appended_candidate:
+                candidate_rows.append(candidate)
 
     for candidate in candidate_rows:
         if candidate.get("candidate_event_id") in outcome_ids:
