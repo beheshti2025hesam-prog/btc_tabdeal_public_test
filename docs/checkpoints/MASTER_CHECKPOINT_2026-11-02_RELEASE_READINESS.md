@@ -523,3 +523,48 @@ This section supersedes earlier candidate-only statements in this checkpoint abo
 - This frontend release does not prove the requested >90% paper win rate or the ≤3 high-quality signals/day target. Strategy/structure/confirmation quality, independent risk approval, execution-instrument mapping and adequate forward-only paper observations remain separate gates.
 - News coverage remains deliberately partial and clearly labelled; unqualified sources remain disabled.
 - Fixed milestones remain chart acceptance **2026-11-04** and delivery **2026-11-19**. Preserve the rollback release and do not modify the sole dirty checkout.
+
+
+## News Intelligence deep audit — 2026-11-03
+
+**Disposition:** News Radar v1 is deployed and operational as a read-only evidence/context service. It is not yet a Strategy V2/Mother decision veto. Preserve this distinction; do not report the section as a fully decision-integrated news gate.
+
+### Verified runtime and reuse-first implementation
+
+- Canonical deployed release remains `388d4aa326ce4e678f63400f7ad4b53ae76b7b20` on the single VPS. Dashboard service is active, loopback-only at `127.0.0.1:8765`, with the News Monitor running inside the existing dashboard process. No second news service, dashboard, VPS, market-data source, or journal was created.
+- Existing `NewsIntelligenceBrain`, `NewsMonitorV1`, source registry, Gate.io announcement adapter, versioned `hes.news_brief.v1` and `hes.news_monitor_snapshot.v1`, read-only `GET /api/news`, and the existing News Radar panel were reused.
+- Monitor cadence is immediate startup poll followed by 300 seconds (5 minutes), configurable within the existing bounded 15–3600-second range. Snapshot writes are atomic and include brief and full-envelope SHA-256 digests. Reader validation fails closed on missing, corrupt, future-dated or stale snapshots.
+- Gate.io Public Spot BTC_USDT remains the only canonical chart/candle/indicator source through `global_market_data_reader_v1`. Gate.io announcements are venue-operational news only, never market-price or candle data. Exchange execution remains separate and OFF.
+- PR #408 is merged to main and contains the canonical dashboard + Strategy V2 + Mother V2 + News Radar integration. PR #413 records the deployment and rollback evidence. Earlier news PRs #399/#404 were closed unmerged/superseded; do not revive or duplicate their branches. PR #358 remains a draft lineage artifact; the deployed implementation is the merged #408 release.
+- Exact PR #408 candidate evidence: 32/32 Actions workflows successful; full suite 817 passed + 70 subtests. On 2026-11-03, the deployed release was independently re-tested on the VPS: **817 passed, 70 subtests passed**; focused news brain/monitor tests: **34 passed**.
+- Read-only runtime check on 2026-11-03: `GET /api/news` returned HTTP 200. The latest inspected snapshot was polled at `2026-11-03T06:35:01Z`, monitor status `OK`, interval 300s, valid brief digest, no source failures.
+
+### Current source qualification and live observation
+
+- Crypto profile has seven enabled sources: six international official macro/regulatory/central-bank feeds (ECB, CFTC, Federal Reserve, BIS, Bank of Japan, Bank of Canada) plus Gate.io official venue announcements.
+- At the inspected poll: **6 sources OK / 1 OK-empty / 0 failed**. Profile remains explicitly `partial_official_macro_regulatory_central_bank_and_venue_announcements`; no qualified domestic/Iran source and no independent crypto-native newswire are enabled.
+- Current brief: 4 relevant findings, 0 high-impact findings, 82 stale items dropped, no source failures, and no news veto flags. This is a point-in-time observation, not a performance or predictive-accuracy claim.
+- Important interpretation: `OK` means the feed was successfully fetched and parsed, not that it contained fresh market-relevant information. Some low-frequency official feeds had newest items older than the 72-hour analysis window; those items were filtered. Per-source newest-publication timestamps exist in the snapshot, but the current panel does not expose a clear per-source freshness classification.
+- Restricted or unqualified publishers remain disabled. Do not bypass terms, TLS, source ownership, redirect-host, freshness, or VPS reachability qualification to inflate source counts.
+
+### Safety and current functional boundary
+
+- News Radar is explicitly **read-only/context-only**. It does not create LONG/SHORT, set market regime, override confirmation or Risk Gate, write a decision to the canonical journal, or authorize an order.
+- Strategy V2 and Mother V2 remain the canonical decision/evidence paths. No live Strategy V2/Mother news-veto call site is present in the deployed release. The old V1 `/api/signal` path is retired; do not attach the old #399 V1 integration to it.
+- A future news veto must be a separately versioned, veto-only Strategy V2/Mother gate with evidence digest + journal attribution, deterministic negative tests, replay coverage, and fail-closed stale/corrupt handling. Partial source coverage alone must not become a blanket veto. It must never create or strengthen a directional signal.
+- No code, release pointer, service, configuration, market data, or journal was changed during this audit. No account was connected and no order was submitted.
+
+### Remaining maturity work — tracked, not silently claimed complete
+
+1. **Source freshness visibility:** expose per-source fresh/stale/empty/failed status and newest publication age in the existing panel; distinguish transport health from content freshness.
+2. **Coverage qualification:** continue only with freely accessible, terms-compliant, official or independently qualified crypto-native sources. Keep domestic/Iran profiles blocked until a real source passes ownership, terms, schema, freshness and VPS checks.
+3. **Scheduled-event awareness:** evaluate official central-bank and macro release calendars as a separate versioned event-calendar input; RSS headlines alone do not provide reliable advance notice.
+4. **Impact attribution:** collect immutable event IDs, source evidence and Gate.io candle-window references so future evaluation can measure volatility/spread/price response and false-positive/false-negative vetoes. Do not claim news predictive accuracy before this evidence matures.
+5. **Strategy integration:** only after the above contracts and tests, design the optional News Risk Gate for Strategy V2/Mother. Keep it veto-only and preserve the existing signal, confirmation, risk and execution boundaries.
+6. **Profile controls:** keep this release scoped to crypto / BTCUSDT / Gate.io / 15m. Add profile/source-group toggles only when the relevant market profile is qualified and the UI contract is versioned.
+
+### Delivery protection
+
+- Accept News Radar v1 as operational read-only context for the current application release; do not reopen duplicate PRs #399/#404 or add a second engine.
+- Preserve the fixed application delivery target **2026-11-19** and chart acceptance milestone **2026-11-04**. Freeze optional News Radar expansion if it threatens chart acceptance or the release schedule.
+- The project target of no more than 3 signals/day and >90% paper win rate remains an independent forward-evidence acceptance goal. News Radar has not established, and cannot guarantee, that result. Keep PAPER-TEST-ONLY / NO_TRADE_ONLY and execution OFF.
