@@ -108,7 +108,7 @@ _CATEGORY_TERMS = {
                         "central bank", "ecb", "fomc", "powell", "inflation", "cpi", "pce"),
     "regulation": ("regulation", "regulator", "sec", "lawsuit", "ban", "approved", "approval",
                    "etf", "legislation", "sanction", "تحریم", "قانون", "مجوز"),
-    "security": ("hack", "exploit", "breach", "stolen", "outage", "vulnerability",
+    "security": ("hack", "exploit", "breach", "theft", "attack", "stolen", "outage", "vulnerability",
                  "هک", "حمله", "سرقت"),
     "exchange": ("exchange", "trading halted", "withdrawals suspended", "listing", "delisting", "delist",
                  "صرافی", "توقف معاملات"),
@@ -125,7 +125,7 @@ _NEGATIVE = ("hack", "exploit", "breach", "ban", "lawsuit", "outflow", "liquidat
              "misses expectations", "default", "bankruptcy", "war", "sanction",
              "withdrawals suspended", "bearish", "هک", "ممنوعیت", "ورشکستگی")
 _HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "delisting", "delist", "hack",
-                "exploit", "breach", "rate decision", "cpi", "fomc", "war", "default",
+                "exploit", "breach", "theft", "attack", "rate decision", "cpi", "fomc", "war", "default",
                 "bankruptcy", "liquidation", "فوری")
 _MARKET_ALIASES = {
     # Broad market terms only; asset tickers/names are matched separately.
@@ -146,6 +146,22 @@ def _contains(text: str, phrase: str) -> bool:
     if len(phrase) <= 4 and phrase.isascii() and phrase.replace("/", "").isalpha():
         return re.search(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", text) is not None
     return phrase.casefold() in text
+
+
+def _event_cluster_key(title: str, item_id: str) -> str:
+    """Conservative deterministic grouping for repeated reports of one event."""
+    value = title.casefold()
+    if "eu entity" in value and any(term in value for term in ("theft", "hack", "breach")):
+        return "eu_entity_crypto_theft"
+    if "mercado bitcoin" in value and any(term in value for term in ("theft", "hack", "breach")):
+        return "mercado_bitcoin_security_incident"
+    if "binance" in value and any(term in value for term in ("hack", "theft", "breach", "attack")):
+        return "binance_security_incident"
+    if "fomc" in value:
+        return "fomc_policy_event"
+    if "cpi" in value or "consumer price index" in value:
+        return "us_cpi_release"
+    return "item:" + item_id
 
 
 def _parse_time(value: str) -> datetime | None:
