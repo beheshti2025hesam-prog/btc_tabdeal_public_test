@@ -494,6 +494,54 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["orders_placed"])
 
+    def test_precision_entry_api_exposes_canonical_hashes_for_each_timeframe(self):
+        now = int(time.time())
+        rows_by_tf = {}
+        for timeframe, seconds in (("4h", 14400), ("1h", 3600), ("15m", 900), ("1m", 60)):
+            start = (now // seconds - 240) * seconds
+            rows_by_tf[timeframe] = [
+                {
+                    "schema": "hes_global_candle_v1", "source": "gateio_public_spot",
+                    "symbol": "BTC_USDT", "timeframe": timeframe,
+                    "open_time": start + i * seconds,
+                    "close_time": start + (i + 1) * seconds,
+                    "open": "100", "high": "101", "low": "99",
+                    "close": "100.5", "volume": "2", "quote_volume": "200", "closed": True,
+                }
+                for i in range(240)
+            ]
+        strategy = {
+            "decision": "NO_TRADE", "direction": "NONE",
+            "latest_gate_evidence": {
+                "confirmation": {"state": "UNCONFIRMED"},
+                "risk": {"state": "RISK_REJECTED"},
+            },
+            "execution_enabled": False, "orders_placed": False,
+        }
+        with patch(
+            "forward.global_market_data_reader_v1.read_closed_candles",
+            side_effect=lambda timeframe, **kwargs: rows_by_tf[timeframe],
+        ), patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy):
+            with urlopen(self.base + "/api/precision-entry") as response:
+                payload = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        for timeframe in ("15m", "1m"):
+            with self.subTest(timeframe=timeframe):
+                entry = payload["timeframes"][timeframe]
+                self.assertEqual(entry["status"], "VALIDATED")
+                self.assertEqual(entry["source"], "gateio_public_spot")
+                self.assertEqual(entry["source_reader"], "global_market_data_reader_v1")
+                self.assertEqual(entry["symbol"], "BTC_USDT")
+                self.assertEqual(entry["timeframe"], timeframe)
+                self.assertEqual(entry["batch_candles"], 240)
+                self.assertEqual(
+                    entry["input_batch_sha256"],
+                    dashboard._canonical_candle_batch_sha256(rows_by_tf[timeframe]),
+                )
+        self.assertEqual(payload["setup_decision"], "NO_TRADE")
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
     def test_precision_entry_api_fails_closed_on_unavailable_market_data(self):
         with patch("forward.global_market_data_reader_v1.read_closed_candles",
                    side_effect=ValueError("stale 1m feed")):
