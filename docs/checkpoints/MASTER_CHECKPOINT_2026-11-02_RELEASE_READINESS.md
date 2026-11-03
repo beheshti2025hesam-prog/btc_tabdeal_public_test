@@ -523,3 +523,38 @@ This section supersedes earlier candidate-only statements in this checkpoint abo
 - This frontend release does not prove the requested >90% paper win rate or the ≤3 high-quality signals/day target. Strategy/structure/confirmation quality, independent risk approval, execution-instrument mapping and adequate forward-only paper observations remain separate gates.
 - News coverage remains deliberately partial and clearly labelled; unqualified sources remain disabled.
 - Fixed milestones remain chart acceptance **2026-11-04** and delivery **2026-11-19**. Preserve the rollback release and do not modify the sole dirty checkout.
+
+
+## Multi-market, multi-venue, multi-symbol, broker and News Radar audit — 2026-11-03
+
+**Status: PARTIAL / NOT RELEASE-COMPLETE.** This is a read-only checkpoint update. No production files, services, release pointer, credentials, accounts or execution settings were changed.
+
+### Live VPS verification
+- SentinelX reports exactly one connected operational host (plan limit 1); there is no second VPS. The host-reported hostname is `vps-second-261930`, which is only a hostname label.
+- `/opt/hes-trade-agent/current` resolves to immutable release `57ae4e659bec9eabf4f84991d8cffc041eb582c7`.
+- Read-only dashboard, Gate.io 15m/1h/4h feed services, paper evaluator and learning loop were ACTIVE during this audit. No service was restarted or modified.
+- The working checkout `/opt/hes-trade-agent` is on `feat/gateio-global-market-data-v1` with extensive tracked modifications and untracked candidate artifacts. Preserve it exactly: no clean/reset/checkout/overwrite. This working tree must not be mistaken for the immutable release.
+
+### Existing implementation and candidate status
+- **Canonical analysis data:** Gate.io Public Spot remains the sole authoritative crypto market-data source for candles, charts and indicators through the existing collector, `global_market_data_reader_v1`, Native OHLCV contracts and persisted feed. No second candle/indicator engine or analysis source.
+- **Crypto symbols — PR #400:** existing Gate.io multi-symbol candidate covers BTC/ETH/SOL in isolated paths and chart selectors. Recorded probes returned 219 closed candles per symbol across 15m/1h/4h with zero gaps in nine samples. PR remains Draft/unmerged/non-mergeable; ETH/SOL are observation-only, not strategy-approved. Their service instances are staged, not active.
+- **Other markets:** FX, US equities, Iran equities and commodities remain disabled/unqualified pending provider/entitlement, market calendar, adjustment and volume semantics, symbol master, freshness/health and evidence contracts. Do not claim multi-market readiness.
+- **Execution venues/brokers — PR #401:** generic typed `ExecutionAdapterV1`, fail-closed preflight and durable idempotency/lifecycle journal exist as a candidate. No concrete authenticated venue adapter is approved. Gate.io data source does not choose or authorize execution venue; historical Tabdeal symbol mapping is insufficient.
+- **Sequence safety — PR #402:** capability-driven exact-scope registry candidate exists; reported exact-head CI was 26/26. Capabilities remain disabled where source hashes/review pins are incomplete; Tabdeal unknown semantics remain unknown. Do not generalize sequence assumptions.
+- **News Radar:** existing Brain, source registry, Gate.io announcements, five-minute monitor, durable digest-validated snapshot and read-only panel are deployed. Coverage remains partial official macro/regulatory/central-bank plus Gate.io venue announcements; no qualified Iran/domestic source or complete crypto-native wire is enabled.
+- **Fed calendar — PR #423:** candidate adds Fed statistical releases and FOMC dates; recorded live probe was 2/2 sources OK with 22 events. BLS CPI/jobs calendar returned HTTP 403 and is excluded. Fed events remain unrated/context-only; no directional signal or veto. PR is open/unmerged and needs exact-head checks before promotion.
+- **Precision-entry acceptance — PRs #424–#428:** 15m remains setup authority; 1m is advisory entry timing only. PR #428 reports 621 local tests passed, while exact-head GitHub checks were pending in its description. Its official precision ledger was reported absent. Therefore the >90% target is **NOT MET**.
+
+### Remaining maturity gates
+1. Keep BTC the only strategy-approved symbol. ETH/SOL observation-only until independent per-symbol soak, isolation and review pass. Keep FX/equities/commodities disabled until each profile is qualified.
+2. Prove no cross-symbol/product contamination across candles, volume, indicators, caches, setup contexts, journals and outcomes; freshness/gap/health must be independent per symbol.
+3. Retain the generic execution interface. A concrete adapter needs selected venue/product, official filters and units, idempotency, authenticated order/query/cancel/open-order/position/account reconciliation, fees/partial fills, protective/reduce-only semantics, source hashes, independent review, paper soak and explicit owner approval. No credentials or orders now.
+4. News monitor must expose content freshness separately from transport health (fresh/stale/empty/failed and newest-publication age). Qualify sources only after terms, ownership, schema, freshness and VPS checks.
+5. Any future News-to-Strategy integration must be a separately versioned **veto-only** gate with provenance, journal attribution, replay/negative tests and stale/corrupt fail-closed behavior. News must never create or strengthen a directional signal; partial coverage alone must not cause blanket veto.
+6. Three signals/day is a hard cap, never a quota. Strict >90% must be measured on at least 100 resolved, uniquely linked, eligible 1m precision paper outcomes, with verified fees/slippage and independent OOS evidence. Exclude research/preapproval/unresolved/ambiguous records. Report net expectancy, profit factor, drawdown, and LONG/SHORT/regime splits. This is an acceptance criterion, not a guarantee of market outcomes.
+
+### Delivery protection
+- Do not merge PRs #400/#401/#402/#423/#428 independently based on descriptions or historical workflow counts; verify ancestry and exact final SHA, full regression, browser/runtime evidence and independent review.
+- Protect **2026-11-04 chart acceptance** first; freeze optional market expansion until accepted. Freeze product scope 2026-11-12; final combined validation and rollback preparation 2026-11-13 to 2026-11-18; deliver only passed scope on **2026-11-19**.
+- Preserve `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`. No live execution.
+
