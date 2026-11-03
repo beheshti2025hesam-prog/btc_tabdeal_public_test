@@ -12,6 +12,7 @@ from forward.native_ohlcv_v1 import INTERVAL_MS, validate_native_batch
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUTS = {
+    "1m": ROOT / "data/forward/global_market_candles_1m_v1.jsonl",
     "15m": ROOT / "data/forward/global_market_candles_v1.jsonl",
     "1h": ROOT / "data/forward/global_market_candles_1h_v1.jsonl",
     "4h": ROOT / "data/forward/global_market_candles_4h_v1.jsonl",

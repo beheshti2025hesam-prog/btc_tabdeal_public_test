@@ -418,5 +418,118 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertEqual(str(dashboard._market_data_root()), "/opt/hes-trade-agent")
 
 
+
+    def test_dashboard_exposes_1m_chart_and_precision_panel_without_duplicate_sections(self):
+        with urlopen(self.base + "/") as response:
+            page = response.read().decode()
+        self.assertIn('<option>1m</option>', page)
+        self.assertLess(page.index('<option>15m</option>'), page.index('<option>1m</option>'))
+        self.assertIn('id="precisionEntryPanel"', page)
+        self.assertEqual(page.count('id="strategyV2Panel"'), 1)
+        with urlopen(self.base + "/static/dashboard.js") as response:
+            script = response.read().decode()
+        self.assertIn("refreshPrecisionEntry", script)
+        self.assertIn("fetch('/api/precision-entry'", script)
+
+    def test_precision_entry_api_fails_closed_without_valid_15m_setup(self):
+        rows = []
+        now = int(time.time())
+        start = (now // 60 - 201) * 60
+        for i in range(200):
+            ts = start + i * 60
+            rows.append({
+                "schema": "hes_global_candle_v1", "source": "gateio_public_spot",
+                "symbol": "BTC_USDT", "timeframe": "1m", "open_time": ts,
+                "close_time": ts + 60, "open": "100", "high": "101", "low": "99",
+                "close": "100.5", "volume": "2", "quote_volume": "200", "closed": True,
+            })
+        strategy = {
+            "decision": "NO_TRADE", "direction": "NONE",
+            "latest_gate_evidence": {
+                "confirmation": {"state": "UNCONFIRMED"},
+                "risk": {"state": "RISK_REJECTED"},
+            },
+            "execution_enabled": False, "orders_placed": False,
+        }
+        with patch("forward.global_market_data_reader_v1.read_closed_candles", return_value=rows), patch.object(
+            dashboard, "read_strategy_v2_dashboard", return_value=strategy
+        ):
+            with urlopen(self.base + "/api/precision-entry") as response:
+                payload = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertIn("15M_SETUP_NOT_VALIDATED", payload["reason_codes"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
+    def test_precision_entry_api_requires_provenance_bound_15m_entry_context(self):
+        rows = []
+        now = int(time.time())
+        start = (now // 60 - 201) * 60
+        for i in range(200):
+            ts = start + i * 60
+            rows.append({
+                "schema": "hes_global_candle_v1", "source": "gateio_public_spot",
+                "symbol": "BTC_USDT", "timeframe": "1m", "open_time": ts,
+                "close_time": ts + 60, "open": "100", "high": "101", "low": "99",
+                "close": "100.5", "volume": "2", "quote_volume": "200", "closed": True,
+            })
+        strategy = {
+            "decision": "LONG", "direction": "LONG",
+            "latest_gate_evidence": {
+                "confirmation": {"state": "CONFIRMED_LONG"},
+                "risk": {"state": "RISK_APPROVED"},
+            },
+            "execution_enabled": False, "orders_placed": False,
+        }
+        with patch("forward.global_market_data_reader_v1.read_closed_candles", return_value=rows), patch.object(
+            dashboard, "read_strategy_v2_dashboard", return_value=strategy
+        ):
+            with urlopen(self.base + "/api/precision-entry") as response:
+                payload = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        self.assertEqual(payload["status"], "BLOCKED")
+        self.assertEqual(payload["entry_context_status"], "MISSING")
+        self.assertIn("15M_SETUP_NOT_VALIDATED", payload["reason_codes"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
+    def test_precision_entry_api_fails_closed_on_unavailable_market_data(self):
+        with patch("forward.global_market_data_reader_v1.read_closed_candles",
+                   side_effect=ValueError("stale 1m feed")):
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + "/api/precision-entry")
+        self.assertEqual(error.exception.code, 503)
+        payload = json.loads(error.exception.read())
+        self.assertTrue(payload["fail_closed"])
+        self.assertFalse(payload["execution_enabled"])
+        self.assertFalse(payload["orders_placed"])
+
+    def test_1m_chart_source_reuses_the_canonical_gateio_reader(self):
+        now_ms = int(time.time() * 1000)
+        last_open = (now_ms // 60_000 - 2) * 60
+        rows = []
+        for i in range(240):
+            ts = last_open - (239 - i) * 60
+            rows.append({
+                "schema": "hes_global_candle_v1", "source": "gateio_public_spot",
+                "symbol": "BTC_USDT", "timeframe": "1m", "open_time": ts,
+                "close_time": ts + 60, "open": "100", "high": "101", "low": "99",
+                "close": "100.5", "volume": "2", "quote_volume": "200", "closed": True,
+            })
+        market = {
+            "source": "gateio_public_spot", "symbol": "BTC_USDT",
+            "timeframes": {"15m": [], "1h": [], "4h": []},
+        }
+        with patch.object(dashboard, "load_market_input", return_value=market), patch(
+            "forward.global_market_data_reader_v1.read_closed_candles", return_value=rows
+        ) as reader:
+            batch = dashboard._SOURCE.fetch(symbol="BTCUSDT", interval="1m", limit=240)
+        reader.assert_called_once_with("1m", root=dashboard._market_data_root(), min_bars=1)
+        self.assertEqual(batch.endpoint_kind, "global_market_data_reader_v1")
+        self.assertEqual(batch.interval, "1m")
+        self.assertEqual(len(batch.candles), 240)
+        self.assertEqual(batch.venue, "gateio")
+
 if __name__=="__main__":
     unittest.main()

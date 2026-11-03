@@ -16,3 +16,24 @@ refreshMother();setInterval(refreshMother,15000);
 
 async function refreshNewsMonitor(){try{const r=await fetch('/api/news',{cache:'no-store'}),j=await r.json();if(!r.ok)throw Error(j.error||'News monitor unavailable');const m=j.monitor||{},b=j.brief||{},p=b.provenance||{},h=m.source_health||p.source_health||[];const count=s=>h.filter(x=>x.status===s).length,scope=s=>h.filter(x=>x.source_scope===s).length,freshness=s=>h.filter(x=>x.freshness_status===s).length;$('newsStatus').textContent=m.status||'UNKNOWN';$('newsCoverage').textContent=m.source_profile_status||'UNKNOWN';$('newsSources').textContent=count('ok')+' / '+count('ok_empty')+' / '+count('failed');$('newsScopes').textContent=scope('international')+' / '+scope('domestic')+' / '+scope('venue');$('newsFreshness').textContent=freshness('fresh')+' / '+freshness('aging')+' / '+freshness('stale')+' / '+freshness('future')+' / '+freshness('empty')+' / '+freshness('failed')+' / '+freshness('unknown');$('newsLastPoll').textContent=m.last_poll_at||'—';$('newsSummary').textContent=(b.headline||'No headline')+' · '+(b.mother_agent_summary||'');$('newsFlags').textContent=(b.veto_flags||[]).join(' · ')||'No explicit news flags; context only. '+(m.last_error||'');const sourceList=$('newsSourceDetails');sourceList.replaceChildren();for(const source of h){const li=document.createElement('li');const age=source.newest_age_minutes==null?'age unknown':Math.round(source.newest_age_minutes/60)+'h old';li.textContent=(source.source_id||'unknown-source')+' · '+(source.source_scope||'scope unknown')+' · transport '+(source.status||'unknown')+' · freshness '+(source.freshness_status||'not available')+' · '+(source.newest_published_at||'no publication timestamp')+' · '+age;sourceList.appendChild(li)}if(!sourceList.children.length){const li=document.createElement('li');li.textContent='No per-source health loaded.';sourceList.appendChild(li)}const list=$('newsItems');list.replaceChildren();for(const item of (b.findings||[]).slice(0,5)){const li=document.createElement('li');li.textContent=(item.title||'Untitled')+' · '+(item.source||'Unknown source')+' · '+(item.published_at||'Publication time unverified')+' · impact '+String(item.impact??'—');list.appendChild(li)}if(!list.children.length){const li=document.createElement('li');li.textContent='No sufficiently relevant, verified headlines in the current snapshot.';list.appendChild(li)}}catch(e){$('newsStatus').textContent='BLOCKED';$('newsCoverage').textContent='UNKNOWN';$('newsSources').textContent='—';$('newsScopes').textContent='—';$('newsFreshness').textContent='—';$('newsLastPoll').textContent='—';$('newsSummary').textContent='FAIL CLOSED · '+e.message;$('newsFlags').textContent='No fresh verified news snapshot; no directional inference or execution.';const sourceList=$('newsSourceDetails');sourceList.replaceChildren();const sourceError=document.createElement('li');sourceError.textContent='Per-source freshness unavailable.';sourceList.appendChild(sourceError);const list=$('newsItems');list.replaceChildren();const li=document.createElement('li');li.textContent='News evidence unavailable or stale.';list.appendChild(li)}}
 refreshNewsMonitor();setInterval(refreshNewsMonitor,30000);
+
+async function refreshPrecisionEntry(){
+ const ids={"4h":"pe4h","1h":"pe1h","15m":"pe15m","1m":"pe1m"};
+ try{
+  const r=await fetch('/api/precision-entry',{cache:'no-store'}),v=await r.json();
+  if(!r.ok)throw Error(v.reason||'Multi-timeframe evidence unavailable');
+  for(const [tf,id] of Object.entries(ids))$(id).textContent=(v.timeframes?.[tf]?.status||'BLOCKED')+' · '+String(v.timeframes?.[tf]?.closed_candles??0)+' bars';
+  $('pe15m').textContent=(v.setup_decision||'NO_TRADE')+' / '+(v.confirmation_state||'UNKNOWN');
+  $('pe1m').textContent=(v.timeframes?.['1m']?.status||'BLOCKED')+' · '+String(v.timeframes?.['1m']?.closed_candles??0)+' bars';
+  $('peState').textContent=v.entry_state||'BLOCKED';
+  $('peRisk').textContent=v.risk_gate_state||'UNVERIFIED';
+  $('peReasons').textContent=(v.reason_codes||[]).join(' · ')+' · '+v.authority+' · execution OFF';
+ }catch(e){
+  for(const id of Object.values(ids))$(id).textContent='BLOCKED';
+  $('pe15m').textContent='NO_TRADE';$('pe1m').textContent='BLOCKED';
+  $('peState').textContent='BLOCKED';$('peRisk').textContent='UNVERIFIED';
+  $('peReasons').textContent='FAIL CLOSED · '+e.message+' · execution OFF';
+ }
+}
+refreshPrecisionEntry();setInterval(refreshPrecisionEntry,15000);
+

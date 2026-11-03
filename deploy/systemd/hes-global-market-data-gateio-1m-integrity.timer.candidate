@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodic HES Gate.io 1m feed integrity checks
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Persistent=true
+Unit=hes-global-market-data-gateio-1m-integrity.service
+
+[Install]
+WantedBy=timers.target
