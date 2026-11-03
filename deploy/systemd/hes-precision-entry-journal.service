@@ -8,6 +8,7 @@ Type=simple
 User=sentinelx
 Group=sentinelx
 WorkingDirectory=/opt/hes-trade-agent/current
+Environment=PYTHONPATH=/opt/hes-trade-agent/current
 Environment=PYTHONUNBUFFERED=1
 Environment=HES_DATA_ROOT=/opt/hes-trade-agent
 Environment=HES_STRATEGY_V2_REPORT_PATH=/opt/hes-trade-agent/data/forward/strategy_policy_v2_eval_report.json
