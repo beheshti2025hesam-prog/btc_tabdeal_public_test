@@ -79,3 +79,35 @@ def test_24_hour_timeout_requires_contiguous_one_minute_candles():
     outcome=resolve_candidate(c,rows)
     assert outcome["outcome"]=="TIMEOUT"
     assert outcome["reason"]=="MAX_HOLD_24H_REACHED"
+
+
+def test_same_event_id_with_changed_payload_is_a_conflict(tmp_path):
+    import pytest
+    from scripts.run_precision_entry_journal_v1 import append_immutable_event
+    journal = ForwardJournalV1(tmp_path / "events.jsonl")
+    row = candidate()
+    assert append_immutable_event(journal, row) is True
+    assert append_immutable_event(journal, row) is False
+    changed = dict(row, entry_price=101.0)
+    with pytest.raises(ValueError, match="IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT"):
+        append_immutable_event(journal, changed)
+
+
+def test_data_root_is_shared_state_not_release_checkout(tmp_path):
+    from scripts.run_precision_entry_journal_v1 import resolve_data_root
+    release = tmp_path / "opt/hes-trade-agent/releases/abc123"
+    shared = tmp_path / "opt/hes-trade-agent"
+    resolved = resolve_data_root(code_root=release, configured_root=shared)
+    assert resolved == shared
+    assert resolved != release
+    assert (resolved / "data/forward") != (release / "data/forward")
+
+
+def test_systemd_unit_runs_immutable_release_and_writes_shared_data_only():
+    from pathlib import Path
+    unit = Path("deploy/systemd/hes-precision-entry-journal.service").read_text()
+    assert "WorkingDirectory=/opt/hes-trade-agent/current" in unit
+    assert "HES_DATA_ROOT=/opt/hes-trade-agent" in unit
+    assert "ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/current/scripts/run_precision_entry_journal_v1.py" in unit
+    assert "ReadWritePaths=/opt/hes-trade-agent/data/forward /opt/hes-trade-agent/logs" in unit
+    assert "WorkingDirectory=/opt/hes-trade-agent\n" not in unit
