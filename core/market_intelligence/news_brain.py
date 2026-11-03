@@ -513,7 +513,7 @@ class NewsIntelligenceBrain:
                        item.raw_item_sha256, item.retrieved_at)
                 source_evidence[key] = {"source_id": key[0], "feed_payload_sha256": key[1],
                                         "raw_item_sha256": key[2], "retrieved_at": key[3],
-                                        "publisher": item.publisher, "content_label": item.content_label}
+                                        "publisher": item.publisher, "content_label": item.content_label, "url": item.url}
             if not item.title.strip():
                 continue
             published = _parse_time(item.published_at)
@@ -635,12 +635,13 @@ class NewsIntelligenceBrain:
         cluster_rows = {}
         for finding in high_impact:
             cluster_id = _event_cluster_key(finding.title, finding.item_id)
-            row = cluster_rows.setdefault(cluster_id, {"event_id": cluster_id, "item_count": 0, "sources": set()})
+            row = cluster_rows.setdefault(cluster_id, {"event_id": cluster_id, "item_count": 0, "sources": set(), "item_ids": set()})
             row["item_count"] += 1
             row["sources"].add(finding.source)
+            row["item_ids"].add(finding.item_id)
         high_impact_clusters = [
             {"event_id": key, "item_count": row["item_count"], "source_count": len(row["sources"]),
-             "sources": sorted(row["sources"])}
+             "sources": sorted(row["sources"]), "item_ids": sorted(row["item_ids"])}
             for key, row in sorted(cluster_rows.items())
         ]
         implications = []
