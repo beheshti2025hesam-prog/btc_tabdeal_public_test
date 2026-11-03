@@ -325,6 +325,22 @@ class NewsBrainTests(unittest.TestCase):
                     "https://api.gateio.ws/api/v4/ann/list_article",
                     source="Gate.io Official Announcements", source_id="gateio_official_announcements")
 
+    def test_rss_preserves_original_publisher_and_ai_summary_label(self):
+        payload = b'<rss><channel><item><title>Bitcoin ETF inflows rise</title><link>https://investin.news/newsdesk/story</link><pubDate>Tue, 03 Nov 2026 06:30:27 GMT</pubDate><description>Bitcoin ETF inflows increased.</description><category>AI summary</category><source url="https://publisher.example/story">Publisher News</source></item></channel></rss>'
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return payload
+        opener = type("Opener", (), {"open": lambda self, request, timeout: Response()})()
+        with patch("core.market_intelligence.news_brain.build_opener", return_value=opener):
+            items = fetch_rss("https://investin.news/newsdesk/feed.xml", source="InvestIn.News NewsDesk", source_id="investin_news_newsdesk")
+        self.assertEqual(items[0].publisher, "Publisher News")
+        self.assertEqual(items[0].content_label, "AI summary")
+        brief = self.brain.analyze(items, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(brief.findings[0].source, "Publisher News · AI summary via InvestIn.News")
+        self.assertIn("secondary_ai_summary", brief.findings[0].caveats)
+        self.assertLessEqual(brief.findings[0].confidence, 0.70)
+
     def test_feed_redirects_are_rejected(self):
         class RedirectingOpener:
             def open(self, request, timeout):
