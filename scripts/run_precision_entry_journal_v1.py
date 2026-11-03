@@ -186,13 +186,29 @@ def _atomic_report(payload: dict) -> None:
 def run_cycle(*, now: datetime | None = None) -> dict:
     current = now or datetime.now(timezone.utc)
     now_s = int(current.timestamp())
-    strategy = read_strategy_v2_dashboard(now=current)
-    paper_setup = strategy.get("paper_setup") or {}
-    latest_gate = strategy.get("latest_gate_evidence") or {}
     bars = read_closed_candles("1m", root=CODE_ROOT, now=now_s)
     candidate_rows = _read_jsonl(CANDIDATES.path)
     outcome_rows = _read_jsonl(OUTCOMES.path)
     outcome_ids = {row.get("candidate_event_id") for row in outcome_rows}
+
+    # Resolve already-open paper candidates even if the upstream 15m report is stale/unavailable.
+    for candidate in candidate_rows:
+        if candidate.get("candidate_event_id") in outcome_ids:
+            continue
+        outcome = resolve_candidate(candidate, bars)
+        if outcome is not None and OUTCOMES.append_event(outcome):
+            outcome_rows.append(outcome)
+            outcome_ids.add(candidate["candidate_event_id"])
+
+    strategy_error = None
+    try:
+        strategy = read_strategy_v2_dashboard(now=current)
+        paper_setup = strategy.get("paper_setup") or {}
+        latest_gate = strategy.get("latest_gate_evidence") or {}
+    except Exception as exc:
+        strategy_error = type(exc).__name__ + ":" + str(exc)[:180]
+        paper_setup = {}
+        latest_gate = {}
 
     engine = None
     appended_event = False
@@ -224,14 +240,6 @@ def run_cycle(*, now: datetime | None = None) -> dict:
             if appended_candidate:
                 candidate_rows.append(candidate)
 
-    for candidate in candidate_rows:
-        if candidate.get("candidate_event_id") in outcome_ids:
-            continue
-        outcome = resolve_candidate(candidate, bars)
-        if outcome is not None and OUTCOMES.append_event(outcome):
-            outcome_rows.append(outcome)
-            outcome_ids.add(candidate["candidate_event_id"])
-
     wins = sum(row.get("outcome") == "WIN" for row in outcome_rows)
     losses = sum(row.get("outcome") == "LOSS" for row in outcome_rows)
     timeouts = sum(row.get("outcome") == "TIMEOUT" for row in outcome_rows)
@@ -239,11 +247,11 @@ def run_cycle(*, now: datetime | None = None) -> dict:
     report = {
         "schema": "hes_precision_entry_journal_report_v1",
         "updated_at": current.isoformat(),
-        "status": "NO_TRADE" if paper_setup.get("validated") is not True else (engine or {}).get("state", "BLOCKED"),
+        "status": "BLOCKED" if strategy_error else ("NO_TRADE" if paper_setup.get("validated") is not True else (engine or {}).get("state", "BLOCKED")),
         "paper_setup_validated": paper_setup.get("validated") is True,
-        "paper_setup_reason": paper_setup.get("reason_code"),
+        "paper_setup_reason": paper_setup.get("reason_code"),\n        "strategy_report_error": strategy_error,
         "latest_engine_state": (engine or {}).get("state", "NOT_EVALUATED"),
-        "latest_reason_codes": (engine or {}).get("reason_codes", []),
+        "latest_reason_codes": (engine or {}).get("reason_codes", []) if not strategy_error else [strategy_error],
         "event_count": len(_read_jsonl(EVENTS.path)),
         "candidate_count": len(candidate_rows),
         "outcome_count": len(outcome_rows),
