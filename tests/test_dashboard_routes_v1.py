@@ -423,6 +423,7 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base + "/") as response:
             page = response.read().decode()
         self.assertIn('<option>1m</option>', page)
+        self.assertLess(page.index('<option>15m</option>'), page.index('<option>1m</option>'))
         self.assertIn('id="precisionEntryPanel"', page)
         self.assertEqual(page.count('id="strategyV2Panel"'), 1)
         with urlopen(self.base + "/static/dashboard.js") as response:
