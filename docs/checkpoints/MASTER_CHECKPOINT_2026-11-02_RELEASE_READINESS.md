@@ -606,3 +606,15 @@ This section supersedes earlier candidate-only statements in this checkpoint abo
 5. After the deployed journal and chart pass, record exact release SHA, artifact hashes, runtime paths, test counts, soak interval and all limitations in this Master Checkpoint. No live execution authorization is implied.
 
 **Acceptance snapshot at this checkpoint:** version integration in GitHub main = PASS; 15m→1m candidate code/CI = PASS with live setup eligibility still fail-closed; deployed 1m chart = NOT MET; permanent precision journal = NOT INSTALLED; 1m 24h soak = IN PROGRESS; release = HOLD.
+
+
+## Continuation update — 2026-11-03 (journal schema reconciliation merged)
+
+- PR #433 merged to `main` as `dee719d89a1fccf7a64c35d3f1d655b919a942cb`. Its exact head passed 32/32 workflow checks; the resulting mainline commit passed 23/23 push-triggered workflows.
+- The precision journal now persists the provenance-bound 15m `market_regime` in precision events, paper candidates and outcomes. Candidate creation fails closed if regime is missing or direction-inconsistent; outcome resolution refuses records without a valid direction/regime pairing. Focused regression tests cover both valid propagation and invalid/missing regime cases.
+- PR #432 was closed as a stale-base duplicate; its changes were restacked on the latest mainline in #433 and merged. PR #425 was closed as already incorporated in #430; no implementation was discarded.
+- PR #428 remains open but stale (63 commits behind main). Its writer-schema mismatch is now corrected on main by #433, but the remaining acceptance-contract, safety-gate and strategy-learning changes in #428 have not been rebased or merged. Its old green checks are not current-main evidence.
+- PR #429 remains open but stale (63 commits behind main). Its workflow-only action migration overlaps files changed by #430; do not merge its old head. The current mainline workflows still use the older action major versions until a safe mainline restack is completed.
+- Current mainline is `dee719d89a1fccf7a64c35d3f1d655b919a942cb`; all 23 push-triggered workflows on that commit passed. No runtime release pointer, systemd service, SentinelX policy, account or order route was changed.
+- Live runtime acceptance remains unchanged from the preceding audit: 1m feed active since `2026-11-03T06:15:06Z`, zero service restarts, 91/92 integrity observations PASS with one initial PermissionError, and the 1m 24h window remains IN PROGRESS. The deployed dashboard still returns HTTP 400 for the 1m candle endpoint; permanent precision journal service remains NOT INSTALLED; the current 15m Strategy V2 setup is not eligible and therefore correctly supplies no 1m setup context.
+- The 24h 1m soak cannot be marked PASS before `2026-11-04T06:15:06Z`, followed by a full evidence audit. Keep release HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY; execution OFF.
