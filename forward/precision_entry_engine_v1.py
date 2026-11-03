@@ -117,12 +117,14 @@ def evaluate_precision_entry(
     direction = str(setup_direction).upper()
     evidence: dict[str, Any] = {"bars": len(candles_1m) if isinstance(candles_1m, list) else 0}
 
-    if direction not in {"LONG", "SHORT"}:
-        return _blocked(direction, "SETUP_DIRECTION_INVALID", evidence)
+    # Report upstream authority failures before validating downstream direction.
+    # A missing 15m setup is the primary reason a NONE direction is expected.
     if setup_validated_15m is not True:
         return _blocked(direction, "15M_SETUP_NOT_VALIDATED", evidence)
     if risk_gate_state != "RISK_APPROVED":
         return _blocked(direction, "RISK_GATE_NOT_APPROVED", evidence)
+    if direction not in {"LONG", "SHORT"}:
+        return _blocked(direction, "SETUP_DIRECTION_INVALID", evidence)
     if isinstance(now_s, bool) or not isinstance(now_s, int) or now_s <= 0:
         return _blocked(direction, "OBSERVATION_TIME_INVALID", evidence)
     if isinstance(min_rr, bool) or not isinstance(min_rr, (int, float)) or not math.isfinite(min_rr) or min_rr < MINIMUM_RR:
