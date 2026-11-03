@@ -268,6 +268,8 @@ class NewsMonitorV1:
                         record = json.loads(line.decode("utf-8"))
                     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                         raise ValueError(f"news event ledger line {line_number} is invalid") from exc
+                    if not isinstance(record, dict):
+                        raise ValueError(f"news event ledger line {line_number} is not an object")
                     digest = record.pop("record_sha256", None)
                     if not isinstance(digest, str) or sha256(_canonical(record)).hexdigest() != digest:
                         raise ValueError(f"news event ledger line {line_number} digest mismatch")
