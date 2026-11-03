@@ -146,7 +146,7 @@ class NewsBrainTests(unittest.TestCase):
         self.assertTrue(registry["sources"])
         enabled = [source for source in registry["sources"] if source["enabled"]]
         self.assertEqual({source["id"] for source in enabled},
-                         {"ecb_press_releases", "cftc_general_press_releases", "fed_press_all", "bis_media_releases", "boj_whats_new", "boc_news", "gateio_official_announcements"})
+                         {"ecb_press_releases", "cftc_general_press_releases", "fed_press_all", "bis_media_releases", "boj_whats_new", "boc_news", "gateio_official_announcements", "investin_news_newsdesk"})
         self.assertTrue(all(source["qualification_status"] == "qualified" for source in enabled))
         self.assertFalse(next(source for source in registry["sources"]
                               if source["id"] == "coindesk_news")["enabled"])
@@ -201,11 +201,11 @@ class NewsBrainTests(unittest.TestCase):
                 registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         gate_fetch.assert_called_once()
         self.assertEqual(gate_fetch.call_args.kwargs["source_id"], "gateio_official_announcements")
-        self.assertEqual(rss_fetch.call_count, 6)
+        self.assertEqual(rss_fetch.call_count, 7)
         health = brief.provenance["source_health"]
-        self.assertEqual(len(health), 7)
+        self.assertEqual(len(health), 8)
         self.assertEqual(sum(x["status"] == "ok" for x in health), 1)
-        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 6)
+        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 7)
         gate_health = next(x for x in health if x["source_id"] == "gateio_official_announcements")
         self.assertEqual(gate_health["status"], "ok")
         self.assertEqual(gate_health["source_scope"], "venue")
