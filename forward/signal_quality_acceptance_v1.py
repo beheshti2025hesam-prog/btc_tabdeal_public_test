@@ -83,10 +83,12 @@ def evaluate_acceptance(*, root: str | Path, metrics: dict, candidates: list[dic
     target = float(gate["win_rate_pct"])
     cohort = gate.get("performance_cohort", "GATE_APPROVED_ONLY")
     reasons = []
+    unresolved_candidates = 0
     if cohort == "PRECISION_ENTRY_PAPER_ELIGIBLE":
         resolved = int(metrics.get("precision_paper_resolved", metrics.get("resolved", 0)) or 0)
         win_rate = metrics.get("precision_paper_win_rate_pct", metrics.get("win_rate_pct"))
         unscorable = int(metrics.get("precision_paper_unscorable_outcomes", metrics.get("unscorable_outcomes", 0)) or 0)
+        unresolved_candidates = int(metrics.get("precision_paper_unresolved_candidates", 0) or 0)
     elif cohort == "PREAPPROVAL_PAPER_ELIGIBLE":
         resolved = int(metrics.get("preapproval_paper_resolved", metrics.get("resolved", 0)) or 0)
         win_rate = metrics.get("preapproval_paper_win_rate_pct", metrics.get("win_rate_pct"))
@@ -106,6 +108,7 @@ def evaluate_acceptance(*, root: str | Path, metrics: dict, candidates: list[dic
     if unmatched: reasons.append("UNMATCHED_OUTCOMES_PRESENT")
     if ambiguous: reasons.append("AMBIGUOUS_OUTCOME_LINKS_PRESENT")
     if unscorable: reasons.append("UNSCORABLE_OUTCOMES_PRESENT")
+    if unresolved_candidates: reasons.append("UNRESOLVED_PRECISION_CANDIDATES_PRESENT")
     daily = daily_signal_counts(candidates, performance_cohort=cohort)
     if daily["invalid_actionable_records"]: reasons.append("INVALID_ACTIONABLE_SIGNAL_RECORDS")
     if daily["max_signals_in_any_utc_day"] > cap: reasons.append("DAILY_SIGNAL_CAP_EXCEEDED")
@@ -139,6 +142,7 @@ def evaluate_acceptance(*, root: str | Path, metrics: dict, candidates: list[dic
         "unmatched_outcome_records": unmatched,
         "ambiguous_outcome_links": ambiguous,
         "unscorable_outcomes": unscorable,
+        "unresolved_precision_candidates": unresolved_candidates,
         "independent_oos_status": independent_oos.get("status") if isinstance(independent_oos, dict) else "MISSING",
         "cost_model_status": cost.get("status", "MISSING"),
         "reasons": reasons,
