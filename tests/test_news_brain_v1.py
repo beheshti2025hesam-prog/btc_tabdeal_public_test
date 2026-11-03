@@ -61,6 +61,7 @@ class NewsBrainTests(unittest.TestCase):
     def test_crypto_context_does_not_match_another_asset_promotion(self):
         brief = self.brain.analyze(
             [NewsItem("Ethereum Rewards Week: Triple Rewards for New Users",
+                      summary="A crypto promotion for ETH users.",
                       source="Gate.io Official Announcements",
                       url="https://www.gate.io/announcements/article/eth-rewards",
                       published_at="2026-10-23T11:45:00Z")],
