@@ -110,6 +110,43 @@ def test_append_then_restart_recovers_crash_window_without_duplicate(tmp_path):
     assert len(path.read_text(encoding="utf-8").splitlines()) == 1
 
 
+def test_paper_runner_rejects_duplicate_current_policy_candle_records(tmp_path):
+    path = tmp_path / "paper.jsonl"
+    record = {"schema": "hes_strategy_policy_v2_forward_record", "candle_close_time": 200,
+              "policy_version": POLICY_VERSION, "final_gate_version": GATE_VERSION}
+    path.write_text(json.dumps(record) + "\n" + json.dumps(record) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="PAPER_LOG_DUPLICATE_CANDLE"):
+        load_last_seen(path)
+
+
+def test_observation_progress_rejects_duplicate_candle_records(tmp_path):
+    path = tmp_path / "observations.jsonl"
+    record = {
+        "schema": OBS_SCHEMA, "candle_close_time": 200,
+        "policy_version": POLICY_VERSION, "final_gate_version": GATE_VERSION,
+        "decision": {"decision": "NO_TRADE", "direction": "NONE"},
+        "execution_enabled": False, "orders_placed": False,
+    }
+    path.write_text(json.dumps(record) + "\n" + json.dumps(record) + "\n", encoding="utf-8")
+    with pytest.raises(LegacyStateRequiresReview, match="OBSERVATION_LOG_DUPLICATE_CANDLE"):
+        load_observation_progress(path)
+
+
+def test_observation_progress_rejects_non_monotonic_candle_records(tmp_path):
+    path = tmp_path / "observations.jsonl"
+    records = []
+    for candle_time in (300, 200):
+        records.append(json.dumps({
+            "schema": OBS_SCHEMA, "candle_close_time": candle_time,
+            "policy_version": POLICY_VERSION, "final_gate_version": GATE_VERSION,
+            "decision": {"decision": "NO_TRADE", "direction": "NONE"},
+            "execution_enabled": False, "orders_placed": False,
+        }))
+    path.write_text("\n".join(records) + "\n", encoding="utf-8")
+    with pytest.raises(LegacyStateRequiresReview, match="OBSERVATION_LOG_NON_MONOTONIC_CANDLE"):
+        load_observation_progress(path)
+
+
 def test_observation_progress_rejects_non_fail_closed_records(tmp_path):
     path = tmp_path / "observations.jsonl"
     path.write_text(json.dumps({
