@@ -292,7 +292,33 @@ class MotherOrchestratorV1:
                     return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
             shared[name] = result
 
-        final_decision = _decision_value(stages[-2].payload)
+        # Resolve cross-stage directional disagreement at the existing Mother boundary.
+        # This is a coherence check over the same snapshot, not a parallel arbiter.
+        by_agent = {stage.agent: stage for stage in stages}
+        signal_payload = by_agent["signal"].payload
+        confirmation_payload = by_agent["confirmation"].payload
+        structure_payload = by_agent["market_structure"].payload
+        signal_decision = signal_payload.get("decision") if isinstance(signal_payload, Mapping) else None
+        confirmation_state = confirmation_payload.get("upstream_state") if isinstance(confirmation_payload, Mapping) else None
+        regime = structure_payload.get("regime") if isinstance(structure_payload, Mapping) else None
+        final_decision = _decision_value(by_agent["decision"].payload)
         if _safe_decision(final_decision) == "INVALID":
             return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
+        confirmed_direction = (
+            confirmation_state.removeprefix("CONFIRMED_")
+            if isinstance(confirmation_state, str) and confirmation_state in ("CONFIRMED_LONG", "CONFIRMED_SHORT")
+            else None
+        )
+        if signal_decision in ("LONG", "SHORT") and confirmed_direction in ("LONG", "SHORT") and signal_decision != confirmed_direction:
+            return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("SIGNAL_CONFIRMATION_DIRECTION_CONFLICT",))
+        if signal_decision in ("LONG", "SHORT"):
+            if regime == "UPTREND" and signal_decision != "LONG":
+                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("MARKET_STRUCTURE_SIGNAL_DIRECTION_CONFLICT",))
+            if regime == "DOWNTREND" and signal_decision != "SHORT":
+                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("MARKET_STRUCTURE_SIGNAL_DIRECTION_CONFLICT",))
+            if regime == "RANGE":
+                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("DIRECTIONAL_SIGNAL_IN_RANGE_REGIME",))
+        if final_decision in ("LONG", "SHORT"):
+            if signal_decision != final_decision or confirmed_direction != final_decision:
+                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("FINAL_DECISION_DIRECTION_CONFLICT",))
         return finish("OBSERVATION_ONLY", final_decision, ("EXECUTION_NOT_AUTHORIZED",))

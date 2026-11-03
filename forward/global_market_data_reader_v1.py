@@ -12,6 +12,7 @@ LIVE_WINDOW_CANDLES = 5000
 SOURCE = "gateio_public_spot"
 SYMBOL = "BTC_USDT"
 SPECS = {
+    "1m": (60, "data/forward/global_market_candles_1m_v1.jsonl"),
     "15m": (900, "data/forward/global_market_candles_v1.jsonl"),
     "1h": (3600, "data/forward/global_market_candles_1h_v1.jsonl"),
     "4h": (14400, "data/forward/global_market_candles_4h_v1.jsonl"),

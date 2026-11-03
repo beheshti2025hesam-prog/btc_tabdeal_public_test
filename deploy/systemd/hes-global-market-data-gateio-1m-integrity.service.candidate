@@ -1,0 +1,32 @@
+[Unit]
+Description=HES Gate.io 1m feed integrity witness
+After=hes-global-market-data-gateio-1m.service
+Requires=hes-global-market-data-gateio-1m.service
+
+[Service]
+Type=oneshot
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent/current
+Environment=PYTHONUNBUFFERED=1
+Environment=HES_GLOBAL_MARKET_DATA_ROOT=/opt/hes-trade-agent
+ExecStart=/opt/hes-trade-agent/.venv/bin/python /opt/hes-trade-agent/current/scripts/check_global_market_data_1m_integrity.py
+StateDirectory=hes-gateio-1m-integrity
+StateDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+ReadOnlyPaths=/opt/hes-trade-agent/current /opt/hes-trade-agent/data/forward/global_market_candles_1m_v1.jsonl

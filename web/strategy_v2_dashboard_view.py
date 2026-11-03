@@ -6,6 +6,7 @@ import json, os
 from pathlib import Path
 from typing import Any
 from forward.trade_journal_view_v1 import read_decision_journal, JournalProjectionError
+from forward.strategy_entry_context_v1 import verify_entry_context
 
 DEFAULT_REPORT_PATH = Path("/opt/hes-trade-agent/data/forward/strategy_policy_v2_eval_report.json")
 DEFAULT_JOURNAL_PATH = Path("/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl")
@@ -73,6 +74,18 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
     gate = report.get("latest_gate_evidence")
     if not isinstance(gate, dict) or gate.get("source") != EXPECTED_SOURCE or gate.get("final_decision") != "NO_TRADE":
         raise StrategyV2DashboardError("v2_latest_gate_evidence_invalid")
+    entry_context = gate.get("entry_context")
+    paper_valid, paper_reason = verify_entry_context(
+        entry_context, gate_evidence=gate, now_s=int(current.timestamp())
+    )
+    paper_setup = {
+        "validated": paper_valid,
+        "direction": entry_context.get("direction") if paper_valid else "NONE",
+        "context": entry_context if paper_valid else None,
+        "reason_code": paper_reason,
+        "execution_enabled": False,
+        "orders_placed": False,
+    }
     counts = {}
     for key in ("active_candidates", "wins", "losses", "timeouts"):
         value = report.get(key)
@@ -115,6 +128,6 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
         **counts, "resolved_win_rate_pct": report.get("resolved_win_rate_pct"),
         "target_policy_status": report.get("target_policy_status", "UNKNOWN"),
         "directional_candidates_blocked_until_gates_approved": True,
-        "latest_gate_evidence": gate, "journal": journal,
+        "latest_gate_evidence": gate, "paper_setup": paper_setup, "journal": journal,
         "execution_enabled": False, "orders_placed": False, "outcomes_inferred": False,
     }

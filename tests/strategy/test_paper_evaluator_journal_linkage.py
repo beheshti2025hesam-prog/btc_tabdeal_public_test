@@ -83,7 +83,8 @@ def test_win_rate_target_requires_sample_size_and_clean_linkage():
         "unmatched_outcome_records": 0, "ambiguous_legacy_timestamp_matches": 0,
         "eligible_unscorable_outcomes": 0,
     }
-    assert mod.win_rate_target_met(metrics, minimum_resolved=30, target_pct=90.0) is True
+    assert mod.win_rate_target_met(metrics, minimum_resolved=30, target_pct=90.0) is False
+    assert mod.win_rate_target_met({**metrics, "eligible_win_rate_pct":90.01}, minimum_resolved=30, target_pct=90.0) is True
     assert mod.win_rate_target_met({**metrics, "eligible_resolved": 29}, minimum_resolved=30, target_pct=90.0) is False
     assert mod.win_rate_target_met({**metrics, "unmatched_outcome_records": 1}, minimum_resolved=30, target_pct=90.0) is False
     assert mod.win_rate_target_met({**metrics, "eligible_unscorable_outcomes": 1}, minimum_resolved=30, target_pct=90.0) is False
@@ -148,6 +149,7 @@ def test_preapproval_win_rate_target_also_requires_30_clean_resolved_outcomes():
         "preapproval_paper_unscorable_outcomes": 0,
         "unmatched_outcome_records": 0, "ambiguous_legacy_timestamp_matches": 0,
     }
-    assert mod.win_rate_target_met(metrics, cohort="preapproval_paper", minimum_resolved=30, target_pct=90.0) is True
+    assert mod.win_rate_target_met(metrics, cohort="preapproval_paper", minimum_resolved=30, target_pct=90.0) is False
+    assert mod.win_rate_target_met({**metrics,"preapproval_paper_win_rate_pct":90.01}, cohort="preapproval_paper", minimum_resolved=30, target_pct=90.0) is True
     assert mod.win_rate_target_met({**metrics,"preapproval_paper_resolved":29},cohort="preapproval_paper",minimum_resolved=30,target_pct=90.0) is False
     assert mod.win_rate_target_met({**metrics,"unmatched_outcome_records":1},cohort="preapproval_paper",minimum_resolved=30,target_pct=90.0) is False

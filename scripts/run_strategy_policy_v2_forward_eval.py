@@ -13,6 +13,8 @@ from forward.strategy_policy_v2 import evaluate,POLICY_VERSION
 from forward.strategy_policy_gate_v1 import enforce_final_gates
 from forward.strategy_gate_pipeline_v1 import evaluate_gate_evidence
 from forward.forward_journal_v1 import ForwardJournalV1
+from forward.signal_quality_acceptance_v1 import evaluate_acceptance
+from forward.strategy_entry_context_v1 import build_entry_context
 BASE=ROOT/'data/forward'; STATE=BASE/'strategy_policy_v2_eval_state.json'
 CAND=BASE/'strategy_policy_v2_eval_candidates.jsonl'; OUT=BASE/'strategy_policy_v2_eval_outcomes.jsonl'; REPORT=BASE/'strategy_policy_v2_eval_report.json'
 MAX_SECONDS=86400
@@ -81,13 +83,13 @@ def preapproval_paper_eligibility(proposal, gate_evidence):
          'reasons':reasons,'final_gate_approval_required':True,
          'execution_enabled':False,'orders_placed':False}
 
-def win_rate_target_met(metrics, *, minimum_resolved, target_pct, cohort='eligible'):
- # A target claim is blocked by underpowered samples, unmatched/ambiguous links, or unscorable outcomes.
+def win_rate_target_met(metrics, *, minimum_resolved=100, target_pct=90.0, cohort='eligible'):
+ # Contract uses strict >90%; exactly 90% never passes.
  prefix='preapproval_paper' if cohort=='preapproval_paper' else 'eligible'
  return bool(
   int(metrics.get(prefix+'_resolved', 0)) >= minimum_resolved
   and metrics.get(prefix+'_win_rate_pct') is not None
-  and float(metrics[prefix+'_win_rate_pct']) >= target_pct
+  and float(metrics[prefix+'_win_rate_pct']) > target_pct
   and int(metrics.get('unmatched_outcome_records', 0)) == 0
   and int(metrics.get('ambiguous_legacy_timestamp_matches', 0)) == 0
   and int(metrics.get(prefix+'_unscorable_outcomes', 0)) == 0
@@ -236,6 +238,16 @@ def main():
    feats={tf:snapshot(tf,rows) for tf,rows in frames.items()};proposal=evaluate(feats)
    gate_evidence=evaluate_gate_evidence(proposal=proposal,rows_15m=frames['15m'],frames=frames,source=src['source'],symbol=src['symbol'],observed_at=now)
    d=enforce_final_gates(proposal,gate_evidence)
+   preapproval={'eligible':False,'status':'BLOCKED','reasons':['NO_DIRECTIONAL_15M_PROPOSAL'],'final_gate_approval_required':True,'execution_enabled':False,'orders_placed':False}
+   entry_context=None
+   if proposal.decision in ('LONG','SHORT') and proposal.entry is not None:
+    preapproval=preapproval_paper_eligibility(proposal,gate_evidence)
+    if preapproval['eligible']:
+     try:
+      entry_context=build_entry_context(source=src['source'],symbol=src['symbol'],candidate_time=now,policy_version=POLICY_VERSION,direction=proposal.direction,entry=proposal.entry,stop=proposal.stop_loss,target=proposal.take_profit,gate_evidence=gate_evidence)
+      gate_evidence['entry_context']=entry_context
+     except (TypeError,ValueError) as context_error:
+      preapproval={'eligible':False,'status':'BLOCKED','reasons':['ENTRY_CONTEXT_BUILD_FAILED:'+str(context_error)[:120]],'final_gate_approval_required':True,'execution_enabled':False,'orders_placed':False}
    if new_candle:
     # Append every closed-candle decision to the validated immutable trade journal.
     # A proposal is not an approved trade: operational gate decision is what is journaled.
@@ -265,14 +277,17 @@ def main():
     # Final gate remains fail-closed; this path records hypothetical outcomes only.
     if proposal.decision in ('LONG','SHORT') and proposal.entry is not None:
      candidate_event_id=f"hes-v2-candidate-{src['symbol']}-15m-{now}"
-     preapproval=preapproval_paper_eligibility(proposal,gate_evidence)
      t={'candidate_time':now,'candidate_event_id':candidate_event_id,'direction':proposal.direction,'entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons']}
-     st['active'].append(t);append(CAND,{'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_event_id,'event_id':candidate_event_id,'evaluation_mode':'PREAPPROVAL_PAPER_ONLY','preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'gate_evidence':gate_evidence,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),**t,'policy_version':POLICY_VERSION,'observed_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'execution_enabled':False,'orders_placed':False})
-     append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_candidate_v1','event_id':candidate_event_id,'candidate_event_id':candidate_event_id,'observed_at':datetime.now(timezone.utc).isoformat(),'candle_close_time':now,'symbol':src['symbol'],'timeframe':'15m','direction':proposal.direction,'decision':'PAPER_CANDIDATE','entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'quality_score':proposal.quality_score,'proposal_reasons':list(proposal.reasons),'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'gate_evidence':gate_evidence,'outcome':None,'closed_at':None,'execution_enabled':False,'orders_placed':False})
+     st['active'].append(t);append(CAND,{'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_event_id,'event_id':candidate_event_id,'evaluation_mode':'PREAPPROVAL_PAPER_ONLY','preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),**t,'policy_version':POLICY_VERSION,'observed_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'execution_enabled':False,'orders_placed':False})
+     append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_candidate_v1','event_id':candidate_event_id,'candidate_event_id':candidate_event_id,'observed_at':datetime.now(timezone.utc).isoformat(),'candle_close_time':now,'symbol':src['symbol'],'timeframe':'15m','direction':proposal.direction,'decision':'PAPER_CANDIDATE','entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'quality_score':proposal.quality_score,'proposal_reasons':list(proposal.reasons),'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'outcome':None,'closed_at':None,'execution_enabled':False,'orders_placed':False})
     st['last_seen']=now
    resolved=st['wins']+st['losses'];wr=round(100*st['wins']/resolved,2) if resolved else None
    pm=performance_metrics()
-   report={'schema':'hes_strategy_policy_v2_forward_evaluation','policy_version':POLICY_VERSION,'updated_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'closed_15m_candle_time':now,'active_candidates':len(st['active']),'wins':pm['eligible_wins'],'losses':pm['eligible_losses'],'timeouts':pm['eligible_timeouts'],'ambiguous_losses':st['ambiguous_losses'],'resolved_win_rate_pct':pm['eligible_win_rate_pct'],'performance_metrics':pm,'research_only_raw_wins':st['wins'],'research_only_raw_losses':st['losses'],'final_gate_version':'hes-strategy-policy-final-gate-v1.0.0','gate_pipeline_version':'hes-strategy-gate-pipeline-v1.0.0','latest_gate_evidence':gate_evidence,'directional_candidates_blocked_until_gates_approved':True,'target_win_rate_pct':None,'target_met':None,'preapproval_paper_target_met':None,'minimum_resolved_trades_for_target_claim':None,'target_policy_status':'UNSET_PENDING_APPROVED_PROJECT_DECISION','execution_enabled':False,'orders_placed':False,'caveat':'The strategy lock explicitly leaves target win rate and minimum sample size unset pending an approved project decision. No target claim is made. Official and preapproval cohorts remain separate; the latter is never final approval and cannot execute orders. Net estimates use explicit unverified simulation fee/slippage assumptions; no live trading.'}
+   candidate_rows=[json.loads(line) for line in CAND.read_text().splitlines() if line.strip()] if CAND.exists() else []
+   oos_path=BASE/'strategy_policy_v2_independent_oos_evidence.json'
+   independent_oos=json.loads(oos_path.read_text()) if oos_path.exists() else None
+   acceptance=evaluate_acceptance(root=CODE_ROOT,metrics=pm,candidates=candidate_rows,independent_oos=independent_oos)
+   report={'schema':'hes_strategy_policy_v2_forward_evaluation','policy_version':POLICY_VERSION,'updated_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'closed_15m_candle_time':now,'active_candidates':len(st['active']),'wins':pm['eligible_wins'],'losses':pm['eligible_losses'],'timeouts':pm['eligible_timeouts'],'ambiguous_losses':st['ambiguous_losses'],'resolved_win_rate_pct':pm['eligible_win_rate_pct'],'performance_metrics':pm,'research_only_raw_wins':st['wins'],'research_only_raw_losses':st['losses'],'final_gate_version':'hes-strategy-policy-final-gate-v1.0.0','gate_pipeline_version':'hes-strategy-gate-pipeline-v1.0.0','latest_gate_evidence':gate_evidence,'directional_candidates_blocked_until_gates_approved':True,'target_win_rate_pct':acceptance['target_win_rate_pct'],'target_met':acceptance['status']=='PASS','preapproval_paper_target_met':acceptance['status']=='PASS','minimum_resolved_trades_for_target_claim':acceptance['minimum_resolved_closed_trades'],'target_policy_status':acceptance['status'],'paper_performance_scope':acceptance['performance_cohort'],'signal_quality_acceptance':acceptance,'execution_enabled':False,'orders_placed':False,'caveat':'Acceptance contract is enforced fail-closed. Paper target requires >90% over at least 100 PREAPPROVAL_PAPER_ELIGIBLE resolved trades, clean linkage, <=3 paper-eligible signals per UTC day, verified costs, and independent out-of-sample evidence. Official final-gate approval remains separate; no live trading.'}
    STATE.write_text(json.dumps(st,indent=2)+'\n');REPORT.write_text(json.dumps(report,indent=2)+'\n')
    print(json.dumps({'candle':now,'active':len(st['active']),'wins':st['wins'],'losses':st['losses'],'timeouts':st['timeouts'],'win_rate_pct':wr,'decision':d.decision if new_candle else 'TRACKING','gate_version':d.gate_version} if new_candle else {'candle':now,'active':len(st['active']),'wins':st['wins'],'losses':st['losses'],'timeouts':st['timeouts'],'win_rate_pct':wr,'decision':'TRACKING'}),flush=True)
   except Exception as e:print(json.dumps({'error':type(e).__name__+':'+str(e)[:180],'decision':'NO_TRADE','execution_enabled':False}),flush=True)

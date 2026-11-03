@@ -71,7 +71,8 @@ def test_stable_candidate_ids_are_used_before_legacy_timestamp_fallback():
 def test_win_rate_claim_requires_minimum_sample_and_clean_linkage():
     args = dict(resolved=30, win_rate_pct=90.0, unmatched_outcomes=0,
                 ambiguous_outcomes=0, unscorable_outcomes=0)
-    assert mod.win_rate_target_met(**args, minimum_resolved=30, target_pct=90.0) is True
+    assert mod.win_rate_target_met(**args, minimum_resolved=30, target_pct=90.0) is False
+    assert mod.win_rate_target_met(**{**args, 'win_rate_pct':90.01}, minimum_resolved=30, target_pct=90.0) is True
     assert mod.win_rate_target_met(**{**args, 'resolved':29}, minimum_resolved=30, target_pct=90.0) is False
     assert mod.win_rate_target_met(**{**args, 'unmatched_outcomes':1}, minimum_resolved=30, target_pct=90.0) is False
     assert mod.win_rate_target_met(**{**args, 'unscorable_outcomes':1}, minimum_resolved=30, target_pct=90.0) is False

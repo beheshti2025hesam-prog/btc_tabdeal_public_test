@@ -3,19 +3,58 @@
   "implementation": "core/orchestration/mother_v1.py",
   "mode": "READ_ONLY_OBSERVATION",
   "execution_authorized": false,
-  "required_stage_order": ["data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation"],
+  "required_stage_order": [
+    "data_quality",
+    "market_structure",
+    "signal",
+    "confirmation",
+    "risk",
+    "decision",
+    "evaluation"
+  ],
   "allowed_states": {
-    "data_quality": ["PASS"],
-    "market_structure": ["PASS"],
-    "signal": ["PASS"],
-    "confirmation": ["CONFIRMED"],
-    "risk": ["APPROVED"],
-    "decision": ["DECIDED"],
-    "evaluation": ["OBSERVED"]
+    "data_quality": [
+      "PASS"
+    ],
+    "market_structure": [
+      "PASS"
+    ],
+    "signal": [
+      "PASS"
+    ],
+    "confirmation": [
+      "CONFIRMED"
+    ],
+    "risk": [
+      "APPROVED"
+    ],
+    "decision": [
+      "DECIDED"
+    ],
+    "evaluation": [
+      "OBSERVED"
+    ]
   },
-  "decisions": ["LONG", "SHORT", "NO_TRADE"],
-  "required_specialist_report_fields": ["agent_version", "state", "reason_codes", "evidence_refs"],
-  "required_context": ["scope.venue", "scope.product", "scope.symbol", "scope.timeframe", "observed_at", "snapshot_sha256", "evidence_sha256"],
+  "decisions": [
+    "LONG",
+    "SHORT",
+    "NO_TRADE"
+  ],
+  "required_specialist_report_fields": [
+    "agent_version",
+    "state",
+    "reason_codes",
+    "evidence_refs"
+  ],
+  "required_context": [
+    "scope.venue",
+    "scope.product",
+    "scope.symbol",
+    "scope.timeframe",
+    "observed_at",
+    "snapshot_sha256",
+    "evidence_sha256"
+  ],
   "invariants": [
     "NO_TRADE is a first-class decision.",
     "Missing, extra, malformed, stale, future, or unprovenanced stage evidence fails closed; duplicate reason codes and evidence references within a stage are rejected.",
@@ -27,6 +66,7 @@
     "Evaluation in this stage sequence means decision-observation validation, not realized performance evaluation.",
     "Realized performance belongs to the separate forward outcome/evaluation pipeline and must never be inferred.",
     "The exact canonical market-data source and scope must be supplied by the upstream validated data path.",
-    "Unknown contract versions must be rejected, not silently coerced."
+    "Unknown contract versions must be rejected, not silently coerced.",
+    "Signal, confirmation, market-structure regime, and any directional final decision must agree on direction within the same evidence snapshot; disagreement blocks NO_TRADE at the Mother boundary."
   ]
 }
