@@ -42,6 +42,7 @@ def write_artifacts(
             "symbol": "BTC_USDT",
             "timeframe": "1m",
             "direction": "LONG",
+            "market_regime": "UPTREND",
             "entry_time": entry_time,
             "entry_price": 100.0,
             "stop_price": 99.0,
@@ -72,6 +73,7 @@ def write_artifacts(
             "symbol": "BTC_USDT",
             "timeframe": "1m",
             "direction": "LONG",
+            "market_regime": "UPTREND",
             "entry_time": entry_time,
             "entry_price": 100.0,
             "exit_close_time": entry_time + 60,
@@ -91,35 +93,46 @@ def write_artifacts(
         "".join(json.dumps(row, sort_keys=True) + "\n" for row in outcomes),
         encoding="utf-8",
     )
+    cost_model = {
+        "status": "VERIFIED",
+        "fees_slippage_verified": True,
+        "fee_fraction_per_side": 0.001,
+        "slippage_fraction_per_side": 0.0005,
+        "evidence_sha256": cost_hash,
+    }
+    import hashlib
+    canonical_cost = json.dumps(cost_model, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
+    cost_model["model_sha256"] = hashlib.sha256(canonical_cost).hexdigest()
     (base / "precision_entry_cost_model_v1.json").write_text(
-        json.dumps({
-            "status": "VERIFIED",
-            "fees_slippage_verified": True,
-            "fee_fraction_per_side": 0.001,
-            "slippage_fraction_per_side": 0.0005,
-            "evidence_sha256": cost_hash,
-        }),
+        json.dumps(cost_model, sort_keys=True),
         encoding="utf-8",
     )
+    oos_report = {
+        "status": "PASS",
+        "resolved_closed_trade_count": 100,
+        "win_rate_pct": oos_win_rate,
+        "wins": 91,
+        "losses": 9,
+        "breakevens": 0,
+        "timeouts": 0,
+        "evaluation_window_utc": {"start": "2026-09-01T00:00:00Z", "end": "2026-10-01T00:00:00Z"},
+        "long_short_split": {"LONG": {"wins": 50, "losses": 5}, "SHORT": {"wins": 41, "losses": 4}},
+        "regime_split": {"UPTREND": {"wins": 55, "losses": 5}, "DOWNTREND": {"wins": 36, "losses": 4}},
+        "net_expectancy_after_costs": 0.25,
+        "profit_factor_after_costs": 2.1,
+        "maximum_drawdown": 0.08,
+        "fee_and_slippage_model": {"status": "VERIFIED", "evidence_sha256": cost_hash},
+        "out_of_sample_results": {"status": "PASS", "resolved_closed_trade_count": 100, "win_rate_pct": oos_win_rate},
+        "evidence_sha256": oos_hash,
+    }
+    try:
+        canonical_oos = json.dumps(oos_report, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
+    except ValueError:
+        canonical_oos = None
+    if canonical_oos is not None:
+        oos_report["report_sha256"] = hashlib.sha256(canonical_oos).hexdigest()
     (base / "precision_entry_independent_oos_evidence_v1.json").write_text(
-        json.dumps({
-            "status": "PASS",
-            "resolved_closed_trade_count": 100,
-            "win_rate_pct": oos_win_rate,
-            "wins": 91,
-            "losses": 9,
-            "breakevens": 0,
-            "timeouts": 0,
-            "evaluation_window_utc": {"start": "2026-09-01T00:00:00Z", "end": "2026-10-01T00:00:00Z"},
-            "long_short_split": {"LONG": {"wins": 50, "losses": 5}, "SHORT": {"wins": 41, "losses": 4}},
-            "regime_split": {"UPTREND": {"wins": 55, "losses": 5}, "DOWNTREND": {"wins": 36, "losses": 4}},
-            "net_expectancy_after_costs": 0.25,
-            "profit_factor_after_costs": 2.1,
-            "maximum_drawdown": 0.08,
-            "fee_and_slippage_model": {"status": "VERIFIED", "evidence_sha256": "c" * 64},
-            "out_of_sample_results": {"status": "PASS", "resolved_closed_trade_count": 100, "win_rate_pct": oos_win_rate},
-            "evidence_sha256": oos_hash,
-        }),
+        json.dumps(oos_report, sort_keys=True),
         encoding="utf-8",
     )
     return base, candidates, outcomes
@@ -318,3 +331,42 @@ def test_oos_win_rate_must_match_the_reported_win_loss_counts(tmp_path):
     result = evaluate(tmp_path)
     assert result["status"] == "NOT_MET"
     assert "INDEPENDENT_OOS_METRICS_INCONSISTENT" in result["reasons"]
+
+
+def test_verified_costs_are_applied_to_the_official_win_rate(tmp_path):
+    base, _, _ = write_artifacts(tmp_path)
+    cost_path = base / "precision_entry_cost_model_v1.json"
+    cost = json.loads(cost_path.read_text(encoding="utf-8"))
+    cost["fee_fraction_per_side"] = 0.02
+    cost["slippage_fraction_per_side"] = 0.02
+    cost.pop("model_sha256", None)
+    canonical_cost = json.dumps(cost, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
+    cost["model_sha256"] = __import__("hashlib").sha256(canonical_cost).hexdigest()
+    cost_path.write_text(json.dumps(cost, sort_keys=True), encoding="utf-8")
+    result = evaluate(tmp_path)
+    assert result["status"] == "NOT_MET"
+    assert result["observed_win_rate_pct"] == 0.0
+    assert "STRICT_WIN_RATE_GT_90_NOT_MET" in result["reasons"]
+
+
+def test_candidate_and_outcome_market_regime_must_match(tmp_path):
+    base, _, outcomes = write_artifacts(tmp_path)
+    outcomes[0]["market_regime"] = "DOWNTREND"
+    (base / "precision_entry_outcomes_v1.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in outcomes),
+        encoding="utf-8",
+    )
+    result = evaluate(tmp_path)
+    assert result["status"] == "NOT_MET"
+    assert result["unscorable_outcomes"] == 1
+    assert "UNSCORABLE_OUTCOMES_PRESENT" in result["reasons"]
+
+
+def test_cost_adjusted_metrics_and_attribution_are_reported(tmp_path):
+    write_artifacts(tmp_path)
+    result = evaluate(tmp_path)
+    assert result["net_expectancy_after_costs"] > 0
+    assert result["profit_factor_after_costs"] > 1
+    assert result["maximum_drawdown"] >= 0
+    assert result["long_short_split"]["LONG"]["wins"] == 91
+    assert result["regime_split"]["UPTREND"]["wins"] == 91
