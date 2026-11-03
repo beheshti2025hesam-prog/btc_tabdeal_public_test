@@ -26,7 +26,13 @@ class Stub:
     def __init__(self, name, state=None, payload=None, raises=False, mutate=False, reasons=(), refs=("a" * 64,), result_agent=None):
         self.name = name
         self.state = STATES.get(name, "PASS") if state is None else state
-        self.payload = ({"decision": "LONG"} if name == "decision" else {}) if payload is None else payload
+        defaults = {
+            "market_structure": {"regime": "UPTREND"},
+            "signal": {"decision": "LONG", "direction": "NONE"},
+            "confirmation": {"upstream_state": "CONFIRMED_LONG"},
+            "decision": {"decision": "LONG"},
+        }
+        self.payload = defaults.get(name, {}) if payload is None else payload
         self.raises = raises
         self.mutate = mutate
         self.reasons = reasons
@@ -92,7 +98,12 @@ def test_success_is_observation_only_and_auditable():
 
 
 def test_short_decision_mapping_is_preserved():
-    a = agents(decision=Stub("decision", payload={"decision": "SHORT"}))
+    a = agents(
+        market_structure=Stub("market_structure", payload={"regime":"DOWNTREND"}),
+        signal=Stub("signal", payload={"decision":"SHORT", "direction":"NONE"}),
+        confirmation=Stub("confirmation", payload={"upstream_state":"CONFIRMED_SHORT"}),
+        decision=Stub("decision", payload={"decision": "SHORT"}),
+    )
     r = MotherOrchestratorV1(a).run(CONTEXT)
     assert r.status == "OBSERVATION_ONLY" and r.decision == "SHORT"
 
@@ -101,7 +112,12 @@ def test_object_backed_decision_payload_is_serialized_consistently():
     class DecisionPayload:
         decision = "SHORT"
 
-    a = agents(decision=Stub("decision", payload=DecisionPayload()))
+    a = agents(
+        market_structure=Stub("market_structure", payload={"regime":"DOWNTREND"}),
+        signal=Stub("signal", payload={"decision":"SHORT", "direction":"NONE"}),
+        confirmation=Stub("confirmation", payload={"upstream_state":"CONFIRMED_SHORT"}),
+        decision=Stub("decision", payload=DecisionPayload()),
+    )
     result = MotherOrchestratorV1(a).run(CONTEXT)
     assert result.status == "OBSERVATION_ONLY"
     assert result.decision == "SHORT"
@@ -173,7 +189,10 @@ def test_precomputed_adapter_reuses_versioned_existing_specialist_reports():
             "state": STATES[name],
             "reason_codes": [],
             "evidence_refs": ["a" * 64],
-            "payload": {"decision": "LONG"} if name == "decision" else {},
+            "payload": ({"decision":"LONG"} if name == "decision" else
+                        {"regime":"UPTREND"} if name == "market_structure" else
+                        {"decision":"LONG", "direction":"NONE"} if name == "signal" else
+                        {"upstream_state":"CONFIRMED_LONG"} if name == "confirmation" else {}),
         }
     report_hash = sha256(json.dumps(reports, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()).hexdigest()
     context = dict(CONTEXT, evidence_sha256=report_hash, specialist_reports=reports)
@@ -217,3 +236,48 @@ def test_trace_is_stable_for_identical_context_and_stage_outputs():
     second = MotherOrchestratorV1(agents()).run(CONTEXT)
     assert first.trace_id == second.trace_id
     assert first.audit_sha256 == second.audit_sha256
+
+
+def test_signal_confirmation_direction_conflict_blocks_at_mother_boundary():
+    a = agents(
+        signal=Stub("signal", payload={"decision":"LONG", "direction":"NONE"}),
+        confirmation=Stub("confirmation", payload={"upstream_state":"CONFIRMED_SHORT"}),
+    )
+    result = MotherOrchestratorV1(a).run(CONTEXT)
+    assert result.status == "BLOCKED_DIRECTION_CONFLICT"
+    assert result.decision == "NO_TRADE"
+    assert "SIGNAL_CONFIRMATION_DIRECTION_CONFLICT" in result.reason_codes
+
+
+def test_market_structure_opposite_to_signal_blocks_at_mother_boundary():
+    a = agents(
+        market_structure=Stub("market_structure", payload={"regime":"UPTREND"}),
+        signal=Stub("signal", payload={"decision":"SHORT", "direction":"NONE"}),
+        confirmation=Stub("confirmation", payload={"upstream_state":"CONFIRMED_SHORT"}),
+    )
+    result = MotherOrchestratorV1(a).run(CONTEXT)
+    assert result.status == "BLOCKED_DIRECTION_CONFLICT"
+    assert result.decision == "NO_TRADE"
+    assert "MARKET_STRUCTURE_SIGNAL_DIRECTION_CONFLICT" in result.reason_codes
+
+
+def test_range_regime_cannot_emit_directional_mother_signal():
+    a = agents(
+        market_structure=Stub("market_structure", payload={"regime":"RANGE"}),
+        signal=Stub("signal", payload={"decision":"LONG", "direction":"NONE"}),
+        confirmation=Stub("confirmation", payload={"upstream_state":"CONFIRMED_LONG"}),
+    )
+    result = MotherOrchestratorV1(a).run(CONTEXT)
+    assert result.status == "BLOCKED_DIRECTION_CONFLICT"
+    assert "DIRECTIONAL_SIGNAL_IN_RANGE_REGIME" in result.reason_codes
+
+
+def test_final_direction_must_match_signal_and_confirmation():
+    a = agents(
+        signal=Stub("signal", payload={"decision":"LONG", "direction":"LONG"}),
+        confirmation=Stub("confirmation", payload={"upstream_state":"CONFIRMED_LONG"}),
+        decision=Stub("decision", payload={"decision":"SHORT"}),
+    )
+    result = MotherOrchestratorV1(a).run(CONTEXT)
+    assert result.status == "BLOCKED_DIRECTION_CONFLICT"
+    assert "FINAL_DECISION_DIRECTION_CONFLICT" in result.reason_codes
