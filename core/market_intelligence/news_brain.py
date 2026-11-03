@@ -530,6 +530,7 @@ class NewsIntelligenceBrain:
                 "ETH_USDT": ("ethereum", "ether", "eth"),
             }.get(context.symbol.upper(), (context.symbol.casefold(),) if context.symbol else ())
             symbol_match = any(term and _contains(text, term) for term in symbol_aliases)
+            tagged_match = bool(explicit_tags & {market, context.symbol.casefold()})
             other_asset_terms = (
                 "bitcoin", "btc", "ethereum", "ether", "eth", "solana", "sol",
                 "ripple", "xrp", "bnb", "binance coin", "cardano", "ada",
@@ -547,7 +548,6 @@ class NewsIntelligenceBrain:
                 "exchange outage", "wallet maintenance", "trading suspension",
                 "security incident",
             ))
-            tagged_match = bool(explicit_tags & {market, context.symbol.casefold()})
             category_match = (
                 market == "crypto" and (
                     any(c in categories for c in ("regulation", "security", "monetary_policy", "macro"))
