@@ -3,7 +3,19 @@
   "version": "2.0.0-candidate.20261026",
   "status": "CANDIDATE_LOCKED_NOT_ACTIVE",
   "effective_from": null,
-  "market_scope": {"source": "Gate.io", "symbol": "BTC_USDT", "entry_timeframe": "15m", "context_timeframes": ["1h", "4h"], "directions": ["LONG", "SHORT"]},
+  "market_scope": {
+    "source": "Gate.io",
+    "symbol": "BTC_USDT",
+    "entry_timeframe": "15m",
+    "context_timeframes": [
+      "1h",
+      "4h"
+    ],
+    "directions": [
+      "LONG",
+      "SHORT"
+    ]
+  },
   "source_basis": "PRE_REGISTERED_FORWARD_CANDIDATE; no historical winner reselection or historical performance tuning",
   "historical_inputs_allowed": false,
   "historical_performance_tuning_allowed": false,
@@ -11,11 +23,73 @@
   "long_short_symmetry_required": true,
   "fail_closed": true,
   "execution_enabled": false,
-  "market_structure": {"status": "DEFINED_FOR_CANDIDATE", "long": "EMA50 > EMA200 on both 1h and 4h", "short": "EMA50 < EMA200 on both 1h and 4h", "otherwise": "NO_TRADE"},
-  "opportunity": {"status": "DEFINED_FOR_CANDIDATE", "long": "15m closed candle closes above prior 20-bar range", "short": "15m closed candle closes below prior 20-bar range", "otherwise": "NO_TRADE"},
-  "confirmation": {"status": "DEFINED_FOR_CANDIDATE", "all_gates_required": true, "checks": {"closed_breakout": true, "price_location_vs_ema50_and_vwap20": true, "momentum_and_flow": true}, "long_momentum": "15m RSI14 55..75 and MFI14 > 55", "short_momentum": "15m RSI14 25..45 and MFI14 < 45", "long_price_location": "close above EMA50 and VWAP20", "short_price_location": "close below EMA50 and VWAP20", "unknown_counts_as": "FAIL"},
-  "risk": {"status": "DEFINED_FOR_CANDIDATE_NOT_EXECUTION_APPROVED", "risk_fraction_per_trade": 0.005, "hard_max_risk_fraction": 0.01, "stop_distance": "1.5 * 15m ATR14", "minimum_reward_to_risk": 3.0, "position_sizing": "must be separately validated against instrument contract, fees, slippage and account constraints", "unknown_action": "NO_TRADE"},
-  "decision": {"status": "DEFINED_FOR_CANDIDATE", "allow_signal_only_if": "all data, structure, breakout, price-location, momentum/flow and risk checks pass", "otherwise": "NO_TRADE", "orders_placed": false},
-  "evaluation": {"forward_only": true, "closed_outcomes_only": true, "report_metrics": ["closed_trade_count", "win_rate", "expectancy_R_after_costs", "profit_factor_after_costs", "max_drawdown", "long_short_split", "regime_split"], "minimum_sample_size": null, "target_win_rate": null, "note": "Target win rate and minimum sample size require an existing approved project decision; do not invent them. Do not tune this candidate during its first evaluation window."},
-  "acceptance_gates": {"unit_tests": "PASS_REQUIRED", "historical_data_leakage_test": "PASS_REQUIRED", "out_of_sample_test": "NOT_YET_RUN", "forward_paper_observation": "IN_PROGRESS_OR_REQUIRED", "risk_approval": "NOT_APPROVED", "production_activation": "FORBIDDEN_UNTIL_ALL_GATES_PASS"}
+  "market_structure": {
+    "status": "DEFINED_FOR_CANDIDATE",
+    "long": "EMA50 > EMA200 on both 1h and 4h",
+    "short": "EMA50 < EMA200 on both 1h and 4h",
+    "otherwise": "NO_TRADE"
+  },
+  "opportunity": {
+    "status": "DEFINED_FOR_CANDIDATE",
+    "long": "15m closed candle closes above prior 20-bar range",
+    "short": "15m closed candle closes below prior 20-bar range",
+    "otherwise": "NO_TRADE"
+  },
+  "confirmation": {
+    "status": "DEFINED_FOR_CANDIDATE",
+    "all_gates_required": true,
+    "checks": {
+      "closed_breakout": true,
+      "price_location_vs_ema50_and_vwap20": true,
+      "momentum_and_flow": true
+    },
+    "long_momentum": "15m RSI14 55..75 and MFI14 > 55",
+    "short_momentum": "15m RSI14 25..45 and MFI14 < 45",
+    "long_price_location": "close above EMA50 and VWAP20",
+    "short_price_location": "close below EMA50 and VWAP20",
+    "unknown_counts_as": "FAIL"
+  },
+  "risk": {
+    "status": "DEFINED_FOR_CANDIDATE_NOT_EXECUTION_APPROVED",
+    "risk_fraction_per_trade": 0.005,
+    "hard_max_risk_fraction": 0.01,
+    "stop_distance": "1.5 * 15m ATR14",
+    "minimum_reward_to_risk": 3,
+    "position_sizing": "must be separately validated against instrument contract, fees, slippage and account constraints",
+    "unknown_action": "NO_TRADE"
+  },
+  "decision": {
+    "status": "DEFINED_FOR_CANDIDATE",
+    "allow_signal_only_if": "all data, structure, breakout, price-location, momentum/flow and risk checks pass",
+    "otherwise": "NO_TRADE",
+    "orders_placed": false
+  },
+  "evaluation": {
+    "forward_only": true,
+    "closed_outcomes_only": true,
+    "report_metrics": [
+      "closed_trade_count",
+      "win_rate",
+      "expectancy_R_after_costs",
+      "profit_factor_after_costs",
+      "max_drawdown",
+      "long_short_split",
+      "regime_split"
+    ],
+    "minimum_sample_size": 100,
+    "target_win_rate": 0.9,
+    "note": "Final paper acceptance uses only 1m READY candidates whose 15m setup, data, structure, confirmation, risk and geometry gates all passed. 15m preapproval candidates remain baseline-only and do not count toward acceptance. Final policy/live approval remains separate and execution stays disabled. Require strictly >90% over at least 100 resolved precision paper trades, maximum 3 actionable signals per UTC day (cap, never quota), clean linkage, verified fees/slippage and independent out-of-sample evidence.",
+    "target_win_rate_operator": ">",
+    "maximum_actionable_signals_per_utc_day": 3,
+    "performance_cohort": "PRECISION_ENTRY_PAPER_ELIGIBLE",
+    "acceptance_contract": "docs/execution/SIGNAL_QUALITY_ACCEPTANCE_CONTRACT_V1.json"
+  },
+  "acceptance_gates": {
+    "unit_tests": "PASS_REQUIRED",
+    "historical_data_leakage_test": "PASS_REQUIRED",
+    "out_of_sample_test": "NOT_YET_RUN",
+    "forward_paper_observation": "IN_PROGRESS_OR_REQUIRED",
+    "risk_approval": "NOT_APPROVED",
+    "production_activation": "FORBIDDEN_UNTIL_ALL_GATES_PASS"
+  }
 }
