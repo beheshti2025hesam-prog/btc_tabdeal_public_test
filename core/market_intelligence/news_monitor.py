@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import os
+import fcntl
 from pathlib import Path
 import tempfile
 import time
@@ -105,6 +106,7 @@ class NewsMonitorV1:
                 row["freshness_threshold_hours"] = 72
                 source_health.append(row)
             brief_digest = sha256(_canonical(brief_data)).hexdigest()
+            event_ledger = self._append_event_ledger(brief_data, brief_digest, started)
             degraded = brief.status == "degraded" or bool(brief.provenance.get("source_failures"))
             self.last_status = "DEGRADED" if degraded else "OK"
             self.last_error = None
@@ -130,6 +132,7 @@ class NewsMonitorV1:
                 },
                 "brief": brief_data,
                 "brief_sha256": brief_digest,
+                "event_ledger": event_ledger,
             }
             self._atomic_write(snapshot)
             if self.on_brief is not None:
@@ -164,6 +167,8 @@ class NewsMonitorV1:
             },
             "brief": None,
             "brief_sha256": None,
+            "event_ledger": {"schema_version": "hes.news_event_record.v1", "status": "BLOCKED",
+                             "records_appended": 0, "records_total": None},
         }
         self._atomic_write(snapshot)
         return snapshot
