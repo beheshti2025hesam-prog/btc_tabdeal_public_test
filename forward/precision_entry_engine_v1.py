@@ -77,18 +77,45 @@ def _valid_context(
         values[key] = value
     low, high = values["entry_zone_low"], values["entry_zone_high"]
     stop, target = values["stop_price"], values["target_price"]
-    if low > high:
-        return None, "ENTRY_CONTEXT_INVALID"
+    planned_entry = context.get("planned_entry_price")
+    fraction = context.get("entry_zone_fraction_of_risk")
+    if (
+        isinstance(planned_entry, bool) or not isinstance(planned_entry, (int, float))
+        or not math.isfinite(float(planned_entry)) or float(planned_entry) <= 0
+        or context.get("entry_zone_policy") != "FAVORABLE_SIDE_RISK_FRACTION_V1"
+        or isinstance(fraction, bool) or not isinstance(fraction, (int, float))
+        or not math.isclose(float(fraction), 0.25, rel_tol=0, abs_tol=1e-12)
+    ):
+        return None, "ENTRY_CONTEXT_ZONE_POLICY_INVALID"
+    planned_entry = float(planned_entry)
+    if direction == "LONG" and not stop < planned_entry < target:
+        return None, "STOP_TARGET_DIRECTION_INVALID"
+    if direction == "SHORT" and not target < planned_entry < stop:
+        return None, "STOP_TARGET_DIRECTION_INVALID"
+    risk_distance = abs(planned_entry - stop)
+    width = risk_distance * 0.25
+    expected_low, expected_high = (
+        (planned_entry - width, planned_entry) if direction == "LONG"
+        else (planned_entry, planned_entry + width)
+    )
+    if (
+        low > high
+        or not math.isclose(low, expected_low, rel_tol=1e-10, abs_tol=1e-9)
+        or not math.isclose(high, expected_high, rel_tol=1e-10, abs_tol=1e-9)
+    ):
+        return None, "ENTRY_CONTEXT_ZONE_POLICY_INVALID"
     if direction == "LONG":
-        if not stop < low <= high < target:
+        if not stop < low <= planned_entry == high < target:
             return None, "STOP_TARGET_DIRECTION_INVALID"
         worst_entry = high
         risk, reward = worst_entry - stop, target - worst_entry
     else:
-        if not target < low <= high < stop:
+        if not target < low == planned_entry <= high < stop:
             return None, "STOP_TARGET_DIRECTION_INVALID"
         worst_entry = low
         risk, reward = stop - worst_entry, worst_entry - target
+    values["planned_entry_price"] = planned_entry
+    values["entry_zone_fraction_of_risk"] = float(fraction)
     rr = reward / risk if risk > 0 else 0.0
     values["worst_case_rr"] = rr
     if not math.isfinite(rr) or rr < min_rr:
@@ -218,7 +245,7 @@ def evaluate_precision_entry(
     zone_high = context["entry_zone_high"]
     stop = context["stop_price"]
     target = context["target_price"]
-    planned_entry = (zone_low + zone_high) / 2.0
+    planned_entry = context["planned_entry_price"]
     worst_case_rr = context["worst_case_rr"]
     evidence.update({
         "setup_id": setup_context["setup_id"],
@@ -238,6 +265,8 @@ def evaluate_precision_entry(
         "below_ema50": last[3] < ema50,
         "entry_zone_low": zone_low,
         "entry_zone_high": zone_high,
+        "entry_zone_policy": setup_context["entry_zone_policy"],
+        "entry_zone_fraction_of_risk": context["entry_zone_fraction_of_risk"],
         "planned_entry": planned_entry,
         "stop_price": stop,
         "target_price": target,

@@ -4,6 +4,8 @@ import hashlib, json, math
 from typing import Any, Mapping
 
 SCHEMA = "hes_strategy_entry_context_v1"
+ENTRY_ZONE_POLICY = "FAVORABLE_SIDE_RISK_FRACTION_V1"
+ENTRY_ZONE_FRACTION_OF_RISK = 0.25
 
 def _canonical_hash(value: Mapping[str, Any]) -> str:
     raw=json.dumps(dict(value),sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False).encode("utf-8")
@@ -33,15 +35,24 @@ def build_entry_context(*, source: str, symbol: str, candidate_time: int, policy
         raise ValueError("ENTRY_CONTEXT_GEOMETRY_INVALID")
     if direction=="LONG" and not stop<entry<target: raise ValueError("ENTRY_CONTEXT_GEOMETRY_INVALID")
     if direction=="SHORT" and not target<entry<stop: raise ValueError("ENTRY_CONTEXT_GEOMETRY_INVALID")
-    rr=abs(target-entry)/abs(entry-stop)
+    risk_distance=abs(entry-stop)
+    rr=abs(target-entry)/risk_distance
     if rr<3.0: raise ValueError("ENTRY_CONTEXT_RR_BELOW_MINIMUM")
+    zone_width=risk_distance*ENTRY_ZONE_FRACTION_OF_RISK
+    if direction=="LONG":
+        entry_zone_low,entry_zone_high=entry-zone_width,entry
+    else:
+        entry_zone_low,entry_zone_high=entry,entry+zone_width
     gate_payload={k:v for k,v in gate_evidence.items() if k!="entry_context"}
     base={
       "schema":SCHEMA,
       "setup_id":f"hes-setup-{symbol}-15m-{candidate_time}-{direction}",
       "source":"strategy_policy_v2","market_data_source":source,"symbol":symbol,"timeframe":"15m","direction":direction,
       "observed_at":candidate_time,"valid_until":candidate_time+ttl_seconds,
-      "entry_zone_low":entry,"entry_zone_high":entry,
+      "planned_entry_price":entry,
+      "entry_zone_low":entry_zone_low,"entry_zone_high":entry_zone_high,
+      "entry_zone_policy":ENTRY_ZONE_POLICY,
+      "entry_zone_fraction_of_risk":ENTRY_ZONE_FRACTION_OF_RISK,
       "stop_price":stop,"target_price":target,"planned_rr":rr,
       "risk_gate_state":"RISK_APPROVED","confirmation_state":"CONFIRMED_"+direction,
       "market_regime":structure.get("regime"),"policy_version":policy_version,
@@ -80,12 +91,21 @@ def verify_entry_context(context: Any, *, gate_evidence: Mapping[str, Any] | Non
         return False,"ENTRY_CONTEXT_EXPIRED_OR_FUTURE"
     try:
         low=float(context["entry_zone_low"]); high=float(context["entry_zone_high"])
+        entry=float(context["planned_entry_price"])
         stop=float(context["stop_price"]); target=float(context["target_price"])
-        entry=(low+high)/2.0
-        if not all(math.isfinite(x) and x>0 for x in (low,high,stop,target)) or low>high:
+        fraction=context.get("entry_zone_fraction_of_risk")
+        if (context.get("entry_zone_policy")!=ENTRY_ZONE_POLICY
+            or isinstance(fraction,bool) or not isinstance(fraction,(int,float))
+            or not math.isclose(float(fraction),ENTRY_ZONE_FRACTION_OF_RISK,rel_tol=0,abs_tol=1e-12)):
             raise ValueError()
-        if direction=="LONG" and not stop<entry<target: raise ValueError()
-        if direction=="SHORT" and not target<entry<stop: raise ValueError()
+        if not all(math.isfinite(x) and x>0 for x in (low,high,entry,stop,target)) or low>high:
+            raise ValueError()
+        risk=abs(entry-stop); width=risk*ENTRY_ZONE_FRACTION_OF_RISK
+        expected=(entry-width,entry) if direction=="LONG" else (entry,entry+width)
+        if not math.isclose(low,expected[0],rel_tol=1e-10,abs_tol=1e-9) or not math.isclose(high,expected[1],rel_tol=1e-10,abs_tol=1e-9):
+            raise ValueError()
+        if direction=="LONG" and not stop<low<=entry==high<target: raise ValueError()
+        if direction=="SHORT" and not target<low==entry<=high<stop: raise ValueError()
         if abs(target-entry)/abs(entry-stop)<3.0: raise ValueError()
     except (KeyError,TypeError,ValueError,ZeroDivisionError):
         return False,"ENTRY_CONTEXT_GEOMETRY_INVALID"

@@ -20,8 +20,13 @@ def candidate():
         candle={"close_time":1800000000,"close":"100.0"},observed_at=NOW)
 
 def bar(open_time,high,low,close):
-    return {"open_time":open_time,"close_time":open_time+60,
-            "high":str(high),"low":str(low),"close":str(close)}
+    return {
+        "schema":"hes_global_candle_v1","source":"gateio_public_spot",
+        "symbol":"BTC_USDT","timeframe":"1m","closed":True,
+        "open_time":open_time,"close_time":open_time+60,
+        "open":str(close),"high":str(high),"low":str(low),
+        "close":str(close),"volume":"1.0",
+    }
 
 def test_event_id_is_stable_per_setup_and_closed_candle():
     engine={"state":"WAIT","reason_codes":["MICROSTRUCTURE_TRIGGER_NOT_CONFIRMED"],"evidence":{"close":100.0}}
@@ -30,6 +35,7 @@ def test_event_id_is_stable_per_setup_and_closed_candle():
     b=build_precision_event(setup_context=CONTEXT,candle=candle,engine_result=engine,observed_at=NOW)
     assert a["event_id"]==b["event_id"]
     assert a["market_regime"] == "UPTREND"
+    assert a["setup_context"] == CONTEXT
     assert len(a["evidence_sha256"])==64
     assert a["execution_enabled"] is False and a["orders_placed"] is False
 
@@ -37,6 +43,7 @@ def test_paper_candidate_is_bound_to_setup_and_never_an_order():
     row=candidate()
     assert row["setup_id"]==CONTEXT["setup_id"]
     assert row["market_regime"] == "UPTREND"
+    assert row["setup_context"] == CONTEXT
     assert row["preapproval_paper_eligible"] is True
     assert row["paper_only"] is True
     assert row["execution_enabled"] is False and row["orders_placed"] is False
@@ -61,6 +68,8 @@ def test_long_take_profit_resolves_win():
     assert outcome["outcome"]=="WIN"
     assert outcome["market_regime"] == "UPTREND"
     assert outcome["gross_r"]==3.0
+    assert outcome["exit_candle"]["close_time"] == outcome["exit_close_time"]
+    assert len(outcome["exit_candle_sha256"]) == 64
 
 def test_long_stop_loss_resolves_loss():
     c=candidate()

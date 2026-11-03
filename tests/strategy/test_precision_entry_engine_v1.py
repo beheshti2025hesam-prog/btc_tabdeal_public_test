@@ -38,8 +38,11 @@ def context(**changes):
         "setup_id": "BTC_USDT:15m:1800000000:LONG",
         "evidence_sha256": "a" * 64,
         "valid_until": 1_800_004_500,
-        "entry_zone_low": 100.60,
+        "planned_entry_price": 100.70,
+        "entry_zone_low": 100.40,
         "entry_zone_high": 100.70,
+        "entry_zone_policy": "FAVORABLE_SIDE_RISK_FRACTION_V1",
+        "entry_zone_fraction_of_risk": 0.25,
         "stop_price": 99.50,
         "target_price": 104.60,
     }
@@ -146,7 +149,7 @@ class PrecisionEntryTests(unittest.TestCase):
             "open": "100.59", "high": "100.61", "low": "100.57",
             "close": "100.595", "volume": "10", "quote_volume": "1000",
         })
-        result = run(rows, ctx=context(entry_zone_low=100.50, entry_zone_high=100.70))
+        result = run(rows, ctx=context())
         self.assertEqual(result["state"], "WAIT")
         self.assertIn("MICROSTRUCTURE_TRIGGER_NOT_CONFIRMED", result["reason_codes"])
 
@@ -183,7 +186,10 @@ class PrecisionEntryTests(unittest.TestCase):
             "close": "99.35", "volume": "20", "quote_volume": "2000",
         })
         short_context = context(
-            direction="SHORT", entry_zone_low=99.30, entry_zone_high=99.40,
+            direction="SHORT", planned_entry_price=99.30,
+            entry_zone_low=99.30, entry_zone_high=99.60,
+            entry_zone_policy="FAVORABLE_SIDE_RISK_FRACTION_V1",
+            entry_zone_fraction_of_risk=0.25,
             stop_price=100.50, target_price=95.40,
         )
         result = evaluate_precision_entry(
@@ -205,3 +211,15 @@ class PrecisionEntryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_blocked_on_missing_or_changed_entry_zone_policy(self):
+        for changes in (
+            {"entry_zone_policy": "UNKNOWN"},
+            {"entry_zone_fraction_of_risk": 0.5},
+            {"entry_zone_high": 100.8},
+        ):
+            with self.subTest(changes=changes):
+                result = run(ctx=context(**changes))
+                self.assertEqual(result["state"], "BLOCKED")
+                self.assertIn("ENTRY_CONTEXT_ZONE_POLICY_INVALID", result["reason_codes"])
