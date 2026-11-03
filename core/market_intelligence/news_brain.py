@@ -644,6 +644,10 @@ class NewsIntelligenceBrain:
              "sources": sorted(row["sources"]), "item_ids": sorted(row["item_ids"])}
             for key, row in sorted(cluster_rows.items())
         ]
+        event_cluster_assignments = [
+            {"item_id": finding.item_id, "event_cluster_id": _event_cluster_key(finding.title, finding.item_id)}
+            for finding in findings
+        ]
         implications = []
         if high_impact_clusters:
             implications.append(f"{len(high_impact_clusters)} high-impact event cluster(s) require a confirmation check ({len(high_impact)} source item(s)).")
@@ -692,5 +696,6 @@ class NewsIntelligenceBrain:
                         "high_impact_item_count": len(high_impact),
                         "high_impact_event_count": len(high_impact_clusters),
                         "high_impact_event_clusters": high_impact_clusters,
+                        "event_cluster_assignments": event_cluster_assignments,
                         "scores_are_probabilities": False, "news_alone_can_authorize_trade": False},
         )
