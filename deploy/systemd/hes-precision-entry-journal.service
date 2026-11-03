@@ -1,0 +1,23 @@
+[Unit]
+Description=HES Gate.io 1m Precision Paper Journal (read-only market data, paper-only outcomes)
+After=network-online.target hes-global-market-data-gateio-1m.service hes-strategy-paper-evaluator.service
+Wants=network-online.target hes-global-market-data-gateio-1m.service hes-strategy-paper-evaluator.service
+
+[Service]
+Type=simple
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/scripts/run_precision_entry_journal_v1.py
+Restart=always
+RestartSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/hes-trade-agent/data/forward /opt/hes-trade-agent/logs
+UMask=0077
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
