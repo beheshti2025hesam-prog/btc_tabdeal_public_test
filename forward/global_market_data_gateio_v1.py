@@ -25,13 +25,14 @@ WS_URL = "wss://api.gateio.ws/ws/v4/"
 SYMBOL = "BTC_USDT"          # persisted Gate.io venue symbol
 INTERNAL_SYMBOL = "BTCUSDT"  # explicit key accepted by the native adapter
 INTERVAL = os.environ.get("HES_GLOBAL_CANDLES_INTERVAL", "15m")
-INTERVAL_SECONDS_BY_NAME = {"15m": 900, "1h": 3600, "4h": 14400}
+INTERVAL_SECONDS_BY_NAME = {"1m": 60, "15m": 900, "1h": 3600, "4h": 14400}
 if INTERVAL not in INTERVAL_SECONDS_BY_NAME:
     raise RuntimeError(f"Unsupported HES candle interval: {INTERVAL}")
 INTERVAL_SECONDS = INTERVAL_SECONDS_BY_NAME[INTERVAL]
 SOURCE = "gateio_public_spot"
 MAX_PERSISTED_CANDLES = 500
 DEFAULT_OUTPUTS = {
+    "1m": ROOT / "data/forward/global_market_candles_1m_v1.jsonl",
     "15m": ROOT / "data/forward/global_market_candles_v1.jsonl",
     "1h": ROOT / "data/forward/global_market_candles_1h_v1.jsonl",
     "4h": ROOT / "data/forward/global_market_candles_4h_v1.jsonl",
