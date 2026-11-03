@@ -103,6 +103,8 @@ class NewsImpactAttributionTests(unittest.TestCase):
         self.assertEqual(event["record_count"], 2)
         self.assertEqual(event["source_count"], 2)
         self.assertEqual(event["publication_to_first_seen_delay_minutes"], 1.0)
+        self.assertGreaterEqual(event["first_full_post_event_candle_open_time"], anchor)
+        self.assertGreaterEqual(event["first_full_candle_delay_minutes"], 0)
         self.assertEqual(event["windows"]["24h"]["status"], "MATURED")
         self.assertGreater(event["windows"]["1h"]["price_change_pct"], 0)
         self.assertEqual(event["windows"]["1h"]["volume_ratio_vs_pre_event_median"], 2.0)
