@@ -30,7 +30,12 @@ if INTERVAL not in INTERVAL_SECONDS_BY_NAME:
     raise RuntimeError(f"Unsupported HES candle interval: {INTERVAL}")
 INTERVAL_SECONDS = INTERVAL_SECONDS_BY_NAME[INTERVAL]
 SOURCE = "gateio_public_spot"
-MAX_PERSISTED_CANDLES = 1500 if INTERVAL == "1m" else 500
+def persisted_candle_limit(interval: str) -> int:
+    """Keep one full 24h outcome horizon plus one hour of recovery margin for 1m."""
+    return 1500 if interval == "1m" else 500
+
+
+MAX_PERSISTED_CANDLES = persisted_candle_limit(INTERVAL)
 DEFAULT_OUTPUTS = {
     "1m": ROOT / "data/forward/global_market_candles_1m_v1.jsonl",
     "15m": ROOT / "data/forward/global_market_candles_v1.jsonl",
