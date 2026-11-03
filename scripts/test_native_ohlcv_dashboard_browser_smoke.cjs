@@ -233,6 +233,7 @@ const { chromium } = require("playwright");
     await page.locator("#interval").selectOption("1m");
     const oneMinuteResponse = await oneMinuteResponsePromise;
     const oneMinutePayload = await oneMinuteResponse.json();
+    candlePayloads["1m"] = oneMinutePayload;
     assert.equal(oneMinutePayload.interval, "1m");
     await page.waitForFunction(
       count => document.querySelector("#count")?.textContent === String(count) &&
