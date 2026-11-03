@@ -34,7 +34,10 @@ def load_last_seen(path: Path) -> int | None:
                     continue
                 value = record.get("candle_close_time")
                 if isinstance(value, int) and not isinstance(value, bool):
-                    last = value if last is None else max(last, value)
+                    if last is not None and value <= last:
+                        reason = "DUPLICATE" if value == last else "NON_MONOTONIC"
+                        raise ValueError(f"PAPER_LOG_{reason}_CANDLE:{value}")
+                    last = value
             except (json.JSONDecodeError, AttributeError):
                 continue
     return last
