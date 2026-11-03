@@ -126,8 +126,10 @@ _HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "d
                 "exploit", "breach", "rate decision", "cpi", "fomc", "war", "default",
                 "bankruptcy", "liquidation", "فوری")
 _MARKET_ALIASES = {
-    "crypto": ("bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
-               "stablecoin", "blockchain", "binance", "coinbase", "kraken", "bybit", "okx", "بیت کوین", "رمزارز"),
+    # Broad market terms only. Asset tickers/names are matched separately so
+    # BTC-specific context does not accidentally absorb ETH/SOL promotions.
+    "crypto": ("crypto", "cryptocurrency", "stablecoin", "blockchain",
+               "binance", "coinbase", "kraken", "bybit", "okx", "بیت کوین", "رمزارز"),
     "fx": ("forex", "currency", "dollar", "euro", "yen", "gbp", "eur/usd", "usd/jpy", "dxy"),
     "equities": ("stock", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
     "iran_equities": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc"),
@@ -511,14 +513,25 @@ class NewsIntelligenceBrain:
             market = context.market.casefold()
             aliases = _MARKET_ALIASES.get(market, (context.symbol.casefold(),) if context.symbol else ())
             market_match = any(term and _contains(text, term) for term in aliases)
-            symbol_match = bool(context.symbol and _contains(text, context.symbol.casefold()))
+            symbol_aliases = {
+                "BTCUSDT": ("bitcoin", "btc", "بیت کوین"),
+                "BTC_USDT": ("bitcoin", "btc", "بیت کوین"),
+                "ETHUSDT": ("ethereum", "ether", "eth"),
+                "ETH_USDT": ("ethereum", "ether", "eth"),
+            }.get(context.symbol.upper(), (context.symbol.casefold(),) if context.symbol else ())
+            symbol_match = any(term and _contains(text, term) for term in symbol_aliases)
             crypto_venue_risk = any(_contains(text, term) for term in (
                 "trading halted", "withdrawals suspended", "deposit suspended",
                 "exchange outage", "wallet maintenance", "trading suspension",
                 "security incident",
             ))
             category_match = (
-                market == "crypto" and (any(c in categories for c in ("crypto_market", "regulation", "security", "monetary_policy", "macro")) or ( "exchange" in categories and (market_match or symbol_match)) or crypto_venue_risk)
+                market == "crypto" and (
+                    any(c in categories for c in ("regulation", "security", "monetary_policy", "macro"))
+                    or ("crypto_market" in categories and (market_match or symbol_match or tagged_match))
+                    or ("exchange" in categories and (market_match or symbol_match))
+                    or crypto_venue_risk
+                )
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
