@@ -39,7 +39,7 @@ def build_entry_context(*, source: str, symbol: str, candidate_time: int, policy
     base={
       "schema":SCHEMA,
       "setup_id":f"hes-setup-{symbol}-15m-{candidate_time}-{direction}",
-      "source":source,"symbol":symbol,"timeframe":"15m","direction":direction,
+      "source":"strategy_policy_v2","market_data_source":source,"symbol":symbol,"timeframe":"15m","direction":direction,
       "observed_at":candidate_time,"valid_until":candidate_time+ttl_seconds,
       "entry_zone_low":entry,"entry_zone_high":entry,
       "stop_price":stop,"target_price":target,"planned_rr":rr,
@@ -64,7 +64,7 @@ def verify_entry_context(context: Any, *, gate_evidence: Mapping[str, Any] | Non
         return False,"ENTRY_CONTEXT_GATE_EVIDENCE_DIGEST_INVALID"
     if gate_evidence is not None and gate_digest!=_canonical_hash({k:v for k,v in gate_evidence.items() if k!="entry_context"}):
         return False,"ENTRY_CONTEXT_GATE_EVIDENCE_MISMATCH"
-    if context.get("source")!="gateio_public_spot" or context.get("symbol")!="BTC_USDT" or context.get("timeframe")!="15m":
+    if context.get("source")!="strategy_policy_v2" or context.get("market_data_source")!="gateio_public_spot" or context.get("symbol")!="BTC_USDT" or context.get("timeframe")!="15m":
         return False,"ENTRY_CONTEXT_SCOPE_INVALID"
     direction=context.get("direction")
     if direction not in ("LONG","SHORT") or (expected_direction is not None and direction!=expected_direction):
