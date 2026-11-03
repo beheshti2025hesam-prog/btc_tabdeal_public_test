@@ -77,6 +77,7 @@ def build_precision_event(*, setup_context: Mapping[str, Any], candle: Mapping[s
         "candle_close_time": close_time,
         "decision": engine_result["state"],
         "direction": setup_context["direction"],
+        "market_regime": setup_context["market_regime"],
         "reason_codes": list(engine_result.get("reason_codes", [])),
         "engine_evidence": engine_result.get("evidence", {}),
         "evidence_sha256": _hash({
@@ -93,6 +94,12 @@ def build_precision_event(*, setup_context: Mapping[str, Any], candle: Mapping[s
 def build_paper_candidate(*, setup_context: Mapping[str, Any], candle: Mapping[str, Any],
                           observed_at: datetime) -> dict:
     setup_id = setup_context["setup_id"]
+    direction = setup_context.get("direction")
+    market_regime = setup_context.get("market_regime")
+    if market_regime not in ("UPTREND", "DOWNTREND") or (
+        direction == "LONG" and market_regime != "UPTREND"
+    ) or (direction == "SHORT" and market_regime != "DOWNTREND"):
+        raise ValueError("PRECISION_ENTRY_MARKET_REGIME_INVALID")
     entry_time = int(candle["close_time"])
     event_id = "hes-precision-paper:" + hashlib.sha256(f"{setup_id}|{entry_time}".encode()).hexdigest()[:32]
     return {
@@ -105,7 +112,8 @@ def build_paper_candidate(*, setup_context: Mapping[str, Any], candle: Mapping[s
         "source": "gateio_public_spot",
         "symbol": "BTC_USDT",
         "timeframe": "1m",
-        "direction": setup_context["direction"],
+        "direction": direction,
+        "market_regime": market_regime,
         "entry_time": entry_time,
         "entry_price": float(candle["close"]),
         "stop_price": float(setup_context["stop_price"]),
@@ -122,6 +130,11 @@ def resolve_candidate(candidate: Mapping[str, Any], candles: list[dict]) -> dict
     """Resolve only from contiguous future 1m bars; same-bar stop+target is a loss."""
     entry_time = int(candidate["entry_time"])
     direction = candidate["direction"]
+    market_regime = candidate.get("market_regime")
+    if market_regime not in ("UPTREND", "DOWNTREND") or (
+        direction == "LONG" and market_regime != "UPTREND"
+    ) or (direction == "SHORT" and market_regime != "DOWNTREND"):
+        return None
     entry = float(candidate["entry_price"])
     stop = float(candidate["stop_price"])
     target = float(candidate["target_price"])
@@ -169,6 +182,7 @@ def resolve_candidate(candidate: Mapping[str, Any], candles: list[dict]) -> dict
             "symbol": "BTC_USDT",
             "timeframe": "1m",
             "direction": direction,
+            "market_regime": market_regime,
             "outcome": outcome,
             "reason": reason,
             "entry_time": entry_time,
