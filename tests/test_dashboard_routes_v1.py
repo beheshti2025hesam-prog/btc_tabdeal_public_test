@@ -167,6 +167,15 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertFalse(result["execution_enabled"])
         self.assertFalse(result["orders_placed"])
 
+    def test_news_radar_exposes_freshness_classification(self):
+        from pathlib import Path
+        root = Path(dashboard.__file__).resolve().parents[1]
+        page = dashboard._page()
+        script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")
+        self.assertIn('id="newsFreshness"', page)
+        self.assertIn("freshness('future')", script)
+        self.assertIn("freshness_status", script)
+
     def test_news_endpoint_returns_verified_snapshot(self):
         snapshot = {
             "schema_version": "hes.news_monitor_snapshot.v1",
