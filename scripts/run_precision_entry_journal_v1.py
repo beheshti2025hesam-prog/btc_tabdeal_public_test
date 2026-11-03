@@ -102,7 +102,8 @@ def build_paper_candidate(*, setup_context: Mapping[str, Any], candle: Mapping[s
         "stop_price": float(setup_context["stop_price"]),
         "target_price": float(setup_context["target_price"]),
         "max_hold_seconds": MAX_HOLD_SECONDS,
-        "paper_only": True,\n        "preapproval_paper_eligible": True,
+        "paper_only": True,
+        "preapproval_paper_eligible": True,
         "execution_enabled": False,
         "orders_placed": False,
     }
