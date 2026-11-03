@@ -1,0 +1,65 @@
+{
+  "activation": {
+    "all_performance_and_safety_gates_required": true,
+    "explicit_user_authorization_required": true,
+    "until_then": "PAPER_ONLY"
+  },
+  "execution_boundary": {
+    "live_execution_enabled": false,
+    "market_data_source_must_not_switch_to_execution_venue": true,
+    "orders_placed": false,
+    "venue": "Tabdeal (exchange/broker app)"
+  },
+  "market_data": {
+    "canonical_source": "Gate.io Public Spot",
+    "closed_candles_only": true,
+    "symbol": "BTC_USDT",
+    "timeframes": [
+      "1m",
+      "15m",
+      "1h",
+      "4h"
+    ]
+  },
+  "paper_performance_gate": {
+    "performance_cohort": "PREAPPROVAL_PAPER_ELIGIBLE",
+    "exclude_unresolved_and_ambiguous_from_win_rate": true,
+    "minimum_resolved_closed_trades": 100,
+    "must_report": [
+      "evaluation_window_utc",
+      "resolved_closed_trade_count",
+      "wins",
+      "losses",
+      "breakevens",
+      "timeouts",
+      "long_short_split",
+      "regime_split",
+      "net_expectancy_after_costs",
+      "profit_factor_after_costs",
+      "maximum_drawdown",
+      "fee_and_slippage_model",
+      "out_of_sample_results"
+    ],
+    "no_historical_reselection_or_threshold_tuning_to_pass_gate": true,
+    "require_independent_out_of_sample_evidence": true,
+    "win_rate_operator": ">",
+    "win_rate_pct": 90
+  },
+  "signal_constraints": {
+    "max_actionable_signals_per_utc_day": 3,
+    "minimum_quality_claim": "all required data, structure, confirmation and risk gates PASS",
+    "no_signal_quota": true,
+    "no_trade_is_valid_output": true
+  },
+  "notes": [
+    "The minimum 100-trade floor is a project acceptance requirement, not a claim of statistical certainty.",
+    "Win rate must be strictly greater than 90%; exactly 90% does not pass.",
+    "Paper performance is measured only on PREAPPROVAL_PAPER_ELIGIBLE candidates whose data, structure, confirmation, risk and geometry checks all passed; final policy/live approval remains separate.",
+    "Never force up to three signals; the daily limit is a cap, not a quota.",
+    "Do not mix paper-eligible, official final-gate-approved, and research-only cohorts.",
+    "No live order route is enabled by this contract."
+  ],
+  "schema": "hes_signal_quality_acceptance_v1",
+  "status": "RESEARCH_ACCEPTANCE_CONTRACT_NOT_MET",
+  "version": "1.0.0"
+}
