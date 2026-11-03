@@ -126,7 +126,7 @@ def resolve_candidate(candidate: Mapping[str, Any], candles: list[dict]) -> dict
     for bar in future:
         open_time = int(bar["open_time"])
         close_time = int(bar["close_time"])
-        if open_time != expected_open:
+        if open_time != expected_open or close_time - open_time != 60:
             return None
         high = float(bar["high"]); low = float(bar["low"]); close = float(bar["close"])
         if direction == "LONG":
