@@ -58,6 +58,25 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(len(brief.findings), 0)
         self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
 
+    def test_crypto_context_does_not_match_another_asset_promotion(self):
+        brief = self.brain.analyze(
+            [NewsItem("Ethereum Rewards Week: Triple Rewards for New Users",
+                      source="Gate.io Official Announcements",
+                      url="https://www.gate.io/announcements/article/eth-rewards",
+                      published_at="2026-10-23T11:45:00Z")],
+            MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(brief.findings, ())
+        self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
+
+    def test_crypto_context_matches_its_own_asset(self):
+        brief = self.brain.analyze(
+            [NewsItem("Bitcoin ETF sees large inflows", source="wire",
+                      url="https://wire.test/btc-etf",
+                      published_at="2026-10-23T11:45:00Z")],
+            MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(len(brief.findings), 1)
+        self.assertIn("symbol_keyword_match", brief.findings[0].reasons)
+
     def test_duplicate_url_deduplicates(self):
         items = [NewsItem("Bitcoin ETF inflows", source="A", url="https://a.test/story"),
                  NewsItem("Bitcoin ETF inflows with details", summary="more", source="B", url="https://a.test/story")]
