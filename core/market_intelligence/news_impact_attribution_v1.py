@@ -87,8 +87,9 @@ def evaluate_news_impact(
     min_bars: int = 200,
 ) -> dict[str, Any]:
     """Evaluate observed price/volume response after each event cluster became knowable."""
+    effective_now = int(datetime.now(timezone.utc).timestamp()) if now is None else int(now)
     records, ledger_digest = load_event_ledger(state_dir)
-    candles = read_closed_candles("15m", root=data_root, now=now, min_bars=min_bars)
+    candles = read_closed_candles("15m", root=data_root, now=effective_now, min_bars=min_bars)
     groups: dict[str, list[dict[str, Any]]] = {}
     for record in records:
         cluster_id = record.get("event_cluster_id") or record.get("event_id")
@@ -107,7 +108,7 @@ def evaluate_news_impact(
         anchor = min(observed_times)
         anchor_ts = int(anchor.timestamp())
         first_published = min(published_times) if published_times else None
-        if now is not None and anchor_ts > int(now):
+        if anchor_ts > effective_now:
             events.append({"event_cluster_id": cluster_id, "status": "FUTURE_EVENT", "first_seen_at": anchor.isoformat()})
             continue
 
