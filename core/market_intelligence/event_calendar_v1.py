@@ -177,7 +177,7 @@ def parse_fomc_calendar(payload: bytes, *, today: date, horizon_days: int, sourc
         if not month_match or not date_match:
             continue
         month = _month_number(month_match.group(1))
-        days = _parse_day_range(date_match.group(1))
+        days = _parse_day_range(re.sub(r"[^0-9-]", "", date_match.group(1)))
         if not month or not days:
             continue
         start_day, end_day = days
