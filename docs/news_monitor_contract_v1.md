@@ -55,3 +55,8 @@ The monitor is single-context in this release (crypto / BTCUSDT / Gate.io / 15m)
 3. CI runs Python compilation, news-brain/veto/monitor/dashboard regression, and JavaScript syntax checks on the exact branch head.
 4. Full repository regression and independent review must pass after the stacked base is accepted.
 5. Deployment must use the approved release pointer/rollback process. Do not mutate the dirty working checkout, activate services outside the existing dashboard process, or enable trading as part of this change.
+## Scheduled calendar extension (additive)
+
+The snapshot may also include `event_calendar` and `event_calendar_sha256`. This is a separate, optional informational object; it is not merged into the news brief or source-health status. The calendar has its own `hes.fed_event_calendar.v1` schema and internal `calendar_sha256`; the snapshot reader verifies both digests.
+
+The current adapter uses the official Federal Reserve statistical calendar JSON and FOMC meeting schedule over a 45-day horizon. It reports each source's status independently. A calendar-only failure does not silently mark the news feed healthy or unhealthy, and it does not authorize a signal or veto. BLS CPI/employment events are explicitly excluded because the official BLS endpoint returned HTTP 403 from the VPS. The calendar is therefore Federal Reserve-only, not a complete macro calendar.

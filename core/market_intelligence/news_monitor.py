@@ -18,6 +18,7 @@ from threading import Event, Lock
 from typing import Callable
 
 from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
+from core.market_intelligence.event_calendar_v1 import fetch_fed_event_calendar
 
 
 SCHEMA_VERSION = "hes.news_monitor_snapshot.v1"
@@ -46,6 +47,7 @@ class NewsMonitorV1:
         clock: Callable[[], datetime] = _utc_now,
         on_brief: Callable[[object], None] | None = None,
         poll_lock: Lock | None = None,
+        calendar_fetcher: Callable[..., dict] | None = None,
     ) -> None:
         if type(interval_seconds) is not int or not 15 <= interval_seconds <= 3600:
             raise ValueError("interval_seconds must be an integer from 15 to 3600")
@@ -57,6 +59,7 @@ class NewsMonitorV1:
         self.clock = clock
         self.on_brief = on_brief
         self.poll_lock = poll_lock or Lock()
+        self.calendar_fetcher = calendar_fetcher or fetch_fed_event_calendar
         self.last_poll_at: str | None = None
         self.last_success_at: str | None = None
         self.last_status = "NOT_STARTED"
@@ -107,6 +110,14 @@ class NewsMonitorV1:
                 source_health.append(row)
             brief_digest = sha256(_canonical(brief_data)).hexdigest()
             event_ledger = self._append_event_ledger(brief_data, brief_digest, started)
+            try:
+                event_calendar = self.calendar_fetcher(now=started, horizon_days=45)
+                if not isinstance(event_calendar, dict) or event_calendar.get("schema") != "hes.fed_event_calendar.v1":
+                    raise ValueError("FED_EVENT_CALENDAR_SCHEMA_INVALID")
+                calendar_digest = sha256(_canonical(event_calendar)).hexdigest()
+            except Exception as exc:
+                event_calendar = self._blocked_event_calendar(started, type(exc).__name__)
+                calendar_digest = sha256(_canonical(event_calendar)).hexdigest()
             degraded = brief.status == "degraded" or bool(brief.provenance.get("source_failures"))
             self.last_status = "DEGRADED" if degraded else "OK"
             self.last_error = None
@@ -133,6 +144,8 @@ class NewsMonitorV1:
                 "brief": brief_data,
                 "brief_sha256": brief_digest,
                 "event_ledger": event_ledger,
+                "event_calendar": event_calendar,
+                "event_calendar_sha256": calendar_digest,
             }
             self._atomic_write(snapshot)
             if self.on_brief is not None:
@@ -169,7 +182,10 @@ class NewsMonitorV1:
             "brief_sha256": None,
             "event_ledger": {"schema_version": "hes.news_event_record.v1", "status": "BLOCKED",
                              "records_appended": 0, "records_total": None},
+            "event_calendar": self._blocked_event_calendar(now, self.last_error),
+            "event_calendar_sha256": None,
         }
+        snapshot["event_calendar_sha256"] = sha256(_canonical(snapshot["event_calendar"])).hexdigest()
         self._atomic_write(snapshot)
         return snapshot
 
@@ -214,6 +230,17 @@ class NewsMonitorV1:
                 raise ValueError("news monitor snapshot evidence missing")
             if sha256(_canonical(brief)).hexdigest() != digest:
                 raise ValueError("news monitor snapshot digest mismatch")
+        event_calendar = snapshot.get("event_calendar")
+        calendar_digest = snapshot.get("event_calendar_sha256")
+        if event_calendar is not None:
+            if not isinstance(event_calendar, dict) or not isinstance(calendar_digest, str):
+                raise ValueError("news event calendar evidence missing")
+            if sha256(_canonical(event_calendar)).hexdigest() != calendar_digest:
+                raise ValueError("news event calendar snapshot digest mismatch")
+            internal_calendar = dict(event_calendar)
+            internal_digest = internal_calendar.pop("calendar_sha256", None)
+            if internal_digest is not None and sha256(_canonical(internal_calendar)).hexdigest() != internal_digest:
+                raise ValueError("news event calendar digest mismatch")
         monitor = snapshot.get("monitor")
         if not isinstance(monitor, dict) or monitor.get("status") not in {"OK", "DEGRADED", "BLOCKED"}:
             raise ValueError("news monitor status invalid")
@@ -231,6 +258,24 @@ class NewsMonitorV1:
             if age_seconds > max_age_seconds:
                 raise ValueError("news monitor snapshot stale")
         return snapshot
+
+    @staticmethod
+    def _blocked_event_calendar(observed_at: datetime, error_code: str) -> dict:
+        result = {
+            "schema": "hes.fed_event_calendar.v1",
+            "status": "BLOCKED",
+            "fetched_at": observed_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "horizon_days": 45,
+            "timezone": "America/New_York",
+            "coverage_note": "Official Fed calendar unavailable; BLS calendar not included.",
+            "source_health": [],
+            "source_failures": [{"source_id": "fed_event_calendar", "error_code": str(error_code)[:120]}],
+            "events": [],
+            "impact_rating": "unrated",
+            "news_or_calendar_alone_can_authorize_trade": False,
+        }
+        result["calendar_sha256"] = sha256(_canonical(result)).hexdigest()
+        return result
 
     def _append_event_ledger(self, brief: dict, brief_digest: str, observed_at: datetime) -> dict:
         """Persist each source item once for later Gate.io candle-window attribution."""
