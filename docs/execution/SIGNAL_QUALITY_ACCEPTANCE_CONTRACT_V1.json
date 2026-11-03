@@ -22,7 +22,7 @@
     ]
   },
   "paper_performance_gate": {
-    "performance_cohort": "PREAPPROVAL_PAPER_ELIGIBLE",
+    "performance_cohort": "PRECISION_ENTRY_PAPER_ELIGIBLE",
     "exclude_unresolved_and_ambiguous_from_win_rate": true,
     "minimum_resolved_closed_trades": 100,
     "must_report": [
@@ -54,9 +54,9 @@
   "notes": [
     "The minimum 100-trade floor is a project acceptance requirement, not a claim of statistical certainty.",
     "Win rate must be strictly greater than 90%; exactly 90% does not pass.",
-    "Paper performance is measured only on PREAPPROVAL_PAPER_ELIGIBLE candidates whose data, structure, confirmation, risk and geometry checks all passed; final policy/live approval remains separate.",
+    "Final paper performance is measured only on PRECISION_ENTRY_PAPER_ELIGIBLE candidates created after a validated 15m setup and a READY 1m precision-entry decision; 15m preapproval candidates are baseline-only and do not count toward acceptance.",
     "Never force up to three signals; the daily limit is a cap, not a quota.",
-    "Do not mix paper-eligible, official final-gate-approved, and research-only cohorts.",
+    "Do not mix precision-entry, 15m preapproval baseline, official final-gate-approved, and research-only cohorts.",
     "No live order route is enabled by this contract."
   ],
   "schema": "hes_signal_quality_acceptance_v1",
