@@ -268,6 +268,16 @@ class Handler(BaseHTTPRequestHandler):
                     "timeframes": {
                         tf: {
                             "status": "VALIDATED",
+                            "source": "gateio_public_spot",
+                            "source_reader": "global_market_data_reader_v1",
+                            "symbol": "BTC_USDT",
+                            "timeframe": tf,
+                            # Match the dashboard chart contract exactly: the same
+                            # canonical JSON digest over the latest 240 closed rows.
+                            "input_batch_sha256": hashlib.sha256(
+                                json.dumps(rows[-240:], sort_keys=True, separators=(",", ":")).encode("utf-8")
+                            ).hexdigest(),
+                            "batch_candles": min(len(rows), 240),
                             "closed_candles": len(rows),
                             "latest_close_time": rows[-1]["close_time"],
                         }
