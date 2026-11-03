@@ -25,7 +25,7 @@ from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 SUPPORTED_SYMBOLS = {"BTCUSDT"}
 CANONICAL_ANALYSIS_SYMBOL = "BTCUSDT"
 GATEIO_SOURCE_SYMBOL = gateio_spot_source_symbol(CANONICAL_ANALYSIS_SYMBOL)
-SUPPORTED_INTERVALS = {"15m", "1h", "4h"}
+SUPPORTED_INTERVALS = {"1m", "15m", "1h", "4h"}
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def _market_data_root() -> Path:
@@ -48,10 +48,14 @@ class PersistedGlobalFeedSource:
         if start_time_ms is not None or end_time_ms is not None or as_of_ms is not None:
             raise ValueError("persisted global feed does not support custom time windows")
         market = load_market_input(root=_market_data_root())
+        if interval == "1m":
+            from forward.global_market_data_reader_v1 import read_closed_candles
+            market["timeframes"]["1m"] = read_closed_candles("1m", root=_market_data_root(), min_bars=1)
         if market.get("source") != "gateio_public_spot" or not verify_gateio_spot_symbol_mapping(symbol, market.get("symbol")):
             raise ValueError("persisted global source identity mismatch")
         rows = market["timeframes"].get(interval, [])[-limit:]
-        if len(rows) < 200:
+        minimum = 1 if interval == "1m" else 200
+        if len(rows) < minimum:
             raise ValueError("insufficient persisted closed candles")
         now_ms = int(time.time() * 1000)
         seconds = INTERVAL_MS[interval] // 1000
@@ -154,10 +158,11 @@ def _get_batch(symbol, interval):
 
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HES Trade Agent</title><link rel="stylesheet" href="/static/dashboard.css"><script src="/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js" integrity="sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl" crossorigin="anonymous"></script></head><body><a class="skip-link" href="#main-content">Skip to dashboard content</a><main id="main-content" tabindex="-1"><header><div><h1 class="brand">HES Trade Agent</h1><div class="sub">Global feed · persisted closed candles</div></div><span class="pill">HOLD / NO_TRADE_ONLY</span></header>
-<nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
-<section class="panel" id="marketPanel" aria-labelledby="marketTitle"><h2 class="panel-title" id="marketTitle">Market overview · Gate.io</h2><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
+<nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#precisionEntryPanel">Precision</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
+<section class="panel" id="marketPanel" aria-labelledby="marketTitle"><h2 class="panel-title" id="marketTitle">Market overview · Gate.io</h2><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>1m</option><option>15m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price">—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume">—</strong></div><div class="metric"><small>Closed candles</small><strong id="count">—</strong></div></div>
 <div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status" aria-live="polite" aria-atomic="true">Loading validated closed candles…</div></section>
+<section class="panel" id="precisionEntryPanel" aria-labelledby="precisionEntryTitle"><h2 class="panel-title" id="precisionEntryTitle">Multi-Timeframe Alignment · Precision Entry</h2><div class="metrics"><div class="metric"><small>4H data</small><strong id="pe4h">Checking…</strong></div><div class="metric"><small>1H data</small><strong id="pe1h">Checking…</strong></div><div class="metric"><small>15M setup gate</small><strong id="pe15m">Checking…</strong></div><div class="metric"><small>1M feed</small><strong id="pe1m">Checking…</strong></div><div class="metric"><small>Precision Entry</small><strong id="peState">BLOCKED</strong></div><div class="metric"><small>Risk Gate</small><strong id="peRisk">UNVERIFIED</strong></div></div><p class="muted" id="peReasons" role="status" aria-live="polite">Waiting for validated multi-timeframe evidence…</p><div class="gate"><strong>Advisory only · execution disabled</strong><p class="muted">The 15M setup remains authoritative. The 1M layer cannot create a trade, change direction, bypass Risk Gate, or submit orders. Missing/stale candles, missing provenance-bound entry context, or unapproved setup means BLOCKED / NO_TRADE.</p></div></section>
 <section class="panel" id="strategyV2Panel" aria-labelledby="strategyV2Title"><h2 class="panel-title" id="strategyV2Title">Canonical Strategy V2 · Paper evaluator</h2><div class="metrics"><div class="metric"><small>Canonical decision</small><strong id="v2Decision">NO_TRADE</strong></div><div class="metric"><small>Evidence status</small><strong id="v2Status" role="status" aria-live="polite">Checking report…</strong></div><div class="metric"><small>Market regime</small><strong id="v2Regime">UNKNOWN</strong></div><div class="metric"><small>Policy version</small><strong id="v2Version">—</strong></div><div class="metric"><small>Paper outcomes</small><strong id="v2Outcomes">—</strong></div><div class="metric"><small>Decision journal</small><strong id="v2Journal">—</strong></div></div><p class="muted" id="v2Reasons">Waiting for the canonical V2 evaluator report…</p><div class="gate"><strong>Gate.io data only · execution disabled</strong><p class="muted" id="v2Evidence">This panel is a read-only projection of the existing Strategy Policy V2 evaluator and canonical journal. It does not calculate a second strategy or submit orders.</p></div></section>
 <section class="panel" id="motherPanel" aria-labelledby="motherTitle"><h2 class="panel-title" id="motherTitle">Mother Orchestrator · canonical V2 evidence chain</h2><div class="metrics"><div class="metric"><small>Orchestration</small><strong id="motherStatus" role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Independent witness</small><strong id="motherWitness">NOT VERIFIED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace">—</strong></div></div><p class="muted" id="motherReasons">Waiting for matched Strategy V2 report and journal evidence…</p><ul id="motherStages"><li class="muted">No verified orchestration stages.</li></ul><div class="gate"><strong>Observation only · execution disabled</strong><p class="muted" id="motherEvidence">Mother coordinates the existing Strategy V2 specialist outputs. It does not recalculate market data, indicators, strategy or risk, and cannot authorize orders.</p></div></section>
 <section class="panel" id="newsRadarPanel" aria-labelledby="newsTitle"><h2 class="panel-title" id="newsTitle">News Radar · read-only evidence</h2><div class="metrics"><div class="metric"><small>Monitor</small><strong id="newsStatus" role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Qualified coverage</small><strong id="newsCoverage">UNKNOWN</strong></div><div class="metric"><small>Sources OK / empty / failed</small><strong id="newsSources">0 / 0 / 0</strong></div><div class="metric"><small>International / domestic / venue</small><strong id="newsScopes">0 / 0 / 0</strong></div><div class="metric"><small>Fresh / aging / stale / future / empty / failed / unknown</small><strong id="newsFreshness">0 / 0 / 0 / 0 / 0 / 0 / 0</strong></div><div class="metric"><small>Last poll (UTC)</small><strong id="newsLastPoll">—</strong></div></div><p class="muted" id="newsSummary">Waiting for verified news evidence…</p><p class="muted" id="newsFlags">News does not originate trade direction or authorize execution.</p><ul id="newsItems"><li class="muted">No verified headlines loaded.</li></ul><h3>Per-source health and freshness</h3><ul id="newsSourceDetails"><li class="muted">No per-source health loaded.</li></ul><div class="gate"><strong>Context only · no trade authorization</strong><p class="muted">Gate.io remains the sole live market-data source. Gate.io announcements are venue-operational news only; candles, indicators and chart data never come from news feeds. News coverage is explicitly partial where shown.</p></div></section>
@@ -218,6 +223,87 @@ class Handler(BaseHTTPRequestHandler):
                     "error": "market_data_unavailable", "reason": type(exc).__name__,
                     "fail_closed": True, "execution_enabled": False, "orders_placed": False,
                     "symbol_mapping_verified": False, "execution_instrument_mapping_verified": False,
+                }
+                return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+        if p.path == "/api/precision-entry":
+            try:
+                from forward.global_market_data_reader_v1 import read_closed_candles
+                from forward.precision_entry_engine_v1 import evaluate_precision_entry
+                root = _market_data_root()
+                feeds = {
+                    tf: read_closed_candles(tf, root=root, min_bars=(50 if tf == "1m" else 200))
+                    for tf in ("4h", "1h", "15m", "1m")
+                }
+                strategy = read_strategy_v2_dashboard()
+                gate = strategy.get("latest_gate_evidence", {})
+                if not isinstance(gate, dict):
+                    raise ValueError("strategy_gate_evidence_invalid")
+                confirmation = gate.get("confirmation", {})
+                risk = gate.get("risk", {})
+                if not isinstance(confirmation, dict) or not isinstance(risk, dict):
+                    raise ValueError("strategy_gate_stage_invalid")
+                setup_decision = strategy.get("decision", "NO_TRADE")
+                direction = str(strategy.get("direction", "NONE")).upper()
+                confirmation_state = confirmation.get("state", "UNKNOWN")
+                setup_valid = (
+                    direction in ("LONG", "SHORT")
+                    and setup_decision == direction
+                    and confirmation_state == "CONFIRMED_" + direction
+                )
+                risk_state = risk.get("state", "UNKNOWN")
+                context = gate.get("entry_context")
+                engine = evaluate_precision_entry(
+                    setup_direction=direction,
+                    candles_1m=feeds["1m"],
+                    setup_validated_15m=setup_valid,
+                    risk_gate_state=risk_state,
+                    now_s=int(time.time()),
+                    setup_context=context if isinstance(context, dict) else None,
+                )
+                if strategy.get("execution_enabled") is not False or strategy.get("orders_placed") is not False:
+                    raise ValueError("execution_boundary_violation")
+                latest_1m = feeds["1m"][-1]
+                payload = {
+                    "schema": "hes_precision_entry_status_v1",
+                    "status": "BLOCKED" if engine["state"] == "BLOCKED" else engine["state"],
+                    "source": "gateio_public_spot",
+                    "symbol": "BTC_USDT",
+                    "timeframes": {
+                        tf: {
+                            "status": "VALIDATED",
+                            "closed_candles": len(rows),
+                            "latest_close_time": rows[-1]["close_time"],
+                        }
+                        for tf, rows in feeds.items()
+                    },
+                    "setup_timeframe": "15m",
+                    "setup_decision": setup_decision,
+                    "setup_validated_15m": setup_valid,
+                    "confirmation_state": confirmation_state,
+                    "risk_gate_state": risk_state,
+                    "entry_timeframe": "1m",
+                    "entry_state": engine["state"],
+                    "reason_codes": list(engine["reason_codes"]),
+                    "engine_evidence": engine["evidence"],
+                    "engine_authority": engine["authority"],
+                    "entry_context_status": "PRESENT" if isinstance(context, dict) else "MISSING",
+                    "latest_1m_close_time": latest_1m["close_time"],
+                    "execution_enabled": False,
+                    "orders_placed": False,
+                    "authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
+                }
+                return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+            except Exception as exc:
+                payload = {
+                    "schema": "hes_precision_entry_status_v1",
+                    "status": "BLOCKED",
+                    "error": "precision_entry_evidence_unavailable",
+                    "reason": type(exc).__name__,
+                    "reason_codes": ["MULTI_TIMEFRAME_EVIDENCE_UNAVAILABLE"],
+                    "fail_closed": True,
+                    "execution_enabled": False,
+                    "orders_placed": False,
+                    "authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/journal":
