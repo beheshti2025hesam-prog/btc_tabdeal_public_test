@@ -242,16 +242,13 @@ class Handler(BaseHTTPRequestHandler):
                 risk = gate.get("risk", {})
                 if not isinstance(confirmation, dict) or not isinstance(risk, dict):
                     raise ValueError("strategy_gate_stage_invalid")
-                setup_decision = strategy.get("decision", "NO_TRADE")
-                direction = str(strategy.get("direction", "NONE")).upper()
+                paper_setup = strategy.get("paper_setup", {})
+                setup_valid = paper_setup.get("validated") is True
+                direction = str(paper_setup.get("direction", "NONE")).upper() if setup_valid else "NONE"
+                setup_decision = direction if setup_valid else "NO_TRADE"
                 confirmation_state = confirmation.get("state", "UNKNOWN")
-                setup_valid = (
-                    direction in ("LONG", "SHORT")
-                    and setup_decision == direction
-                    and confirmation_state == "CONFIRMED_" + direction
-                )
                 risk_state = risk.get("state", "UNKNOWN")
-                context = gate.get("entry_context")
+                context = paper_setup.get("context")
                 engine = evaluate_precision_entry(
                     setup_direction=direction,
                     candles_1m=feeds["1m"],
@@ -278,6 +275,9 @@ class Handler(BaseHTTPRequestHandler):
                     },
                     "setup_timeframe": "15m",
                     "setup_decision": setup_decision,
+                    "final_policy_decision": strategy.get("decision", "NO_TRADE"),
+                    "paper_setup_validated": setup_valid,
+                    "paper_setup_reason": paper_setup.get("reason_code"),
                     "setup_validated_15m": setup_valid,
                     "confirmation_state": confirmation_state,
                     "risk_gate_state": risk_state,
