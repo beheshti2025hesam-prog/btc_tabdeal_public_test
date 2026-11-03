@@ -158,11 +158,6 @@ const { chromium } = require("playwright");
       source_symbol: candlePayload.source_symbol,
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
       interval: candlePayload.interval,
-      intervals_verified: {
-        "15m": { candle_count: fifteenMinutePayload.candles.length, input_batch_sha256: fifteenMinutePayload.input_batch_sha256 },
-        "1m": { candle_count: oneMinutePayload.candles.length, input_batch_sha256: oneMinutePayload.input_batch_sha256 }
-      },
-      one_minute_responsive_viewports: oneMinuteResponsiveViewports,
       input_batch_sha256: candlePayload.input_batch_sha256,
       strategy_v2_status_code: strategyV2StatusCode,
       strategy_v2_status: strategyV2Payload.status,
@@ -345,6 +340,10 @@ const { chromium } = require("playwright");
       product: candlePayload.product,
       symbol: candlePayload.symbol,
       interval: candlePayload.interval,
+      intervals_verified: {
+        "15m": { candle_count: fifteenMinutePayload.candles.length, input_batch_sha256: fifteenMinutePayload.input_batch_sha256 },
+        "1m": { candle_count: oneMinutePayload.candles.length, input_batch_sha256: oneMinutePayload.input_batch_sha256 }
+      },
       input_batch_sha256: candlePayload.input_batch_sha256,
       strategy_v2_status_code: strategyV2StatusCode,
       strategy_v2_status: strategyV2Payload.status,
@@ -355,6 +354,7 @@ const { chromium } = require("playwright");
       candle_count: candlePayload.candles.length,
       chart_canvas: oneMinuteUi.canvas,
       responsive_viewports: responsiveViewports,
+      one_minute_responsive_viewports: oneMinuteResponsiveViewports,
       visible_candle_pixels: oneMinutePixels,
       external_chart_cdn_requested: externalChartCdnRequested,
       direct_market_data_request_from_browser: directMarketDataRequest,
