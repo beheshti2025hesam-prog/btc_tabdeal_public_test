@@ -5,12 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
-if str(CODE_ROOT) not in os.sys.path:
-    os.sys.path.insert(0, str(CODE_ROOT))
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
 
 from scripts.runtime_paths_v1 import DATA_ROOT
 from core.market_intelligence.news_impact_attribution_v1 import evaluate_news_impact
