@@ -47,7 +47,7 @@ class FedEventCalendarTests(unittest.TestCase):
           <div class='fomc-meeting__month'><strong>January</strong></div>
           <div class='fomc-meeting__date'>26-27</div>
         </div></body></html>"""
-        events = parse_fomc_calendar(html, today=date(2026, 11, 3), horizon_days=60, source_sha256="c" * 64)
+        events = parse_fomc_calendar(html, today=date(2026, 11, 3), horizon_days=90, source_sha256="c" * 64)
         self.assertEqual(len(events), 2)
         self.assertEqual(events[0]["start_date"], "2026-12-08")
         self.assertEqual(events[0]["end_date"], "2026-12-09")
