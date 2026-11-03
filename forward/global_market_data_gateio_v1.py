@@ -30,7 +30,7 @@ if INTERVAL not in INTERVAL_SECONDS_BY_NAME:
     raise RuntimeError(f"Unsupported HES candle interval: {INTERVAL}")
 INTERVAL_SECONDS = INTERVAL_SECONDS_BY_NAME[INTERVAL]
 SOURCE = "gateio_public_spot"
-MAX_PERSISTED_CANDLES = 500
+MAX_PERSISTED_CANDLES = 1500 if INTERVAL == "1m" else 500
 DEFAULT_OUTPUTS = {
     "1m": ROOT / "data/forward/global_market_candles_1m_v1.jsonl",
     "15m": ROOT / "data/forward/global_market_candles_v1.jsonl",
@@ -103,13 +103,41 @@ def _native_candle_to_record(candle, fetched_at_ms: int) -> dict[str, Any]:
 def fetch_recent_closed(source: GateioSpotKlineSource | None = None, *, now: int | None = None) -> list[dict[str, Any]]:
     """Fetch closed REST candles through the shared, versioned native adapter."""
     source = source or GateioSpotKlineSource()
-    kwargs = {"symbol": INTERNAL_SYMBOL, "interval": INTERVAL, "limit": MAX_PERSISTED_CANDLES}
-    if now is not None:
-        kwargs["as_of_ms"] = int(now) * 1000
-    batch = source.fetch(**kwargs)
-    if batch.gaps:
-        raise ValueError(f"Gate.io REST backfill contains {len(batch.gaps)} candle gap(s)")
-    return [_native_candle_to_record(candle, batch.fetched_at_ms) for candle in batch.candles]
+    if INTERVAL != "1m" or MAX_PERSISTED_CANDLES <= 1000:
+        kwargs = {"symbol": INTERNAL_SYMBOL, "interval": INTERVAL, "limit": MAX_PERSISTED_CANDLES}
+        if now is not None:
+            kwargs["as_of_ms"] = int(now) * 1000
+        batch = source.fetch(**kwargs)
+        if batch.gaps:
+            raise ValueError(f"Gate.io REST backfill contains {len(batch.gaps)} candle gap(s)")
+        return [_native_candle_to_record(candle, batch.fetched_at_ms) for candle in batch.candles]
+
+    # Gate.io Spot REST caps one response at 1,000 candles. Fetch the newest
+    # page, then the immediately preceding page; validate continuity before
+    # exposing the 1,500-bar window required by the 24h paper-outcome horizon.
+    now_ms = int(now * 1000) if now is not None else int(time.time() * 1000)
+    newest = source.fetch(
+        symbol=INTERNAL_SYMBOL, interval=INTERVAL, limit=1000,
+        end_time_ms=now_ms, as_of_ms=now_ms,
+    )
+    if newest.gaps:
+        raise ValueError(f"Gate.io REST newest page contains {len(newest.gaps)} candle gap(s)")
+    candles = list(newest.candles)
+    remaining = MAX_PERSISTED_CANDLES - len(candles)
+    if remaining > 0 and candles:
+        older = source.fetch(
+            symbol=INTERNAL_SYMBOL, interval=INTERVAL, limit=remaining,
+            end_time_ms=candles[0].open_time_ms - 1, as_of_ms=now_ms,
+        )
+        if older.gaps:
+            raise ValueError(f"Gate.io REST older page contains {len(older.gaps)} candle gap(s)")
+        candles = list(older.candles) + candles
+    candles.sort(key=lambda item: item.open_time_ms)
+    for previous, current in zip(candles, candles[1:]):
+        if current.open_time_ms - previous.open_time_ms != INTERVAL_SECONDS * 1000:
+            raise ValueError("Gate.io paginated 1m candle window is incomplete")
+    fetched_at_ms = max((newest.fetched_at_ms,), default=now_ms)
+    return [_native_candle_to_record(candle, fetched_at_ms) for candle in candles]
 
 
 def _validate_persisted_candle(candle: dict[str, Any]) -> int:
