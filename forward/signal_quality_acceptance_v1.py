@@ -26,6 +26,19 @@ def _valid_sha256(value) -> bool:
     )
 
 
+def _canonical_hash_excluding(value: dict, field: str) -> str:
+    payload = {key: item for key, item in value.items() if key != field}
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _hash_matches(value: dict, field: str) -> bool:
+    try:
+        return _valid_sha256(value.get(field)) and value.get(field) == _canonical_hash_excluding(value, field)
+    except (TypeError, ValueError):
+        return False
+
+
 def _read_jsonl(path: Path):
     if not path.exists():
         return None, []
@@ -128,6 +141,8 @@ def _precision_candidate_valid(row: dict) -> bool:
         or row.get("source") != "gateio_public_spot"
         or row.get("symbol") != "BTC_USDT"
         or row.get("direction") not in ("LONG", "SHORT")
+        or not isinstance(row.get("market_regime"), str)
+        or not row.get("market_regime", "").strip()
         or row.get("paper_only") is not True
         or row.get("preapproval_paper_eligible") is not True
         or row.get("execution_enabled") is not False
@@ -161,6 +176,19 @@ def _precision_ledger_metrics(root: str | Path) -> dict:
     candidate_hash, raw_candidates = _read_jsonl(base / PRECISION_CANDIDATES)
     outcome_hash, raw_outcomes = _read_jsonl(base / PRECISION_OUTCOMES)
     missing_ledger = candidate_hash is None or outcome_hash is None
+    cost_model = _read_json(base / PRECISION_COST_MODEL) or {}
+    fee_verified = (
+        cost_model.get("status") == "VERIFIED"
+        and cost_model.get("fees_slippage_verified") is True
+        and _valid_sha256(cost_model.get("evidence_sha256"))
+        and _hash_matches(cost_model, "model_sha256")
+        and _finite_number(cost_model.get("fee_fraction_per_side"))
+        and _finite_number(cost_model.get("slippage_fraction_per_side"))
+        and cost_model.get("fee_fraction_per_side", -1) >= 0
+        and cost_model.get("slippage_fraction_per_side", -1) >= 0
+    )
+    fee_fraction = float(cost_model.get("fee_fraction_per_side", 0)) if fee_verified else 0.0
+    slippage_fraction = float(cost_model.get("slippage_fraction_per_side", 0)) if fee_verified else 0.0
 
     candidates = []
     candidate_by_id = {}
@@ -183,7 +211,11 @@ def _precision_ledger_metrics(root: str | Path) -> dict:
         candidate_by_id[candidate_id] = row
         candidates.append(row)
 
-    wins = losses = timeouts = unmatched = ambiguous = unscorable = 0
+    wins = losses = breakevens = timeouts = unmatched = ambiguous = unscorable = 0
+    gross_wins = gross_losses = gross_timeouts = 0
+    net_r_entries = []
+    long_short_split = {}
+    regime_split = {}
     seen_outcome_ids = set()
     seen_candidate_outcomes = set()
     for row in raw_outcomes:
@@ -208,6 +240,7 @@ def _precision_ledger_metrics(root: str | Path) -> dict:
             or row.get("symbol") != "BTC_USDT"
             or row.get("timeframe") != "1m"
             or row.get("direction") != candidate.get("direction")
+            or row.get("market_regime") != candidate.get("market_regime")
             or row.get("entry_time") != candidate.get("entry_time")
             or not _valid_sha256(row.get("evidence_sha256"))
             or row.get("execution_enabled") is not False
@@ -235,19 +268,54 @@ def _precision_ledger_metrics(root: str | Path) -> dict:
             if row["gross_r"] <= 0:
                 unscorable += 1
                 continue
-            wins += 1
+            gross_wins += 1
         elif row["outcome"] == "LOSS":
             if row["gross_r"] >= 0:
                 unscorable += 1
                 continue
-            losses += 1
+            gross_losses += 1
         else:
-            timeouts += 1
+            gross_timeouts += 1
 
-    resolved = wins + losses
+        if not fee_verified:
+            continue
+        cost_r = (candidate["entry_price"] + row["exit_price"]) * (fee_fraction + slippage_fraction) / risk
+        net_r = row["gross_r"] - cost_r
+        net_r_entries.append((row["exit_close_time"], net_r, candidate["direction"], candidate["market_regime"], row["outcome"]))
+        direction_bucket = long_short_split.setdefault(candidate["direction"], {"wins": 0, "losses": 0, "breakevens": 0, "timeouts": 0})
+        regime_bucket = regime_split.setdefault(candidate["market_regime"], {"wins": 0, "losses": 0, "breakevens": 0, "timeouts": 0})
+        if row["outcome"] == "TIMEOUT":
+            timeouts += 1
+            direction_bucket["timeouts"] += 1
+            regime_bucket["timeouts"] += 1
+        elif net_r > 1e-12:
+            wins += 1
+            direction_bucket["wins"] += 1
+            regime_bucket["wins"] += 1
+        elif net_r < -1e-12:
+            losses += 1
+            direction_bucket["losses"] += 1
+            regime_bucket["losses"] += 1
+        else:
+            breakevens += 1
+            direction_bucket["breakevens"] += 1
+            regime_bucket["breakevens"] += 1
+
+    resolved = wins + losses + breakevens
     win_rate = round(100.0 * wins / resolved, 2) if resolved else None
-    cost_model = _read_json(base / PRECISION_COST_MODEL) or {}
+    net_expectancy = round(sum(item[1] for item in net_r_entries) / len(net_r_entries), 6) if net_r_entries else None
+    positive_r = sum(item[1] for item in net_r_entries if item[1] > 0)
+    negative_r = abs(sum(item[1] for item in net_r_entries if item[1] < 0))
+    profit_factor = round(positive_r / negative_r, 6) if negative_r > 0 else None
+    equity = peak = maximum_drawdown = 0.0
+    for _, net_r, _, _, _ in sorted(net_r_entries):
+        equity += net_r
+        peak = max(peak, equity)
+        maximum_drawdown = max(maximum_drawdown, peak - equity)
+    maximum_drawdown = round(maximum_drawdown, 6) if net_r_entries else None
     independent_oos = _read_json(base / PRECISION_OOS)
+    cost_file = base / PRECISION_COST_MODEL
+    oos_file = base / PRECISION_OOS
     return {
         "candidate_rows": candidates,
         "candidate_count": len(raw_candidates),
@@ -255,9 +323,18 @@ def _precision_ledger_metrics(root: str | Path) -> dict:
         "outcome_count": len(raw_outcomes),
         "wins": wins,
         "losses": losses,
+        "breakevens": breakevens,
         "timeouts": timeouts,
+        "gross_wins": gross_wins,
+        "gross_losses": gross_losses,
+        "gross_timeouts": gross_timeouts,
         "resolved": resolved,
         "win_rate_pct": win_rate,
+        "net_expectancy_after_costs": net_expectancy,
+        "profit_factor_after_costs": profit_factor,
+        "maximum_drawdown": maximum_drawdown,
+        "long_short_split": long_short_split,
+        "regime_split": regime_split,
         "unresolved_candidates": max(0, len(candidates) - len(seen_candidate_outcomes)),
         "invalid_candidate_records": invalid_candidates,
         "duplicate_candidate_ids": duplicate_candidate_ids,
@@ -271,6 +348,8 @@ def _precision_ledger_metrics(root: str | Path) -> dict:
         "source_sha256": {
             "candidates": candidate_hash,
             "outcomes": outcome_hash,
+            "cost_model": hashlib.sha256(cost_file.read_bytes()).hexdigest() if cost_file.exists() else None,
+            "independent_oos": hashlib.sha256(oos_file.read_bytes()).hexdigest() if oos_file.exists() else None,
         },
     }
 
@@ -302,10 +381,18 @@ def _oos_report_completeness_reasons(report: dict, cost_model: dict) -> list[str
     for field in ("net_expectancy_after_costs", "profit_factor_after_costs", "maximum_drawdown"):
         if not _finite_number(report.get(field)):
             reasons.append("INDEPENDENT_OOS_REPORT_INCOMPLETE")
-    if _finite_number(report.get("profit_factor_after_costs")) and report["profit_factor_after_costs"] < 0:
-        reasons.append("INDEPENDENT_OOS_REPORT_INCOMPLETE")
+    if _finite_number(report.get("profit_factor_after_costs")) and report["profit_factor_after_costs"] <= 1:
+        reasons.append("INDEPENDENT_OOS_PROFIT_FACTOR_NOT_ABOVE_1")
+    if _finite_number(report.get("net_expectancy_after_costs")) and report["net_expectancy_after_costs"] <= 0:
+        reasons.append("INDEPENDENT_OOS_NET_EXPECTANCY_NOT_POSITIVE")
     if _finite_number(report.get("maximum_drawdown")) and report["maximum_drawdown"] < 0:
         reasons.append("INDEPENDENT_OOS_REPORT_INCOMPLETE")
+
+    if (
+        not _valid_sha256(report.get("report_sha256"))
+        or report.get("report_sha256") != _canonical_hash_excluding(report, "report_sha256")
+    ):
+        reasons.append("INDEPENDENT_OOS_PROVENANCE_MISSING")
 
     fee_report = report.get("fee_and_slippage_model")
     if (
@@ -411,15 +498,28 @@ def evaluate_acceptance(
             reasons.append("AMBIGUOUS_PRECISION_CANDIDATE_IDS")
         if precision["duplicate_setup_ids"]:
             reasons.append("DUPLICATE_PRECISION_SETUP_CANDIDATES")
+        if precision["net_expectancy_after_costs"] is None or precision["net_expectancy_after_costs"] <= 0:
+            reasons.append("NET_EXPECTANCY_AFTER_COSTS_NOT_POSITIVE")
+        if precision["profit_factor_after_costs"] is None or precision["profit_factor_after_costs"] <= 1:
+            reasons.append("PROFIT_FACTOR_AFTER_COSTS_NOT_ABOVE_1")
         precision_summary = {
             "candidate_records": precision["candidate_count"],
             "valid_candidate_records": precision["valid_candidate_count"],
             "outcome_records": precision["outcome_count"],
             "wins": precision["wins"],
             "losses": precision["losses"],
+            "breakevens": precision["breakevens"],
             "timeouts": precision["timeouts"],
+            "gross_wins": precision["gross_wins"],
+            "gross_losses": precision["gross_losses"],
+            "gross_timeouts": precision["gross_timeouts"],
             "resolved_closed_trades": resolved,
             "win_rate_pct": win_rate,
+            "net_expectancy_after_costs": precision["net_expectancy_after_costs"],
+            "profit_factor_after_costs": precision["profit_factor_after_costs"],
+            "maximum_drawdown": precision["maximum_drawdown"],
+            "long_short_split": precision["long_short_split"],
+            "regime_split": precision["regime_split"],
             "unresolved_candidates": precision["unresolved_candidates"],
             "invalid_candidate_records": precision["invalid_candidate_records"],
             "unmatched_outcome_records": unmatched,
@@ -518,6 +618,11 @@ def evaluate_acceptance(
         "independent_oos_status": independent_oos.get("status") if isinstance(independent_oos, dict) else "MISSING",
         "cost_model_status": cost.get("status", "MISSING"),
         "precision_entry_ledger": precision_summary,
+        "net_expectancy_after_costs": precision_summary.get("net_expectancy_after_costs") if precision_summary else None,
+        "profit_factor_after_costs": precision_summary.get("profit_factor_after_costs") if precision_summary else None,
+        "maximum_drawdown": precision_summary.get("maximum_drawdown") if precision_summary else None,
+        "long_short_split": precision_summary.get("long_short_split") if precision_summary else None,
+        "regime_split": precision_summary.get("regime_split") if precision_summary else None,
         "reasons": reasons,
         "execution_enabled": False,
         "orders_placed": False,
