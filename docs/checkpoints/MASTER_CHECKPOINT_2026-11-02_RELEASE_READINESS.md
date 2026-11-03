@@ -568,3 +568,41 @@ This section supersedes earlier candidate-only statements in this checkpoint abo
 - Accept News Radar v1 as operational read-only context for the current application release; do not reopen duplicate PRs #399/#404 or add a second engine.
 - Preserve the fixed application delivery target **2026-11-19** and chart acceptance milestone **2026-11-04**. Freeze optional News Radar expansion if it threatens chart acceptance or the release schedule.
 - The project target of no more than 3 signals/day and >90% paper win rate remains an independent forward-evidence acceptance goal. News Radar has not established, and cannot guarantee, that result. Keep PAPER-TEST-ONLY / NO_TRADE_ONLY and execution OFF.
+
+
+## Continuation update — 2026-11-03 (1m precision integration + live runtime audit)
+
+**Audit time:** 2026-11-03 13:39 UTC  
+**Disposition:** repository integration is advanced, but the deployed runtime is not yet at the same version. Keep release HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY. Execution remains OFF.
+
+### 1. Repository lineage and version reconciliation
+
+- Canonical `main` now points to merge commit `aa891972ad9758fb5681f30d63cfd429cf83f2f4`. PR #430, “Integrate Gate.io 1m precision paper journal on current main”, is merged. The merge preserves 15m setup authority, 1m advisory-only entry timing, the append-only paper journal, 1,500-candle retention, and the no-execution boundary.
+- Exact PR #430 candidate head `c2a53265fee8d9fac3fc3bb0397e3805c36c6e10` passed all 32 PR-triggered workflows, including browser render/responsive smoke (run 41635924863), dashboard single-path and full regression (run 41635925085). The merged `main` SHA then completed 23 push-triggered workflows successfully. These are repository/CI proofs, not deployment proofs.
+- The browser smoke source asserts 15m remains the default and 1m can be selected; for both intervals it checks chart/API OHLCV parity, Gate.io source identity, no direct browser exchange request, no external chart CDN, and responsive layouts at 390, 768 and 1440 px. This is candidate CI evidence only; the deployed dashboard has not passed the 1m acceptance check.
+- PR #425 is still open but its head is already an ancestor of `main` (zero commits ahead, 27 behind); it has no remaining unique diff against current `main`. Treat it as superseded/redundant; do not merge it again.
+- PR #428 is 13 commits ahead and 63 behind current `main`. Its old-head workflows passed, but the branch is stale and is not merge-ready. A concrete schema mismatch was found: its precision acceptance validator requires `market_regime` in candidate/outcome records, while the current `build_paper_candidate` and `resolve_candidate` writers do not persist that field. Align the journal schema and tests before rebasing/merging #428.
+- PR #429 is 5 commits ahead and 63 behind current `main`. It is a workflow-only Node 24 Actions migration, but its patch overlaps workflow files changed by #430. Rebase/restack it on current `main` and rerun exact-head checks; do not merge its stale head.
+- No stale branch was force-pushed, no strategy threshold was changed, and no old/new implementation was silently combined.
+
+### 2. Live VPS runtime — read-only audit
+
+- The existing 15m, 1h and 4h Gate.io collector services are ACTIVE. The read-only dashboard is ACTIVE; the Strategy V2 paper evaluator and learning loop are ACTIVE.
+- The 1m Gate.io collector is ACTIVE since `2026-11-03T06:15:06Z`, with `NRestarts=0`. It writes `data/forward/global_market_candles_1m_v1.jsonl` from Gate.io Public Spot BTC_USDT. Its installed unit currently executes from `/opt/hes-trade-agent/candidates/precision-entry-engine-20261103`.
+- The 1m integrity timer is ACTIVE. Its durable witness contains 92 checks from `2026-11-03T06:18:16Z` through `2026-11-03T13:39:31Z`: 91 PASS and one initial BLOCKED record with `PermissionError`; all subsequent checks passed. Latest observation had 500 contiguous closed candles and an 81-second maximum observed latest-candle age. This is approximately 7h24m of evidence, not a completed 24-hour test.
+- The separate existing 24h Gate.io soak log contains 1,229 samples, zero failed samples, and 73,765 elapsed seconds at the audit. Its contract checks only 15m/1h/4h and the corresponding three services; it does **not** cover 1m and cannot be reused as 1m soak evidence.
+- The runtime version split is confirmed: `/opt/hes-trade-agent/current` resolves to release `57ae4e659bec9eabf4f84991d8cffc041eb582c7`, while the 1m collector runs from the separate candidate directory. The deployed dashboard health endpoint returns HTTP 200 and the 15m candle API returns HTTP 200 with 240 candles from `global_market_data_reader_v1`; the deployed 1m candle API returns HTTP 400. Therefore desktop/mobile 1m chart acceptance is **NOT MET on the deployed runtime**, even though the candidate browser CI passed.
+- The current release directory does not contain the precision-entry journal runner/context files. The 1m journal systemd unit is not installed, and no `precision_entry_events_v1.jsonl`, `precision_entry_candidates_v1.jsonl`, `precision_entry_outcomes_v1.jsonl`, or journal report exists in the live data directory. Do not claim the permanent precision journal is active.
+- The latest Strategy V2 report remains safely fail-closed: confirmation is UNCONFIRMED (1 of 3 checks passed), risk is RISK_REJECTED, and there is no validated 15m entry context. The 1m engine must remain BLOCKED/NO_TRADE until a genuine provenance-bound 15m setup passes; this is correct behavior, not a reason to bypass gates.
+- SentinelX policy currently registers the existing 15m/1h/4h collectors, dashboard, evaluator and learning loop, but does not register the 1m collector/integrity units or the precision journal service. The 1m collector is running, but its management is not yet exposed through the SentinelX service allowlist. Do not broaden the allowlist or edit `/etc/sentinelx/config.yaml` automatically.
+- No service was restarted, no release pointer was changed, no dirty checkout was reset/cleaned/overwritten, and no account or order path was enabled.
+
+### 3. Remaining gates — exact order
+
+1. Reconcile the deployed release and candidate service roots into one reviewed immutable release; preserve the current rollback release and the dirty root checkout.
+2. Deploy the reviewed 1m-capable dashboard release only after exact-SHA verification; then repeat browser acceptance against the actual deployed runtime at 390/768/1440 px for both 15m and 1m.
+3. Align the precision journal writer with the acceptance schema (including `market_regime` in candidate/outcome records), rerun focused and full exact-head tests, then install/allowlist the journal service against the verified `current` release path.
+4. Keep the 1m collector/integrity observation running. The 24-hour 1m window cannot be declared complete before `2026-11-04T06:15:06Z`; audit every integrity witness, feed gap, service restart and source identity before PASS.
+5. After the deployed journal and chart pass, record exact release SHA, artifact hashes, runtime paths, test counts, soak interval and all limitations in this Master Checkpoint. No live execution authorization is implied.
+
+**Acceptance snapshot at this checkpoint:** version integration in GitHub main = PASS; 15m→1m candidate code/CI = PASS with live setup eligibility still fail-closed; deployed 1m chart = NOT MET; permanent precision journal = NOT INSTALLED; 1m 24h soak = IN PROGRESS; release = HOLD.
