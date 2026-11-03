@@ -78,9 +78,9 @@ class NewsMonitorTests(unittest.TestCase):
             "raw_item_sha256": "b" * 64,
             "retrieved_at": NOW.isoformat(),
         }]
-        brief.provenance["high_impact_event_clusters"] = [{
-            "event_id": "binance_security_incident",
-            "item_ids": ["news-item-001"],
+        brief.provenance["event_cluster_assignments"] = [{
+            "item_id": "news-item-001",
+            "event_cluster_id": "binance_security_incident",
         }]
         base = brief.to_dict()
         base["provenance"] = brief.provenance
@@ -90,7 +90,7 @@ class NewsMonitorTests(unittest.TestCase):
 
         first = self.monitor.poll_once()
         second = self.monitor.poll_once()
-        ledger = self.path.with_name("news_events.jsonl")
+        ledger = self.path.with_name("news_events_2026.jsonl")
         rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
 
         self.assertEqual(len(rows), 1)
@@ -99,12 +99,13 @@ class NewsMonitorTests(unittest.TestCase):
         self.assertEqual(rows[0]["source_id"], "decrypt_news")
         self.assertEqual(rows[0]["raw_item_sha256"], "b" * 64)
         self.assertEqual(rows[0]["brief_sha256"], first["brief_sha256"])
+        self.assertEqual(first["event_ledger"]["path"], "news_events_2026.jsonl")
         self.assertEqual(first["event_ledger"]["records_appended"], 1)
         self.assertEqual(second["event_ledger"]["records_appended"], 0)
         self.assertEqual(second["event_ledger"]["records_total"], 1)
 
     def test_corrupt_event_ledger_fails_closed(self):
-        ledger = self.path.with_name("news_events.jsonl")
+        ledger = self.path.with_name("news_events_2026.jsonl")
         ledger.parent.mkdir(parents=True, exist_ok=True)
         ledger.write_text("{not-json}\n", encoding="utf-8")
         brief = self._brief()
