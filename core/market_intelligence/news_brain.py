@@ -646,7 +646,7 @@ class NewsIntelligenceBrain:
             for key, row in sorted(cluster_rows.items())
         ]
         event_cluster_assignments = [
-            {"item_id": finding.item_id, "event_cluster_id": _event_cluster_key(finding.title, finding.item_id)}
+            {"item_id": finding.item_id, "event_cluster_id": _event_cluster_key(finding.title, finding.item_id, finding.published_at)}
             for finding in findings
         ]
         implications = []
