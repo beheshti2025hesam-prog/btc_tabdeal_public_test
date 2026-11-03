@@ -130,6 +130,7 @@ def test_systemd_unit_runs_immutable_release_and_writes_shared_data_only():
     unit = Path("deploy/systemd/hes-precision-entry-journal.service").read_text()
     assert "WorkingDirectory=/opt/hes-trade-agent/current" in unit
     assert "HES_DATA_ROOT=/opt/hes-trade-agent" in unit
+    assert "Environment=PYTHONPATH=/opt/hes-trade-agent/current" in unit
     assert "ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/current/scripts/run_precision_entry_journal_v1.py" in unit
     assert "ReadWritePaths=/opt/hes-trade-agent/data/forward /opt/hes-trade-agent/logs" in unit
     assert "WorkingDirectory=/opt/hes-trade-agent\n" not in unit
