@@ -530,6 +530,18 @@ class NewsIntelligenceBrain:
                 "ETH_USDT": ("ethereum", "ether", "eth"),
             }.get(context.symbol.upper(), (context.symbol.casefold(),) if context.symbol else ())
             symbol_match = any(term and _contains(text, term) for term in symbol_aliases)
+            other_asset_terms = (
+                "bitcoin", "btc", "ethereum", "ether", "eth", "solana", "sol",
+                "ripple", "xrp", "bnb", "binance coin", "cardano", "ada",
+                "dogecoin", "doge", "avalanche", "avax", "polkadot", "dot",
+                "chainlink", "link", "tron", "trx",
+            )
+            other_asset_match = any(
+                term not in symbol_aliases and _contains(text, term)
+                for term in other_asset_terms
+            )
+            asset_conflict = other_asset_match and not symbol_match and not tagged_match
+            market_match = market_match and not asset_conflict
             crypto_venue_risk = any(_contains(text, term) for term in (
                 "trading halted", "withdrawals suspended", "deposit suspended",
                 "exchange outage", "wallet maintenance", "trading suspension",
