@@ -108,7 +108,7 @@ _CATEGORY_TERMS = {
                         "central bank", "ecb", "fomc", "powell", "inflation", "cpi", "pce"),
     "regulation": ("regulation", "regulator", "sec", "lawsuit", "ban", "approved", "approval",
                    "etf", "legislation", "sanction", "تحریم", "قانون", "مجوز"),
-    "security": ("hack", "exploit", "breach", "stolen", "outage", "vulnerability",
+    "security": ("hack", "exploit", "breach", "theft", "attack", "stolen", "outage", "vulnerability",
                  "هک", "حمله", "سرقت"),
     "exchange": ("exchange", "trading halted", "withdrawals suspended", "listing", "delisting", "delist",
                  "صرافی", "توقف معاملات"),
@@ -125,7 +125,7 @@ _NEGATIVE = ("hack", "exploit", "breach", "ban", "lawsuit", "outflow", "liquidat
              "misses expectations", "default", "bankruptcy", "war", "sanction",
              "withdrawals suspended", "bearish", "هک", "ممنوعیت", "ورشکستگی")
 _HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "delisting", "delist", "hack",
-                "exploit", "breach", "rate decision", "cpi", "fomc", "war", "default",
+                "exploit", "breach", "theft", "attack", "rate decision", "cpi", "fomc", "war", "default",
                 "bankruptcy", "liquidation", "فوری")
 _MARKET_ALIASES = {
     # Broad market terms only; asset tickers/names are matched separately.
@@ -146,6 +146,23 @@ def _contains(text: str, phrase: str) -> bool:
     if len(phrase) <= 4 and phrase.isascii() and phrase.replace("/", "").isalpha():
         return re.search(r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])", text) is not None
     return phrase.casefold() in text
+
+
+def _event_cluster_key(title: str, item_id: str, published_at: str | None = None) -> str:
+    """Conservative deterministic grouping; time-bucket recurring event families."""
+    value = title.casefold()
+    month = published_at[:7] if isinstance(published_at, str) and len(published_at) >= 7 else "unknown"
+    if "eu entity" in value and any(term in value for term in ("theft", "hack", "breach")):
+        return f"eu_entity_crypto_theft:{month}"
+    if "mercado bitcoin" in value and any(term in value for term in ("theft", "hack", "breach")):
+        return f"mercado_bitcoin_security_incident:{month}"
+    if "binance" in value and any(term in value for term in ("hack", "theft", "breach", "attack")):
+        return f"binance_security_incident:{month}"
+    if "fomc" in value:
+        return f"fomc_policy_event:{month}"
+    if "cpi" in value or "consumer price index" in value:
+        return f"us_cpi_release:{month}"
+    return "item:" + item_id
 
 
 def _parse_time(value: str) -> datetime | None:
@@ -497,7 +514,7 @@ class NewsIntelligenceBrain:
                        item.raw_item_sha256, item.retrieved_at)
                 source_evidence[key] = {"source_id": key[0], "feed_payload_sha256": key[1],
                                         "raw_item_sha256": key[2], "retrieved_at": key[3],
-                                        "publisher": item.publisher, "content_label": item.content_label}
+                                        "publisher": item.publisher, "content_label": item.content_label, "url": item.url}
             if not item.title.strip():
                 continue
             published = _parse_time(item.published_at)
@@ -515,8 +532,11 @@ class NewsIntelligenceBrain:
         findings = []
         for key, (item, published) in candidates.items():
             text = _text(item)
-            categories = tuple(category for category, terms in _CATEGORY_TERMS.items()
-                               if any(_contains(text, term) for term in terms))
+            title_text = item.title.casefold()
+            categories = tuple(
+                category for category, terms in _CATEGORY_TERMS.items()
+                if any(_contains(title_text if category == "security" else text, term) for term in terms)
+            )
             matched = tuple(sorted({term for terms in _CATEGORY_TERMS.values() for term in terms
                                     if _contains(text, term)} | {term for term in _HIGH_IMPACT if _contains(text, term)}))
             explicit_tags = {tag.casefold() for tag in item.market_tags}
@@ -569,7 +589,8 @@ class NewsIntelligenceBrain:
             negative = sum(1 for term in _NEGATIVE if _contains(text, term))
             bias = "positive" if positive > negative else "negative" if negative > positive else "mixed_or_unknown"
             directional_confidence = min(0.65, abs(positive - negative) * 0.12) if positive != negative else 0.0
-            impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.40 if any(_contains(text, term) for term in _HIGH_IMPACT) else 0)
+            title_has_high_impact = any(_contains(title_text, term) for term in _HIGH_IMPACT)
+            impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.40 if title_has_high_impact else 0)
             impact = min(1.0, impact)
             age_minutes = (now - published).total_seconds() / 60 if published else None
             freshness = "unknown" if age_minutes is None else "future_timestamp" if age_minutes < 0 else "fresh" if age_minutes <= 180 else "recent"
@@ -592,12 +613,13 @@ class NewsIntelligenceBrain:
             confidence = min(0.95, 0.20 + 0.35 * relevance + 0.25 * impact + directional_confidence)
             if ai_summary:
                 confidence = min(confidence, 0.70)
+                impact = min(impact, 0.60)
             reasons = []
             if market_match: reasons.append("market_keyword_match")
             if symbol_match: reasons.append("symbol_keyword_match")
             if category_match: reasons.append("market_relevant_category")
             if tagged_match: reasons.append("explicit_market_tag")
-            if any(_contains(text, term) for term in _HIGH_IMPACT): reasons.append("high_impact_language")
+            if title_has_high_impact: reasons.append("high_impact_language")
             findings.append(NewsFinding(
                 item_id=key, title=item.title.strip(),
                 source=(item.publisher + " · AI summary via InvestIn.News" if ai_summary and item.publisher
@@ -611,9 +633,25 @@ class NewsIntelligenceBrain:
         findings.sort(key=lambda f: (f.impact * f.relevance, f.confidence, f.published_at), reverse=True)
         findings = findings[:self.max_findings]
         high_impact = [f for f in findings if f.impact >= self.high_impact_threshold and f.relevance >= 0.45]
+        cluster_rows = {}
+        for finding in high_impact:
+            cluster_id = _event_cluster_key(finding.title, finding.item_id, finding.published_at)
+            row = cluster_rows.setdefault(cluster_id, {"event_id": cluster_id, "item_count": 0, "sources": set(), "item_ids": set()})
+            row["item_count"] += 1
+            row["sources"].add(finding.source)
+            row["item_ids"].add(finding.item_id)
+        high_impact_clusters = [
+            {"event_id": key, "item_count": row["item_count"], "source_count": len(row["sources"]),
+             "sources": sorted(row["sources"]), "item_ids": sorted(row["item_ids"])}
+            for key, row in sorted(cluster_rows.items())
+        ]
+        event_cluster_assignments = [
+            {"item_id": finding.item_id, "event_cluster_id": _event_cluster_key(finding.title, finding.item_id, finding.published_at)}
+            for finding in findings
+        ]
         implications = []
-        if high_impact:
-            implications.append(f"{len(high_impact)} high-impact item(s) are relevant enough to require a confirmation check.")
+        if high_impact_clusters:
+            implications.append(f"{len(high_impact_clusters)} high-impact event cluster(s) require a confirmation check ({len(high_impact)} source item(s)).")
         if any("security" in f.categories or "exchange" in f.categories for f in high_impact):
             implications.append("Check venue/asset operational risk and liquidity before considering any signal.")
         if any("monetary_policy" in f.categories or "macro" in f.categories for f in high_impact):
@@ -631,11 +669,12 @@ class NewsIntelligenceBrain:
         if any("source_identity_unverified" in f.caveats for f in findings): veto_flags.append("NEWS_SOURCE_UNVERIFIED")
         if high_impact: veto_flags.append("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION")
         status = "degraded" if source_failures else "no_relevant_news" if not findings else "ok"
-        headline = (f"{len(high_impact)} high-impact relevant item(s)" if high_impact else
-                    "No high-impact relevant item crossed the review threshold")
+        headline = (f"{len(high_impact_clusters)} high-impact event cluster(s)" if high_impact_clusters else
+                    "No high-impact relevant event cluster crossed the review threshold")
         summary_bits = [f"market={context.market}", f"symbol={context.symbol or 'unspecified'}",
                         f"regime={context.regime}", f"news_status={status}",
-                        f"relevant_items={len(findings)}", f"high_impact={len(high_impact)}",
+                        f"relevant_items={len(findings)}", f"high_impact_items={len(high_impact)}",
+                        f"high_impact_events={len(high_impact_clusters)}",
                         "directional_claim=unconfirmed"]
         if findings:
             top = findings[0]
@@ -655,5 +694,9 @@ class NewsIntelligenceBrain:
                         "irrelevant_items_dropped": irrelevant_count,
                         "invalid_timestamps": invalid_time_count, "source_failures": list(source_failures),
                         "source_evidence": list(source_evidence.values()),
+                        "high_impact_item_count": len(high_impact),
+                        "high_impact_event_count": len(high_impact_clusters),
+                        "high_impact_event_clusters": high_impact_clusters,
+                        "event_cluster_assignments": event_cluster_assignments,
                         "scores_are_probabilities": False, "news_alone_can_authorize_trade": False},
         )

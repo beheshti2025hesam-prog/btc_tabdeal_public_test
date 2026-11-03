@@ -341,6 +341,39 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.findings[0].source, "Publisher News · AI summary via InvestIn.News")
         self.assertIn("secondary_ai_summary", brief.findings[0].caveats)
         self.assertLessEqual(brief.findings[0].confidence, 0.70)
+        self.assertLessEqual(brief.findings[0].impact, 0.60)
+
+    def test_contextual_hack_mention_in_summary_does_not_make_mining_article_security_event(self):
+        item = NewsItem(
+            "Bitcoin miners' October revenue hits $1.22bn as hashprice falls 17.54%",
+            "Bitcoin.com News reports miners earned the most in a month, even as daily revenue per petahash dropped after the Binance hack.",
+            "Bitcoin.com News", "https://news.example/miners", NOW.isoformat())
+        brief = self.brain.analyze([item], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        finding = brief.findings[0]
+        self.assertNotIn("security", finding.categories)
+        self.assertNotIn("high_impact_language", finding.reasons)
+        self.assertLess(finding.impact, 0.65)
+        self.assertEqual(brief.provenance["high_impact_event_count"], 0)
+
+    def test_repeated_reports_cluster_by_event_not_headline_count(self):
+        items = [
+            NewsItem("Bitcoin ETF investors head for exits after record Binance hack",
+                     source="Decrypt", url="https://decrypt.example/1", published_at=NOW.isoformat()),
+            NewsItem("Elliptic traces stolen funds from Binance hack",
+                     source="Bitcoin.com News", url="https://news.example/2", published_at=NOW.isoformat()),
+            NewsItem("Brazil's largest exchange Mercado Bitcoin halts withdrawals after $40m hack",
+                     source="Decrypt", url="https://decrypt.example/3", published_at=NOW.isoformat()),
+            NewsItem("Mystery $106m crypto theft hits EU entity days after Binance hack",
+                     source="Decrypt", url="https://decrypt.example/4", published_at=NOW.isoformat()),
+        ]
+        brief = self.brain.analyze(items, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(brief.provenance["high_impact_item_count"], 4)
+        self.assertEqual(brief.provenance["high_impact_event_count"], 3)
+        clusters = {x["event_id"]: x["item_count"] for x in brief.provenance["high_impact_event_clusters"]}
+        self.assertEqual(clusters["binance_security_incident:2026-10"], 2)
+        self.assertEqual(clusters["mercado_bitcoin_security_incident:2026-10"], 1)
+        self.assertEqual(clusters["eu_entity_crypto_theft:2026-10"], 1)
+        self.assertIn("3 high-impact event cluster(s)", brief.headline)
 
     def test_feed_redirects_are_rejected(self):
         class RedirectingOpener:

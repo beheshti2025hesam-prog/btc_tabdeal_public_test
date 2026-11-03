@@ -56,6 +56,69 @@ class NewsMonitorTests(unittest.TestCase):
             self.monitor.registry_path, self.context, now=NOW
         )
 
+    def test_event_ledger_persists_each_source_item_once_with_provenance(self):
+        brief = self._brief()
+        finding = {
+            "item_id": "news-item-001",
+            "title": "Bitcoin ETF investors exit after Binance hack",
+            "source": "Decrypt",
+            "url": "https://decrypt.example/story-1",
+            "published_at": "2026-10-31T11:00:00Z",
+            "impact": 0.9,
+            "relevance": 1.0,
+            "directional_bias": "negative",
+            "categories": ["security", "crypto_market"],
+            "freshness": "fresh",
+            "caveats": [],
+        }
+        brief.provenance["source_evidence"] = [{
+            "source_id": "decrypt_news",
+            "url": finding["url"],
+            "feed_payload_sha256": "a" * 64,
+            "raw_item_sha256": "b" * 64,
+            "retrieved_at": NOW.isoformat(),
+        }]
+        brief.provenance["event_cluster_assignments"] = [{
+            "item_id": "news-item-001",
+            "event_cluster_id": "binance_security_incident",
+        }]
+        base = brief.to_dict()
+        base["provenance"] = brief.provenance
+        base["findings"] = [finding]
+        brief.to_dict = lambda: base
+        self.brain.run_from_registry.return_value = brief
+
+        first = self.monitor.poll_once()
+        second = self.monitor.poll_once()
+        ledger = self.path.with_name("news_events_2026.jsonl")
+        rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["event_id"], "news-item-001")
+        self.assertEqual(rows[0]["event_cluster_id"], "binance_security_incident")
+        self.assertEqual(rows[0]["source_id"], "decrypt_news")
+        self.assertEqual(rows[0]["raw_item_sha256"], "b" * 64)
+        self.assertEqual(rows[0]["brief_sha256"], first["brief_sha256"])
+        self.assertEqual(first["event_ledger"]["path"], "news_events_2026.jsonl")
+        self.assertEqual(first["event_ledger"]["records_appended"], 1)
+        self.assertEqual(second["event_ledger"]["records_appended"], 0)
+        self.assertEqual(second["event_ledger"]["records_total"], 1)
+
+    def test_corrupt_event_ledger_fails_closed(self):
+        ledger = self.path.with_name("news_events_2026.jsonl")
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        ledger.write_text("{not-json}\n", encoding="utf-8")
+        brief = self._brief()
+        base = brief.to_dict()
+        base["findings"] = [{
+            "item_id": "news-item-002", "title": "Bitcoin hack",
+            "url": "https://news.example/2",
+        }]
+        brief.to_dict = lambda: base
+        self.brain.run_from_registry.return_value = brief
+        with self.assertRaisesRegex(ValueError, "ledger line 1 is invalid"):
+            self.monitor.poll_once()
+
     def test_source_freshness_is_distinct_from_transport_health(self):
         now = datetime(2026, 10, 31, 12, 0, tzinfo=timezone.utc)
         self.monitor.clock = lambda: now
