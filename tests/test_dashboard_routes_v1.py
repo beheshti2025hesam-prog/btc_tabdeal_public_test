@@ -173,8 +173,10 @@ class DashboardRouteTests(unittest.TestCase):
         page = dashboard.HTML
         script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")
         self.assertIn('id="newsFreshness"', page)
+        self.assertIn('id="newsSourceDetails"', page)
         self.assertIn("freshness('future')", script)
         self.assertIn("freshness_status", script)
+        self.assertIn("newest_age_minutes", script)
 
     def test_news_endpoint_returns_verified_snapshot(self):
         snapshot = {
