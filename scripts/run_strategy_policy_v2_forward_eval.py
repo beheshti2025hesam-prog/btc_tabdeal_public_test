@@ -14,6 +14,7 @@ from forward.strategy_policy_gate_v1 import enforce_final_gates
 from forward.strategy_gate_pipeline_v1 import evaluate_gate_evidence
 from forward.forward_journal_v1 import ForwardJournalV1
 from forward.signal_quality_acceptance_v1 import evaluate_acceptance
+from forward.strategy_entry_context_v1 import build_entry_context
 BASE=ROOT/'data/forward'; STATE=BASE/'strategy_policy_v2_eval_state.json'
 CAND=BASE/'strategy_policy_v2_eval_candidates.jsonl'; OUT=BASE/'strategy_policy_v2_eval_outcomes.jsonl'; REPORT=BASE/'strategy_policy_v2_eval_report.json'
 MAX_SECONDS=86400
@@ -237,6 +238,16 @@ def main():
    feats={tf:snapshot(tf,rows) for tf,rows in frames.items()};proposal=evaluate(feats)
    gate_evidence=evaluate_gate_evidence(proposal=proposal,rows_15m=frames['15m'],frames=frames,source=src['source'],symbol=src['symbol'],observed_at=now)
    d=enforce_final_gates(proposal,gate_evidence)
+   preapproval={'eligible':False,'status':'BLOCKED','reasons':['NO_DIRECTIONAL_15M_PROPOSAL'],'final_gate_approval_required':True,'execution_enabled':False,'orders_placed':False}
+   entry_context=None
+   if proposal.decision in ('LONG','SHORT') and proposal.entry is not None:
+    preapproval=preapproval_paper_eligibility(proposal,gate_evidence)
+    if preapproval['eligible']:
+     try:
+      entry_context=build_entry_context(source=src['source'],symbol=src['symbol'],candidate_time=now,policy_version=POLICY_VERSION,direction=proposal.direction,entry=proposal.entry,stop=proposal.stop_loss,target=proposal.take_profit,gate_evidence=gate_evidence)
+      gate_evidence['entry_context']=entry_context
+     except (TypeError,ValueError) as context_error:
+      preapproval={'eligible':False,'status':'BLOCKED','reasons':['ENTRY_CONTEXT_BUILD_FAILED:'+str(context_error)[:120]],'final_gate_approval_required':True,'execution_enabled':False,'orders_placed':False}
    if new_candle:
     # Append every closed-candle decision to the validated immutable trade journal.
     # A proposal is not an approved trade: operational gate decision is what is journaled.
@@ -266,10 +277,9 @@ def main():
     # Final gate remains fail-closed; this path records hypothetical outcomes only.
     if proposal.decision in ('LONG','SHORT') and proposal.entry is not None:
      candidate_event_id=f"hes-v2-candidate-{src['symbol']}-15m-{now}"
-     preapproval=preapproval_paper_eligibility(proposal,gate_evidence)
      t={'candidate_time':now,'candidate_event_id':candidate_event_id,'direction':proposal.direction,'entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons']}
-     st['active'].append(t);append(CAND,{'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_event_id,'event_id':candidate_event_id,'evaluation_mode':'PREAPPROVAL_PAPER_ONLY','preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'gate_evidence':gate_evidence,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),**t,'policy_version':POLICY_VERSION,'observed_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'execution_enabled':False,'orders_placed':False})
-     append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_candidate_v1','event_id':candidate_event_id,'candidate_event_id':candidate_event_id,'observed_at':datetime.now(timezone.utc).isoformat(),'candle_close_time':now,'symbol':src['symbol'],'timeframe':'15m','direction':proposal.direction,'decision':'PAPER_CANDIDATE','entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'quality_score':proposal.quality_score,'proposal_reasons':list(proposal.reasons),'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'gate_evidence':gate_evidence,'outcome':None,'closed_at':None,'execution_enabled':False,'orders_placed':False})
+     st['active'].append(t);append(CAND,{'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_event_id,'event_id':candidate_event_id,'evaluation_mode':'PREAPPROVAL_PAPER_ONLY','preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),**t,'policy_version':POLICY_VERSION,'observed_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'execution_enabled':False,'orders_placed':False})
+     append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_candidate_v1','event_id':candidate_event_id,'candidate_event_id':candidate_event_id,'observed_at':datetime.now(timezone.utc).isoformat(),'candle_close_time':now,'symbol':src['symbol'],'timeframe':'15m','direction':proposal.direction,'decision':'PAPER_CANDIDATE','entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'quality_score':proposal.quality_score,'proposal_reasons':list(proposal.reasons),'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'outcome':None,'closed_at':None,'execution_enabled':False,'orders_placed':False})
     st['last_seen']=now
    resolved=st['wins']+st['losses'];wr=round(100*st['wins']/resolved,2) if resolved else None
    pm=performance_metrics()
