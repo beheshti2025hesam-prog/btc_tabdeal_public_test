@@ -55,25 +55,28 @@ def load_event_ledger(state_dir: str | Path) -> tuple[list[dict[str, Any]], str]
     return records, hashlib.sha256(_canonical(digests)).hexdigest()
 
 
-def _window_result(rows: list[dict[str, Any]], start: int, baseline: float, bars: int) -> dict[str, Any]:
+def _window_result(rows: list[dict[str, Any]], start: int, pre_event_end: int, bars: int) -> dict[str, Any]:
     end = start + bars
     if end > len(rows):
         return {"status": "PENDING", "required_bars": bars, "available_bars": max(0, len(rows) - start)}
     segment = rows[start:end]
+    baseline_open = float(segment[0]["open"])
     closes = [float(row["close"]) for row in segment]
     highs = [float(row["high"]) for row in segment]
     lows = [float(row["low"]) for row in segment]
     volumes = [float(row["volume"]) for row in segment]
-    prior_volumes = [float(row["volume"]) for row in rows[max(0, start - 20):start]]
+    prior_volumes = [float(row["volume"]) for row in rows[max(0, pre_event_end - 19):pre_event_end + 1]]
     volume_baseline = median(prior_volumes) if prior_volumes else None
-    log_returns = [math.log(closes[i] / (baseline if i == 0 else closes[i - 1])) for i in range(len(closes))]
+    log_returns = [math.log(closes[0] / baseline_open)]
+    log_returns.extend(math.log(closes[i] / closes[i - 1]) for i in range(1, len(closes)))
     realized_vol = pstdev(log_returns) * math.sqrt(len(log_returns)) * 100 if len(log_returns) > 1 else abs(log_returns[0]) * 100
     return {
         "status": "MATURED",
         "bars": bars,
-        "price_change_pct": round((closes[-1] / baseline - 1) * 100, 5),
-        "max_favorable_excursion_pct": round((max(highs) / baseline - 1) * 100, 5),
-        "max_adverse_excursion_pct": round((min(lows) / baseline - 1) * 100, 5),
+        "baseline_open": baseline_open,
+        "price_change_pct": round((closes[-1] / baseline_open - 1) * 100, 5),
+        "max_favorable_excursion_pct": round((max(highs) / baseline_open - 1) * 100, 5),
+        "max_adverse_excursion_pct": round((min(lows) / baseline_open - 1) * 100, 5),
         "realized_volatility_pct": round(realized_vol, 5),
         "volume_ratio_vs_pre_event_median": round((sum(volumes) / len(volumes)) / volume_baseline, 5) if volume_baseline and volume_baseline > 0 else None,
         "start_open_time": segment[0]["open_time"],
@@ -128,7 +131,7 @@ def evaluate_news_impact(
         start = next((index for index, row in enumerate(candles)
                       if int(row["open_time"]) >= anchor_ts), len(candles))
         baseline = float(candles[baseline_index]["close"])
-        windows = {name: _window_result(candles, start, baseline, bars) for name, bars in WINDOW_BARS.items()}
+        windows = {name: _window_result(candles, start, baseline_index, bars) for name, bars in WINDOW_BARS.items()}
         source_ids = sorted({row.get("source_id") for row in items if row.get("source_id")})
         publishers = sorted({row.get("source") for row in items if row.get("source")})
         observation_delay = ((anchor - first_published).total_seconds() / 60) if first_published else None
@@ -147,6 +150,8 @@ def evaluate_news_impact(
             "max_news_relevance_score": max((float(row.get("relevance") or 0) for row in items), default=0),
             "baseline_close": baseline,
             "baseline_close_time": candles[baseline_index]["close_time"],
+            "post_event_baseline_open": float(candles[start]["open"]) if start < len(candles) else None,
+            "gap_return_excluded_from_windows_pct": round((float(candles[start]["open"]) / baseline - 1) * 100, 5) if start < len(candles) else None,
             "first_full_post_event_candle_open_time": candles[start]["open_time"] if start < len(candles) else None,
             "first_full_candle_delay_minutes": round((int(candles[start]["open_time"]) - anchor_ts) / 60, 2) if start < len(candles) else None,
             "windows": windows,
@@ -164,6 +169,7 @@ def evaluate_news_impact(
         "events": events,
         "methodology": {
             "anchor": "earliest first_seen_at in the event cluster; this is when HES could first observe the item",
+            "baseline": "open of the first fully post-event candle; the gap from the last pre-event close to this open is reported separately and excluded from all windows",
             "windows": {"15m": 1, "1h": 4, "4h": 16, "24h": 96},
             "metrics": ["close-to-close return", "maximum favorable/adverse excursion", "realized volatility", "volume ratio vs prior 20-bar median"],
             "limitations": ["post-publication response is observational and not causal attribution", "OHLCV does not provide spread or order-book liquidity", "windows remain PENDING until enough closed Gate.io candles exist"],
