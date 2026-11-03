@@ -19,7 +19,16 @@ from forward.precision_entry_engine_v1 import evaluate_precision_entry
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
-DATA = CODE_ROOT / "data" / "forward"
+
+
+def resolve_data_root(*, code_root: Path | None = None, configured_root: str | Path | None = None) -> Path:
+    """Keep immutable release code separate from the shared mutable data root."""
+    configured = configured_root if configured_root is not None else os.environ.get("HES_DATA_ROOT")
+    return Path(configured).expanduser() if configured else Path(code_root or CODE_ROOT)
+
+
+DATA_ROOT = resolve_data_root()
+DATA = DATA_ROOT / "data" / "forward"
 EVENTS = ForwardJournalV1(DATA / "precision_entry_events_v1.jsonl")
 CANDIDATES = ForwardJournalV1(DATA / "precision_entry_candidates_v1.jsonl")
 OUTCOMES = ForwardJournalV1(DATA / "precision_entry_outcomes_v1.jsonl")
@@ -176,6 +185,17 @@ def resolve_candidate(candidate: Mapping[str, Any], candles: list[dict]) -> dict
     return None
 
 
+def append_immutable_event(journal: ForwardJournalV1, record: Mapping[str, Any]) -> bool:
+    """Idempotent append: same ID+same bytes is replay; same ID+different data is conflict."""
+    existing = _read_jsonl(journal.path)
+    for prior in existing:
+        if prior.get("event_id") == record.get("event_id"):
+            if prior != dict(record):
+                raise ValueError("IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT")
+            return False
+    return journal.append_event(record)
+
+
 def _atomic_report(payload: dict) -> None:
     DATA.mkdir(parents=True, exist_ok=True)
     temp = REPORT.with_suffix(".json.tmp")
@@ -186,7 +206,7 @@ def _atomic_report(payload: dict) -> None:
 def run_cycle(*, now: datetime | None = None) -> dict:
     current = now or datetime.now(timezone.utc)
     now_s = int(current.timestamp())
-    bars = read_closed_candles("1m", root=CODE_ROOT, now=now_s)
+    bars = read_closed_candles("1m", root=DATA_ROOT, now=now_s)
     candidate_rows = _read_jsonl(CANDIDATES.path)
     outcome_rows = _read_jsonl(OUTCOMES.path)
     outcome_ids = {row.get("candidate_event_id") for row in outcome_rows}
@@ -196,13 +216,17 @@ def run_cycle(*, now: datetime | None = None) -> dict:
         if candidate.get("candidate_event_id") in outcome_ids:
             continue
         outcome = resolve_candidate(candidate, bars)
-        if outcome is not None and OUTCOMES.append_event(outcome):
+        if outcome is not None and append_immutable_event(OUTCOMES, outcome):
             outcome_rows.append(outcome)
             outcome_ids.add(candidate["candidate_event_id"])
 
     strategy_error = None
     try:
-        strategy = read_strategy_v2_dashboard(now=current)
+        strategy = read_strategy_v2_dashboard(
+            report_path=DATA / "strategy_policy_v2_eval_report.json",
+            journal_path=DATA / "trade_journal_v2.jsonl",
+            now=current,
+        )
         paper_setup = strategy.get("paper_setup") or {}
         latest_gate = strategy.get("latest_gate_evidence") or {}
     except Exception as exc:
@@ -233,13 +257,20 @@ def run_cycle(*, now: datetime | None = None) -> dict:
         event = build_precision_event(
             setup_context=context, candle=bars[-1], engine_result=engine, observed_at=current
         )
-        appended_event = EVENTS.append_event(event)
+        appended_event = append_immutable_event(EVENTS, event)
         if engine.get("state") == "READY":
             candidate = build_paper_candidate(setup_context=context, candle=bars[-1], observed_at=current)
-            appended_candidate = CANDIDATES.append_event(candidate)
+            appended_candidate = append_immutable_event(CANDIDATES, candidate)
             if appended_candidate:
                 candidate_rows.append(candidate)
 
+    oldest_available_open = int(bars[0]["open_time"]) if bars else None
+    outside_retention = sum(
+        1 for row in candidate_rows
+        if row.get("candidate_event_id") not in outcome_ids
+        and oldest_available_open is not None
+        and int(row.get("entry_time", 0)) < oldest_available_open
+    )
     wins = sum(row.get("outcome") == "WIN" for row in outcome_rows)
     losses = sum(row.get("outcome") == "LOSS" for row in outcome_rows)
     timeouts = sum(row.get("outcome") == "TIMEOUT" for row in outcome_rows)
@@ -259,6 +290,8 @@ def run_cycle(*, now: datetime | None = None) -> dict:
         "wins": wins, "losses": losses, "timeouts": timeouts,
         "resolved_win_rate_pct": round(100.0 * wins / resolved, 2) if resolved else None,
         "unresolved_candidates": max(0, len(candidate_rows) - len(outcome_rows)),
+        "unresolved_outside_retention_window": outside_retention,
+        "outcome_resolution_integrity": "PARTIAL_HISTORY_UNAVAILABLE" if outside_retention else "CONTIGUOUS_WINDOW_AVAILABLE",
         "daily_signal_cap": DAILY_SIGNAL_CAP,
         "daily_signal_cap_is_quota": False,
         "latest_event_appended": appended_event,
