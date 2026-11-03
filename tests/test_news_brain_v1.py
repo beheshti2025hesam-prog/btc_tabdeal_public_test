@@ -58,6 +58,25 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(len(brief.findings), 0)
         self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
 
+    def test_crypto_context_does_not_match_another_asset_promotion(self):
+        brief = self.brain.analyze(
+            [NewsItem("Ethereum Rewards Week: Triple Rewards for New Users",
+                      source="Gate.io Official Announcements",
+                      url="https://www.gate.io/announcements/article/eth-rewards",
+                      published_at="2026-10-23T11:45:00Z")],
+            MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(brief.findings, ())
+        self.assertEqual(brief.provenance["irrelevant_items_dropped"], 1)
+
+    def test_crypto_context_matches_its_own_asset(self):
+        brief = self.brain.analyze(
+            [NewsItem("Bitcoin ETF sees large inflows", source="wire",
+                      url="https://wire.test/btc-etf",
+                      published_at="2026-10-23T11:45:00Z")],
+            MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(len(brief.findings), 1)
+        self.assertIn("symbol_keyword_match", brief.findings[0].reasons)
+
     def test_duplicate_url_deduplicates(self):
         items = [NewsItem("Bitcoin ETF inflows", source="A", url="https://a.test/story"),
                  NewsItem("Bitcoin ETF inflows with details", summary="more", source="B", url="https://a.test/story")]
@@ -127,7 +146,7 @@ class NewsBrainTests(unittest.TestCase):
         self.assertTrue(registry["sources"])
         enabled = [source for source in registry["sources"] if source["enabled"]]
         self.assertEqual({source["id"] for source in enabled},
-                         {"ecb_press_releases", "cftc_general_press_releases", "fed_press_all", "bis_media_releases", "boj_whats_new", "boc_news", "gateio_official_announcements"})
+                         {"ecb_press_releases", "cftc_general_press_releases", "fed_press_all", "bis_media_releases", "boj_whats_new", "boc_news", "gateio_official_announcements", "investin_news_newsdesk", "decrypt_news"})
         self.assertTrue(all(source["qualification_status"] == "qualified" for source in enabled))
         self.assertFalse(next(source for source in registry["sources"]
                               if source["id"] == "coindesk_news")["enabled"])
@@ -182,11 +201,11 @@ class NewsBrainTests(unittest.TestCase):
                 registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
         gate_fetch.assert_called_once()
         self.assertEqual(gate_fetch.call_args.kwargs["source_id"], "gateio_official_announcements")
-        self.assertEqual(rss_fetch.call_count, 6)
+        self.assertEqual(rss_fetch.call_count, 8)
         health = brief.provenance["source_health"]
-        self.assertEqual(len(health), 7)
+        self.assertEqual(len(health), 9)
         self.assertEqual(sum(x["status"] == "ok" for x in health), 1)
-        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 6)
+        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 8)
         gate_health = next(x for x in health if x["source_id"] == "gateio_official_announcements")
         self.assertEqual(gate_health["status"], "ok")
         self.assertEqual(gate_health["source_scope"], "venue")
@@ -305,6 +324,22 @@ class NewsBrainTests(unittest.TestCase):
                 fetch_gate_announcements(
                     "https://api.gateio.ws/api/v4/ann/list_article",
                     source="Gate.io Official Announcements", source_id="gateio_official_announcements")
+
+    def test_rss_preserves_original_publisher_and_ai_summary_label(self):
+        payload = b'<rss><channel><item><title>Bitcoin ETF inflows rise</title><link>https://investin.news/newsdesk/story</link><pubDate>Tue, 03 Nov 2026 06:30:27 GMT</pubDate><description>Bitcoin ETF inflows increased.</description><category>AI summary</category><source url="https://publisher.example/story">Publisher News</source></item></channel></rss>'
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return payload
+        opener = type("Opener", (), {"open": lambda self, request, timeout: Response()})()
+        with patch("core.market_intelligence.news_brain.build_opener", return_value=opener):
+            items = fetch_rss("https://investin.news/newsdesk/feed.xml", source="InvestIn.News NewsDesk", source_id="investin_news_newsdesk")
+        self.assertEqual(items[0].publisher, "Publisher News")
+        self.assertEqual(items[0].content_label, "AI summary")
+        brief = self.brain.analyze(items, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(brief.findings[0].source, "Publisher News · AI summary via InvestIn.News")
+        self.assertIn("secondary_ai_summary", brief.findings[0].caveats)
+        self.assertLessEqual(brief.findings[0].confidence, 0.70)
 
     def test_feed_redirects_are_rejected(self):
         class RedirectingOpener:
