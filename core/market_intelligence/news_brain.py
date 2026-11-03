@@ -33,6 +33,8 @@ class NewsItem:
     feed_payload_sha256: str = ""
     retrieved_at: str = ""
     raw_item_sha256: str = ""
+    publisher: str = ""
+    content_label: str = ""
 
 
 @dataclass(frozen=True)
@@ -126,10 +128,8 @@ _HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "d
                 "exploit", "breach", "rate decision", "cpi", "fomc", "war", "default",
                 "bankruptcy", "liquidation", "فوری")
 _MARKET_ALIASES = {
-    # Broad market terms only. Asset tickers/names are matched separately so
-    # BTC-specific context does not accidentally absorb ETH/SOL promotions.
-    "crypto": ("crypto", "cryptocurrency", "stablecoin", "blockchain",
-               "binance", "coinbase", "kraken", "bybit", "okx", "بیت کوین", "رمزارز"),
+    "crypto": ("bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
+               "stablecoin", "blockchain", "binance", "coinbase", "kraken", "bybit", "okx", "بیت کوین", "رمزارز"),
     "fx": ("forex", "currency", "dollar", "euro", "yen", "gbp", "eur/usd", "usd/jpy", "dxy"),
     "equities": ("stock", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
     "iran_equities": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc"),
@@ -274,10 +274,16 @@ def fetch_rss(url: str, *, source: str, source_id: str = "", timeout_seconds: fl
             continue
         fields = {}
         link = ""
+        publisher = ""
+        content_labels = []
         for element in node.iter():
             name = element.tag.rsplit("}", 1)[-1].casefold()
             if name in {"title", "description", "summary", "content", "pubdate", "published", "updated", "date"} and element.text:
                 fields.setdefault(name, element.text.strip())
+            elif name == "source" and element.text:
+                publisher = element.text.strip()
+            elif name == "category" and element.text:
+                content_labels.append(element.text.strip())
         for element in node:
             if element.tag.rsplit("}", 1)[-1].casefold() == "link":
                 link = element.attrib.get("href", "") or (element.text or "").strip()
@@ -296,7 +302,9 @@ def fetch_rss(url: str, *, source: str, source_id: str = "", timeout_seconds: fl
                 published_at=fields.get("pubdate", fields.get("published", fields.get("updated", fields.get("date", "")))),
                 source_id=source_id or source, feed_payload_sha256=payload_digest,
                 retrieved_at=retrieved_at,
-                raw_item_sha256=sha256(ET.tostring(node, encoding="utf-8")).hexdigest()))
+                raw_item_sha256=sha256(ET.tostring(node, encoding="utf-8")).hexdigest(),
+                publisher=publisher,
+                content_label="; ".join(dict.fromkeys(content_labels))))
     return items
 
 
@@ -487,7 +495,8 @@ class NewsIntelligenceBrain:
                 key = (item.source_id or item.source, item.feed_payload_sha256,
                        item.raw_item_sha256, item.retrieved_at)
                 source_evidence[key] = {"source_id": key[0], "feed_payload_sha256": key[1],
-                                        "raw_item_sha256": key[2], "retrieved_at": key[3]}
+                                        "raw_item_sha256": key[2], "retrieved_at": key[3],
+                                        "publisher": item.publisher, "content_label": item.content_label}
             if not item.title.strip():
                 continue
             published = _parse_time(item.published_at)
@@ -513,31 +522,20 @@ class NewsIntelligenceBrain:
             market = context.market.casefold()
             aliases = _MARKET_ALIASES.get(market, (context.symbol.casefold(),) if context.symbol else ())
             market_match = any(term and _contains(text, term) for term in aliases)
-            symbol_aliases = {
-                "BTCUSDT": ("bitcoin", "btc", "بیت کوین"),
-                "BTC_USDT": ("bitcoin", "btc", "بیت کوین"),
-                "ETHUSDT": ("ethereum", "ether", "eth"),
-                "ETH_USDT": ("ethereum", "ether", "eth"),
-            }.get(context.symbol.upper(), (context.symbol.casefold(),) if context.symbol else ())
-            symbol_match = any(term and _contains(text, term) for term in symbol_aliases)
+            symbol_match = bool(context.symbol and _contains(text, context.symbol.casefold()))
             crypto_venue_risk = any(_contains(text, term) for term in (
                 "trading halted", "withdrawals suspended", "deposit suspended",
                 "exchange outage", "wallet maintenance", "trading suspension",
                 "security incident",
             ))
-            tagged_match = bool(explicit_tags & {market, context.symbol.casefold()})
             category_match = (
-                market == "crypto" and (
-                    any(c in categories for c in ("regulation", "security", "monetary_policy", "macro"))
-                    or ("crypto_market" in categories and (market_match or symbol_match or tagged_match))
-                    or ("exchange" in categories and (market_match or symbol_match))
-                    or crypto_venue_risk
-                )
+                market == "crypto" and (any(c in categories for c in ("crypto_market", "regulation", "security", "monetary_policy", "macro")) or ( "exchange" in categories and (market_match or symbol_match)) or crypto_venue_risk)
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
                 or market in {"commodities", "metals"} and any(c in categories for c in ("macro",))
             )
+            tagged_match = bool(explicit_tags & {market, context.symbol.casefold()})
             relevance = 0.15 + (0.40 if market_match else 0) + (0.25 if symbol_match else 0) + (0.20 if category_match else 0) + (0.25 if tagged_match else 0)
             relevance = min(1.0, relevance)
             if relevance < self.min_relevance:
@@ -564,7 +562,12 @@ class NewsIntelligenceBrain:
                 caveats.append("market_relevance_is_category_based")
             if item.source.strip().casefold() in {"unknown", ""}:
                 caveats.append("source_identity_unverified")
+            ai_summary = "ai summary" in item.content_label.casefold() or "rewritten by ai" in item.content_label.casefold()
+            if ai_summary:
+                caveats.append("secondary_ai_summary")
             confidence = min(0.95, 0.20 + 0.35 * relevance + 0.25 * impact + directional_confidence)
+            if ai_summary:
+                confidence = min(confidence, 0.70)
             reasons = []
             if market_match: reasons.append("market_keyword_match")
             if symbol_match: reasons.append("symbol_keyword_match")
@@ -572,7 +575,9 @@ class NewsIntelligenceBrain:
             if tagged_match: reasons.append("explicit_market_tag")
             if any(_contains(text, term) for term in _HIGH_IMPACT): reasons.append("high_impact_language")
             findings.append(NewsFinding(
-                item_id=key, title=item.title.strip(), source=item.source, url=item.url,
+                item_id=key, title=item.title.strip(),
+                source=(item.publisher + " · AI summary via InvestIn.News" if ai_summary and item.publisher
+                        else item.publisher or item.source), url=item.url,
                 published_at=_iso(published) if published else "",
                 age_minutes=round(age_minutes, 1) if age_minutes is not None else None,
                 relevance=round(relevance, 3), impact=round(impact, 3), directional_bias=bias,
