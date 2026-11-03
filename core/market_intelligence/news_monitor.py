@@ -71,6 +71,39 @@ class NewsMonitorV1:
             self.last_poll_at = started.isoformat(timespec="seconds").replace("+00:00", "Z")
             brief = self.brain.run_from_registry(self.registry_path, self.context, now=started)
             brief_data = brief.to_dict()
+            # Keep transport health separate from publication freshness. A low-frequency
+            # official feed may be reachable while its newest item is old; an empty feed
+            # is not evidence of freshness or failure.
+            source_health = []
+            for source in brief.provenance.get("source_health", []):
+                row = dict(source)
+                newest = row.get("newest_published_at")
+                if row.get("status") == "failed":
+                    row["freshness_status"] = "failed"
+                    row["newest_age_minutes"] = None
+                elif row.get("status") == "ok_empty":
+                    row["freshness_status"] = "empty"
+                    row["newest_age_minutes"] = None
+                elif not newest:
+                    row["freshness_status"] = "unknown"
+                    row["newest_age_minutes"] = None
+                else:
+                    try:
+                        published = datetime.fromisoformat(str(newest).replace("Z", "+00:00"))
+                        if published.tzinfo is None or published.utcoffset() is None:
+                            raise ValueError("timezone missing")
+                        age_minutes = (started - published.astimezone(timezone.utc)).total_seconds() / 60
+                        row["newest_age_minutes"] = round(age_minutes, 1)
+                        row["freshness_status"] = (
+                            "future" if age_minutes < -5 else
+                            "fresh" if age_minutes <= 24 * 60 else
+                            "aging" if age_minutes <= 72 * 60 else "stale"
+                        )
+                    except (TypeError, ValueError, OverflowError):
+                        row["freshness_status"] = "unknown"
+                        row["newest_age_minutes"] = None
+                row["freshness_threshold_hours"] = 72
+                source_health.append(row)
             brief_digest = sha256(_canonical(brief_data)).hexdigest()
             degraded = brief.status == "degraded" or bool(brief.provenance.get("source_failures"))
             self.last_status = "DEGRADED" if degraded else "OK"
@@ -87,7 +120,7 @@ class NewsMonitorV1:
                     "last_error": None,
                     "source_profile_status": str(brief.provenance.get("source_profile_status", "unknown")),
                     "source_failures": list(brief.provenance.get("source_failures", [])),
-                    "source_health": list(brief.provenance.get("source_health", [])),
+                    "source_health": source_health,
                 },
                 "context": {
                     "market": self.context.market,

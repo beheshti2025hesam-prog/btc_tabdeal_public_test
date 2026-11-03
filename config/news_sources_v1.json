@@ -11,7 +11,7 @@
       "freshness_check",
       "terms_and_rate_limit_review"
     ],
-    "note": "Enabled official feeds were individually re-probed from the authorized VPS on 2026-10-31 with HTTPS and redirects rejected. Current crypto coverage combines official macro/regulatory/central-bank sources and Gate.io venue announcements; still partial, not a comprehensive crypto-native newswire."
+    "note": "Enabled sources are individually qualified for ownership/terms, bounded HTTPS no-redirect parsing, target VPS reachability and publication freshness. Decrypt is enabled only for private non-commercial use under its Terms of Service. InvestIn.News NewsDesk is a secondary AI-summarized feed with original publisher and AI label preserved. Neither source can authorize or independently confirm a trade."
   },
   "sources": [
     {
@@ -258,6 +258,46 @@
       "last_probe_status": "VPS no-redirect HTTPS probe: HTTP 200; XML parsed; 10 items; newest date 2026-10-28T09:47:20Z (68.34h old at probe)",
       "terms_note": "Official Bank of Canada RSS page lists News feeds and describes RSS subscription. Low-frequency source; freshness is evaluated per item. HES consumes feed metadata and summaries only.",
       "source_scope": "international"
+    },
+    {
+      "id": "investin_news_newsdesk",
+      "name": "InvestIn.News NewsDesk (AI summaries, publisher attributed)",
+      "url": "https://investin.news/newsdesk/feed.xml",
+      "host": "investin.news",
+      "tier": "secondary_aggregator_ai_summarized",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://investin.news/rss",
+      "last_probe_utc": "2026-11-03T06:52:00Z",
+      "last_probe_status": "Authorized VPS no-redirect HTTPS GET: HTTP 200, 43,483 bytes; RSS 2.0 parsed; 5 sample entries; newest pubDate 2026-11-03T06:30:27Z; publisher source and AI summary category preserved; feed terms permit public RSS use with labels retained; 300-second poll interval.",
+      "terms_note": "Secondary AI-summarized newswire. HES stores only RSS title, short summary, publication time, original publisher label and link; no article scraping or full-text republication. Preserve the AI summary label and original publisher. Secondary AI summaries are explicitly caveated and confidence-capped. Terms: https://investin.news/rss and https://investin.news/takedown.",
+      "source_scope": "international"
+    },
+    {
+      "id": "decrypt_news",
+      "name": "Decrypt — Crypto News RSS",
+      "url": "https://decrypt.co/feed",
+      "host": "decrypt.co",
+      "tier": "secondary_media_publisher",
+      "markets": [
+        "crypto"
+      ],
+      "languages": [
+        "en"
+      ],
+      "enabled": true,
+      "qualification_status": "qualified",
+      "evidence_url": "https://decrypt.co/terms-of-service",
+      "last_probe_utc": "2026-11-03T06:56:00Z",
+      "last_probe_status": "Authorized VPS no-redirect HTTPS GET: HTTP 200, 79,660 bytes; RSS 2.0 parsed; 5 sample items; newest pubDate 2026-11-02T23:10:25Z; 0 redirects. Private non-commercial use only.",
+      "terms_note": "Direct publisher RSS; HES uses only headline, short RSS description, publication time and article link, not full article text. Decrypt Terms of Service include RSS/APIs and limit Services to non-commercial use. This source is qualified only for this private, non-commercial HES deployment; disable before any public/commercial distribution unless written permission is obtained. Terms: https://decrypt.co/terms-of-service.",
+      "source_scope": "international"
     }
   ],
   "market_profiles": {
@@ -269,17 +309,21 @@
         "gateio_official_announcements",
         "bis_media_releases",
         "boj_whats_new",
-        "boc_news"
+        "boc_news",
+        "investin_news_newsdesk",
+        "decrypt_news"
       ],
       "status": "partial_official_macro_regulatory_central_bank_and_venue_announcements",
-      "note": "Qualified official ECB/CFTC/Federal Reserve/BIS/Bank of Japan/Bank of Canada macro-regulatory feeds plus Gate.io venue announcements. This is stronger official macro and venue coverage but remains partial; no qualified crypto-native independent newswire is enabled.",
+      "note": "Qualified official ECB/CFTC/Federal Reserve/BIS/Bank of Japan/Bank of Canada macro-regulatory feeds, Gate.io venue announcements, direct Decrypt crypto RSS for private non-commercial use, and a secondary AI-summarized NewsDesk with original publisher attribution. Coverage remains partial: Decrypt and NewsDesk are secondary media/aggregation inputs, not primary source confirmation; CoinDesk and Cointelegraph remain disabled.",
       "international_source_ids": [
         "ecb_press_releases",
         "cftc_general_press_releases",
         "fed_press_all",
         "bis_media_releases",
         "boj_whats_new",
-        "boc_news"
+        "boc_news",
+        "investin_news_newsdesk",
+        "decrypt_news"
       ],
       "domestic_source_ids": [],
       "venue_source_ids": [
