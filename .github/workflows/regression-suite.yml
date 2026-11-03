@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   full-regression:
+    name: HES Full Regression Gate / full-regression
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
