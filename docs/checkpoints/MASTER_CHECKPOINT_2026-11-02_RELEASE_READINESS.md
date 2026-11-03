@@ -558,3 +558,16 @@ This section supersedes earlier candidate-only statements in this checkpoint abo
 - Protect **2026-11-04 chart acceptance** first; freeze optional market expansion until accepted. Freeze product scope 2026-11-12; final combined validation and rollback preparation 2026-11-13 to 2026-11-18; deliver only passed scope on **2026-11-19**.
 - Preserve `HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY`. No live execution.
 
+
+
+### News Radar live snapshot clarification — 2026-11-03 11:47 UTC
+A direct read-only request to the deployed `GET /api/news` endpoint confirmed:
+- Monitor status `OK`, 300-second interval, last successful poll `2026-11-03T11:47:41Z`, no transport/source failures; 131 source items seen, 109 stale items dropped, 8 findings returned.
+- Nine enabled source IDs were present: six official macro/regulatory/central-bank feeds (Fed, CFTC, ECB, BIS, BOJ, Bank of Canada), Gate.io official announcements, direct Decrypt RSS, and Investin NewsDesk aggregation.
+- Freshness at that poll: four fresh (ECB, Gate.io, NewsDesk, Decrypt), three stale (Fed, CFTC, Bank of Canada), one aging (BOJ), and one empty (BIS). Transport `ok` is not equivalent to fresh content.
+- The NewsDesk source contains AI summaries with original-publisher attribution; it and Decrypt are secondary media inputs, not primary confirmation. CoinDesk and Cointelegraph remain disabled.
+- Four high-impact event clusters were returned; all six linked items came from Decrypt alone, with one source per cluster. Treat these as single-source flags requiring independent confirmation, not as verified multi-source incidents or calibrated probabilities. `HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION` was present in the brief.
+- Event ledger status `OK`, 10 total records, zero new appends in that poll.
+- `/healthz` returned `status=ok`, `mode=NO_TRADE_ONLY`, `execution_enabled=false`, `orders_placed=false`, source `gateio_public_spot`, reader `global_market_data_reader_v1`, symbol `BTC_USDT`; market-data symbol mapping true, execution-instrument mapping false. The sampled latest candle age was 181.6 seconds.
+- This live snapshot refines the prior source-coverage description: the deployed profile also includes Decrypt and NewsDesk. Keep the overall label **partial**, distinguish primary from secondary sources, and do not interpret News flags as a fully wired Strategy V2 veto until a code-path audit proves that integration.
+
