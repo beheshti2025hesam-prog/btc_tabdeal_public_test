@@ -111,7 +111,7 @@ class NewsMonitorV1:
             brief_digest = sha256(_canonical(brief_data)).hexdigest()
             event_ledger = self._append_event_ledger(brief_data, brief_digest, started)
             try:
-                event_calendar = self.calendar_fetcher(now=started, horizon_days=30)
+                event_calendar = self.calendar_fetcher(now=started, horizon_days=45)
                 if not isinstance(event_calendar, dict) or event_calendar.get("schema") != "hes.fed_event_calendar.v1":
                     raise ValueError("FED_EVENT_CALENDAR_SCHEMA_INVALID")
                 calendar_digest = sha256(_canonical(event_calendar)).hexdigest()
@@ -265,7 +265,7 @@ class NewsMonitorV1:
             "schema": "hes.fed_event_calendar.v1",
             "status": "BLOCKED",
             "fetched_at": observed_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
-            "horizon_days": 30,
+            "horizon_days": 45,
             "timezone": "America/New_York",
             "coverage_note": "Official Fed calendar unavailable; BLS calendar not included.",
             "source_health": [],
