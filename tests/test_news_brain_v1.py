@@ -370,9 +370,9 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(brief.provenance["high_impact_item_count"], 4)
         self.assertEqual(brief.provenance["high_impact_event_count"], 3)
         clusters = {x["event_id"]: x["item_count"] for x in brief.provenance["high_impact_event_clusters"]}
-        self.assertEqual(clusters["binance_security_incident"], 2)
-        self.assertEqual(clusters["mercado_bitcoin_security_incident"], 1)
-        self.assertEqual(clusters["eu_entity_crypto_theft"], 1)
+        self.assertEqual(clusters["binance_security_incident:2026-10"], 2)
+        self.assertEqual(clusters["mercado_bitcoin_security_incident:2026-10"], 1)
+        self.assertEqual(clusters["eu_entity_crypto_theft:2026-10"], 1)
         self.assertIn("3 high-impact event cluster(s)", brief.headline)
 
     def test_feed_redirects_are_rejected(self):
