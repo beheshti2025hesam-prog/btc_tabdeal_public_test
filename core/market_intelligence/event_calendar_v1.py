@@ -162,18 +162,18 @@ def _month_number(name: str) -> int | None:
 def parse_fomc_calendar(payload: bytes, *, today: date, horizon_days: int, source_sha256: str) -> list[dict]:
     html = payload.decode("utf-8-sig", errors="strict")
     horizon_end = today + timedelta(days=horizon_days)
-    row_starts = list(re.finditer(r'<div\\s+class=["\\'][^"\\']*\\brow\\b[^"\\']*\\bfomc-meeting\\b[^"\\']*["\\'][^>]*>', html, re.I))
+    row_starts = list(re.finditer(r"""<div\s+class=["'][^"']*\brow\b[^"']*\bfomc-meeting\b[^"']*["'][^>]*>""", html, re.I))
     events = []
     for index, row_match in enumerate(row_starts):
         prefix = html[:row_match.start()]
-        year_matches = list(re.finditer(r'>(20\\d{2})\\s+FOMC Meetings<', prefix, re.I))
+        year_matches = list(re.finditer(r">(20\d{2})\s+FOMC Meetings<", prefix, re.I))
         if not year_matches:
             continue
         year = int(year_matches[-1].group(1))
         segment_end = row_starts[index + 1].start() if index + 1 < len(row_starts) else len(html)
         segment = html[row_match.start():segment_end]
-        month_match = re.search(r'class=["\\'][^"\\']*fomc-meeting__month[^"\\']*["\\'][^>]*>\\s*(?:<strong>)?([^<]+)', segment, re.I)
-        date_match = re.search(r'class=["\\'][^"\\']*fomc-meeting__date[^"\\']*["\\'][^>]*>\\s*([^<]+)', segment, re.I)
+        month_match = re.search(r"""class=["'][^"']*fomc-meeting__month[^"']*["'][^>]*>\s*(?:<strong>)?([^<]+)""", segment, re.I)
+        date_match = re.search(r"""class=["'][^"']*fomc-meeting__date[^"']*["'][^>]*>\s*([^<]+)""", segment, re.I)
         if not month_match or not date_match:
             continue
         month = _month_number(month_match.group(1))
