@@ -234,18 +234,18 @@ class NewsMonitorV1:
 
     def _append_event_ledger(self, brief: dict, brief_digest: str, observed_at: datetime) -> dict:
         """Persist each source item once for later Gate.io candle-window attribution."""
-        ledger_path = self.snapshot_path.with_name("news_events.jsonl")
+        ledger_name = f"news_events_{observed_at.year}.jsonl"
+        ledger_path = self.snapshot_path.with_name(ledger_name)
         provenance = brief.get("provenance", {})
         evidence_by_url = {
             row.get("url"): row for row in provenance.get("source_evidence", [])
             if isinstance(row, dict) and isinstance(row.get("url"), str)
         }
-        cluster_by_item = {}
-        for cluster in provenance.get("high_impact_event_clusters", []):
-            if not isinstance(cluster, dict):
-                continue
-            for item_id in cluster.get("item_ids", []):
-                cluster_by_item[item_id] = cluster.get("event_id")
+        cluster_by_item = {
+            row.get("item_id"): row.get("event_cluster_id")
+            for row in provenance.get("event_cluster_assignments", [])
+            if isinstance(row, dict) and isinstance(row.get("item_id"), str)
+        }
         ledger_path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(ledger_path, os.O_CREAT | os.O_RDWR | os.O_APPEND, 0o640)
         appended = 0
@@ -311,6 +311,7 @@ class NewsMonitorV1:
             return {
                 "schema_version": "hes.news_event_record.v1",
                 "status": "OK",
+                "path": ledger_name,
                 "records_appended": appended,
                 "records_total": len(seen),
                 "last_append_at": observed_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
