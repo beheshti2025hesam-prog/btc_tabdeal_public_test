@@ -123,7 +123,10 @@ def evaluate_news_impact(
         if baseline_index is None:
             events.append({"event_cluster_id": cluster_id, "status": "HISTORY_UNAVAILABLE", "first_seen_at": anchor.isoformat()})
             continue
-        start = baseline_index + 1
+        # Skip any candle already open when HES first observed the item. Using
+        # its eventual close would leak post-event price action into the baseline.
+        start = next((index for index, row in enumerate(candles)
+                      if int(row["open_time"]) >= anchor_ts), len(candles))
         baseline = float(candles[baseline_index]["close"])
         windows = {name: _window_result(candles, start, baseline, bars) for name, bars in WINDOW_BARS.items()}
         source_ids = sorted({row.get("source_id") for row in items if row.get("source_id")})
@@ -144,6 +147,8 @@ def evaluate_news_impact(
             "max_news_relevance_score": max((float(row.get("relevance") or 0) for row in items), default=0),
             "baseline_close": baseline,
             "baseline_close_time": candles[baseline_index]["close_time"],
+            "first_full_post_event_candle_open_time": candles[start]["open_time"] if start < len(candles) else None,
+            "first_full_candle_delay_minutes": round((int(candles[start]["open_time"]) - anchor_ts) / 60, 2) if start < len(candles) else None,
             "windows": windows,
         })
 
