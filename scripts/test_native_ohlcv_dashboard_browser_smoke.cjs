@@ -6,6 +6,7 @@ const { chromium } = require("playwright");
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "en-US" });
     let candlePayload = null;
+    const candlePayloads = {};
     let strategyV2Payload = null;
     let strategyV2StatusCode = null;
     let externalChartCdnRequested = false;
@@ -37,7 +38,7 @@ const { chromium } = require("playwright");
         const url = new URL(response.url());
         if (url.pathname === "/api/candles" && response.status() === 200) {
           const body = await response.json();
-          if (Array.isArray(body.candles) && body.candles.length) candlePayload = body;
+          if (Array.isArray(body.candles) && body.candles.length) { candlePayload = body; candlePayloads[body.interval] = body; }
         }
         if (url.pathname === "/api/strategy-v2" && [200, 503].includes(response.status())) {
           strategyV2StatusCode = response.status();
@@ -62,7 +63,11 @@ const { chromium } = require("playwright");
       null,
       { timeout: 15000 }
     );
-    assert.ok(candlePayload, "successful /api/candles payload was not observed");
+    const fifteenMinutePayload = candlePayload;
+    assert.ok(fifteenMinutePayload, "successful /api/candles payload was not observed");
+    assert.equal(fifteenMinutePayload.interval, "15m", "15m must remain the default chart interval");
+    assert.equal(await page.locator("#interval").inputValue(), "15m");
+    assert.ok(candlePayloads["15m"], "15m API batch was not retained");
     assert.ok(strategyV2Payload, "canonical Strategy V2 response was not observed");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
     assert.equal(strategyV2Payload.decision, "NO_TRADE", "paper-only V2 dashboard must remain NO_TRADE");
@@ -153,6 +158,11 @@ const { chromium } = require("playwright");
       source_symbol: candlePayload.source_symbol,
       symbol_mapping_verified: candlePayload.symbol_mapping_verified,
       interval: candlePayload.interval,
+      intervals_verified: {
+        "15m": { candle_count: fifteenMinutePayload.candles.length, input_batch_sha256: fifteenMinutePayload.input_batch_sha256 },
+        "1m": { candle_count: oneMinutePayload.candles.length, input_batch_sha256: oneMinutePayload.input_batch_sha256 }
+      },
+      one_minute_responsive_viewports: oneMinuteResponsiveViewports,
       input_batch_sha256: candlePayload.input_batch_sha256,
       strategy_v2_status_code: strategyV2StatusCode,
       strategy_v2_status: strategyV2Payload.status,
@@ -217,6 +227,81 @@ const { chromium } = require("playwright");
       assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
       assert.equal(layout.horizontalOverflow, false, "horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
       responsiveViewports.push(layout);
+    }
+
+    const oneMinuteResponsePromise = page.waitForResponse(response => {
+      try {
+        const url = new URL(response.url());
+        return url.pathname === "/api/candles" && url.searchParams.get("interval") === "1m" && response.status() === 200;
+      } catch (_) { return false; }
+    });
+    await page.locator("#interval").selectOption("1m");
+    const oneMinuteResponse = await oneMinuteResponsePromise;
+    const oneMinutePayload = await oneMinuteResponse.json();
+    assert.equal(oneMinutePayload.interval, "1m");
+    await page.waitForFunction(
+      count => document.querySelector("#count")?.textContent === String(count) &&
+        document.querySelector("#message")?.textContent?.startsWith("VALIDATED"),
+      oneMinutePayload.candles.length,
+      { timeout: 15000 }
+    );
+    candlePayload = oneMinutePayload;
+    assert.ok(candlePayloads["1m"], "1m API batch was not retained");
+    const oneMinuteUi = await page.evaluate(() => ({
+      price: document.querySelector("#price").textContent,
+      stamp: document.querySelector("#stamp").textContent,
+      volume: document.querySelector("#volume").textContent,
+      count: document.querySelector("#count").textContent,
+      message: document.querySelector("#message").textContent,
+      canvas: (() => {
+        const c = document.querySelector("#chart canvas");
+        const r = c.getBoundingClientRect();
+        return { width: r.width, height: r.height };
+      })(),
+      bars: typeof bars !== "undefined" ? bars.map(b => ({
+        open_time: b.open_time, open: Number(b.open), high: Number(b.high), low: Number(b.low),
+        close: Number(b.close), volume: String(b.volume)
+      })) : null
+    }));
+    const oneMinuteLast = oneMinutePayload.candles[oneMinutePayload.candles.length - 1];
+    assert.equal(Number(oneMinuteUi.price.replaceAll(",", "")), Number(oneMinuteLast.close));
+    assert.equal(oneMinuteUi.volume, oneMinuteLast.volume);
+    assert.equal(oneMinuteUi.count, String(oneMinutePayload.candles.length));
+    assert.ok(oneMinuteUi.canvas.width > 100 && oneMinuteUi.canvas.height > 100);
+    assert.ok(oneMinuteUi.bars, "browser could not inspect the 1m chart batch");
+    assert.equal(oneMinuteUi.bars.length, oneMinutePayload.candles.length);
+    for (let i = 0; i < oneMinutePayload.candles.length; i++) {
+      const source = oneMinutePayload.candles[i];
+      const chart = oneMinuteUi.bars[i];
+      assert.equal(chart.open_time, source.open_time, `1m chart open_time differs at candle ${i}`);
+      for (const field of ["open", "high", "low", "close"]) {
+        assert.equal(chart[field], Number(source[field]), `1m chart ${field} differs at candle ${i}`);
+      }
+      assert.equal(chart.volume, source.volume, `1m chart volume differs at candle ${i}`);
+    }
+    const oneMinuteResponsiveViewports = [];
+    for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1440, height: 1000 }]) {
+      await page.setViewportSize(viewport);
+      const minimumChartWidth = viewport.width <= 600 ? 200 : viewport.width <= 800 ? 550 : 900;
+      await page.waitForFunction((minimum) => {
+        const canvas = document.querySelector("#chart canvas");
+        const rect = canvas?.getBoundingClientRect();
+        return !!rect && rect.width > minimum && document.documentElement.scrollWidth <= window.innerWidth + 1;
+      }, minimumChartWidth, { timeout: 5000 });
+      const layout = await page.evaluate(() => {
+        const canvas = document.querySelector("#chart canvas");
+        const rect = canvas?.getBoundingClientRect();
+        return {
+          viewportWidth: window.innerWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          chartWidth: rect ? rect.width : 0,
+          chartHeight: rect ? rect.height : 0,
+          horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
+        };
+      });
+      assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "1m chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.equal(layout.horizontalOverflow, false, "1m chart horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      oneMinuteResponsiveViewports.push(layout);
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
 
