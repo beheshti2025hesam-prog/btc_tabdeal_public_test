@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -27,7 +28,27 @@ class NewsMonitorTests(unittest.TestCase):
             snapshot_path=self.path,
             interval_seconds=60,
             clock=lambda: NOW,
+            calendar_fetcher=self._calendar,
         )
+
+    def _calendar(self, *, now, horizon_days):
+        result = {
+            "schema": "hes.fed_event_calendar.v1",
+            "status": "OK",
+            "fetched_at": now.isoformat().replace("+00:00", "Z"),
+            "horizon_days": horizon_days,
+            "timezone": "America/New_York",
+            "coverage_note": "Fed releases only.",
+            "source_health": [{"source_id": "fed_statcalendar", "status": "OK", "event_count": 1}],
+            "source_failures": [],
+            "events": [{"event_id": "fed-event-1", "title": "G.17", "start_date": "2026-11-17"}],
+            "impact_rating": "unrated",
+            "news_or_calendar_alone_can_authorize_trade": False,
+        }
+        result["calendar_sha256"] = hashlib.sha256(
+            json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+        ).hexdigest()
+        return result
 
     def _brief(self, status="ok", failures=None):
         return SimpleNamespace(
@@ -48,6 +69,9 @@ class NewsMonitorTests(unittest.TestCase):
         self.assertEqual(snapshot["monitor"]["status"], "OK")
         self.assertEqual(snapshot["monitor"]["source_profile_status"], "partial_official_macro_regulatory_and_venue_announcements")
         self.assertEqual(snapshot["monitor"]["source_health"][0]["status"], "ok_empty")
+        self.assertEqual(snapshot["event_calendar"]["status"], "OK")
+        self.assertEqual(snapshot["event_calendar"]["events"][0]["event_id"], "fed-event-1")
+        self.assertEqual(len(snapshot["event_calendar_sha256"]), 64)
         self.assertTrue(self.path.is_file())
         loaded = self.monitor.read_snapshot()
         self.assertEqual(loaded["brief"]["schema_version"], "hes.news_brief.v1")
@@ -55,6 +79,25 @@ class NewsMonitorTests(unittest.TestCase):
         self.brain.run_from_registry.assert_called_once_with(
             self.monitor.registry_path, self.context, now=NOW
         )
+
+    def test_calendar_failure_does_not_degrade_news_monitor(self):
+        def unavailable(**kwargs):
+            raise TimeoutError("calendar unavailable")
+        monitor = NewsMonitorV1(
+            brain=self.brain,
+            registry_path=self.monitor.registry_path,
+            context=self.context,
+            snapshot_path=self.path,
+            interval_seconds=60,
+            clock=lambda: NOW,
+            calendar_fetcher=unavailable,
+        )
+        self.brain.run_from_registry.return_value = self._brief()
+        snapshot = monitor.poll_once()
+        self.assertEqual(snapshot["monitor"]["status"], "OK")
+        self.assertEqual(snapshot["event_calendar"]["status"], "BLOCKED")
+        self.assertEqual(snapshot["event_calendar"]["events"], [])
+        self.assertEqual(monitor.read_snapshot()["event_calendar"]["status"], "BLOCKED")
 
     def test_event_ledger_persists_each_source_item_once_with_provenance(self):
         brief = self._brief()
