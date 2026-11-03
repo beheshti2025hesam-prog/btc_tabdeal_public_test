@@ -4,6 +4,27 @@ from pathlib import Path
 
 import pytest
 
+
+_LOADED_NAMESPACES = []
+
+
+@pytest.fixture(autouse=True)
+def close_collector_test_resources():
+    yield
+    while _LOADED_NAMESPACES:
+        namespace = _LOADED_NAMESPACES.pop()
+        close_csv = namespace.get("close_csv")
+        if callable(close_csv):
+            close_csv()
+        release_lock = namespace.get("release_single_writer_lock")
+        if callable(release_lock):
+            release_lock()
+
+
+def read_rows(path):
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
 COLLECTOR = Path(__file__).resolve().parents[1] / "tabdeal_futures_ws_test.py"
 
 def git(cwd, *args):
@@ -22,6 +43,7 @@ def load_namespace(monkeypatch, tmp_path):
     ns = {"__name__":"collector_test_import"}
     source = COLLECTOR.read_text(encoding="utf-8")
     exec(compile(source, str(COLLECTOR), "exec"), ns)
+    _LOADED_NAMESPACES.append(ns)
     return ns
 
 def test_startup_sync_replaces_stale_checkout(monkeypatch, tmp_path):
@@ -53,7 +75,7 @@ def test_startup_sync_replaces_stale_checkout(monkeypatch, tmp_path):
     # Remove the stale local modification, then verify the canonical remote state.
     git(repo, "restore", "--worktree", "--", "data/trades.csv")
     ns["synchronize_startup_data_state"]()
-    rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    rows = read_rows(repo / "data/trades.csv")
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102]
 
 def test_checkpoint_never_resets_worktree(monkeypatch, tmp_path):
@@ -79,7 +101,7 @@ def test_checkpoint_never_resets_worktree(monkeypatch, tmp_path):
     ns["run_git"] = lambda command, **kwargs: subprocess.run(command, cwd=repo, **kwargs)
     monkeypatch.chdir(repo)
     ns["prepare_git_checkpoint"]()
-    rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    rows = read_rows(repo / "data/trades.csv")
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
 
 
@@ -136,11 +158,7 @@ def test_checkpoint_fails_closed_when_main_advances(monkeypatch, tmp_path):
         check=True,
         capture_output=True,
     )
-    rows = list(
-        csv.DictReader(
-            (verifier / "data/trades.csv").open(encoding="utf-8")
-        )
-    )
+    rows = read_rows(verifier / "data/trades.csv")
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
 
 
@@ -185,11 +203,7 @@ def test_checkpoint_updates_base_after_successful_push(monkeypatch, tmp_path):
         check=True,
         capture_output=True,
     )
-    rows = list(
-        csv.DictReader(
-            (verifier / "data/trades.csv").open(encoding="utf-8")
-        )
-    )
+    rows = read_rows(verifier / "data/trades.csv")
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
 
 
@@ -213,10 +227,10 @@ def test_archive_rotation_preserves_all_rows(monkeypatch, tmp_path):
 
     assert ns["archive_old_rows"]() is True
 
-    active = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    active = read_rows(repo / "data/trades.csv")
     archives = list((repo / "data/archive").glob("*.csv"))
     assert len(archives) == 1
-    archived = list(csv.DictReader(archives[0].open(encoding="utf-8")))
+    archived = read_rows(archives[0])
 
     all_sequences = [int(r["sequence"]) for r in archived + active]
     assert all_sequences == [100, 101, 102]
@@ -262,7 +276,7 @@ def test_plain_push_rejects_remote_advance_without_overwrite(monkeypatch, tmp_pa
 
     verifier = tmp_path / "verifier"
     subprocess.run(["git", "clone", "--branch", "main", str(origin), str(verifier)], check=True, capture_output=True)
-    rows = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
+    rows = read_rows(verifier / "data/trades.csv")
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
 
 def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_path):
@@ -293,7 +307,7 @@ def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_pa
     # N+1 -> N+2: a fresh collector session must start from persisted N+1,
     # then append another trade without losing predecessor rows.
     ns["synchronize_startup_data_state"]()
-    rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    rows = read_rows(repo / "data/trades.csv")
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102, 103]
 
     write_csv(repo / "data/trades.csv", 100, 5)
@@ -301,7 +315,7 @@ def test_sequential_checkpoints_preserve_n_to_n_plus_2_chain(monkeypatch, tmp_pa
 
     verifier = tmp_path / "verifier"
     subprocess.run(["git", "clone", "--branch", "main", str(origin), str(verifier)], check=True, capture_output=True)
-    persisted = list(csv.DictReader((verifier / "data/trades.csv").open(encoding="utf-8")))
+    persisted = read_rows(verifier / "data/trades.csv")
     assert [int(r["sequence"]) for r in persisted] == [100, 101, 102, 103, 104]
 
 
@@ -339,7 +353,7 @@ def test_archive_rotation_never_reuses_existing_filename(monkeypatch, tmp_path):
     assert len(archives) == 2
     rows = []
     for archive in archives:
-        rows.extend(csv.DictReader(archive.open(encoding="utf-8")))
+        rows.extend(read_rows(archive))
     assert [int(r["sequence"]) for r in rows] == [100, 101, 200, 201]
 def test_archive_rotation_failure_does_not_leave_partial_temp_files(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
@@ -370,7 +384,7 @@ def test_archive_rotation_failure_does_not_leave_partial_temp_files(monkeypatch,
     assert ns["archive_old_rows"]() is False
     assert not list((repo / "data/archive").glob("*.tmp"))
     assert not (repo / "data/trades.csv.tmp").exists()
-    rows = list(csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8")))
+    rows = read_rows(repo / "data/trades.csv")
     assert [int(r["sequence"]) for r in rows] == [100, 101, 102]
     archives = list((repo / "data/archive").glob("*.csv"))
     assert archives == []
@@ -410,7 +424,7 @@ def test_archive_rotation_recovers_after_archive_replace_crash(monkeypatch, tmp_
 
     assert (repo / "data/.archive_rotation.json").exists()
     assert list((repo / "data/archive").glob("*.csv"))
-    assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [100, 101, 102]
+    assert [int(r["sequence"]) for r in read_rows(repo / "data/trades.csv")] == [100, 101, 102]
 
     monkeypatch.setattr(ns["os"], "replace", real_replace)
     ns["recover_archive_rotation"]()
@@ -418,7 +432,7 @@ def test_archive_rotation_recovers_after_archive_replace_crash(monkeypatch, tmp_
     assert not (repo / "data/.archive_rotation.json").exists()
     assert list((repo / "data/archive").glob("*.csv")) == []
     assert not (repo / "data/trades.csv.tmp").exists()
-    assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [100, 101, 102]
+    assert [int(r["sequence"]) for r in read_rows(repo / "data/trades.csv")] == [100, 101, 102]
 
 
 def test_archive_rotation_recovers_after_active_replace_before_cleanup(monkeypatch, tmp_path):
@@ -447,7 +461,7 @@ def test_archive_rotation_recovers_after_active_replace_before_cleanup(monkeypat
 
     assert (repo / "data/.archive_rotation.json").exists()
     assert len(list((repo / "data/archive").glob("*.csv"))) == 1
-    assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [102]
+    assert [int(r["sequence"]) for r in read_rows(repo / "data/trades.csv")] == [102]
 
     ns["_remove_archive_transaction_marker"] = lambda: None
     ns["recover_archive_rotation"]()
@@ -456,9 +470,9 @@ def test_archive_rotation_recovers_after_active_replace_before_cleanup(monkeypat
     assert not (repo / "data/trades.csv.tmp").exists()
     archives = list((repo / "data/archive").glob("*.csv"))
     assert len(archives) == 1
-    archived = list(csv.DictReader(archives[0].open(encoding="utf-8")))
+    archived = read_rows(archives[0])
     assert [int(r["sequence"]) for r in archived] == [100, 101]
-    assert [int(r["sequence"]) for r in csv.DictReader((repo / "data/trades.csv").open(encoding="utf-8"))] == [102]
+    assert [int(r["sequence"]) for r in read_rows(repo / "data/trades.csv")] == [102]
 
     # Recovery is idempotent after the marker has been cleaned up.
     ns["recover_archive_rotation"]()

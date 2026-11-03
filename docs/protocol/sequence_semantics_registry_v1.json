@@ -1,0 +1,140 @@
+{
+  "schema": "hes_sequence_semantics_registry_v1",
+  "revision": 1,
+  "status": "CANDIDATE_NOT_WIRED",
+  "policy": "FAIL_CLOSED_UNKNOWN_IS_NOT_FALSE",
+  "scope_key": [
+    "venue", "product", "endpoint", "channel", "message_type", "field_path", "protocol_version"
+  ],
+  "source_artifact": {
+    "name": "HES_Trade_Agent__Exchange_Sequence_Semantics_and_C.md",
+    "sha256": "c06f92dffd4d370c1a0da6b9cf2f1bd2b03817ca535eef0f4017bbc75f3573d9",
+    "retrieval_date": "2026-10-10",
+    "classification": "research_artifact_not_primary_protocol_evidence"
+  },
+  "records": [
+    {
+      "venue": "tabdeal",
+      "product": "fapi_futures_margin",
+      "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+      "channel": "BTC_USDT_raw_text_subscription",
+      "message_type": "trade_envelope",
+      "field_path": "trade.sequence",
+      "protocol_version": "unknown",
+      "semantic_class": "opaque_metadata",
+      "capabilities": {
+        "event_identity_unique": "unknown",
+        "ordered_within_scope": "unknown",
+        "contiguous_within_scope": "unknown",
+        "gap_detectable": "unknown",
+        "cross_reconnect_comparable": "unknown",
+        "book_range_gap_detection": "unknown",
+        "snapshot_bootstrap": "unknown"
+      },
+      "evidence": [
+        {
+          "primary_source_url": "https://docs.tabdeal.org/",
+          "evidence_class": "research_artifact_reference",
+          "evidence_ref": "research-artifact:c06f92dffd4d370c1a0da6b9cf2f1bd2b03817ca535eef0f4017bbc75f3573d9",
+          "evidence_note": "The public documentation defines the trade envelope but not the inner trade fields or trade.sequence semantics."
+        }
+      ],
+      "last_verified": "2026-10-10",
+      "status": "CONSERVATIVE_UNKNOWN"
+    },
+    {
+      "venue": "tabdeal",
+      "product": "fapi_futures_margin",
+      "endpoint": "wss://api1.tabdeal.org/special_margin/stream/",
+      "channel": "depth_periodic",
+      "message_type": "depthUpdate",
+      "field_path": "sequence",
+      "protocol_version": "unknown",
+      "semantic_class": "not_present_in_reviewed_sample",
+      "capabilities": {
+        "event_identity_unique": "unknown",
+        "ordered_within_scope": "unknown",
+        "contiguous_within_scope": "unknown",
+        "gap_detectable": "unknown",
+        "cross_reconnect_comparable": "unknown",
+        "book_range_gap_detection": "unknown",
+        "snapshot_bootstrap": "unknown"
+      },
+      "evidence": [
+        {
+          "primary_source_url": "https://docs.tabdeal.org/",
+          "evidence_class": "research_artifact_reference",
+          "evidence_ref": "research-artifact:c06f92dffd4d370c1a0da6b9cf2f1bd2b03817ca535eef0f4017bbc75f3573d9",
+          "evidence_note": "Reviewed depth message shape has no documented sequence or update-range field; absence outside the reviewed sample is not asserted."
+        }
+      ],
+      "last_verified": "2026-10-10",
+      "status": "CONSERVATIVE_UNKNOWN"
+    },
+    {
+      "venue": "tabdeal",
+      "product": "fapi_futures_margin",
+      "endpoint": "https://api.tabdeal.org/r/fapi/v1/aggDepth",
+      "channel": "rest_aggregate_depth",
+      "message_type": "snapshot_response",
+      "field_path": "sequence",
+      "protocol_version": "unknown",
+      "semantic_class": "opaque_metadata",
+      "capabilities": {
+        "event_identity_unique": "unknown",
+        "ordered_within_scope": "unknown",
+        "contiguous_within_scope": "unknown",
+        "gap_detectable": "unknown",
+        "cross_reconnect_comparable": "unknown",
+        "book_range_gap_detection": "unknown",
+        "snapshot_bootstrap": "unknown"
+      },
+      "evidence": [
+        {
+          "primary_source_url": "https://docs.tabdeal.org/",
+          "evidence_class": "research_artifact_reference",
+          "evidence_ref": "research-artifact:c06f92dffd4d370c1a0da6b9cf2f1bd2b03817ca535eef0f4017bbc75f3573d9",
+          "evidence_note": "The sequence field appears in the REST example, but uniqueness, ordering, continuity and relation to WebSocket messages are not documented."
+        }
+      ],
+      "last_verified": "2026-10-10",
+      "status": "CONSERVATIVE_UNKNOWN"
+    },
+    {
+      "venue": "tabdeal",
+      "product": "spot",
+      "endpoint": "wss://api.tabdeal.org/spot",
+      "channel": "market_depth",
+      "message_type": "depthUpdate",
+      "field_path": "sequence",
+      "protocol_version": "unknown",
+      "semantic_class": "not_present_in_reviewed_sample",
+      "capabilities": {
+        "event_identity_unique": "unknown",
+        "ordered_within_scope": "unknown",
+        "contiguous_within_scope": "unknown",
+        "gap_detectable": "unknown",
+        "cross_reconnect_comparable": "unknown",
+        "book_range_gap_detection": "unknown",
+        "snapshot_bootstrap": "unknown"
+      },
+      "evidence": [
+        {
+          "primary_source_url": "https://docs.tabdeal.org/",
+          "evidence_class": "research_artifact_reference",
+          "evidence_ref": "research-artifact:c06f92dffd4d370c1a0da6b9cf2f1bd2b03817ca535eef0f4017bbc75f3573d9",
+          "evidence_note": "Reviewed Spot depth sample contains timestamps and bid/ask arrays but no documented sequence field."
+        }
+      ],
+      "last_verified": "2026-10-10",
+      "status": "CONSERVATIVE_UNKNOWN"
+    }
+  ],
+  "invariants": [
+    "Unknown is a first-class state and never grants a capability.",
+    "Sequence semantics are scoped to the exact venue/product/endpoint/channel/message/field/protocol tuple.",
+    "Trade identity is not ordering; ordering is not contiguity; contiguity is not cross-reconnect comparability.",
+    "Exact raw-payload replay may be classified independently of opaque numeric identifiers.",
+    "No record in this candidate registry is currently authorized for live execution or production feed gating."
+  ]
+}
