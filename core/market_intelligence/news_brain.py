@@ -531,8 +531,11 @@ class NewsIntelligenceBrain:
         findings = []
         for key, (item, published) in candidates.items():
             text = _text(item)
-            categories = tuple(category for category, terms in _CATEGORY_TERMS.items()
-                               if any(_contains(text, term) for term in terms))
+            title_text = item.title.casefold()
+            categories = tuple(
+                category for category, terms in _CATEGORY_TERMS.items()
+                if any(_contains(title_text if category == "security" else text, term) for term in terms)
+            )
             matched = tuple(sorted({term for terms in _CATEGORY_TERMS.values() for term in terms
                                     if _contains(text, term)} | {term for term in _HIGH_IMPACT if _contains(text, term)}))
             explicit_tags = {tag.casefold() for tag in item.market_tags}
@@ -585,7 +588,8 @@ class NewsIntelligenceBrain:
             negative = sum(1 for term in _NEGATIVE if _contains(text, term))
             bias = "positive" if positive > negative else "negative" if negative > positive else "mixed_or_unknown"
             directional_confidence = min(0.65, abs(positive - negative) * 0.12) if positive != negative else 0.0
-            impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.40 if any(_contains(text, term) for term in _HIGH_IMPACT) else 0)
+            title_has_high_impact = any(_contains(title_text, term) for term in _HIGH_IMPACT)
+            impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.40 if title_has_high_impact else 0)
             impact = min(1.0, impact)
             age_minutes = (now - published).total_seconds() / 60 if published else None
             freshness = "unknown" if age_minutes is None else "future_timestamp" if age_minutes < 0 else "fresh" if age_minutes <= 180 else "recent"
@@ -608,12 +612,13 @@ class NewsIntelligenceBrain:
             confidence = min(0.95, 0.20 + 0.35 * relevance + 0.25 * impact + directional_confidence)
             if ai_summary:
                 confidence = min(confidence, 0.70)
+                impact = min(impact, 0.60)
             reasons = []
             if market_match: reasons.append("market_keyword_match")
             if symbol_match: reasons.append("symbol_keyword_match")
             if category_match: reasons.append("market_relevant_category")
             if tagged_match: reasons.append("explicit_market_tag")
-            if any(_contains(text, term) for term in _HIGH_IMPACT): reasons.append("high_impact_language")
+            if title_has_high_impact: reasons.append("high_impact_language")
             findings.append(NewsFinding(
                 item_id=key, title=item.title.strip(),
                 source=(item.publisher + " · AI summary via InvestIn.News" if ai_summary and item.publisher
