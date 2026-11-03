@@ -56,6 +56,30 @@ class NewsMonitorTests(unittest.TestCase):
             self.monitor.registry_path, self.context, now=NOW
         )
 
+    def test_source_freshness_is_distinct_from_transport_health(self):
+        now = datetime(2026, 10, 31, 12, 0, tzinfo=timezone.utc)
+        self.monitor.clock = lambda: now
+        brief = self._brief()
+        brief.provenance["source_health"] = [
+            {"source_id": "fresh", "status": "ok", "newest_published_at": "2026-10-31T11:00:00Z"},
+            {"source_id": "aging", "status": "ok", "newest_published_at": "2026-10-30T00:00:00Z"},
+            {"source_id": "stale", "status": "ok", "newest_published_at": "2026-10-27T00:00:00Z"},
+            {"source_id": "empty", "status": "ok_empty", "newest_published_at": None},
+            {"source_id": "failed", "status": "failed", "newest_published_at": None},
+            {"source_id": "unknown", "status": "ok", "newest_published_at": None},
+        ]
+        self.brain.run_from_registry.return_value = brief
+        snapshot = self.monitor.poll_once()
+        health = {x["source_id"]: x for x in snapshot["monitor"]["source_health"]}
+        self.assertEqual(health["fresh"]["freshness_status"], "fresh")
+        self.assertEqual(health["aging"]["freshness_status"], "aging")
+        self.assertEqual(health["stale"]["freshness_status"], "stale")
+        self.assertEqual(health["empty"]["freshness_status"], "empty")
+        self.assertEqual(health["failed"]["freshness_status"], "failed")
+        self.assertEqual(health["unknown"]["freshness_status"], "unknown")
+        self.assertEqual(health["stale"]["freshness_threshold_hours"], 72)
+        self.assertEqual(health["fresh"]["newest_age_minutes"], 60.0)
+
     def test_source_failure_is_persisted_as_degraded_not_clean(self):
         self.brain.run_from_registry.return_value = self._brief("degraded", ["ecb_press_releases:timeout"])
         snapshot = self.monitor.poll_once()
