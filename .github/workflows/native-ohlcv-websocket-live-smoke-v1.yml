@@ -1,8 +1,6 @@
-name: Native OHLCV WebSocket Live Smoke v1
+name: Legacy Binance Spot WebSocket Smoke (manual only; not Gate.io acceptance)
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +12,7 @@ jobs:
     timeout-minutes: 4
     steps:
       - name: Checkout exact PR revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
@@ -34,7 +32,7 @@ jobs:
         run: python scripts/capture_native_ohlcv_websocket_smoke.py --timeout-seconds 120
       - name: Upload bounded smoke evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-ohlcv-websocket-smoke-${{ github.sha }}
           path: evidence/native_ohlcv_websocket_smoke.json
