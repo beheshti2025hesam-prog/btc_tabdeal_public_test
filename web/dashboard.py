@@ -33,6 +33,16 @@ def _market_data_root() -> Path:
     configured = os.environ.get("HES_GLOBAL_MARKET_DATA_ROOT")
     return Path(configured).expanduser() if configured else PROJECT_ROOT
 
+
+def _canonical_candle_batch_sha256(rows: list[dict], *, limit: int = 240) -> str:
+    """Hash the exact bounded closed-candle rows shared by chart and analysis."""
+    if not isinstance(rows, list) or not rows or type(limit) is not int or limit < 1:
+        raise ValueError("invalid_canonical_candle_batch")
+    canonical_rows = rows[-limit:]
+    return hashlib.sha256(
+        json.dumps(canonical_rows, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
 CHART_ASSET_FILE = Path(__file__).resolve().parent / "static" / "third_party" / "lightweight-charts" / "5.0.8" / "lightweight-charts.standalone.production.js"
 class PersistedGlobalFeedSource:
@@ -274,9 +284,7 @@ class Handler(BaseHTTPRequestHandler):
                             "timeframe": tf,
                             # Match the dashboard chart contract exactly: the same
                             # canonical JSON digest over the latest 240 closed rows.
-                            "input_batch_sha256": hashlib.sha256(
-                                json.dumps(rows[-240:], sort_keys=True, separators=(",", ":")).encode("utf-8")
-                            ).hexdigest(),
+                            "input_batch_sha256": _canonical_candle_batch_sha256(rows),
                             "batch_candles": min(len(rows), 240),
                             "closed_candles": len(rows),
                             "latest_close_time": rows[-1]["close_time"],
