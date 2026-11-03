@@ -48,8 +48,9 @@ class GateioOneMinuteReaderTests(unittest.TestCase):
 
     def test_rejects_gap(self):
         rows = rows_1m()
-        rows[100]["open_time"] += 60
-        rows[100]["close_time"] += 60
+        for row in rows[100:]:
+            row["open_time"] += 60
+            row["close_time"] += 60
         with self.assertRaisesRegex(MarketDataRejected, "CANDLE_INTERVAL_GAP"):
             self._read(rows, now=rows[-1]["close_time"] + 1)
 
