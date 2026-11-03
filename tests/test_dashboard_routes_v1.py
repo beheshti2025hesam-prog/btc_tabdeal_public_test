@@ -490,7 +490,7 @@ class DashboardRouteTests(unittest.TestCase):
                 self.assertEqual(response.status, 200)
         self.assertEqual(payload["status"], "BLOCKED")
         self.assertEqual(payload["entry_context_status"], "MISSING")
-        self.assertIn("ENTRY_CONTEXT_MISSING", payload["reason_codes"])
+        self.assertIn("15M_SETUP_NOT_VALIDATED", payload["reason_codes"])
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["orders_placed"])
 
