@@ -152,12 +152,17 @@ def _event_cluster_key(title: str, item_id: str, published_at: str | None = None
     """Conservative deterministic grouping; time-bucket recurring event families."""
     value = title.casefold()
     month = published_at[:7] if isinstance(published_at, str) and len(published_at) >= 7 else "unknown"
+    try:
+        year, month_number = int(month[:4]), int(month[5:7])
+        quarter = f"{year}-Q{((month_number - 1) // 3) + 1}"
+    except (ValueError, IndexError):
+        quarter = "unknown"
     if "eu entity" in value and any(term in value for term in ("theft", "hack", "breach")):
-        return f"eu_entity_crypto_theft:{month}"
+        return f"eu_entity_crypto_theft:{quarter}"
     if "mercado bitcoin" in value and any(term in value for term in ("theft", "hack", "breach")):
-        return f"mercado_bitcoin_security_incident:{month}"
+        return f"mercado_bitcoin_security_incident:{quarter}"
     if "binance" in value and any(term in value for term in ("hack", "theft", "breach", "attack")):
-        return f"binance_security_incident:{month}"
+        return f"binance_security_incident:{quarter}"
     if "fomc" in value:
         return f"fomc_policy_event:{month}"
     if "cpi" in value or "consumer price index" in value:
