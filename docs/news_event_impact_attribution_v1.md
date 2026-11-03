@@ -20,7 +20,7 @@ This is a read-only evidence path for measuring what happened in the Gate.io BTC
 
 ## Evaluation method
 
-The event anchor is the earliest `first_seen_at` in the cluster: when HES could first know about the item. The evaluator uses the last fully closed candle before that anchor as the baseline, skips any candle already open at the event time, and begins measurement at the first candle whose `open_time` is at or after the event anchor. The skipped interval and first full-candle delay are recorded so no pre-observation candle movement leaks into the post-event window. It then measures:
+The event anchor is the earliest `first_seen_at` in the cluster: when HES could first know about the item. The evaluator records the last fully closed pre-event candle, skips any candle already open at the event time, and starts every response window from the **open of the first candle whose `open_time` is at or after the event anchor**. The gap from the last pre-event close to that first full-candle open is reported separately and excluded from all response metrics; this avoids mixing pre-observation price movement into the measured window. The skipped interval and first full-candle delay are recorded. It then measures:
 
 | Window | 15m bars |
 |---|---:|
