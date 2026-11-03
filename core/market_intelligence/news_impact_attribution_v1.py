@@ -39,12 +39,14 @@ def load_event_ledger(state_dir: str | Path) -> tuple[list[dict[str, Any]], str]
     digests: list[str] = []
     for path in sorted(root.glob("news_events_*.jsonl")):
         raw = path.read_bytes()
-        digests.append(hashlib.sha256(raw).hexdigest())
+        digests.append(path.name + ":" + hashlib.sha256(raw).hexdigest())
         for line_no, line in enumerate(raw.splitlines(), 1):
             try:
                 record = json.loads(line.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise ValueError(f"EVENT_LEDGER_INVALID:{path.name}:{line_no}") from exc
+            if record.get("schema_version") != "hes.news_event_record.v1":
+                raise ValueError(f"EVENT_LEDGER_SCHEMA_INVALID:{path.name}:{line_no}")
             stored_digest = record.pop("record_sha256", None)
             if not isinstance(stored_digest, str) or hashlib.sha256(_canonical(record)).hexdigest() != stored_digest:
                 raise ValueError(f"EVENT_LEDGER_HASH_MISMATCH:{path.name}:{line_no}")
