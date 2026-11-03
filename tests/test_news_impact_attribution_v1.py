@@ -108,6 +108,10 @@ class NewsImpactAttributionTests(unittest.TestCase):
         self.assertEqual(event["windows"]["24h"]["status"], "MATURED")
         self.assertGreater(event["windows"]["1h"]["price_change_pct"], 0)
         self.assertEqual(event["windows"]["1h"]["volume_ratio_vs_pre_event_median"], 2.0)
+        first_full = next(row for row in self.rows if row["open_time"] >= anchor)
+        expected_return = (first_full["close"] / first_full["open"] - 1) * 100
+        self.assertAlmostEqual(event["windows"]["15m"]["price_change_pct"], round(expected_return, 5))
+        self.assertIsNotNone(event["gap_return_excluded_from_windows_pct"])
         self.assertFalse(report["methodology"]["news_alone_can_authorize_trade"])
 
     def test_recent_event_remains_pending_for_unmatured_windows(self):
