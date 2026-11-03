@@ -73,8 +73,6 @@ class PrecisionEntryTests(unittest.TestCase):
         self.assertIn("RISK_GATE_NOT_APPROVED", result["reason_codes"])
 
     def test_blocked_without_provenance_bound_setup_context(self):
-        result = run(ctx=None)
-        # The helper supplies a valid context; remove it explicitly for this case.
         result = evaluate_precision_entry(
             setup_direction="LONG", candles_1m=candles(), setup_validated_15m=True,
             risk_gate_state="RISK_APPROVED", now_s=candles()[-1]["close_time"],
@@ -162,6 +160,39 @@ class PrecisionEntryTests(unittest.TestCase):
         self.assertEqual(result["state"], "READY", result["reason_codes"])
         self.assertGreaterEqual(result["evidence"]["planned_rr_worst_case"], 3.0)
         self.assertTrue(result["evidence"]["vwap_ema_alignment"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
+
+
+    def test_short_ready_requires_the_same_provenance_and_three_risk_reward_gates(self):
+        rows = []
+        start = 1_800_000_000
+        for i in range(60):
+            open_price = 100 - i * 0.01
+            close_price = open_price - 0.005
+            rows.append({
+                "schema": "hes_global_candle_v1", "source": "gateio_public_spot",
+                "symbol": "BTC_USDT", "timeframe": "1m",
+                "open_time": start + i * 60, "close_time": start + (i + 1) * 60,
+                "open": str(open_price), "high": str(open_price + 0.02),
+                "low": str(close_price - 0.02), "close": str(close_price),
+                "volume": "10", "quote_volume": "1000", "closed": True,
+            })
+        rows[-1].update({
+            "open": "99.42", "high": "99.44", "low": "99.30",
+            "close": "99.35", "volume": "20", "quote_volume": "2000",
+        })
+        short_context = context(
+            direction="SHORT", entry_zone_low=99.30, entry_zone_high=99.40,
+            stop_price=100.50, target_price=95.40,
+        )
+        result = evaluate_precision_entry(
+            setup_direction="SHORT", candles_1m=rows, setup_validated_15m=True,
+            risk_gate_state="RISK_APPROVED", now_s=rows[-1]["close_time"],
+            setup_context=short_context,
+        )
+        self.assertEqual(result["state"], "READY", result["reason_codes"])
+        self.assertGreaterEqual(result["evidence"]["planned_rr_worst_case"], 3.0)
         self.assertFalse(result["execution_enabled"])
         self.assertFalse(result["orders_placed"])
 
