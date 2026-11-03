@@ -83,6 +83,7 @@ class NewsMonitorTests(unittest.TestCase):
             "item_ids": ["news-item-001"],
         }]
         base = brief.to_dict()
+        base["provenance"] = brief.provenance
         base["findings"] = [finding]
         brief.to_dict = lambda: base
         self.brain.run_from_registry.return_value = brief
