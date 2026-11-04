@@ -37,7 +37,9 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertIn("localStorage.setItem(KEY,locale)", script)
         self.assertIn("return LOCALES.includes(value)?value:'en'", script)
         self.assertIn("locale==='fa'?'rtl':'ltr'", script)
-        self.assertIn("if(i>0&&value&&value.length>=3)reverse[value]=row[0]", script)
+        self.assertIn("const ORIGINAL_TEXT=new WeakMap(),LAST_TEXT=new WeakMap()", script)
+        self.assertIn("if(locale==='en')return text", script)
+        self.assertNotIn("const maps={}; const reverse={};", script)
         self.assertIn('[dir="rtl"] .journal-table', css)
         self.assertIn('[dir="rtl"] #chart{direction:ltr}', css)
 
