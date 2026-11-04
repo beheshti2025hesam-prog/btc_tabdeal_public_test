@@ -52,7 +52,7 @@ section[id]{scroll-margin-top:68px}
 [dir="rtl"] .gate{border-left:0;border-right:3px solid var(--amber);padding-left:0;padding-right:12px}
 [dir="rtl"] .journal-table th,[dir="rtl"] .journal-table td{text-align:right}
 [dir="rtl"] .chart-panel,[dir="rtl"] #chart{direction:ltr}
-.footer .copyright{display:block;margin-top:8px;text-align:left;unicode-bidi:isolate}.footer .copyright>span{display:block}.footer .copyright .owner-credit{margin-top:2px}.footer .copyright .owner-credit strong{color:var(--text);font-weight:650}
+.footer .copyright{display:block;margin-top:8px;text-align:left;unicode-bidi:isolate}.footer .copyright>span{display:block}.footer .copyright .brand-footer-name{font-size:1.05rem;font-weight:750;letter-spacing:.02em;color:var(--text)}.footer .copyright .copyright-notice{font-size:.76rem;margin-top:3px}.footer .copyright .owner-name{font-size:.9rem;font-weight:700;letter-spacing:.025em;margin-top:7px;color:var(--text)}.footer .copyright .owner-role{font-size:.76rem;margin-top:2px;color:var(--muted)}
 @media(max-width:600px){.header-actions{width:100%;justify-content:space-between}.language-control{margin-inline-start:auto}}
 
 /* Original HES identity mark: compact, legible, and direction-neutral. */
