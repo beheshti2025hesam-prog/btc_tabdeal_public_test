@@ -1,5 +1,14 @@
 # HES Signal Agent v1 — implementation boundary
 
+## Integration status — 2026-11-04
+
+The standalone SignalAgentV1 endpoint described in this document is a **legacy draft candidate**, not the active decision authority. Mainline PR #408 integrated the canonical Strategy V2 + Mother V2 path. Mother V2 already contains a `signal` specialist stage that consumes the Strategy V2 report and its matching immutable journal event.
+
+Do not re-enable the retired `/api/signal` route, merge PR #387/#388 as-is, or run SignalAgentV1 as a second independent strategy/risk/journal authority. Preserve its useful contracts and tests for selective reuse only where they do not duplicate or override Strategy V2/Mother V2. The active path must use one Gate.io persisted candle source, one canonical bounded batch digest, one strategy decision authority, one Mother witness, and the existing journal.
+
+The current integration work binds the exact 15m/1h/4h Gate.io batch digests from the shared reader through Strategy V2, the Mother signal specialist, and its audit witness. It does not change execution state or create another UI/data path.
+
+
 Status: **implemented as a deterministic, read-only composition layer; candidate release is not production-approved**.
 
 ## Canonical path
