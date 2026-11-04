@@ -124,6 +124,25 @@ def read_mother_v2_dashboard(
         or gate.get("final_decision") != event.get("decision")
     ):
         raise MotherV2DashboardError("v2_gate_journal_decision_mismatch")
+    market_data_provenance = view.get("market_data_provenance")
+    if (
+        not isinstance(market_data_provenance, Mapping)
+        or gate.get("market_data_provenance") != market_data_provenance
+        or market_data_provenance.get("schema") != "hes_market_data_batch_provenance_v1"
+        or market_data_provenance.get("source") != _EXPECTED_SOURCE
+        or market_data_provenance.get("symbol") != _EXPECTED_SYMBOL
+    ):
+        raise MotherV2DashboardError("v2_market_data_provenance_unverified")
+    timeframe_provenance = market_data_provenance.get("timeframes")
+    if not isinstance(timeframe_provenance, Mapping) or set(timeframe_provenance) != {"15m", "1h", "4h"}:
+        raise MotherV2DashboardError("v2_market_data_provenance_timeframes_invalid")
+    batch_refs = []
+    for timeframe in ("15m", "1h", "4h"):
+        item = timeframe_provenance.get(timeframe)
+        digest = item.get("input_batch_sha256") if isinstance(item, Mapping) else None
+        if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise MotherV2DashboardError("v2_market_data_batch_digest_invalid:" + timeframe)
+        batch_refs.append(f"market_batch:{timeframe}:sha256:{digest}")
 
     structure = gate.get("structure")
     confirmation = gate.get("confirmation")
@@ -184,8 +203,9 @@ def read_mother_v2_dashboard(
             "agent_version": _ADAPTER_VERSION,
             "state": "PASS",
             "reason_codes": [],
-            "evidence_refs": [f"report_sha256:{report_sha}", f"journal_event_sha256:{event_sha}"],
-            "payload": {"source": _EXPECTED_SOURCE, "symbol": _EXPECTED_SYMBOL, "event_id": expected_event_id},
+            "evidence_refs": [f"report_sha256:{report_sha}", f"journal_event_sha256:{event_sha}", *batch_refs],
+            "payload": {"source": _EXPECTED_SOURCE, "symbol": _EXPECTED_SYMBOL, "event_id": expected_event_id,
+                        "input_batch_sha256_by_timeframe": {tf: timeframe_provenance[tf]["input_batch_sha256"] for tf in ("15m", "1h", "4h")}},
         },
         "market_structure": {
             "agent_version": pipeline_version,
@@ -198,7 +218,7 @@ def read_mother_v2_dashboard(
             "agent_version": policy_version,
             "state": signal_state,
             "reason_codes": event_reasons,
-            "evidence_refs": [f"journal_event_sha256:{event_sha}", f"signal_state:{event.get('signal_state')}"],
+            "evidence_refs": [f"journal_event_sha256:{event_sha}", f"signal_state:{event.get('signal_state')}", *batch_refs],
             "payload": {"decision": event.get("signal_state"), "direction": event.get("direction")},
         },
         "confirmation": {
@@ -239,6 +259,7 @@ def read_mother_v2_dashboard(
         "scope": {"venue": "gateio", "product": "spot", "symbol": _EXPECTED_SYMBOL, "timeframe": "15m"},
         "observed_at": report_updated.isoformat(),
         "snapshot_sha256": report_sha,
+        "market_data_provenance": market_data_provenance,
         "evidence_sha256": evidence_sha,
         "request_id": expected_event_id,
         "specialist_reports": specialist_reports,
@@ -256,6 +277,7 @@ def read_mother_v2_dashboard(
         "reason_codes": list(result.reason_codes),
         "trace_id": result.trace_id,
         "audit_sha256": result.audit_sha256,
+        "market_data_provenance": market_data_provenance,
         "stages": envelope["stages"],
         "witness": witness.as_dict(),
         "source": _EXPECTED_SOURCE,
