@@ -12,6 +12,7 @@ const { chromium } = require("playwright");
     let externalChartCdnRequested = false;
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
+    let logoAssetResponse = null;
     const consoleErrors = [];
     const pageErrors = [];
     const requestFailures = [];
@@ -35,6 +36,9 @@ const { chromium } = require("playwright");
         if (responseUrl.pathname === "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js") {
           chartAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
         }
+        if (responseUrl.pathname === "/static/hes-mark.svg") {
+          logoAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
+        }
         const url = new URL(response.url());
         if (url.pathname === "/api/candles" && response.status() === 200) {
           const body = await response.json();
@@ -48,11 +52,37 @@ const { chromium } = require("playwright");
     });
 
     await page.goto("http://127.0.0.1:8765/", { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForFunction(
-      () => document.querySelector("#message")?.textContent?.startsWith("VALIDATED"),
-      null,
-      { timeout: 90000 }
-    );
+    try {
+      await page.waitForFunction(() => {
+        const message = document.querySelector("#message")?.textContent || "";
+        return message.startsWith("VALIDATED") || message.startsWith("FAIL CLOSED");
+      }, null, { timeout: 30000 });
+    } catch (error) {
+      const diagnostics = await Promise.race([
+        page.evaluate(() => ({
+          message: document.querySelector("#message")?.textContent || null,
+          chartLibraryLoaded: typeof LightweightCharts !== "undefined",
+          chartElement: !!document.querySelector("#chart"),
+          scriptStates: [...document.scripts].map(script => ({
+            src: script.src || "inline",
+            loaded: !script.src || script.dataset.loaded === "true"
+          }))
+        })),
+        new Promise(resolve => setTimeout(() => resolve({ page_unresponsive: true }), 5000))
+      ]);
+      await page.screenshot({
+        path: "artifacts/native-ohlcv-dashboard-browser-smoke.png",
+        fullPage: true,
+        timeout: 5000
+      }).catch(error => { diagnostics.screenshotError = String(error); });
+      require("node:fs").writeFileSync(
+        "artifacts/native-ohlcv-dashboard-browser-smoke.json",
+        JSON.stringify({ schema_version: 1, status: "FAIL_READINESS_TIMEOUT", diagnostics, consoleErrors, pageErrors, requestFailures, candlePayloadObserved: !!candlePayload, strategyV2StatusCode, chartAssetResponse }, null, 2) + "\n"
+      );
+      throw new Error("dashboard readiness timeout: " + JSON.stringify({ diagnostics, consoleErrors, pageErrors, requestFailures, candlePayloadObserved: !!candlePayload, strategyV2StatusCode, chartAssetResponse, cause: String(error) }));
+    }
+    const readinessMessage = await page.locator("#message").textContent();
+    assert.ok(readinessMessage.startsWith("VALIDATED"), "dashboard failed closed before chart acceptance: " + JSON.stringify({ readinessMessage, consoleErrors, pageErrors, requestFailures, candlePayloadObserved: !!candlePayload, strategyV2StatusCode, chartAssetResponse }));
     await page.waitForFunction(() => {
       const canvas = document.querySelector("#chart canvas");
       return !!canvas && canvas.getBoundingClientRect().width > 100 && canvas.getBoundingClientRect().height > 100;
@@ -91,6 +121,8 @@ const { chromium } = require("playwright");
     assert.equal(candlePayload.taker_buy_flow_available, false);
     assert.equal(candlePayload.venue, "gateio");
     assert.equal(candlePayload.execution_enabled, false);
+    assert.equal(logoAssetResponse?.status, 200, "HES logo asset must be served locally");
+    assert.ok((logoAssetResponse?.content_type || "").startsWith("image/svg+xml"), "HES logo must be served as SVG");
     assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
     assert.equal(directMarketDataRequest, false, "dashboard must read the persisted global feed, not call an exchange REST endpoint");
 
@@ -109,12 +141,42 @@ const { chromium } = require("playwright");
       chartLibraryLoaded: typeof LightweightCharts !== "undefined",
       chartSeriesExists: typeof candleSeries !== "undefined" && !!candleSeries,
       chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
+      logo: (() => { const img = document.querySelector(".brand-mark"); return img ? { complete: img.complete, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: img.getAttribute("src") } : null; })(),
       bars: typeof bars !== "undefined" ? bars.map(b => ({
         open_time: b.open_time, open: Number(b.open), high: Number(b.high), low: Number(b.low),
         close: Number(b.close), volume: String(b.volume)
       })) : null
     }));
 
+    assert.ok(ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0, "HES logo image did not render");
+
+    const languageSelect = page.locator("#languageSelect");
+    const motherTitle = page.locator("#motherTitle");
+    const decisionHeader = page.locator("#journalPanel thead th").nth(2);
+    assert.equal((await motherTitle.textContent()).trim(), "Mother Orchestrator · canonical V2 evidence chain",
+      "English canonical Mother heading was altered");
+    assert.equal((await decisionHeader.textContent()).trim(), "Decision");
+    await languageSelect.selectOption("de");
+    await page.waitForFunction(() => document.documentElement.lang === "de" &&
+      document.querySelector("#motherTitle")?.textContent.includes("kanonische V2-Nachweiskette"));
+    assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Orchestrator");
+    assert.equal((await decisionHeader.textContent()).trim(), "Entscheidung");
+    assert.equal(await page.evaluate(() => localStorage.getItem("hes-dashboard-locale-v1")), "de");
+    await languageSelect.selectOption("fa");
+    await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
+    assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
+      "chart canvas must remain LTR under Persian UI");
+    await languageSelect.selectOption("fr");
+    await page.waitForFunction(() => document.documentElement.lang === "fr" && document.documentElement.dir === "ltr");
+    assert.equal((await decisionHeader.textContent()).trim(), "Décision");
+    await languageSelect.selectOption("en");
+    await page.waitForFunction(() => document.documentElement.lang === "en" &&
+      document.querySelector("#motherTitle")?.textContent.trim() === "Mother Orchestrator · canonical V2 evidence chain");
+    assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Mother",
+      "English Mother navigation label was not restored");
+    assert.equal((await decisionHeader.textContent()).trim(), "Decision",
+      "English Decision label was not restored after ambiguous translations");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
@@ -171,6 +233,8 @@ const { chromium } = require("playwright");
       chart_series_exists: ui.chartSeriesExists,
       chart_script_integrity: ui.chartScriptIntegrity,
       chart_asset_response: chartAssetResponse,
+      logo_asset_response: logoAssetResponse,
+      logo_rendered: !!ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0,
       visible_candle_pixels: candlePixels,
       console_errors: consoleErrors,
       page_errors: pageErrors,
@@ -204,22 +268,27 @@ const { chromium } = require("playwright");
       await page.setViewportSize(viewport);
       const minimumChartWidth = viewport.width <= 600 ? 200 : viewport.width <= 800 ? 550 : 900;
       await page.waitForFunction((minimum) => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
-        return !!rect && rect.width > minimum && document.documentElement.scrollWidth <= window.innerWidth + 1;
-      }, minimumChartWidth, { timeout: 5000 });
+        return !!rect && rect.width > minimum && rect.width <= container.clientWidth + 1 &&
+          document.documentElement.scrollWidth <= window.innerWidth + 1;
+      }, minimumChartWidth, { timeout: 10000 });
       const layout = await page.evaluate(() => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
         return {
           viewportWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
+          containerWidth: container.clientWidth,
           chartWidth: rect ? rect.width : 0,
           chartHeight: rect ? rect.height : 0,
           horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
         };
       });
       assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.ok(layout.chartWidth <= layout.containerWidth + 1, "chart canvas did not resize to its container at viewport " + viewport.width + ": " + JSON.stringify(layout));
       assert.equal(layout.horizontalOverflow, false, "horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
       responsiveViewports.push(layout);
     }
@@ -304,22 +373,27 @@ const { chromium } = require("playwright");
       await page.setViewportSize(viewport);
       const minimumChartWidth = viewport.width <= 600 ? 200 : viewport.width <= 800 ? 550 : 900;
       await page.waitForFunction((minimum) => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
-        return !!rect && rect.width > minimum && document.documentElement.scrollWidth <= window.innerWidth + 1;
-      }, minimumChartWidth, { timeout: 5000 });
+        return !!rect && rect.width > minimum && rect.width <= container.clientWidth + 1 &&
+          document.documentElement.scrollWidth <= window.innerWidth + 1;
+      }, minimumChartWidth, { timeout: 10000 });
       const layout = await page.evaluate(() => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
         return {
           viewportWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
+          containerWidth: container.clientWidth,
           chartWidth: rect ? rect.width : 0,
           chartHeight: rect ? rect.height : 0,
           horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
         };
       });
       assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "1m chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.ok(layout.chartWidth <= layout.containerWidth + 1, "1m chart canvas did not resize to its container at viewport " + viewport.width + ": " + JSON.stringify(layout));
       assert.equal(layout.horizontalOverflow, false, "1m chart horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
       oneMinuteResponsiveViewports.push(layout);
     }
@@ -364,6 +438,8 @@ const { chromium } = require("playwright");
       chart_input_batch_matches_api_batch: true,
       chart_all_candles_match_api_batch: true,
       execution_enabled: false,
+      logo_asset_response: logoAssetResponse,
+      logo_rendered: !!ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0,
       message: oneMinuteUi.message
     };
     require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(evidence, null, 2) + "\n");

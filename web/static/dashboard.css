@@ -40,3 +40,21 @@ section[id]{scroll-margin-top:68px}
 .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:600px){.section-nav{margin-left:-12px;margin-right:-12px;padding:8px 12px}.section-nav a{padding:8px 10px}}
 @media(prefers-reduced-motion:no-preference){html:focus-within{scroll-behavior:smooth}}
+
+
+/* Four-language selector and direction-aware layout. The chart canvas stays LTR. */
+.header-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.language-control{display:inline-flex;gap:8px;align-items:center;color:var(--muted);font-size:13px}
+.language-control select{min-width:112px}
+[dir="rtl"] body{text-align:start}
+[dir="rtl"] .section-nav{direction:rtl}
+[dir="rtl"] .toolbar,[dir="rtl"] .metrics,[dir="rtl"] header{direction:rtl}
+[dir="rtl"] .gate{border-left:0;border-right:3px solid var(--amber);padding-left:0;padding-right:12px}
+[dir="rtl"] .journal-table th,[dir="rtl"] .journal-table td{text-align:right}
+[dir="rtl"] .chart-panel,[dir="rtl"] #chart{direction:ltr}
+.footer .copyright{display:block;margin-top:8px;text-align:left;unicode-bidi:isolate}
+@media(max-width:600px){.header-actions{width:100%;justify-content:space-between}.language-control{margin-inline-start:auto}}
+
+/* Original HES identity mark: compact, legible, and direction-neutral. */
+.brand-lockup{display:flex;gap:12px;align-items:center;min-width:0}
+.brand-mark{display:block;width:44px;height:44px;flex:0 0 44px;border-radius:13px}
