@@ -19,7 +19,7 @@ REQUIRED_SERVICES = (
     "hes-global-market-data-gateio-1h.service",
     "hes-global-market-data-gateio-4h.service",
 )
-LINEAGE_MANIFEST_SHA256 = "9372e69c4b61547f3d3ba84892a8e995fb0c12c74f963698d23714ee86b0e9a7"
+LINEAGE_MANIFEST_SHA256 = "2c05334fb9910f6ca267278edab8b1d0ae16e1cac761b316a9eadeba22994ce5"
 REQUIRED_LINEAGE_PATHS = frozenset({
     "scripts/soak_gateio_feed_24h_v2.py",
     "forward/global_market_data_reader_v1.py",
