@@ -204,9 +204,14 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 return self._send(503,b'{"error":"chart_library_unavailable","fail_closed":true}',"application/json")
             return self._send(200,asset,"text/javascript; charset=utf-8")
-        if p.path in ("/static/dashboard.css", "/static/dashboard.js"):
-            asset_path = Path(__file__).resolve().parent / "static" / Path(p.path).name
-            content_type = "text/css; charset=utf-8" if p.path.endswith(".css") else "text/javascript; charset=utf-8"
+        static_assets = {
+            "/static/dashboard.css": ("dashboard.css", "text/css; charset=utf-8"),
+            "/static/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
+            "/static/hes-mark.svg": ("hes-mark.svg", "image/svg+xml; charset=utf-8"),
+        }
+        if p.path in static_assets:
+            filename, content_type = static_assets[p.path]
+            asset_path = Path(__file__).resolve().parent / "static" / filename
             try:
                 asset = asset_path.read_bytes()
             except OSError:
