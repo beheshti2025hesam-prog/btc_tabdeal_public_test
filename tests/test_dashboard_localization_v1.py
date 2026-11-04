@@ -21,10 +21,9 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertNotIn('<option value="es">', page)
 
     def test_english_copyright_owner_is_present_and_separate_from_vendor_notice(self):
-        self.assertIn(
-            '''Copyright © HES Trade Agent. All rights reserved.\nDesigned and Owned by\nSEYED HESAMEDDIN BEHESHTI SHIRAZI\nDesigner & Owner''',
-            dashboard.HTML,
-        )
+        self.assertIn('Copyright © HES Trade Agent. All rights reserved.', dashboard.HTML)
+        self.assertIn('Designed &amp; owned by <strong>SEYED HESAMEDDIN BEHESHTI SHIRAZI</strong>', dashboard.HTML)
+        self.assertIn('· Designer &amp; Owner', dashboard.HTML)
         self.assertIn('Copyright (c) 2025 TradingView, Inc.', dashboard.HTML)
         self.assertIn('lang="en" dir="ltr"', dashboard.HTML)
 
