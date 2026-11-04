@@ -12,6 +12,7 @@ const { chromium } = require("playwright");
     let externalChartCdnRequested = false;
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
+    let logoAssetResponse = null;
     const consoleErrors = [];
     const pageErrors = [];
     const requestFailures = [];
@@ -34,6 +35,9 @@ const { chromium } = require("playwright");
         const responseUrl = new URL(response.url());
         if (responseUrl.pathname === "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js") {
           chartAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
+        }
+        if (responseUrl.pathname === "/static/hes-mark.svg") {
+          logoAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
         }
         const url = new URL(response.url());
         if (url.pathname === "/api/candles" && response.status() === 200) {
@@ -117,6 +121,8 @@ const { chromium } = require("playwright");
     assert.equal(candlePayload.taker_buy_flow_available, false);
     assert.equal(candlePayload.venue, "gateio");
     assert.equal(candlePayload.execution_enabled, false);
+    assert.equal(logoAssetResponse?.status, 200, "HES logo asset must be served locally");
+    assert.ok((logoAssetResponse?.content_type || "").startsWith("image/svg+xml"), "HES logo must be served as SVG");
     assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
     assert.equal(directMarketDataRequest, false, "dashboard must read the persisted global feed, not call an exchange REST endpoint");
 
@@ -135,12 +141,14 @@ const { chromium } = require("playwright");
       chartLibraryLoaded: typeof LightweightCharts !== "undefined",
       chartSeriesExists: typeof candleSeries !== "undefined" && !!candleSeries,
       chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
+      logo: (() => { const img = document.querySelector(".brand-mark"); return img ? { complete: img.complete, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: img.getAttribute("src") } : null; })(),
       bars: typeof bars !== "undefined" ? bars.map(b => ({
         open_time: b.open_time, open: Number(b.open), high: Number(b.high), low: Number(b.low),
         close: Number(b.close), volume: String(b.volume)
       })) : null
     }));
 
+    assert.ok(ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0, "HES logo image did not render");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
@@ -197,6 +205,8 @@ const { chromium } = require("playwright");
       chart_series_exists: ui.chartSeriesExists,
       chart_script_integrity: ui.chartScriptIntegrity,
       chart_asset_response: chartAssetResponse,
+      logo_asset_response: logoAssetResponse,
+      logo_rendered: !!ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0,
       visible_candle_pixels: candlePixels,
       console_errors: consoleErrors,
       page_errors: pageErrors,
@@ -390,6 +400,8 @@ const { chromium } = require("playwright");
       chart_input_batch_matches_api_batch: true,
       chart_all_candles_match_api_batch: true,
       execution_enabled: false,
+      logo_asset_response: logoAssetResponse,
+      logo_rendered: !!ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0,
       message: oneMinuteUi.message
     };
     require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(evidence, null, 2) + "\n");
