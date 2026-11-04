@@ -29,6 +29,40 @@ def _timestamp(value: Any) -> datetime:
         raise StrategyV2DashboardError("naive_report_timestamp")
     return parsed.astimezone(timezone.utc)
 
+def _validated_market_data_provenance(report, gate, closed_15m_candle_time):
+    provenance = report.get("market_data_provenance")
+    if not isinstance(provenance, dict):
+        raise StrategyV2DashboardError("v2_market_data_provenance_missing")
+    if gate.get("market_data_provenance") != provenance:
+        raise StrategyV2DashboardError("v2_gate_market_data_provenance_mismatch")
+    if (
+        provenance.get("schema") != "hes_market_data_batch_provenance_v1"
+        or provenance.get("source") != EXPECTED_SOURCE
+        or provenance.get("symbol") != EXPECTED_SYMBOL
+        or provenance.get("batch_limit") != 240
+    ):
+        raise StrategyV2DashboardError("v2_market_data_provenance_identity_invalid")
+    timeframes = provenance.get("timeframes")
+    if not isinstance(timeframes, dict) or set(timeframes) != {"15m", "1h", "4h"}:
+        raise StrategyV2DashboardError("v2_market_data_provenance_timeframes_invalid")
+    for timeframe, item in timeframes.items():
+        if not isinstance(item, dict):
+            raise StrategyV2DashboardError("v2_market_data_provenance_entry_invalid:" + timeframe)
+        digest = item.get("input_batch_sha256")
+        count = item.get("candle_count")
+        last_close = item.get("last_closed_candle_time")
+        if (
+            not isinstance(digest, str) or len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest)
+            or isinstance(count, bool) or not isinstance(count, int) or not 200 <= count <= 240
+            or isinstance(last_close, bool) or not isinstance(last_close, int) or last_close <= 0
+        ):
+            raise StrategyV2DashboardError("v2_market_data_provenance_entry_invalid:" + timeframe)
+    if timeframes["15m"]["last_closed_candle_time"] != closed_15m_candle_time:
+        raise StrategyV2DashboardError("v2_market_data_provenance_candle_mismatch")
+    return provenance
+
+
 def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
                                max_age_seconds=1800, journal_limit=20):
     if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int) or max_age_seconds < 1:
@@ -74,6 +108,7 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
     gate = report.get("latest_gate_evidence")
     if not isinstance(gate, dict) or gate.get("source") != EXPECTED_SOURCE or gate.get("final_decision") != "NO_TRADE":
         raise StrategyV2DashboardError("v2_latest_gate_evidence_invalid")
+    market_data_provenance = _validated_market_data_provenance(report, gate, closed_candle_time)
     entry_context = gate.get("entry_context")
     paper_valid, paper_reason = verify_entry_context(
         entry_context, gate_evidence=gate, now_s=int(current.timestamp())
@@ -128,6 +163,6 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
         **counts, "resolved_win_rate_pct": report.get("resolved_win_rate_pct"),
         "target_policy_status": report.get("target_policy_status", "UNKNOWN"),
         "directional_candidates_blocked_until_gates_approved": True,
-        "latest_gate_evidence": gate, "paper_setup": paper_setup, "journal": journal,
+        "latest_gate_evidence": gate, "market_data_provenance": market_data_provenance, "paper_setup": paper_setup, "journal": journal,
         "execution_enabled": False, "orders_placed": False, "outcomes_inferred": False,
     }
