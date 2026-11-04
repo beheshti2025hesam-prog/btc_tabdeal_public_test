@@ -453,6 +453,26 @@ class DashboardRouteTests(unittest.TestCase):
         with patch.dict(os.environ, {"HES_GLOBAL_MARKET_DATA_ROOT": "/opt/hes-trade-agent"}):
             self.assertEqual(str(dashboard._market_data_root()), "/opt/hes-trade-agent")
 
+    def test_current_chart_provenance_uses_native_batch_and_exclusive_close_time(self):
+        closes = {"15m": 1793781900, "1h": 1793779200, "4h": 1793779200}
+        digests = {"15m": "a" * 64, "1h": "b" * 64, "4h": "c" * 64}
+        batches = {
+            timeframe: (
+                SimpleNamespace(
+                    response_sha256=digests[timeframe],
+                    candles=(SimpleNamespace(close_time_ms=closes[timeframe] * 1000 - 1),),
+                ),
+                None,
+            )
+            for timeframe in closes
+        }
+        with patch.object(dashboard, "_get_batch", side_effect=lambda symbol, interval: batches[interval]):
+            result = dashboard._current_chart_batch_provenance()
+        self.assertEqual(result["schema"], "hes_market_data_batch_provenance_v1")
+        self.assertEqual(result["timeframes"]["15m"]["last_closed_candle_time"], closes["15m"])
+        for timeframe in closes:
+            self.assertEqual(result["timeframes"][timeframe]["input_batch_sha256"], digests[timeframe])
+
 
 
     def test_dashboard_exposes_1m_chart_and_precision_panel_without_duplicate_sections(self):
