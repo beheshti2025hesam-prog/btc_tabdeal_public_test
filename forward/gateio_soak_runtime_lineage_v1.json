@@ -26,7 +26,7 @@
     },
     {
       "path": "/etc/systemd/system/hes-global-market-data-gateio-4h.service",
-      "sha256": "ee7bf5fae7173f703f21aa8eab55fd6624c7c4c5b06a0f14d8e91f1fd12733e9"
+      "sha256": "ee7bf5fae7173f703f21aa8eb55fd6624c7c4c5b06a0f14d8e91f1fd12733e9"
     },
     {
       "path": "/etc/systemd/system/hes-global-market-data-gateio-soak.service",
@@ -58,7 +58,7 @@
     },
     {
       "path": "data/forward/gateio_feed_soak_24h_v2.jsonl",
-      "sha256": "155d426162ecb301a0423b20f906455f459180f4126017f3da0513844b34788e"
+      "sha256": "d3fcc2db8743648d40aa8eb7cc663ce70180b7ed350e26b3e1f953830c8f6305"
     }
   ],
   "schema": "hes_gateio_soak_runtime_lineage_v1",
