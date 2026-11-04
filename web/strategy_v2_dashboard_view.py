@@ -29,7 +29,7 @@ def _timestamp(value: Any) -> datetime:
         raise StrategyV2DashboardError("naive_report_timestamp")
     return parsed.astimezone(timezone.utc)
 
-def _validated_market_data_provenance(report, gate, closed_15m_candle_time):
+def _validated_market_data_provenance(report, gate, closed_15m_candle_time, current_market_data_provenance=None):
     provenance = report.get("market_data_provenance")
     if not isinstance(provenance, dict):
         raise StrategyV2DashboardError("v2_market_data_provenance_missing")
@@ -60,11 +60,13 @@ def _validated_market_data_provenance(report, gate, closed_15m_candle_time):
             raise StrategyV2DashboardError("v2_market_data_provenance_entry_invalid:" + timeframe)
     if timeframes["15m"]["last_closed_candle_time"] != closed_15m_candle_time:
         raise StrategyV2DashboardError("v2_market_data_provenance_candle_mismatch")
+    if current_market_data_provenance is not None and current_market_data_provenance != provenance:
+        raise StrategyV2DashboardError("v2_market_data_batch_mismatch")
     return provenance
 
 
 def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
-                               max_age_seconds=1800, journal_limit=20):
+                               max_age_seconds=1800, journal_limit=20, current_market_data_provenance=None):
     if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int) or max_age_seconds < 1:
         raise StrategyV2DashboardError("invalid_freshness_policy")
     current = now or datetime.now(timezone.utc)
@@ -108,7 +110,7 @@ def read_strategy_v2_dashboard(*, report_path=None, journal_path=None, now=None,
     gate = report.get("latest_gate_evidence")
     if not isinstance(gate, dict) or gate.get("source") != EXPECTED_SOURCE or gate.get("final_decision") != "NO_TRADE":
         raise StrategyV2DashboardError("v2_latest_gate_evidence_invalid")
-    market_data_provenance = _validated_market_data_provenance(report, gate, closed_candle_time)
+    market_data_provenance = _validated_market_data_provenance(report, gate, closed_candle_time, current_market_data_provenance)
     entry_context = gate.get("entry_context")
     paper_valid, paper_reason = verify_entry_context(
         entry_context, gate_evidence=gate, now_s=int(current.timestamp())
