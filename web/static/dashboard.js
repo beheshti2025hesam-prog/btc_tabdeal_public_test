@@ -65,7 +65,7 @@ refreshPrecisionEntry();setInterval(refreshPrecisionEntry,15000);
  const CLEAN_COPY=COPY.filter(row=>Array.isArray(row)&&row.length===4);
  CLEAN_COPY.push(['Language','زبان','Sprache','Langue'],['Checking…','در حال بررسی…','Wird geprüft…','Vérification…']);
  for(const locale of LOCALES){maps[locale]=new Map();}
- for(const row of CLEAN_COPY){for(let i=0;i<LOCALES.length;i++){const value=i===0?row[0]:row[i];if(value)maps[LOCALES[i]].set(row[0],value);if(i>0&&value)reverse[value]=row[0];}}
+ for(const row of CLEAN_COPY){for(let i=0;i<LOCALES.length;i++){const value=i===0?row[0]:row[i];if(value)maps[LOCALES[i]].set(row[0],value);if(i>0&&value&&value.length>=3)reverse[value]=row[0];}}
  const replacements=Object.entries(reverse).sort((a,b)=>b[0].length-a[0].length);
  function canonical(text){let value=text;for(const [translated,english] of replacements)value=value.split(translated).join(english);return value;}
  function translateText(text,locale){let value=canonical(text);if(locale==='en')return value;const exact=maps[locale].get(value);if(exact)return exact;const pairs=[...maps[locale].entries()].sort((a,b)=>b[0].length-a[0].length);for(const [english,translated] of pairs){if(value.includes(english))value=value.split(english).join(translated);}return value;}
