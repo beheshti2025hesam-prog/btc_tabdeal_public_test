@@ -1,0 +1,32 @@
+name: Opaque Tabdeal Sequence Evidence v1
+
+on:
+  push:
+    branches:
+      - fix/opaque-tabdeal-sequence-evidence-20261013
+  pull_request:
+    branches:
+      - main
+      - fix/opaque-tabdeal-sequence-evidence-20261013
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  opaque-sequence-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest websocket-client
+      - name: Test opaque sequence preservation and raw payload integrity
+        run: python -m pytest -q tests/test_forward_tabdeal_sequence_semantics_v1.py
+      - name: Assert collector remains opt-in and non-trading
+        run: |
+          grep -q 'enabled: bool = False' forward/forward_tabdeal_collector_v1.py
+          ! grep -q 'create_order' forward/forward_tabdeal_collector_v1.py
+          echo "SEQUENCE_SEMANTICS=UNKNOWN_OPAQUE"
+          echo "COLLECTOR_DEFAULT=OFF"
+          echo "TRADING=OFF"
