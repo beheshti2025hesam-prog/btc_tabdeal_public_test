@@ -54,16 +54,23 @@ const { chromium } = require("playwright");
         return message.startsWith("VALIDATED") || message.startsWith("FAIL CLOSED");
       }, null, { timeout: 30000 });
     } catch (error) {
-      const diagnostics = await page.evaluate(() => ({
-        message: document.querySelector("#message")?.textContent || null,
-        chartLibraryLoaded: typeof LightweightCharts !== "undefined",
-        chartElement: !!document.querySelector("#chart"),
-        scriptStates: [...document.scripts].map(script => ({
-          src: script.src || "inline",
-          loaded: !script.src || script.dataset.loaded === "true"
-        }))
-      }));
-      await page.screenshot({ path: "artifacts/native-ohlcv-dashboard-browser-smoke.png", fullPage: true }).catch(() => {});
+      const diagnostics = await Promise.race([
+        page.evaluate(() => ({
+          message: document.querySelector("#message")?.textContent || null,
+          chartLibraryLoaded: typeof LightweightCharts !== "undefined",
+          chartElement: !!document.querySelector("#chart"),
+          scriptStates: [...document.scripts].map(script => ({
+            src: script.src || "inline",
+            loaded: !script.src || script.dataset.loaded === "true"
+          }))
+        })),
+        new Promise(resolve => setTimeout(() => resolve({ page_unresponsive: true }), 5000))
+      ]);
+      await page.screenshot({
+        path: "artifacts/native-ohlcv-dashboard-browser-smoke.png",
+        fullPage: true,
+        timeout: 5000
+      }).catch(error => { diagnostics.screenshotError = String(error); });
       require("node:fs").writeFileSync(
         "artifacts/native-ohlcv-dashboard-browser-smoke.json",
         JSON.stringify({ schema_version: 1, status: "FAIL_READINESS_TIMEOUT", diagnostics, consoleErrors, pageErrors, requestFailures, candlePayloadObserved: !!candlePayload, strategyV2StatusCode, chartAssetResponse }, null, 2) + "\n"
