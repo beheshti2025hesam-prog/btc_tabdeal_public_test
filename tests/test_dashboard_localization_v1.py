@@ -22,7 +22,7 @@ class DashboardLocalizationTests(unittest.TestCase):
 
     def test_english_copyright_owner_is_present_and_separate_from_vendor_notice(self):
         self.assertIn(
-            'Copyright © 2026 HES Trade Agent. All rights reserved.',
+            'Copyright © HES Trade Agent. All rights reserved. ( SEYED HESAMEDDIN BEHESHTI SHIRAZI)',
             dashboard.HTML,
         )
         self.assertIn('Copyright (c) 2025 TradingView, Inc.', dashboard.HTML)
