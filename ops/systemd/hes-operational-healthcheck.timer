@@ -1,0 +1,12 @@
+[Unit]
+Description=Run HES operational health checks every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=hes-operational-healthcheck.service
+
+[Install]
+WantedBy=timers.target
