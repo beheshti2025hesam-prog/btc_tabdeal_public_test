@@ -68,7 +68,8 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertIn('An original geometric signal-convergence mark', svg)
         self.assertIn('href="/static/hes-mark.svg" type="image/svg+xml"', dashboard.HTML)
         self.assertIn('class="brand-mark" src="/static/hes-mark.svg"', dashboard.HTML)
-        self.assertIn('"/static/hes-mark.svg": ("hes-mark.svg", "image/svg+xml; charset=utf-8")', dashboard.__dict__.get("Handler").do_GET.__code__.co_consts.__repr__() if False else (root / "web" / "dashboard.py").read_text(encoding="utf-8"))
+        dashboard_source = (root / "web" / "dashboard.py").read_text(encoding="utf-8")
+        self.assertIn('"/static/hes-mark.svg": ("hes-mark.svg", "image/svg+xml; charset=utf-8")', dashboard_source)
         self.assertIn(".brand-lockup", (root / "web" / "static" / "dashboard.css").read_text(encoding="utf-8"))
 
 if __name__ == "__main__":
