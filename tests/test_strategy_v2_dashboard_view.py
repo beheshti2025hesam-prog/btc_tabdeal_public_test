@@ -144,6 +144,12 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
         with self.assertRaisesRegex(StrategyV2DashboardError, "market_evidence_stale_or_future"):
             self.read()
 
+    def test_live_chart_batch_must_match_strategy_report(self):
+        current = self.market_data_provenance()
+        current["timeframes"]["15m"]["input_batch_sha256"] = "d" * 64
+        with self.assertRaisesRegex(StrategyV2DashboardError, "market_data_batch_mismatch"):
+            self.read(current_market_data_provenance=current)
+
     def test_missing_batch_provenance_fails_closed(self):
         self.write_report(market_data_provenance=None)
         with self.assertRaisesRegex(StrategyV2DashboardError, "market_data_provenance_missing"):
