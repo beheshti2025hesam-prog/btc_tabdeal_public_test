@@ -171,7 +171,7 @@ def _current_chart_batch_provenance():
         timeframes[timeframe] = {
             "input_batch_sha256": digest,
             "candle_count": len(batch.candles),
-            "last_closed_candle_time": int(last.close_time_ms // 1000),
+            "last_closed_candle_time": int((last.close_time_ms + 1) // 1000),
         }
     return {
         "schema": "hes_market_data_batch_provenance_v1",
