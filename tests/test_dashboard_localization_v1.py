@@ -59,5 +59,16 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertIn('class="copyright" lang="en" dir="ltr" data-no-translate', dashboard.HTML)
 
 
+    def test_original_hes_mark_is_integrated_as_header_brand_and_favicon(self):
+        root = Path(dashboard.__file__).resolve().parents[1]
+        asset = root / "web" / "static" / "hes-mark.svg"
+        self.assertTrue(asset.is_file())
+        svg = asset.read_text(encoding="utf-8")
+        self.assertIn('viewBox="0 0 64 64"', svg)
+        self.assertIn('An original geometric signal-convergence mark', svg)
+        self.assertIn('href="/static/hes-mark.svg" type="image/svg+xml"', dashboard.HTML)
+        self.assertIn('class="brand-mark" src="/static/hes-mark.svg"', dashboard.HTML)
+        self.assertIn(".brand-lockup", (root / "web" / "static" / "dashboard.css").read_text(encoding="utf-8"))
+
 if __name__ == "__main__":
     unittest.main()
