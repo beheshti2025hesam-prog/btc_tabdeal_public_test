@@ -230,7 +230,7 @@ def read_mother_v2_dashboard(
             "reason_codes": confirmation_reasons,
             "evidence_refs": _check_refs(
                 confirmation.get("checks"), f"confirmation_sha256:{_canonical_hash(dict(confirmation))}"
-            ),
+            ) + batch_refs,
             "payload": {"upstream_state": confirmation.get("state")},
         },
         "risk": {
@@ -239,7 +239,7 @@ def read_mother_v2_dashboard(
             "reason_codes": risk_reasons,
             "evidence_refs": _check_refs(
                 risk.get("checks"), f"risk_sha256:{_canonical_hash(dict(risk))}"
-            ),
+            ) + batch_refs,
             "payload": {"upstream_state": risk.get("state")},
         },
         "decision": {
