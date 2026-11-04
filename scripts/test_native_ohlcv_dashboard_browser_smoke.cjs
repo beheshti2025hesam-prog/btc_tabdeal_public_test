@@ -48,11 +48,30 @@ const { chromium } = require("playwright");
     });
 
     await page.goto("http://127.0.0.1:8765/", { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForFunction(
-      () => document.querySelector("#message")?.textContent?.startsWith("VALIDATED"),
-      null,
-      { timeout: 90000 }
-    );
+    try {
+      await page.waitForFunction(() => {
+        const message = document.querySelector("#message")?.textContent || "";
+        return message.startsWith("VALIDATED") || message.startsWith("FAIL CLOSED");
+      }, null, { timeout: 30000 });
+    } catch (error) {
+      const diagnostics = await page.evaluate(() => ({
+        message: document.querySelector("#message")?.textContent || null,
+        chartLibraryLoaded: typeof LightweightCharts !== "undefined",
+        chartElement: !!document.querySelector("#chart"),
+        scriptStates: [...document.scripts].map(script => ({
+          src: script.src || "inline",
+          loaded: !script.src || script.dataset.loaded === "true"
+        }))
+      }));
+      await page.screenshot({ path: "artifacts/native-ohlcv-dashboard-browser-smoke.png", fullPage: true }).catch(() => {});
+      require("node:fs").writeFileSync(
+        "artifacts/native-ohlcv-dashboard-browser-smoke.json",
+        JSON.stringify({ schema_version: 1, status: "FAIL_READINESS_TIMEOUT", diagnostics, consoleErrors, pageErrors, requestFailures, candlePayloadObserved: !!candlePayload, strategyV2StatusCode, chartAssetResponse }, null, 2) + "\n"
+      );
+      throw new Error("dashboard readiness timeout: " + JSON.stringify({ diagnostics, consoleErrors, pageErrors, requestFailures, candlePayloadObserved: !!candlePayload, strategyV2StatusCode, chartAssetResponse, cause: String(error) }));
+    }
+    const readinessMessage = await page.locator("#message").textContent();
+    assert.ok(readinessMessage.startsWith("VALIDATED"), "dashboard failed closed before chart acceptance: " + JSON.stringify({ readinessMessage, consoleErrors, pageErrors, requestFailures, candlePayloadObserved: !!candlePayload, strategyV2StatusCode, chartAssetResponse }));
     await page.waitForFunction(() => {
       const canvas = document.querySelector("#chart canvas");
       return !!canvas && canvas.getBoundingClientRect().width > 100 && canvas.getBoundingClientRect().height > 100;
