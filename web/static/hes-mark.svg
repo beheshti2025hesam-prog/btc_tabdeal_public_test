@@ -1,10 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" role="img" aria-labelledby="title desc">
-  <title id="title">HES monogram</title>
-  <desc id="desc">The original HES interlocking monogram, reproduced from the owner's supplied reference.</desc>
-  <g fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M60 175 C35 175 15 160 15 135 V55 C15 30 32 15 55 15 C78 15 95 32 95 55 V150"/>
-    <path d="M95 150 V310"/>
-    <path d="M225 150 V30"/>
-    <path d="M95 165 H270 C295 165 315 185 315 210 V270 C315 295 295 315 270 315 C245 315 225 295 225 270 V195"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" role="img" aria-labelledby="title desc"><title id="title">HES monogram</title><desc id="desc">The original interwoven HES monogram supplied by the owner.</desc><path fill="#fff" fill-rule="evenodd" d="M 27 21 L 19 29 L 15 35 L 11 43 L 9 49 L 9 54 L 8 55 L 8 142 L 9 143 L 9 148 L 11 154 L 15 162 L 20 169 L 32 179 L 46 185 L 49 185 L 50 186 L 66 186 L 66 159 L 57 159 L 56 158 L 49 157 L 39 148 L 36 142 L 36 56 L 40 48 L 47 41 L 55 38 L 63 38 L 69 40 L 78 48 L 82 56 L 82 309 L 84 314 L 88 318 L 92 320 L 100 320 L 104 318 L 109 312 L 109 309 L 110 308 L 110 187 L 111 186 L 283 186 L 284 187 L 291 188 L 294 190 L 301 197 L 304 203 L 304 289 L 300 297 L 294 303 L 289 306 L 286 306 L 285 307 L 277 307 L 276 306 L 273 306 L 268 303 L 262 297 L 258 289 L 258 202 L 230 202 L 230 285 L 231 286 L 231 293 L 235 305 L 241 315 L 254 327 L 264 332 L 271 333 L 272 334 L 291 334 L 292 333 L 295 333 L 301 331 L 313 324 L 321 316 L 325 310 L 329 302 L 331 296 L 331 291 L 332 290 L 332 203 L 331 202 L 331 197 L 329 191 L 323 180 L 320 176 L 310 167 L 300 162 L 294 160 L 291 160 L 290 159 L 259 159 L 258 158 L 258 36 L 256 31 L 252 27 L 248 25 L 240 25 L 236 27 L 233 30 L 230 37 L 230 158 L 229 159 L 111 159 L 110 158 L 110 60 L 109 59 L 108 48 L 103 36 L 99 30 L 86 18 L 76 13 L 69 12 L 68 11 L 49 11 L 48 12 L 45 12 L 39 14 Z"/></svg>
