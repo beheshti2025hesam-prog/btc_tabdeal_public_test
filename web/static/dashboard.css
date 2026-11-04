@@ -54,3 +54,7 @@ section[id]{scroll-margin-top:68px}
 [dir="rtl"] .chart-panel,[dir="rtl"] #chart{direction:ltr}
 .footer .copyright{display:block;margin-top:8px;text-align:left;unicode-bidi:isolate}
 @media(max-width:600px){.header-actions{width:100%;justify-content:space-between}.language-control{margin-inline-start:auto}}
+
+/* Original HES identity mark: compact, legible, and direction-neutral. */
+.brand-lockup{display:flex;gap:12px;align-items:center;min-width:0}
+.brand-mark{display:block;width:44px;height:44px;flex:0 0 44px;border-radius:13px}
