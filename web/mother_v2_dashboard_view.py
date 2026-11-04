@@ -131,11 +131,14 @@ def read_mother_v2_dashboard(
         or market_data_provenance.get("schema") != "hes_market_data_batch_provenance_v1"
         or market_data_provenance.get("source") != _EXPECTED_SOURCE
         or market_data_provenance.get("symbol") != _EXPECTED_SYMBOL
+        or market_data_provenance.get("batch_limit") != 240
     ):
         raise MotherV2DashboardError("v2_market_data_provenance_unverified")
     timeframe_provenance = market_data_provenance.get("timeframes")
     if not isinstance(timeframe_provenance, Mapping) or set(timeframe_provenance) != {"15m", "1h", "4h"}:
         raise MotherV2DashboardError("v2_market_data_provenance_timeframes_invalid")
+    if timeframe_provenance["15m"].get("last_closed_candle_time") != candle_time:
+        raise MotherV2DashboardError("v2_market_data_provenance_candle_mismatch")
     batch_refs = []
     for timeframe in ("15m", "1h", "4h"):
         item = timeframe_provenance.get(timeframe)
@@ -211,7 +214,7 @@ def read_mother_v2_dashboard(
             "agent_version": pipeline_version,
             "state": structure_state,
             "reason_codes": [] if structure_state == "PASS" else ["STRUCTURE_EVIDENCE_NOT_OBSERVED"],
-            "evidence_refs": [f"structure_sha256:{_canonical_hash(dict(structure))}", f"journal_event_sha256:{event_sha}"],
+            "evidence_refs": [f"structure_sha256:{_canonical_hash(dict(structure))}", f"journal_event_sha256:{event_sha}", *batch_refs],
             "payload": {"regime": structure.get("regime"), "observed_at": structure.get("observed_at")},
         },
         "signal": {
@@ -243,14 +246,14 @@ def read_mother_v2_dashboard(
             "agent_version": final_gate_version,
             "state": "DECIDED",
             "reason_codes": event_reasons,
-            "evidence_refs": [f"journal_event_sha256:{event_sha}", f"decision:{decision}"],
+            "evidence_refs": [f"journal_event_sha256:{event_sha}", f"decision:{decision}", *batch_refs],
             "payload": {"decision": decision},
         },
         "evaluation": {
             "agent_version": _ADAPTER_VERSION,
             "state": "OBSERVED",
             "reason_codes": [],
-            "evidence_refs": [f"report_sha256:{report_sha}", f"journal_event_sha256:{event_sha}"],
+            "evidence_refs": [f"report_sha256:{report_sha}", f"journal_event_sha256:{event_sha}", *batch_refs],
             "payload": {"outcomes_inferred": False},
         },
     }
