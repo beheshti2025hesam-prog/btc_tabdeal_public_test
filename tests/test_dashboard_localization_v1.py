@@ -65,8 +65,8 @@ class DashboardLocalizationTests(unittest.TestCase):
         asset = root / "web" / "static" / "hes-mark.svg"
         self.assertTrue(asset.is_file())
         svg = asset.read_text(encoding="utf-8")
-        self.assertIn('viewBox="0 0 64 64"', svg)
-        self.assertIn('An original geometric signal-convergence mark', svg)
+        self.assertIn('viewBox="0 0 340 340"', svg)
+        self.assertIn('original interwoven HES monogram supplied by the owner', svg)
         self.assertIn('href="/static/hes-mark.svg" type="image/svg+xml"', dashboard.HTML)
         self.assertIn('class="brand-mark" src="/static/hes-mark.svg"', dashboard.HTML)
         self.assertIn('viewBox="0 0 340 340"', asset.read_text(encoding="utf-8"))
