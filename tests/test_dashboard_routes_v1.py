@@ -536,7 +536,7 @@ class DashboardRouteTests(unittest.TestCase):
                 self.assertEqual(entry["batch_candles"], 240)
                 self.assertEqual(
                     entry["input_batch_sha256"],
-                    dashboard._canonical_candle_batch_sha256(rows_by_tf[timeframe]),
+                    dashboard.canonical_market_batch_sha256(rows_by_tf[timeframe]),
                 )
         self.assertEqual(payload["setup_decision"], "NO_TRADE")
         self.assertFalse(payload["execution_enabled"])
