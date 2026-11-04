@@ -21,6 +21,22 @@ class MotherV2DashboardViewTests(unittest.TestCase):
         self.write_report()
         self.write_journal()
 
+    def market_data_provenance(self):
+        return {
+            "schema": "hes_market_data_batch_provenance_v1",
+            "source": "gateio_public_spot",
+            "symbol": "BTC_USDT",
+            "batch_limit": 240,
+            "timeframes": {
+                "15m": {"input_batch_sha256": "a" * 64, "candle_count": 240,
+                        "last_closed_candle_time": self.candle_time},
+                "1h": {"input_batch_sha256": "b" * 64, "candle_count": 240,
+                       "last_closed_candle_time": 1793545200},
+                "4h": {"input_batch_sha256": "c" * 64, "candle_count": 240,
+                       "last_closed_candle_time": 1793534400},
+            },
+        }
+
     def write_report(self, *, confirmation_state="UNCONFIRMED", risk_state="RISK_REJECTED",
                      final_decision="NO_TRADE", updated_at=None, execution_enabled=False):
         observed = datetime(2026, 11, 1, 16, 0, tzinfo=timezone.utc)
@@ -38,10 +54,12 @@ class MotherV2DashboardViewTests(unittest.TestCase):
             "target_policy_status": "UNSET_PENDING_APPROVED_PROJECT_DECISION",
             "directional_candidates_blocked_until_gates_approved": True,
             "execution_enabled": execution_enabled, "orders_placed": False,
+            "market_data_provenance": self.market_data_provenance(),
             "latest_gate_evidence": {
                 "pipeline_version": "hes-strategy-gate-pipeline-v1.0.0",
                 "source": "gateio_public_spot", "symbol": "BTC_USDT", "timeframe": "15m",
                 "final_decision": final_decision,
+                "market_data_provenance": self.market_data_provenance(),
                 "structure": {
                     "observed_at": observed.isoformat(), "status": "OBSERVED",
                     "regime": "RANGE", "labels": ["LH", "LL"], "events": [],
@@ -92,6 +110,9 @@ class MotherV2DashboardViewTests(unittest.TestCase):
         self.assertEqual([x["agent"] for x in result["stages"]],
                          ["data_quality", "market_structure", "signal", "confirmation"])
         self.assertTrue(result["witness"]["verified"])
+        self.assertEqual(result["market_data_provenance"]["timeframes"]["15m"]["input_batch_sha256"], "a" * 64)
+        signal_stage = next(stage for stage in result["stages"] if stage["agent"] == "signal")
+        self.assertIn("market_batch:15m:sha256:" + "a" * 64, signal_stage["evidence_refs"])
         self.assertFalse(result["execution_authorized"])
         self.assertFalse(result["execution_enabled"])
         self.assertFalse(result["orders_placed"])
