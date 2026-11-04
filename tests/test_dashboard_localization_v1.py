@@ -21,10 +21,11 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertNotIn('<option value="es">', page)
 
     def test_english_copyright_owner_is_present_and_separate_from_vendor_notice(self):
-        self.assertIn(
-            '''Copyright © HES Trade Agent. All rights reserved.\nDesigned and Owned by\nSEYED HESAMEDDIN BEHESHTI SHIRAZI\nDesigner & Owner''',
-            dashboard.HTML,
-        )
+        self.assertIn('Copyright © HES Trade Agent. All rights reserved.', dashboard.HTML)
+        self.assertIn('class=\"brand-footer-name\">HES Trade Agent</span>', dashboard.HTML)
+        self.assertIn('class=\"copyright-notice\">Copyright © HES Trade Agent. All rights reserved.', dashboard.HTML)
+        self.assertIn('class=\"owner-name\">SEYED HESAMEDDIN BEHESHTI SHIRAZI</span>', dashboard.HTML)
+        self.assertIn('class=\"owner-role\">Designer &amp; Owner</span>', dashboard.HTML)
         self.assertIn('Copyright (c) 2025 TradingView, Inc.', dashboard.HTML)
         self.assertIn('lang="en" dir="ltr"', dashboard.HTML)
 
@@ -66,8 +67,8 @@ class DashboardLocalizationTests(unittest.TestCase):
         asset = root / "web" / "static" / "hes-mark.svg"
         self.assertTrue(asset.is_file())
         svg = asset.read_text(encoding="utf-8")
-        self.assertIn('viewBox="0 0 64 64"', svg)
-        self.assertIn('An original geometric signal-convergence mark', svg)
+        self.assertIn('viewBox="0 0 340 340"', svg)
+        self.assertIn('original interwoven HES monogram supplied by the owner', svg)
         self.assertIn('href="/static/hes-mark.svg" type="image/svg+xml"', dashboard.HTML)
         self.assertIn('class="brand-mark" src="/static/hes-mark.svg"', dashboard.HTML)
         dashboard_source = (root / "web" / "dashboard.py").read_text(encoding="utf-8")
