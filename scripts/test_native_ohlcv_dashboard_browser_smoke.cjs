@@ -268,22 +268,27 @@ const { chromium } = require("playwright");
       await page.setViewportSize(viewport);
       const minimumChartWidth = viewport.width <= 600 ? 200 : viewport.width <= 800 ? 550 : 900;
       await page.waitForFunction((minimum) => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
-        return !!rect && rect.width > minimum && document.documentElement.scrollWidth <= window.innerWidth + 1;
-      }, minimumChartWidth, { timeout: 5000 });
+        return !!rect && rect.width > minimum && rect.width <= container.clientWidth + 1 &&
+          document.documentElement.scrollWidth <= window.innerWidth + 1;
+      }, minimumChartWidth, { timeout: 10000 });
       const layout = await page.evaluate(() => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
         return {
           viewportWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
+          containerWidth: container.clientWidth,
           chartWidth: rect ? rect.width : 0,
           chartHeight: rect ? rect.height : 0,
           horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
         };
       });
       assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.ok(layout.chartWidth <= layout.containerWidth + 1, "chart canvas did not resize to its container at viewport " + viewport.width + ": " + JSON.stringify(layout));
       assert.equal(layout.horizontalOverflow, false, "horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
       responsiveViewports.push(layout);
     }
@@ -368,22 +373,27 @@ const { chromium } = require("playwright");
       await page.setViewportSize(viewport);
       const minimumChartWidth = viewport.width <= 600 ? 200 : viewport.width <= 800 ? 550 : 900;
       await page.waitForFunction((minimum) => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
-        return !!rect && rect.width > minimum && document.documentElement.scrollWidth <= window.innerWidth + 1;
-      }, minimumChartWidth, { timeout: 5000 });
+        return !!rect && rect.width > minimum && rect.width <= container.clientWidth + 1 &&
+          document.documentElement.scrollWidth <= window.innerWidth + 1;
+      }, minimumChartWidth, { timeout: 10000 });
       const layout = await page.evaluate(() => {
+        const container = document.querySelector("#chart");
         const canvas = document.querySelector("#chart canvas");
         const rect = canvas?.getBoundingClientRect();
         return {
           viewportWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
+          containerWidth: container.clientWidth,
           chartWidth: rect ? rect.width : 0,
           chartHeight: rect ? rect.height : 0,
           horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
         };
       });
       assert.ok(layout.chartWidth > minimumChartWidth && layout.chartHeight > 200, "1m chart is not usable at viewport " + viewport.width + ": " + JSON.stringify(layout));
+      assert.ok(layout.chartWidth <= layout.containerWidth + 1, "1m chart canvas did not resize to its container at viewport " + viewport.width + ": " + JSON.stringify(layout));
       assert.equal(layout.horizontalOverflow, false, "1m chart horizontal overflow at viewport " + viewport.width + ": " + JSON.stringify(layout));
       oneMinuteResponsiveViewports.push(layout);
     }
