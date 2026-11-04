@@ -113,6 +113,9 @@ class MotherV2DashboardViewTests(unittest.TestCase):
         self.assertEqual(result["market_data_provenance"]["timeframes"]["15m"]["input_batch_sha256"], "a" * 64)
         signal_stage = next(stage for stage in result["stages"] if stage["agent"] == "signal")
         self.assertIn("market_batch:15m:sha256:" + "a" * 64, signal_stage["evidence_refs"])
+        for stage in result["stages"]:
+            for timeframe, digest in (("15m", "a" * 64), ("1h", "b" * 64), ("4h", "c" * 64)):
+                self.assertIn(f"market_batch:{timeframe}:sha256:{digest}", stage["evidence_refs"])
         self.assertFalse(result["execution_authorized"])
         self.assertFalse(result["execution_enabled"])
         self.assertFalse(result["orders_placed"])
