@@ -152,24 +152,31 @@ const { chromium } = require("playwright");
 
     const languageSelect = page.locator("#languageSelect");
     const motherTitle = page.locator("#motherTitle");
+    const decisionHeader = page.locator("#journalPanel thead th").nth(2);
     assert.equal((await motherTitle.textContent()).trim(), "Mother Orchestrator · canonical V2 evidence chain",
       "English canonical Mother heading was altered");
+    assert.equal((await decisionHeader.textContent()).trim(), "Decision");
     await languageSelect.selectOption("de");
     await page.waitForFunction(() => document.documentElement.lang === "de" &&
       document.querySelector("#motherTitle")?.textContent.includes("kanonische V2-Nachweiskette"));
     assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Orchestrator");
+    assert.equal((await decisionHeader.textContent()).trim(), "Entscheidung");
     assert.equal(await page.evaluate(() => localStorage.getItem("hes-dashboard-locale-v1")), "de");
     await languageSelect.selectOption("fa");
     await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
+    assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
     await languageSelect.selectOption("fr");
     await page.waitForFunction(() => document.documentElement.lang === "fr" && document.documentElement.dir === "ltr");
+    assert.equal((await decisionHeader.textContent()).trim(), "Décision");
     await languageSelect.selectOption("en");
     await page.waitForFunction(() => document.documentElement.lang === "en" &&
       document.querySelector("#motherTitle")?.textContent.trim() === "Mother Orchestrator · canonical V2 evidence chain");
     assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Mother",
       "English Mother navigation label was not restored");
+    assert.equal((await decisionHeader.textContent()).trim(), "Decision",
+      "English Decision label was not restored after ambiguous translations");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
