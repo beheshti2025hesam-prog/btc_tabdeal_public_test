@@ -157,6 +157,30 @@ def _get_batch(symbol, interval):
         return cached[0], cached[1]
     return _refresh_batch(symbol, interval)
 
+def _current_chart_batch_provenance():
+    """Describe the exact cached native batches currently used by the chart."""
+    timeframes = {}
+    for timeframe in ("15m", "1h", "4h"):
+        batch, _ = _get_batch("BTCUSDT", timeframe)
+        if not batch.candles:
+            raise ValueError("chart_batch_empty:" + timeframe)
+        digest = batch.response_sha256
+        if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise ValueError("chart_batch_digest_invalid:" + timeframe)
+        last = batch.candles[-1]
+        timeframes[timeframe] = {
+            "input_batch_sha256": digest,
+            "candle_count": len(batch.candles),
+            "last_closed_candle_time": int(last.close_time_ms // 1000),
+        }
+    return {
+        "schema": "hes_market_data_batch_provenance_v1",
+        "source": "gateio_public_spot",
+        "symbol": "BTC_USDT",
+        "batch_limit": 240,
+        "timeframes": timeframes,
+    }
+
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HES Trade Agent</title><link rel="icon" href="/static/hes-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/static/dashboard.css"><script src="/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js" integrity="sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl" crossorigin="anonymous"></script></head><body><a class="skip-link" href="#main-content">Skip to dashboard content</a><main id="main-content" tabindex="-1"><header><div class="brand-lockup"><img class="brand-mark" src="/static/hes-mark.svg" alt="" aria-hidden="true"><div><h1 class="brand">HES Trade Agent</h1><div class="sub">Global feed · persisted closed candles</div></div></div><div class="header-actions"><label class="language-control" for="languageSelect"><span>Language</span><select id="languageSelect" aria-label="Dashboard language"><option value="en">English</option><option value="fa">فارسی</option><option value="de">Deutsch</option><option value="fr">Français</option></select></label><span class="pill">HOLD / NO_TRADE_ONLY</span></div></header>
 <nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#precisionEntryPanel">Precision</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
@@ -243,7 +267,14 @@ class Handler(BaseHTTPRequestHandler):
                     tf: read_closed_candles(tf, root=root, min_bars=(50 if tf == "1m" else 200))
                     for tf in ("4h", "1h", "15m", "1m")
                 }
-                strategy = read_strategy_v2_dashboard()
+                current_provenance = _current_chart_batch_provenance()
+                for timeframe in ("15m", "1h", "4h"):
+                    if canonical_market_batch_sha256(feeds[timeframe]) != current_provenance["timeframes"][timeframe]["input_batch_sha256"]:
+                        raise ValueError("precision_chart_batch_mismatch:" + timeframe)
+                chart_1m_batch, _ = _get_batch("BTCUSDT", "1m")
+                if canonical_market_batch_sha256(feeds["1m"]) != chart_1m_batch.response_sha256:
+                    raise ValueError("precision_chart_batch_mismatch:1m")
+                strategy = read_strategy_v2_dashboard(current_market_data_provenance=current_provenance)
                 gate = strategy.get("latest_gate_evidence", {})
                 if not isinstance(gate, dict):
                     raise ValueError("strategy_gate_evidence_invalid")
@@ -345,9 +376,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/strategy-v2":
             try:
-                payload = read_strategy_v2_dashboard()
+                current_provenance = _current_chart_batch_provenance()
+                payload = read_strategy_v2_dashboard(current_market_data_provenance=current_provenance)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
-            except StrategyV2DashboardError as exc:
+            except (StrategyV2DashboardError, ValueError) as exc:
                 payload = {
                     "schema": "hes.strategy_v2_dashboard_view.v1", "status": "BLOCKED",
                     "decision": "NO_TRADE", "direction": "NONE", "reason": str(exc),
@@ -357,10 +389,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/mother":
             try:
-                strategy_view = read_strategy_v2_dashboard()
+                current_provenance = _current_chart_batch_provenance()
+                strategy_view = read_strategy_v2_dashboard(current_market_data_provenance=current_provenance)
                 payload = read_mother_v2_dashboard(strategy_view=strategy_view)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
-            except (StrategyV2DashboardError, MotherV2DashboardError) as exc:
+            except (StrategyV2DashboardError, MotherV2DashboardError, ValueError) as exc:
                 payload = {
                     "schema": "hes.mother_v2_dashboard_view.v1", "status": "BLOCKED_EVIDENCE",
                     "decision": "NO_TRADE", "reason_codes": [str(exc)], "stages": [],
