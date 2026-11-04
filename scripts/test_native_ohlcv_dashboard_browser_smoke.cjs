@@ -149,6 +149,27 @@ const { chromium } = require("playwright");
     }));
 
     assert.ok(ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0, "HES logo image did not render");
+
+    const languageSelect = page.locator("#languageSelect");
+    const motherTitle = page.locator("#motherTitle");
+    assert.equal((await motherTitle.textContent()).trim(), "Mother Orchestrator · canonical V2 evidence chain",
+      "English canonical Mother heading was altered");
+    await languageSelect.selectOption("de");
+    await page.waitForFunction(() => document.documentElement.lang === "de" &&
+      document.querySelector("#motherTitle")?.textContent.includes("kanonische V2-Nachweiskette"));
+    assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Orchestrator");
+    assert.equal(await page.evaluate(() => localStorage.getItem("hes-dashboard-locale-v1")), "de");
+    await languageSelect.selectOption("fa");
+    await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
+      "chart canvas must remain LTR under Persian UI");
+    await languageSelect.selectOption("fr");
+    await page.waitForFunction(() => document.documentElement.lang === "fr" && document.documentElement.dir === "ltr");
+    await languageSelect.selectOption("en");
+    await page.waitForFunction(() => document.documentElement.lang === "en" &&
+      document.querySelector("#motherTitle")?.textContent.trim() === "Mother Orchestrator · canonical V2 evidence chain");
+    assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Mother",
+      "English Mother navigation label was not restored");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
