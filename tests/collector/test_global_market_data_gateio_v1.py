@@ -239,6 +239,18 @@ def test_persisted_history_is_not_truncated_to_native_rest_fetch_limit(tmp_path)
     assert persisted[-1]["open_time"] == rows[-1]["open_time"]
 
 
+def test_collector_startup_reads_only_bounded_history_tail(tmp_path, monkeypatch):
+    path = tmp_path / "candles.jsonl"
+    rows = [persisted_row(900 + index * collector.INTERVAL_SECONDS) for index in range(6001)]
+    write_rows(path, rows)
+
+    def full_scan_is_forbidden(*_args, **_kwargs):
+        pytest.fail("steady-state startup must not scan the complete durable history")
+
+    monkeypatch.setattr(collector, "_read_existing", full_scan_is_forbidden)
+    assert collector._last_saved_ts(path) == rows[-1]["open_time"]
+
+
 def test_steady_state_append_preserves_history_older_than_bounded_tail(tmp_path):
     path = tmp_path / "candles.jsonl"
     rows = [persisted_row(900 + index * collector.INTERVAL_SECONDS) for index in range(6001)]
