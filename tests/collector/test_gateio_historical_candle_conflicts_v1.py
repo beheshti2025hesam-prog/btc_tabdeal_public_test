@@ -94,7 +94,7 @@ def test_reconciliation_preserves_history_and_adds_new_closed_rows():
         "open": "101", "high": "103", "low": "100", "close": "102",
         "volume": "2", "quote_volume": "200",
     })
-    new_row = candle(timeframe, ts + 3 * seconds, {
+    new_row = candle(timeframe, ts + 2 * seconds, {
         "open": "102", "high": "104", "low": "101", "close": "103",
         "volume": "3", "quote_volume": "300",
     })
@@ -107,11 +107,11 @@ def test_reconciliation_preserves_history_and_adds_new_closed_rows():
     )
 
     assert [row["open_time"] for row in merged] == [
-        ts - seconds, ts, ts + seconds, ts + 3 * seconds
+        ts - seconds, ts, ts + seconds, ts + 2 * seconds
     ]
     assert len(merged) == 4
     assert len(changes) == 1
-    assert added == [ts + 3 * seconds]
+    assert added == [ts + 2 * seconds]
 
 
 def test_three_rest_snapshots_must_be_semantically_identical():
