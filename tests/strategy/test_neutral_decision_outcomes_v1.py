@@ -60,8 +60,8 @@ def test_run_skips_retention_boundary_decision_and_continues_valid_records(tmp_p
         {"event_id":"recent","observed_at":"1970-01-01T00:15:00+00:00","decision":"NO_TRADE","direction":"NONE","symbol":"BTC_USDT","timeframe":"15m"},
     ]
     candles=[candle(t,100,101,99,100+t/100000) for t in (0,900,1800,2700,3600)]
-    (data/"trade_journal_v2.jsonl").write_text("".join(json.dumps(row)+"\\n" for row in decisions),encoding="utf-8")
-    (data/"global_market_candles_v1.jsonl").write_text("".join(json.dumps(row)+"\\n" for row in candles),encoding="utf-8")
+    (data/"trade_journal_v2.jsonl").write_text("".join(json.dumps(row)+"\n" for row in decisions),encoding="utf-8")
+    (data/"global_market_candles_v1.jsonl").write_text("".join(json.dumps(row)+"\n" for row in candles),encoding="utf-8")
 
     summary=mod.run(tmp_path)
     assert summary["status"]=="PARTIAL_UNSCORABLE"
