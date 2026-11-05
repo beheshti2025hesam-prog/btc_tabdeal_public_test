@@ -2,8 +2,6 @@
   "schema": "hes_controlled_forward_observation_runner_v1",
   "status": "ACTIVE_FAIL_CLOSED",
   "purpose": "Prevent live observation from starting until exact-scope upstream trade.sequence capabilities are proven by the registry",
-  "sequence_contract_verified_default": false,
-  "sequence_contract_evidence_ref_required": true,
   "block_reason": "SEQUENCE_CAPABILITIES_UNVERIFIED",
   "block_before_network": true,
   "block_before_session_write": true,
@@ -19,5 +17,6 @@
     "contiguous_within_scope",
     "gap_detectable"
   ],
-  "caller_boolean_override_allowed": false
+  "caller_boolean_override_allowed": false,
+  "registry_required": true
 }
