@@ -93,7 +93,7 @@ def test_unapproved_historical_conflict_fails_closed():
     timeframe = "1h"
     old_rows = complete_approved_rows(timeframe, "old")
     rest_rows = complete_approved_rows(timeframe, "new")
-    extra_ts = 1793170800 + 2 * 3600
+    extra_ts = max(APPROVED[timeframe]) + 3600
     extra_old = candle(timeframe, extra_ts, {
         "open": "100", "high": "102", "low": "99", "close": "101",
         "volume": "1", "quote_volume": "100",
@@ -149,28 +149,29 @@ def test_reconciliation_aborts_if_any_pinned_conflict_identity_is_missing():
 def test_reconciliation_preserves_history_and_adds_new_closed_rows():
     timeframe = "1h"
     seconds = 3600
-    ts = 1793170800
-    before = candle(timeframe, ts - seconds, {
+    first_ts = min(APPROVED[timeframe])
+    last_ts = max(APPROVED[timeframe])
+    before = candle(timeframe, first_ts - seconds, {
         "open": "100", "high": "102", "low": "99", "close": "101",
         "volume": "1", "quote_volume": "100",
     })
-    existing_conflicts = complete_approved_rows(timeframe, "old")
-    next_row = candle(timeframe, ts + 2 * seconds, {
+    existing_history = complete_approved_rows(timeframe, "old")
+    next_ts = last_ts + seconds
+    next_row = candle(timeframe, next_ts, {
         "open": "102", "high": "104", "low": "101", "close": "103",
         "volume": "3", "quote_volume": "300",
     })
     rest_rows = complete_approved_rows(timeframe, "new") + [deepcopy(next_row)]
 
     merged, changes, added = reconcile_rows(
-        timeframe, [before] + existing_conflicts, rest_rows
+        timeframe, [before] + existing_history, rest_rows
     )
 
-    assert [row["open_time"] for row in merged] == [
-        ts - seconds, ts, ts + seconds, ts + 2 * seconds
-    ]
-    assert len(merged) == 4
-    assert len(changes) == 2
-    assert added == [ts + 2 * seconds]
+    assert merged[0]["open_time"] == first_ts - seconds
+    assert merged[-1]["open_time"] == next_ts
+    assert len(merged) == len(existing_history) + 2
+    assert len(changes) == len(APPROVED[timeframe])
+    assert added == [next_ts]
 
 
 def test_three_rest_snapshots_must_be_semantically_identical():
