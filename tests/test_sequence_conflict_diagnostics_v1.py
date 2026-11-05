@@ -64,7 +64,7 @@ def test_runner_persists_conflict_fingerprint_only_under_positive_test_capabilit
     assert result.records_received == 2
     rows = [json.loads(line) for line in diagnostics_path.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == 1
-    diagnostic = rows[0]["diagnostics"][0]["diagnostic"]
+    diagnostic = rows[0]["sequence_events"][0]["diagnostic"]
     assert diagnostic["differing_fields"] == ["price"]
     assert diagnostic["first_payload_sha256"] != diagnostic["conflicting_payload_sha256"]
 
@@ -125,5 +125,5 @@ def test_metadata_bound_is_enforced_only_after_registry_allows_transport(tmp_pat
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "TRANSPORT_FRAME_METADATA_BOUND_EXCEEDED"
+    assert result.reason == "TRANSPORT_METADATA_BOUND_EXCEEDED"
     assert result.records_received == 0
