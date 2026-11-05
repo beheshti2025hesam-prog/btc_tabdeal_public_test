@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evidence-gated one-time reconciliation of six known Gate.io BTC Spot candles.
+"""Evidence-gated one-time reconciliation of seven known Gate.io BTC Spot candles.
 
 Default mode only stages a complete-history candidate and raw REST evidence.
 --apply requires both affected collectors to be stopped and exact source hashes
