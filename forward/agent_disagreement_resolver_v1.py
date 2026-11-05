@@ -21,6 +21,8 @@ CORE_REQUIRED_AGENTS = MANDATORY_VETO_AGENTS | frozenset({"market_structure"})
 # A directional result requires two distinct policy/confirmation authorities.
 DIRECTIONAL_REQUIRED_AGENTS = frozenset({"strategy", "confirmation"})
 MAX_ASSESSMENTS = 32
+MAX_REQUIRED_AGENTS = 32
+MAX_REASON_CODES = 64
 MAX_SCOPE_TEXT = 128
 MAX_REASON_CODE = 128
 
@@ -117,9 +119,11 @@ class AgentDisagreementResolverV1:
         if isinstance(required_agents, (str, bytes)):
             return finish("INVALID_REQUIRED_AGENT_SET", ("REQUIRED_AGENTS_MUST_BE_A_COLLECTION",), [])
         try:
-            requested_required = tuple(required_agents)
+            requested_required = tuple(islice(iter(required_agents), MAX_REQUIRED_AGENTS + 1))
         except Exception:
             return finish("INVALID_REQUIRED_AGENT_SET", ("REQUIRED_AGENT_ITERATION_FAILED",), [])
+        if len(requested_required) > MAX_REQUIRED_AGENTS:
+            return finish("INVALID_REQUIRED_AGENT_SET", ("REQUIRED_AGENT_COUNT_LIMIT_EXCEEDED",), [])
         if any(
             not isinstance(name, str) or not name or name != name.strip() or len(name) > MAX_SCOPE_TEXT
             for name in requested_required
@@ -159,9 +163,13 @@ class AgentDisagreementResolverV1:
                 return finish("INVALID_SCOPE", ("ASSESSMENT_SCOPE_MISSING:" + a.agent_id,), rows)
             if not _digest(a.snapshot_sha256) or not _digest(a.evidence_sha256):
                 return finish("INVALID_PROVENANCE", ("EVIDENCE_HASH_INVALID:" + a.agent_id,), rows)
-            if not isinstance(a.reason_codes, (tuple, list)) or any(
+            if (
+                not isinstance(a.reason_codes, (tuple, list))
+                or len(a.reason_codes) > MAX_REASON_CODES
+                or any(
                 not isinstance(code, str) or not code or code != code.strip() or len(code) > MAX_REASON_CODE
                 for code in a.reason_codes
+                )
             ):
                 return finish("INVALID_REASON_CODES", ("ASSESSMENT_REASON_CODES_INVALID:" + a.agent_id,), rows)
             if len(a.reason_codes) != len(set(a.reason_codes)):
