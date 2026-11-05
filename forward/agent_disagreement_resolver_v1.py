@@ -167,8 +167,8 @@ class AgentDisagreementResolverV1:
                 not isinstance(a.reason_codes, (tuple, list))
                 or len(a.reason_codes) > MAX_REASON_CODES
                 or any(
-                not isinstance(code, str) or not code or code != code.strip() or len(code) > MAX_REASON_CODE
-                for code in a.reason_codes
+                    not isinstance(code, str) or not code or code != code.strip() or len(code) > MAX_REASON_CODE
+                    for code in a.reason_codes
                 )
             ):
                 return finish("INVALID_REASON_CODES", ("ASSESSMENT_REASON_CODES_INVALID:" + a.agent_id,), rows)
