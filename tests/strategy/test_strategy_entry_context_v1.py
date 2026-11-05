@@ -77,3 +77,27 @@ def test_precision_entry_zone_policy_is_locked_and_advisory_only():
     assert policy["authority"]=="ADVISORY_ONLY"
     assert policy["execution_enabled"] is False
     assert policy["orders_placed"] is False
+
+
+def test_entry_context_carries_exact_evaluator_run_manifest():
+    gate=evidence()
+    gate["strategy_run_provenance"]={
+        "run_id":"HESV2-test-run-0001",
+        "service_name":"strategy_policy_v2_forward_evaluator",
+        "code_release_id":"release-test",
+        "run_manifest_sha256":"b"*64,
+    }
+    ctx=context(gate=gate)
+    assert ctx["strategy_run_provenance"]["run_id"]=="HESV2-test-run-0001"
+    assert ctx["strategy_run_provenance"]["run_manifest_sha256"]=="b"*64
+    assert verify_entry_context(ctx,gate_evidence=gate,now_s=NOW,expected_direction="LONG")== (True,None)
+
+def test_invalid_evaluator_run_manifest_reference_is_rejected():
+    gate=evidence()
+    gate["strategy_run_provenance"]={"run_id":"not-a-run","code_release_id":"release-test","run_manifest_sha256":"x"}
+    try:
+        context(gate=gate)
+    except ValueError as exc:
+        assert str(exc)=="ENTRY_CONTEXT_RUN_PROVENANCE_INVALID"
+    else:
+        raise AssertionError("invalid run provenance must not enter the setup context")
