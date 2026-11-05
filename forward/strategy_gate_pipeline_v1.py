@@ -17,6 +17,8 @@ from .confirmation_engine_v1 import ConfirmationCheck, ConfirmationEngineV1
 from .confirmation_policy_v1 import ConfirmationPolicyV1
 from .risk_gate_v1 import RiskCheck, RiskGateV1
 from .risk_policy_v1 import RiskPolicyV1
+from .strategy_family_router_v1 import route_strategy_family
+from .strategy_family_context_v1 import build_strategy_family_context, verify_strategy_family_context
 
 PIPELINE_VERSION = "hes-strategy-gate-pipeline-v1.0.0"
 
@@ -60,6 +62,11 @@ def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observ
     obs=_dt(observed_at); structure=inspect_structure(rows_15m,obs)
     direction=getattr(proposal,"direction","NONE")
     regime=structure["regime"]
+    # Family attribution is diagnostic metadata only. It cannot change the
+    # candidate, confirmation, risk, or final-decision path below.
+    family_route = route_strategy_family(
+        source=source, symbol=symbol, timeframe="15m", regime=regime
+    ).as_dict()
     # Opportunity is independently classified from structure. The strategy proposal
     # must agree with it; proposal scores alone cannot create an eligible candidate.
     candidate=OpportunityDetectorV1(OpportunityPolicyV1()).evaluate(
@@ -103,7 +110,61 @@ def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observ
       RiskCheck("stop_and_reward_geometry","PASS" if geometry_ok else "FAIL","policy:entry-stop-target-min-3R",obs),
     )
     risk=RiskGateV1(RiskPolicyV1()).evaluate(observed_at=obs,confirmation=confirmation,checks=risk_checks)
+    # Persist a family-bound evidence envelope only when the independently
+    # classified opportunity is directional. The envelope is provenance, not
+    # permission; its authority flags are hard-coded false by its contract.
+    family_context = None
+    family_context_status = "NOT_BUILT_NO_DIRECTIONAL_CANDIDATE"
+    candidate_direction = ("LONG" if candidate.state == "CANDIDATE_LONG" else
+                           "SHORT" if candidate.state == "CANDIDATE_SHORT" else None)
+    if family_route.get("family_id") and candidate_direction:
+        candidate_payload = {
+            "state": candidate.state,
+            "observed_at": obs.isoformat(),
+            "symbol": candidate.symbol,
+            "timeframe": candidate.timeframe,
+            "regime": candidate.regime,
+            "structure_labels": list(candidate.structure_labels),
+            "structure_events": list(candidate.structure_events),
+            "reason_codes": list(candidate.reason_codes),
+            "quality_score": candidate.quality_score,
+        }
+        gate_payload = {
+            "strategy_family_route": family_route,
+            "structure": structure,
+            "confirmation": {
+                "state": confirmation.state,
+                "reason_codes": list(confirmation.reason_codes),
+                "checks": [{"name": c.name, "state": c.state,
+                            "evidence_ref": c.evidence_ref,
+                            "observed_at": c.observed_at.isoformat()} for c in confirmation.checks],
+            },
+            "risk": {
+                "state": risk.state,
+                "reason_codes": list(risk.reason_codes),
+                "checks": [{"name": c.name, "state": c.state,
+                            "evidence_ref": c.evidence_ref,
+                            "observed_at": c.observed_at.isoformat()} for c in risk.checks],
+            },
+        }
+        try:
+            built = build_strategy_family_context(
+                source=source, symbol=symbol, timeframe="15m", regime=regime,
+                direction=candidate_direction, observed_at=obs,
+                candidate=candidate_payload, gate_evidence=gate_payload,
+            )
+            valid, invalid_reason = verify_strategy_family_context(built, now=obs)
+            if valid:
+                family_context = built
+                family_context_status = "VERIFIED_EVIDENCE_ONLY_NOT_AUTHORIZED"
+            else:
+                family_context_status = "REJECTED:" + str(invalid_reason)
+        except (TypeError, ValueError) as exc:
+            family_context_status = "REJECTED:" + str(exc)[:120]
     return {"pipeline_version":PIPELINE_VERSION,"source":source,"symbol":symbol,"timeframe":"15m",
+            "strategy_family_route":family_route,
+            "strategy_family_context":family_context,
+            "strategy_family_context_status":family_context_status,
             "structure":structure,"confirmation":{"state":confirmation.state,"passed_count":confirmation.passed_count,
             "required_count":confirmation.required_count,"reason_codes":list(confirmation.reason_codes),
             "checks":[{"name":c.name,"state":c.state,"evidence_ref":c.evidence_ref,"observed_at":c.observed_at.isoformat()} for c in confirmation.checks]},
