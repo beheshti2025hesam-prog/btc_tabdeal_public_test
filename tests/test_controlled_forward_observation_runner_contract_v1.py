@@ -6,8 +6,9 @@ RUNNER=ROOT/"forward"/"controlled_forward_observation_runner_v1.py"
 
 def test_runner_contract_requires_exact_scope_capability_registry():
     contract=json.loads(CONTRACT.read_text(encoding="utf-8"))
-    assert contract["sequence_contract_verified_default"] is False
-    assert contract["sequence_contract_evidence_ref_required"] is True
+    assert contract["registry_required"] is True
+    assert "sequence_contract_verified_default" not in contract
+    assert "sequence_contract_evidence_ref_required" not in contract
     assert contract["sequence_capability_registry"]=="docs/protocol/sequence_semantics_registry_v1.json"
     assert contract["sequence_capabilities_required"]==[
         "event_identity_unique","ordered_within_scope","contiguous_within_scope","gap_detectable"]
