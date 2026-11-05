@@ -1,6 +1,9 @@
 name: Clean Forward Evidence Verification v1
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
