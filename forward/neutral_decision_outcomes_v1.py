@@ -134,9 +134,19 @@ def run(root: str | Path = "/opt/hes-trade-agent") -> dict[str, Any]:
     decisions = [r for r in decisions_all if r.get("decision") == "NO_TRADE"]
     output_path = data / "neutral_decision_outcomes_v1.jsonl"
     existing = _read_jsonl(output_path); done = {r.get("outcome_id") for r in existing}
-    new = []; pending = 0
+    new = []; pending = 0; unscorable_no_baseline_event_ids = []
     for decision in decisions:
-        for record in evaluate_no_trade(decision, candles):
+        try:
+            evaluated = evaluate_no_trade(decision, candles)
+        except ValueError as exc:
+            # A decision older than the retained candle window has no defensible
+            # baseline. Isolate and count that record; never fabricate a baseline
+            # or abort evaluation of newer, fully supported decisions.
+            if str(exc) == "NO_CLOSED_CANDLE_AT_DECISION_TIME":
+                unscorable_no_baseline_event_ids.append(str(decision.get("event_id") or ""))
+                continue
+            raise
+        for record in evaluated:
             if not record["horizon_complete"]:
                 pending += 1
             elif record["outcome_id"] not in done:
@@ -146,11 +156,21 @@ def run(root: str | Path = "/opt/hes-trade-agent") -> dict[str, Any]:
             for row in new: handle.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
             handle.flush()
     all_rows = existing + new
+    unscorable_digest = (
+        hashlib.sha256("\n".join(sorted(unscorable_no_baseline_event_ids)).encode()).hexdigest()
+        if unscorable_no_baseline_event_ids else None
+    )
     summary = {"schema": "hes_neutral_decision_outcomes_report_v1",
+               "status": "PARTIAL_UNSCORABLE" if unscorable_no_baseline_event_ids else "OK",
                "updated_at": datetime.now(timezone.utc).isoformat(), "decision_count": len(decisions),
                "validated_candle_count": len(candles), "outcome_records_total": len(all_rows),
                "new_records_added": len(new), "complete_records": sum(r.get("horizon_complete") is True for r in all_rows),
-               "pending_horizons_current_run": pending, "outcome_class_counts": {},
+               "pending_horizons_current_run": pending,
+               "unscorable_no_baseline_decisions": len(unscorable_no_baseline_event_ids),
+               "unscorable_no_baseline_reason": "NO_CLOSED_CANDLE_AT_DECISION_TIME" if unscorable_no_baseline_event_ids else None,
+               "unscorable_no_baseline_event_ids_sha256": unscorable_digest,
+               "retention_boundary_policy": "SKIP_AND_COUNT_UNSCORABLE",
+               "outcome_class_counts": {},
                "output_file": str(output_path), "policy_mutation_enabled": False,
                "execution_enabled": False, "orders_placed": False}
     for row in all_rows:
