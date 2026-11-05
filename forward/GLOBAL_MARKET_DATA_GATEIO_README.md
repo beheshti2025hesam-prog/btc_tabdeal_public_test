@@ -17,7 +17,7 @@ This is the existing HES Gate.io candle collector, now versioned beside the cano
 - `hes-global-market-data-gateio.service` — 15m
 - `hes-global-market-data-gateio-1h.service` — 1h
 - `hes-global-market-data-gateio-4h.service` — 4h
-- `hes-global-market-data-gateio-soak.service` — optional 24-hour read-only integrity soak; do not enable by default. It uses `Restart=no`; any failed run terminates and requires explicit review/manual restart.
+- `hes-global-market-data-gateio-soak.service` — optional 24-hour read-only integrity soak; do not enable by default. It uses `Restart=no`; any failed run terminates and requires explicit review/manual restart. Previous outputs are retained with a neutral `.archive.<UTC timestamp>` suffix.
 
 The service unit templates under `deploy/systemd/` are for the current VPS layout (`/opt/hes-trade-agent`, user/group `sentinelx`). Adapt the root, venv, service user, and `ReadWritePaths` for another host before installation. Drop-ins preserve the deployed UMask and systemd sandbox restrictions.
 
