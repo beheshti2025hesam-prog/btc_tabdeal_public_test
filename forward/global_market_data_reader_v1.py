@@ -3,7 +3,7 @@
 This is an analysis-input boundary, not a signal or execution component.
 """
 from __future__ import annotations
-import json, math, time
+import hashlib, json, math, time
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +94,47 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
     if age > seconds * 2:
         raise MarketDataRejected("CANDLE_FEED_STALE")
     return records
+
+def canonical_market_batch_sha256(rows: list[dict], *, limit: int = 240) -> str:
+    """Hash the exact bounded closed-candle rows shared by chart and analysis."""
+    if not isinstance(rows, list) or not rows or type(limit) is not int or limit < 1:
+        raise ValueError("invalid_canonical_candle_batch")
+    canonical_rows = rows[-limit:]
+    return hashlib.sha256(
+        json.dumps(canonical_rows, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def build_market_data_batch_provenance(market_input: dict[str, Any], *, limit: int = 240) -> dict[str, Any]:
+    """Bind each Strategy V2 timeframe to the same bounded rows exposed by the dashboard."""
+    if not isinstance(market_input, dict) or market_input.get("source") != SOURCE or market_input.get("symbol") != SYMBOL:
+        raise MarketDataRejected("MARKET_INPUT_IDENTITY_INVALID")
+    timeframes = market_input.get("timeframes")
+    required = ("15m", "1h", "4h")
+    if not isinstance(timeframes, dict) or set(timeframes) != set(required):
+        raise MarketDataRejected("MARKET_INPUT_TIMEFRAME_SET_INVALID")
+    bound = {}
+    for timeframe in required:
+        rows = timeframes.get(timeframe)
+        if not isinstance(rows, list) or len(rows) < 200:
+            raise MarketDataRejected("MARKET_INPUT_BARS_INSUFFICIENT:" + timeframe)
+        last_close = rows[-1].get("close_time") if isinstance(rows[-1], dict) else None
+        if type(last_close) is not int or last_close <= 0:
+            raise MarketDataRejected("MARKET_INPUT_LAST_CLOSE_INVALID:" + timeframe)
+        bounded = rows[-limit:]
+        bound[timeframe] = {
+            "input_batch_sha256": canonical_market_batch_sha256(rows, limit=limit),
+            "candle_count": len(bounded),
+            "last_closed_candle_time": last_close,
+        }
+    return {
+        "schema": "hes_market_data_batch_provenance_v1",
+        "source": SOURCE,
+        "symbol": SYMBOL,
+        "batch_limit": limit,
+        "timeframes": bound,
+    }
+
 
 def load_market_input(*, root: str | Path = ".", now: int | None = None,
                       min_bars: int = 200) -> dict[str, Any]:
