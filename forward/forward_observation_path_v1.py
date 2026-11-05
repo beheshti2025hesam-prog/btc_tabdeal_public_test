@@ -81,7 +81,7 @@ class ForwardObservationPathV1:
         result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
-                                                None, None, None, False, None, result.reason or "SEQUENCE_UNSAFE",
+                                                None, None, None, False, None, "SEQUENCE_UNSAFE",
                                                 tuple({
                                                     "sequence": e.sequence,
                                                     "status": e.status,
