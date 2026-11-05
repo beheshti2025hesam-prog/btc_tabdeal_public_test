@@ -22,6 +22,7 @@ from .clean_regime_quality_v1 import CleanRegimeQualityV1
 from .clean_regime_quality_gate_v1 import CleanRegimeQualityGateV1
 from .observation_journal_v1 import ObservationJournalV1
 from .observation_journal_integration_v1 import ObservationJournalIntegrationV1
+from .tabdeal_sequence_contract_v1 import evaluate_tabdeal_trade_sequence_capabilities
 
 @dataclass(frozen=True)
 class ForwardObservationPathResult:
@@ -70,11 +71,17 @@ class ForwardObservationPathV1:
                 False, None, "FORWARD_RECORD_BOUND_EXCEEDED",
                 ({"max_records": self.max_records},),
             )
+        capability_gate = evaluate_tabdeal_trade_sequence_capabilities()
+        if not capability_gate["safe"]:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, capability_gate["reason"], (capability_gate,),
+            )
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
         result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
-                                                None, None, None, False, None, "SEQUENCE_UNSAFE",
+                                                None, None, None, False, None, result.reason or "SEQUENCE_UNSAFE",
                                                 tuple({
                                                     "sequence": e.sequence,
                                                     "status": e.status,
