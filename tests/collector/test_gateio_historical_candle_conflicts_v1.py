@@ -101,10 +101,10 @@ def test_pinned_conflict_aborts_if_live_value_no_longer_matches_old_evidence():
 
 
 def test_pinned_conflict_aborts_if_rest_value_no_longer_matches_three_probe_evidence():
-    timeframe, open_time = "1h", 1793170800
+    timeframe = "1h"
     old_rows = complete_approved_rows(timeframe, "old")
     rest_rows = complete_approved_rows(timeframe, "new")
-    rest_rows[0]["close"] = "81088.5"
+    rest_rows[0]["volume"] = "110.35663801"
 
     with pytest.raises(ValueError, match="pinned three-probe evidence"):
         reconcile_rows(timeframe, old_rows, rest_rows)
