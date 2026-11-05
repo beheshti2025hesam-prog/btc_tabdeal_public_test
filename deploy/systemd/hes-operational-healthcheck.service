@@ -1,0 +1,28 @@
+[Unit]
+Description=HES Trade Agent operational health and bounded paper-worker recovery
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/hes-trade-agent/current/scripts/ops/hes_operational_healthcheck_v1.py
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/hes-trade-agent/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+TimeoutStartSec=180
+StateDirectory=hes-operational-health
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 -u /opt/hes-trade-agent/current/scripts/ops/hes_operational_healthcheck_v1.py
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0077
+ReadWritePaths=/var/lib/hes-operational-health
