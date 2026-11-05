@@ -229,13 +229,44 @@ def test_run_reconnects_after_disconnect_with_bounded_backoff(monkeypatch):
     assert sleeps == [2]
     assert all(socket.closed for socket in connections)
 
-def test_persisted_window_is_capped_at_native_adapter_limit(tmp_path):
+def test_persisted_history_is_not_truncated_to_native_rest_fetch_limit(tmp_path):
     path = tmp_path / "candles.jsonl"
     rows = [persisted_row(900 + index * collector.INTERVAL_SECONDS) for index in range(501)]
     assert collector._append_new(rows, -1, path) == rows[-1]["open_time"]
     persisted = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-    assert len(persisted) == collector.MAX_PERSISTED_CANDLES == 500
-    assert persisted[0]["open_time"] == rows[1]["open_time"]
+    assert len(persisted) == 501
+    assert persisted[0]["open_time"] == rows[0]["open_time"]
+    assert persisted[-1]["open_time"] == rows[-1]["open_time"]
+
+
+def test_steady_state_append_preserves_history_older_than_bounded_tail(tmp_path):
+    path = tmp_path / "candles.jsonl"
+    rows = [persisted_row(900 + index * collector.INTERVAL_SECONDS) for index in range(6001)]
+    write_rows(path, rows)
+    before = path.read_bytes()
+    expected_prefix = before.splitlines()[:1000]
+
+    next_row = persisted_row(900 + 6001 * collector.INTERVAL_SECONDS)
+    assert collector._append_new([next_row], rows[-1]["open_time"], path) == next_row["open_time"]
+
+    persisted_lines = path.read_bytes().splitlines()
+    assert len(persisted_lines) == 6002
+    assert persisted_lines[:1000] == expected_prefix
+    assert json.loads(persisted_lines[-1])["open_time"] == next_row["open_time"]
+
+
+def test_historical_backfill_rewrite_preserves_full_history_beyond_tail(tmp_path):
+    path = tmp_path / "candles.jsonl"
+    rows = [persisted_row(900 + index * collector.INTERVAL_SECONDS) for index in range(6001) if index != 5500]
+    write_rows(path, rows)
+    missing = persisted_row(900 + 5500 * collector.INTERVAL_SECONDS)
+
+    assert collector._append_new([missing], rows[-1]["open_time"], path) == rows[-1]["open_time"]
+    persisted = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert len(persisted) == 6001
+    assert [row["open_time"] for row in persisted] == [
+        900 + index * collector.INTERVAL_SECONDS for index in range(6001)
+    ]
 
 def test_closed_ws_message_triggers_rest_persistence_only(monkeypatch):
     rest_rows = [persisted_row(900)]
