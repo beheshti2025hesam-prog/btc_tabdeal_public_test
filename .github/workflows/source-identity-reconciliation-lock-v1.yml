@@ -3,6 +3,7 @@ name: HES Trade Agent — Source Identity Reconciliation Lock v1
 on:
   push:
     branches:
+      - main
       - reconciliation/source-identity-lock-20261005
   pull_request:
     branches:
