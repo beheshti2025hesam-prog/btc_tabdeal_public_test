@@ -226,8 +226,12 @@ def _read_existing_tail(path: Path, max_rows: int = LIVE_WINDOW_CANDLES) -> list
         except json.JSONDecodeError as exc:
             raise ValueError("Malformed persisted Gate.io candle JSONL") from exc
         ts = _validate_persisted_candle(candle)
-        if previous is not None and ts <= previous:
-            raise ValueError(f"Persisted candle order/duplicate invalid at tail line {line_number}")
+        if previous is not None and ts == previous:
+            if rows and not _same_candle(rows[-1], candle):
+                raise ValueError(f"Conflicting persisted Gate.io candle for open_time={ts}")
+            raise ValueError(f"Duplicate persisted Gate.io candle for open_time={ts}")
+        if previous is not None and ts < previous:
+            raise ValueError(f"Persisted candle order invalid at tail line {line_number}")
         rows.append(candle)
         previous = ts
     return rows
