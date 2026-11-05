@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+import scripts.reconcile_gateio_historical_candle_conflicts_v1 as reconciler
 from scripts.reconcile_gateio_historical_candle_conflicts_v1 import (
     APPROVED,
     reconcile_rows,
@@ -172,6 +175,64 @@ def test_reconciliation_preserves_history_and_adds_new_closed_rows():
     assert len(merged) == len(existing_history) + 2
     assert len(changes) == len(APPROVED[timeframe])
     assert added == [next_ts]
+
+
+def test_targeted_conflict_probes_use_exact_window_and_match_full_snapshot(monkeypatch, tmp_path):
+    timeframe = "1h"
+    seconds = 3600
+    calls = []
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b"[]"
+
+    class FakeSource:
+        def __init__(self, transport):
+            self.transport = transport
+
+        def fetch(self, **kwargs):
+            calls.append(kwargs)
+            self.transport("https://gateio.invalid/test", 10)
+            ts = kwargs["start_time_ms"] // 1000
+            values = APPROVED[timeframe][ts]["new"]
+            candle_value = SimpleNamespace(
+                open_time_ms=ts * 1000,
+                close_time_ms=(ts + seconds) * 1000 - 1,
+                open=Decimal(values["open"]),
+                high=Decimal(values["high"]),
+                low=Decimal(values["low"]),
+                close=Decimal(values["close"]),
+                volume=Decimal(values["volume"]),
+                quote_volume=Decimal(values["quote_volume"]),
+                closed=True,
+            )
+            return SimpleNamespace(candles=(candle_value,), gaps=(), fetched_at_ms=1794000000000)
+
+    monkeypatch.setattr(reconciler, "GateioSpotKlineSource", FakeSource)
+    monkeypatch.setattr(reconciler, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+    monkeypatch.setattr(reconciler.time, "sleep", lambda _seconds: None)
+
+    evidence = reconciler.fetch_targeted_conflict_probes(
+        timeframe, complete_approved_rows(timeframe, "new"), tmp_path
+    )
+
+    assert len(evidence) == len(APPROVED[timeframe]) == 3
+    assert len(calls) == 9
+    for call in calls:
+        ts = call["start_time_ms"] // 1000
+        assert call["symbol"] == "BTCUSDT"
+        assert call["interval"] == timeframe
+        assert call["limit"] == 1
+        assert call["start_time_ms"] == ts * 1000
+        assert call["end_time_ms"] == (ts + seconds) * 1000 - 1
+    assert all(len(probes) == 3 for probes in evidence.values())
+    assert len(list(tmp_path.glob("*.json"))) == 9
 
 
 def test_three_rest_snapshots_must_be_semantically_identical():
