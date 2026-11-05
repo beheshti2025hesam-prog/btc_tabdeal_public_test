@@ -44,15 +44,41 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertIn('[dir="rtl"] .journal-table', css)
         self.assertIn('[dir="rtl"] #chart{direction:ltr}', css)
 
+    def test_api_calls_have_bounded_timeouts_and_versioned_contract_checks(self):
+        root = Path(dashboard.__file__).resolve().parents[1]
+        script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")
+        self.assertIn("API_REQUEST_TIMEOUT_MS=12000", script)
+        self.assertIn("new AbortController()", script)
+        self.assertIn("controller.abort()", script)
+        self.assertIn("window.clearTimeout(timer)", script)
+        self.assertIn("API request timed out after 12 seconds", script)
+        self.assertNotIn("await fetch('/api/", script)
+        for schema in ("hes.market_candles_view.v1", "hes.trade_journal_view.v1",
+                       "hes.strategy_v2_dashboard_view.v1", "hes.mother_v2_dashboard_view.v1",
+                       "hes_precision_entry_status_v1"):
+            with self.subTest(schema=schema):
+                self.assertIn(schema, script)
+
+    def test_browser_smoke_uses_configurable_local_base_url_and_checks_api_schemas(self):
+        root = Path(dashboard.__file__).resolve().parents[1]
+        smoke = (root / "scripts" / "test_native_ohlcv_dashboard_browser_smoke.cjs").read_text(encoding="utf-8")
+        self.assertIn("HES_DASHBOARD_SMOKE_BASE_URL", smoke)
+        self.assertIn("dashboardBaseUrl", smoke)
+        for schema in ("hes.market_candles_view.v1", "hes.trade_journal_view.v1",
+                       "hes.strategy_v2_dashboard_view.v1", "hes.mother_v2_dashboard_view.v1",
+                       "hes_precision_entry_status_v1", "hes.api_error.v1"):
+            with self.subTest(schema=schema):
+                self.assertIn(schema, smoke)
+
     def test_localization_does_not_rewrite_api_payloads_or_machine_values(self):
         root = Path(dashboard.__file__).resolve().parents[1]
         script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")
-        self.assertIn("fetch('/api/candles?'+q", script)
-        self.assertIn("fetch('/api/precision-entry'", script)
-        self.assertIn("fetch('/api/strategy-v2'", script)
-        self.assertIn("fetch('/api/mother'", script)
-        self.assertIn("fetch('/api/news'", script)
-        self.assertIn("fetch('/api/journal?limit=50'", script)
+        self.assertIn("fetchWithTimeout('/api/candles?'+q", script)
+        self.assertIn("fetchWithTimeout('/api/precision-entry'", script)
+        self.assertIn("fetchWithTimeout('/api/strategy-v2'", script)
+        self.assertIn("fetchWithTimeout('/api/mother'", script)
+        self.assertIn("fetchWithTimeout('/api/news'", script)
+        self.assertIn("fetchWithTimeout('/api/journal?limit=50'", script)
         for machine_value in ("NO_TRADE", "BLOCKED", "VERIFIED", "1m", "15m", "4h"):
             self.assertIn(machine_value, script)
         self.assertIn("BTCUSDT", dashboard.HTML)
