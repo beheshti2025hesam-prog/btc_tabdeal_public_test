@@ -112,6 +112,8 @@ const { chromium } = require("playwright");
       assert.equal(strategyV2Payload.symbol, "BTC_USDT");
     }
     assert.equal(candlePayload.source, "gateio_public_spot");
+    assert.equal(candlePayload.status, "ok", "chart must only accept a gap-free market-data batch");
+    assert.deepEqual(candlePayload.gaps, [], "chart must only accept a gap-free market-data batch");
     assert.equal(candlePayload.source_reader, "global_market_data_reader_v1");
     assert.equal(candlePayload.source_symbol, "BTC_USDT");
     assert.equal(candlePayload.symbol_mapping_verified, true);
@@ -444,6 +446,66 @@ const { chromium } = require("playwright");
     };
     require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(evidence, null, 2) + "\n");
     process.stdout.write(JSON.stringify(evidence) + "\n");
+
+    // A 200 response is not sufficient: a degraded batch must never remain visible as VALIDATED.
+    const candleRouteMatcher = url => new URL(url).pathname === "/api/candles";
+    await page.waitForFunction(() => !document.querySelector("#refresh")?.disabled, null, { timeout: 10000 });
+    await page.route(candleRouteMatcher, async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "gaps_present",
+          source: "gateio_public_spot",
+          source_reader: "global_market_data_reader_v1",
+          venue: "gateio",
+          product: "spot",
+          symbol: "BTCUSDT",
+          source_symbol: "BTC_USDT",
+          symbol_mapping_verified: true,
+          input_batch_sha256: "a".repeat(64),
+          execution_enabled: false,
+          orders_placed: false,
+          gaps: [{ expected_open_time_ms: 1, next_observed_open_time_ms: 120001, missing_intervals: 1 }],
+          candles: [{ open_time: 1, close_time: new Date().toISOString(), open: "1", high: "2", low: "1", close: "2", volume: "1" }],
+          feature_ready: true,
+          latest_age_seconds: 1,
+          stream_status: "disabled",
+          stream_reason: "test_fixture"
+        })
+      });
+    });
+    await page.locator("#refresh").click();
+    await page.waitForFunction(() => {
+      const message = document.querySelector("#message")?.textContent || "";
+      return message.startsWith("FAIL CLOSED") &&
+        document.querySelector("#price")?.textContent === "—" &&
+        document.querySelector("#stamp")?.textContent === "—" &&
+        document.querySelector("#volume")?.textContent === "—" &&
+        document.querySelector("#count")?.textContent === "—";
+    }, null, { timeout: 10000 });
+    const gapStateUi = await page.evaluate(() => ({
+      message: document.querySelector("#message")?.textContent || "",
+      price: document.querySelector("#price")?.textContent || "",
+      stamp: document.querySelector("#stamp")?.textContent || "",
+      volume: document.querySelector("#volume")?.textContent || "",
+      count: document.querySelector("#count")?.textContent || ""
+    }));
+    assert.ok(gapStateUi.message.includes("Persisted candle gaps detected"), "gapped API payload was not explicitly rejected");
+    assert.deepEqual([gapStateUi.price, gapStateUi.stamp, gapStateUi.volume, gapStateUi.count], ["—", "—", "—", "—"]);
+    await page.unroute(candleRouteMatcher);
+    require("node:fs").writeFileSync(
+      "artifacts/native-ohlcv-dashboard-gap-state-smoke.json",
+      JSON.stringify({
+        schema_version: 1,
+        status: "PASS",
+        simulated_http_status: 200,
+        simulated_api_status: "gaps_present",
+        ui_status: "FAIL_CLOSED",
+        stale_chart_values_cleared: true,
+        execution_enabled: false
+      }, null, 2) + "\n"
+    );
   } finally {
     await browser.close();
   }
