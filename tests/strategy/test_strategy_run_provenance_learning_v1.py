@@ -13,7 +13,7 @@ def make_manifest(tmp_path):
 def test_learning_verifies_report_to_immutable_run_manifest(tmp_path,monkeypatch):
     data=tmp_path/"data/forward"; data.mkdir(parents=True)
     manifest=make_manifest(tmp_path)
-    append_run_manifest(data/"strategy_policy_v2_runs.jsonl",manifest)
+    append_run_manifest(data/"strategy_policy_v2_run_manifests_v2.jsonl",manifest)
     report={"updated_at":datetime.now(timezone.utc).isoformat(),"run_id":manifest["run_id"],
             "run_manifest_sha256":manifest["run_manifest_sha256"],"code_release_id":manifest["code_release_id"],
             "source_hashes":manifest["source_hashes"],**manifest["source_hashes"]}
@@ -26,7 +26,7 @@ def test_learning_verifies_report_to_immutable_run_manifest(tmp_path,monkeypatch
 def test_learning_marks_stale_but_valid_provenance_as_stale(tmp_path,monkeypatch):
     data=tmp_path/"data/forward"; data.mkdir(parents=True)
     manifest=make_manifest(tmp_path)
-    append_run_manifest(data/"strategy_policy_v2_runs.jsonl",manifest)
+    append_run_manifest(data/"strategy_policy_v2_run_manifests_v2.jsonl",manifest)
     report={"updated_at":(datetime.now(timezone.utc)-timedelta(hours=2)).isoformat(),
             "run_id":manifest["run_id"],"run_manifest_sha256":manifest["run_manifest_sha256"],
             "code_release_id":manifest["code_release_id"],"source_hashes":manifest["source_hashes"],**manifest["source_hashes"]}
@@ -38,7 +38,7 @@ def test_learning_marks_stale_but_valid_provenance_as_stale(tmp_path,monkeypatch
 def test_learning_rejects_report_manifest_mismatch(tmp_path,monkeypatch):
     data=tmp_path/"data/forward"; data.mkdir(parents=True)
     manifest=make_manifest(tmp_path)
-    append_run_manifest(data/"strategy_policy_v2_runs.jsonl",manifest)
+    append_run_manifest(data/"strategy_policy_v2_run_manifests_v2.jsonl",manifest)
     report={"updated_at":datetime.now(timezone.utc).isoformat(),"run_id":manifest["run_id"],
             "run_manifest_sha256":"0"*64,"code_release_id":manifest["code_release_id"],
             "source_hashes":manifest["source_hashes"],**manifest["source_hashes"]}
