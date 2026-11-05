@@ -26,6 +26,31 @@ from forward.strategy_policy_v1 import REQUIRED_CHECKS, StrategyEvidenceCheckV1
 from web.dashboard import Handler
 
 
+def provenance_from_rows(rows_by_tf):
+    return {
+        "schema": "hes_market_data_batch_provenance_v1",
+        "source": "gateio_public_spot",
+        "symbol": "BTC_USDT",
+        "batch_limit": 240,
+        "timeframes": {
+            timeframe: {
+                "input_batch_sha256": dashboard.canonical_market_batch_sha256(rows_by_tf[timeframe]),
+                "candle_count": min(len(rows_by_tf[timeframe]), 240),
+                "last_closed_candle_time": rows_by_tf[timeframe][-1]["close_time"],
+            }
+            for timeframe in ("15m", "1h", "4h")
+        },
+    }
+
+
+def fake_native_batch(rows):
+    candle = SimpleNamespace(close_time_ms=int(rows[-1]["close_time"]) * 1000)
+    return SimpleNamespace(
+        response_sha256=dashboard.canonical_market_batch_sha256(rows),
+        candles=(candle,),
+    )
+
+
 def sample_batch(*, gaps=()):
     now_ms=int(time.time()*1000)
     interval_ms=900_000
@@ -143,11 +168,17 @@ class DashboardRouteTests(unittest.TestCase):
             "witness": {"verified": True}, "execution_authorized": False,
             "execution_enabled": False, "orders_placed": False,
         }
-        with patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy_view), \
+        current_provenance = {
+            "schema": "hes_market_data_batch_provenance_v1", "source": "gateio_public_spot",
+            "symbol": "BTC_USDT", "batch_limit": 240, "timeframes": {},
+        }
+        with patch.object(dashboard, "_current_chart_batch_provenance", return_value=current_provenance), \
+             patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy_view) as strategy, \
              patch.object(dashboard, "read_mother_v2_dashboard", return_value=payload) as mother:
             with urlopen(self.base + "/api/mother") as response:
                 result = json.loads(response.read())
                 self.assertEqual(response.status, 200)
+        strategy.assert_called_once_with(current_market_data_provenance=current_provenance)
         mother.assert_called_once_with(strategy_view=strategy_view)
         self.assertTrue(result["witness"]["verified"])
         self.assertFalse(result["execution_authorized"])
@@ -155,7 +186,12 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertFalse(result["orders_placed"])
 
     def test_mother_endpoint_fails_closed_without_verified_evidence(self):
-        with patch.object(dashboard, "read_strategy_v2_dashboard",
+        current_provenance = {
+            "schema": "hes_market_data_batch_provenance_v1", "source": "gateio_public_spot",
+            "symbol": "BTC_USDT", "batch_limit": 240, "timeframes": {},
+        }
+        with patch.object(dashboard, "_current_chart_batch_provenance", return_value=current_provenance), \
+             patch.object(dashboard, "read_strategy_v2_dashboard",
                           side_effect=dashboard.StrategyV2DashboardError("stale report")):
             with self.assertRaises(HTTPError) as error:
                 urlopen(self.base + "/api/mother")
@@ -417,6 +453,26 @@ class DashboardRouteTests(unittest.TestCase):
         with patch.dict(os.environ, {"HES_GLOBAL_MARKET_DATA_ROOT": "/opt/hes-trade-agent"}):
             self.assertEqual(str(dashboard._market_data_root()), "/opt/hes-trade-agent")
 
+    def test_current_chart_provenance_uses_native_batch_and_exclusive_close_time(self):
+        closes = {"15m": 1793781900, "1h": 1793779200, "4h": 1793779200}
+        digests = {"15m": "a" * 64, "1h": "b" * 64, "4h": "c" * 64}
+        batches = {
+            timeframe: (
+                SimpleNamespace(
+                    response_sha256=digests[timeframe],
+                    candles=(SimpleNamespace(close_time_ms=closes[timeframe] * 1000 - 1),),
+                ),
+                None,
+            )
+            for timeframe in closes
+        }
+        with patch.object(dashboard, "_get_batch", side_effect=lambda symbol, interval: batches[interval]):
+            result = dashboard._current_chart_batch_provenance()
+        self.assertEqual(result["schema"], "hes_market_data_batch_provenance_v1")
+        self.assertEqual(result["timeframes"]["15m"]["last_closed_candle_time"], closes["15m"])
+        for timeframe in closes:
+            self.assertEqual(result["timeframes"][timeframe]["input_batch_sha256"], digests[timeframe])
+
 
 
     def test_dashboard_exposes_1m_chart_and_precision_panel_without_duplicate_sections(self):
@@ -451,7 +507,12 @@ class DashboardRouteTests(unittest.TestCase):
             },
             "execution_enabled": False, "orders_placed": False,
         }
-        with patch("forward.global_market_data_reader_v1.read_closed_candles", return_value=rows), patch.object(
+        rows_by_tf = {timeframe: rows for timeframe in ("15m", "1h", "4h")}
+        current_provenance = provenance_from_rows(rows_by_tf)
+        chart_1m = fake_native_batch(rows)
+        with patch("forward.global_market_data_reader_v1.read_closed_candles", return_value=rows), \
+             patch.object(dashboard, "_current_chart_batch_provenance", return_value=current_provenance), \
+             patch.object(dashboard, "_get_batch", return_value=(chart_1m, None)), patch.object(
             dashboard, "read_strategy_v2_dashboard", return_value=strategy
         ):
             with urlopen(self.base + "/api/precision-entry") as response:
@@ -482,7 +543,12 @@ class DashboardRouteTests(unittest.TestCase):
             },
             "execution_enabled": False, "orders_placed": False,
         }
-        with patch("forward.global_market_data_reader_v1.read_closed_candles", return_value=rows), patch.object(
+        rows_by_tf = {timeframe: rows for timeframe in ("15m", "1h", "4h")}
+        current_provenance = provenance_from_rows(rows_by_tf)
+        chart_1m = fake_native_batch(rows)
+        with patch("forward.global_market_data_reader_v1.read_closed_candles", return_value=rows), \
+             patch.object(dashboard, "_current_chart_batch_provenance", return_value=current_provenance), \
+             patch.object(dashboard, "_get_batch", return_value=(chart_1m, None)), patch.object(
             dashboard, "read_strategy_v2_dashboard", return_value=strategy
         ):
             with urlopen(self.base + "/api/precision-entry") as response:
@@ -518,10 +584,14 @@ class DashboardRouteTests(unittest.TestCase):
             },
             "execution_enabled": False, "orders_placed": False,
         }
+        current_provenance = provenance_from_rows(rows_by_tf)
+        chart_1m = fake_native_batch(rows_by_tf["1m"])
         with patch(
             "forward.global_market_data_reader_v1.read_closed_candles",
             side_effect=lambda timeframe, **kwargs: rows_by_tf[timeframe],
-        ), patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy):
+        ), patch.object(dashboard, "_current_chart_batch_provenance", return_value=current_provenance), \
+             patch.object(dashboard, "_get_batch", return_value=(chart_1m, None)), \
+             patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy):
             with urlopen(self.base + "/api/precision-entry") as response:
                 payload = json.loads(response.read())
                 self.assertEqual(response.status, 200)
@@ -536,7 +606,7 @@ class DashboardRouteTests(unittest.TestCase):
                 self.assertEqual(entry["batch_candles"], 240)
                 self.assertEqual(
                     entry["input_batch_sha256"],
-                    dashboard._canonical_candle_batch_sha256(rows_by_tf[timeframe]),
+                    dashboard.canonical_market_batch_sha256(rows_by_tf[timeframe]),
                 )
         self.assertEqual(payload["setup_decision"], "NO_TRADE")
         self.assertFalse(payload["execution_enabled"])
