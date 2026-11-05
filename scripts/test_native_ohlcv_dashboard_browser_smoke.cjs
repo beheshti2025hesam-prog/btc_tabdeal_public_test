@@ -491,6 +491,57 @@ const { chromium } = require("playwright");
     assert.ok(gapStateUi.message.includes("Persisted candle gaps detected"), "gapped API payload was not explicitly rejected");
     assert.deepEqual([gapStateUi.price, gapStateUi.stamp, gapStateUi.volume, gapStateUi.count], ["—", "—", "—", "—"]);
     await page.unroute(candleRouteMatcher);
+
+    // Even a structurally valid HTTP 200 batch is rejected when its selected timeframe is stale.
+    const staleRouteMatcher = url => new URL(url).pathname === "/api/candles";
+    await page.waitForFunction(() => !document.querySelector("#refresh")?.disabled, null, { timeout: 10000 });
+    await page.route(staleRouteMatcher, async route => {
+      const requestUrl = new URL(route.request().url());
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "ok",
+          source: "gateio_public_spot",
+          source_reader: "global_market_data_reader_v1",
+          venue: "gateio",
+          product: "spot",
+          symbol: "BTCUSDT",
+          source_symbol: "BTC_USDT",
+          symbol_mapping_verified: true,
+          input_batch_sha256: "a".repeat(64),
+          interval: requestUrl.searchParams.get("interval"),
+          latest_age_seconds: 5000,
+          execution_enabled: false,
+          orders_placed: false,
+          gaps: [],
+          candles: [{ open_time: 1, close_time: new Date().toISOString(), open: "1", high: "2", low: "1", close: "2", volume: "1" }],
+          feature_ready: true,
+          stream_status: "disabled",
+          stream_reason: "test_fixture"
+        })
+      });
+    });
+    await page.locator("#interval").selectOption("1h");
+    await page.waitForFunction(() => {
+      const message = document.querySelector("#message")?.textContent || "";
+      return message.startsWith("FAIL CLOSED") && message.includes("Stale candle batch") &&
+        document.querySelector("#price")?.textContent === "—" &&
+        document.querySelector("#stamp")?.textContent === "—" &&
+        document.querySelector("#volume")?.textContent === "—" &&
+        document.querySelector("#count")?.textContent === "—";
+    }, null, { timeout: 10000 });
+    const staleTimeframeUi = await page.evaluate(() => ({
+      message: document.querySelector("#message")?.textContent || "",
+      price: document.querySelector("#price")?.textContent || "",
+      stamp: document.querySelector("#stamp")?.textContent || "",
+      volume: document.querySelector("#volume")?.textContent || "",
+      count: document.querySelector("#count")?.textContent || ""
+    }));
+    assert.deepEqual([staleTimeframeUi.price, staleTimeframeUi.stamp, staleTimeframeUi.volume, staleTimeframeUi.count], ["—", "—", "—", "—"]);
+    await page.unroute(staleRouteMatcher);
+    evidence.stale_timeframe_fail_closed = true;
+    evidence.stale_timeframe_ui = staleTimeframeUi;
     require("node:fs").writeFileSync(
       "artifacts/native-ohlcv-dashboard-gap-state-smoke.json",
       JSON.stringify({
