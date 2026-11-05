@@ -85,6 +85,28 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(len(brief.findings), 1)
         self.assertEqual(brief.provenance["sources_seen"], 1)
 
+    def test_news_freshness_labels_have_bounded_age_buckets(self):
+        cases = [
+            (180, "fresh"),
+            (181, "recent"),
+            (24 * 60, "recent"),
+            (24 * 60 + 1, "aging"),
+            (72 * 60, "aging"),
+        ]
+        for age_minutes, expected in cases:
+            with self.subTest(age_minutes=age_minutes):
+                published = (NOW - __import__("datetime").timedelta(minutes=age_minutes)).isoformat()
+                item = NewsItem("Bitcoin ETF investors discuss market outlook", source="wire",
+                                url=f"https://wire.test/age-{age_minutes}", published_at=published)
+                brief = self.brain.analyze([item], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+                self.assertEqual(len(brief.findings), 1)
+                self.assertEqual(brief.findings[0].freshness, expected)
+        stale = NewsItem("Bitcoin ETF investors discuss market outlook", source="wire",
+                         url="https://wire.test/age-4321", published_at=(NOW - __import__("datetime").timedelta(minutes=72 * 60 + 1)).isoformat())
+        brief = self.brain.analyze([stale], MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
+        self.assertEqual(len(brief.findings), 0)
+        self.assertEqual(brief.provenance["stale_items_dropped"], 1)
+
     def test_stale_news_is_dropped(self):
         item = NewsItem("Bitcoin hack", source="wire", url="https://wire.test/old",
                         published_at="2026-10-10T12:00:00Z")
