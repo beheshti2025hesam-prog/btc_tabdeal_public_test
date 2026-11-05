@@ -20,7 +20,7 @@ BASE=ROOT/'data/forward'; STATE=BASE/'strategy_policy_v2_eval_state.json'
 CAND=BASE/'strategy_policy_v2_eval_candidates.jsonl'; OUT=BASE/'strategy_policy_v2_eval_outcomes.jsonl'; REPORT=BASE/'strategy_policy_v2_eval_report.json'
 MAX_SECONDS=86400
 JOURNAL=ForwardJournalV1(BASE/'trade_journal_v2.jsonl')
-RUN_MANIFEST=BASE/'strategy_policy_v2_runs.jsonl'
+RUN_MANIFEST=BASE/'strategy_policy_v2_run_manifests_v2.jsonl'
 RUN_PROVENANCE=None
 PROVENANCE_FIELDS=('run_id','service_name','code_release_id','source_hashes','strategy_source_sha256','evaluator_source_sha256','gate_pipeline_source_sha256','entry_context_source_sha256','precision_engine_source_sha256','precision_journal_source_sha256','learning_loop_source_sha256','market_data_reader_source_sha256','acceptance_evaluator_source_sha256','provenance_module_sha256','run_manifest_sha256')
 def initialize_run_provenance():
