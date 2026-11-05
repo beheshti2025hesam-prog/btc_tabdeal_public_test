@@ -26,6 +26,8 @@ SUPPORTED_SYMBOLS = {"BTCUSDT"}
 CANONICAL_ANALYSIS_SYMBOL = "BTCUSDT"
 GATEIO_SOURCE_SYMBOL = gateio_spot_source_symbol(CANONICAL_ANALYSIS_SYMBOL)
 SUPPORTED_INTERVALS = {"1m", "15m", "1h", "4h"}
+# Match the 1m integrity witness (120s) and the 15m/1h/4h soak SLA (period + 180s).
+MAX_CANDLE_AGE_SECONDS = {"1m": 120, "15m": 1080, "1h": 3780, "4h": 14580}
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def _market_data_root() -> Path:
@@ -118,8 +120,10 @@ def _refresh_batch(symbol, interval, event=None):
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     latest = batch.candles[-1]
     age_ms = now_ms - latest.close_time_ms
-    if age_ms < 0 or age_ms > max(180_000, INTERVAL_MS[interval] * 2):
+    if age_ms < 0 or age_ms > MAX_CANDLE_AGE_SECONDS[interval] * 1000:
         raise ValueError("latest_closed_candle_stale")
+    if batch.gaps:
+        raise ValueError("persisted_candle_gaps_present")
     if event is not None:
         assert_event_matches_batch(event, batch)
     feature_result = _FEATURES.build(batch)
@@ -162,8 +166,10 @@ def _get_batch(symbol, interval):
     ttl_ms = 75_000 if (symbol, interval) == ("BTCUSDT", "1m") else 15_000
     with _CACHE_LOCK:
         cached = _CACHE.get((symbol, interval))
-    if cached and now_ms - cached[2] <= ttl_ms:
-        return cached[0], cached[1]
+    if cached and now_ms - cached[2] <= ttl_ms and cached[0].candles and not cached[0].gaps:
+        cached_age_ms = now_ms - cached[0].candles[-1].close_time_ms
+        if 0 <= cached_age_ms <= MAX_CANDLE_AGE_SECONDS[interval] * 1000:
+            return cached[0], cached[1]
     return _refresh_batch(symbol, interval)
 
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -219,7 +225,7 @@ class Handler(BaseHTTPRequestHandler):
                 batch, _ = _get_batch("BTCUSDT", "15m")
                 now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
                 latest_age_seconds = (now_ms - batch.candles[-1].close_time_ms) / 1000
-                if latest_age_seconds < 0 or latest_age_seconds > max(180, INTERVAL_MS["15m"] * 2 / 1000):
+                if latest_age_seconds < 0 or latest_age_seconds > MAX_CANDLE_AGE_SECONDS["15m"]:
                     raise ValueError("latest_closed_candle_stale")
                 if batch.gaps:
                     raise ValueError("persisted_candle_gaps_present")
@@ -249,6 +255,33 @@ class Handler(BaseHTTPRequestHandler):
                     tf: read_closed_candles(tf, root=root, min_bars=(50 if tf == "1m" else 200))
                     for tf in ("4h", "1h", "15m", "1m")
                 }
+                now_s = int(time.time())
+                timeframe_payload = {}
+                stale_timeframe_codes = []
+                for tf, rows in feeds.items():
+                    age_seconds = now_s - int(rows[-1]["close_time"])
+                    max_age_seconds = MAX_CANDLE_AGE_SECONDS[tf]
+                    if age_seconds < 0:
+                        status = "FUTURE"
+                        stale_timeframe_codes.append(f"FUTURE_CANDLE_{tf.upper()}")
+                    elif age_seconds > max_age_seconds:
+                        status = "STALE"
+                        stale_timeframe_codes.append(f"STALE_CANDLE_{tf.upper()}")
+                    else:
+                        status = "VALIDATED"
+                    timeframe_payload[tf] = {
+                        "status": status,
+                        "source": "gateio_public_spot",
+                        "source_reader": "global_market_data_reader_v1",
+                        "symbol": "BTC_USDT",
+                        "timeframe": tf,
+                        "input_batch_sha256": _canonical_candle_batch_sha256(rows),
+                        "batch_candles": min(len(rows), 240),
+                        "closed_candles": len(rows),
+                        "latest_close_time": rows[-1]["close_time"],
+                        "latest_age_seconds": age_seconds,
+                        "max_age_seconds": max_age_seconds,
+                    }
                 strategy = read_strategy_v2_dashboard()
                 gate = strategy.get("latest_gate_evidence", {})
                 if not isinstance(gate, dict):
@@ -264,6 +297,34 @@ class Handler(BaseHTTPRequestHandler):
                 confirmation_state = confirmation.get("state", "UNKNOWN")
                 risk_state = risk.get("state", "UNKNOWN")
                 context = paper_setup.get("context")
+                if stale_timeframe_codes:
+                    latest_1m = feeds["1m"][-1]
+                    payload = {
+                        "schema": "hes_precision_entry_status_v1",
+                        "status": "BLOCKED",
+                        "source": "gateio_public_spot",
+                        "symbol": "BTC_USDT",
+                        "timeframes": timeframe_payload,
+                        "setup_timeframe": "15m",
+                        "setup_decision": setup_decision,
+                        "final_policy_decision": strategy.get("decision", "NO_TRADE"),
+                        "paper_setup_validated": setup_valid,
+                        "paper_setup_reason": paper_setup.get("reason_code"),
+                        "setup_validated_15m": setup_valid,
+                        "confirmation_state": confirmation_state,
+                        "risk_gate_state": risk_state,
+                        "entry_timeframe": "1m",
+                        "entry_state": "BLOCKED",
+                        "reason_codes": stale_timeframe_codes,
+                        "engine_evidence": {"freshness_gate": "BLOCKED"},
+                        "engine_authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
+                        "entry_context_status": "PRESENT" if isinstance(context, dict) else "MISSING",
+                        "latest_1m_close_time": latest_1m["close_time"],
+                        "execution_enabled": False,
+                        "orders_placed": False,
+                        "authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
+                    }
+                    return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
                 engine = evaluate_precision_entry(
                     setup_direction=direction,
                     candles_1m=feeds["1m"],
@@ -280,22 +341,7 @@ class Handler(BaseHTTPRequestHandler):
                     "status": "BLOCKED" if engine["state"] == "BLOCKED" else engine["state"],
                     "source": "gateio_public_spot",
                     "symbol": "BTC_USDT",
-                    "timeframes": {
-                        tf: {
-                            "status": "VALIDATED",
-                            "source": "gateio_public_spot",
-                            "source_reader": "global_market_data_reader_v1",
-                            "symbol": "BTC_USDT",
-                            "timeframe": tf,
-                            # Match the dashboard chart contract exactly: the same
-                            # canonical JSON digest over the latest 240 closed rows.
-                            "input_batch_sha256": _canonical_candle_batch_sha256(rows),
-                            "batch_candles": min(len(rows), 240),
-                            "closed_candles": len(rows),
-                            "latest_close_time": rows[-1]["close_time"],
-                        }
-                        for tf, rows in feeds.items()
-                    },
+                    "timeframes": timeframe_payload,
                     "setup_timeframe": "15m",
                     "setup_decision": setup_decision,
                     "final_policy_decision": strategy.get("decision", "NO_TRADE"),
@@ -423,8 +469,9 @@ class Handler(BaseHTTPRequestHandler):
                     "volume":str(c.volume),"quote_volume":str(c.quote_volume)} for c in batch.candles]}
             return self._send(200,json.dumps(payload,separators=(",",":")).encode(),"application/json")
         except Exception as exc:
+            reason_code = str(exc) if str(exc) in {"latest_closed_candle_stale", "persisted_candle_gaps_present"} else type(exc).__name__
             return self._send(503,json.dumps({"error":"market_data_unavailable",
-                "reason":type(exc).__name__,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
+                "reason":type(exc).__name__,"reason_code":reason_code,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
     def do_POST(self): return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false,"orders_placed":false}',"application/json")
     def log_message(self,fmt,*args):
         if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
