@@ -5,7 +5,11 @@ import hashlib
 import json
 import unittest
 
-from web.dashboard import _canonical_candle_batch_sha256
+from forward.global_market_data_reader_v1 import (
+    canonical_market_batch_sha256 as _canonical_candle_batch_sha256,
+    build_market_data_batch_provenance,
+    MarketDataRejected,
+)
 
 
 def sample_rows(count: int = 260) -> list[dict]:
@@ -59,6 +63,36 @@ class CanonicalCandleBatchDigestTests(unittest.TestCase):
             with self.subTest(rows=rows, limit=limit):
                 with self.assertRaises(ValueError):
                     _canonical_candle_batch_sha256(rows, limit=limit)
+
+    def test_builds_timeframe_provenance_with_the_chart_digest(self):
+        market = {
+            "source": "gateio_public_spot",
+            "symbol": "BTC_USDT",
+            "timeframes": {
+                timeframe: [
+                    {**row, "timeframe": timeframe}
+                    for row in sample_rows(240)
+                ]
+                for timeframe in ("15m", "1h", "4h")
+            },
+        }
+        result = build_market_data_batch_provenance(market)
+        self.assertEqual(result["schema"], "hes_market_data_batch_provenance_v1")
+        self.assertEqual(result["batch_limit"], 240)
+        for timeframe in ("15m", "1h", "4h"):
+            rows = market["timeframes"][timeframe]
+            self.assertEqual(result["timeframes"][timeframe]["input_batch_sha256"],
+                             _canonical_candle_batch_sha256(rows))
+            self.assertEqual(result["timeframes"][timeframe]["candle_count"], 240)
+            self.assertEqual(result["timeframes"][timeframe]["last_closed_candle_time"], rows[-1]["close_time"])
+
+    def test_rejects_incomplete_market_input_timeframe_set(self):
+        with self.assertRaisesRegex(MarketDataRejected, "TIMEFRAME_SET_INVALID"):
+            build_market_data_batch_provenance({
+                "source": "gateio_public_spot",
+                "symbol": "BTC_USDT",
+                "timeframes": {"15m": sample_rows(240)},
+            })
 
 
 if __name__ == "__main__":
