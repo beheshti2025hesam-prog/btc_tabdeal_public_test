@@ -484,6 +484,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          schema: "hes.market_candles_view.v1",
           status: "gaps_present",
           source: "gateio_public_spot",
           source_reader: "global_market_data_reader_v1",
@@ -533,6 +534,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          schema: "hes.market_candles_view.v1",
           status: "ok",
           source: "gateio_public_spot",
           source_reader: "global_market_data_reader_v1",
