@@ -166,3 +166,26 @@ def test_malformed_reason_codes_are_rejected_not_stringified():
     result = AgentDisagreementResolverV1().resolve(assessments=items, observed_at=NOW)
     assert result.decision == "NO_TRADE"
     assert result.conflict_class == "INVALID_REASON_CODES"
+
+
+def test_required_agent_iterable_is_bounded():
+    def unbounded_names():
+        while True:
+            yield "optional"
+
+    result = AgentDisagreementResolverV1().resolve(
+        assessments=group(),
+        observed_at=NOW,
+        required_agents=unbounded_names(),
+    )
+    assert result.decision == "NO_TRADE"
+    assert result.conflict_class == "INVALID_REQUIRED_AGENT_SET"
+    assert "REQUIRED_AGENT_COUNT_LIMIT_EXCEEDED" in result.reason_codes
+
+
+def test_reason_code_count_is_bounded():
+    items = list(group())
+    items[2] = assessment("strategy", reasons=tuple(f"R{i}" for i in range(65)))
+    result = AgentDisagreementResolverV1().resolve(assessments=items, observed_at=NOW)
+    assert result.decision == "NO_TRADE"
+    assert result.conflict_class == "INVALID_REASON_CODES"
