@@ -3,22 +3,27 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
-
 from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
 from forward.sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from forward.sequence_integrity_v1 import SequenceIntegrityV1
 
 
-def test_low_level_sequence_state_machine_only_reports_a_conflict_when_explicitly_used():
+def allow_sequence_capabilities(monkeypatch):
+    allowed = {"safe": True, "reason": "SEQUENCE_CAPABILITIES_VERIFIED"}
+    for module in (
+        "forward.controlled_forward_observation_runner_v1",
+        "forward.forward_observation_path_v1",
+        "forward.sequence_candle_integration_v1",
+        "forward.forward_tabdeal_ingestion_v1",
+    ):
+        monkeypatch.setattr(f"{module}.evaluate_tabdeal_trade_sequence_capabilities", lambda: allowed)
+
+
+def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     guard = SequenceIntegrityV1()
     first = {
-        "source": "test_fixture_with_explicit_sequence_contract",
-        "symbol": "BTC_USDT",
-        "price": "100",
-        "amount": "0.1",
-        "side": "buy",
-        "sequence": 41627925358,
+        "source": "tabdeal_ws_forward_v1", "symbol": "BTC_USDT",
+        "price": "100", "amount": "0.1", "side": "buy", "sequence": 41627925358,
     }
     conflicting = {**first, "price": "101"}
     assert guard.observe(first).status == "ACCEPTED"
@@ -29,29 +34,39 @@ def test_low_level_sequence_state_machine_only_reports_a_conflict_when_explicitl
     assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
 
 
-def test_tabdeal_runner_blocks_before_transport_and_diagnostic_write_while_capabilities_unknown(tmp_path: Path):
-    class MustNotRunTransport:
-        def __init__(self, **kwargs):
-            raise AssertionError("transport must not be constructed before registry capability proof")
+def test_runner_persists_conflict_fingerprint_only_under_positive_test_capability_fixture(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
+
+    class ConflictTransport:
+        def __init__(self, on_record, **kwargs):
+            self.on_record = on_record
+
+        def run_once(self):
+            first = {
+                "symbol": "BTC_USDT", "price": "100", "amount": "0.1",
+                "side": "buy", "sequence": 41627925358, "timestamp": "2026-10-09T17:00:00Z",
+            }
+            self.on_record(first)
+            self.on_record({**first, "price": "101"})
+
     diagnostics_path = tmp_path / "sequence_integrity_diagnostics_v1.jsonl"
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "observations.jsonl",
         session_path=tmp_path / "sessions.jsonl",
         diagnostics_path=diagnostics_path,
-        transport_factory=MustNotRunTransport,
+        transport_factory=ConflictTransport,
         ws_factory=object,
         max_runtime_seconds=1,
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "SEQUENCE_CAPABILITIES_UNVERIFIED"
-    assert result.run_id == "NOT_STARTED"
-    assert result.records_received == 0
-    assert result.diagnostics[0]["network_started"] is False
-    assert result.diagnostics[0]["session_written"] is False
-    assert not (tmp_path / "observations.jsonl").exists()
-    assert not (tmp_path / "sessions.jsonl").exists()
-    assert not diagnostics_path.exists()
+    assert result.reason == "SEQUENCE_UNSAFE"
+    assert result.records_received == 2
+    rows = [json.loads(line) for line in diagnostics_path.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 1
+    diagnostic = rows[0]["diagnostics"][0]["diagnostic"]
+    assert diagnostic["differing_fields"] == ["price"]
+    assert diagnostic["first_payload_sha256"] != diagnostic["conflicting_payload_sha256"]
 
 
 def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path):
@@ -75,26 +90,40 @@ def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     assert hashlib.sha256(canonical).hexdigest() == digest
     path.write_text(path.read_text(encoding="utf-8") + "{broken}\n", encoding="utf-8")
-    with pytest.raises(RuntimeError, match="invalid JSON"):
+    try:
         journal.append_blocked_run(
             run_id="OBS-3", observed_at_utc="2026-10-09T17:02:00+00:00",
             reason="SEQUENCE_UNSAFE", diagnostics=[event],
         )
+    except RuntimeError as exc:
+        assert "invalid JSON" in str(exc)
+    else:
+        raise AssertionError("corrupt diagnostic journal must fail closed")
 
 
-def test_metadata_bound_is_not_reached_because_runner_blocks_before_network(tmp_path: Path):
-    class MustNotRunTransport:
-        def __init__(self, **kwargs):
-            raise AssertionError("metadata callback must not be invoked while capabilities are unknown")
+def test_metadata_bound_is_enforced_only_after_registry_allows_transport(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
+
+    class MetadataOverflowTransport:
+        def __init__(self, on_record, on_frame_metadata, **kwargs):
+            self.on_record = on_record
+            self.on_frame_metadata = on_frame_metadata
+
+        def run_once(self):
+            for sequence in range(50_001):
+                self.on_frame_metadata({
+                    "normalized_sequence": sequence,
+                    "raw_frame_sha256": f"{sequence:064x}",
+                })
+
     runner = ControlledForwardObservationRunnerV1(
         journal_path=tmp_path / "observations.jsonl",
         session_path=tmp_path / "sessions.jsonl",
-        transport_factory=MustNotRunTransport,
+        transport_factory=MetadataOverflowTransport,
         ws_factory=object,
         max_runtime_seconds=1,
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "SEQUENCE_CAPABILITIES_UNVERIFIED"
+    assert result.reason == "TRANSPORT_FRAME_METADATA_BOUND_EXCEEDED"
     assert result.records_received == 0
-    assert result.diagnostics[0]["network_started"] is False
