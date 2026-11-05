@@ -91,6 +91,16 @@ def test_unapproved_historical_conflict_fails_closed():
         reconcile_rows(timeframe, old_rows + [extra_old], rest_rows + [extra_changed])
 
 
+def test_reconciliation_rejects_identity_changes_even_for_pinned_numeric_rows():
+    timeframe = "1h"
+    old_rows = complete_approved_rows(timeframe, "old")
+    rest_rows = complete_approved_rows(timeframe, "new")
+    rest_rows[0]["close_time"] += 1
+
+    with pytest.raises(ValueError, match="identity mismatch"):
+        reconcile_rows(timeframe, old_rows, rest_rows)
+
+
 def test_pinned_conflict_aborts_if_live_value_no_longer_matches_old_evidence():
     timeframe, open_time = "1h", 1793170800
     old_rows = complete_approved_rows(timeframe, "old")
