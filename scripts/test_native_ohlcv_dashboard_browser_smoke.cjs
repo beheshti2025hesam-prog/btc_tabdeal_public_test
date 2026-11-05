@@ -444,9 +444,6 @@ const { chromium } = require("playwright");
       logo_rendered: !!ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0,
       message: oneMinuteUi.message
     };
-    require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(evidence, null, 2) + "\n");
-    process.stdout.write(JSON.stringify(evidence) + "\n");
-
     // A 200 response is not sufficient: a degraded batch must never remain visible as VALIDATED.
     const candleRouteMatcher = url => new URL(url).pathname === "/api/candles";
     await page.waitForFunction(() => !document.querySelector("#refresh")?.disabled, null, { timeout: 10000 });
@@ -506,6 +503,10 @@ const { chromium } = require("playwright");
         execution_enabled: false
       }, null, 2) + "\n"
     );
+    evidence.gap_state_fail_closed = true;
+    evidence.gap_state_ui = gapStateUi;
+    require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(evidence, null, 2) + "\n");
+    process.stdout.write(JSON.stringify({ ...evidence, gap_state_fail_closed: true, gap_state_ui: gapStateUi }) + "\n");
   } finally {
     await browser.close();
   }
