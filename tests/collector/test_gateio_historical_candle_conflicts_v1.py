@@ -3,12 +3,26 @@ from __future__ import annotations
 from copy import deepcopy
 
 import pytest
+from pathlib import Path
 
 from scripts.reconcile_gateio_historical_candle_conflicts_v1 import (
     APPROVED,
     reconcile_rows,
+    resolve_runtime_root,
     validate_three_snapshots,
 )
+
+
+def test_immutable_release_resolves_external_runtime_data_root(monkeypatch):
+    monkeypatch.delenv("HES_GLOBAL_MARKET_DATA_ROOT", raising=False)
+    release = Path("/opt/hes-trade-agent/releases/abc123")
+    assert resolve_runtime_root(release) == Path("/opt/hes-trade-agent")
+
+
+def test_explicit_runtime_data_root_override_is_respected(monkeypatch):
+    monkeypatch.setenv("HES_GLOBAL_MARKET_DATA_ROOT", "/srv/hes-runtime")
+    release = Path("/opt/hes-trade-agent/releases/abc123")
+    assert resolve_runtime_root(release) == Path("/srv/hes-runtime")
 
 
 def candle(timeframe: str, open_time: int, values: dict[str, str]) -> dict:
