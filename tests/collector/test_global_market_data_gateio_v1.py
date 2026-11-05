@@ -124,6 +124,40 @@ def test_idempotent_merge_does_not_duplicate_candles(tmp_path):
     assert len(path.read_text(encoding="utf-8").splitlines()) == 1
 
 
+def test_decimal_formatting_only_duplicate_is_idempotent_without_rewrite(tmp_path):
+    path = tmp_path / "candles.jsonl"
+    stored = persisted_row()
+    write_rows(path, [stored])
+    before = path.read_bytes()
+
+    rest = persisted_row()
+    rest["volume"] = "1.20000000"
+    rest["quote_volume"] = "2.40000000"
+
+    assert collector._append_new([rest], 900, path) == 900
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("field", "different_value"),
+    [
+        ("volume", "1.20000001"),
+        ("quote_volume", "2.40000001"),
+    ],
+)
+def test_real_base_or_quote_volume_difference_remains_conflict(tmp_path, field, different_value):
+    path = tmp_path / "candles.jsonl"
+    write_rows(path, [persisted_row()])
+    before = path.read_bytes()
+    changed = persisted_row()
+    changed[field] = different_value
+
+    with pytest.raises(ValueError, match="Conflicting"):
+        collector._append_new([changed], 900, path)
+
+    assert path.read_bytes() == before
+
+
 def test_rest_reconciliation_repairs_a_missing_recent_candle(tmp_path):
     path = tmp_path / "candles.jsonl"
     write_rows(path, [persisted_row(900), persisted_row(2700)])

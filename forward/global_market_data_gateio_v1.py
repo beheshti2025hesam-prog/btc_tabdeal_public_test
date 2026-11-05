@@ -193,8 +193,20 @@ def _read_existing(path: Path) -> list[dict[str, Any]]:
 
 
 def _same_candle(left: dict[str, Any], right: dict[str, Any]) -> bool:
-    fields = ("open_time", "close_time", "open", "high", "low", "close", "volume", "quote_volume", "closed")
-    return all(left.get(field) == right.get(field) for field in fields)
+    exact_fields = ("schema", "source", "symbol", "timeframe", "open_time", "close_time", "closed")
+    if any(left.get(field) != right.get(field) for field in exact_fields):
+        return False
+
+    numeric_fields = ("open", "high", "low", "close", "volume", "quote_volume")
+    try:
+        for field in numeric_fields:
+            left_value = Decimal(str(left[field]))
+            right_value = Decimal(str(right[field]))
+            if not left_value.is_finite() or not right_value.is_finite() or left_value != right_value:
+                return False
+    except (KeyError, TypeError, ValueError, InvalidOperation):
+        return False
+    return True
 
 
 def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTPUT) -> int:
