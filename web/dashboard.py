@@ -8,7 +8,7 @@ import hashlib, json, os, time
 from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
 from forward.native_ohlcv_v1 import INTERVAL_MS, NativeCandle, NativeOHLCVBatch, validate_native_batch
-from forward.global_market_data_reader_v1 import load_market_input
+from forward.global_market_data_reader_v1 import load_market_input, canonical_market_batch_sha256
 from forward.native_ohlcv_gateio_v1 import (
     VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES, VOLUME_SEMANTICS_CONTRACT_VERSION,
     TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE,
@@ -35,15 +35,6 @@ def _market_data_root() -> Path:
     configured = os.environ.get("HES_GLOBAL_MARKET_DATA_ROOT")
     return Path(configured).expanduser() if configured else PROJECT_ROOT
 
-
-def _canonical_candle_batch_sha256(rows: list[dict], *, limit: int = 240) -> str:
-    """Hash the exact bounded closed-candle rows shared by chart and analysis."""
-    if not isinstance(rows, list) or not rows or type(limit) is not int or limit < 1:
-        raise ValueError("invalid_canonical_candle_batch")
-    canonical_rows = rows[-limit:]
-    return hashlib.sha256(
-        json.dumps(canonical_rows, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
 
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
 CHART_ASSET_FILE = Path(__file__).resolve().parent / "static" / "third_party" / "lightweight-charts" / "5.0.8" / "lightweight-charts.standalone.production.js"
@@ -172,6 +163,30 @@ def _get_batch(symbol, interval):
             return cached[0], cached[1]
     return _refresh_batch(symbol, interval)
 
+def _current_chart_batch_provenance():
+    """Describe the exact cached native batches currently used by the chart."""
+    timeframes = {}
+    for timeframe in ("15m", "1h", "4h"):
+        batch, _ = _get_batch("BTCUSDT", timeframe)
+        if not batch.candles:
+            raise ValueError("chart_batch_empty:" + timeframe)
+        digest = batch.response_sha256
+        if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise ValueError("chart_batch_digest_invalid:" + timeframe)
+        last = batch.candles[-1]
+        timeframes[timeframe] = {
+            "input_batch_sha256": digest,
+            "candle_count": len(batch.candles),
+            "last_closed_candle_time": int((last.close_time_ms + 1) // 1000),
+        }
+    return {
+        "schema": "hes_market_data_batch_provenance_v1",
+        "source": "gateio_public_spot",
+        "symbol": "BTC_USDT",
+        "batch_limit": 240,
+        "timeframes": timeframes,
+    }
+
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HES Trade Agent</title><link rel="icon" href="/static/hes-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/static/dashboard.css"><script src="/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js" integrity="sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl" crossorigin="anonymous"></script></head><body><a class="skip-link" href="#main-content">Skip to dashboard content</a><main id="main-content" tabindex="-1"><header><div class="brand-lockup"><img class="brand-mark" src="/static/hes-mark.svg" alt="" aria-hidden="true"><div><h1 class="brand">HES Trade Agent</h1><div class="sub">Global feed · persisted closed candles</div></div></div><div class="header-actions"><label class="language-control" for="languageSelect"><span>Language</span><select id="languageSelect" aria-label="Dashboard language"><option value="en">English</option><option value="fa">فارسی</option><option value="de">Deutsch</option><option value="fr">Français</option></select></label><span class="pill">HOLD / NO_TRADE_ONLY</span></div></header>
 <nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#precisionEntryPanel">Precision</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
@@ -275,14 +290,49 @@ class Handler(BaseHTTPRequestHandler):
                         "source_reader": "global_market_data_reader_v1",
                         "symbol": "BTC_USDT",
                         "timeframe": tf,
-                        "input_batch_sha256": _canonical_candle_batch_sha256(rows),
+                        "input_batch_sha256": canonical_market_batch_sha256(rows),
                         "batch_candles": min(len(rows), 240),
                         "closed_candles": len(rows),
                         "latest_close_time": rows[-1]["close_time"],
                         "latest_age_seconds": age_seconds,
                         "max_age_seconds": max_age_seconds,
                     }
-                strategy = read_strategy_v2_dashboard()
+                if stale_timeframe_codes:
+                    latest_1m = feeds["1m"][-1]
+                    payload = {
+                        "schema": "hes_precision_entry_status_v1",
+                        "status": "BLOCKED",
+                        "source": "gateio_public_spot",
+                        "symbol": "BTC_USDT",
+                        "timeframes": timeframe_payload,
+                        "setup_timeframe": "15m",
+                        "setup_decision": "NO_TRADE",
+                        "final_policy_decision": "NO_TRADE",
+                        "paper_setup_validated": False,
+                        "paper_setup_reason": "STALE_MARKET_DATA",
+                        "setup_validated_15m": False,
+                        "confirmation_state": "UNCONFIRMED",
+                        "risk_gate_state": "RISK_REJECTED",
+                        "entry_timeframe": "1m",
+                        "entry_state": "BLOCKED",
+                        "reason_codes": stale_timeframe_codes,
+                        "engine_evidence": {"freshness_gate": "BLOCKED"},
+                        "engine_authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
+                        "entry_context_status": "MISSING",
+                        "latest_1m_close_time": latest_1m["close_time"],
+                        "execution_enabled": False,
+                        "orders_placed": False,
+                        "authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
+                    }
+                    return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+                current_provenance = _current_chart_batch_provenance()
+                for timeframe in ("15m", "1h", "4h"):
+                    if canonical_market_batch_sha256(feeds[timeframe]) != current_provenance["timeframes"][timeframe]["input_batch_sha256"]:
+                        raise ValueError("precision_chart_batch_mismatch:" + timeframe)
+                chart_1m_batch, _ = _get_batch("BTCUSDT", "1m")
+                if canonical_market_batch_sha256(feeds["1m"]) != chart_1m_batch.response_sha256:
+                    raise ValueError("precision_chart_batch_mismatch:1m")
+                strategy = read_strategy_v2_dashboard(current_market_data_provenance=current_provenance)
                 gate = strategy.get("latest_gate_evidence", {})
                 if not isinstance(gate, dict):
                     raise ValueError("strategy_gate_evidence_invalid")
@@ -297,34 +347,6 @@ class Handler(BaseHTTPRequestHandler):
                 confirmation_state = confirmation.get("state", "UNKNOWN")
                 risk_state = risk.get("state", "UNKNOWN")
                 context = paper_setup.get("context")
-                if stale_timeframe_codes:
-                    latest_1m = feeds["1m"][-1]
-                    payload = {
-                        "schema": "hes_precision_entry_status_v1",
-                        "status": "BLOCKED",
-                        "source": "gateio_public_spot",
-                        "symbol": "BTC_USDT",
-                        "timeframes": timeframe_payload,
-                        "setup_timeframe": "15m",
-                        "setup_decision": setup_decision,
-                        "final_policy_decision": strategy.get("decision", "NO_TRADE"),
-                        "paper_setup_validated": setup_valid,
-                        "paper_setup_reason": paper_setup.get("reason_code"),
-                        "setup_validated_15m": setup_valid,
-                        "confirmation_state": confirmation_state,
-                        "risk_gate_state": risk_state,
-                        "entry_timeframe": "1m",
-                        "entry_state": "BLOCKED",
-                        "reason_codes": stale_timeframe_codes,
-                        "engine_evidence": {"freshness_gate": "BLOCKED"},
-                        "engine_authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
-                        "entry_context_status": "PRESENT" if isinstance(context, dict) else "MISSING",
-                        "latest_1m_close_time": latest_1m["close_time"],
-                        "execution_enabled": False,
-                        "orders_placed": False,
-                        "authority": "ADVISORY_ONLY_RISK_GATE_UNCHANGED",
-                    }
-                    return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
                 engine = evaluate_precision_entry(
                     setup_direction=direction,
                     candles_1m=feeds["1m"],
@@ -397,9 +419,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/strategy-v2":
             try:
-                payload = read_strategy_v2_dashboard()
+                current_provenance = _current_chart_batch_provenance()
+                payload = read_strategy_v2_dashboard(current_market_data_provenance=current_provenance)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
-            except StrategyV2DashboardError as exc:
+            except (StrategyV2DashboardError, ValueError) as exc:
                 payload = {
                     "schema": "hes.strategy_v2_dashboard_view.v1", "status": "BLOCKED",
                     "decision": "NO_TRADE", "direction": "NONE", "reason": str(exc),
@@ -409,10 +432,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/mother":
             try:
-                strategy_view = read_strategy_v2_dashboard()
+                current_provenance = _current_chart_batch_provenance()
+                strategy_view = read_strategy_v2_dashboard(current_market_data_provenance=current_provenance)
                 payload = read_mother_v2_dashboard(strategy_view=strategy_view)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
-            except (StrategyV2DashboardError, MotherV2DashboardError) as exc:
+            except (StrategyV2DashboardError, MotherV2DashboardError, ValueError) as exc:
                 payload = {
                     "schema": "hes.mother_v2_dashboard_view.v1", "status": "BLOCKED_EVIDENCE",
                     "decision": "NO_TRADE", "reason_codes": [str(exc)], "stages": [],
