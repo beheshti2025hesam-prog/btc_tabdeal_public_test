@@ -29,7 +29,7 @@ The reconciler is intentionally narrow:
 4. Apply the exact staged candidate with `python scripts/reconcile_gateio_historical_candle_conflicts_v1.py --apply --stage-dir <stage-dir>`. The script requires both services to be inactive and exact live-file SHA-256 values to match the stage manifest. A partial two-file replacement is rolled back from the byte-for-byte originals.
 5. Verify the manifest reports `APPLIED`, live file hashes equal candidate hashes, and `global_market_data_reader_v1` accepts 1h and 4h with fresh contiguous closed candles.
 6. Start both collectors. Confirm they append new rows without truncating history, and verify dashboard chart, Strategy V2 and Mother V2 all use matching canonical batch digests.
-7. Only then start a fresh uninterrupted 24-hour soak. Any restart, failed sample, stale candle, gap, or digest mismatch invalidates that run.
+7. Only then start a fresh uninterrupted 24-hour soak. The soak unit uses `Restart=no`: any failed sample terminates that run and requires explicit investigation and manual restart. Any restart, failed sample, stale candle, gap, or digest mismatch invalidates that run.
 
 ## Durable history
 
