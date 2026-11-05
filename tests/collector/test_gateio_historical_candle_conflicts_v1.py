@@ -46,6 +46,17 @@ def test_only_six_pinned_historical_conflicts_can_be_reconciled(timeframe, open_
     assert added == []
 
 
+def test_reconciliation_aborts_if_any_pinned_conflict_identity_is_missing():
+    timeframe, open_time = "1h", 1793170800
+    other = candle(timeframe, open_time + 3600, {
+        "open": "100", "high": "102", "low": "99", "close": "101",
+        "volume": "1", "quote_volume": "100",
+    })
+
+    with pytest.raises(ValueError, match="pinned 1h conflict candle is missing"):
+        reconcile_rows(timeframe, [other], [other])
+
+
 def test_unapproved_historical_conflict_fails_closed():
     timeframe = "1h"
     open_time = 1793170800 + 7200
