@@ -99,7 +99,7 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def numeric_values(row: dict[str, Any]) -> dict[str, str]:
+def decimal_values(row: dict[str, Any]) -> dict[str, Decimal]:
     values = {}
     for field in FIELDS:
         value = Decimal(str(row[field]))
@@ -114,7 +114,11 @@ def numeric_values(row: dict[str, Any]) -> dict[str, str]:
         raise ValueError("candle high violates OHLC bounds")
     if values["low"] > min(values["open"], values["close"], values["high"]):
         raise ValueError("candle low violates OHLC bounds")
-    return {field: str(value) for field, value in values.items()}
+    return values
+
+
+def numeric_values(row: dict[str, Any]) -> dict[str, str]:
+    return {field: str(value) for field, value in decimal_values(row).items()}
 
 
 def identity_key(row: dict[str, Any]) -> tuple[Any, ...]:
@@ -244,9 +248,9 @@ def reconcile_rows(timeframe: str, existing: list[dict[str, Any]], rest: list[di
     for ts, pinned in approved.items():
         if ts not in old_by_ts:
             raise ValueError(f"Required pinned {timeframe} conflict candle is missing at {ts}")
-        current_values = numeric_values(old_by_ts[ts])
-        allowed_old = {key: str(Decimal(value)) for key, value in pinned["old"].items()}
-        allowed_new = {key: str(Decimal(value)) for key, value in pinned["new"].items()}
+        current_values = decimal_values(old_by_ts[ts])
+        allowed_old = {key: Decimal(value) for key, value in pinned["old"].items()}
+        allowed_new = {key: Decimal(value) for key, value in pinned["new"].items()}
         if current_values not in (allowed_old, allowed_new):
             raise ValueError(f"Persisted {timeframe} candle at {ts} matches neither pinned old nor corrected evidence")
 
@@ -264,18 +268,18 @@ def reconcile_rows(timeframe: str, existing: list[dict[str, Any]], rest: list[di
             continue
         if identity_key(old_row) != identity_key(current):
             raise ValueError(f"Gate.io {timeframe} candle identity mismatch at {ts}")
-        if numeric_values(old_row) == numeric_values(current):
+        if decimal_values(old_row) == decimal_values(current):
             continue
         approved_item = approved.get(ts)
         if approved_item is None:
             raise ValueError(f"Unapproved {timeframe} historical candle conflict at {ts}")
         old_values = numeric_values(old_row)
         rest_values = numeric_values(current)
-        expected_old = {key: str(Decimal(value)) for key, value in approved_item["old"].items()}
-        expected_new = {key: str(Decimal(value)) for key, value in approved_item["new"].items()}
-        if old_values != expected_old:
+        expected_old = {key: Decimal(value) for key, value in approved_item["old"].items()}
+        expected_new = {key: Decimal(value) for key, value in approved_item["new"].items()}
+        if decimal_values(old_row) != expected_old:
             raise ValueError(f"Persisted {timeframe} candle at {ts} no longer matches the pinned old evidence")
-        if rest_values != expected_new:
+        if decimal_values(current) != expected_new:
             raise ValueError(f"Gate.io REST {timeframe} candle at {ts} no longer matches the pinned three-probe evidence")
         merged[ts] = current
         changes.append({
