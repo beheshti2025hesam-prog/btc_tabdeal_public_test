@@ -1,0 +1,19 @@
+{
+  "evidence_type": "owner_supplied_verbatim_official_exchange_reply_body",
+  "venue": "Tabdeal",
+  "product": "FAPI/Futures-Margin",
+  "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+  "field": "trade.sequence",
+  "received_date": "2026-11-04",
+  "provided_to_project_date": "2026-11-05",
+  "language": "fa",
+  "body_sha256": "bd83b1b70b1518937d805733d92e570c98311ea5dd8bc7c3d9f8dc6d0c3a53cd",
+  "source_headers_available": false,
+  "source_headers_note": "Sender, original email/ticket identifier and transport headers were not included with the supplied body.",
+  "primary_source_url": "https://docs.tabdeal.org/",
+  "limitations": [
+    "Body is user-supplied and attributed by the user to an official Tabdeal reply.",
+    "Do not infer undocumented positive guarantees.",
+    "Registry capabilities remain unknown; operational policy is conservative."
+  ]
+}

@@ -9,21 +9,19 @@
 - Field: trade.sequence
 - Protocol version: unknown
 
-## Exchange-response summary supplied by the project owner
+## Verbatim exchange reply body — pinned 2026-11-05
 
-The owner supplied a summary of an official written Tabdeal reply received on 2026-11-04:
+The project owner supplied the full Persian response body and attributed it to Tabdeal official written reply received on 2026-11-04. The exact body is preserved at:
 
-1. trade.sequence is informational only. It is not globally, per-market, or per-connection unique.
-2. It is not strictly consecutive, replayable, or a guaranteed gap detector.
-3. Equal values are not automatically duplicate trades.
-4. It is not an ordering guarantee or a deduplication key.
-5. Depth sequence is independent and must not be compared with Broadcast trade.sequence.
-6. Broadcast has no documented replay/gap recovery. Reconnect and resubscribe are required; approximate REST snapshot reconciliation is also required before dependent use.
-7. Persist every full trade payload with market, local reception timestamp, and venue event timestamp.
+- docs/protocol/evidence/tabdeal_broadcast_reply_2026-11-04.fa.txt
+- SHA-256 (UTF-8 bytes including final LF): bd83b1b70b1518937d805733d92e570c98311ea5dd8bc7c3d9f8dc6d0c3a53cd
+- Metadata: docs/protocol/evidence/tabdeal_broadcast_reply_2026-11-04.metadata.json
 
-## Evidence provenance limitation
+The response explicitly says trade.sequence is informational metadata only; it is not a documented globally/per-market/per-connection unique trade ID, strict ordering/consecutiveness guarantee, replay cursor, gap detector, or safe deduplication key. Equal values must not cause automatic duplicate removal; a numeric jump must not automatically be interpreted as a lost trade; each received trade is an independent event. Depth sequence is separate. Broadcast replay/gap recovery is undocumented; reconnect/resubscribe plus approximate REST snapshot reconciliation is the advised procedure, not guaranteed lossless recovery. Every trade payload, market, reception timestamp and event timestamp should be persisted.
 
-The original response's sender/source metadata, exact full message, message/ticket identifier, and content hash are not available in this worktree. This file records an owner-supplied summary of an exchange response; it is not a pinned primary-protocol excerpt. Do not use it to claim a primary-source hash or promote registry capabilities to true. Keep the exact-scope registry conservative until the original evidence is attached and pinned.
+### Provenance boundary
+
+This is the verbatim response body supplied by the project owner and attributed to an official Tabdeal reply. The original sender headers, email/ticket identifier and transport metadata were not included. The body hash is pinned; source-header provenance is not. Do not invent missing sender or ticket metadata. The exact-scope registry therefore retains conservative unknown capability values: absence of documented guarantees is not proof that a capability is technically impossible.
 
 ## Collector policy
 
