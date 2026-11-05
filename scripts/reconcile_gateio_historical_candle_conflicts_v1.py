@@ -14,19 +14,33 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
-import time
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
+RELEASE_ROOT = Path(__file__).resolve().parents[1]
+if str(RELEASE_ROOT) not in sys.path:
+    sys.path.insert(0, str(RELEASE_ROOT))
 from forward.native_ohlcv_gateio_v1 import GateioSpotKlineSource
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data/forward"
-ARCHIVES = ROOT / "data/archives"
+
+def resolve_runtime_root(release_root: Path) -> Path:
+    configured = os.environ.get("HES_GLOBAL_MARKET_DATA_ROOT")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    if release_root.parent.name == "releases":
+        return release_root.parent.parent.resolve()
+    return release_root.resolve()
+
+
+ROOT = RELEASE_ROOT
+RUNTIME_ROOT = resolve_runtime_root(RELEASE_ROOT)
+DATA = RUNTIME_ROOT / "data/forward"
+ARCHIVES = RUNTIME_ROOT / "data/archives"
 SOURCE = "gateio_public_spot"
 SYMBOL = "BTC_USDT"
 FIELDS = ("open", "high", "low", "close", "volume", "quote_volume")
