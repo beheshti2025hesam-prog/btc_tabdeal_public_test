@@ -35,6 +35,20 @@ def approved_rows(timeframe: str, version: str) -> list[dict]:
     ]
 
 
+def complete_approved_rows(timeframe: str, version: str) -> list[dict]:
+    seconds = 3600 if timeframe == "1h" else 14400
+    approved = APPROVED[timeframe]
+    first, last = min(approved), max(approved)
+    rows = []
+    for ts in range(first, last + 1, seconds):
+        values = approved[ts][version] if ts in approved else {
+            "open": "100", "high": "102", "low": "99", "close": "101",
+            "volume": "1", "quote_volume": "100",
+        }
+        rows.append(candle(timeframe, ts, values))
+    return rows
+
+
 def test_immutable_release_resolves_external_runtime_data_root(monkeypatch):
     monkeypatch.delenv("HES_GLOBAL_MARKET_DATA_ROOT", raising=False)
     release = Path("/opt/hes-trade-agent/releases/abc123")
@@ -49,8 +63,8 @@ def test_explicit_runtime_data_root_override_is_respected(monkeypatch):
 
 @pytest.mark.parametrize("timeframe", ["1h", "4h"])
 def test_only_pinned_historical_conflicts_can_be_reconciled(timeframe):
-    old_rows = approved_rows(timeframe, "old")
-    rest_rows = approved_rows(timeframe, "new")
+    old_rows = complete_approved_rows(timeframe, "old")
+    rest_rows = complete_approved_rows(timeframe, "new")
 
     merged, changes, added = reconcile_rows(timeframe, old_rows, rest_rows)
 
@@ -63,8 +77,8 @@ def test_only_pinned_historical_conflicts_can_be_reconciled(timeframe):
 
 def test_unapproved_historical_conflict_fails_closed():
     timeframe = "1h"
-    old_rows = approved_rows(timeframe, "old")
-    rest_rows = approved_rows(timeframe, "new")
+    old_rows = complete_approved_rows(timeframe, "old")
+    rest_rows = complete_approved_rows(timeframe, "new")
     extra_ts = 1793170800 + 2 * 3600
     extra_old = candle(timeframe, extra_ts, {
         "open": "100", "high": "102", "low": "99", "close": "101",
@@ -83,13 +97,13 @@ def test_pinned_conflict_aborts_if_live_value_no_longer_matches_old_evidence():
     old_rows[0]["close"] = "81088.2"
 
     with pytest.raises(ValueError, match="neither pinned old nor corrected evidence"):
-        reconcile_rows(timeframe, old_rows, approved_rows(timeframe, "new"))
+        reconcile_rows(timeframe, old_rows, complete_approved_rows(timeframe, "new"))
 
 
 def test_pinned_conflict_aborts_if_rest_value_no_longer_matches_three_probe_evidence():
     timeframe, open_time = "1h", 1793170800
     old_rows = approved_rows(timeframe, "old")
-    rest_rows = approved_rows(timeframe, "new")
+    rest_rows = complete_approved_rows(timeframe, "new")
     rest_rows[0]["close"] = "81088.5"
 
     with pytest.raises(ValueError, match="pinned three-probe evidence"):
@@ -116,7 +130,7 @@ def test_reconciliation_preserves_history_and_adds_new_closed_rows():
         "open": "100", "high": "102", "low": "99", "close": "101",
         "volume": "1", "quote_volume": "100",
     })
-    existing_conflicts = approved_rows(timeframe, "old")
+    existing_conflicts = complete_approved_rows(timeframe, "old")
     next_row = candle(timeframe, ts + 2 * seconds, {
         "open": "102", "high": "104", "low": "101", "close": "103",
         "volume": "3", "quote_volume": "300",
