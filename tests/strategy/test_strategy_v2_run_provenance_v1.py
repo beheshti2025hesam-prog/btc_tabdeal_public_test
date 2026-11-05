@@ -46,14 +46,21 @@ def test_evaluator_initializes_run_manifest_from_immutable_code_root(tmp_path,mo
     code_root=make_code_root(tmp_path)
     data_root=tmp_path/"shared-data"
     monkeypatch.setattr(evaluator,"CODE_ROOT",code_root)
-    monkeypatch.setattr(evaluator,"RUN_MANIFEST",data_root/"strategy_policy_v2_runs.jsonl")
+    legacy=data_root/"strategy_policy_v2_runs.jsonl"
+    legacy.parent.mkdir(parents=True,exist_ok=True)
+    legacy_rows=[{"schema":"hes_strategy_v2_run_manifest_v1","run_id":f"HESV2-legacy-{i}","event_id":None} for i in range(4)]
+    legacy.write_text("".join(json.dumps(row)+"\n" for row in legacy_rows),encoding="utf-8")
+    legacy_before=legacy.read_bytes()
+    monkeypatch.setattr(evaluator,"RUN_MANIFEST",data_root/"strategy_policy_v2_run_manifests_v2.jsonl")
     monkeypatch.setattr(evaluator,"RUN_PROVENANCE",None)
     manifest=evaluator.initialize_run_provenance()
+    assert legacy.read_bytes()==legacy_before
     assert manifest["code_release_id"]==code_root.name
     assert manifest["run_id"].startswith("HESV2-")
     assert evaluator.provenance_fields()["run_manifest_sha256"]==manifest["run_manifest_sha256"]
     saved=json.loads(evaluator.RUN_MANIFEST.read_text().splitlines()[0])
     assert saved==manifest
+    assert evaluator.RUN_MANIFEST.name=="strategy_policy_v2_run_manifests_v2.jsonl"
     source=(code_root/"scripts/run_strategy_policy_v2_forward_eval.py")
     source.parent.mkdir(parents=True,exist_ok=True)
     source.write_text("assert initialization happens before the loop")
