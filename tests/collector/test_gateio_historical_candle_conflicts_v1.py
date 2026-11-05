@@ -75,6 +75,20 @@ def test_only_pinned_historical_conflicts_can_be_reconciled(timeframe):
     assert added == []
 
 
+def test_reconciliation_ignores_decimal_formatting_only_differences():
+    timeframe = "4h"
+    old_rows = complete_approved_rows(timeframe, "old")
+    rest_rows = complete_approved_rows(timeframe, "new")
+    # The first non-conflict row has numerically identical values with a different scale.
+    rest_rows[1]["volume"] = "1.000"
+
+    merged, changes, added = reconcile_rows(timeframe, old_rows, rest_rows)
+
+    assert len(merged) == len(old_rows)
+    assert len(changes) == len(APPROVED[timeframe])
+    assert added == []
+
+
 def test_unapproved_historical_conflict_fails_closed():
     timeframe = "1h"
     old_rows = complete_approved_rows(timeframe, "old")
