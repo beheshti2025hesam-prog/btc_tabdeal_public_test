@@ -9,4 +9,6 @@ def test_gateio_24h_soak_is_not_automatically_restarted_after_failure():
     assert "Restart=no" in text
     assert "Restart=on-failure" not in text
     assert "ExecStartPre=" in text
+    assert ".archive." in text
+    assert ".attempt." not in text
     assert "soak_gateio_feed_24h_v2.py" in text
