@@ -117,12 +117,16 @@ def numeric_values(row: dict[str, Any]) -> dict[str, str]:
     return {field: str(value) for field, value in values.items()}
 
 
-def semantic_key(row: dict[str, Any]) -> tuple[Any, ...]:
+def identity_key(row: dict[str, Any]) -> tuple[Any, ...]:
     return (
         row.get("schema"), row.get("source"), row.get("symbol"),
         row.get("timeframe"), row.get("open_time"), row.get("close_time"),
-        row.get("closed"), tuple((field, Decimal(str(row[field]))) for field in FIELDS),
+        row.get("closed"),
     )
+
+
+def semantic_key(row: dict[str, Any]) -> tuple[Any, ...]:
+    return identity_key(row) + (tuple((field, Decimal(str(row[field]))) for field in FIELDS),)
 
 
 def native_to_record(candle, timeframe: str, fetched_at_ms: int) -> dict[str, Any]:
@@ -256,7 +260,11 @@ def reconcile_rows(timeframe: str, existing: list[dict[str, Any]], rest: list[di
     changes = []
     for ts, old_row in old_by_ts.items():
         current = rest_by_ts.get(ts)
-        if current is None or semantic_key(old_row) == semantic_key(current):
+        if current is None:
+            continue
+        if identity_key(old_row) != identity_key(current):
+            raise ValueError(f"Gate.io {timeframe} candle identity mismatch at {ts}")
+        if numeric_values(old_row) == numeric_values(current):
             continue
         approved_item = approved.get(ts)
         if approved_item is None:
