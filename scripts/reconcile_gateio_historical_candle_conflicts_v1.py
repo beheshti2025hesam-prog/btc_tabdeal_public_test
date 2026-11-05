@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evidence-gated one-time reconciliation of six known Gate.io BTC Spot candles.
+"""Evidence-gated one-time reconciliation of seven known Gate.io BTC Spot candles.
 
 Default mode only stages a complete-history candidate and raw REST evidence.
 --apply requires both affected collectors to be stopped and exact source hashes
@@ -16,6 +16,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -53,8 +54,10 @@ SERVICES = {
     "4h": "hes-global-market-data-gateio-4h.service",
 }
 # Old values are the byte-archived values observed in the live persisted feeds.
-# New values are pinned from the 2026-11-04 90d capture, 2026-11-05 05:57Z
-# REST probe, and three independent REST reads made on 2026-11-05.
+# Six historical rows are corroborated by the 2026-11-04 90d capture and the
+# 2026-11-05 05:57Z REST probe. The seventh (2026-11-05 07:00Z) is corroborated
+# by three full REST snapshots, three exact-window REST probes, and the 4h
+# candle ending at the same close_time with the same close price.
 APPROVED = {
     "1h": {
         1793170800: {
@@ -64,6 +67,10 @@ APPROVED = {
         1793174400: {
             "old": {"open":"81088.4","high":"81820.9","low":"81088.3","close":"81477.5","volume":"487.814789","quote_volume":"39741365.1442493"},
             "new": {"open":"81088.4","high":"81820.9","low":"81088.3","close":"81477.3","volume":"487.81502600","quote_volume":"39741384.45436940"},
+        },
+        1793862000: {
+            "old": {"open":"80652.5","high":"80785.7","low":"80303","close":"80378.1","volume":"800.623275","quote_volume":"64406348.1823582"},
+            "new": {"open":"80652.5","high":"80785.7","low":"80303","close":"80378.2","volume":"800.63120700","quote_volume":"64406985.74224060"},
         },
     },
     "4h": {
@@ -205,6 +212,65 @@ def validate_three_snapshots(snapshots: list[list[dict[str, Any]]]) -> None:
     ]
     if signatures[0] != signatures[1] or signatures[1] != signatures[2]:
         raise ValueError("Gate.io REST semantic rows changed between the three probes")
+
+
+
+def fetch_targeted_conflict_probes(
+    timeframe: str, rest_rows: list[dict[str, Any]], raw_dir: Path
+) -> dict[str, list[dict[str, Any]]]:
+    """Independently re-query each pinned conflict with exact from/to bounds."""
+    expected_by_ts = {row["open_time"]: row for row in rest_rows}
+    seconds = TIMEFRAMES[timeframe]["seconds"]
+    evidence: dict[str, list[dict[str, Any]]] = {}
+    for ts in sorted(APPROVED[timeframe]):
+        expected = expected_by_ts.get(ts)
+        if expected is None:
+            raise ValueError(f"{timeframe} full REST snapshot omitted pinned conflict {ts}")
+        snapshots: list[list[dict[str, Any]]] = []
+        probe_evidence = []
+        for index in range(1, 4):
+            captured: list[bytes] = []
+
+            def transport(url: str, timeout: int) -> bytes:
+                request = Request(
+                    url,
+                    headers={"Accept": "application/json", "User-Agent": "HES-Gateio-Targeted-Candle-Probe/1.0"},
+                    method="GET",
+                )
+                with urlopen(request, timeout=timeout) as response:
+                    body = response.read()
+                captured.append(body)
+                return body
+
+            batch = GateioSpotKlineSource(transport=transport).fetch(
+                symbol="BTCUSDT",
+                interval=timeframe,
+                limit=1,
+                start_time_ms=ts * 1000,
+                end_time_ms=(ts + seconds) * 1000 - 1,
+            )
+            if len(captured) != 1 or len(batch.candles) != 1 or batch.gaps:
+                raise ValueError(f"{timeframe} targeted REST probe {index} for {ts} is incomplete or gapped")
+            row = native_to_record(batch.candles[0], timeframe, batch.fetched_at_ms)
+            if row["open_time"] != ts or semantic_key(row) != semantic_key(expected):
+                raise ValueError(f"{timeframe} targeted REST probe {index} disagrees with full snapshot at {ts}")
+            snapshots.append([row])
+            raw_path = raw_dir / f"{timeframe}_{ts}_targeted_probe_{index}.json"
+            raw_path.write_bytes(captured[0])
+            probe_evidence.append({
+                "probe": index,
+                "start_time_ms": ts * 1000,
+                "end_time_ms": (ts + seconds) * 1000 - 1,
+                "rows": 1,
+                "response_sha256": sha256_bytes(captured[0]),
+                "raw_path": str(raw_path),
+                "gaps": 0,
+            })
+            time.sleep(0.1)
+        validate_three_snapshots(snapshots)
+        evidence[str(ts)] = probe_evidence
+    return evidence
+
 
 
 def read_jsonl(path: Path, timeframe: str) -> list[dict[str, Any]]:
@@ -351,6 +417,7 @@ def stage() -> Path:
             raise ValueError(f"{timeframe} original archive hash verification failed")
 
         rest_rows, probes = fetch_three_snapshots(timeframe, raw_dir)
+        targeted_probes = fetch_targeted_conflict_probes(timeframe, rest_rows, raw_dir)
         candidate_rows, changes, added = reconcile_rows(timeframe, original_rows, rest_rows)
         candidate_path = candidate_dir / spec["path"]
         candidate_path.write_text(
@@ -371,6 +438,7 @@ def stage() -> Path:
             "rows_added_from_rest": added,
             "corrected_conflicts": changes,
             "rest_probes": probes,
+            "targeted_rest_probes": targeted_probes,
             "rest_gaps": 0,
             "first_open_time": candidate_rows[0]["open_time"],
             "last_open_time": candidate_rows[-1]["open_time"],
