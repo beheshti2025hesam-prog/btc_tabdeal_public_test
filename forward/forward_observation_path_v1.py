@@ -22,6 +22,9 @@ from .clean_regime_quality_v1 import CleanRegimeQualityV1
 from .clean_regime_quality_gate_v1 import CleanRegimeQualityGateV1
 from .observation_journal_v1 import ObservationJournalV1
 from .observation_journal_integration_v1 import ObservationJournalIntegrationV1
+from .source_evidence_registry_v1 import SourceEvidenceRegistryError, verify_source_evidence_bundle
+
+DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH = Path(__file__).resolve().parents[1] / "evidence" / "source_evidence_registry_v1.json"
 
 @dataclass(frozen=True)
 class ForwardObservationPathResult:
@@ -39,10 +42,41 @@ class ForwardObservationPathResult:
     diagnostics: tuple[dict[str, Any], ...] = ()
 
 class ForwardObservationPathV1:
-    def __init__(self, journal_path: str | Path, *, max_records: int = 100_000):
+    def __init__(
+        self,
+        journal_path: str | Path,
+        *,
+        max_records: int = 100_000,
+        sequence_contract_verified: bool = False,
+        sequence_contract_evidence_ref: str | None = None,
+        source_completeness_verified: bool = False,
+        source_completeness_evidence_ref: str | None = None,
+        source_ordering_verified: bool = False,
+        source_ordering_evidence_ref: str | None = None,
+        source_evidence_registry_path: str | Path | None = None,
+    ):
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
+        self.sequence_contract_verified = bool(
+            sequence_contract_verified
+            and isinstance(sequence_contract_evidence_ref, str)
+            and sequence_contract_evidence_ref.strip()
+        )
+        self.sequence_contract_evidence_ref = sequence_contract_evidence_ref
+        self.source_evidence_registry_path = Path(source_evidence_registry_path) if source_evidence_registry_path is not None else DEFAULT_SOURCE_EVIDENCE_REGISTRY_PATH
+        self.source_completeness_verified = bool(
+            source_completeness_verified
+            and isinstance(source_completeness_evidence_ref, str)
+            and source_completeness_evidence_ref.strip()
+        )
+        self.source_completeness_evidence_ref = source_completeness_evidence_ref
+        self.source_ordering_verified = bool(
+            source_ordering_verified
+            and isinstance(source_ordering_evidence_ref, str)
+            and source_ordering_evidence_ref.strip()
+        )
+        self.source_ordering_evidence_ref = source_ordering_evidence_ref
         self.journal = ObservationJournalV1(journal_path)
         self.writer = ObservationJournalIntegrationV1(self.journal)
 
@@ -63,6 +97,8 @@ class ForwardObservationPathV1:
         if not forward_run_id.strip():
             raise ValueError("forward_run_id required")
 
+        # Bound the input before evidence gates so an over-limit stream always
+        # reports its concrete safety violation, even when source proofs are absent.
         bounded_frames = list(islice(frames, self.max_records + 1))
         if len(bounded_frames) > self.max_records:
             return ForwardObservationPathResult(
@@ -70,11 +106,58 @@ class ForwardObservationPathV1:
                 False, None, "FORWARD_RECORD_BOUND_EXCEEDED",
                 ({"max_records": self.max_records},),
             )
+
+        if not self.sequence_contract_verified:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
+                ({"sequence_contract_evidence_required": True},),
+            )
+
+        if not self.source_completeness_verified:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "SOURCE_COMPLETENESS_UNVERIFIED",
+                ({"source_completeness_evidence_required": True},),
+            )
+
+        if not self.source_ordering_verified:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, "SOURCE_ORDERING_UNVERIFIED",
+                ({"source_ordering_evidence_required": True},),
+            )
+
+        # Decision-grade path output requires registry-backed proof, not flags alone.
+        try:
+            verify_source_evidence_bundle(
+                self.source_evidence_registry_path,
+                sequence_contract_ref=self.sequence_contract_evidence_ref or "",
+                source_completeness_ref=self.source_completeness_evidence_ref or "",
+                source_ordering_ref=self.source_ordering_evidence_ref or "",
+                source_scope="tabdeal-futures:BTC_USDT",
+            )
+        except SourceEvidenceRegistryError as exc:
+            return ForwardObservationPathResult(
+                "BLOCKED", forward_run_id, 0, 0, 0, None, None, None,
+                False, None, exc.code,
+                ({"source_evidence_registry_verified": False},),
+            )
+
         parsed = [parse_trade_frame(frame, as_of=as_of) for frame in bounded_frames]
-        result = SequenceAwareCandleIngestionV1(max_sequence_records=self.max_records).ingest(parsed, as_of=as_of)
+        result = SequenceAwareCandleIngestionV1(
+            max_sequence_records=self.max_records,
+            sequence_contract_verified=self.sequence_contract_verified,
+            sequence_contract_evidence_ref=self.sequence_contract_evidence_ref,
+            source_completeness_verified=self.source_completeness_verified,
+            source_completeness_evidence_ref=self.source_completeness_evidence_ref,
+            source_ordering_verified=self.source_ordering_verified,
+            source_ordering_evidence_ref=self.source_ordering_evidence_ref,
+            source_evidence_registry_path=self.source_evidence_registry_path,
+        ).ingest(parsed, as_of=as_of)
         if not result.safe_for_decision:
             return ForwardObservationPathResult("BLOCKED", forward_run_id, len(parsed), 0, 0,
-                                                None, None, None, False, None, "SEQUENCE_UNSAFE",
+                                                None, None, None, False, None, result.reason or "SEQUENCE_UNSAFE",
                                                 tuple({
                                                     "sequence": e.sequence,
                                                     "status": e.status,

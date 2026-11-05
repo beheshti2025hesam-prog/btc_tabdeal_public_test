@@ -42,13 +42,16 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
         raise ValueError("future source observation")
     if record["symbol"] != "BTC_USDT":
         raise ValueError("unsupported symbol")
+    sequence = record["sequence"]
+    if isinstance(sequence, bool) or not isinstance(sequence, (int, str)) or sequence == "":
+        raise ValueError("invalid sequence type")
     return TradeObservation(
         symbol=record["symbol"],
         price=Decimal(str(record["price"])),
         amount=Decimal(str(record["amount"])),
         side=str(record["side"]),
         updated=updated,
-        sequence=int(record["sequence"]),
+        sequence=sequence,
     )
 
 
