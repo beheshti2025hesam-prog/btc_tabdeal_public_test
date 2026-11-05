@@ -11,10 +11,9 @@ WorkingDirectory=/opt/hes-trade-agent
 Environment=PYTHONUNBUFFERED=1
 Environment=HES_GLOBAL_MARKET_DATA_ROOT=/opt/hes-trade-agent
 Environment=HES_GATEIO_SOAK_LOG=/opt/hes-trade-agent/data/forward/gateio_feed_soak_24h_v2.jsonl
-ExecStartPre=/bin/bash -c 'f=/opt/hes-trade-agent/data/forward/gateio_feed_soak_24h_v2.jsonl; if [ -f "$f" ]; then mv "$f" "$f.attempt.$(date -u +%%Y%%m%%dT%%H%%M%%SZ)"; fi'
+ExecStartPre=/bin/bash -c 'f=/opt/hes-trade-agent/data/forward/gateio_feed_soak_24h_v2.jsonl; if [ -f "$f" ]; then mv "$f" "$f.archive.$(date -u +%%Y%%m%%dT%%H%%M%%SZ)"; fi'
 ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/scripts/soak_gateio_feed_24h_v2.py
-Restart=on-failure
-RestartSec=30
+Restart=no
 TimeoutStopSec=15
 KillSignal=SIGTERM
 NoNewPrivileges=true

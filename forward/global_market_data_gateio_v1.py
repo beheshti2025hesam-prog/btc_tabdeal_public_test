@@ -2,8 +2,9 @@
 
 REST reconciliation reuses GateioSpotKlineSource, the canonical eight-field
 Gate.io contract. WebSocket messages are wake-up notifications only; persisted
-candle records always come from the native REST adapter. The persisted JSONL is a rolling, atomically reconciled
-window of closed candles, keyed by open_time; gaps/conflicts fail closed.
+candle records always come from the native REST adapter. JSONL history is durable
+and is never truncated to the bounded REST fetch window. Normal updates append;
+rare historical backfills use a validated atomic rewrite. Gaps/conflicts fail closed.
 """
 from __future__ import annotations
 
@@ -36,6 +37,8 @@ def persisted_candle_limit(interval: str) -> int:
 
 
 MAX_PERSISTED_CANDLES = persisted_candle_limit(INTERVAL)
+# Bounded steady-state read window; this never limits on-disk retention.
+LIVE_WINDOW_CANDLES = 5000
 DEFAULT_OUTPUTS = {
     "1m": ROOT / "data/forward/global_market_candles_1m_v1.jsonl",
     "15m": ROOT / "data/forward/global_market_candles_v1.jsonl",
@@ -192,6 +195,74 @@ def _read_existing(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+
+def _read_existing_tail(path: Path, max_rows: int = LIVE_WINDOW_CANDLES) -> list[dict[str, Any]]:
+    """Read a bounded validated tail for steady-state updates on long-lived JSONL."""
+    if not path.exists():
+        return []
+    if type(max_rows) is not int or max_rows < 1:
+        raise ValueError("max_rows must be positive")
+    with path.open("rb") as handle:
+        handle.seek(0, os.SEEK_END)
+        position = handle.tell()
+        chunks: list[bytes] = []
+        data = b""
+        while position > 0 and data.count(b"\n") <= max_rows:
+            size = min(64 * 1024, position)
+            position -= size
+            handle.seek(position)
+            chunks.insert(0, handle.read(size))
+            data = b"".join(chunks)
+    lines = data.splitlines()
+    if position > 0 and lines:
+        lines = lines[1:]
+    rows: list[dict[str, Any]] = []
+    previous = None
+    for line_number, line in enumerate(lines[-max_rows:], 1):
+        if not line.strip():
+            continue
+        try:
+            candle = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Malformed persisted Gate.io candle JSONL") from exc
+        ts = _validate_persisted_candle(candle)
+        if previous is not None and ts == previous:
+            if rows and not _same_candle(rows[-1], candle):
+                raise ValueError(f"Conflicting persisted Gate.io candle for open_time={ts}")
+            raise ValueError(f"Duplicate persisted Gate.io candle for open_time={ts}")
+        if previous is not None and ts < previous:
+            raise ValueError(f"Persisted candle order invalid at tail line {line_number}")
+        rows.append(candle)
+        previous = ts
+    return rows
+
+
+def _atomic_rewrite_history(output: Path, rows: list[dict[str, Any]]) -> None:
+    """Atomically rewrite a complete history only for an explicit historical backfill."""
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temp = output.with_name(output.name + ".tmp")
+    try:
+        with temp.open("w", encoding="utf-8") as handle:
+            for candle in rows:
+                handle.write(json.dumps(candle, sort_keys=True, separators=(",", ":")) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        if output.exists():
+            os.chmod(temp, output.stat().st_mode & 0o777)
+        os.replace(temp, output)
+        try:
+            directory_fd = os.open(output.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            pass
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+
 def _same_candle(left: dict[str, Any], right: dict[str, Any]) -> bool:
     exact_fields = ("schema", "source", "symbol", "timeframe", "open_time", "close_time", "closed")
     if any(left.get(field) != right.get(field) for field in exact_fields):
@@ -210,71 +281,100 @@ def _same_candle(left: dict[str, Any], right: dict[str, Any]) -> bool:
 
 
 def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTPUT) -> int:
-    """Merge and atomically persist the latest contiguous closed-candle window.
+    """Idempotently append closed candles without truncating durable history.
 
-    Unlike append-only tail filtering, this can repair a missing candle inside
-    the recent REST window. Conflicts or unresolved gaps fail closed without
-    replacing the last known-good file.
+    The bounded tail is sufficient for normal REST overlap checks. If an
+    incoming candle is older than the tail or fills a historical gap, the
+    complete file is read and validated before an atomic sorted rewrite.
+    Conflicting same-key payloads always fail closed.
     """
-    existing = _read_existing(output)
+    existing = _read_existing_tail(output)
     merged: dict[int, dict[str, Any]] = {}
     for candle in existing:
         ts = _validate_persisted_candle(candle)
-        previous = merged.get(ts)
-        if previous is not None and not _same_candle(previous, candle):
-            raise ValueError(f"Conflicting persisted Gate.io candle for open_time={ts}")
+        if ts in merged:
+            raise ValueError(f"Duplicate persisted Gate.io candle for open_time={ts}")
         merged[ts] = candle
+
+    incoming: dict[int, dict[str, Any]] = {}
     for candle in candles:
         if not candle.get("closed"):
             continue
         ts = _validate_persisted_candle(candle)
+        previous = incoming.get(ts)
+        if previous is not None and not _same_candle(previous, candle):
+            raise ValueError(f"Conflicting incoming Gate.io candle for open_time={ts}")
+        incoming[ts] = candle
         previous = merged.get(ts)
         if previous is not None:
             if not _same_candle(previous, candle):
                 raise ValueError(f"Conflicting Gate.io candle for open_time={ts}")
             continue
         merged[ts] = candle
-    ordered = sorted(merged.values(), key=lambda item: item["open_time"])[-MAX_PERSISTED_CANDLES:]
-    for previous, current in zip(ordered, ordered[1:]):
-        distance = current["open_time"] - previous["open_time"]
-        if distance != INTERVAL_SECONDS:
+
+    ordered_tail = [merged[ts] for ts in sorted(merged)]
+    for previous, current in zip(ordered_tail, ordered_tail[1:]):
+        if current["open_time"] - previous["open_time"] != INTERVAL_SECONDS:
             raise ValueError(
                 f"Unresolved Gate.io candle gap: {previous['open_time']} -> {current['open_time']}"
             )
-    if not ordered:
+    if not ordered_tail:
         return last_ts
-    if ordered != existing:
+
+    existing_times = {row["open_time"] for row in existing}
+    added_times = set(merged) - existing_times
+    if not added_times:
+        return int(ordered_tail[-1]["open_time"])
+
+    existing_max = max(existing_times, default=None)
+    append_only = existing_max is None or min(added_times) > existing_max
+    if append_only:
         output.parent.mkdir(parents=True, exist_ok=True)
-        temp = output.with_name(output.name + ".tmp")
-        with temp.open("w", encoding="utf-8") as handle:
-            for candle in ordered:
-                handle.write(json.dumps(candle, sort_keys=True, separators=(",", ":")) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp, output)
-        try:
-            directory_fd = os.open(output.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
-        except OSError:
-            pass
-        existing_times = {int(candle["open_time"]) for candle in existing}
-        added = [candle for candle in ordered if int(candle["open_time"]) not in existing_times]
-        if added:
-            backfilled = sum(int(candle["open_time"]) <= last_ts for candle in added)
-            print(
-                f"HES_GLOBAL_CANDLE source={SOURCE} symbol={SYMBOL} tf={INTERVAL} "
-                f"added={len(added)} backfilled={backfilled} "
-                f"first_open_time={added[0]['open_time']} last_open_time={added[-1]['open_time']}",
-                flush=True,
+        if output.exists() and existing_max is not None:
+            with output.open("rb") as check:
+                check.seek(0, os.SEEK_END)
+                if check.tell():
+                    check.seek(-1, os.SEEK_END)
+                    if check.read(1) != b"\n":
+                        raise ValueError("Persisted Gate.io candle file lacks final newline")
+            new_rows = [merged[ts] for ts in sorted(added_times)]
+            with output.open("a", encoding="utf-8") as handle:
+                for candle in new_rows:
+                    handle.write(json.dumps(candle, sort_keys=True, separators=(",", ":")) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            return int(new_rows[-1]["open_time"])
+        _atomic_rewrite_history(output, ordered_tail)
+        return int(ordered_tail[-1]["open_time"])
+
+    # Rare historical backfill: inspect the complete file, never just the tail.
+    full_existing = _read_existing(output)
+    full_map: dict[int, dict[str, Any]] = {}
+    for candle in full_existing:
+        ts = _validate_persisted_candle(candle)
+        if ts in full_map:
+            raise ValueError(f"Duplicate persisted Gate.io candle for open_time={ts}")
+        full_map[ts] = candle
+    for ts, candle in incoming.items():
+        previous = full_map.get(ts)
+        if previous is not None:
+            if not _same_candle(previous, candle):
+                raise ValueError(f"Conflicting Gate.io candle for open_time={ts}")
+        else:
+            full_map[ts] = candle
+    ordered_full = [full_map[ts] for ts in sorted(full_map)]
+    for previous, current in zip(ordered_full, ordered_full[1:]):
+        if current["open_time"] - previous["open_time"] != INTERVAL_SECONDS:
+            raise ValueError(
+                f"Unresolved Gate.io candle gap: {previous['open_time']} -> {current['open_time']}"
             )
-    return int(ordered[-1]["open_time"])
+    if ordered_full != full_existing:
+        _atomic_rewrite_history(output, ordered_full)
+    return int(ordered_full[-1]["open_time"])
 
 
 def _last_saved_ts(path: Path) -> int:
-    rows = _read_existing(path)
+    rows = _read_existing_tail(path)
     return int(rows[-1]["open_time"]) if rows else -1
 
 
