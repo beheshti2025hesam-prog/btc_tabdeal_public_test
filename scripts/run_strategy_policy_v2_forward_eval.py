@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Forward-only paper evaluator. No live orders."""
-import json,sys,time
+import json,sys,time,uuid
 from pathlib import Path
 from datetime import datetime,timezone
 CODE_ROOT=Path(__file__).resolve().parents[1]
@@ -13,12 +13,25 @@ from forward.strategy_policy_v2 import evaluate,POLICY_VERSION
 from forward.strategy_policy_gate_v1 import enforce_final_gates
 from forward.strategy_gate_pipeline_v1 import evaluate_gate_evidence
 from forward.forward_journal_v1 import ForwardJournalV1
+from forward.strategy_v2_run_provenance_v1 import create_run_manifest, append_run_manifest
 from forward.signal_quality_acceptance_v1 import evaluate_acceptance
 from forward.strategy_entry_context_v1 import build_entry_context
 BASE=ROOT/'data/forward'; STATE=BASE/'strategy_policy_v2_eval_state.json'
 CAND=BASE/'strategy_policy_v2_eval_candidates.jsonl'; OUT=BASE/'strategy_policy_v2_eval_outcomes.jsonl'; REPORT=BASE/'strategy_policy_v2_eval_report.json'
 MAX_SECONDS=86400
 JOURNAL=ForwardJournalV1(BASE/'trade_journal_v2.jsonl')
+RUN_MANIFEST=BASE/'strategy_policy_v2_runs.jsonl'
+RUN_PROVENANCE=None
+PROVENANCE_FIELDS=('run_id','service_name','code_release_id','source_hashes','strategy_source_sha256','evaluator_source_sha256','gate_pipeline_source_sha256','entry_context_source_sha256','precision_engine_source_sha256','precision_journal_source_sha256','learning_loop_source_sha256','market_data_reader_source_sha256','acceptance_evaluator_source_sha256','provenance_module_sha256','run_manifest_sha256')
+def initialize_run_provenance():
+ global RUN_PROVENANCE
+ if RUN_PROVENANCE is None:
+  RUN_PROVENANCE=create_run_manifest(root=CODE_ROOT, service_name='strategy_policy_v2_forward_evaluator', policy_version=POLICY_VERSION, run_id='HESV2-'+uuid.uuid4().hex)
+  append_run_manifest(RUN_MANIFEST,RUN_PROVENANCE)
+ return RUN_PROVENANCE
+def provenance_fields():
+ if RUN_PROVENANCE is None: raise RuntimeError('Strategy V2 run provenance not initialized')
+ return {k:RUN_PROVENANCE[k] for k in PROVENANCE_FIELDS}
 def append(p,x):
  # All JSONL artifacts, including candidates and outcomes, use the same
  # per-file lock, strict existing-history validation and event-id idempotency.
@@ -42,10 +55,10 @@ def sync_outcomes_to_journal():
    row=json.loads(line)
    if kind=='PAPER_CANDIDATE':
     event_id=f"hes-v2-candidate-{row.get('symbol','BTC_USDT')}-15m-{row['candidate_time']}"
-    event={'schema':'hes_trade_journal_paper_candidate_v1','event_id':event_id,'candidate_event_id':event_id,'observed_at':row.get('observed_at'),'candle_close_time':row.get('candidate_time'),'symbol':row.get('symbol','BTC_USDT'),'timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'rr':row.get('rr'),'final_gate_decision':row.get('final_gate_decision'),'final_gate_reasons':row.get('final_gate_reasons',[]),'outcome':None,'execution_enabled':False,'orders_placed':False}
+    event={'schema':'hes_trade_journal_paper_candidate_v1','event_id':event_id,'candidate_event_id':event_id,'observed_at':row.get('observed_at'),'candle_close_time':row.get('candidate_time'),'symbol':row.get('symbol','BTC_USDT'),'timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'rr':row.get('rr'),'final_gate_decision':row.get('final_gate_decision'),'final_gate_reasons':row.get('final_gate_reasons',[]),'outcome':None,'execution_enabled':False,'orders_placed':False,**{k:row[k] for k in PROVENANCE_FIELDS if k in row}}
    else:
     event_id=row.get('event_id') or f"hes-v2-outcome-BTC_USDT-15m-{row.get('candidate_time')}"
-    event={'schema':'hes_trade_journal_paper_outcome_v1','event_id':event_id,'candidate_event_id':row.get('candidate_event_id'),'observed_at':row.get('resolved_at'),'candidate_time':row.get('candidate_time'),'symbol':'BTC_USDT','timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'outcome':row.get('outcome'),'exit_time':row.get('exit_close_time'),'exit_close':row.get('exit_close'),'exit_price':row.get('exit_price'),'outcome_reason':row.get('reason'),'policy_version':row.get('policy_version',POLICY_VERSION),'execution_enabled':False,'orders_placed':False}
+    event={'schema':'hes_trade_journal_paper_outcome_v1','event_id':event_id,'candidate_event_id':row.get('candidate_event_id'),'observed_at':row.get('resolved_at'),'candidate_time':row.get('candidate_time'),'symbol':'BTC_USDT','timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'outcome':row.get('outcome'),'exit_time':row.get('exit_close_time'),'exit_close':row.get('exit_close'),'exit_price':row.get('exit_price'),'outcome_reason':row.get('reason'),'policy_version':row.get('policy_version',POLICY_VERSION),'execution_enabled':False,'orders_placed':False,**{k:row[k] for k in PROVENANCE_FIELDS if k in row}}
    if event_id not in known:
     append(journal,event); known.add(event_id)
 def _candidate_event_id(row):
@@ -195,6 +208,7 @@ def performance_metrics():
 def main():
  try: st=json.loads(STATE.read_text())
  except Exception: st={'last_seen':None,'active':[],'wins':0,'losses':0,'timeouts':0,'ambiguous_losses':0}
+ initialize_run_provenance()
  print('EVALUATOR_STARTED '+POLICY_VERSION,flush=True)
  while True:
   try:
@@ -216,17 +230,17 @@ def main():
       closed_at=datetime.now(timezone.utc).isoformat()
       candidate_event_id=t.get('candidate_event_id') or f"hes-v2-candidate-{src['symbol'] if 'src' in locals() else 'BTC_USDT'}-15m-{t['candidate_time']}"
       exit_price=float(t['stop_loss']) if sl else float(t['take_profit'])
-      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-outcome-{src['symbol'] if 'src' in locals() else 'BTC_USDT'}-15m-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_close_time':ct,'exit_close':float(b['close']),'exit_price':exit_price,'reason':reason,'resolved_at':closed_at,'execution_enabled':False,'orders_placed':False}
+      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-outcome-{src['symbol'] if 'src' in locals() else 'BTC_USDT'}-15m-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_close_time':ct,'exit_close':float(b['close']),'exit_price':exit_price,'reason':reason,'resolved_at':closed_at,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
       append(OUT,outcome_record)
-      append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_time':ct,'exit_close':float(b['close']),'outcome_reason':reason,'policy_version':POLICY_VERSION,'execution_enabled':False,'orders_placed':False})
+      append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_time':ct,'exit_close':float(b['close']),'outcome_reason':reason,'policy_version':POLICY_VERSION,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False})
       done=True;break
      if ct-t['candidate_time']>=MAX_SECONDS:
       st['timeouts']+=1
       closed_at=datetime.now(timezone.utc).isoformat()
       candidate_event_id=t.get('candidate_event_id') or f"hes-v2-candidate-{src['symbol']}-15m-{t['candidate_time']}"
-      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-timeout-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'outcome':'timeouts','exit_close_time':ct,'exit_close':float(b['close']),'exit_price':float(b['close']),'reason':'MAX_HOLD_24H','resolved_at':closed_at,'execution_enabled':False,'orders_placed':False}
+      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-timeout-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'outcome':'timeouts','exit_close_time':ct,'exit_close':float(b['close']),'exit_price':float(b['close']),'reason':'MAX_HOLD_24H','resolved_at':closed_at,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
       append(OUT,outcome_record)
-      append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':'timeouts','exit_time':ct,'exit_price':float(b['close']),'exit_close':float(b['close']),'outcome_reason':'MAX_HOLD_24H','policy_version':POLICY_VERSION,'execution_enabled':False,'orders_placed':False})
+      append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':'timeouts','exit_time':ct,'exit_price':float(b['close']),'exit_close':float(b['close']),'outcome_reason':'MAX_HOLD_24H','policy_version':POLICY_VERSION,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False})
       done=True;break
     if not done:pending.append(t)
    st['active']=pending
@@ -239,6 +253,7 @@ def main():
    gate_evidence=evaluate_gate_evidence(proposal=proposal,rows_15m=frames['15m'],frames=frames,source=src['source'],symbol=src['symbol'],observed_at=now)
    market_data_provenance=build_market_data_batch_provenance(src)
    gate_evidence['market_data_provenance']=market_data_provenance
+   gate_evidence['strategy_run_provenance']=provenance_fields()
    d=enforce_final_gates(proposal,gate_evidence)
    preapproval={'eligible':False,'status':'BLOCKED','reasons':['NO_DIRECTIONAL_15M_PROPOSAL'],'final_gate_approval_required':True,'execution_enabled':False,'orders_placed':False}
    entry_context=None
@@ -276,7 +291,7 @@ def main():
      'proposal_direction':proposal.direction,'proposal_entry':proposal.entry,
      'proposal_stop_loss':proposal.stop_loss,'proposal_take_profit':proposal.take_profit,
      'proposal_rr':proposal.rr,'proposal_reasons':list(proposal.reasons),
-     'gate_reasons':list(d.reasons),'gate_evidence':gate_evidence,'market_structure_state':gate_evidence['structure']['regime'],'confirmation_state':gate_evidence['confirmation']['state'],'risk_state':gate_evidence['risk']['state'],'execution_enabled':False,'orders_placed':False
+     'gate_reasons':list(d.reasons),'gate_evidence':gate_evidence,**provenance_fields(),'market_structure_state':gate_evidence['structure']['regime'],'confirmation_state':gate_evidence['confirmation']['state'],'risk_state':gate_evidence['risk']['state'],'execution_enabled':False,'orders_placed':False
     }
     try: JOURNAL.append_decision(record)
     except ValueError as e:
@@ -285,16 +300,16 @@ def main():
     # Final gate remains fail-closed; this path records hypothetical outcomes only.
     if proposal.decision in ('LONG','SHORT') and proposal.entry is not None:
      candidate_event_id=f"hes-v2-candidate-{src['symbol']}-15m-{now}"
-     t={'candidate_time':now,'candidate_event_id':candidate_event_id,'direction':proposal.direction,'entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons']}
-     st['active'].append(t);append(CAND,{'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_event_id,'event_id':candidate_event_id,'evaluation_mode':'PREAPPROVAL_PAPER_ONLY','preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),**t,'policy_version':POLICY_VERSION,'observed_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'execution_enabled':False,'orders_placed':False})
-     append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_candidate_v1','event_id':candidate_event_id,'candidate_event_id':candidate_event_id,'observed_at':datetime.now(timezone.utc).isoformat(),'candle_close_time':now,'symbol':src['symbol'],'timeframe':'15m','direction':proposal.direction,'decision':'PAPER_CANDIDATE','entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'quality_score':proposal.quality_score,'proposal_reasons':list(proposal.reasons),'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'outcome':None,'closed_at':None,'execution_enabled':False,'orders_placed':False})
+     t={'candidate_time':now,'candidate_event_id':candidate_event_id,'direction':proposal.direction,'entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],**provenance_fields()}
+     st['active'].append(t);append(CAND,{'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_event_id,'event_id':candidate_event_id,'evaluation_mode':'PREAPPROVAL_PAPER_ONLY','preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),**t,'policy_version':POLICY_VERSION,'observed_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],**provenance_fields(),'execution_enabled':False,'orders_placed':False})
+     append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_candidate_v1','event_id':candidate_event_id,'candidate_event_id':candidate_event_id,'observed_at':datetime.now(timezone.utc).isoformat(),'candle_close_time':now,'symbol':src['symbol'],'timeframe':'15m','direction':proposal.direction,'decision':'PAPER_CANDIDATE','entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'quality_score':proposal.quality_score,'proposal_reasons':list(proposal.reasons),'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'entry_context':entry_context,'gate_evidence':gate_evidence,'outcome':None,'closed_at':None,**provenance_fields(),'execution_enabled':False,'orders_placed':False})
     st['last_seen']=now
    resolved=st['wins']+st['losses'];wr=round(100*st['wins']/resolved,2) if resolved else None
    pm=performance_metrics()
    # Official performance is derived only from the append-only 1m precision ledger.
    # The 15m preapproval journal remains a separate diagnostic cohort.
    acceptance=evaluate_acceptance(root=CODE_ROOT,data_root=DATA_ROOT,metrics=pm,candidates=[],independent_oos=None)
-   report={'schema':'hes_strategy_policy_v2_forward_evaluation','policy_version':POLICY_VERSION,'updated_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'closed_15m_candle_time':now,'active_candidates':len(st['active']),'wins':pm['eligible_wins'],'losses':pm['eligible_losses'],'timeouts':pm['eligible_timeouts'],'ambiguous_losses':st['ambiguous_losses'],'resolved_win_rate_pct':pm['eligible_win_rate_pct'],'performance_metrics':pm,'research_only_raw_wins':st['wins'],'research_only_raw_losses':st['losses'],'final_gate_version':'hes-strategy-policy-final-gate-v1.0.0','gate_pipeline_version':'hes-strategy-gate-pipeline-v1.0.0','market_data_provenance':market_data_provenance,'latest_gate_evidence':gate_evidence,'directional_candidates_blocked_until_gates_approved':True,'target_win_rate_pct':acceptance['target_win_rate_pct'],'target_met':acceptance['status']=='PASS','precision_entry_paper_target_met':acceptance['status']=='PASS','minimum_resolved_trades_for_target_claim':acceptance['minimum_resolved_closed_trades'],'target_policy_status':acceptance['status'],'paper_performance_scope':acceptance['performance_cohort'],'signal_quality_acceptance':acceptance,'execution_enabled':False,'orders_placed':False,'caveat':'Acceptance contract is enforced fail-closed. Official paper acceptance uses only the append-only 1m precision-entry READY ledger: strictly >90% over at least 100 resolved closed trades, <=3 actionable entries per UTC day (cap, never quota), clean event/candidate/outcome linkage, verified fees/slippage, and independent out-of-sample evidence. 15m preapproval and research-only cohorts are baseline diagnostics only. Official final-gate approval remains separate; no live trading.'}
+   report={'schema':'hes_strategy_policy_v2_forward_evaluation','policy_version':POLICY_VERSION,**provenance_fields(),'updated_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'closed_15m_candle_time':now,'active_candidates':len(st['active']),'wins':pm['eligible_wins'],'losses':pm['eligible_losses'],'timeouts':pm['eligible_timeouts'],'ambiguous_losses':st['ambiguous_losses'],'resolved_win_rate_pct':pm['eligible_win_rate_pct'],'performance_metrics':pm,'research_only_raw_wins':st['wins'],'research_only_raw_losses':st['losses'],'final_gate_version':'hes-strategy-policy-final-gate-v1.0.0','gate_pipeline_version':'hes-strategy-gate-pipeline-v1.0.0','market_data_provenance':market_data_provenance,'latest_gate_evidence':gate_evidence,'directional_candidates_blocked_until_gates_approved':True,'target_win_rate_pct':acceptance['target_win_rate_pct'],'target_met':acceptance['status']=='PASS','precision_entry_paper_target_met':acceptance['status']=='PASS','minimum_resolved_trades_for_target_claim':acceptance['minimum_resolved_closed_trades'],'target_policy_status':acceptance['status'],'paper_performance_scope':acceptance['performance_cohort'],'signal_quality_acceptance':acceptance,'execution_enabled':False,'orders_placed':False,'caveat':'Acceptance contract is enforced fail-closed. Official paper acceptance uses only the append-only 1m precision-entry READY ledger: strictly >90% over at least 100 resolved closed trades, <=3 actionable entries per UTC day (cap, never quota), clean event/candidate/outcome linkage, verified fees/slippage, and independent out-of-sample evidence. 15m preapproval and research-only cohorts are baseline diagnostics only. Official final-gate approval remains separate; no live trading.'}
    STATE.write_text(json.dumps(st,indent=2)+'\n');REPORT.write_text(json.dumps(report,indent=2)+'\n')
    print(json.dumps({'candle':now,'active':len(st['active']),'wins':st['wins'],'losses':st['losses'],'timeouts':st['timeouts'],'win_rate_pct':wr,'decision':d.decision if new_candle else 'TRACKING','gate_version':d.gate_version} if new_candle else {'candle':now,'active':len(st['active']),'wins':st['wins'],'losses':st['losses'],'timeouts':st['timeouts'],'win_rate_pct':wr,'decision':'TRACKING'}),flush=True)
   except Exception as e:print(json.dumps({'error':type(e).__name__+':'+str(e)[:180],'decision':'NO_TRADE','execution_enabled':False}),flush=True)
