@@ -295,6 +295,7 @@ def run_cycle(*, now: datetime | None = None) -> dict:
         "status": "BLOCKED" if strategy_error else ("NO_TRADE" if paper_setup.get("validated") is not True else (engine or {}).get("state", "BLOCKED")),
         "paper_setup_validated": paper_setup.get("validated") is True,
         "paper_setup_reason": paper_setup.get("reason_code"),
+        "strategy_run_provenance": ((paper_setup.get("context") or {}).get("strategy_run_provenance") if isinstance(paper_setup.get("context"),dict) else None),
         "strategy_report_error": strategy_error,
         "latest_engine_state": (engine or {}).get("state", "NOT_EVALUATED"),
         "latest_reason_codes": (engine or {}).get("reason_codes", []) if not strategy_error else [strategy_error],
