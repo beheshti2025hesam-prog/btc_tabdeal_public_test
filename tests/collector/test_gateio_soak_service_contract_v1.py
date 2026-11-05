@@ -1,0 +1,12 @@
+from pathlib import Path
+
+
+def test_gateio_24h_soak_is_not_automatically_restarted_after_failure():
+    root = Path(__file__).resolve().parents[2]
+    unit = root / "deploy/systemd/hes-global-market-data-gateio-soak.service"
+    text = unit.read_text(encoding="utf-8")
+
+    assert "Restart=no" in text
+    assert "Restart=on-failure" not in text
+    assert "ExecStartPre=" in text
+    assert "soak_gateio_feed_24h_v2.py" in text
