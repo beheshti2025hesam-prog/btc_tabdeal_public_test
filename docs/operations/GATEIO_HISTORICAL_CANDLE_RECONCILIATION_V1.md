@@ -5,7 +5,7 @@
 
 ## Why this exists
 
-The 2026-11-05 read-only reconciliation found six genuine numeric differences between the persisted Gate.io records and current public REST history: two 1h candles and four 4h candles. A formatting-only decimal difference is not a conflict; exact finite Decimal equality is already implemented by PR #446. These six rows differ numerically in close and/or base/quote volume.
+The 2026-11-05 read-only reconciliation found seven genuine numeric differences between the persisted Gate.io records and current public REST history: three 1h candles and four 4h candles. A formatting-only decimal difference is not a conflict; exact finite Decimal equality is already implemented by PR #446. These six rows differ numerically in close and/or base/quote volume.
 
 The 1h collector repeatedly rejected the historical conflict before it could append new closed candles. That made the 1h reader stale and correctly blocked Strategy V2, Mother V2 and Precision Entry. The latest 2026-11-05 soak attempt failed on stale 1h data and is not accepted. Four earlier runs have explicit `passed=true` 24-hour summaries with all samples successful; those historical results remain valid and must be preserved, not relabeled as failed.
 
@@ -13,18 +13,18 @@ The 1h collector repeatedly rejected the historical conflict before it could app
 
 The reconciler is intentionally narrow:
 
-- It only accepts the six pre-registered (timeframe, open_time) identities and their pinned old values.
+- It only accepts the seven pre-registered (timeframe, open_time) identities and their pinned old values.
 - It fetches three independent 500-candle public REST snapshots per timeframe through the existing `GateioSpotKlineSource`.
-- All three snapshots must have zero gaps and semantically identical closed-candle rows. Raw response bodies and SHA-256 values are retained.
-- Every overlapping persisted row is compared. Any numeric conflict outside the six registered identities aborts the operation.
-- Each registered old row must exactly match its pinned persisted values, and each new row must exactly match the pinned values observed in the 2026-11-04 research capture, the 2026-11-05 05:57Z REST probe, and the three new probes.
-- The candidate retains every existing row, replaces only those six approved rows, and adds missing newer closed candles. It never shortens the historical series.
+- All three snapshots must have zero gaps and semantically identical closed-candle rows. Each of the seven conflicts is then re-queried three times with exact `from`/`to` bounds; every targeted response must match its full-window row. Raw response bodies and SHA-256 values are retained.
+- Every overlapping persisted row is compared. Any numeric conflict outside the seven registered identities aborts the operation.
+- Each registered old row must exactly match its pinned persisted values. The first six corrections match the 2026-11-04 research capture and 2026-11-05 05:57Z REST probe. The seventh (1h open_time 1793862000 / 2026-11-05 07:00Z) is independently corroborated by three identical full-window REST snapshots, three identical exact-window REST probes, and the 4h candle ending at the same close_time with the same 80378.2 close.
+- The candidate retains every existing row, replaces only those seven approved rows, and adds missing newer closed candles. It never shortens the historical series.
 - The merged history must be strictly ordered, unique, and contiguous.
 
 ## Operator procedure
 
 1. Run `python scripts/reconcile_gateio_historical_candle_conflicts_v1.py` from the immutable release. Default mode is **stage only**; it does not change live candle files or restart services.
-2. Review the generated `data/archives/gateio-historical-candle-reconciliation-*/manifest.json`, original archives, raw REST snapshots, candidate hashes, six corrections, and added rows.
+2. Review the generated `data/archives/gateio-historical-candle-reconciliation-*/manifest.json`, original archives, raw REST snapshots, candidate hashes, seven corrections, targeted probe evidence, and added rows.
 3. Stop `hes-global-market-data-gateio-1h.service` and `hes-global-market-data-gateio-4h.service`.
 4. Apply the exact staged candidate with `python scripts/reconcile_gateio_historical_candle_conflicts_v1.py --apply --stage-dir <stage-dir>`. The script requires both services to be inactive and exact live-file SHA-256 values to match the stage manifest. A partial two-file replacement is rolled back from the byte-for-byte originals.
 5. Verify the manifest reports `APPLIED`, live file hashes equal candidate hashes, and `global_market_data_reader_v1` accepts 1h and 4h with fresh contiguous closed candles.
