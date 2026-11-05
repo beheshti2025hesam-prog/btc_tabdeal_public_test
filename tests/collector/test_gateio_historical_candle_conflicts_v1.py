@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
-from pathlib import Path
 
 from scripts.reconcile_gateio_historical_candle_conflicts_v1 import (
     APPROVED,
@@ -11,18 +11,6 @@ from scripts.reconcile_gateio_historical_candle_conflicts_v1 import (
     resolve_runtime_root,
     validate_three_snapshots,
 )
-
-
-def test_immutable_release_resolves_external_runtime_data_root(monkeypatch):
-    monkeypatch.delenv("HES_GLOBAL_MARKET_DATA_ROOT", raising=False)
-    release = Path("/opt/hes-trade-agent/releases/abc123")
-    assert resolve_runtime_root(release) == Path("/opt/hes-trade-agent")
-
-
-def test_explicit_runtime_data_root_override_is_respected(monkeypatch):
-    monkeypatch.setenv("HES_GLOBAL_MARKET_DATA_ROOT", "/srv/hes-runtime")
-    release = Path("/opt/hes-trade-agent/releases/abc123")
-    assert resolve_runtime_root(release) == Path("/srv/hes-runtime")
 
 
 def candle(timeframe: str, open_time: int, values: dict[str, str]) -> dict:
@@ -40,102 +28,110 @@ def candle(timeframe: str, open_time: int, values: dict[str, str]) -> dict:
     }
 
 
-@pytest.mark.parametrize(
-    ("timeframe", "open_time"),
-    [(tf, ts) for tf, rows in APPROVED.items() for ts in rows],
-)
-def test_only_six_pinned_historical_conflicts_can_be_reconciled(timeframe, open_time):
-    evidence = APPROVED[timeframe][open_time]
-    old = candle(timeframe, open_time, evidence["old"])
-    current = candle(timeframe, open_time, evidence["new"])
+def approved_rows(timeframe: str, version: str) -> list[dict]:
+    return [
+        candle(timeframe, ts, item[version])
+        for ts, item in sorted(APPROVED[timeframe].items())
+    ]
 
-    merged, changes, added = reconcile_rows(timeframe, [old], [current])
 
-    assert len(merged) == 1
-    assert merged[0]["open_time"] == open_time
-    assert merged[0]["close"] == evidence["new"]["close"]
-    assert len(changes) == 1
-    assert changes[0]["old"] == evidence["old"]
-    assert changes[0]["new"] == evidence["new"]
+def test_immutable_release_resolves_external_runtime_data_root(monkeypatch):
+    monkeypatch.delenv("HES_GLOBAL_MARKET_DATA_ROOT", raising=False)
+    release = Path("/opt/hes-trade-agent/releases/abc123")
+    assert resolve_runtime_root(release) == Path("/opt/hes-trade-agent")
+
+
+def test_explicit_runtime_data_root_override_is_respected(monkeypatch):
+    monkeypatch.setenv("HES_GLOBAL_MARKET_DATA_ROOT", "/srv/hes-runtime")
+    release = Path("/opt/hes-trade-agent/releases/abc123")
+    assert resolve_runtime_root(release) == Path("/srv/hes-runtime")
+
+
+@pytest.mark.parametrize("timeframe", ["1h", "4h"])
+def test_only_pinned_historical_conflicts_can_be_reconciled(timeframe):
+    old_rows = approved_rows(timeframe, "old")
+    rest_rows = approved_rows(timeframe, "new")
+
+    merged, changes, added = reconcile_rows(timeframe, old_rows, rest_rows)
+
+    assert len(merged) == len(old_rows)
+    assert len(changes) == len(APPROVED[timeframe])
+    assert [row["open_time"] for row in merged] == [row["open_time"] for row in rest_rows]
+    assert [row["close"] for row in merged] == [row["close"] for row in rest_rows]
     assert added == []
-
-
-def test_reconciliation_aborts_if_any_pinned_conflict_identity_is_missing():
-    timeframe, open_time = "1h", 1793170800
-    other = candle(timeframe, open_time + 3600, {
-        "open": "100", "high": "102", "low": "99", "close": "101",
-        "volume": "1", "quote_volume": "100",
-    })
-
-    with pytest.raises(ValueError, match="pinned 1h conflict candle is missing"):
-        reconcile_rows(timeframe, [other], [other])
 
 
 def test_unapproved_historical_conflict_fails_closed():
     timeframe = "1h"
-    open_time = 1793170800 + 7200
-    old = candle(timeframe, open_time, {
+    old_rows = approved_rows(timeframe, "old")
+    rest_rows = approved_rows(timeframe, "new")
+    extra_ts = 1793170800 + 2 * 3600
+    extra_old = candle(timeframe, extra_ts, {
         "open": "100", "high": "102", "low": "99", "close": "101",
         "volume": "1", "quote_volume": "100",
     })
-    changed = deepcopy(old)
-    changed["close"] = "101.1"
+    extra_changed = deepcopy(extra_old)
+    extra_changed["close"] = "101.1"
 
     with pytest.raises(ValueError, match="Unapproved"):
-        reconcile_rows(timeframe, [old], [changed])
+        reconcile_rows(timeframe, old_rows + [extra_old], rest_rows + [extra_changed])
 
 
 def test_pinned_conflict_aborts_if_live_value_no_longer_matches_old_evidence():
     timeframe, open_time = "1h", 1793170800
-    old = candle(timeframe, open_time, APPROVED[timeframe][open_time]["old"])
-    old["close"] = "81088.2"
-    current = candle(timeframe, open_time, APPROVED[timeframe][open_time]["new"])
+    old_rows = approved_rows(timeframe, "old")
+    old_rows[0]["close"] = "81088.2"
 
-    with pytest.raises(ValueError, match="pinned old evidence"):
-        reconcile_rows(timeframe, [old], [current])
+    with pytest.raises(ValueError, match="neither pinned old nor corrected evidence"):
+        reconcile_rows(timeframe, old_rows, approved_rows(timeframe, "new"))
 
 
 def test_pinned_conflict_aborts_if_rest_value_no_longer_matches_three_probe_evidence():
     timeframe, open_time = "1h", 1793170800
-    old = candle(timeframe, open_time, APPROVED[timeframe][open_time]["old"])
-    current_values = dict(APPROVED[timeframe][open_time]["new"])
-    current_values["close"] = "81088.5"
-    current = candle(timeframe, open_time, current_values)
+    old_rows = approved_rows(timeframe, "old")
+    rest_rows = approved_rows(timeframe, "new")
+    rest_rows[0]["close"] = "81088.5"
 
     with pytest.raises(ValueError, match="pinned three-probe evidence"):
-        reconcile_rows(timeframe, [old], [current])
+        reconcile_rows(timeframe, old_rows, rest_rows)
+
+
+def test_reconciliation_aborts_if_any_pinned_conflict_identity_is_missing():
+    timeframe = "1h"
+    remaining = candle(timeframe, 1793174400, APPROVED[timeframe][1793174400]["old"])
+
+    with pytest.raises(ValueError, match="pinned 1h conflict candle is missing"):
+        reconcile_rows(
+            timeframe,
+            [remaining],
+            [candle(timeframe, 1793174400, APPROVED[timeframe][1793174400]["new"])],
+        )
 
 
 def test_reconciliation_preserves_history_and_adds_new_closed_rows():
     timeframe = "1h"
-    ts = 1793170800
     seconds = 3600
+    ts = 1793170800
     before = candle(timeframe, ts - seconds, {
         "open": "100", "high": "102", "low": "99", "close": "101",
         "volume": "1", "quote_volume": "100",
     })
-    conflict_old = candle(timeframe, ts, APPROVED[timeframe][ts]["old"])
-    middle = candle(timeframe, ts + seconds, {
-        "open": "101", "high": "103", "low": "100", "close": "102",
-        "volume": "2", "quote_volume": "200",
-    })
-    new_row = candle(timeframe, ts + 2 * seconds, {
+    existing_conflicts = approved_rows(timeframe, "old")
+    next_row = candle(timeframe, ts + 2 * seconds, {
         "open": "102", "high": "104", "low": "101", "close": "103",
         "volume": "3", "quote_volume": "300",
     })
-    rest_conflict = candle(timeframe, ts, APPROVED[timeframe][ts]["new"])
-    rest_middle = deepcopy(middle)
-    rest_new = deepcopy(new_row)
+    rest_rows = approved_rows(timeframe, "new") + [deepcopy(next_row)]
 
     merged, changes, added = reconcile_rows(
-        timeframe, [before, conflict_old, middle], [rest_conflict, rest_middle, rest_new]
+        timeframe, [before] + existing_conflicts, rest_rows
     )
 
     assert [row["open_time"] for row in merged] == [
         ts - seconds, ts, ts + seconds, ts + 2 * seconds
     ]
     assert len(merged) == 4
-    assert len(changes) == 1
+    assert len(changes) == 2
     assert added == [ts + 2 * seconds]
 
 
