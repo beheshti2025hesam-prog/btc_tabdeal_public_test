@@ -159,13 +159,22 @@ def fetch_three_snapshots(timeframe: str, raw_dir: Path) -> tuple[list[dict[str,
             "raw_path": str(raw_path),
             "gaps": len(batch.gaps),
         })
+    try:
+        validate_three_snapshots(snapshots)
+    except ValueError as exc:
+        raise ValueError(f"{timeframe} REST snapshot validation failed: {exc}") from exc
+    return snapshots[0], evidence
+
+
+def validate_three_snapshots(snapshots: list[list[dict[str, Any]]]) -> None:
+    if len(snapshots) != 3:
+        raise ValueError("exactly three independent REST snapshots are required")
     signatures = [
         {row["open_time"]: semantic_key(row) for row in snapshot}
         for snapshot in snapshots
     ]
     if signatures[0] != signatures[1] or signatures[1] != signatures[2]:
-        raise ValueError(f"{timeframe} REST semantic rows changed between the three probes")
-    return snapshots[0], evidence
+        raise ValueError("Gate.io REST semantic rows changed between the three probes")
 
 
 def read_jsonl(path: Path, timeframe: str) -> list[dict[str, Any]]:
