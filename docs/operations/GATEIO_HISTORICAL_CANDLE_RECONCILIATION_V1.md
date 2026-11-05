@@ -5,7 +5,7 @@
 
 ## Why this exists
 
-The 2026-11-05 read-only reconciliation found seven genuine numeric differences between the persisted Gate.io records and current public REST history: three 1h candles and four 4h candles. A formatting-only decimal difference is not a conflict; exact finite Decimal equality is already implemented by PR #446. These six rows differ numerically in close and/or base/quote volume.
+The 2026-11-05 read-only reconciliation found seven genuine numeric differences between the persisted Gate.io records and current public REST history: three 1h candles and four 4h candles. A formatting-only decimal difference is not a conflict; exact finite Decimal equality is already implemented by PR #446. These seven rows differ numerically in close and/or base/quote volume.
 
 The 1h collector repeatedly rejected the historical conflict before it could append new closed candles. That made the 1h reader stale and correctly blocked Strategy V2, Mother V2 and Precision Entry. The latest 2026-11-05 soak attempt failed on stale 1h data and is not accepted. Four earlier runs have explicit `passed=true` 24-hour summaries with all samples successful; those historical results remain valid and must be preserved, not relabeled as failed.
 
