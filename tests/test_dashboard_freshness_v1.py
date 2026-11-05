@@ -62,6 +62,24 @@ class DashboardFreshnessTests(unittest.TestCase):
         fetch.assert_called_once()
         build.assert_not_called()
 
+    def test_chart_route_fails_closed_on_gapped_batch_before_feature_build(self):
+        now_ms = int(time.time() * 1000)
+        gapped_batch = SimpleNamespace(
+            candles=[SimpleNamespace(close_time_ms=now_ms - 30 * 1000)],
+            gaps=[SimpleNamespace(expected_open_time_ms=1, next_observed_open_time_ms=120001, missing_intervals=1)],
+        )
+        with (
+            patch.object(dashboard._SOURCE, "fetch", return_value=gapped_batch) as fetch,
+            patch.object(dashboard, "validate_native_batch"),
+            patch.object(dashboard._FEATURES, "build") as build,
+        ):
+            status, payload = self.get_json("/api/candles?symbol=BTCUSDT&interval=1h")
+        self.assertEqual(status, 503)
+        self.assertTrue(payload["fail_closed"])
+        self.assertEqual(payload["reason_code"], "persisted_candle_gaps_present")
+        fetch.assert_called_once()
+        build.assert_not_called()
+
     def test_stale_cached_batch_is_not_served_from_cache(self):
         now_ms = int(time.time() * 1000)
         stale_batch = SimpleNamespace(
