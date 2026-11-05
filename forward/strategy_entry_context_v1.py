@@ -56,9 +56,23 @@ def build_entry_context(*, source: str, symbol: str, candidate_time: int, policy
       "stop_price":stop,"target_price":target,"planned_rr":rr,
       "risk_gate_state":"RISK_APPROVED","confirmation_state":"CONFIRMED_"+direction,
       "market_regime":structure.get("regime"),"policy_version":policy_version,
+      "strategy_run_provenance":({
+          "run_id":gate_evidence["strategy_run_provenance"].get("run_id"),
+          "service_name":gate_evidence["strategy_run_provenance"].get("service_name"),
+          "code_release_id":gate_evidence["strategy_run_provenance"].get("code_release_id"),
+          "run_manifest_sha256":gate_evidence["strategy_run_provenance"].get("run_manifest_sha256"),
+      } if isinstance(gate_evidence.get("strategy_run_provenance"),dict) else None),
       "gate_evidence_sha256":_canonical_hash(gate_payload),
       "setup_validated_15m":True,"execution_enabled":False,"orders_placed":False,
     }
+    if base["strategy_run_provenance"] is None:
+        base.pop("strategy_run_provenance")
+    else:
+        provenance=base["strategy_run_provenance"]
+        if (not isinstance(provenance.get("run_id"),str) or not provenance["run_id"].startswith("HESV2-")
+            or not isinstance(provenance.get("run_manifest_sha256"),str) or len(provenance["run_manifest_sha256"])!=64
+            or not isinstance(provenance.get("code_release_id"),str)):
+            raise ValueError("ENTRY_CONTEXT_RUN_PROVENANCE_INVALID")
     return {**base,"evidence_sha256":_canonical_hash(base)}
 
 def verify_entry_context(context: Any, *, gate_evidence: Mapping[str, Any] | None = None, now_s: int,
