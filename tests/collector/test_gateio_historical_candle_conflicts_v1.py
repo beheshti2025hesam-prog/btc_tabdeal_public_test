@@ -93,7 +93,7 @@ def test_unapproved_historical_conflict_fails_closed():
 
 def test_pinned_conflict_aborts_if_live_value_no_longer_matches_old_evidence():
     timeframe, open_time = "1h", 1793170800
-    old_rows = approved_rows(timeframe, "old")
+    old_rows = complete_approved_rows(timeframe, "old")
     old_rows[0]["close"] = "81088.2"
 
     with pytest.raises(ValueError, match="neither pinned old nor corrected evidence"):
@@ -102,7 +102,7 @@ def test_pinned_conflict_aborts_if_live_value_no_longer_matches_old_evidence():
 
 def test_pinned_conflict_aborts_if_rest_value_no_longer_matches_three_probe_evidence():
     timeframe, open_time = "1h", 1793170800
-    old_rows = approved_rows(timeframe, "old")
+    old_rows = complete_approved_rows(timeframe, "old")
     rest_rows = complete_approved_rows(timeframe, "new")
     rest_rows[0]["close"] = "81088.5"
 
@@ -135,7 +135,7 @@ def test_reconciliation_preserves_history_and_adds_new_closed_rows():
         "open": "102", "high": "104", "low": "101", "close": "103",
         "volume": "3", "quote_volume": "300",
     })
-    rest_rows = approved_rows(timeframe, "new") + [deepcopy(next_row)]
+    rest_rows = complete_approved_rows(timeframe, "new") + [deepcopy(next_row)]
 
     merged, changes, added = reconcile_rows(
         timeframe, [before] + existing_conflicts, rest_rows
