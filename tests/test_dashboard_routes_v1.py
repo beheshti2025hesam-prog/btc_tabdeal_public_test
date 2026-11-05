@@ -147,7 +147,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Gate.io remains the sole live market-data source", page)
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
-        self.assertIn("fetch('/api/news'", script)
+        self.assertIn("fetchWithTimeout('/api/news'", script)
         self.assertNotIn("fetch('/api/signal", script)
 
     def test_mother_panel_and_browser_poll_are_present(self):
@@ -157,7 +157,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Mother Orchestrator · canonical V2 evidence chain", page)
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
-        self.assertIn("fetch('/api/mother'", script)
+        self.assertIn("fetchWithTimeout('/api/mother'", script)
         self.assertIn("witness", script)
 
     def test_mother_endpoint_returns_independently_witnessed_observation(self):
@@ -237,7 +237,9 @@ class DashboardRouteTests(unittest.TestCase):
                 urlopen(self.base + "/api/news")
         self.assertEqual(error.exception.code, 503)
         payload = json.loads(error.exception.read())
+        self.assertEqual(payload["schema"], "hes.api_error.v1")
         self.assertEqual(payload["status"], "BLOCKED")
+        self.assertEqual(payload["error"], "news_monitor_unavailable")
         self.assertTrue(payload["fail_closed"])
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["orders_placed"])
@@ -248,10 +250,58 @@ class DashboardRouteTests(unittest.TestCase):
                 urlopen(self.base + "/api/signal?symbol=BTCUSDT&interval=15m")
         self.assertEqual(error.exception.code, 410)
         payload = json.loads(error.exception.read())
+        self.assertEqual(payload["schema"], "hes.api_error.v1")
         self.assertEqual(payload["decision"], "NO_TRADE")
         self.assertTrue(payload["fail_closed"])
         self.assertFalse(payload["execution_enabled"])
         self.assertFalse(payload["orders_placed"])
+        with self.assertRaises(HTTPError) as missing:
+            urlopen(self.base + "/api/does-not-exist")
+        self.assertEqual(missing.exception.code,404)
+        missing_payload=json.loads(missing.exception.read())
+        self.assertEqual(missing_payload["schema"],"hes.api_error.v1")
+        self.assertEqual(missing_payload["error"],"not_found")
+
+    def test_dashboard_api_contract_versions_are_explicit(self):
+        batch=sample_batch()
+        with patch("web.dashboard._get_batch",return_value=(batch,SimpleNamespace())):
+            with urlopen(self.base+"/healthz") as response:
+                health=json.loads(response.read())
+        self.assertEqual(health["schema"],"hes.dashboard_health.v1")
+        with patch("web.dashboard._SOURCE.fetch",return_value=batch), \
+             patch("web.dashboard._FEATURES.build",return_value=SimpleNamespace(decision_ready=False,reason="GATED")):
+            with urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m") as response:
+                candles=json.loads(response.read())
+        self.assertEqual(candles["schema"],"hes.market_candles_view.v1")
+        self.assertFalse(candles["execution_enabled"])
+        self.assertFalse(candles["orders_placed"])
+
+    def test_journal_limit_validation_returns_400_without_reading_journal(self):
+        invalid_queries=("limit=", "limit=-1", "limit=0", "limit=101", "limit=999999",
+                         "limit=nope", "limit=1&limit=2", "limit="+"9"*5000)
+        with patch("web.dashboard.configured_decision_journal") as read_journal:
+            for query in invalid_queries:
+                with self.subTest(query=query):
+                    with self.assertRaises(HTTPError) as error:
+                        urlopen(self.base+"/api/journal?"+query)
+                    self.assertEqual(error.exception.code,400)
+                    payload=json.loads(error.exception.read())
+                    self.assertEqual(payload["schema"],"hes.api_error.v1")
+                    self.assertEqual(payload["status"],"BAD_REQUEST")
+                    self.assertEqual(payload["error"],"invalid_limit")
+                    self.assertTrue(payload["fail_closed"])
+                    self.assertFalse(payload["execution_enabled"])
+                    self.assertFalse(payload["orders_placed"])
+            read_journal.assert_not_called()
+
+    def test_journal_query_field_count_is_bounded(self):
+        query="&".join(f"field{index}=1" for index in range(9))
+        with self.assertRaises(HTTPError) as error:
+            urlopen(self.base+"/api/journal?"+query)
+        self.assertEqual(error.exception.code,400)
+        payload=json.loads(error.exception.read())
+        self.assertEqual(payload["error"],"invalid_query")
+        self.assertEqual(payload["schema"],"hes.api_error.v1")
 
     def test_health_and_execution_boundary(self):
         batch=sample_batch()
@@ -328,6 +378,22 @@ class DashboardRouteTests(unittest.TestCase):
                 urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=2h")
         self.assertEqual(error.exception.code,400)
         fetch.assert_not_called()
+
+    def test_candle_query_parser_bounds_fields_and_rejects_duplicate_identity(self):
+        with patch("web.dashboard._SOURCE.fetch") as fetch:
+            for query,expected in (
+                ("symbol=BTCUSDT&symbol=BTCUSDT&interval=15m","duplicate_parameter"),
+                ("interval=15m&interval=1m","duplicate_parameter"),
+                ("&".join(f"field{index}=1" for index in range(9)),"invalid_query"),
+            ):
+                with self.subTest(query=query):
+                    with self.assertRaises(HTTPError) as error:
+                        urlopen(self.base+"/api/candles?"+query)
+                    self.assertEqual(error.exception.code,400)
+                    payload=json.loads(error.exception.read())
+                    self.assertEqual(payload["schema"],"hes.api_error.v1")
+                    self.assertEqual(payload["error"],expected)
+            fetch.assert_not_called()
 
     def test_source_failure_fails_closed_without_fake_candles(self):
         with patch("web.dashboard._SOURCE.fetch",side_effect=TimeoutError()):
@@ -419,11 +485,23 @@ class DashboardRouteTests(unittest.TestCase):
             self.assertNotIn("unsafe-inline", headers.get("Content-Security-Policy", ""))
             self.assertEqual(headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()")
             self.assertEqual(headers.get("Cache-Control"), "no-store")
-        for path in ("/api/order", "/api/orders", "/api/execute"):
-            with self.subTest(path=path):
+        head=Request(self.base+"/",method="HEAD")
+        with urlopen(head) as response:
+            self.assertEqual(response.status,200)
+            self.assertEqual(response.headers.get("Allow"),None)
+            self.assertEqual(response.read(),b"")
+        for method in ("OPTIONS", "POST", "PUT", "PATCH", "DELETE", "TRACE", "CONNECT"):
+            with self.subTest(method=method):
+                request=Request(self.base+"/api/candles", data=(b"{}" if method in ("POST", "PUT", "PATCH") else None), method=method)
                 with self.assertRaises(HTTPError) as error:
-                    urlopen(Request(self.base+path, data=b"{}", method="POST"))
-                self.assertEqual(error.exception.code, 405)
+                    urlopen(request)
+                self.assertEqual(error.exception.code,405)
+                self.assertEqual(error.exception.headers.get("Allow"),"GET, HEAD")
+                payload=json.loads(error.exception.read())
+                self.assertEqual(payload["schema"],"hes.api_error.v1")
+                self.assertEqual(payload["error"],"method_not_allowed")
+                self.assertFalse(payload["execution_enabled"])
+                self.assertFalse(payload["orders_placed"])
 
 
     def test_dashboard_has_accessible_section_navigation_and_semantic_landmarks(self):
@@ -485,7 +563,7 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
         self.assertIn("refreshPrecisionEntry", script)
-        self.assertIn("fetch('/api/precision-entry'", script)
+        self.assertIn("fetchWithTimeout('/api/precision-entry'", script)
 
     def test_precision_entry_api_fails_closed_without_valid_15m_setup(self):
         rows = []

@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
+const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127.0.0.1:8765";
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -9,6 +10,7 @@ const { chromium } = require("playwright");
     const candlePayloads = {};
     let strategyV2Payload = null;
     let strategyV2StatusCode = null;
+    const apiContractResponses = {};
     let externalChartCdnRequested = false;
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
@@ -40,18 +42,26 @@ const { chromium } = require("playwright");
           logoAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
         }
         const url = new URL(response.url());
-        if (url.pathname === "/api/candles" && response.status() === 200) {
+        if (url.pathname.startsWith("/api/")) {
           const body = await response.json();
-          if (Array.isArray(body.candles) && body.candles.length) { candlePayload = body; candlePayloads[body.interval] = body; }
-        }
-        if (url.pathname === "/api/strategy-v2" && [200, 503].includes(response.status())) {
-          strategyV2StatusCode = response.status();
-          strategyV2Payload = await response.json();
+          apiContractResponses[url.pathname] = {
+            status: response.status(),
+            schema: body.schema || body.schema_version || null
+          };
+          if (url.pathname === "/api/candles" && response.status() === 200 &&
+              Array.isArray(body.candles) && body.candles.length) {
+            candlePayload = body;
+            candlePayloads[body.interval] = body;
+          }
+          if (url.pathname === "/api/strategy-v2" && [200, 503].includes(response.status())) {
+            strategyV2StatusCode = response.status();
+            strategyV2Payload = body;
+          }
         }
       } catch (_) {}
     });
 
-    await page.goto("http://127.0.0.1:8765/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.goto(dashboardBaseUrl + "/", { waitUntil: "domcontentloaded", timeout: 30000 });
     try {
       await page.waitForFunction(() => {
         const message = document.querySelector("#message")?.textContent || "";
@@ -93,12 +103,33 @@ const { chromium } = require("playwright");
       null,
       { timeout: 15000 }
     );
+    await page.waitForFunction(
+      () => {
+        const ids = ["journalStatus", "motherReasons", "newsSummary", "peReasons"];
+        return ids.every(id => {
+          const value = document.querySelector("#" + id)?.textContent || "";
+          return value && !/^(Loading|Verifying|Waiting)/.test(value);
+        });
+      },
+      null,
+      { timeout: 30000 }
+    );
     const fifteenMinutePayload = candlePayload;
     assert.ok(fifteenMinutePayload, "successful /api/candles payload was not observed");
     assert.equal(fifteenMinutePayload.interval, "15m", "15m must remain the default chart interval");
     assert.equal(await page.locator("#interval").inputValue(), "15m");
     assert.ok(candlePayloads["15m"], "15m API batch was not retained");
     assert.ok(strategyV2Payload, "canonical Strategy V2 response was not observed");
+    assert.equal(candlePayload.schema, "hes.market_candles_view.v1");
+    assert.equal(strategyV2Payload.schema, "hes.strategy_v2_dashboard_view.v1");
+    assert.equal(apiContractResponses["/api/journal"]?.schema, "hes.trade_journal_view.v1",
+      "decision journal API schema must be versioned");
+    assert.equal(apiContractResponses["/api/mother"]?.schema, "hes.mother_v2_dashboard_view.v1",
+      "Mother API schema must be versioned even when blocked");
+    assert.equal(apiContractResponses["/api/precision-entry"]?.schema, "hes_precision_entry_status_v1",
+      "Precision Entry API schema must be versioned even when blocked");
+    assert.ok(["hes.news_monitor_snapshot.v1", "hes.api_error.v1"].includes(apiContractResponses["/api/news"]?.schema),
+      "News API must return a versioned success or error contract");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
     assert.equal(strategyV2Payload.decision, "NO_TRADE", "paper-only V2 dashboard must remain NO_TRADE");
     assert.equal(strategyV2Payload.execution_enabled, false, "V2 dashboard must never enable execution");
@@ -229,6 +260,7 @@ const { chromium } = require("playwright");
       strategy_v2_source: strategyV2Payload.source || "gateio_public_spot",
       strategy_v2_symbol: strategyV2Payload.symbol || "BTC_USDT",
       strategy_v2_execution_enabled: strategyV2Payload.execution_enabled,
+      api_contract_responses: apiContractResponses,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       chart_library_loaded: ui.chartLibraryLoaded,

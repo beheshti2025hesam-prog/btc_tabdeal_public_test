@@ -14,7 +14,9 @@ from forward.native_ohlcv_gateio_v1 import (
     TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE,
     gateio_spot_source_symbol, verify_gateio_spot_symbol_mapping)
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
-from forward.trade_journal_view_v1 import configured_decision_journal, JournalProjectionError
+from forward.trade_journal_view_v1 import (
+    configured_decision_journal, JournalProjectionError, MAX_ROWS as MAX_JOURNAL_ROWS,
+)
 from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
 from core.market_intelligence.news_monitor import NewsMonitorV1
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard, StrategyV2DashboardError
@@ -204,14 +206,31 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "HESReadOnlyDashboard/1.0"
-    def _send(self,status,body,content_type):
+    def _send(self,status,body,content_type,extra_headers=None):
         self.send_response(status); self.send_header("Content-Type",content_type); self.send_header("Content-Length",str(len(body)))
         self.send_header("Cache-Control","no-store"); self.send_header("X-Content-Type-Options","nosniff")
         self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
         self.send_header("X-Frame-Options","DENY")
         self.send_header("Referrer-Policy","no-referrer")
         self.send_header("Permissions-Policy","camera=(), microphone=(), geolocation=()")
-        self.end_headers(); self.wfile.write(body)
+        for name,value in (extra_headers or {}).items(): self.send_header(name,value)
+        self.end_headers()
+        if self.command != "HEAD": self.wfile.write(body)
+    def _api_error(self,http_status,error,api_status,extra_headers=None):
+        payload={"schema":"hes.api_error.v1","status":api_status,"error":error,
+                 "fail_closed":True,"execution_enabled":False,"orders_placed":False}
+        return self._send(http_status,json.dumps(payload,separators=(",",":")).encode(),
+                          "application/json",extra_headers=extra_headers)
+    def _method_not_allowed(self):
+        return self._api_error(405,"method_not_allowed","METHOD_NOT_ALLOWED",{"Allow":"GET, HEAD"})
+    def do_HEAD(self): return self.do_GET()
+    def do_OPTIONS(self): return self._method_not_allowed()
+    def do_POST(self): return self._method_not_allowed()
+    def do_PUT(self): return self._method_not_allowed()
+    def do_PATCH(self): return self._method_not_allowed()
+    def do_DELETE(self): return self._method_not_allowed()
+    def do_TRACE(self): return self._method_not_allowed()
+    def do_CONNECT(self): return self._method_not_allowed()
     def do_GET(self):
         p=urlparse(self.path)
         if p.path=="/":
@@ -245,6 +264,7 @@ class Handler(BaseHTTPRequestHandler):
                 if batch.gaps:
                     raise ValueError("persisted_candle_gaps_present")
                 payload = {
+                    "schema": "hes.dashboard_health.v1",
                     "status": "ok", "mode": "NO_TRADE_ONLY", "execution_enabled": False, "orders_placed": False,
                     "source": "gateio_public_spot", "source_reader": "global_market_data_reader_v1",
                     "source_symbol": gateio_spot_source_symbol(batch.candles[-1].symbol), "symbol_mapping_verified": verify_gateio_spot_symbol_mapping(batch.candles[-1].symbol, gateio_spot_source_symbol(batch.candles[-1].symbol)),
@@ -255,6 +275,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
                 payload = {
+                    "schema": "hes.dashboard_health.v1",
                     "status": "blocked", "mode": "NO_TRADE_ONLY",
                     "error": "market_data_unavailable", "reason": type(exc).__name__,
                     "fail_closed": True, "execution_enabled": False, "orders_placed": False,
@@ -398,9 +419,18 @@ class Handler(BaseHTTPRequestHandler):
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/journal":
-            q = parse_qs(p.query)
             try:
-                limit = int(q.get("limit", ["50"])[0])
+                q = parse_qs(p.query, keep_blank_values=True, max_num_fields=8)
+            except ValueError:
+                return self._api_error(400,"invalid_query","BAD_REQUEST")
+            raw_limits = q.get("limit", ["50"])
+            if (len(raw_limits) != 1 or len(raw_limits[0]) > 3
+                    or not raw_limits[0].isascii() or not raw_limits[0].isdigit()):
+                return self._api_error(400,"invalid_limit","BAD_REQUEST")
+            limit = int(raw_limits[0])
+            if not 1 <= limit <= MAX_JOURNAL_ROWS:
+                return self._api_error(400,"invalid_limit","BAD_REQUEST")
+            try:
                 journal_path = os.environ.get(
                     "HES_TRADE_JOURNAL_PATH",
                     str(PROJECT_ROOT / "data" / "forward" / "trade_journal_v2.jsonl"),
@@ -410,7 +440,7 @@ class Handler(BaseHTTPRequestHandler):
                 payload["orders_placed"] = False
                 payload.setdefault("outcomes_inferred", False)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
-            except (JournalProjectionError, ValueError) as exc:
+            except JournalProjectionError as exc:
                 payload = {
                     "schema": "hes.trade_journal_view.v1", "status": "BLOCKED",
                     "error": str(exc), "events": [], "count": 0,
@@ -454,26 +484,33 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps(snapshot, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
                 return self._send(503, json.dumps({
-                    "status": "BLOCKED", "error": type(exc).__name__,
+                    "schema": "hes.api_error.v1", "status": "BLOCKED",
+                    "error": "news_monitor_unavailable", "reason": type(exc).__name__,
                     "fail_closed": True, "execution_enabled": False, "orders_placed": False,
                 }, separators=(",", ":")).encode(), "application/json")
         # Retired V1 signal endpoint: never invoke the old decision engine or journal writer.
         if p.path == "/api/signal":
             return self._send(410, json.dumps({
-                "error": "legacy_signal_route_retired", "status": "DEPRECATED",
-                "decision": "NO_TRADE", "fail_closed": True,
+                "schema": "hes.api_error.v1", "error": "legacy_signal_route_retired",
+                "status": "DEPRECATED", "decision": "NO_TRADE", "fail_closed": True,
                 "execution_enabled": False, "orders_placed": False,
             }, separators=(",", ":")).encode(), "application/json")
-        if p.path!="/api/candles": return self._send(404,b'{"error":"not_found"}',"application/json")
-        q=parse_qs(p.query); symbol=q.get("symbol",["BTCUSDT"])[0]; interval=q.get("interval",["15m"])[0]
+        if p.path!="/api/candles": return self._api_error(404,"not_found","NOT_FOUND")
+        try:
+            q=parse_qs(p.query,keep_blank_values=True,max_num_fields=8)
+        except ValueError:
+            return self._api_error(400,"invalid_query","BAD_REQUEST")
+        if len(q.get("symbol",[]))>1 or len(q.get("interval",[]))>1:
+            return self._api_error(400,"duplicate_parameter","BAD_REQUEST")
+        symbol=q.get("symbol",["BTCUSDT"])[0]; interval=q.get("interval",["15m"])[0]
         if symbol not in SUPPORTED_SYMBOLS or interval not in SUPPORTED_INTERVALS or interval not in INTERVAL_MS:
-            return self._send(400,b'{"error":"unsupported_symbol_or_interval"}',"application/json")
+            return self._api_error(400,"unsupported_symbol_or_interval","BAD_REQUEST")
         try:
             # The exact same validated batch feeds the chart projection and feature pipeline.
             batch,feature_result=_get_batch(symbol,interval)
             now=datetime.now(timezone.utc); now_ms=int(now.timestamp()*1000); last=batch.candles[-1]
             age=(now_ms-last.close_time_ms)/1000
-            payload={"status":"gaps_present" if batch.gaps else "ok",
+            payload={"schema":"hes.market_candles_view.v1", "status":"gaps_present" if batch.gaps else "ok",
                 "source":"gateio_public_spot","source_reader":"global_market_data_reader_v1",
                 "venue":batch.venue,"product":batch.product,
                 "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
@@ -494,9 +531,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200,json.dumps(payload,separators=(",",":")).encode(),"application/json")
         except Exception as exc:
             reason_code = str(exc) if str(exc) in {"latest_closed_candle_stale", "persisted_candle_gaps_present"} else type(exc).__name__
-            return self._send(503,json.dumps({"error":"market_data_unavailable",
+            return self._send(503,json.dumps({"schema":"hes.market_candles_view.v1", "error":"market_data_unavailable",
                 "reason":type(exc).__name__,"reason_code":reason_code,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
-    def do_POST(self): return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false,"orders_placed":false}',"application/json")
     def log_message(self,fmt,*args):
         if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
 
