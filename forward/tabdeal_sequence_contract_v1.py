@@ -54,6 +54,7 @@ def evaluate_tabdeal_trade_sequence_capabilities() -> dict[str, Any]:
         "safe": not missing,
         "reason": "SEQUENCE_CAPABILITIES_VERIFIED" if not missing else "SEQUENCE_CAPABILITIES_UNVERIFIED",
         "scope": dict(TABDEAL_BROADCAST_TRADE_SEQUENCE_SCOPE),
+        "registry_revision": registry.revision,
         "capabilities": capabilities,
         "missing_capabilities": missing,
         "evidence_refs": [
