@@ -374,7 +374,7 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
 
 
 def _last_saved_ts(path: Path) -> int:
-    rows = _read_existing(path)
+    rows = _read_existing_tail(path)
     return int(rows[-1]["open_time"]) if rows else -1
 
 
