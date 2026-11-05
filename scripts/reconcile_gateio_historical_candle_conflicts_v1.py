@@ -100,13 +100,21 @@ def sha256_file(path: Path) -> str:
 
 
 def numeric_values(row: dict[str, Any]) -> dict[str, str]:
-    result = {}
+    values = {}
     for field in FIELDS:
         value = Decimal(str(row[field]))
         if not value.is_finite():
             raise ValueError(f"non-finite candle field {field}")
-        result[field] = str(value)
-    return result
+        values[field] = value
+    if min(values["open"], values["high"], values["low"], values["close"]) <= 0:
+        raise ValueError("candle prices must be positive")
+    if min(values["volume"], values["quote_volume"]) < 0:
+        raise ValueError("candle volumes must be non-negative")
+    if values["high"] < max(values["open"], values["close"], values["low"]):
+        raise ValueError("candle high violates OHLC bounds")
+    if values["low"] > min(values["open"], values["close"], values["high"]):
+        raise ValueError("candle low violates OHLC bounds")
+    return {field: str(value) for field, value in values.items()}
 
 
 def semantic_key(row: dict[str, Any]) -> tuple[Any, ...]:
@@ -383,18 +391,21 @@ def atomic_replace(source: Path, destination: Path) -> None:
 
 
 def apply(stage_dir: Path) -> dict[str, Any]:
+    stage_dir = stage_dir.resolve()
+    if not stage_dir.is_relative_to(ARCHIVES.resolve()):
+        raise ValueError("stage directory must remain under the runtime archive root")
     manifest_path = stage_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("schema") != "hes_gateio_historical_candle_reconciliation_v1":
         raise ValueError("unsupported reconciliation manifest")
-    if manifest.get("status") != "STAGED_NOT_APPLIED":
-        raise ValueError("reconciliation stage is not in STAGED_NOT_APPLIED state")
+    if manifest.get("status") != "STAGED_NOT_APPLIED" or manifest.get("live_files_modified") is not False:
+        raise ValueError("reconciliation stage is not in a clean STAGED_NOT_APPLIED state")
 
     for timeframe, service in SERVICES.items():
         status = subprocess.run(
             ["systemctl", "is-active", service], capture_output=True, text=True, timeout=10
         )
-        if status.returncode == 0 and status.stdout.strip() == "active":
+        if status.returncode == 0 and status.stdout.strip() in {"active", "activating", "reloading"}:
             raise RuntimeError(f"stop {service} before applying the staged candle rebase")
 
     replacements = []
@@ -409,6 +420,9 @@ def apply(stage_dir: Path) -> dict[str, Any]:
             raise RuntimeError(f"{timeframe} archived original hash mismatch")
         if sha256_file(candidate_path) != item["candidate_sha256"]:
             raise RuntimeError(f"{timeframe} candidate hash mismatch")
+        candidate_rows = read_jsonl(candidate_path, timeframe)
+        if len(candidate_rows) != item["candidate_rows"]:
+            raise RuntimeError(f"{timeframe} candidate row-count mismatch")
         replacements.append((timeframe, live_path, original_path, candidate_path))
 
     applied = []
@@ -418,6 +432,11 @@ def apply(stage_dir: Path) -> dict[str, Any]:
             applied.append((timeframe, live_path, original_path))
             if sha256_file(live_path) != manifest["timeframes"][timeframe]["candidate_sha256"]:
                 raise RuntimeError(f"{timeframe} post-replacement hash mismatch")
+        from forward.global_market_data_reader_v1 import read_closed_candles
+        for timeframe in TIMEFRAMES:
+            accepted = read_closed_candles(timeframe, root=RUNTIME_ROOT)
+            if len(accepted) < 200:
+                raise RuntimeError(f"{timeframe} reader rejected the applied candidate")
     except Exception:
         for _, live_path, original_path in reversed(applied):
             atomic_replace(original_path, live_path)
