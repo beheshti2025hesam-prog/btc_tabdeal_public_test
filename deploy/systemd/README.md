@@ -64,3 +64,19 @@ The existing Gate.io collector is a separate market-data service; it does not ch
 - The optional 24-hour soak uses `Restart=no`. Any failed sample terminates that run; an operator must inspect the evidence and explicitly start a new run. This prevents an invalid run from being silently restarted. `ExecStartPre` archives the previous output with a neutral `.archive.<UTC timestamp>` suffix.
 - Matching systemd drop-ins preserve the deployed UMask=0077 and sandbox restrictions. The service units use /opt/hes-trade-agent and sentinelx because that is the current VPS layout; adapt these paths/account names for other hosts.
 - Installing units, daemon-reload, enabling, starting, restarting, or changing service state remains a separately authorized operational action. CI and code review must never run those actions.
+
+
+## Bounded operational health and paper-worker recovery (staged; not installed)
+
+The versioned `hes-operational-healthcheck.service` and five-minute timer use the existing Gate.io feed, evaluator, Learning Loop, and Precision Entry workers. This adds no second collector, journal, dashboard, or order path.
+
+- The monitor runs from the immutable `/opt/hes-trade-agent/current` release using system Python and writes only to `/var/lib/hes-operational-health`.
+- It verifies the active release manifest and listed file hashes, Gate.io feed freshness, the independent 1m integrity witness, canonical journal integrity, paper-only flags, Precision Entry ledger counts/source identity, the daily cap, disk, NTP, SSH, tunnel, and Xray.
+- Automatic recovery is restricted to `hes-strategy-paper-evaluator.service`, `hes-strategy-learning-loop.service`, and `hes-precision-entry-journal.service`, in dependency order. It starts (does not blindly restart) only an enabled, inactive paper worker, after all unrelated checks pass.
+- It never restarts Gate.io feeds, dashboard, Xray, SSH/firewall, the release pointer, policy/risk components, or any order path. Feed/evidence corruption remains fail-closed.
+- Recovery requires a stable release pointer (10 minutes), a valid immutable manifest, active dependencies, no deployment lock/manual hold, and a finite retry budget (2 attempts per unit per hour, 15-minute cooldown). Each attempt/result is appended and fsynced to a mode-0600 repair audit.
+- A deployment must hold the shared lock for its complete stop/switch/start/verify sequence:
+  `exec 9>/var/lib/hes-operational-health/deployment.lock; flock -x 9`.
+  While held, the monitor reports `MAINTENANCE` and takes no repair action. A per-service hold marker is available under `/var/lib/hes-operational-health/hold/<unit>.hold`.
+
+Focused recovery/runtime tests and `systemd-analyze verify` must pass before release. This candidate is not production-active: installing the units, daemon-reload, enabling the timer, and activating a release require the existing explicit owner release approval and exact-SHA acceptance gates. The Learning Loop remains hypothesis-only; no automatic strategy/risk mutation or live trading is permitted.

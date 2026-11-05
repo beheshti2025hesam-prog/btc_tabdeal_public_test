@@ -38,3 +38,46 @@ def test_costs_and_live_execution_are_never_invented_or_enabled():
     d={"event_id":"e4","observed_at":"1970-01-01T00:15:00+00:00","decision":"NO_TRADE","direction":"NONE"}
     out=mod.evaluate_no_trade(d,candles,horizons={"30m":1800})[0]
     assert out["net_R"] is None and out["policy_mutation_enabled"] is False and out["execution_enabled"] is False
+
+
+def test_evaluate_no_trade_still_fails_closed_without_a_baseline():
+    candles=[candle(0,100,101,99,100),candle(900,100,101,99,100)]
+    decision={"event_id":"too-old","observed_at":"1969-12-31T23:45:00+00:00","decision":"NO_TRADE","direction":"NONE"}
+    try:
+        mod.evaluate_no_trade(decision,candles,horizons={"15m":900})
+    except ValueError as exc:
+        assert str(exc)=="NO_CLOSED_CANDLE_AT_DECISION_TIME"
+    else:
+        raise AssertionError("missing baseline must never be fabricated")
+
+
+def test_run_skips_retention_boundary_decision_and_continues_valid_records(tmp_path):
+    import json
+    data=tmp_path/"data"/"forward"
+    data.mkdir(parents=True)
+    decisions=[
+        {"event_id":"too-old","observed_at":"1969-12-31T23:45:00+00:00","decision":"NO_TRADE","direction":"NONE","symbol":"BTC_USDT","timeframe":"15m"},
+        {"event_id":"recent","observed_at":"1970-01-01T00:15:00+00:00","decision":"NO_TRADE","direction":"NONE","symbol":"BTC_USDT","timeframe":"15m"},
+    ]
+    candles=[candle(t,100,101,99,100+t/100000) for t in (0,900,1800,2700,3600)]
+    (data/"trade_journal_v2.jsonl").write_text("".join(json.dumps(row)+"\n" for row in decisions),encoding="utf-8")
+    (data/"global_market_candles_v1.jsonl").write_text("".join(json.dumps(row)+"\n" for row in candles),encoding="utf-8")
+
+    summary=mod.run(tmp_path)
+    assert summary["status"]=="PARTIAL_UNSCORABLE"
+    assert summary["decision_count"]==2
+    assert summary["unscorable_no_baseline_decisions"]==1
+    assert summary["unscorable_no_baseline_reason"]=="NO_CLOSED_CANDLE_AT_DECISION_TIME"
+    assert len(summary["unscorable_no_baseline_event_ids_sha256"])==64
+    assert summary["new_records_added"]==1
+    assert summary["pending_horizons_current_run"]==2
+    assert summary["execution_enabled"] is False and summary["orders_placed"] is False
+
+    outcomes=[json.loads(line) for line in (data/"neutral_decision_outcomes_v1.jsonl").read_text().splitlines() if line.strip()]
+    assert len(outcomes)==1
+    assert outcomes[0]["decision_event_id"]=="recent"
+    assert outcomes[0]["horizon"]=="1h"
+    assert outcomes[0]["outcome_class"]=="DIRECTIONLESS_MARKET_CONTEXT"
+    assert outcomes[0]["execution_enabled"] is False and outcomes[0]["orders_placed"] is False
+    report=json.loads((data/"neutral_decision_outcomes_report_v1.json").read_text())
+    assert report["status"]=="PARTIAL_UNSCORABLE"
