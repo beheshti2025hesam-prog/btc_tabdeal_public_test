@@ -215,6 +215,14 @@ def reconcile_rows(timeframe: str, existing: list[dict[str, Any]], rest: list[di
         raise ValueError(f"{timeframe} REST snapshot contains duplicate open_time")
     if len(old_by_ts) != len(existing):
         raise ValueError(f"{timeframe} persisted file contains duplicate open_time")
+    for ts, pinned in approved.items():
+        if ts not in old_by_ts:
+            raise ValueError(f"Required pinned {timeframe} conflict candle is missing at {ts}")
+        current_values = numeric_values(old_by_ts[ts])
+        allowed_old = {key: str(Decimal(value)) for key, value in pinned["old"].items()}
+        allowed_new = {key: str(Decimal(value)) for key, value in pinned["new"].items()}
+        if current_values not in (allowed_old, allowed_new):
+            raise ValueError(f"Persisted {timeframe} candle at {ts} matches neither pinned old nor corrected evidence")
 
     # Within the REST coverage window, every persisted timestamp must be present.
     first_rest, last_rest = rest[0]["open_time"], rest[-1]["open_time"]
