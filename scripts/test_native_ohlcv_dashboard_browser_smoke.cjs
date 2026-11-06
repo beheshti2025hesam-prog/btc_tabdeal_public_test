@@ -540,6 +540,48 @@ const { chromium } = require("playwright");
     }));
     assert.deepEqual([staleTimeframeUi.price, staleTimeframeUi.stamp, staleTimeframeUi.volume, staleTimeframeUi.count], ["—", "—", "—", "—"]);
     await page.unroute(staleRouteMatcher);
+    // Exercise the actual authenticated Mother Command Center in Chromium.
+    const chatToken = process.env.HES_MOTHER_CHAT_TOKEN;
+    assert.ok(typeof chatToken === "string" && chatToken.length >= 32, "ephemeral browser-test chat token is missing");
+    assert.equal(await page.locator("#motherChatPanel").count(), 1, "Mother Command Center panel is missing");
+    await page.locator("#motherChatToken").fill(chatToken);
+    const loginResponsePromise = page.waitForResponse(response => {
+      try { return new URL(response.url()).pathname === "/api/mother-chat/session"; } catch (_) { return false; }
+    });
+    await page.locator("#motherChatUnlock").click();
+    const loginResponse = await loginResponsePromise;
+    assert.equal(loginResponse.status(), 200, "Mother Command Center login failed");
+    await page.waitForFunction(() => document.querySelector("#motherChatWorkspace") && !document.querySelector("#motherChatWorkspace").hidden);
+    assert.equal(await page.locator("#motherChatToken").inputValue(), "", "access token must be cleared from the form after login");
+
+    await page.locator("#motherChatInput").fill("hello");
+    const chatResponsePromise = page.waitForResponse(response => {
+      try { return new URL(response.url()).pathname === "/api/mother-chat"; } catch (_) { return false; }
+    });
+    await page.locator("#motherChatSend").click();
+    const chatResponse = await chatResponsePromise;
+    assert.equal(chatResponse.status(), 200, "Mother chat message endpoint did not respond");
+    const chatPayload = await chatResponse.json();
+    assert.equal(chatPayload.status, "NEEDS_CLARIFICATION", "unsupported input must request clarification");
+    assert.equal(chatPayload.external_llm_used, false, "free Command Center must not call an external LLM");
+    assert.equal(chatPayload.execution_enabled, false);
+    assert.equal(chatPayload.orders_placed, false);
+    await page.waitForFunction(() => [...document.querySelectorAll(".mother-chat-message")].some(
+      node => node.textContent.includes("Please specify one supported task")
+    ));
+    await page.locator("#motherChatLogout").click();
+    await page.waitForFunction(() => document.querySelector("#motherChatLogin") && !document.querySelector("#motherChatLogin").hidden);
+    evidence.mother_chat_ui = {
+      panel_present: true,
+      login_http_status: loginResponse.status(),
+      message_http_status: chatResponse.status(),
+      unsupported_intent_status: chatPayload.status,
+      external_llm_used: chatPayload.external_llm_used,
+      execution_enabled: chatPayload.execution_enabled,
+      orders_placed: chatPayload.orders_placed,
+      logout_locked_ui: true
+    };
+
     evidence.stale_timeframe_fail_closed = true;
     evidence.stale_timeframe_ui = staleTimeframeUi;
     require("node:fs").writeFileSync(
