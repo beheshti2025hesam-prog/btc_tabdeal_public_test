@@ -25,12 +25,13 @@ HES is a decision-support and paper-trading system. A signal is not an order. Th
 - Maximum signal allowance is **three per day**; this is a hard ceiling, not a quota or target.
 - No live execution before explicit owner authorization and all source, strategy, confirmation, independent-risk, instrument-mapping, operational and recovery gates pass.
 - A win-rate claim is prohibited until at least **100 eligible, resolved, closed paper trades** demonstrate **greater than 90%** on verified net-of-cost outcomes with independent out-of-sample evidence. Zero eligible outcomes means the rate is not calculable.
-- No automatic threshold, strategy, risk or policy tuning to force a target metric.
+- No automatic threshold, strategy, risk or policy tuning to force the target metric.
 
 ## Documentation map
 
 | Document | Purpose |
 | --- | --- |
+| [Documentation and release-readiness control](docs/release/HES_DOCUMENTATION_AND_RELEASE_READINESS_V1.md) | Durable documentation rules, exact-SHA release gates and acceptance record |
 | [Mother Command Center contract](docs/checkpoints/MOTHER_CHAT_COMMAND_CENTER_CONTRACT_2026-11-06.md) | Scope, trust boundary, allowed interactions and non-goals |
 | [Dashboard security, release and rollback runbook](docs/release/HES_DASHBOARD_SECURITY_RELEASE_ROLLBACK_RUNBOOK.md) | Deployment record, security checks and rollback procedure |
 | [Sequence semantics registry guide](docs/protocol/SEQUENCE_SEMANTICS_REGISTRY_README.md) | Evidence-scoped protocol semantics; candidate status is explicit |
@@ -48,7 +49,7 @@ The Master Checkpoint in Notion is the project resume map, not a substitute for 
 5. Run the operational healthcheck, source/chart parity, browser checks, soak, security and recovery tests. Keep the previous immutable release and rollback record.
 6. Promote only after explicit owner approval. Never let a delivery date waive a failed safety or evidence gate.
 
-See the release runbook and the release-readiness checklist for the detailed acceptance sequence. Do not treat a draft PR, a candidate artifact, a historical test run or a successful deployment smoke as proof that every product gate is closed.
+Do not treat a draft PR, a candidate artifact, a historical test run or a successful deployment smoke as proof that every product gate is closed.
 
 ## Historical component note
 
