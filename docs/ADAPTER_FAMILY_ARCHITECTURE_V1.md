@@ -1,7 +1,7 @@
 # HES Trade Agent — Application Adapter Family v1
 
-**Status:** catalog and guardrails candidate; no runtime provider selection or execution is introduced.  
-**Baseline release inspected:** `786f9187ac326f27c243507ccbd297b34d01db1b`  
+**Status:** catalog and guardrails candidate; no runtime provider selection or execution is introduced.
+**Baseline release inspected:** `786f9187ac326f27c243507ccbd297b34d01db1b`
 **Delivery target:** 2026-11-19
 
 ## 1. Design decision
