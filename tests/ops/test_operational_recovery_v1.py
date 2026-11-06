@@ -251,3 +251,55 @@ def test_missing_feed_dependency_blocks_recovery(tmp_path):
     assert result['status'] == 'BLOCKED'
     assert result['reason'] == 'UNRELATED_HEALTH_FAILURE'
     assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
+
+def test_host_level_preflight_failure_blocks_all_worker_recovery(tmp_path):
+    from scripts.ops.hes_operational_healthcheck_v1 import _recovery_health_report
+
+    recovery, runner, _, _ = make_recovery(tmp_path)
+    runtime = health_report(set(REPAIR_ORDER))
+    host_issues = [
+        {'check': 'ntp', 'state': 'CRITICAL', 'detail': 'not_synchronized'},
+        {'check': 'ssh-port-9011', 'state': 'CRITICAL', 'detail': 'not_listening'},
+        {'check': 'tunnel-port-443', 'state': 'CRITICAL', 'detail': 'not_listening'},
+        {'check': 'service:xray.service', 'state': 'CRITICAL', 'detail': 'not_active'},
+    ]
+    recovery.health_provider = lambda: _recovery_health_report(runtime, host_issues)
+
+    result = recovery.run()
+
+    assert result['status'] == 'BLOCKED'
+    assert result['reason'] == 'UNRELATED_HEALTH_FAILURE'
+    assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
+def test_monitor_passes_host_failures_into_recovery_preflight(monkeypatch, tmp_path):
+    from scripts.ops import hes_operational_healthcheck_v1 as monitor
+
+    runtime = health_report([REPAIR_ORDER[0]])
+    host_issues = [
+        {'check': 'ntp', 'state': 'CRITICAL', 'detail': 'not_synchronized'}
+    ]
+    captured = {}
+
+    class CapturingRecovery:
+        def __init__(self, *, health_provider):
+            captured['preflight'] = health_provider()
+
+        def run(self):
+            return {'status': 'BLOCKED', 'reason': 'UNRELATED_HEALTH_FAILURE', 'actions': []}
+
+    monkeypatch.setattr(monitor, 'STATE_DIR', tmp_path / 'state')
+    monkeypatch.setattr(monitor, 'deployment_lock_held', lambda *args: False)
+    monkeypatch.setattr(
+        monitor, 'verify_active_release',
+        lambda *args, **kwargs: {'release_id': 'a' * 40, 'files_checked': 1},
+    )
+    monkeypatch.setattr(monitor, 'collect_checks', lambda: runtime)
+    monkeypatch.setattr(monitor, '_host_checks', lambda: host_issues)
+    monkeypatch.setattr(monitor, '_record_state', lambda issues: None)
+    monkeypatch.setattr(monitor, 'OperationalRecoveryV1', CapturingRecovery)
+
+    assert monitor.main() == 2
+    assert host_issues[0] in captured['preflight']['issues']
