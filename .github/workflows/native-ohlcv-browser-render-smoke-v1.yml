@@ -81,6 +81,7 @@ jobs:
           path: |
             artifacts/native-ohlcv-dashboard-browser-smoke.json
             artifacts/native-ohlcv-dashboard-browser-smoke.png
+            artifacts/mother-chat-command-center-browser-smoke.png
             /tmp/hes-dashboard-browser-smoke.log
           if-no-files-found: warn
           retention-days: 14
