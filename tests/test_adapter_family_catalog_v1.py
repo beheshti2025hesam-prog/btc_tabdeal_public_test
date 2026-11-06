@@ -87,3 +87,10 @@ def test_catalog_rejects_canonical_profile_drift():
     payload["market_data_policy"]["canonical_profile"]["venue_symbol"] = "BTCUSDT"
     errors = validate_catalog(ROOT, payload)
     assert "CANONICAL_MARKET_DATA_PROFILE_MISMATCH" in errors
+
+
+def test_catalog_reports_malformed_status_type_without_crashing():
+    payload = load_catalog()
+    payload["adapters"][0]["status"] = []
+    errors = validate_catalog(ROOT, payload)
+    assert "ADAPTER_0_STATUS_INVALID" in errors
