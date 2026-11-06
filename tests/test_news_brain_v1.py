@@ -194,9 +194,17 @@ class NewsBrainTests(unittest.TestCase):
             feed_payload_sha256="a" * 64, raw_item_sha256="b" * 64,
             retrieved_at=NOW.isoformat(),
         )
+        international_item = NewsItem(
+            title="Bitcoin ETF inflows rise as spot demand strengthens",
+            source="InvestIn.News NewsDesk",
+            url="https://investin.news/bitcoin-etf-inflows",
+            published_at=NOW.isoformat(), source_id="investin_news_newsdesk",
+        )
+        def fetch_rss_side_effect(url, *, source, source_id="", **kwargs):
+            return [international_item] if source_id == "investin_news_newsdesk" else []
         with (
             patch("core.market_intelligence.news_brain.fetch_gate_announcements", return_value=[gate_item]) as gate_fetch,
-            patch("core.market_intelligence.news_brain.fetch_rss", return_value=[]) as rss_fetch,
+            patch("core.market_intelligence.news_brain.fetch_rss", side_effect=fetch_rss_side_effect) as rss_fetch,
         ):
             brief = self.brain.run_from_registry(
                 registry_path, MarketContext("crypto", "BTCUSDT", "range"), now=NOW)
@@ -205,12 +213,17 @@ class NewsBrainTests(unittest.TestCase):
         self.assertEqual(rss_fetch.call_count, 8)
         health = brief.provenance["source_health"]
         self.assertEqual(len(health), 9)
-        self.assertEqual(sum(x["status"] == "ok" for x in health), 1)
-        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 8)
+        self.assertEqual(sum(x["status"] == "ok" for x in health), 2)
+        self.assertEqual(sum(x["status"] == "ok_empty" for x in health), 7)
         gate_health = next(x for x in health if x["source_id"] == "gateio_official_announcements")
         self.assertEqual(gate_health["status"], "ok")
         self.assertEqual(gate_health["source_scope"], "venue")
         self.assertIsNotNone(gate_health["feed_payload_sha256"])
+        scope_by_source = {finding.source_id: finding.source_scope for finding in brief.findings}
+        self.assertEqual(scope_by_source["gateio_official_announcements"], "venue")
+        self.assertEqual(scope_by_source["investin_news_newsdesk"], "international")
+        mother_findings = brief.to_mother_payload()["top_findings"]
+        self.assertTrue(all("source_id" not in item and "source_scope" not in item for item in mother_findings))
         self.assertEqual(brief.provenance["source_evidence"][0]["raw_item_sha256"], "b" * 64)
 
     def test_registry_records_source_failures_without_hiding_successful_empty_feeds(self):
