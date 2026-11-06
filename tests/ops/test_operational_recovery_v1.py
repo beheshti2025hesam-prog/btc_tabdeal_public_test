@@ -301,5 +301,5 @@ def test_monitor_passes_host_failures_into_recovery_preflight(monkeypatch, tmp_p
     monkeypatch.setattr(monitor, '_record_state', lambda issues: None)
     monkeypatch.setattr(monitor, 'OperationalRecoveryV1', CapturingRecovery)
 
-    assert monitor.main() == 1
+    assert monitor.main() == 2
     assert host_issues[0] in captured['preflight']['issues']
