@@ -17,7 +17,6 @@ def _section_directives(text: str, section: str) -> dict[str, list[str]]:
             continue
         if line.startswith("[") and line.endswith("]"):
             current = line[1:-1]
-            result.setdefault(current, {})
             continue
         if current == section and "=" in line:
             key, value = line.split("=", 1)
@@ -34,7 +33,3 @@ def test_paper_worker_restart_is_owned_only_by_bounded_recovery_monitor():
         assert service.get("Restart") == ["no"], unit
         assert unit_section.get("StartLimitIntervalSec") == ["1h"], unit
         assert unit_section.get("StartLimitBurst") == ["2"], unit
-        assert not any(
-            value in {"always", "on-failure", "on-abnormal", "on-watchdog"}
-            for value in service.get("Restart", [])
-        ), unit
