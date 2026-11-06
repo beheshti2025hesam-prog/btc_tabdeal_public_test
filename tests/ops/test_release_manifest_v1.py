@@ -97,3 +97,50 @@ def test_partial_manifest_pair_is_not_overwritten(tmp_path):
     (release / "HES_RELEASE_MANIFEST_v1.sha256").write_text("partial\n", encoding="ascii")
     with pytest.raises(ReleaseManifestError, match="PARTIAL_MANIFEST_PAIR_EXISTS"):
         write_manifest(release, manifest)
+
+def test_symlinked_parent_directory_cannot_escape_release(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "HES tests"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "hes-tests@example.invalid"], check=True)
+    nested = repo / "nested"
+    nested.mkdir()
+    (nested / "app.py").write_text("print('immutable')\\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "nested fixture"], check=True)
+    commit = subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+
+    release = repo / "releases" / commit
+    release.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "app.py").write_text("print('immutable')\\n", encoding="utf-8")
+    os.symlink(outside, release / "nested", target_is_directory=True)
+
+    with pytest.raises(ReleaseManifestError, match="RELEASE_FILE_MISSING_OR_ESCAPED"):
+        build_manifest(repo, release, commit)
+
+
+def test_manifest_symlink_is_rejected(tmp_path):
+    repo, release, commit = make_git_release(tmp_path)
+    write_manifest(release, build_manifest(repo, release, commit))
+    outside = tmp_path / "manifest.json"
+    outside.write_bytes((release / "HES_RELEASE_MANIFEST_v1.json").read_bytes())
+    (release / "HES_RELEASE_MANIFEST_v1.json").unlink()
+    os.symlink(outside, release / "HES_RELEASE_MANIFEST_v1.json")
+
+    with pytest.raises(ReleaseManifestError, match="RELEASE_MANIFEST_PAIR_SYMLINK"):
+        verify_manifest(release)
+
+
+def test_sidecar_symlink_is_rejected(tmp_path):
+    repo, release, commit = make_git_release(tmp_path)
+    write_manifest(release, build_manifest(repo, release, commit))
+    outside = tmp_path / "manifest.sha256"
+    outside.write_bytes((release / "HES_RELEASE_MANIFEST_v1.sha256").read_bytes())
+    (release / "HES_RELEASE_MANIFEST_v1.sha256").unlink()
+    os.symlink(outside, release / "HES_RELEASE_MANIFEST_v1.sha256")
+
+    with pytest.raises(ReleaseManifestError, match="RELEASE_MANIFEST_PAIR_SYMLINK"):
+        verify_manifest(release)
