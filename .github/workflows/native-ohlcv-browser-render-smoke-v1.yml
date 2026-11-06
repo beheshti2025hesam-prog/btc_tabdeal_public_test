@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           token="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
-          printf '%s\\n' "$token" > /tmp/hes-mother-chat-token
+          printf '%s\n' "$token" > /tmp/hes-mother-chat-token
           chmod 600 /tmp/hes-mother-chat-token
           echo "::add-mask::$token"
           echo "HES_MOTHER_CHAT_TOKEN_FILE=/tmp/hes-mother-chat-token" >> "$GITHUB_ENV"
