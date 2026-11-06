@@ -552,7 +552,8 @@ const { chromium } = require("playwright");
     });
     await page.locator("#motherChatUnlock").click();
     const loginResponse = await loginResponsePromise;
-    assert.equal(loginResponse.status(), 200, "Mother Command Center login failed");
+    const loginPayload = await loginResponse.json();
+    assert.equal(loginResponse.status(), 200, "Mother Command Center login failed: " + JSON.stringify(loginPayload));
     await page.waitForFunction(() => document.querySelector("#motherChatWorkspace") && !document.querySelector("#motherChatWorkspace").hidden);
     assert.equal(await page.locator("#motherChatToken").inputValue(), "", "access token must be cleared from the form after login");
 
