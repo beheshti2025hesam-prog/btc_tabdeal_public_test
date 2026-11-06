@@ -26,6 +26,8 @@ def test_backup_script_shell_syntax_and_security_contract():
     assert "gzip -t" in text
     assert "tar -tzf -" in text
     assert "sha256sum -c" in text
+    assert "age < 180" in text
+    assert "dom" in text and "== 01" in text
     assert "root/.ssh/authorized_keys" in text
     assert "var/lib/hes-gateio-1m-integrity" in text
     assert "var/lib/hes-news-monitor" in text
