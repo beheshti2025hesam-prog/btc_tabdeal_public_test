@@ -34,7 +34,7 @@ HES is a decision-support and paper-trading system. A signal is not an order. Th
 | [Documentation and release-readiness control](docs/release/HES_DOCUMENTATION_AND_RELEASE_READINESS_V1.md) | Durable documentation rules, exact-SHA release gates and acceptance record |
 | [Mother Command Center contract](docs/checkpoints/MOTHER_CHAT_COMMAND_CENTER_CONTRACT_2026-11-06.md) | Scope, trust boundary, allowed interactions and non-goals |
 | [Dashboard security, release and rollback runbook](docs/release/HES_DASHBOARD_SECURITY_RELEASE_ROLLBACK_RUNBOOK.md) | Deployment record, security checks and rollback procedure |
-| [Sequence semantics registry guide](docs/protocol/SEQUENCE_SEMANTICS_REGISTRY_README.md) | Evidence-scoped protocol semantics; candidate status is explicit |
+| [Sequence semantics registry (JSON)](docs/protocol/sequence_semantics_registry_v1.json) | Exact-scope protocol capabilities; unknown remains fail-closed |
 | [Immutable release manifest proposal](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/470) | Deterministic release-file provenance; remains unmerged until reviewed |
 | [Encrypted backup/restore proposal](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/473) | Encrypted recovery workflow; remains unmerged until reviewed |
 
