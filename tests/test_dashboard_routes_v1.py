@@ -649,5 +649,19 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(len(batch.candles), 240)
         self.assertEqual(batch.venue, "gateio")
 
+    def test_news_scope_filter_is_accessible_and_filters_by_registry_scope(self):
+        root = Path(__file__).resolve().parents[1]
+        dashboard_source = (root / "web" / "dashboard.py").read_text(encoding="utf-8")
+        script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")
+        styles = (root / "web" / "static" / "dashboard.css").read_text(encoding="utf-8")
+        self.assertIn('id="newsScopeFilter"', dashboard_source)
+        for scope in ("all", "international", "domestic", "venue"):
+            self.assertIn(f'value="{scope}"', dashboard_source)
+        self.assertIn('id="newsScopeStatus"', dashboard_source)
+        self.assertIn("renderNewsScope", script)
+        self.assertIn("item.source_scope===selected", script)
+        self.assertIn("source_scope===selected", script)
+        self.assertIn(".news-scope-toolbar", styles)
+
 if __name__=="__main__":
     unittest.main()

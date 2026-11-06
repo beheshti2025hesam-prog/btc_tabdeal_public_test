@@ -35,6 +35,7 @@ class NewsItem:
     raw_item_sha256: str = ""
     publisher: str = ""
     content_label: str = ""
+    source_scope: str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,8 @@ class NewsFinding:
     reasons: tuple[str, ...]
     freshness: str
     caveats: tuple[str, ...]
+    source_id: str = ""
+    source_scope: str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -88,6 +91,13 @@ class NewsBrief:
 
     def to_mother_payload(self) -> dict:
         """Return the compact, explicit handoff consumed by Mother Agent."""
+        top_findings = []
+        for item in self.findings[:3]:
+            finding = asdict(item)
+            # Scope metadata is dashboard filtering metadata, not a new Mother contract field.
+            finding.pop("source_id", None)
+            finding.pop("source_scope", None)
+            top_findings.append(finding)
         return {
             "schema_version": self.schema_version,
             "status": self.status,
@@ -96,7 +106,7 @@ class NewsBrief:
             "market_implications": list(self.market_implications),
             "suggested_action": self.suggested_action,
             "veto_flags": list(self.veto_flags),
-            "top_findings": [asdict(item) for item in self.findings[:3]],
+            "top_findings": top_findings,
             "provenance": dict(self.provenance),
             "news_alone_can_authorize_trade": False,
         }
@@ -445,7 +455,7 @@ class NewsIntelligenceBrain:
                     source_items = fetch_rss(
                         source["url"], source=source["name"], source_id=source["id"]
                     )
-                items.extend(source_items)
+                items.extend(replace(item, source_scope=source["source_scope"]) for item in source_items)
                 published_times = [
                     parsed for item in source_items
                     if (parsed := _parse_time(item.published_at)) is not None
@@ -628,7 +638,8 @@ class NewsIntelligenceBrain:
                 age_minutes=round(age_minutes, 1) if age_minutes is not None else None,
                 relevance=round(relevance, 3), impact=round(impact, 3), directional_bias=bias,
                 confidence=round(confidence, 3), categories=categories, matched_terms=matched[:20],
-                reasons=tuple(reasons), freshness=freshness, caveats=tuple(caveats)))
+                reasons=tuple(reasons), freshness=freshness, caveats=tuple(caveats),
+                source_id=item.source_id or item.source, source_scope=item.source_scope))
 
         findings.sort(key=lambda f: (f.impact * f.relevance, f.confidence, f.published_at), reverse=True)
         findings = findings[:self.max_findings]
