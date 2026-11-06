@@ -151,7 +151,7 @@ def _write_v2_decision(path, *, proposal_decision="NO_TRADE", confirmation_state
         "outcome": None,
         "closed_at": None,
     }
-    path.write_text(json.dumps(record) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
 
 
 def test_projects_strategy_family_gate_attribution_and_provenance(tmp_path):
@@ -199,7 +199,7 @@ def test_missing_gate_evidence_is_not_given_invented_attribution(tmp_path):
         "outcome": None,
         "closed_at": None,
     }
-    path.write_text(json.dumps(record) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
     event = read_decision_journal(path)["events"][0]
     assert event["decision_gate"] == "UNKNOWN"
     assert event["rejected_at"] == "UNKNOWN"
