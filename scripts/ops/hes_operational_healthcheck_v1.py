@@ -55,6 +55,17 @@ def _host_checks() -> list[dict[str, str]]:
     return issues
 
 
+def _recovery_health_report(
+    runtime: dict[str, Any],
+    host_issues: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Include host-level failures in the recovery preflight, not just reporting."""
+    return {
+        **runtime,
+        "issues": [*runtime.get("issues", []), *host_issues],
+    }
+
+
 def _record_state(issues: list[dict[str, str]]) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     new_state = '\n'.join(sorted(f"{row['check']}:{row['detail']}" for row in issues))
@@ -91,14 +102,25 @@ def main() -> int:
         release_check = {'check': 'release-integrity', 'state': 'OK', 'detail': f"{release['release_id']}:{release['files_checked']} files"}
     except Exception as exc:
         release_check = {'check': 'release-integrity', 'state': 'CRITICAL', 'detail': f'{type(exc).__name__}:{str(exc)[:120]}'}
+    # Collect every precondition before attempting recovery. Host failures (NTP,
+    # SSH/tunnel listeners, Xray, and root-disk pressure) must veto worker starts
+    # just like feed, journal, and data-integrity failures.
+    preflight_runtime = collect_checks()
+    preflight_host_issues = _host_checks()
     if release_check['state'] == 'OK':
         try:
-            recovery = OperationalRecoveryV1(health_provider=collect_checks).run()
+            recovery = OperationalRecoveryV1(
+                health_provider=lambda: _recovery_health_report(
+                    preflight_runtime, preflight_host_issues
+                )
+            ).run()
         except Exception as exc:
             recovery = {'status': 'BLOCKED', 'reason': f'RECOVERY_ERROR:{type(exc).__name__}:{str(exc)[:120]}', 'actions': []}
     else:
         recovery = {'status': 'BLOCKED', 'reason': 'RELEASE_INTEGRITY_FAILED', 'actions': []}
 
+    # Re-sample after recovery so the operator-facing report reflects the
+    # resulting runtime state rather than only the preflight snapshot.
     runtime = collect_checks()
     host_issues = _host_checks()
     all_issues = list(runtime['issues']) + host_issues
