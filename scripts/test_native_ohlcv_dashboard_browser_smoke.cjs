@@ -167,6 +167,8 @@ const { chromium } = require("playwright");
     await languageSelect.selectOption("fa");
     await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
     assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
+    assert.equal((await page.locator("#motherChatTitle").textContent()).trim(), "مرکز فرمان Mother · رابط محلی رایگان",
+      "Mother Command Center heading must be translated in Persian RTL mode");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
     await languageSelect.selectOption("fr");
@@ -540,6 +542,62 @@ const { chromium } = require("playwright");
     }));
     assert.deepEqual([staleTimeframeUi.price, staleTimeframeUi.stamp, staleTimeframeUi.volume, staleTimeframeUi.count], ["—", "—", "—", "—"]);
     await page.unroute(staleRouteMatcher);
+    // Exercise the actual authenticated Mother Command Center in Chromium.
+    const chatToken = process.env.HES_MOTHER_CHAT_TOKEN;
+    assert.ok(typeof chatToken === "string" && chatToken.length >= 32, "ephemeral browser-test chat token is missing");
+    assert.equal(await page.locator("#motherChatPanel").count(), 1, "Mother Command Center panel is missing");
+    await page.locator("#motherChatToken").fill(chatToken);
+    const loginResponsePromise = page.waitForResponse(response => {
+      try { return new URL(response.url()).pathname === "/api/mother-chat/session"; } catch (_) { return false; }
+    });
+    await page.locator("#motherChatUnlock").click();
+    const loginResponse = await loginResponsePromise;
+    const loginPayload = await loginResponse.json();
+    assert.equal(loginResponse.status(), 200, "Mother Command Center login failed: " + JSON.stringify(loginPayload));
+    await page.waitForFunction(() => document.querySelector("#motherChatWorkspace") && !document.querySelector("#motherChatWorkspace").hidden);
+    assert.equal(await page.locator("#motherChatToken").inputValue(), "", "access token must be cleared from the form after login");
+
+    await page.locator("#motherChatInput").fill("hello");
+    const chatResponsePromise = page.waitForResponse(response => {
+      try { return new URL(response.url()).pathname === "/api/mother-chat"; } catch (_) { return false; }
+    });
+    await page.locator("#motherChatSend").click();
+    const chatResponse = await chatResponsePromise;
+    assert.equal(chatResponse.status(), 200, "Mother chat message endpoint did not respond");
+    const chatPayload = await chatResponse.json();
+    assert.equal(chatPayload.status, "NEEDS_CLARIFICATION", "unsupported input must request clarification");
+    assert.equal(chatPayload.external_llm_used, false, "free Command Center must not call an external LLM");
+    assert.equal(chatPayload.execution_enabled, false);
+    assert.equal(chatPayload.orders_placed, false);
+    await page.waitForFunction(() => [...document.querySelectorAll(".mother-chat-message")].some(
+      node => node.textContent.includes("Please specify one supported task")
+    ));
+    await page.locator("#motherChatLogout").click();
+    await page.waitForFunction(() => document.querySelector("#motherChatLogin") && !document.querySelector("#motherChatLogin").hidden);
+    evidence.mother_chat_ui = {
+      panel_present: true,
+      login_http_status: loginResponse.status(),
+      message_http_status: chatResponse.status(),
+      unsupported_intent_status: chatPayload.status,
+      external_llm_used: chatPayload.external_llm_used,
+      execution_enabled: chatPayload.execution_enabled,
+      orders_placed: chatPayload.orders_placed,
+      logout_locked_ui: true
+    };
+    await page.setViewportSize({ width: 390, height: 844 });
+    const chatMobileLayout = await page.evaluate(() => ({
+      viewport_width: window.innerWidth,
+      document_width: document.documentElement.scrollWidth,
+      panel_width: document.querySelector("#motherChatPanel")?.getBoundingClientRect().width || 0
+    }));
+    assert.ok(chatMobileLayout.panel_width > 300 && chatMobileLayout.panel_width <= 391,
+      "Mother Command Center panel is not responsive on mobile: " + JSON.stringify(chatMobileLayout));
+    assert.ok(chatMobileLayout.document_width <= chatMobileLayout.viewport_width + 1,
+      "Mother Command Center causes horizontal page overflow on mobile: " + JSON.stringify(chatMobileLayout));
+    await page.screenshot({ path: "artifacts/mother-chat-command-center-browser-smoke.png", fullPage: true });
+    evidence.mother_chat_ui.mobile_layout = chatMobileLayout;
+
+
     evidence.stale_timeframe_fail_closed = true;
     evidence.stale_timeframe_ui = staleTimeframeUi;
     require("node:fs").writeFileSync(
