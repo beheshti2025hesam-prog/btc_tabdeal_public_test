@@ -81,6 +81,11 @@ def build_manifest(repo_root: Path, release_dir: Path, commit_sha: str) -> dict[
         target = release.joinpath(*rel.parts)
         if target.is_symlink() or not target.is_file():
             raise ReleaseManifestError(f"RELEASE_FILE_MISSING_OR_SYMLINK:{relative}")
+        try:
+            resolved_target = target.resolve(strict=True)
+            resolved_target.relative_to(release)
+        except (OSError, ValueError) as exc:
+            raise ReleaseManifestError(f"RELEASE_FILE_MISSING_OR_ESCAPED:{relative}") from exc
 
         actual = target.read_bytes()
         committed = _git(repo, "cat-file", "blob", object_id)
@@ -113,6 +118,8 @@ def verify_manifest(release_dir: Path) -> dict[str, Any]:
     release = release_dir.resolve(strict=True)
     manifest_path = release / MANIFEST_NAME
     sidecar_path = release / SIDECAR_NAME
+    if manifest_path.is_symlink() or sidecar_path.is_symlink():
+        raise ReleaseManifestError("RELEASE_MANIFEST_PAIR_SYMLINK")
     if not manifest_path.is_file() or not sidecar_path.is_file():
         raise ReleaseManifestError("RELEASE_MANIFEST_PAIR_MISSING")
 
