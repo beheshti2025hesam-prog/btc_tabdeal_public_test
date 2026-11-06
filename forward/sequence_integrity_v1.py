@@ -17,9 +17,10 @@ class SequenceEvent:
 class SequenceIntegrityV1:
     """Tracks monotonic source sequence identifiers without repairing or reordering data.
 
-Tabdeal sequence values are treated as ordered identifiers, not contiguous counters.
-Continuity is enforced by rejecting regressions and conflicting duplicates; a numeric
-jump is observable but is not, by itself, evidence of a missing market event.
+Venue sequence semantics are not inferred by this class. Callers must first resolve
+an exact-scope registry contract and verify identity, ordering, and gap capabilities.
+This class must not be used for Tabdeal trade.sequence while the registry records
+those capabilities as unknown.
 """
 
     def __init__(self, *, max_records: int = 100_000) -> None:

@@ -1,9 +1,19 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import pytest
 
-from forward.controlled_forward_observation_runner_v1 import (
-    ControlledForwardObservationRunnerV1,
-)
+from forward.controlled_forward_observation_runner_v1 import ControlledForwardObservationRunnerV1
+
+
+def allow_sequence_capabilities(monkeypatch):
+    allowed = {"safe": True, "reason": "SEQUENCE_CAPABILITIES_VERIFIED"}
+    for module in (
+        "forward.controlled_forward_observation_runner_v1",
+        "forward.forward_observation_path_v1",
+        "forward.sequence_candle_integration_v1",
+        "forward.forward_tabdeal_ingestion_v1",
+    ):
+        monkeypatch.setattr(f"{module}.evaluate_tabdeal_trade_sequence_capabilities", lambda: allowed)
 
 
 class FakeWS:
@@ -15,7 +25,11 @@ class FakeWS:
     def run_forever(self, **kwargs):
         self.on_open(self)
         for seq, price in ((100, "100.0"), (101, "101.0"), (102, "102.0")):
-            self.on_message(self, '{"trade": {"symbol":"BTC_USDT","price":"%s","amount":"0.1","side":"buy","sequence":%d,"updated":"2026-10-07T13:00:00Z"}}' % (price, seq))
+            self.on_message(
+                self,
+                '{"trade":{"symbol":"BTC_USDT","price":"%s","amount":"0.1","side":"buy","sequence":%d,"updated":"2026-10-07T13:00:00Z"}}'
+                % (price, seq),
+            )
 
     def send(self, symbol):
         assert symbol == "BTC_USDT"
@@ -24,44 +38,37 @@ class FakeWS:
         pass
 
 
-def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
+def test_runner_uses_transport_and_writes_only_session_when_not_enough_closed_candles(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
-        journal_path=journal,
-        session_path=session,
-        ws_factory=FakeWS,
-        max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        journal_path=journal, session_path=session, ws_factory=FakeWS, max_runtime_seconds=1,
     )
-    result = runner.run(
-        started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
-    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
     assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
     assert session.exists()
     assert not journal.exists()
 
 
-def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
+def test_runner_accepts_non_contiguous_values_only_under_explicit_test_capability_fixture(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
+
     class GapTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
 
         def run_once(self):
             for seq in (100, 102):
-                self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
-                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z"})
+                self.on_record({
+                    "symbol": "BTC_USDT", "price": "100", "amount": "0.1",
+                    "side": "buy", "sequence": seq, "timestamp": "2026-10-07T13:00:00Z",
+                })
 
     runner = ControlledForwardObservationRunnerV1(
-        journal_path=tmp_path / "journal.jsonl",
-        session_path=tmp_path / "session.jsonl",
-        transport_factory=GapTransport,
-        ws_factory=FakeWS,
-        max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        journal_path=tmp_path / "journal.jsonl", session_path=tmp_path / "session.jsonl",
+        transport_factory=GapTransport, ws_factory=FakeWS, max_runtime_seconds=1,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
@@ -69,7 +76,9 @@ def test_runner_accepts_non_contiguous_monotonic_sequence(tmp_path: Path):
     assert not (tmp_path / "journal.jsonl").exists()
 
 
-def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
+def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
+
     class EmptyWS(FakeWS):
         def run_forever(self, **kwargs):
             self.on_open(self)
@@ -77,22 +86,17 @@ def test_runner_does_not_write_when_transport_has_no_records(tmp_path: Path):
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
-        journal_path=journal,
-        session_path=session,
-        ws_factory=EmptyWS,
-        max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        journal_path=journal, session_path=session, ws_factory=EmptyWS, max_runtime_seconds=1,
     )
-    result = runner.run(
-        started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
-    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "WAITING"
     assert result.reason == "NO_FRESH_RECORDS"
     assert not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_error(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
+
     class BrokenTransport:
         def __init__(self, **kwargs):
             pass
@@ -103,25 +107,19 @@ def test_runner_fails_closed_on_transport_error(tmp_path: Path):
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
-        journal_path=journal,
-        session_path=session,
-        transport_factory=BrokenTransport,
-        ws_factory=FakeWS,
-        max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        journal_path=journal, session_path=session, transport_factory=BrokenTransport,
+        ws_factory=FakeWS, max_runtime_seconds=1,
     )
-    result = runner.run(
-        started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
-    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
     assert result.reason == "TRANSPORT_ERROR:RuntimeError"
     assert result.records_received == 0
-    assert session.exists()
-    assert not journal.exists()
+    assert session.exists() and not journal.exists()
 
 
-def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
+def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
+
     class BrokenTransport:
         def __init__(self, **kwargs):
             raise RuntimeError("simulated construction failure")
@@ -129,44 +127,35 @@ def test_runner_fails_closed_on_transport_construction_error(tmp_path: Path):
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
-        journal_path=journal,
-        session_path=session,
-        transport_factory=BrokenTransport,
-        ws_factory=FakeWS,
-        max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
+        journal_path=journal, session_path=session, transport_factory=BrokenTransport,
+        ws_factory=FakeWS, max_runtime_seconds=1,
     )
-    result = runner.run(
-        started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
-    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
     assert result.reason == "TRANSPORT_ERROR:RuntimeError"
     assert result.records_received == 0
-    assert session.exists()
-    assert not journal.exists()
+    assert session.exists() and not journal.exists()
 
 
-def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
+def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path, monkeypatch):
+    allow_sequence_capabilities(monkeypatch)
+
     class OverLimitTransport:
         def __init__(self, on_record, **kwargs):
             self.on_record = on_record
 
         def run_once(self):
             for seq in range(4):
-                self.on_record({"symbol":"BTC_USDT","price":"100","amount":"0.1","side":"buy",
-                                "sequence":seq,"timestamp":"2026-10-07T13:00:00Z"})
+                self.on_record({
+                    "symbol": "BTC_USDT", "price": "100", "amount": "0.1",
+                    "side": "buy", "sequence": seq, "timestamp": "2026-10-07T13:00:00Z",
+                })
 
     journal = tmp_path / "journal.jsonl"
     runner = ControlledForwardObservationRunnerV1(
-        journal_path=journal,
-        session_path=tmp_path / "session.jsonl",
-        transport_factory=OverLimitTransport,
-        ws_factory=FakeWS,
-        max_runtime_seconds=1,
-        sequence_contract_verified=True,
-        sequence_contract_evidence_ref="test-fixture:authoritative-contract",
-        max_records=3,
+        journal_path=journal, session_path=tmp_path / "session.jsonl",
+        transport_factory=OverLimitTransport, ws_factory=FakeWS,
+        max_runtime_seconds=1, max_records=3,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
@@ -176,42 +165,31 @@ def test_runner_fails_closed_when_record_bound_is_exceeded(tmp_path: Path):
     assert not journal.exists()
 
 
-def test_runner_blocks_before_network_or_session_without_verified_sequence_contract(tmp_path: Path):
+def test_runner_blocks_before_network_or_session_without_registry_capabilities(tmp_path: Path):
     class MustNotRunTransport:
         def __init__(self, **kwargs):
-            raise AssertionError("transport must not be constructed before sequence contract verification")
+            raise AssertionError("transport must not be constructed while capabilities are unknown")
 
     journal = tmp_path / "journal.jsonl"
     session = tmp_path / "session.jsonl"
     runner = ControlledForwardObservationRunnerV1(
-        journal_path=journal,
-        session_path=session,
-        transport_factory=MustNotRunTransport,
-        ws_factory=FakeWS,
-        max_runtime_seconds=1,
+        journal_path=journal, session_path=session,
+        transport_factory=MustNotRunTransport, ws_factory=FakeWS, max_runtime_seconds=1,
     )
     result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
     assert result.status == "BLOCKED"
-    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
-    assert result.run_id == "NOT_STARTED"
-    assert result.records_received == 0
-    assert result.diagnostics == ({
-        "network_started": False,
-        "session_written": False,
-        "sequence_contract_evidence_required": True,
-    },)
-    assert not session.exists()
-    assert not journal.exists()
+    assert result.reason == "SEQUENCE_CAPABILITIES_UNVERIFIED"
+    assert result.run_id == "NOT_STARTED" and result.records_received == 0
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert result.diagnostics[0]["capability_gate"]["capabilities"]["event_identity_unique"] == "unknown"
+    assert not session.exists() and not journal.exists()
 
 
-def test_runner_requires_evidence_reference_even_when_verified_flag_is_true(tmp_path: Path):
-    runner = ControlledForwardObservationRunnerV1(
-        journal_path=tmp_path / "journal.jsonl",
-        session_path=tmp_path / "session.jsonl",
-        sequence_contract_verified=True,
-        ws_factory=FakeWS,
-    )
-    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
-    assert result.status == "BLOCKED"
-    assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
-    assert not (tmp_path / "session.jsonl").exists()
+def test_runner_rejects_legacy_boolean_override(tmp_path: Path):
+    with pytest.raises(TypeError):
+        ControlledForwardObservationRunnerV1(
+            journal_path=tmp_path / "journal.jsonl", session_path=tmp_path / "session.jsonl",
+            sequence_contract_verified=True,
+            sequence_contract_evidence_ref="arbitrary-string-is-not-evidence",
+        )

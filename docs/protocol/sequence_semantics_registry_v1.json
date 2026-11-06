@@ -1,7 +1,7 @@
 {
   "schema": "hes_sequence_semantics_registry_v1",
-  "revision": 1,
-  "status": "CANDIDATE_NOT_WIRED",
+  "revision": 2,
+  "status": "CANDIDATE_FAIL_CLOSED_GUARD_ONLY",
   "policy": "FAIL_CLOSED_UNKNOWN_IS_NOT_FALSE",
   "scope_key": [
     "venue",
@@ -50,7 +50,14 @@
           "evidence_ref": "tabdeal-official-reply-body:2026-11-04",
           "source_snapshot_sha256": "bd83b1b70b1518937d805733d92e570c98311ea5dd8bc7c3d9f8dc6d0c3a53cd",
           "excerpt_sha256": "bd83b1b70b1518937d805733d92e570c98311ea5dd8bc7c3d9f8dc6d0c3a53cd",
-          "evidence_note": "Verbatim Persian response body supplied by project owner and attributed to Tabdeal official reply received 2026-11-04; sender headers/ticket ID were not supplied. Body says informational-only; do not assume uniqueness, ordering, consecutiveness, replay, gap detection or deduplication. Depth sequence is separate; REST reconciliation is approximate."
+          "evidence_note": "Verbatim Persian response body supplied by project owner and attributed to Tabdeal official reply received 2026-11-04; sender headers/ticket ID were not supplied. Body says informational-only; do not assume uniqueness, ordering, consecutiveness, replay, gap detection or deduplication. Depth sequence is separate; REST reconciliation is approximate.",
+          "capability_claims": {
+            "event_identity_unique": "unknown",
+            "ordered_within_scope": "unknown",
+            "contiguous_within_scope": "unknown",
+            "gap_detectable": "unknown",
+            "cross_reconnect_comparable": "unknown"
+          }
         }
       ],
       "last_verified": "2026-11-05",
@@ -149,6 +156,19 @@
     "Sequence semantics are scoped to the exact venue/product/endpoint/channel/message/field/protocol tuple.",
     "Trade identity is not ordering; ordering is not contiguity; contiguity is not cross-reconnect comparability.",
     "Exact raw-payload replay may be classified independently of opaque numeric identifiers.",
-    "No record in this candidate registry is currently authorized for live execution or production feed gating."
+    "No record grants a positive capability in this revision; the registry may be consumed by fail-closed guards only."
+  ],
+  "revision_history": [
+    {
+      "revision": 1,
+      "status": "CANDIDATE_NOT_WIRED",
+      "note": "Initial registry from the 2026-10-10 research draft; Tabdeal trade.sequence capabilities unknown.",
+      "superseded_by": 2
+    },
+    {
+      "revision": 2,
+      "status": "CANDIDATE_FAIL_CLOSED_GUARD_ONLY",
+      "note": "Added owner-supplied Tabdeal official response received 2026-11-04; capabilities remain unknown; this revision is consumed only by fail-closed guards."
+    }
   ]
 }

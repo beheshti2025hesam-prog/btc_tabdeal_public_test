@@ -1,6 +1,9 @@
 """Deterministic 15-minute candle normalization contract.
 
-Consumes fresh raw trade observations and emits only closed candles.
+Consumes fresh raw trade observations and emits only closed candles. This low-level
+normalizer uses sequence for identity and ordering; callers must gate it with an
+exact-scope capability contract first. It is not decision-safe for Tabdeal
+trade.sequence while those capabilities remain unknown.
 No strategy, indicator, threshold, signal, or outcome logic belongs here.
 """
 

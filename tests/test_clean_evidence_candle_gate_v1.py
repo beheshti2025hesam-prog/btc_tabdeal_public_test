@@ -16,33 +16,33 @@ def rec(seq, ts, price="100"):
 
 
 def test_empty_forward_input_blocks():
-    r = CleanEvidenceCandleGateV1().evaluate([], as_of=datetime.now(timezone.utc))
-    assert not r.safe and r.reason == "NO_FORWARD_RECORDS"
+    result = CleanEvidenceCandleGateV1().evaluate([], as_of=datetime.now(timezone.utc))
+    assert not result.safe and result.reason == "NO_FORWARD_RECORDS"
 
 
-def test_future_input_fails_closed():
+def test_future_input_does_not_override_unknown_sequence_capability_block():
     now = datetime.now(timezone.utc)
-    r = CleanEvidenceCandleGateV1().evaluate(
+    result = CleanEvidenceCandleGateV1().evaluate(
         [rec(1, now + timedelta(seconds=1))], as_of=now
     )
-    assert not r.safe and r.reason == "INVALID_FORWARD_INPUT"
+    assert not result.safe and result.reason == "SEQUENCE_CAPABILITIES_UNVERIFIED"
 
 
-def test_conflicting_duplicate_blocks_candle_evidence():
+def test_conflicting_duplicate_is_not_asserted_without_unique_identity_capability():
     now = datetime.now(timezone.utc)
     timestamp = now - timedelta(minutes=20)
     data = [rec(10, timestamp, "100"), rec(10, timestamp, "101")]
-    r = CleanEvidenceCandleGateV1().evaluate(data, as_of=now)
-    assert not r.safe and r.reason == "CONFLICTING_DUPLICATE_SEQUENCE"
-    assert r.candles == ()
+    result = CleanEvidenceCandleGateV1().evaluate(data, as_of=now)
+    assert not result.safe and result.reason == "SEQUENCE_CAPABILITIES_UNVERIFIED"
+    assert result.candles == ()
 
 
-def test_unverified_sequence_jump_blocks_candle_evidence():
+def test_numeric_jump_is_not_interpreted_as_a_missing_market_event():
     now = datetime.now(timezone.utc)
     data = [
         rec(10, now - timedelta(minutes=20)),
         rec(12, now - timedelta(minutes=1)),
     ]
-    r = CleanEvidenceCandleGateV1().evaluate(data, as_of=now)
-    assert not r.safe and r.reason == "SEQUENCE_GAP_UNVERIFIED"
-    assert r.candles == ()
+    result = CleanEvidenceCandleGateV1().evaluate(data, as_of=now)
+    assert not result.safe and result.reason == "SEQUENCE_CAPABILITIES_UNVERIFIED"
+    assert result.candles == ()

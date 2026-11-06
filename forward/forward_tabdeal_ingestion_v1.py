@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from .candle_normalizer_v1 import TradeObservation, Candle15m, IntervalGap, normalize_trades
+from .tabdeal_sequence_contract_v1 import evaluate_tabdeal_trade_sequence_capabilities
 
 REQUIRED = ("symbol", "price", "amount", "side", "source_updated", "sequence")
 SOURCE = "tabdeal_ws_forward_v1"
@@ -29,6 +30,9 @@ def _dt(value: Any) -> datetime:
 
 
 def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObservation:
+    capability_gate = evaluate_tabdeal_trade_sequence_capabilities()
+    if not capability_gate["safe"]:
+        raise ValueError(capability_gate["reason"])
     missing = [key for key in REQUIRED if key not in record]
     if missing:
         raise ValueError("missing ingestion fields:" + ",".join(missing))
@@ -55,5 +59,8 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
 def ingest_closed_candles(
     records: Iterable[dict[str, Any]], *, as_of: datetime
 ) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
+    capability_gate = evaluate_tabdeal_trade_sequence_capabilities()
+    if not capability_gate["safe"]:
+        raise ValueError(capability_gate["reason"])
     trades = tuple(to_trade_observation(record, as_of=as_of) for record in records)
     return normalize_trades(trades, as_of=as_of, expected_symbol="BTC_USDT")

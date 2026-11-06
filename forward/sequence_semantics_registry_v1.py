@@ -1,8 +1,9 @@
 """Capability-driven sequence semantics registry (candidate, fail-closed).
 
 A sequence-like field has no semantics unless an exact venue/product/endpoint/
-channel/message/field/protocol contract says so and carries evidence. This
-module is deliberately not wired into a live feed or execution path yet.
+channel/message/field/protocol contract says so and carries capability-specific
+primary evidence. The registry may be consumed by guards to deny unsafe paths;
+it grants no positive capabilities in its current revision.
 """
 from __future__ import annotations
 
@@ -31,8 +32,10 @@ class SequenceSemanticsRegistryV1:
     def __init__(self, payload: Mapping[str, Any]):
         if payload.get("schema") != REGISTRY_SCHEMA:
             raise RegistryError("REGISTRY_SCHEMA_MISMATCH")
-        if payload.get("revision") != 1:
+        revision = payload.get("revision")
+        if type(revision) is not int or revision < 1:
             raise RegistryError("UNSUPPORTED_REGISTRY_REVISION")
+        self.revision = revision
         records = payload.get("records")
         if not isinstance(records, list):
             raise RegistryError("REGISTRY_RECORDS_INVALID")
@@ -49,8 +52,8 @@ class SequenceSemanticsRegistryV1:
                 value = caps.get(name, UNKNOWN)
                 if not (type(value) is bool or value == UNKNOWN):
                     raise RegistryError(f"CAPABILITY_VALUE_INVALID:{name}")
-                if value != UNKNOWN and not self._has_evidence(item):
-                    raise RegistryError(f"NON_UNKNOWN_CAPABILITY_WITHOUT_PRIMARY_EVIDENCE:{name}")
+                if value != UNKNOWN and not self._has_evidence(item, name, value):
+                    raise RegistryError(f"CAPABILITY_EVIDENCE_MISSING:{name}")
             self._records[key] = dict(item)
 
     @staticmethod
@@ -65,7 +68,9 @@ class SequenceSemanticsRegistryV1:
         return tuple(values)
 
     @staticmethod
-    def _has_evidence(item: Mapping[str, Any]) -> bool:
+    def _has_evidence(
+        item: Mapping[str, Any], capability: str | None = None, expected_value: bool = True
+    ) -> bool:
         evidence = item.get("evidence")
         return bool(
             isinstance(evidence, list)
@@ -76,6 +81,13 @@ class SequenceSemanticsRegistryV1:
                 and row.get("evidence_class") == "primary_protocol_contract"
                 and isinstance(row.get("evidence_ref"), str)
                 and row["evidence_ref"].strip()
+                and (
+                    capability is None
+                    or (
+                        isinstance(row.get("capability_claims"), dict)
+                        and row["capability_claims"].get(capability) is expected_value
+                    )
+                )
                 and all(
                     isinstance(row.get(field), str)
                     and len(row[field]) == 64
@@ -110,7 +122,7 @@ class SequenceSemanticsRegistryV1:
         return contract.get("capabilities", {}).get(name, UNKNOWN)
 
     def may_claim(self, contract: Mapping[str, Any] | None, name: str) -> bool:
-        return self.capability(contract, name) is True and self._has_evidence(contract or {})
+        return self.capability(contract, name) is True and self._has_evidence(contract or {}, name, True)
 
     def classify_duplicate(self, contract: Mapping[str, Any] | None, *,
                            first_payload_sha256: str, current_payload_sha256: str) -> str:

@@ -1,10 +1,9 @@
-"""Sequence gate for clean forward evidence; anomalies never become evidence."""
+"""Capability-gated sequence boundary for clean forward evidence."""
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
-
 from .sequence_integrity_v1 import SequenceIntegrityV1
+from .tabdeal_sequence_contract_v1 import evaluate_tabdeal_trade_sequence_capabilities
 
 
 @dataclass(frozen=True)
@@ -16,9 +15,13 @@ class EvidenceSequenceResult:
 
 
 class CleanEvidenceSequenceGateV1:
-    """Stricter evidence boundary: require contiguous values until source semantics are documented."""
-
+    """Reject decision-grade Tabdeal evidence while required capabilities are unknown."""
     def evaluate(self, records: list[dict[str, Any]]) -> EvidenceSequenceResult:
+        if not records:
+            return EvidenceSequenceResult(False, (), (), "NO_FORWARD_RECORDS")
+        capability_gate = evaluate_tabdeal_trade_sequence_capabilities()
+        if not capability_gate["safe"]:
+            return EvidenceSequenceResult(False, (), tuple(records), capability_gate["reason"])
         gate = SequenceIntegrityV1()
         accepted: list[dict[str, Any]] = []
         rejected: list[dict[str, Any]] = []
@@ -32,16 +35,12 @@ class CleanEvidenceSequenceGateV1:
             if event.status == "ACCEPTED":
                 if last_accepted_sequence is not None and event.sequence != last_accepted_sequence + 1:
                     rejected.append(record)
-                    return EvidenceSequenceResult(
-                        False, tuple(accepted), tuple(rejected), "SEQUENCE_GAP_UNVERIFIED"
-                    )
+                    return EvidenceSequenceResult(False, tuple(accepted), tuple(rejected), "SEQUENCE_GAP_UNVERIFIED")
                 accepted.append(record)
                 last_accepted_sequence = event.sequence
             elif event.status == "IDEMPOTENT_DUPLICATE":
                 continue
             else:
                 rejected.append(record)
-                return EvidenceSequenceResult(
-                    False, tuple(accepted), tuple(rejected), event.reason or event.status
-                )
+                return EvidenceSequenceResult(False, tuple(accepted), tuple(rejected), event.reason or event.status)
         return EvidenceSequenceResult(True, tuple(accepted), tuple(rejected), "SEQUENCE_SAFE")
