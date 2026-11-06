@@ -45,7 +45,7 @@ _INTENT_TERMS = {
     "JOURNAL_REVIEW": ("ژورنال", "نتایج معاملات", "نتیجه معاملات", "عملکرد ترید", "برد و باخت", "journal", "outcomes", "performance", "ergebnisse", "résultats"),
     "DIAGNOSE": ("عیب یابی", "عیب‌یابی", "خطا", "اشکال", "مشکل سیستم", "diagnose", "diagnostics", "error", "fault", "fehler", "erreur", "panne"),
     "ASK_STATUS": ("وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services", "gesundheit", "dienste", "statut", "santé", "services"),
-    "EXPLAIN_DECISION": ("چرا", "دلیل تصمیم", "علت تصمیم", "تصمیم مادر", "تصمیم ایجنت", "explain", "why", "decision", "mother decision", "warum", "weshalb", "grund", "entscheidung", "pourquoi", "décision", "raison"),
+    "EXPLAIN_DECISION": ("چرا تصمیم", "دلیل تصمیم", "علت تصمیم", "چرا مادر", "چرا عدم ترید", "چرا no_trade", "تصمیم مادر", "تصمیم ایجنت", "explain", "why decision", "why no trade", "decision", "mother decision", "warum entscheidung", "warum no trade", "grund", "entscheidung", "pourquoi décision", "pourquoi no trade", "décision", "raison"),
     "MARKET_REVIEW": ("تحلیل بازار", "وضعیت بازار", "بازار", "قیمت", "کندل", "روند", "market", "candles", "price", "regime", "markt", "kerzen", "kurs", "trend", "marché", "bougie", "prix", "tendance"),
     "PREPARE_CHANGE": ("پیشنهاد تغییر", "پیشنویس تغییر", "پیش‌نویس تغییر", "طراحی تغییر", "prepare change", "draft change", "änderung vorbereiten", "proposition de changement", "préparer une modification"),
 }
@@ -80,11 +80,13 @@ def classify_intent(message: str) -> str:
                 matches.append(intent)
                 break
     unique = tuple(dict.fromkeys(matches))
-    specific = tuple(intent for intent in unique if intent != "ASK_STATUS")
+    specific = tuple(intent for intent in unique if intent not in {"ASK_STATUS", "MARKET_REVIEW"})
     if len(specific) == 1:
         return specific[0]
     if len(specific) > 1:
         return "UNKNOWN"
+    if "MARKET_REVIEW" in unique:
+        return "MARKET_REVIEW"
     return "ASK_STATUS" if "ASK_STATUS" in unique else "UNKNOWN"
 
 
