@@ -98,3 +98,108 @@ def test_rejects_invalid_limit(tmp_path):
     write_signal(path)
     with pytest.raises(JournalProjectionError, match="invalid_limit"):
         read_decision_journal(path, limit=0)
+
+
+
+def _write_v2_decision(path, *, proposal_decision="NO_TRADE", confirmation_state="UNCONFIRMED",
+                       risk_state="RISK_REJECTED", final_decision="NO_TRADE"):
+    route = {
+        "family_id": "trend_breakout",
+        "family_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
+        "activation_state": "CANDIDATE_LOCKED_NOT_ACTIVE",
+    }
+    evidence = {
+        "confirmation": {
+            "state": confirmation_state,
+            "reason_codes": ["REQUIRED_CHECK_FAILED"] if confirmation_state == "UNCONFIRMED" else [],
+            "checks": [{"name": "direction_regime_alignment", "state": "FAIL" if confirmation_state == "UNCONFIRMED" else "PASS"}],
+        },
+        "risk": {
+            "state": risk_state,
+            "reason_codes": ["CONFIRMATION_NOT_VALID"] if risk_state == "RISK_REJECTED" else [],
+            "checks": [{"name": "confirmation_valid", "state": "FAIL" if risk_state == "RISK_REJECTED" else "PASS"}],
+        },
+    }
+    record = {
+        "event_id": "hes-v2-attribution-test",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "decision": final_decision,
+        "direction": "NONE",
+        "signal_state": proposal_decision,
+        "proposal_decision": proposal_decision,
+        "proposal_reasons": ["NO_CONFIRMED_20_BAR_BREAKOUT"] if proposal_decision == "NO_TRADE" else [],
+        "confirmation_state": confirmation_state,
+        "risk_state": risk_state,
+        "no_trade_reason": "NO_CONFIRMED_20_BAR_BREAKOUT" if proposal_decision == "NO_TRADE" else "GATE_REJECTED",
+        "gate_reasons": ["NO_CONFIRMED_20_BAR_BREAKOUT"] if proposal_decision == "NO_TRADE" else ["GATE_REJECTED"],
+        "gate_evidence": evidence,
+        "strategy_family_route": route,
+        "strategy_family_context_status": "VERIFIED_EVIDENCE_ONLY_NOT_AUTHORIZED",
+        "market_data_provenance": {
+            "timeframes": {"15m": {"input_batch_sha256": "a" * 64}, "1h": {"input_batch_sha256": "b" * 64}},
+        },
+        "strategy_run_provenance": {
+            "code_release_id": "release-sha",
+            "run_id": "run-123",
+            "run_manifest_sha256": "c" * 64,
+        },
+        "evidence_source": "gateio_public_spot",
+        "execution_enabled": False,
+        "orders_placed": False,
+        "outcome": None,
+        "closed_at": None,
+    }
+    path.write_text(json.dumps(record) + "\\n", encoding="utf-8")
+
+
+def test_projects_strategy_family_gate_attribution_and_provenance(tmp_path):
+    path = tmp_path / "trade_journal_v2.jsonl"
+    _write_v2_decision(path)
+    event = read_decision_journal(path)["events"][0]
+    assert event["decision_gate"] == "STRATEGY_POLICY"
+    assert event["rejected_at"] == "STRATEGY_POLICY"
+    assert event["reason_codes"] == ["NO_CONFIRMED_20_BAR_BREAKOUT"]
+    assert event["strategy_family_id"] == "trend_breakout"
+    assert event["strategy_family_version"] == "hes-btcusdt-mtf-confirmed-breakout-v2.0.0"
+    assert event["strategy_family_activation_state"] == "CANDIDATE_LOCKED_NOT_ACTIVE"
+    assert event["strategy_family_context_status"] == "VERIFIED_EVIDENCE_ONLY_NOT_AUTHORIZED"
+    assert event["market_data_batch_sha256_by_timeframe"] == {"15m": "a" * 64, "1h": "b" * 64}
+    assert event["code_release_id"] == "release-sha"
+    assert event["run_id"] == "run-123"
+    assert event["run_manifest_sha256"] == "c" * 64
+    assert event["gate_summary"]["confirmation"]["failed_checks"] == ["direction_regime_alignment"]
+    assert event["gate_summary"]["risk"]["failed_checks"] == ["confirmation_valid"]
+
+
+def test_rejection_stage_uses_confirmation_then_risk_then_final_policy(tmp_path):
+    path = tmp_path / "trade_journal_v2.jsonl"
+    _write_v2_decision(path, proposal_decision="LONG", confirmation_state="UNCONFIRMED", risk_state="RISK_REJECTED")
+    assert read_decision_journal(path)["events"][0]["rejected_at"] == "CONFIRMATION"
+
+    _write_v2_decision(path, proposal_decision="LONG", confirmation_state="CONFIRMED_LONG", risk_state="RISK_REJECTED")
+    assert read_decision_journal(path)["events"][0]["rejected_at"] == "RISK"
+
+    _write_v2_decision(path, proposal_decision="LONG", confirmation_state="CONFIRMED_LONG", risk_state="RISK_APPROVED")
+    assert read_decision_journal(path)["events"][0]["rejected_at"] == "FINAL_POLICY"
+
+
+def test_missing_gate_evidence_is_not_given_invented_attribution(tmp_path):
+    path = tmp_path / "trade_journal_v2.jsonl"
+    record = {
+        "event_id": "legacy-no-trade",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "decision": "NO_TRADE",
+        "evidence_source": "gateio_public_spot",
+        "execution_enabled": False,
+        "orders_placed": False,
+        "outcome": None,
+        "closed_at": None,
+    }
+    path.write_text(json.dumps(record) + "\\n", encoding="utf-8")
+    event = read_decision_journal(path)["events"][0]
+    assert event["decision_gate"] == "UNKNOWN"
+    assert event["rejected_at"] == "UNKNOWN"
