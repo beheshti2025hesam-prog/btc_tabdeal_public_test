@@ -18,6 +18,111 @@ MAX_ROWS = 100
 _ALLOWED_DECISIONS = {"LONG", "SHORT", "NO_TRADE"}
 
 
+def _reason_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)) and all(isinstance(item, str) for item in value):
+        return [item for item in value if item]
+    raise JournalProjectionError("invalid_reason_codes")
+
+
+def _market_batch_hashes(record: dict[str, Any]) -> dict[str, str]:
+    provenance = record.get("market_data_provenance")
+    if provenance is None:
+        evidence = record.get("gate_evidence")
+        provenance = evidence.get("market_data_provenance") if isinstance(evidence, dict) else None
+    if provenance is None:
+        return {}
+    if not isinstance(provenance, dict):
+        raise JournalProjectionError("invalid_market_data_provenance")
+    timeframes = provenance.get("timeframes", {})
+    if not isinstance(timeframes, dict):
+        raise JournalProjectionError("invalid_market_data_timeframes")
+    result: dict[str, str] = {}
+    for timeframe, batch in timeframes.items():
+        if not isinstance(timeframe, str) or not isinstance(batch, dict):
+            raise JournalProjectionError("invalid_market_data_timeframe_record")
+        digest = batch.get("input_batch_sha256")
+        if digest is None:
+            continue
+        if not isinstance(digest, str) or len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest.lower()):
+            raise JournalProjectionError("invalid_market_data_batch_sha256")
+        result[timeframe] = digest
+    return result
+
+
+def _rejection_stage(record: dict[str, Any]) -> str:
+    """Return only a gate stage supported by the immutable decision evidence."""
+    explicit = record.get("rejected_at")
+    if explicit is not None and not isinstance(explicit, str):
+        raise JournalProjectionError("invalid_rejected_at")
+    if isinstance(explicit, str) and explicit.strip() and explicit not in {"—", "-", "UNKNOWN"}:
+        return explicit
+    if record.get("decision") != "NO_TRADE":
+        return "—"
+
+    if record.get("proposal_decision") == "NO_TRADE":
+        return "STRATEGY_POLICY"
+
+    evidence = record.get("gate_evidence")
+    if evidence is not None and not isinstance(evidence, dict):
+        raise JournalProjectionError("invalid_gate_evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    confirmation = evidence.get("confirmation")
+    confirmation = confirmation if isinstance(confirmation, dict) else {}
+    risk = evidence.get("risk")
+    risk = risk if isinstance(risk, dict) else {}
+    confirmation_state = confirmation.get("state") or record.get("confirmation_state")
+    risk_state = risk.get("state") or record.get("risk_state")
+
+    proposal = record.get("proposal_decision")
+    confirmed = confirmation_state in {"CONFIRMED_LONG", "CONFIRMED_SHORT"}
+    if proposal in {"LONG", "SHORT"}:
+        if confirmation_state is None:
+            return "UNKNOWN"
+        if not confirmed:
+            return "CONFIRMATION"
+        if risk_state is None:
+            return "UNKNOWN"
+        if risk_state != "RISK_APPROVED":
+            return "RISK"
+        return "FINAL_POLICY"
+    if confirmation_state and not confirmed:
+        return "CONFIRMATION"
+    if confirmed and risk_state and risk_state != "RISK_APPROVED":
+        return "RISK"
+    return "UNKNOWN"
+
+
+def _gate_summary(record: dict[str, Any]) -> dict[str, Any]:
+    evidence = record.get("gate_evidence")
+    if evidence is not None and not isinstance(evidence, dict):
+        raise JournalProjectionError("invalid_gate_evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    result: dict[str, Any] = {
+        "strategy_state": record.get("proposal_decision") or record.get("signal_state") or "UNKNOWN",
+        "strategy_reason_codes": _reason_list(record.get("proposal_reasons")),
+    }
+    for name in ("confirmation", "risk"):
+        stage = evidence.get(name)
+        stage = stage if isinstance(stage, dict) else {}
+        checks = stage.get("checks")
+        checks = checks if isinstance(checks, list) else []
+        result[name] = {
+            "state": stage.get("state") or record.get(name + "_state") or "UNKNOWN",
+            "reason_codes": _reason_list(stage.get("reason_codes")),
+            "failed_checks": [
+                item.get("name") for item in checks
+                if isinstance(item, dict) and item.get("state") == "FAIL" and isinstance(item.get("name"), str)
+            ],
+            "unknown_checks": [
+                item.get("name") for item in checks
+                if isinstance(item, dict) and item.get("state") == "UNKNOWN" and isinstance(item.get("name"), str)
+            ],
+        }
+    return result
+
+
 class JournalProjectionError(ValueError):
     """The canonical journal cannot safely be projected to the UI."""
 
@@ -104,10 +209,28 @@ def read_decision_journal(
                     raise JournalProjectionError(f"naive_timestamp:{line_no}")
                 if (parsed - current).total_seconds() > 5:
                     raise JournalProjectionError(f"future_timestamp:{line_no}")
-                reasons = record.get("reason_codes", [])
+                rejected_at = _rejection_stage(record)
+                if record.get("decision_gate") is not None and not isinstance(record.get("decision_gate"), str):
+                    raise JournalProjectionError(f"invalid_decision_gate:{line_no}")
+                decision_gate = record.get("decision_gate")
+                if not decision_gate or decision_gate in {"UNKNOWN", "—", "-"}:
+                    decision_gate = rejected_at
+                reasons = _reason_list(record.get("reason_codes"))
+                if not reasons and rejected_at == "STRATEGY_POLICY":
+                    reasons = _reason_list(record.get("proposal_reasons"))
+                if not reasons:
+                    reasons = _reason_list(record.get("gate_reasons"))
+                if not reasons:
+                    reasons = _reason_list(record.get("final_gate_reasons"))
                 if not reasons and record.get("no_trade_reason"):
                     reasons = str(record["no_trade_reason"]).split("|")
-                if not isinstance(reasons, list) or any(not isinstance(reason, str) for reason in reasons):
+                if not reasons:
+                    gate_evidence = record.get("gate_evidence")
+                    if isinstance(gate_evidence, dict):
+                        stage = gate_evidence.get(rejected_at.lower()) if rejected_at in {"CONFIRMATION", "RISK"} else None
+                        if isinstance(stage, dict):
+                            reasons = _reason_list(stage.get("reason_codes"))
+                if any(not isinstance(reason, str) for reason in reasons):
                     raise JournalProjectionError(f"invalid_reason_codes:{line_no}")
                 evidence_source = record.get("evidence_source")
                 if not isinstance(evidence_source, (str, list, tuple)):
@@ -121,8 +244,8 @@ def read_decision_journal(
                     "direction": record.get("direction", "NONE"),
                     "status": record.get("status", "RECORDED"),
                     "market_regime": record.get("market_regime", "UNKNOWN"),
-                    "decision_gate": record.get("decision_gate", "UNKNOWN"),
-                    "rejected_at": record.get("rejected_at") or "—",
+                    "decision_gate": decision_gate,
+                    "rejected_at": rejected_at,
                     "signal_state": record.get("signal_state", "UNKNOWN"),
                     "confirmation_state": record.get("confirmation_state", "UNKNOWN"),
                     "risk_state": record.get("risk_state", "UNKNOWN"),
@@ -132,6 +255,33 @@ def read_decision_journal(
                     "policy_version": record.get("policy_version", "UNKNOWN"),
                     "response_sha256": record.get("response_sha256"),
                     "htf_response_sha256": record.get("htf_response_sha256"),
+                    "strategy_family_id": record.get("strategy_family_id") or (
+                        record.get("strategy_family_route", {}).get("family_id")
+                        if isinstance(record.get("strategy_family_route"), dict) else None
+                    ),
+                    "strategy_family_version": record.get("strategy_family_version") or (
+                        record.get("strategy_family_route", {}).get("family_version")
+                        if isinstance(record.get("strategy_family_route"), dict) else None
+                    ),
+                    "strategy_family_activation_state": record.get("strategy_family_activation_state") or (
+                        record.get("strategy_family_route", {}).get("activation_state")
+                        if isinstance(record.get("strategy_family_route"), dict) else None
+                    ),
+                    "strategy_family_context_status": record.get("strategy_family_context_status"),
+                    "gate_summary": _gate_summary(record),
+                    "market_data_batch_sha256_by_timeframe": _market_batch_hashes(record),
+                    "code_release_id": record.get("code_release_id") or (
+                        record.get("strategy_run_provenance", {}).get("code_release_id")
+                        if isinstance(record.get("strategy_run_provenance"), dict) else None
+                    ),
+                    "run_id": record.get("run_id") or (
+                        record.get("strategy_run_provenance", {}).get("run_id")
+                        if isinstance(record.get("strategy_run_provenance"), dict) else None
+                    ),
+                    "run_manifest_sha256": record.get("run_manifest_sha256") or (
+                        record.get("strategy_run_provenance", {}).get("run_manifest_sha256")
+                        if isinstance(record.get("strategy_run_provenance"), dict) else None
+                    ),
                     "event_sha256": sha256(raw_line.rstrip(b"\r\n")).hexdigest(),
                     "execution": "OFF" if record.get("execution_enabled") is False and record.get("orders_placed") is False else "UNKNOWN",
                     "realized_outcome": "NOT_LINKED",
