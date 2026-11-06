@@ -14,6 +14,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Callable, Mapping
 from urllib.parse import urlsplit
+import errno
 import hashlib
 import hmac
 import json
@@ -135,17 +136,31 @@ class MotherChatSecurityV1:
                 }
 
     def _load_secret(self) -> bytes:
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         try:
-            info = self.token_file.stat()
+            fd = os.open(self.token_file, flags)
+        except FileNotFoundError as exc:
+            raise MotherChatError("CHAT_NOT_CONFIGURED", 503) from exc
+        except OSError as exc:
+            code = "CHAT_TOKEN_FILE_INVALID" if exc.errno == errno.ELOOP else "CHAT_TOKEN_FILE_UNAVAILABLE"
+            raise MotherChatError(code, 503) from exc
+        try:
+            info = os.fstat(fd)
             if not stat.S_ISREG(info.st_mode):
                 raise MotherChatError("CHAT_TOKEN_FILE_INVALID", 503)
             if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077:
                 raise MotherChatError("CHAT_TOKEN_FILE_PERMISSIONS_INVALID", 503)
-            secret = self.token_file.read_text(encoding="utf-8").strip()
-        except FileNotFoundError as exc:
-            raise MotherChatError("CHAT_NOT_CONFIGURED", 503) from exc
-        except OSError as exc:
-            raise MotherChatError("CHAT_TOKEN_FILE_UNAVAILABLE", 503) from exc
+            if info.st_size > 256:
+                raise MotherChatError("CHAT_TOKEN_FILE_INVALID", 503)
+            raw = os.read(fd, 257)
+            if len(raw) > 256:
+                raise MotherChatError("CHAT_TOKEN_FILE_INVALID", 503)
+        finally:
+            os.close(fd)
+        try:
+            secret = raw.decode("utf-8").strip()
+        except UnicodeDecodeError as exc:
+            raise MotherChatError("CHAT_TOKEN_FILE_INVALID", 503) from exc
         if len(secret) < 32 or len(secret) > 256:
             raise MotherChatError("CHAT_TOKEN_FILE_INVALID", 503)
         return secret.encode("utf-8")
