@@ -19,6 +19,7 @@ from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceB
 from core.market_intelligence.news_monitor import NewsMonitorV1
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard, StrategyV2DashboardError
 from web.mother_v2_dashboard_view import read_mother_v2_dashboard, MotherV2DashboardError
+from web.mother_chat_v1 import MotherChatError, MotherChatSecurityV1, build_chat_response, read_json_body
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -202,15 +203,156 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <div class="footer"><span>Charts powered by</span> <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. <span>Copyright (c) 2025 TradingView, Inc.</span> <span>The chart reads the same validated persisted Gate.io candles through the canonical global-market reader used by the analysis input path; the dashboard does not make a second REST candle request. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io's documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.</span><span class="copyright" lang="en" dir="ltr" data-no-translate><span class="brand-footer-name">HES Trade Agent</span><span class="copyright-notice">Copyright © HES Trade Agent. All rights reserved.</span><span class="owner-name">SEYED HESAMEDDIN BEHESHTI SHIRAZI</span><span class="owner-role">Designer &amp; Owner</span></span></div></main>
 <script src="/static/dashboard.js" defer></script></body></html>'''
 
+
+
+_MOTHER_CHAT_SECURITY = MotherChatSecurityV1()
+
+
+def _mother_chat_core_evidence():
+    provenance = _current_chart_batch_provenance()
+    strategy = read_strategy_v2_dashboard(current_market_data_provenance=provenance)
+    mother = read_mother_v2_dashboard(strategy_view=strategy)
+    return strategy, mother
+
+
+def _mother_chat_journal_evidence():
+    journal_path = os.environ.get(
+        "HES_TRADE_JOURNAL_PATH",
+        str(PROJECT_ROOT / "data" / "forward" / "trade_journal_v2.jsonl"),
+    )
+    return configured_decision_journal(journal_path=journal_path, limit=20)
+
+
+def _mother_chat_news_evidence():
+    return _NEWS_MONITOR.read_snapshot(max_age_seconds=max(600, _NEWS_MONITOR_INTERVAL * 3))
+
+
+def _mother_chat_readers():
+    def status_reader():
+        strategy, mother = _mother_chat_core_evidence()
+        try:
+            news = _mother_chat_news_evidence()
+        except Exception:
+            news = {"monitor": {"status": "BLOCKED"}}
+        return {
+            "strategy": strategy, "mother": mother, "news": news,
+            "trace_id": mother.get("trace_id"),
+            "evidence_refs": [x for x in (
+                mother.get("trace_id"), mother.get("audit_sha256"),
+                strategy.get("report_sha256"), mother.get("journal_event_sha256"),
+            ) if isinstance(x, str) and x],
+        }
+
+    def explain_reader():
+        strategy, mother = _mother_chat_core_evidence()
+        return {
+            "strategy": strategy, "mother": mother,
+            "trace_id": mother.get("trace_id"),
+            "evidence_refs": [x for x in (
+                mother.get("trace_id"), mother.get("audit_sha256"),
+                strategy.get("report_sha256"),
+            ) if isinstance(x, str) and x],
+        }
+
+    def market_reader():
+        strategy, mother = _mother_chat_core_evidence()
+        batch, _ = _get_batch("BTCUSDT", "15m")
+        if not batch.candles:
+            raise ValueError("closed_market_candles_missing")
+        latest = batch.candles[-1]
+        age = (int(datetime.now(timezone.utc).timestamp() * 1000) - latest.close_time_ms) / 1000
+        if batch.gaps or age < 0 or age > MAX_CANDLE_AGE_SECONDS["15m"]:
+            raise ValueError("closed_market_candles_stale_or_gapped")
+        return {
+            "strategy": strategy,
+            "latest_candle": {"close": str(latest.close), "age_seconds": age},
+            "trace_id": mother.get("trace_id"),
+            "evidence_refs": [x for x in (
+                strategy.get("report_sha256"), mother.get("trace_id"),
+                batch.response_sha256,
+            ) if isinstance(x, str) and x],
+        }
+
+    def journal_reader():
+        journal = _mother_chat_journal_evidence()
+        try:
+            strategy, mother = _mother_chat_core_evidence()
+        except Exception:
+            strategy, mother = {}, {}
+        return {
+            "journal": journal, "strategy": strategy,
+            "trace_id": mother.get("trace_id"),
+            "evidence_refs": [x for x in (
+                journal.get("journal_sha256") if isinstance(journal, dict) else None,
+                strategy.get("report_sha256") if isinstance(strategy, dict) else None,
+                mother.get("trace_id") if isinstance(mother, dict) else None,
+            ) if isinstance(x, str) and x],
+        }
+
+    def news_reader():
+        news = _mother_chat_news_evidence()
+        monitor = news.get("monitor", {}) if isinstance(news, dict) else {}
+        return {
+            "news": news,
+            "evidence_refs": [x for x in (
+                monitor.get("snapshot_sha256") if isinstance(monitor, dict) else None,
+            ) if isinstance(x, str) and x],
+        }
+
+    def diagnose_reader():
+        components = {}
+        try:
+            batch, _ = _get_batch("BTCUSDT", "15m")
+            age = (int(datetime.now(timezone.utc).timestamp() * 1000) - batch.candles[-1].close_time_ms) / 1000 if batch.candles else None
+            feed_ok = bool(batch.candles) and not batch.gaps and age is not None and 0 <= age <= MAX_CANDLE_AGE_SECONDS["15m"]
+            components["Gate.io 15m feed"] = {"status": "OK" if feed_ok else "BLOCKED", "reason": None if feed_ok else "stale_or_gapped"}
+        except Exception:
+            components["Gate.io 15m feed"] = {"status": "BLOCKED", "reason": "evidence_unavailable"}
+        try:
+            strategy, mother = _mother_chat_core_evidence()
+            components["Strategy V2"] = {"status": strategy.get("status", "UNKNOWN")}
+            witness = mother.get("witness", {})
+            witness_ok = isinstance(witness, dict) and witness.get("verified") is True
+            components["Mother witness"] = {"status": "VERIFIED" if witness_ok and mother.get("status") == "OBSERVATION_ONLY" else "BLOCKED"}
+            trace_id = mother.get("trace_id", "")
+        except Exception:
+            components["Strategy V2"] = {"status": "BLOCKED", "reason": "evidence_unavailable"}
+            components["Mother witness"] = {"status": "BLOCKED", "reason": "evidence_unavailable"}
+            trace_id = ""
+        try:
+            journal = _mother_chat_journal_evidence()
+            components["Decision journal"] = {"status": journal.get("status", "UNKNOWN")}
+        except Exception:
+            components["Decision journal"] = {"status": "BLOCKED", "reason": "evidence_unavailable"}
+        try:
+            news = _mother_chat_news_evidence()
+            monitor = news.get("monitor", {})
+            components["News Radar"] = {"status": monitor.get("status", "UNKNOWN") if isinstance(monitor, dict) else "UNKNOWN"}
+        except Exception:
+            components["News Radar"] = {"status": "BLOCKED", "reason": "evidence_unavailable"}
+        return {"components": components, "trace_id": trace_id}
+
+    return {
+        "ASK_STATUS": status_reader,
+        "EXPLAIN_DECISION": explain_reader,
+        "MARKET_REVIEW": market_reader,
+        "JOURNAL_REVIEW": journal_reader,
+        "NEWS_CONTEXT": news_reader,
+        "DIAGNOSE": diagnose_reader,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "HESReadOnlyDashboard/1.0"
-    def _send(self,status,body,content_type):
+    def _send(self,status,body,content_type,extra_headers=None):
         self.send_response(status); self.send_header("Content-Type",content_type); self.send_header("Content-Length",str(len(body)))
         self.send_header("Cache-Control","no-store"); self.send_header("X-Content-Type-Options","nosniff")
         self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
         self.send_header("X-Frame-Options","DENY")
         self.send_header("Referrer-Policy","no-referrer")
         self.send_header("Permissions-Policy","camera=(), microphone=(), geolocation=()")
+        for header, value in (extra_headers or []):
+            self.send_header(header, value)
         self.end_headers(); self.wfile.write(body)
     def do_GET(self):
         p=urlparse(self.path)
@@ -496,7 +638,44 @@ class Handler(BaseHTTPRequestHandler):
             reason_code = str(exc) if str(exc) in {"latest_closed_candle_stale", "persisted_candle_gaps_present"} else type(exc).__name__
             return self._send(503,json.dumps({"error":"market_data_unavailable",
                 "reason":type(exc).__name__,"reason_code":reason_code,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
-    def do_POST(self): return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false,"orders_placed":false}',"application/json")
+    def do_POST(self):
+        path = urlparse(self.path).path
+        allowed = {"/api/mother-chat/session", "/api/mother-chat", "/api/mother-chat/logout"}
+        if path not in allowed:
+            return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false,"orders_placed":false}',"application/json")
+        try:
+            scheme = _MOTHER_CHAT_SECURITY.check_origin(self.headers)
+            client = self.client_address[0] if self.client_address else "unknown"
+            if path == "/api/mother-chat/session":
+                _MOTHER_CHAT_SECURITY.check_rate_limit(client, "login", limit=5, window_seconds=600)
+                payload = read_json_body(self)
+                if set(payload) != {"token"}:
+                    raise MotherChatError("CHAT_LOGIN_PAYLOAD_INVALID", 400)
+                cookie = _MOTHER_CHAT_SECURITY.create_session_cookie(payload.get("token"), secure=(scheme == "https"))
+                body = json.dumps({"status":"OK","session_expires_in":1800},separators=(",",":")).encode()
+                return self._send(200,body,"application/json",[("Set-Cookie",cookie)])
+            if path == "/api/mother-chat/logout":
+                cookie = _MOTHER_CHAT_SECURITY.clear_session_cookie(secure=(scheme == "https"))
+                body = b'{"status":"OK","execution_enabled":false,"orders_placed":false}'
+                return self._send(200,body,"application/json",[("Set-Cookie",cookie)])
+            _MOTHER_CHAT_SECURITY.check_rate_limit(client, "chat", limit=30, window_seconds=60)
+            if not _MOTHER_CHAT_SECURITY.has_valid_session(self.headers):
+                raise MotherChatError("CHAT_SESSION_REQUIRED", 401)
+            payload = read_json_body(self)
+            if set(payload) != {"message"}:
+                raise MotherChatError("CHAT_MESSAGE_PAYLOAD_INVALID", 400)
+            result = build_chat_response(payload.get("message"), _mother_chat_readers())
+            body = json.dumps(result,separators=(",",":"),ensure_ascii=False).encode("utf-8")
+            return self._send(200,body,"application/json")
+        except MotherChatError as exc:
+            body = json.dumps({
+                "status":"BLOCKED","error":exc.code,
+                "execution_enabled":False,"orders_placed":False,
+            },separators=(",",":")).encode()
+            return self._send(exc.http_status,body,"application/json")
+        except Exception:
+            body = b'{"status":"BLOCKED","error":"CHAT_REQUEST_FAILED","execution_enabled":false,"orders_placed":false}'
+            return self._send(503,body,"application/json")
     def log_message(self,fmt,*args):
         if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
 
