@@ -55,9 +55,9 @@ def _language(message: str) -> str:
     text = message.casefold()
     if any("\u0600" <= ch <= "\u06ff" for ch in message):
         return "fa"
-    if re.search(r"\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit)\b", text):
+    if re.search(r"\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste)\b", text):
         return "de"
-    if re.search(r"\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé)\b", text):
+    if re.search(r"\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement)\b", text):
         return "fr"
     return "en"
 
