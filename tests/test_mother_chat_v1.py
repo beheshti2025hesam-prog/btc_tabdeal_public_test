@@ -34,11 +34,14 @@ def test_classifies_supported_persian_and_english_intents():
     assert classify_intent("Warum ist die Entscheidung NO_TRADE?") == "EXPLAIN_DECISION"
     assert classify_intent("Pourquoi cette décision est-elle NO_TRADE ?") == "EXPLAIN_DECISION"
     assert classify_intent("What is the market status?") == "MARKET_REVIEW"
+    assert classify_intent("اخبار بازار") == "NEWS_CONTEXT"
+    assert classify_intent("why is the market ranging?") == "MARKET_REVIEW"
 
 
 def test_ambiguous_or_unsupported_intents_need_clarification():
     assert classify_intent("اخبار و ژورنال را بررسی کن") == "UNKNOWN"
     assert classify_intent("سلام، حالت چطوره؟") == "UNKNOWN"
+    assert classify_intent("why is it red today?") == "UNKNOWN"
 
 
 def test_explain_decision_uses_only_supplied_mother_evidence():
