@@ -51,6 +51,33 @@ const { chromium } = require("playwright");
       } catch (_) {}
     });
 
+    const newsScopePayload = {
+      monitor: {
+        status: "OK",
+        source_profile_status: "partial_scope_filter_smoke",
+        last_poll_at: "2026-11-06T08:00:00Z",
+        source_health: [
+          { source_id: "wire_test", source_scope: "international", status: "ok", freshness_status: "fresh", newest_published_at: "2026-11-06T07:59:00Z", newest_age_minutes: 1 },
+          { source_id: "local_test", source_scope: "domestic", status: "ok", freshness_status: "fresh", newest_published_at: "2026-11-06T07:58:00Z", newest_age_minutes: 2 },
+          { source_id: "gateio_test", source_scope: "venue", status: "ok", freshness_status: "fresh", newest_published_at: "2026-11-06T07:57:00Z", newest_age_minutes: 3 }
+        ]
+      },
+      brief: {
+        headline: "News scope filter smoke test",
+        mother_agent_summary: "Read-only context only.",
+        veto_flags: [],
+        findings: [
+          { title: "International headline", source: "Wire test", source_id: "wire_test", source_scope: "international", published_at: "2026-11-06T07:59:00Z", impact: 0.7 },
+          { title: "Domestic headline", source: "Local test", source_id: "local_test", source_scope: "domestic", published_at: "2026-11-06T07:58:00Z", impact: 0.6 },
+          { title: "Venue announcement", source: "Gate.io", source_id: "gateio_test", source_scope: "venue", published_at: "2026-11-06T07:57:00Z", impact: 0.5 }
+        ]
+      }
+    };
+    await page.route("**/api/news", route => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(newsScopePayload)
+    }));
     await page.goto("http://127.0.0.1:8765/", { waitUntil: "domcontentloaded", timeout: 30000 });
     try {
       await page.waitForFunction(() => {
@@ -93,6 +120,24 @@ const { chromium } = require("playwright");
       null,
       { timeout: 15000 }
     );
+    await page.locator("#newsScopeFilter").waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector("#newsItems")?.textContent.includes("International headline"));
+    const scopeFilter = page.locator("#newsScopeFilter");
+    await scopeFilter.selectOption("international");
+    await page.waitForFunction(() => document.querySelector("#newsItems")?.textContent.includes("International headline") && !document.querySelector("#newsItems")?.textContent.includes("Domestic headline"));
+    assert.ok((await page.locator("#newsSourceDetails").innerText()).includes("wire_test"));
+    assert.ok(!(await page.locator("#newsSourceDetails").innerText()).includes("local_test"));
+    await scopeFilter.selectOption("domestic");
+    await page.waitForFunction(() => document.querySelector("#newsItems")?.textContent.includes("Domestic headline") && !document.querySelector("#newsItems")?.textContent.includes("International headline"));
+    assert.ok((await page.locator("#newsSourceDetails").innerText()).includes("local_test"));
+    await scopeFilter.selectOption("venue");
+    await page.waitForFunction(() => document.querySelector("#newsItems")?.textContent.includes("Venue announcement") && !document.querySelector("#newsItems")?.textContent.includes("Domestic headline"));
+    assert.ok((await page.locator("#newsSourceDetails").innerText()).includes("gateio_test"));
+    await scopeFilter.selectOption("all");
+    await page.waitForFunction(() => {
+      const text = document.querySelector("#newsItems")?.textContent || "";
+      return text.includes("International headline") && text.includes("Domestic headline") && text.includes("Venue announcement");
+    });
     const fifteenMinutePayload = candlePayload;
     assert.ok(fifteenMinutePayload, "successful /api/candles payload was not observed");
     assert.equal(fifteenMinutePayload.interval, "15m", "15m must remain the default chart interval");
