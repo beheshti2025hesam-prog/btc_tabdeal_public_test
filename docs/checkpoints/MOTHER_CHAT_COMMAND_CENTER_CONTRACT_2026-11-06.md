@@ -87,14 +87,18 @@ Files added/updated on the draft branch:
 - \`web/static/dashboard.css\`: responsive chat presentation.
 - \`tests/test_mother_chat_v1.py\`: parser, four-locale response, evidence failure, session, file permissions, origin, rate limit, body validation and HTTP boundary tests.
 
-On the exact draft-branch checkout, focused verification completed:
+On the exact draft-branch checkout, final verification completed:
 
-- Mother orchestration, independent witness, Mother V2 projection, dashboard route/localization and new Command Center tests: **87 passed; 16 subtests passed**.
+- Exact candidate commit: \`a064dac91dfa4610e2fef4cae645bef3784ce140\`.
+- Full repository regression: **1,127 passed; 82 subtests passed**.
 - Python compilation for \`web/mother_chat_v1.py\` and \`web/dashboard.py\`: passed.
-- Node syntax check was not reported because Node was not installed in the test environment.
-- Full repository regression, browser/mobile/RTL acceptance, token provisioning and production deployment remain pending. Do not mark the feature production-ready from focused tests alone.
+- HTTP integration tests cover authentication, read-only response flags and rejection of unknown POST routes. Additional tests cover prompt-injection text, same-origin enforcement, signed-session expiry, symlink/permission-safe token loading, bounded JSON and static Command Center markup.
+- Live read-only smoke with the production data paths: Gate.io 15m feed **OK**; Strategy V2 **VERIFIED**; Mother **BLOCKED_GATE / NO_TRADE** with \`REQUIRED_CHECK_FAILED\`; independent Mother witness **VERIFIED**; decision journal **VERIFIED**; News Radar **OK**.
+- All six live read-only intents were exercised. Status, decision explanation and diagnostics returned \`PARTIAL\` because the current Mother decision gate is blocked; market and journal summaries returned \`OK\`; News returned \`PARTIAL\` because source coverage is not complete.
+- Browser/mobile/RTL automation was not run because neither a browser nor Playwright is installed on the sole VPS. No browser acceptance is claimed.
+- The local token file has not been provisioned; production deployment has not been performed. The Command Center remains disabled in the deployed application until the candidate is accepted and the operator token is configured.
 
-The deployed immutable release remains \`3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0\`. The active release pointer and dirty original checkout were not changed by this implementation work.
+The deployed immutable release remains \`3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0\`. The active release pointer, market-data services, canonical journal, policy and dirty original checkout were not changed by this implementation work.
 
 ## 7. Acceptance gates
 
