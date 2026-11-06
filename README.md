@@ -8,7 +8,7 @@
 
 HES is a decision-support and paper-trading system. A signal is not an order. The product must prefer a justified `NO_TRADE` over an unverified or low-quality trade.
 
-- The user-facing Mother Command Center is **Free-First**, bounded and read-only. It reuses the existing Mother orchestrator; it is not a second trading brain or a shell/operations console.
+- The user-facing Mother Command Center is **Free-First**, bounded and read-only: no paid LLM/API/provider key or external model SDK. It reuses the existing Mother orchestrator; it is not a second trading brain or a shell/operations console.
 - The dashboard is served on the VPS loopback interface (`127.0.0.1:8765`) and must not be exposed as a public listener.
 - Supported UI locales are English (`en`) and Persian (`fa`), including RTL layout where appropriate.
 - The product is paper-only until every release, risk, venue and performance gate is independently accepted.
