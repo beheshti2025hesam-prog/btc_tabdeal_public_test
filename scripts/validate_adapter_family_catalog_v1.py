@@ -116,7 +116,7 @@ def validate_catalog(root: Path, payload: Mapping[str, Any]) -> tuple[str, ...]:
         status = adapter.get("status")
         if not isinstance(domain, str) or not domain.strip():
             errors.append(f"{prefix}_DOMAIN_MISSING")
-        if status not in STATUSES:
+        if not isinstance(status, str) or status not in STATUSES:
             errors.append(f"{prefix}_STATUS_INVALID")
 
         runtime_enabled = adapter.get("runtime_enabled")
