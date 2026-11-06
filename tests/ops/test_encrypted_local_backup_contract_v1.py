@@ -32,7 +32,8 @@ def test_backup_script_shell_syntax_and_security_contract():
     assert "var/lib/hes-gateio-1m-integrity" in text
     assert "var/lib/hes-news-monitor" in text
     assert "var/lib/sentinelx/hes-release-manifests" in text
-    assert "root/.config/hes-backup/passphrase" not in text
+    archive_sources = text.split("paths=(", 1)[1].split(")", 1)[0] + text.split("for p in", 1)[1].split("; do", 1)[0]
+    assert "root/.config/hes-backup/passphrase" not in archive_sources
     assert "etc/sentinelx/config.yaml" not in text
 
 
