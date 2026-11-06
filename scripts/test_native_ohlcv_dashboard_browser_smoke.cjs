@@ -167,6 +167,8 @@ const { chromium } = require("playwright");
     await languageSelect.selectOption("fa");
     await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
     assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
+    assert.equal((await page.locator("#motherChatTitle").textContent()).trim(), "مرکز فرمان Mother · رابط محلی رایگان",
+      "Mother Command Center heading must be translated in Persian RTL mode");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
     await languageSelect.selectOption("fr");
@@ -581,6 +583,19 @@ const { chromium } = require("playwright");
       orders_placed: chatPayload.orders_placed,
       logout_locked_ui: true
     };
+    await page.setViewportSize({ width: 390, height: 844 });
+    const chatMobileLayout = await page.evaluate(() => ({
+      viewport_width: window.innerWidth,
+      document_width: document.documentElement.scrollWidth,
+      panel_width: document.querySelector("#motherChatPanel")?.getBoundingClientRect().width || 0
+    }));
+    assert.ok(chatMobileLayout.panel_width > 300 && chatMobileLayout.panel_width <= 391,
+      "Mother Command Center panel is not responsive on mobile: " + JSON.stringify(chatMobileLayout));
+    assert.ok(chatMobileLayout.document_width <= chatMobileLayout.viewport_width + 1,
+      "Mother Command Center causes horizontal page overflow on mobile: " + JSON.stringify(chatMobileLayout));
+    await page.screenshot({ path: "artifacts/mother-chat-command-center-browser-smoke.png", fullPage: true });
+    evidence.mother_chat_ui.mobile_layout = chatMobileLayout;
+
 
     evidence.stale_timeframe_fail_closed = true;
     evidence.stale_timeframe_ui = staleTimeframeUi;
