@@ -208,7 +208,10 @@ def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path,
         }, method="POST")
         with pytest.raises(HTTPError) as denied:
             urlopen(unauthenticated)
-        assert denied.value.code == 401
+        try:
+            assert denied.value.code == 401
+        finally:
+            denied.value.close()
 
         login_body = json.dumps({"token": token}).encode()
         login = Request(base + "/api/mother-chat/session", data=login_body, headers={
@@ -234,7 +237,10 @@ def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path,
         }, method="POST")
         with pytest.raises(HTTPError) as blocked:
             urlopen(forbidden)
-        assert blocked.value.code == 405
+        try:
+            assert blocked.value.code == 405
+        finally:
+            blocked.value.close()
     finally:
         server.shutdown()
         thread.join(timeout=2)
