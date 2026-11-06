@@ -1,0 +1,39 @@
+name: Encrypted Backup Contract Tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/ops/hes_encrypted_local_backup_v1.sh"
+      - "tests/ops/test_encrypted_local_backup_contract_v1.py"
+      - "deploy/systemd/hes-encrypted-local-backup.*"
+      - "docs/ops/ENCRYPTED_BACKUP_RESTORE_RUNBOOK_V1.md"
+      - ".github/workflows/encrypted-backup-tests.yml"
+  push:
+    branches:
+      - "ops/encrypted-backup-restore-v1"
+    paths:
+      - "scripts/ops/hes_encrypted_local_backup_v1.sh"
+      - "tests/ops/test_encrypted_local_backup_contract_v1.py"
+      - "deploy/systemd/hes-encrypted-local-backup.*"
+      - "docs/ops/ENCRYPTED_BACKUP_RESTORE_RUNBOOK_V1.md"
+      - ".github/workflows/encrypted-backup-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  encrypted-backup-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg gzip tar
+          python -m pip install --upgrade pip pytest
+      - name: Run encrypted backup contract and integration tests
+        run: pytest -q tests/ops/test_encrypted_local_backup_contract_v1.py
