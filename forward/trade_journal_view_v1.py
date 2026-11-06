@@ -19,14 +19,43 @@ _ALLOWED_DECISIONS = {"LONG", "SHORT", "NO_TRADE"}
 
 
 def _reason_list(value: Any) -> list[str]:
+    if value is None:
+        return []
     if isinstance(value, (list, tuple)) and all(isinstance(item, str) for item in value):
         return [item for item in value if item]
-    return []
+    raise JournalProjectionError("invalid_reason_codes")
+
+
+def _market_batch_hashes(record: dict[str, Any]) -> dict[str, str]:
+    provenance = record.get("market_data_provenance")
+    if provenance is None:
+        evidence = record.get("gate_evidence")
+        provenance = evidence.get("market_data_provenance") if isinstance(evidence, dict) else None
+    if provenance is None:
+        return {}
+    if not isinstance(provenance, dict):
+        raise JournalProjectionError("invalid_market_data_provenance")
+    timeframes = provenance.get("timeframes", {})
+    if not isinstance(timeframes, dict):
+        raise JournalProjectionError("invalid_market_data_timeframes")
+    result: dict[str, str] = {}
+    for timeframe, batch in timeframes.items():
+        if not isinstance(timeframe, str) or not isinstance(batch, dict):
+            raise JournalProjectionError("invalid_market_data_timeframe_record")
+        digest = batch.get("input_batch_sha256")
+        if digest is None:
+            continue
+        if not isinstance(digest, str) or len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest.lower()):
+            raise JournalProjectionError("invalid_market_data_batch_sha256")
+        result[timeframe] = digest
+    return result
 
 
 def _rejection_stage(record: dict[str, Any]) -> str:
     """Return only a gate stage supported by the immutable decision evidence."""
     explicit = record.get("rejected_at")
+    if explicit is not None and not isinstance(explicit, str):
+        raise JournalProjectionError("invalid_rejected_at")
     if isinstance(explicit, str) and explicit.strip() and explicit not in {"—", "-", "UNKNOWN"}:
         return explicit
     if record.get("decision") != "NO_TRADE":
@@ -36,6 +65,8 @@ def _rejection_stage(record: dict[str, Any]) -> str:
         return "STRATEGY_POLICY"
 
     evidence = record.get("gate_evidence")
+    if evidence is not None and not isinstance(evidence, dict):
+        raise JournalProjectionError("invalid_gate_evidence")
     evidence = evidence if isinstance(evidence, dict) else {}
     confirmation = evidence.get("confirmation")
     confirmation = confirmation if isinstance(confirmation, dict) else {}
@@ -55,6 +86,8 @@ def _rejection_stage(record: dict[str, Any]) -> str:
 
 def _gate_summary(record: dict[str, Any]) -> dict[str, Any]:
     evidence = record.get("gate_evidence")
+    if evidence is not None and not isinstance(evidence, dict):
+        raise JournalProjectionError("invalid_gate_evidence")
     evidence = evidence if isinstance(evidence, dict) else {}
     result: dict[str, Any] = {
         "strategy_state": record.get("proposal_decision") or record.get("signal_state") or "UNKNOWN",
@@ -221,15 +254,7 @@ def read_decision_journal(
                     ),
                     "strategy_family_context_status": record.get("strategy_family_context_status"),
                     "gate_summary": _gate_summary(record),
-                    "market_data_batch_sha256_by_timeframe": {
-                        timeframe: batch.get("input_batch_sha256")
-                        for timeframe, batch in (
-                            (record.get("market_data_provenance") or {}).get("timeframes", {}).items()
-                            if isinstance(record.get("market_data_provenance"), dict) else []
-                        )
-                        if isinstance(timeframe, str) and isinstance(batch, dict)
-                        and isinstance(batch.get("input_batch_sha256"), str)
-                    },
+                    "market_data_batch_sha256_by_timeframe": _market_batch_hashes(record),
                     "code_release_id": record.get("code_release_id") or (
                         record.get("strategy_run_provenance", {}).get("code_release_id")
                         if isinstance(record.get("strategy_run_provenance"), dict) else None
