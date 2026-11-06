@@ -119,6 +119,9 @@ def _write_v2_decision(path, *, proposal_decision="NO_TRADE", confirmation_state
             "reason_codes": ["CONFIRMATION_NOT_VALID"] if risk_state == "RISK_REJECTED" else [],
             "checks": [{"name": "confirmation_valid", "state": "FAIL" if risk_state == "RISK_REJECTED" else "PASS"}],
         },
+        "market_data_provenance": {
+            "timeframes": {"15m": {"input_batch_sha256": "a" * 64}, "1h": {"input_batch_sha256": "b" * 64}},
+        },
     }
     record = {
         "event_id": "hes-v2-attribution-test",
@@ -137,9 +140,6 @@ def _write_v2_decision(path, *, proposal_decision="NO_TRADE", confirmation_state
         "gate_evidence": evidence,
         "strategy_family_route": route,
         "strategy_family_context_status": "VERIFIED_EVIDENCE_ONLY_NOT_AUTHORIZED",
-        "market_data_provenance": {
-            "timeframes": {"15m": {"input_batch_sha256": "a" * 64}, "1h": {"input_batch_sha256": "b" * 64}},
-        },
         "strategy_run_provenance": {
             "code_release_id": "release-sha",
             "run_id": "run-123",
@@ -203,3 +203,10 @@ def test_missing_gate_evidence_is_not_given_invented_attribution(tmp_path):
     event = read_decision_journal(path)["events"][0]
     assert event["decision_gate"] == "UNKNOWN"
     assert event["rejected_at"] == "UNKNOWN"
+
+
+
+def test_missing_confirmation_does_not_become_final_policy_attribution(tmp_path):
+    path = tmp_path / "trade_journal_v2.jsonl"
+    _write_v2_decision(path, proposal_decision="LONG", confirmation_state="UNKNOWN", risk_state="RISK_APPROVED")
+    assert read_decision_journal(path)["events"][0]["rejected_at"] == "CONFIRMATION"
