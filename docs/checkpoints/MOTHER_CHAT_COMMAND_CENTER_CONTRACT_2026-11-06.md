@@ -77,26 +77,29 @@ If the token file is absent or has unsafe permissions, chat login returns a bloc
 
 ## 6. Current implementation evidence
 
-Draft PR: [#468 — Mother Chat / Command Center](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/468)
+Draft PR: [#468 — Mother Command Center](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/468)
 
 Files added/updated on the draft branch:
 
-- \`web/mother_chat_v1.py\`: deterministic intent routing, localized evidence responses, token-file validation, signed sessions, origin checks, rate limiting and bounded JSON parsing.
-- \`web/dashboard.py\`: fixed read-only readers and three exact POST routes; unknown POST paths retain HTTP 405.
-- \`web/static/dashboard.js\`: Command Center login/chat/lock interaction; token is not persisted by the browser; text is rendered with \`textContent\`.
+- \`web/mother_chat_v1.py\`: deterministic intent routing, four-locale evidence responses, token-file validation, signed sessions, origin checks, rate limiting and bounded JSON parsing.
+- \`web/dashboard.py\`: fixed read-only evidence readers and three exact POST routes; unknown POST paths retain HTTP 405.
+- \`web/static/dashboard.js\`: Command Center login/chat/lock interaction; token is not persisted by the browser; all untrusted text is rendered with \`textContent\`.
 - \`web/static/dashboard.css\`: responsive chat presentation.
-- \`tests/test_mother_chat_v1.py\`: parser, four-locale response, evidence failure, session, file permissions, origin, rate limit, body validation and HTTP boundary tests.
+- \`tests/test_mother_chat_v1.py\`: parser, localization, evidence failure, session, file permissions/symlink rejection, origin, rate limit, body validation, prompt-injection and HTTP/UI boundary tests.
+- \`scripts/test_native_ohlcv_dashboard_browser_smoke.cjs\` and \`.github/workflows/native-ohlcv-browser-render-smoke-v1.yml\`: actual Chromium login/chat/logout, Persian RTL heading, 390px mobile layout and chart parity smoke. The workflow creates an ephemeral test-only token; no production secret is used.
 
-On the exact draft-branch checkout, final verification completed:
+Exact candidate head: \`880a60e494ab3ab682718dcfad95dced84e79f62\`.
 
-- Exact candidate commit: \`a064dac91dfa4610e2fef4cae645bef3784ce140\`.
-- Full repository regression: **1,127 passed; 82 subtests passed**.
-- Python compilation for \`web/mother_chat_v1.py\` and \`web/dashboard.py\`: passed.
-- HTTP integration tests cover authentication, read-only response flags and rejection of unknown POST routes. Additional tests cover prompt-injection text, same-origin enforcement, signed-session expiry, symlink/permission-safe token loading, bounded JSON and static Command Center markup.
-- Live read-only smoke with the production data paths: Gate.io 15m feed **OK**; Strategy V2 **VERIFIED**; Mother **BLOCKED_GATE / NO_TRADE** with \`REQUIRED_CHECK_FAILED\`; independent Mother witness **VERIFIED**; decision journal **VERIFIED**; News Radar **OK**.
-- All six live read-only intents were exercised. Status, decision explanation and diagnostics returned \`PARTIAL\` because the current Mother decision gate is blocked; market and journal summaries returned \`OK\`; News returned \`PARTIAL\` because source coverage is not complete.
-- Browser/mobile/RTL automation was not run because neither a browser nor Playwright is installed on the sole VPS. No browser acceptance is claimed.
-- The local token file has not been provisioned; production deployment has not been performed. The Command Center remains disabled in the deployed application until the candidate is accepted and the operator token is configured.
+Verification on this exact candidate:
+
+- Canonical offline regression gate: **1,127 passed; 82 subtests passed**; warnings treated as errors; bytecode/compile gate passed.
+- GitHub Actions: **32/32 workflows succeeded**, zero failed. This includes HES Full Regression Gate, Gate.io Dashboard Full Repository Regression, Native OHLCV Dashboard Single Path, Native OHLCV Browser Render Smoke, Gate.io Public Candle Evidence Smoke, Forward Integration Verification and Clean Forward Evidence Verification.
+- Browser artifact for exact head \`880a60e4...\`: artifact ID \`13489898242\`, SHA-256 \`ac3320a6483e2876ec3083089bae9cd080cfe1d31d8ef68b5e62ed2c1816fd5c\`. The browser smoke passed actual token login, unsupported-intent clarification, logout, Persian RTL heading and mobile layout, alongside existing 15m/1m chart parity checks.
+- Live read-only smoke with production data paths: Gate.io 15m feed **OK**; Strategy V2 **VERIFIED**; Mother **BLOCKED_GATE / NO_TRADE**; independent Mother witness **VERIFIED**; decision journal **VERIFIED**; News Radar transport **OK** with incomplete source coverage.
+- Current Mother attribution: \`NO_VALID_CANDIDATE\`; confirmation is \`UNCONFIRMED\`. Signal reasons include \`NO_CONFIRMED_20_BAR_BREAKOUT\`, \`PRICE_NOT_ALIGNED_WITH_EMA50_AND_VWAP\`, and \`MOMENTUM_OR_FLOW_NOT_CONFIRMED\`. This is a valid fail-closed NO_TRADE decision, not a witness failure.
+- All six live read-only intents were exercised. Status, decision explanation and diagnostics return \`PARTIAL\` while the current Mother gate is blocked; market and journal summaries return \`OK\`; News returns \`PARTIAL\` because source coverage is incomplete.
+- A production token was staged at \`/var/lib/hes-news-monitor/mother-chat/token\`, owned by the dashboard service user, mode \`0600\`, inside a dedicated mode-\`0700\` subdirectory under the existing \`StateDirectory=hes-news-monitor\`. It is not in Git and is not active in the deployed application yet.
+- No production deployment, service restart, market-data change, journal write, policy change or order action was performed. The Command Center remains disabled in production until the candidate is accepted and the controlled release gate is approved.
 
 The deployed immutable release remains \`3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0\`. The active release pointer, market-data services, canonical journal, policy and dirty original checkout were not changed by this implementation work.
 
