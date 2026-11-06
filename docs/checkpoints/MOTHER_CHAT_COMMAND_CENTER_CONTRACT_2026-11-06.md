@@ -64,7 +64,7 @@ The response schema includes \`schema_version\`, \`router_version\`, \`intent\`,
 
 The dashboard remains loopback-only; do not expose port 8765 publicly.
 
-- Local token file default: \`/etc/hes-trade-agent/mother-chat-token\`.
+- Local token file default: \`/var/lib/hes-news-monitor/mother-chat/token\`.
 - The token file must be owned by the dashboard service user and have mode \`0600\` (no group/world permissions); token length is at least 32 characters.
 - Login issues a signed, HttpOnly, SameSite=Strict cookie with a 30-minute expiry. The browser never stores the token in local/session storage and clears the password field after login.
 - All chat POST routes require exact same-origin validation; cross-site requests are rejected.
