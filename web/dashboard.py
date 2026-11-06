@@ -312,9 +312,10 @@ def _mother_chat_readers():
         try:
             strategy, mother = _mother_chat_core_evidence()
             components["Strategy V2"] = {"status": strategy.get("status", "UNKNOWN")}
+            components["Mother orchestrator"] = {"status": mother.get("status", "UNKNOWN")}
             witness = mother.get("witness", {})
             witness_ok = isinstance(witness, dict) and witness.get("verified") is True
-            components["Mother witness"] = {"status": "VERIFIED" if witness_ok and mother.get("status") == "OBSERVATION_ONLY" else "BLOCKED"}
+            components["Mother witness"] = {"status": "VERIFIED" if witness_ok else "BLOCKED"}
             trace_id = mother.get("trace_id", "")
         except Exception:
             components["Strategy V2"] = {"status": "BLOCKED", "reason": "evidence_unavailable"}
