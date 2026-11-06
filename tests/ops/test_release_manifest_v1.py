@@ -66,7 +66,7 @@ def test_manifest_write_is_idempotent_and_never_overwrites(tmp_path):
     assert first == second
 
     changed = dict(manifest)
-    changed["created_at_utc"] = "2000-01-01T00:00:00+00:00"
+    changed["files"] = [{**manifest["files"][0], "sha256": "0" * 64}]
     with pytest.raises(ReleaseManifestError, match="EXISTING_MANIFEST_DIFFERS"):
         write_manifest(release, changed)
 
