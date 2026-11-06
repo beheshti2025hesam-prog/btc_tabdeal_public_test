@@ -75,12 +75,22 @@ def _rejection_stage(record: dict[str, Any]) -> str:
     confirmation_state = confirmation.get("state") or record.get("confirmation_state")
     risk_state = risk.get("state") or record.get("risk_state")
 
-    if confirmation_state and confirmation_state not in {"CONFIRMED_LONG", "CONFIRMED_SHORT"}:
-        return "CONFIRMATION"
-    if risk_state and risk_state != "RISK_APPROVED":
-        return "RISK"
-    if record.get("proposal_decision") in {"LONG", "SHORT"} and risk_state == "RISK_APPROVED":
+    proposal = record.get("proposal_decision")
+    confirmed = confirmation_state in {"CONFIRMED_LONG", "CONFIRMED_SHORT"}
+    if proposal in {"LONG", "SHORT"}:
+        if confirmation_state is None:
+            return "UNKNOWN"
+        if not confirmed:
+            return "CONFIRMATION"
+        if risk_state is None:
+            return "UNKNOWN"
+        if risk_state != "RISK_APPROVED":
+            return "RISK"
         return "FINAL_POLICY"
+    if confirmation_state and not confirmed:
+        return "CONFIRMATION"
+    if confirmed and risk_state and risk_state != "RISK_APPROVED":
+        return "RISK"
     return "UNKNOWN"
 
 
@@ -200,6 +210,11 @@ def read_decision_journal(
                 if (parsed - current).total_seconds() > 5:
                     raise JournalProjectionError(f"future_timestamp:{line_no}")
                 rejected_at = _rejection_stage(record)
+                if record.get("decision_gate") is not None and not isinstance(record.get("decision_gate"), str):
+                    raise JournalProjectionError(f"invalid_decision_gate:{line_no}")
+                decision_gate = record.get("decision_gate")
+                if not decision_gate or decision_gate in {"UNKNOWN", "—", "-"}:
+                    decision_gate = rejected_at
                 reasons = _reason_list(record.get("reason_codes"))
                 if not reasons and rejected_at == "STRATEGY_POLICY":
                     reasons = _reason_list(record.get("proposal_reasons"))
@@ -229,7 +244,7 @@ def read_decision_journal(
                     "direction": record.get("direction", "NONE"),
                     "status": record.get("status", "RECORDED"),
                     "market_regime": record.get("market_regime", "UNKNOWN"),
-                    "decision_gate": record.get("decision_gate") or rejected_at,
+                    "decision_gate": decision_gate,
                     "rejected_at": rejected_at,
                     "signal_state": record.get("signal_state", "UNKNOWN"),
                     "confirmation_state": record.get("confirmation_state", "UNKNOWN"),
