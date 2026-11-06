@@ -116,3 +116,15 @@ Trigger rollback on failed health check, stale/invalid feed, mismatched source/b
 - Previous service unit: `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/hes-readonly-dashboard.service`.
 - Previous drop-ins: `/opt/hes-trade-agent/releases/rollback-dashboard-before-388d4aa326ce/hes-readonly-dashboard.service.d/`.
 - On rollback, restore the backed-up unit and drop-ins, atomically restore the previous current symlink, daemon-reload, restart only `hes-readonly-dashboard.service`, then re-run the endpoint/security/journal-hash smoke. Do not stop Gate.io feed services or the paper evaluator, and never touch the canonical journal or lock file.
+
+
+## Deployment record — 2026-11-06 (PR #468 Mother Command Center)
+
+- Source merge: `786f9187ac326f27c243507ccbd297b34d01db1b`; immutable release `/opt/hes-trade-agent/releases/786f9187ac326f27c243507ccbd297b34d01db1b`; archive SHA-256 `ab1a68531a3469270ec9fea6ebe5617226a2998b07539d199af1618220e5e65c`.
+- Previous release: `3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0`; previous unit/drop-ins preserved under `/opt/hes-trade-agent/releases/rollback-dashboard-before-786f9187ac32/`.
+- Existing dashboard unit was byte-identical to the unit shipped in the release; no service unit or drop-in changes were needed. The only restarted service was `hes-readonly-dashboard.service`.
+- Post-deploy health and read-only endpoints returned HTTP 200, including candles 1m/15m/1h/4h, Strategy V2, Mother, News and Journal. CSP and security headers passed. Unauthenticated Mother chat is HTTP 401; journal POST remains HTTP 405.
+- Seven-sample / 64-second read-only soak passed; service restart count remained zero; canonical journal SHA-256 remained unchanged: `a7bc4dcfe2e0378ac8f9ac6e931f2818ffc57c4c000880ced0169c0bb0287596`.
+- Current Mother is still `BLOCKED_GATE / NO_TRADE`; Strategy V2 is `VERIFIED`. Execution remains disabled. No live order, account connection, journal write, policy mutation, data-source change, or collector/evaluator restart occurred.
+- Rollback pointer simulation passed before deployment. To roll back, restore `current` to `/opt/hes-trade-agent/releases/3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0` atomically and restart only `hes-readonly-dashboard.service`; preserve the journal, lock file, Gate.io collectors, evaluator and dirty checkout.
+- The original checkout remained untouched. Delivery target remains 2026-11-19; trading authorization remains HOLD / PAPER-TEST-ONLY / NO_TRADE_ONLY.
