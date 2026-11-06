@@ -31,7 +31,7 @@ COOKIE_NAME = "hes_mother_session"
 SESSION_MAX_AGE_SECONDS = 1800
 MAX_MESSAGE_CHARS = 1000
 MAX_BODY_BYTES = 4096
-DEFAULT_TOKEN_FILE = "/etc/hes-trade-agent/mother-chat-token"
+DEFAULT_TOKEN_FILE = "/var/lib/hes-news-monitor/mother-chat/token"
 
 
 class MotherChatError(ValueError):
