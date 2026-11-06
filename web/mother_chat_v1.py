@@ -309,21 +309,25 @@ def build_chat_response(
                             str(stage.get("state") or "UNKNOWN")
                             + ((" · " + ", ".join(stage.get("reason_codes", []))) if isinstance(stage.get("reason_codes"), list) else ""),
                         ))
-            answer = (
-                f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. اجرا و ثبت سفارش غیرفعال است."
-                if is_fa else
-                f"Recorded Mother decision: {decision}. Status: {m_status}. Independent witness: {'verified' if witness_ok else 'not verified'}. Execution and order submission remain disabled."
-            )
+            answers = {
+                "fa": f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. اجرا و ثبت سفارش غیرفعال است.",
+                "de": f"Aufgezeichnete Mother-Entscheidung: {decision}. Status: {m_status}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Ausführung und Orderübermittlung bleiben deaktiviert.",
+                "fr": f"Décision Mother enregistrée : {decision}. Statut : {m_status}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. L’exécution et l’envoi d’ordres restent désactivés.",
+                "en": f"Recorded Mother decision: {decision}. Status: {m_status}. Independent witness: {'verified' if witness_ok else 'not verified'}. Execution and order submission remain disabled.",
+            }
+            answer = answers[language]
         else:
             news = data.get("news", {})
             news_monitor = news.get("monitor", {}) if isinstance(news, Mapping) else {}
             news_status = news_monitor.get("status", "UNKNOWN") if isinstance(news_monitor, Mapping) else "UNKNOWN"
             claims.append(_claim("News monitor", str(news_status)))
-            answer = (
-                f"وضعیت Mother: {m_status}؛ تصمیم: {decision}؛ Strategy V2: {s_status}؛ پایش اخبار: {news_status}. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است."
-                if is_fa else
-                f"Mother: {m_status}; decision: {decision}; Strategy V2: {s_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off."
-            )
+            answers = {
+                "fa": f"وضعیت Mother: {m_status}؛ تصمیم: {decision}؛ Strategy V2: {s_status}؛ پایش اخبار: {news_status}. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است.",
+                "de": f"Mother: {m_status}; Entscheidung: {decision}; Strategy V2: {s_status}; News-Monitor: {news_status}. Gate.io Public Spot BTC_USDT bleibt die einzige Analysequelle; Ausführung ist deaktiviert.",
+                "fr": f"Mother : {m_status} ; décision : {decision} ; Strategy V2 : {s_status} ; surveillance des actualités : {news_status}. Gate.io Public Spot BTC_USDT reste l’unique source d’analyse ; l’exécution est désactivée.",
+                "en": f"Mother: {m_status}; decision: {decision}; Strategy V2: {s_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
+            }
+            answer = answers[language]
 
     elif intent == "MARKET_REVIEW":
         strategy = data.get("strategy", {})
@@ -344,11 +348,13 @@ def build_chat_response(
         if not isinstance(age, (int, float)) or age < 0 or age > 1080:
             status = "PARTIAL"
             uncertainties.append("The latest 15m candle is stale or its freshness could not be verified.")
-        answer = (
-            f"رژیم ثبت‌شده: {regime}؛ تصمیم Strategy V2: {decision}؛ بسته‌شدن آخرین کندل ۱۵ دقیقه‌ای: {close}؛ سن داده: {age if age is not None else 'نامشخص'} ثانیه. این خلاصه جایگزین محاسبهٔ تازه یا سیگنال نیست."
-            if is_fa else
-            f"Recorded regime: {regime}; Strategy V2 decision: {decision}; latest closed 15m close: {close}; candle age: {age if age is not None else 'unknown'} seconds. This is an evidence summary, not a new signal."
-        )
+        answers = {
+            "fa": f"رژیم ثبت‌شده: {regime}؛ تصمیم Strategy V2: {decision}؛ بسته‌شدن آخرین کندل ۱۵ دقیقه‌ای: {close}؛ سن داده: {age if age is not None else 'نامشخص'} ثانیه. این خلاصه جایگزین محاسبهٔ تازه یا سیگنال نیست.",
+            "de": f"Aufgezeichnetes Marktregime: {regime}; Strategy-V2-Entscheidung: {decision}; letzter Schlusskurs der 15m-Kerze: {close}; Datenalter: {age if age is not None else 'unbekannt'} Sekunden. Dies ist eine Zusammenfassung, kein neues Signal.",
+            "fr": f"Régime enregistré : {regime} ; décision Strategy V2 : {decision} ; dernière clôture 15 min : {close} ; ancienneté des données : {age if age is not None else 'inconnue'} secondes. Ceci est un résumé, pas un nouveau signal.",
+            "en": f"Recorded regime: {regime}; Strategy V2 decision: {decision}; latest closed 15m close: {close}; candle age: {age if age is not None else 'unknown'} seconds. This is an evidence summary, not a new signal.",
+        }
+        answer = answers[language]
 
     elif intent == "JOURNAL_REVIEW":
         journal = data.get("journal", {})
@@ -368,11 +374,13 @@ def build_chat_response(
         if j_status not in {"VERIFIED", "EMPTY"}:
             status = "PARTIAL"
             uncertainties.append("Journal is not verified; outcome statistics are not inferred.")
-        answer = (
-            f"وضعیت ژورنال: {j_status}؛ تعداد تصمیم‌های ثبت‌شده: {count}. نتایج فقط در صورت ثبت و بلوغ معتبر گزارش می‌شوند؛ از روی سیگنال نتیجه‌سازی نمی‌شود."
-            if is_fa else
-            f"Journal status: {j_status}; recorded decisions: {count}. Outcomes are reported only when recorded and matured; they are never inferred from a signal."
-        )
+        answers = {
+            "fa": f"وضعیت ژورنال: {j_status}؛ تعداد تصمیم‌های ثبت‌شده: {count}. نتایج فقط در صورت ثبت و بلوغ معتبر گزارش می‌شوند؛ از روی سیگنال نتیجه‌سازی نمی‌شود.",
+            "de": f"Journal-Status: {j_status}; aufgezeichnete Entscheidungen: {count}. Ergebnisse werden nur bei gültiger Aufzeichnung und Reife gemeldet, niemals aus einem Signal abgeleitet.",
+            "fr": f"Statut du journal : {j_status} ; décisions enregistrées : {count}. Les résultats ne sont rapportés que s’ils sont enregistrés et arrivés à maturité ; ils ne sont jamais déduits d’un signal.",
+            "en": f"Journal status: {j_status}; recorded decisions: {count}. Outcomes are reported only when recorded and matured; they are never inferred from a signal.",
+        }
+        answer = answers[language]
 
     elif intent == "NEWS_CONTEXT":
         news = data.get("news", {})
@@ -395,11 +403,13 @@ def build_chat_response(
             for item in findings[:5]:
                 if isinstance(item, Mapping):
                     claims.append(_claim("News item", str(item.get("title") or "Untitled") + " · " + str(item.get("source") or "source unknown")))
-        answer = (
-            f"وضعیت انتقال اخبار: {n_status}؛ پوشش منابع: {coverage}. اخبار فقط زمینهٔ کمکی هستند و به‌تنهایی جهت معامله یا مجوز ورود ایجاد نمی‌کنند."
-            if is_fa else
-            f"News transport: {n_status}; source coverage: {coverage}. News is contextual evidence only and cannot create trade direction or authorize entry."
-        )
+        answers = {
+            "fa": f"وضعیت انتقال اخبار: {n_status}؛ پوشش منابع: {coverage}. اخبار فقط زمینهٔ کمکی هستند و به‌تنهایی جهت معامله یا مجوز ورود ایجاد نمی‌کنند.",
+            "de": f"Nachrichtenübertragung: {n_status}; Quellenabdeckung: {coverage}. Nachrichten sind nur Kontext und können weder Handelsrichtung noch Einstieg autorisieren.",
+            "fr": f"Transport des actualités : {n_status} ; couverture des sources : {coverage}. Les actualités ne sont qu’un contexte et ne peuvent ni créer une direction ni autoriser une entrée.",
+            "en": f"News transport: {n_status}; source coverage: {coverage}. News is contextual evidence only and cannot create trade direction or authorize entry.",
+        }
+        answer = answers[language]
 
     elif intent == "DIAGNOSE":
         components = data.get("components", {})
@@ -412,11 +422,13 @@ def build_chat_response(
         if failed:
             status = "PARTIAL"
             uncertainties.append("One or more components are blocked, unavailable or not verified.")
-        answer = (
-            "خلاصهٔ عیب‌یابی فقط از وضعیت خواندنی اجزای موجود ساخته شده است. هیچ سرویس یا تنظیمی تغییر داده نشده است."
-            if is_fa else
-            "Diagnostics use read-only component evidence. No service or configuration was changed."
-        )
+        answers = {
+            "fa": "خلاصهٔ عیب‌یابی فقط از وضعیت خواندنی اجزای موجود ساخته شده است. هیچ سرویس یا تنظیمی تغییر داده نشده است.",
+            "de": "Die Diagnose verwendet ausschließlich lesbare Komponentennachweise. Es wurden keine Dienste oder Einstellungen geändert.",
+            "fr": "Le diagnostic utilise uniquement les preuves lisibles des composants. Aucun service ni paramètre n’a été modifié.",
+            "en": "Diagnostics use read-only component evidence. No service or configuration was changed.",
+        }
+        answer = answers[language]
 
     refs = _refs(*evidence, trace_id or None)
     return _response(intent, status, answer, claims, uncertainties, trace_id, now, refs)
