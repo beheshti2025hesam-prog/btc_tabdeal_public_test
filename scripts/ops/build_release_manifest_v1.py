@@ -177,7 +177,17 @@ def write_manifest(release_dir: Path, manifest: dict[str, Any]) -> dict[str, Any
     sidecar_path = release / SIDECAR_NAME
     if manifest_path.exists() or sidecar_path.exists():
         if manifest_path.exists() and sidecar_path.exists():
-            return verify_manifest(release)
+            existing = verify_manifest(release)
+            existing_manifest = json.loads(manifest_path.read_bytes())
+            expected_identity = (manifest.get("commit_sha"), manifest.get("file_count"), manifest.get("files"))
+            existing_identity = (
+                existing_manifest.get("commit_sha"),
+                existing_manifest.get("file_count"),
+                existing_manifest.get("files"),
+            )
+            if existing_identity != expected_identity:
+                raise ReleaseManifestError("EXISTING_MANIFEST_DIFFERS")
+            return existing
         raise ReleaseManifestError("PARTIAL_MANIFEST_PAIR_EXISTS")
 
     raw = _manifest_bytes(manifest)
