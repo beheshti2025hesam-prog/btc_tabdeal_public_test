@@ -41,14 +41,25 @@ class MotherChatError(ValueError):
 
 
 _INTENT_TERMS = {
-    "NEWS_CONTEXT": ("اخبار", "خبر", "رویداد خبری", "news", "headline"),
-    "JOURNAL_REVIEW": ("ژورنال", "نتایج معاملات", "نتیجه معاملات", "عملکرد ترید", "برد و باخت", "journal", "outcomes", "performance"),
-    "DIAGNOSE": ("عیب یابی", "عیب‌یابی", "خطا", "اشکال", "مشکل سیستم", "diagnose", "diagnostics", "error", "fault"),
-    "ASK_STATUS": ("وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services"),
-    "EXPLAIN_DECISION": ("چرا", "دلیل تصمیم", "علت تصمیم", "تصمیم مادر", "تصمیم ایجنت", "explain", "why", "decision", "mother decision"),
-    "MARKET_REVIEW": ("تحلیل بازار", "وضعیت بازار", "بازار", "قیمت", "کندل", "روند", "market", "candles", "price", "regime"),
-    "PREPARE_CHANGE": ("پیشنهاد تغییر", "پیشنویس تغییر", "پیش‌نویس تغییر", "طراحی تغییر", "prepare change", "draft change"),
+    "NEWS_CONTEXT": ("اخبار", "خبر", "رویداد خبری", "news", "headline", "nachrichten", "meldung", "actualités", "nouvelles"),
+    "JOURNAL_REVIEW": ("ژورنال", "نتایج معاملات", "نتیجه معاملات", "عملکرد ترید", "برد و باخت", "journal", "outcomes", "performance", "ergebnisse", "résultats"),
+    "DIAGNOSE": ("عیب یابی", "عیب‌یابی", "خطا", "اشکال", "مشکل سیستم", "diagnose", "diagnostics", "error", "fault", "fehler", "erreur", "panne"),
+    "ASK_STATUS": ("وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services", "gesundheit", "dienste", "statut", "santé", "services"),
+    "EXPLAIN_DECISION": ("چرا", "دلیل تصمیم", "علت تصمیم", "تصمیم مادر", "تصمیم ایجنت", "explain", "why", "decision", "mother decision", "warum", "weshalb", "grund", "entscheidung", "pourquoi", "décision", "raison"),
+    "MARKET_REVIEW": ("تحلیل بازار", "وضعیت بازار", "بازار", "قیمت", "کندل", "روند", "market", "candles", "price", "regime", "markt", "kerzen", "kurs", "trend", "marché", "bougie", "prix", "tendance"),
+    "PREPARE_CHANGE": ("پیشنهاد تغییر", "پیشنویس تغییر", "پیش‌نویس تغییر", "طراحی تغییر", "prepare change", "draft change", "änderung vorbereiten", "proposition de changement", "préparer une modification"),
 }
+
+
+def _language(message: str) -> str:
+    text = message.casefold()
+    if any("\u0600" <= ch <= "\u06ff" for ch in message):
+        return "fa"
+    if re.search(r"\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit)\b", text):
+        return "de"
+    if re.search(r"\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé)\b", text):
+        return "fr"
+    return "en"
 
 
 def classify_intent(message: str) -> str:
@@ -224,20 +235,25 @@ def build_chat_response(
     if not isinstance(message, str) or not message.strip() or len(message) > MAX_MESSAGE_CHARS:
         raise MotherChatError("CHAT_MESSAGE_INVALID", 400)
     intent = classify_intent(message)
-    is_fa = any("\u0600" <= ch <= "\u06ff" for ch in message)
+    language = _language(message)
+    is_fa = language == "fa"
     if intent == "UNKNOWN":
-        answer = (
-            "درخواست را دقیق‌تر مشخص کن: وضعیت، توضیح تصمیم، بررسی بازار، ژورنال، اخبار یا عیب‌یابی."
-            if is_fa else
-            "Please specify one supported task: status, explain the decision, market review, journal, news, or diagnostics."
-        )
+        answers = {
+            "fa": "درخواست را دقیق‌تر مشخص کن: وضعیت، توضیح تصمیم، بررسی بازار، ژورنال، اخبار یا عیب‌یابی.",
+            "de": "Bitte wähle eine unterstützte Aufgabe: Status, Entscheidung erklären, Markt, Journal, Nachrichten oder Diagnose.",
+            "fr": "Précisez une tâche prise en charge : statut, explication de décision, marché, journal, actualités ou diagnostic.",
+            "en": "Please specify one supported task: status, explain the decision, market review, journal, news, or diagnostics.",
+        }
+        answer = answers[language]
         return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now)
     if intent == "PREPARE_CHANGE":
-        answer = (
-            "برای تهیهٔ پیش‌نویس، نام بخش و تغییر موردنظر را مشخص کن. این رابط فقط پیش‌نویس می‌سازد و هیچ تغییری را اعمال نمی‌کند."
-            if is_fa else
-            "Specify the component and requested change. This interface can prepare a proposal only; it cannot apply changes."
-        )
+        answers = {
+            "fa": "برای تهیهٔ پیش‌نویس، نام بخش و تغییر موردنظر را مشخص کن. این رابط فقط پیش‌نویس می‌سازد و هیچ تغییری را اعمال نمی‌کند.",
+            "de": "Nenne die Komponente und die gewünschte Änderung. Diese Oberfläche kann nur einen Vorschlag erstellen und nichts anwenden.",
+            "fr": "Indiquez le composant et la modification souhaitée. Cette interface peut préparer une proposition, mais ne peut rien appliquer.",
+            "en": "Specify the component and requested change. This interface can prepare a proposal only; it cannot apply changes.",
+        }
+        answer = answers[language]
         return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now)
     reader = readers.get(intent)
     if not callable(reader):
@@ -247,8 +263,7 @@ def build_chat_response(
     except Exception:
         return _response(
             intent, "BLOCKED",
-            "شواهد معتبر در دسترس نیست؛ پاسخ با حالت ایمن متوقف شد." if is_fa else
-            "Verified evidence is unavailable; the request was safely blocked.",
+            {"fa": "شواهد معتبر در دسترس نیست؛ پاسخ با حالت ایمن متوقف شد.", "de": "Verifizierte Nachweise sind nicht verfügbar; die Anfrage wurde sicher blockiert.", "fr": "Les preuves vérifiées sont indisponibles ; la demande a été bloquée par sécurité.", "en": "Verified evidence is unavailable; the request was safely blocked."}[language],
             [], ["CHAT_EVIDENCE_UNAVAILABLE"], "", now,
         )
     if not isinstance(data, Mapping):
