@@ -69,7 +69,12 @@ def classify_intent(message: str) -> str:
                 matches.append(intent)
                 break
     unique = tuple(dict.fromkeys(matches))
-    return unique[0] if len(unique) == 1 else "UNKNOWN"
+    specific = tuple(intent for intent in unique if intent != "ASK_STATUS")
+    if len(specific) == 1:
+        return specific[0]
+    if len(specific) > 1:
+        return "UNKNOWN"
+    return "ASK_STATUS" if "ASK_STATUS" in unique else "UNKNOWN"
 
 
 class MotherChatSecurityV1:
