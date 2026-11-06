@@ -58,3 +58,19 @@ section[id]{scroll-margin-top:68px}
 /* Original HES identity mark: compact, legible, and direction-neutral. */
 .brand-lockup{display:flex;gap:12px;align-items:center;min-width:0}
 .brand-mark{display:block;width:44px;height:44px;flex:0 0 44px;border-radius:13px}
+
+
+.mother-chat-messages{display:flex;flex-direction:column;gap:10px;max-height:360px;overflow:auto;padding:12px;border:1px solid #29384d;border-radius:10px;background:#0d1624;margin:12px 0}
+.mother-chat-message{max-width:min(92%,760px);padding:10px 12px;border:1px solid #33445c;border-radius:10px;background:#172438;overflow-wrap:anywhere}
+.mother-chat-message.user{align-self:flex-end;background:#1b3043}
+.mother-chat-message p{white-space:pre-wrap;margin:6px 0 0;line-height:1.65}
+.mother-chat-message strong{font-size:.82rem;color:#b8c8dc}
+#motherChatLoginForm,#motherChatForm{display:grid;gap:9px;margin-top:12px}
+#motherChatToken,#motherChatInput{width:100%;box-sizing:border-box;border:1px solid #40536c;border-radius:8px;background:#101b2b;color:#e8eef7;padding:11px;font:inherit}
+#motherChatInput{resize:vertical;min-height:72px;line-height:1.6}
+.mother-chat-actions{display:flex;gap:8px;flex-wrap:wrap}
+.mother-chat-actions .secondary{background:#253348}
+#motherChatPanel details{margin:4px 0 10px 8px;color:#b9c8da;font-size:.88rem}
+#motherChatPanel details li{overflow-wrap:anywhere;margin:5px 0}
+#motherChatPanel [hidden]{display:none!important}
+@media(max-width:600px){.mother-chat-messages{max-height:300px}.mother-chat-message{max-width:100%}.mother-chat-actions button{flex:1}}
