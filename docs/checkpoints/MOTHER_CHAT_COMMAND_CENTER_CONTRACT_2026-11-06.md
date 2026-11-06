@@ -1,174 +1,122 @@
-# Mother Chat / Command Center — Architecture Contract
-**Date:** 2026-11-06  
-**Status:** DESIGN LOCKED; APPLICATION CHAT NOT IMPLEMENTED  
-**Target delivery:** 2026-11-19  
-**Scope:** The existing HES Trade Agent application, its existing dashboard and Mother Orchestrator. This is an incremental integration contract, not approval to replace the dashboard or create a second application.
+# HES Trade Agent — Multi-Agent / Mother Command Center
+**Checkpoint date:** 2026-11-06  
+**Status:** EXISTING MOTHER ORCHESTRATOR VERIFIED; FREE COMMAND CENTER IMPLEMENTED IN DRAFT PR; NOT YET DEPLOYED  
+**Delivery target:** 2026-11-19  
+**Scope:** Incremental integration into the existing HES dashboard on the sole VPS. No second application, VPS, strategy engine, market-data reader, journal or execution path.
 
-## 1. Verified current state
+## 1. Existing architecture — reuse, do not rebuild
 
-The active application already has a deterministic, read-only Mother Orchestrator and a dashboard panel for it. Reuse these components:
+The active release already contains the deterministic Mother architecture:
 
-- `core/orchestration/mother_v1.py` and `mother_contract_v1.json`: bounded stage sequencing, specialist-result validation, evidence provenance, veto handling, trace/audit hash and an unconditional `execution_authorized=false` boundary.
-- `web/mother_v2_dashboard_view.py`: reads the existing Strategy V2 report and the exact matching immutable journal event; does not recalculate market data, indicators, strategy, risk or outcomes.
-- `GET /api/mother`: current read-only Mother projection.
-- Existing Strategy V2, Gate.io reader, News Radar, Precision Entry, journal and dashboard sections.
+- \`core/orchestration/mother_v1.py\` and \`mother_contract_v1.json\`: fixed seven-stage sequence, strict specialist contracts, provenance validation, fail-closed veto handling, same-snapshot directional coherence, deterministic trace/audit hash, and unconditional \`execution_authorized=false\`.
+- Required stage order: \`data_quality → market_structure → signal → confirmation → risk → decision → evaluation\`.
+- \`PrecomputedSpecialistV1\` adapts the existing Strategy V2 report. It does not launch duplicate indicator, strategy, risk, learning or execution agents.
+- \`core/orchestration/witness_v1.py\`: independently verifies the serialized Mother audit envelope and its safety invariants.
+- \`web/mother_v2_dashboard_view.py\`: binds the exact Strategy V2 report to its matching immutable journal event and existing market-data provenance.
+- \`GET /api/mother\`: the existing read-only Mother projection and dashboard panel.
 
-The following absence was verified in the active immutable release `3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0`:
+This is a deterministic specialist pipeline, not an autonomous LLM swarm. That is intentional: specialist work remains owned by existing, tested components; Mother coordinates and verifies their outputs. Do not add parallel agents that recalculate the same market, signal, risk or outcome facts.
 
-- No chat panel, conversation endpoint, prompt router, or persisted chat-session implementation was found.
-- The dashboard's `do_POST` handler returns HTTP 405 for every POST; there is no message-submit API.
-- No OpenAI, Anthropic, Ollama, LiteLLM or other LLM SDK/provider configuration was found in application dependencies or source.
-- The dashboard is intentionally read-only and loopback-bound. It has no authenticated chat session or CSRF boundary because it currently accepts no writes.
+\`forward/agent_disagreement_resolver_v1.py\` is a separate arbitration utility, not the active Mother authority. Do not bolt it into the active path without a demonstrated gap and a same-snapshot integration proof.
 
-Therefore the Mother brain exists as a deterministic orchestrator, but a natural-language chat interface connected to it does not yet exist. Do not represent this section as complete until the chat path is implemented and verified.
+The \`evaluation\` stage in Mother means decision-observation validation. Realized performance remains in the separate forward paper-outcome/evaluation pipeline.
 
-## 2. Architectural decision
+## 2. Canonical data and safety boundaries
 
-**Use one conversational interface over the existing Mother and existing application services. Do not create a second brain, strategy engine, journal, market-data path, or parallel frontend.**
+- Live candles, chart and indicators: Gate.io Public Spot \`BTC_USDT\` through the existing \`global_market_data_reader_v1\` path only.
+- Mother consumes Strategy V2, its matching immutable journal event and the exact evidence hashes; it does not fetch a second market source or recompute strategy/risk.
+- News is contextual evidence only; it cannot originate direction or authorize a trade.
+- Execution remains separate in the exchange/broker application. The dashboard and Command Center have no account credentials, order-submit tools or execution adapter.
+- Maximum three actionable paper candidates per day is a ceiling, not a quota.
+- The >90% paper win-rate objective is not proven. It must be assessed from a sufficiently large, resolved, cost-aware and out-of-sample paper cohort. Chat readiness is not trading-performance evidence.
 
-The LLM, when configured, is a language and explanation layer only:
+## 3. Free Command Center — implementation choice
 
-1. Understand the user's Persian/English/German/French message and classify it into a small, versioned intent schema.
-2. Ask the deterministic backend for approved, typed evidence through existing read interfaces.
-3. Explain the returned facts, uncertainty, gate reasons and provenance in natural language.
-4. Preserve conversation context without treating memory as live market truth or authorization.
+The user's standing constraint is that the user-to-Mother interface must use free capabilities; no paid API or paid model is permitted for this layer.
 
-The deterministic application remains the authority for market data, strategy, Risk Gate, Mother state, paper outcomes and all side effects. The LLM must never calculate or override those values.
+The first implementation therefore uses a **deterministic local intent router and evidence formatter**, not an external LLM:
 
-### Canonical data and action boundaries
+- No OpenAI, Anthropic, hosted model, paid API, browser-side key or model SDK is called.
+- No LLM is installed or required on the VPS.
+- Supported intents are explicitly bounded: \`ASK_STATUS\`, \`EXPLAIN_DECISION\`, \`MARKET_REVIEW\`, \`JOURNAL_REVIEW\`, \`NEWS_CONTEXT\`, \`DIAGNOSE\`, and clarification-only \`PREPARE_CHANGE\`.
+- Persian, English, German and French intent terms and answer templates are supported. Ambiguous or unsupported requests return \`NEEDS_CLARIFICATION\`; the router does not invent a signal or improvise a tool.
+- The router calls only the fixed existing readers for Mother/Strategy, Gate.io closed candles, journal, News Radar and read-only diagnostics.
+- Claims are returned with their evidence references, uncertainty, trace ID and explicit read-only flags.
+- No chat transcript is stored server-side. The visible message history exists only in the current page and disappears on reload.
 
-- Live candles, chart and indicators: Gate.io Public Spot `BTC_USDT`, through the existing `global_market_data_reader_v1` path only.
-- Mother: consumes existing Strategy V2 and matching journal evidence; no duplicate indicator/strategy/risk calculations.
-- News: contextual evidence only; it cannot originate a direction or authorize a trade.
-- Execution: separate exchange/broker application; chat has no order-submit tool or account credentials.
-- Paper-signal ceiling: at most three actionable candidates per day, a ceiling rather than a quota. The >90% paper win-rate objective remains unproven and must be measured from resolved, cost-aware, out-of-sample outcomes.
+This is a bounded Command Center, not a general-purpose chatbot. A future local open-source model may be considered only if it remains free, fits the sole VPS resource envelope, and passes separate privacy, latency, prompt-injection and evidence-grounding gates. It is not a delivery dependency.
 
-## 3. User-visible chat capabilities (first release)
+## 4. Request path and routes
 
-| Intent | Behavior | Permitted data/action |
-|---|---|---|
-| `ASK_STATUS` | Explain current app, feed, service and gate status | Read-only existing status APIs |
-| `EXPLAIN_DECISION` | Explain why Mother/Strategy chose LONG, SHORT or NO_TRADE | Exact report, Mother trace, gate reasons and journal refs |
-| `MARKET_REVIEW` | Summarize the latest validated closed-candle context | Existing Gate.io reader outputs only |
-| `JOURNAL_REVIEW` | Explain decisions and matured outcomes | Existing append-only journal and evaluation outputs |
-| `NEWS_CONTEXT` | Summarize verified news context and source freshness | Existing News Radar snapshot |
-| `DIAGNOSE` | Explain a reported application fault | Read-only health and diagnostic tools |
-| `PREPARE_CHANGE` | Draft a bounded change proposal or PR description | No write or deploy until a separate approval flow exists |
+\`Dashboard UI → same-origin session boundary → bounded message parser → fixed intent allowlist → existing evidence readers → structured evidence response → UI\`
 
-Unsupported or ambiguous requests must be clarified or declined. The chat must explicitly state when a value is unavailable, stale, unverified, or outside the recorded evidence. It must never invent a signal to satisfy a request.
+New endpoints on the draft branch:
 
-## 4. Request pipeline
+- \`POST /api/mother-chat/session\`: verifies the local operator token and issues a short-lived signed session cookie.
+- \`POST /api/mother-chat\`: accepts only a bounded \`{"message": "..."}\` JSON object and one of the fixed read-only intents.
+- \`POST /api/mother-chat/logout\`: expires the session cookie.
+- Unknown POST paths continue to return HTTP 405.
+- Existing \`GET /api/mother\`, Strategy V2, candle, journal and news routes remain unchanged.
 
-`Browser Chat UI → authenticated session boundary → Chat API → intent/schema validator → deterministic policy router → existing read adapters → evidence envelope → LLM response formatter → UI`
+The response schema includes \`schema_version\`, \`router_version\`, \`intent\`, \`status\`, \`answer\`, \`claims[]\`, \`uncertainties[]\`, \`evidence_refs[]\`, \`trace_id\`, observation time and explicit \`external_llm_used=false\`, \`execution_enabled=false\`, \`orders_placed=false\`, \`journal_write=false\`, and \`policy_mutation=false\`.
 
-- The LLM proposes only a typed intent and bounded arguments. The backend validates them independently; free-form model text is never interpreted as a shell command, SQL, Python, URL fetch instruction or tool name.
-- The policy router maps each accepted intent to a fixed allowlist of existing read functions. No arbitrary tool discovery or model-selected executable is permitted.
-- Retrieved pages, news, journal text, user-provided prompts and tool outputs are untrusted data, never system instructions. Prompt injection inside those sources cannot expand permissions.
-- Every answer carries a compact evidence footer: data source, symbol/timeframe, observed-at time, report/journal reference, freshness and Mother trace where applicable.
-- If an existing read API fails or provenance does not match, the answer is a blocked/unknown response; no stale cached value or alternate market-data source is silently substituted.
+## 5. Authentication and security
 
-## 5. Prompt hierarchy and versioning
+The dashboard remains loopback-only; do not expose port 8765 publicly.
 
-Keep a small immutable policy prompt and separate versioned task templates:
+- Local token file default: \`/opt/hes-trade-agent/secrets/mother-chat-token\`.
+- The token file must be owned by the dashboard service user and have mode \`0600\` (no group/world permissions); token length is at least 32 characters.
+- Login issues a signed, HttpOnly, SameSite=Strict cookie with a 30-minute expiry. The browser never stores the token in local/session storage and clears the password field after login.
+- All chat POST routes require exact same-origin validation; cross-site requests are rejected.
+- JSON content type, exact payload keys, body size, message length, login attempts and request rate are bounded.
+- No arbitrary tool discovery, shell, filesystem, Git, service-control, deployment, account, broker, exchange or order action is exposed.
+- No chat write path is connected to the canonical journal or strategy policy.
+- Errors are reduced to safe reason codes; raw secrets and exception details are not returned.
 
-1. **System policy:** product identity, truthfulness, source hierarchy, safety invariants, language and refusal rules.
-2. **Application contract:** typed intents, available read tools, evidence format, output schema and hard limits.
-3. **Task template:** status, decision explanation, market review, journal review, news context or diagnostics.
-4. **User message:** untrusted request text; cannot override layers 1–3.
-5. **Retrieved evidence:** explicitly delimited untrusted records with provenance.
+If the token file is absent or has unsafe permissions, chat login returns a blocked configuration response. No default password is embedded in source.
 
-Every prompt/template has an ID, semantic version, content hash, effective date and regression fixtures. Prompt changes are reviewed like code. No prompt may modify strategy thresholds, risk limits, signal cap, execution permission, market-data source or policy lock. User-authored prompts can set the question and preferred explanation style, not system policy.
+## 6. Current implementation evidence
 
-The response contract should be structured before rendering:
-- `answer`
-- `intent`
-- `status` (`OK`, `PARTIAL`, `BLOCKED`, `NEEDS_CLARIFICATION`)
-- `claims[]` with evidence references
-- `uncertainties[]`
-- `actions_proposed[]` (display-only in this release)
-- `trace_id`, `prompt_version`, `model_id`
+Draft PR: [#468 — Mother Chat / Command Center](https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/468)
 
-Reject malformed output and fall back to a deterministic status/error response.
+Files added/updated on the draft branch:
 
-## 6. Session, memory and audit
+- \`web/mother_chat_v1.py\`: deterministic intent routing, localized evidence responses, token-file validation, signed sessions, origin checks, rate limiting and bounded JSON parsing.
+- \`web/dashboard.py\`: fixed read-only readers and three exact POST routes; unknown POST paths retain HTTP 405.
+- \`web/static/dashboard.js\`: Command Center login/chat/lock interaction; token is not persisted by the browser; text is rendered with \`textContent\`.
+- \`web/static/dashboard.css\`: responsive chat presentation.
+- \`tests/test_mother_chat_v1.py\`: parser, four-locale response, evidence failure, session, file permissions, origin, rate limit, body validation and HTTP boundary tests.
 
-Keep state classes separate:
+On the exact draft-branch checkout, focused verification completed:
 
-- **Conversation transcript:** user/assistant messages, session ID, timestamps and retention policy; not authoritative project state.
-- **Turn context:** only the bounded recent turns needed for the current answer.
-- **Project checkpoint:** existing Master Checkpoint / GitHub evidence; never replaced by free-form chat memory.
-- **Live truth:** current API/service/journal response with observation time; always re-read for live questions.
-- **User preferences:** language and explanation style only; never permissions, secrets or trade authorization.
+- Mother orchestration, independent witness, Mother V2 projection, dashboard route/localization and new Command Center tests: **87 passed; 16 subtests passed**.
+- Python compilation for \`web/mother_chat_v1.py\` and \`web/dashboard.py\`: passed.
+- Node syntax check was not reported because Node was not installed in the test environment.
+- Full repository regression, browser/mobile/RTL acceptance, token provisioning and production deployment remain pending. Do not mark the feature production-ready from focused tests alone.
 
-Each request gets a UUID request/trace ID and idempotency key. Persist prompt version/hash, provider/model ID, intent, bounded tool calls, evidence references/hashes, response status, latency and redacted error class. Never log API keys, cookies, auth tokens or raw secrets. Resume must reject expired sessions, duplicate writes and stale approvals.
+The deployed immutable release remains \`3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0\`. The active release pointer and dirty original checkout were not changed by this implementation work.
 
-## 7. Security and permission model
+## 7. Acceptance gates
 
-The existing dashboard's loopback-only binding is necessary but not sufficient for a writable chat API.
+1. Full repository regression passes on the exact candidate SHA; existing Mother, Strategy V2, Gate.io, journal and dashboard tests remain green.
+2. Persian, English, German and French supported intents return evidence-linked answers; unsupported/ambiguous inputs request clarification.
+3. Mother/Strategy status, decision and reason codes match the exact stored report/journal evidence; no generated direction is introduced.
+4. Stale, missing, gapped or mismatched market evidence fails closed; the chat never substitutes another source.
+5. Journal and news responses state partial/unknown coverage and never infer outcomes or market direction.
+6. Missing/unsafe token file, bad credentials, expired session, cross-origin POST, malformed JSON, oversized body, excessive length and rate-limit breach are rejected.
+7. Prompt-like user text, news and journal content cannot expand the fixed reader allowlist or change application policy.
+8. Browser tests cover desktop/mobile, keyboard/accessibility, RTL Persian and the four UI locales.
+9. Regression proves no order, account access, journal write, policy mutation, Git/deploy/service action or public bind is reachable from chat.
+10. Candidate deploy is atomic and rollback-capable on the sole VPS. The original dirty checkout and active immutable release must not be edited in place.
 
-Before enabling message POST:
-- Add an authenticated, expiring, single-user session mechanism suitable for the existing SSH-tunnel access pattern; keep secrets outside source control and outside the journal.
-- Enforce same-origin checks, CSRF protection, strict JSON content type, body-size and message-length limits, request rate limits, session expiry and secure cookie settings.
-- Keep the API loopback-bound; do not expose port 8765 publicly or relax CSP to arbitrary external origins.
-- Use a provider adapter with server-side credentials only. No browser-side provider key, account credential, or direct browser-to-exchange request.
-- Use fixed read-only tool allowlists. The model cannot invoke shell, filesystem, Git, deployment, service-control, account, broker or exchange-order tools.
-- Do not add a chat write path to the canonical journal. Chat transcript storage is separate and cannot mutate decision records.
+## 8. Delivery controls
 
-### Side-effect policy
+- **2026-11-12:** scope freeze / go-no-go.
+- **2026-11-16:** release-candidate gate, including exact-SHA regression and browser/security evidence.
+- **2026-11-19:** fixed delivery target.
 
-| Class | First-release policy |
-|---|---|
-| Read market/strategy/Mother/journal/news/status | Allowed through fixed backend adapters |
-| Draft explanation, prompt or change proposal | Allowed; clearly marked as draft |
-| Change strategy, thresholds, risk, source, signal cap or policy | Denied from chat |
-| Write journal/outcomes or alter evidence | Denied from chat |
-| Git commit/merge, deploy, service restart, VPS mutation | Not exposed as chat tools |
-| Exchange/broker account access or order placement | Never exposed to chat |
+If the Command Center misses a security or acceptance gate, deliver the existing read-only dashboard honestly and keep chat disabled. Do not weaken authentication or evidence gates to meet the date.
 
-A future consequential-action workflow, if separately approved, must use preview → exact action/target/parameter hash → explicit user approval → short expiry → idempotent execution → independent verification. Approval for one action must not authorize a changed action.
+## 9. Non-goals
 
-## 8. Provider adapter and deployment prerequisites
-
-Implement a provider-neutral server adapter, but enable only one selected provider in a deployment. Provider choice and API credentials are not present in the verified current app. No key or provider is assumed.
-
-- Read provider/model/base URL and secret reference from protected server configuration.
-- Fail startup or report `CHAT_PROVIDER_NOT_CONFIGURED` when mandatory configuration is absent; never fake an AI response.
-- Apply bounded timeouts, token/context limits, concurrency limits and cost ceilings.
-- Retry only transient, idempotent model requests with a small bounded retry count; never retry a side effect.
-- Redact provider errors and secrets from user output and logs.
-- Keep a deterministic no-provider mode for health/status and explain that natural-language chat is unavailable until configuration is complete.
-
-No provider key is to be pasted into chat, committed to Git, stored in Notion, or written into the project journal.
-
-## 9. Acceptance gates before calling chat complete
-
-1. Existing dashboard/Mother/Strategy V2 and Gate.io single-source tests remain green; no existing behavior is duplicated or weakened.
-2. A user can submit a Persian, English, German or French message and receive a response tied to real, fresh evidence.
-3. Every intent is schema-validated and maps only to its fixed read adapter.
-4. Mother and Strategy decision explanations reproduce exact stored state/reason codes; no generated directional claim can contradict the report.
-5. Stale/missing/mismatched Gate.io batches, journal events, Mother witness, or news evidence produce explicit BLOCKED/PARTIAL answers.
-6. Prompt injection in user text, news, journal, web content and retrieved documents cannot call tools or change policy.
-7. Unauthorized origin, missing/expired session, CSRF, oversized body, rate-limit breach and malformed JSON are rejected.
-8. Provider timeout, rate limit, invalid structured output and unavailable provider produce safe deterministic fallback responses.
-9. Transcript/session state is isolated from the canonical trade journal and project checkpoint.
-10. Browser tests cover desktop/mobile, keyboard/accessibility, RTL Persian and all supported locales.
-11. Regression tests prove chat cannot change strategy/risk configuration, exceed the three-candidate ceiling, write a journal decision, access credentials, deploy, restart services or submit orders.
-12. Deployment is an atomic, rollback-capable release on the sole VPS; no dirty checkout reset or parallel app.
-
-## 10. Delivery sequence and current blockers
-
-- **By 2026-11-12 — scope freeze:** settle provider choice/configuration method and finalize the chat API/session contract.
-- **By 2026-11-16 — release-candidate gate:** implementation, security tests, provider failure tests, browser/mobile/RTL tests and evidence-linked answer tests pass on the exact candidate SHA.
-- **2026-11-19 — delivery:** chat is enabled only if all gates pass; otherwise ship the existing read-only dashboard honestly and mark chat as a documented deferred capability rather than a fake/unsafe feature.
-
-Current verified blockers:
-1. No chat UI or message endpoint exists in the active application.
-2. No model provider adapter or provider configuration exists.
-3. No authenticated chat session / CSRF boundary exists.
-4. The dashboard POST path is intentionally HTTP 405; it must not be opened casually.
-
-**Next implementation slice:** add the chat panel to the existing dashboard and a separate, authenticated chat endpoint; implement typed intent validation and fixed read-only adapters that call existing Mother/Strategy/Market/Journal/News readers. Keep the current `GET /api/mother` contract unchanged. Implement against a new isolated branch/release candidate, with exact-SHA tests and rollback. Do not edit the active immutable release or the dirty working checkout.
-
-## 11. Non-goals
-
-No new trading strategy, signal generator, market-data adapter, journal, multi-agent swarm, autonomous shell agent, exchange account integration, order execution, public dashboard exposure, or second VPS. No claim of 90% win rate or profitability is made by chat readiness.
+No second Mother brain, duplicate strategy/risk/market-data engine, parallel frontend, paid LLM/API, autonomous shell agent, self-authorizing policy mutation, exchange account integration, order execution, public dashboard exposure or second VPS. No claim of 90% win rate or profitability is made by this work.
