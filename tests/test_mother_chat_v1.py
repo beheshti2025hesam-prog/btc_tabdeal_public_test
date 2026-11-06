@@ -31,6 +31,8 @@ def test_classifies_supported_persian_and_english_intents():
     assert classify_intent("گزارش ژورنال و نتایج") == "JOURNAL_REVIEW"
     assert classify_intent("news source coverage") == "NEWS_CONTEXT"
     assert classify_intent("diagnose the current error") == "DIAGNOSE"
+    assert classify_intent("Warum ist die Entscheidung NO_TRADE?") == "EXPLAIN_DECISION"
+    assert classify_intent("Pourquoi cette décision est-elle NO_TRADE ?") == "EXPLAIN_DECISION"
     assert classify_intent("What is the market status?") == "MARKET_REVIEW"
 
 
@@ -146,3 +148,87 @@ def test_json_body_parser_requires_object_and_size_bound():
         read_json_body(_FakeHandler(body, "text/plain"))
     with pytest.raises(MotherChatError, match="CHAT_BODY_SIZE_INVALID"):
         read_json_body(_FakeHandler(body), max_bytes=2)
+
+
+def test_localized_explanations_support_german_and_french():
+    payload = {
+        "mother": {
+            "status": "OBSERVATION_ONLY", "decision": "NO_TRADE",
+            "trace_id": "a" * 64, "audit_sha256": "b" * 64,
+            "reason_codes": ["EXECUTION_NOT_AUTHORIZED"], "stages": [],
+            "witness": {"verified": True},
+        },
+        "strategy": {"status": "VERIFIED", "report_sha256": "c" * 64},
+    }
+    readers = {"EXPLAIN_DECISION": lambda: payload}
+    german = build_chat_response("Warum ist die Entscheidung NO_TRADE?", readers)
+    french = build_chat_response("Pourquoi cette décision est-elle NO_TRADE ?", readers)
+    assert "Aufgezeichnete Mother-Entscheidung" in german["answer"]
+    assert "Décision Mother enregistrée" in french["answer"]
+
+
+def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path, monkeypatch):
+    import threading
+    from http.server import ThreadingHTTPServer
+    from urllib.request import Request, urlopen
+    from urllib.error import HTTPError
+    from web import dashboard
+
+    path, token = _token_file(tmp_path)
+    monkeypatch.setattr(dashboard, "_MOTHER_CHAT_SECURITY", MotherChatSecurityV1(path))
+    evidence = {
+        "mother": {
+            "status": "OBSERVATION_ONLY", "decision": "NO_TRADE",
+            "trace_id": "a" * 64, "audit_sha256": "b" * 64,
+            "reason_codes": ["EXECUTION_NOT_AUTHORIZED"], "stages": [],
+            "witness": {"verified": True},
+        },
+        "strategy": {"status": "VERIFIED", "report_sha256": "c" * 64},
+    }
+    monkeypatch.setattr(
+        dashboard, "_mother_chat_readers",
+        lambda: {"EXPLAIN_DECISION": lambda: evidence},
+    )
+    server = ThreadingHTTPServer(("127.0.0.1", 0), dashboard.Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    origin = base
+    try:
+        body = json.dumps({"message": "why decision"}).encode()
+        unauthenticated = Request(base + "/api/mother-chat", data=body, headers={
+            "Content-Type": "application/json", "Origin": origin,
+        }, method="POST")
+        with pytest.raises(HTTPError) as denied:
+            urlopen(unauthenticated)
+        assert denied.value.code == 401
+
+        login_body = json.dumps({"token": token}).encode()
+        login = Request(base + "/api/mother-chat/session", data=login_body, headers={
+            "Content-Type": "application/json", "Origin": origin,
+        }, method="POST")
+        with urlopen(login) as response:
+            assert response.status == 200
+            cookie = response.headers.get("Set-Cookie").split(";", 1)[0]
+
+        chat = Request(base + "/api/mother-chat", data=body, headers={
+            "Content-Type": "application/json", "Origin": origin, "Cookie": cookie,
+        }, method="POST")
+        with urlopen(chat) as response:
+            result = json.loads(response.read())
+        assert result["intent"] == "EXPLAIN_DECISION"
+        assert result["external_llm_used"] is False
+        assert result["execution_enabled"] is False
+        assert result["orders_placed"] is False
+        assert result["journal_write"] is False
+
+        forbidden = Request(base + "/api/orders", data=b"{}", headers={
+            "Content-Type": "application/json", "Origin": origin,
+        }, method="POST")
+        with pytest.raises(HTTPError) as blocked:
+            urlopen(forbidden)
+        assert blocked.value.code == 405
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
