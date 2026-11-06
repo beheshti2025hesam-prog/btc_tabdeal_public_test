@@ -11,8 +11,12 @@ import subprocess
 import syslog
 import time
 
-from hes_runtime_healthcheck_v1 import collect_checks
-from hes_operational_recovery_v1 import DEPLOY_LOCK, OperationalRecoveryV1, deployment_lock_held, verify_active_release
+if __package__:
+    from .hes_runtime_healthcheck_v1 import collect_checks
+    from .hes_operational_recovery_v1 import DEPLOY_LOCK, OperationalRecoveryV1, deployment_lock_held, verify_active_release
+else:  # systemd executes this file directly from the immutable release
+    from hes_runtime_healthcheck_v1 import collect_checks
+    from hes_operational_recovery_v1 import DEPLOY_LOCK, OperationalRecoveryV1, deployment_lock_held, verify_active_release
 
 ROOT = Path('/opt/hes-trade-agent')
 STATE_DIR = Path('/var/lib/hes-operational-health')
