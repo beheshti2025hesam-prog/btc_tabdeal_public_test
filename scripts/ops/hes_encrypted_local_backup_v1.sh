@@ -83,7 +83,6 @@ find "$BACKUP_DIR" -maxdepth 1 -type f -name 'hes-full-*.tar.gz.gpg' -print0 | w
     if (( age >= 0 && age < 7 )); then keep=1; fi
     if (( age >= 0 && age < 28 )) && [[ "$dow" == 7 ]]; then keep=1; fi
     if (( age >= 0 && age < 180 )) && [[ "$dom" == 01 ]]; then keep=1; fi
-    if (( age >= 0 && age < 180 )) && [[ "$dom" == 01 ]]; then keep=1; fi
     if (( keep == 0 )); then rm -f -- "$path" "$path.sha256"; fi
 done
 printf 'BACKUP_OK file=%s size_bytes=%s sha256=%s\n' "$final" "$(stat -c %s "$final")" "$(sha256sum "$final" | awk '{print $1}')"
