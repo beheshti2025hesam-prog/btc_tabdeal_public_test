@@ -72,6 +72,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
         ws_factory=object,
         max_runtime_seconds=1,
         sequence_registry=verified_tabdeal_test_registry(),
+        allow_test_registry=True,
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
@@ -162,6 +163,7 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
         ws_factory=object,
         max_runtime_seconds=1,
         sequence_registry=verified_tabdeal_test_registry(),
+        allow_test_registry=True,
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
