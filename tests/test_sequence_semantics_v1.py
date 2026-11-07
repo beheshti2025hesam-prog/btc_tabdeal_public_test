@@ -145,16 +145,12 @@ def test_verified_ordered_sequence_requires_explicit_ordered_capability(tmp_path
     raw = json.dumps(payload).encode()
     path = tmp_path / "registry.json"
     path.write_bytes(raw)
-    registry = SequenceSemanticsRegistryV1.load(
-        path, expected_sha256=hashlib.sha256(raw).hexdigest()
-    )
     with pytest.raises(
         SequenceSemanticsError,
         match="VERIFIED_ORDERED_SEQUENCE_CAPABILITY_MISSING",
     ):
-        registry.resolve(
-            "verified-ordered-with-capability-disabled",
-            expected_key=payload["records"][0]["key"],
+        SequenceSemanticsRegistryV1.load(
+            path, expected_sha256=hashlib.sha256(raw).hexdigest()
         )
 
 
