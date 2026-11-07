@@ -134,16 +134,38 @@ def run(root: str | Path = "/opt/hes-trade-agent") -> dict[str, Any]:
     decisions = [r for r in decisions_all if r.get("decision") == "NO_TRADE"]
     output_path = data / "neutral_decision_outcomes_v1.jsonl"
     existing = _read_jsonl(output_path); done = {r.get("outcome_id") for r in existing}
+    # A bounded candle-retention window can no longer reproduce old baselines.
+    # Do not call those decisions unscorable when their immutable, complete
+    # horizon records are already present in the append-only outcome ledger.
+    existing_complete: dict[str, set[str]] = {}
+    for row in existing:
+        event_id = row.get("decision_event_id")
+        horizon = row.get("horizon")
+        if (
+            row.get("schema") == SCHEMA
+            and row.get("horizon_complete") is True
+            and isinstance(event_id, str)
+            and horizon in DEFAULT_HORIZONS
+            and row.get("outcome_id") == _stable_id(event_id, horizon)
+        ):
+            existing_complete.setdefault(event_id, set()).add(horizon)
+
     new = []; pending = 0; unscorable_no_baseline_event_ids = []
+    unscorable_no_baseline_missing_horizons = []
     for decision in decisions:
         try:
             evaluated = evaluate_no_trade(decision, candles)
         except ValueError as exc:
-            # A decision older than the retained candle window has no defensible
-            # baseline. Isolate and count that record; never fabricate a baseline
-            # or abort evaluation of newer, fully supported decisions.
+            # A missing retained baseline is only an outstanding evidence gap
+            # when one or more required horizons are not already complete.
             if str(exc) == "NO_CLOSED_CANDLE_AT_DECISION_TIME":
-                unscorable_no_baseline_event_ids.append(str(decision.get("event_id") or ""))
+                event_id = str(decision.get("event_id") or "")
+                missing_horizons = sorted(set(DEFAULT_HORIZONS) - existing_complete.get(event_id, set()))
+                if missing_horizons:
+                    unscorable_no_baseline_event_ids.append(event_id)
+                    unscorable_no_baseline_missing_horizons.extend(
+                        f"{event_id}|{horizon}" for horizon in missing_horizons
+                    )
                 continue
             raise
         for record in evaluated:
@@ -160,6 +182,10 @@ def run(root: str | Path = "/opt/hes-trade-agent") -> dict[str, Any]:
         hashlib.sha256("\n".join(sorted(unscorable_no_baseline_event_ids)).encode()).hexdigest()
         if unscorable_no_baseline_event_ids else None
     )
+    missing_horizons_digest = (
+        hashlib.sha256("\n".join(sorted(unscorable_no_baseline_missing_horizons)).encode()).hexdigest()
+        if unscorable_no_baseline_missing_horizons else None
+    )
     summary = {"schema": "hes_neutral_decision_outcomes_report_v1",
                "status": "PARTIAL_UNSCORABLE" if unscorable_no_baseline_event_ids else "OK",
                "updated_at": datetime.now(timezone.utc).isoformat(), "decision_count": len(decisions),
@@ -167,9 +193,11 @@ def run(root: str | Path = "/opt/hes-trade-agent") -> dict[str, Any]:
                "new_records_added": len(new), "complete_records": sum(r.get("horizon_complete") is True for r in all_rows),
                "pending_horizons_current_run": pending,
                "unscorable_no_baseline_decisions": len(unscorable_no_baseline_event_ids),
+               "unscorable_no_baseline_horizons": len(unscorable_no_baseline_missing_horizons),
                "unscorable_no_baseline_reason": "NO_CLOSED_CANDLE_AT_DECISION_TIME" if unscorable_no_baseline_event_ids else None,
                "unscorable_no_baseline_event_ids_sha256": unscorable_digest,
-               "retention_boundary_policy": "SKIP_AND_COUNT_UNSCORABLE",
+               "unscorable_no_baseline_missing_horizons_sha256": missing_horizons_digest,
+               "retention_boundary_policy": "COUNT_ONLY_WHEN_REQUIRED_HORIZON_OUTCOMES_MISSING",
                "outcome_class_counts": {},
                "output_file": str(output_path), "policy_mutation_enabled": False,
                "execution_enabled": False, "orders_placed": False}
