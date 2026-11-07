@@ -1,4 +1,7 @@
+import json
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from forward.risk_policy_v1 import RiskPolicyV1
 from forward.strategy_gate_pipeline_v1 import inspect_structure, evaluate_gate_evidence
 from forward.strategy_policy_v2 import PolicyDecision, POLICY_VERSION
 
@@ -83,6 +86,32 @@ def test_directional_family_context_is_hashed_and_remains_non_authorizing(monkey
         proposal=p, rows_15m=rows, frames={'15m':rows,'1h':rows,'4h':rows},
         source='gateio_public_spot', symbol='BTC_USDT', observed_at=now,
     )
+    assert r['risk']['state']=='RISK_APPROVED'
+    risk_checks={c['name']:c['state'] for c in r['risk']['checks']}
+    assert set(RiskPolicyV1.REQUIRED) <= set(risk_checks)
+    assert all(risk_checks[name]=='PASS' for name in RiskPolicyV1.REQUIRED)
+    assert r['final_decision']=='NO_TRADE'  # evidence approval is not strategy-family activation
+
+    low_rr=PolicyDecision(POLICY_VERSION,'LONG','LONG',100,100.0,98.0,104.0,2.0,('TEST',),{'policy':'PASS'})
+    low_rr_result=pipeline.evaluate_gate_evidence(
+        proposal=low_rr, rows_15m=rows, frames={'15m':rows,'1h':rows,'4h':rows},
+        source='gateio_public_spot', symbol='BTC_USDT', observed_at=now,
+    )
+    low_rr_checks={c['name']:c['state'] for c in low_rr_result['risk']['checks']}
+    assert low_rr_result['risk']['state']=='RISK_REJECTED'
+    assert low_rr_checks['entry_stop_target_geometry_valid']=='PASS'
+    assert low_rr_checks['risk_reward_gate_passed']=='FAIL'
+
+    invalid_geometry=PolicyDecision(POLICY_VERSION,'LONG','LONG',100,100.0,101.0,106.0,3.0,('TEST',),{'policy':'PASS'})
+    invalid_result=pipeline.evaluate_gate_evidence(
+        proposal=invalid_geometry, rows_15m=rows, frames={'15m':rows,'1h':rows,'4h':rows},
+        source='gateio_public_spot', symbol='BTC_USDT', observed_at=now,
+    )
+    invalid_checks={c['name']:c['state'] for c in invalid_result['risk']['checks']}
+    assert invalid_result['risk']['state']=='RISK_REJECTED'
+    assert invalid_checks['entry_stop_target_geometry_valid']=='FAIL'
+    assert invalid_checks['risk_reward_gate_passed']=='FAIL'
+
     context=r['strategy_family_context']
     assert r['strategy_family_context_status']=='VERIFIED_EVIDENCE_ONLY_NOT_AUTHORIZED'
     assert context['family_id']=='trend_breakout'
@@ -107,3 +136,9 @@ def test_family_routing_is_replay_equivalent_for_all_gate_decisions(monkeypatch)
     assert unrouted['strategy_family_route']['state']=='NO_FAMILY'
     for field in ('structure','confirmation','risk','final_decision','execution_enabled','orders_placed'):
         assert routed[field]==unrouted[field]
+
+
+def test_risk_policy_json_required_checks_match_runtime_contract():
+    policy_path=Path(__file__).resolve().parents[2]/'forward'/'risk_policy_v1.json'
+    policy=json.loads(policy_path.read_text(encoding='utf-8'))
+    assert tuple(policy['required_checks'])==RiskPolicyV1.REQUIRED
