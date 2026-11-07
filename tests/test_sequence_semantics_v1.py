@@ -8,6 +8,7 @@ from forward.sequence_semantics_v1 import (
     SequenceIntegrityV2,
     SequenceSemanticsError,
     SequenceSemanticsRegistryV1,
+    _REGISTRY_CAPABILITY_ISSUER,
 )
 
 
@@ -32,6 +33,7 @@ def caps(**overrides):
         source_content_sha256="b" * 64,
         review_revision="synthetic-test-only",
         status="VERIFIED",
+        _issuer_token=_REGISTRY_CAPABILITY_ISSUER,
     )
     values.update(overrides)
     return SequenceCapabilitiesV1(**values)
@@ -55,6 +57,19 @@ def rec(sequence, *, price="100", session="s1", raw_hash=None):
         value["raw_payload_sha256"] = raw_hash
     return value
 
+
+
+
+def test_capability_cannot_be_forged_by_public_constructor():
+    forged = caps(_issuer_token=None)
+    assert forged.verified is False
+    assert forged.supports_scalar_sequence_integrity is False
+
+
+def test_registry_constructor_rejects_unbound_claimed_digest():
+    payload = {"schema": "hes_sequence_semantics_registry_v1", "records": []}
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_REGISTRY_RAW_BYTES_HASH_MISMATCH"):
+        SequenceSemanticsRegistryV1(payload, raw_sha256="a" * 64)
 
 def test_tabdeal_trade_sequence_is_explicitly_unknown_and_cannot_resolve():
     raw = REGISTRY_PATH.read_bytes()
