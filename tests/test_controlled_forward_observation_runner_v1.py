@@ -34,6 +34,7 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         ws_factory=FakeWS,
         max_runtime_seconds=1,
         sequence_registry=verified_tabdeal_test_registry(),
+        allow_test_registry=True,
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
@@ -207,3 +208,27 @@ def test_runner_uses_pinned_default_registry_and_blocks_unknown_tabdeal_contract
     assert result.status == "BLOCKED"
     assert result.reason == "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED"
     assert not (tmp_path / "session.jsonl").exists()
+
+
+
+def test_runner_rejects_injected_registry_without_explicit_test_mode(tmp_path: Path):
+    class MustNotRunTransport:
+        def __init__(self, **kwargs):
+            raise AssertionError("injected registry must not authorize transport in production mode")
+
+    journal = tmp_path / "journal.jsonl"
+    session = tmp_path / "session.jsonl"
+    runner = ControlledForwardObservationRunnerV1(
+        journal_path=journal,
+        session_path=session,
+        transport_factory=MustNotRunTransport,
+        sequence_registry=verified_tabdeal_test_registry(),
+    )
+    result = runner.run(started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc))
+    assert result.status == "BLOCKED"
+    assert result.reason == "TEST_REGISTRY_INJECTION_NOT_ALLOWED"
+    assert result.diagnostics[0]["network_started"] is False
+    assert result.diagnostics[0]["session_written"] is False
+    assert not session.exists()
+    assert not journal.exists()
+
