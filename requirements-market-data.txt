@@ -1,0 +1,2 @@
+# Optional dependency required for the Gate.io Spot kline WebSocket wake-up transport.
+websocket-client==1.8.0
