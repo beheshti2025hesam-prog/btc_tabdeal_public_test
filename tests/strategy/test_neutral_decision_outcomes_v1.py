@@ -81,3 +81,81 @@ def test_run_skips_retention_boundary_decision_and_continues_valid_records(tmp_p
     assert outcomes[0]["execution_enabled"] is False and outcomes[0]["orders_placed"] is False
     report=json.loads((data/"neutral_decision_outcomes_report_v1.json").read_text())
     assert report["status"]=="PARTIAL_UNSCORABLE"
+
+
+def test_run_does_not_mark_retention_boundary_unscorable_when_all_horizons_are_already_complete(tmp_path):
+    import json
+    data = tmp_path / "data" / "forward"
+    data.mkdir(parents=True)
+    decision = {
+        "event_id": "already-scored-old",
+        "observed_at": "1969-12-31T23:45:00+00:00",
+        "decision": "NO_TRADE",
+        "direction": "NONE",
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+    }
+    candles = [candle(t, 100, 101, 99, 100 + t / 100000) for t in (0, 900, 1800, 2700, 3600)]
+    (data / "trade_journal_v2.jsonl").write_text(json.dumps(decision) + "\n", encoding="utf-8")
+    (data / "global_market_candles_v1.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in candles), encoding="utf-8"
+    )
+    existing = []
+    for horizon in mod.DEFAULT_HORIZONS:
+        existing.append({
+            "schema": mod.SCHEMA,
+            "outcome_id": mod._stable_id(decision["event_id"], horizon),
+            "decision_event_id": decision["event_id"],
+            "horizon": horizon,
+            "horizon_complete": True,
+            "outcome_class": "DIRECTIONLESS_MARKET_CONTEXT",
+        })
+    (data / "neutral_decision_outcomes_v1.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in existing), encoding="utf-8"
+    )
+
+    summary = mod.run(tmp_path)
+    assert summary["status"] == "OK"
+    assert summary["unscorable_no_baseline_decisions"] == 0
+    assert summary["unscorable_no_baseline_horizons"] == 0
+    assert summary["new_records_added"] == 0
+    assert summary["complete_records"] == 3
+
+
+def test_run_counts_only_missing_horizons_for_old_unscorable_decisions(tmp_path):
+    import json
+    data = tmp_path / "data" / "forward"
+    data.mkdir(parents=True)
+    decision = {
+        "event_id": "partially-scored-old",
+        "observed_at": "1969-12-31T23:45:00+00:00",
+        "decision": "NO_TRADE",
+        "direction": "NONE",
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+    }
+    candles = [candle(t, 100, 101, 99, 100 + t / 100000) for t in (0, 900, 1800, 2700, 3600)]
+    (data / "trade_journal_v2.jsonl").write_text(json.dumps(decision) + "\n", encoding="utf-8")
+    (data / "global_market_candles_v1.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in candles), encoding="utf-8"
+    )
+    existing = []
+    for horizon in ("1h", "4h"):
+        existing.append({
+            "schema": mod.SCHEMA,
+            "outcome_id": mod._stable_id(decision["event_id"], horizon),
+            "decision_event_id": decision["event_id"],
+            "horizon": horizon,
+            "horizon_complete": True,
+            "outcome_class": "DIRECTIONLESS_MARKET_CONTEXT",
+        })
+    (data / "neutral_decision_outcomes_v1.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in existing), encoding="utf-8"
+    )
+
+    summary = mod.run(tmp_path)
+    assert summary["status"] == "PARTIAL_UNSCORABLE"
+    assert summary["unscorable_no_baseline_decisions"] == 1
+    assert summary["unscorable_no_baseline_horizons"] == 1
+    assert len(summary["unscorable_no_baseline_event_ids_sha256"]) == 64
+    assert len(summary["unscorable_no_baseline_missing_horizons_sha256"]) == 64
