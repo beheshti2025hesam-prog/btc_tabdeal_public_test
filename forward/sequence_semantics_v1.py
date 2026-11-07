@@ -5,11 +5,14 @@ scope-bound registry record and a pinned primary-source content hash.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import hashlib
 import json
 from pathlib import Path
 from typing import Any
+
+
+_REGISTRY_CAPABILITY_ISSUER = object()
 
 
 class SequenceSemanticsError(ValueError):
@@ -41,11 +44,13 @@ class SequenceCapabilitiesV1:
     source_content_sha256: str
     review_revision: str
     status: str
+    _issuer_token: object | None = field(default=None, repr=False, compare=False)
 
     @property
     def verified(self) -> bool:
         return (
-            self.status == "VERIFIED"
+            self._issuer_token is _REGISTRY_CAPABILITY_ISSUER
+            and self.status == "VERIFIED"
             and _sha256(self.registry_sha256)
             and _sha256(self.source_content_sha256)
             and bool(self.record_id and self.contract_key and self.field_path and self.scope and self.review_revision)
@@ -184,7 +189,17 @@ TABDEAL_TRADE_SEQUENCE_KEY = {
 class SequenceSemanticsRegistryV1:
     SCHEMA = "hes_sequence_semantics_registry_v1"
 
-    def __init__(self, payload: dict[str, Any], *, raw_sha256: str):
+    def __init__(self, payload: dict[str, Any], *, raw_sha256: str, raw_bytes: bytes | None = None):
+        # A digest string alone is not provenance. Bind the supplied payload to
+        # the exact bytes whose digest is being asserted before parsing records.
+        if not isinstance(raw_bytes, bytes) or hashlib.sha256(raw_bytes).hexdigest() != raw_sha256:
+            raise SequenceSemanticsError("SEQUENCE_REGISTRY_RAW_BYTES_HASH_MISMATCH")
+        try:
+            decoded_payload = json.loads(raw_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise SequenceSemanticsError("SEQUENCE_REGISTRY_JSON_INVALID") from exc
+        if decoded_payload != payload:
+            raise SequenceSemanticsError("SEQUENCE_REGISTRY_PAYLOAD_BYTES_MISMATCH")
         if payload.get("schema") != self.SCHEMA:
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_SCHEMA_INVALID")
         records = payload.get("records")
@@ -267,7 +282,7 @@ class SequenceSemanticsRegistryV1:
             payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_JSON_INVALID") from exc
-        return cls(payload, raw_sha256=actual)
+        return cls(payload, raw_sha256=actual, raw_bytes=raw)
 
     @classmethod
     def load_default(cls) -> "SequenceSemanticsRegistryV1":
@@ -314,4 +329,5 @@ class SequenceSemanticsRegistryV1:
             source_content_sha256=evidence["source_content_sha256"],
             review_revision=record["independent_review_revision"],
             status=record["status"],
+            _issuer_token=_REGISTRY_CAPABILITY_ISSUER,
         )
