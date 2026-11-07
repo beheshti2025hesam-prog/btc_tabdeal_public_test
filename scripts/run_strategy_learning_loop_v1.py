@@ -103,6 +103,49 @@ def classify_outcomes_by_gate(outcomes, candidates):
     research_only.extend(row for row in outcomes if id(row) not in linked_row_ids)
     return eligible,research_only
 
+def economic_counts(rows, candidate_by_row_id=None, cost_side=0.0):
+    """Score resolved outcomes using the same linked-candidate fallbacks as the evaluator."""
+    candidate_by_row_id = candidate_by_row_id or {}
+    wins=losses=flats=timeouts=unscorable=0
+    for r in rows:
+        outcome=str(r.get('outcome','')).lower()
+        if outcome not in ('wins','losses','timeouts'):
+            continue
+        if outcome=='timeouts':
+            timeouts+=1
+        candidate=candidate_by_row_id.get(id(r),{})
+        direction=str(r.get('direction') or candidate.get('direction') or '')
+        entry=r.get('entry',candidate.get('entry'))
+        stop=r.get('stop_loss',candidate.get('stop_loss'))
+        target=r.get('take_profit',candidate.get('take_profit'))
+        exit_price=r.get('exit_price')
+        if exit_price is None:
+            reason=str(r.get('reason') or r.get('outcome_reason') or '')
+            if 'STOP_LOSS' in reason or 'STOP_AND_TARGET' in reason:
+                exit_price=stop
+            elif 'TAKE_PROFIT' in reason:
+                exit_price=target
+            else:
+                exit_price=r.get('exit_close')
+        try:
+            entry=float(entry); exit_price=float(exit_price); stop=float(stop)
+            if entry<=0 or exit_price<=0 or stop<=0 or direction not in ('LONG','SHORT'):
+                raise ValueError()
+            gross=(exit_price-entry) if direction=='LONG' else (entry-exit_price)
+            net=gross-(entry+exit_price)*cost_side
+        except (TypeError,ValueError):
+            unscorable+=1
+            continue
+        if net>0:
+            wins+=1
+        elif net<0:
+            losses+=1
+        else:
+            flats+=1
+    resolved=wins+losses+flats
+    return {'wins':wins,'losses':losses,'flats':flats,'timeouts':timeouts,'resolved':resolved,
+            'win_rate_pct':round(100*wins/resolved,2) if resolved else None,'unscorable':unscorable}
+
 def win_rate_target_met(*, resolved, win_rate_pct, unmatched_outcomes, ambiguous_outcomes, unscorable_outcomes, minimum_resolved=100, target_pct=90.0):
     return bool(resolved >= minimum_resolved and win_rate_pct is not None and win_rate_pct > target_pct
                 and unmatched_outcomes == 0 and ambiguous_outcomes == 0 and unscorable_outcomes == 0)
@@ -150,32 +193,8 @@ def main():
    try: cost_cfg=json.loads((ROOT/'forward/paper_risk_context_v1.json').read_text())
    except Exception: cost_cfg={}
    cost_side=float(cost_cfg.get('fee_fraction_per_side',0) or 0)+float(cost_cfg.get('slippage_fraction_per_side',0) or 0)
-   def economic_counts(rows):
-    wins=losses=flats=timeouts=unscorable=0
-    for r in rows:
-     outcome=str(r.get('outcome','')).lower()
-     if outcome not in ('wins','losses','timeouts'): continue
-     if outcome=='timeouts': timeouts+=1
-     try:
-      entry=float(r['entry']); direction=str(r['direction'])
-      exit_price=float(r.get('exit_price') if r.get('exit_price') is not None else r.get('exit_close'))
-      stop=float(r['stop_loss'])
-      if entry<=0 or exit_price<=0 or stop<=0 or direction not in ('LONG','SHORT'): raise ValueError()
-      reason=str(r.get('reason') or r.get('outcome_reason') or '')
-      if outcome=='losses' and ('STOP_LOSS' in reason or 'STOP_AND_TARGET' in reason): exit_price=stop
-      if outcome=='wins' and 'TAKE_PROFIT' in reason: exit_price=float(r.get('take_profit') or exit_price)
-      gross=(exit_price-entry) if direction=='LONG' else (entry-exit_price)
-      net=gross-(entry+exit_price)*cost_side
-     except (KeyError,TypeError,ValueError):
-      unscorable+=1
-      continue
-     if net>0: wins+=1
-     elif net<0: losses+=1
-     else: flats+=1
-    resolved=wins+losses+flats
-    return {'wins':wins,'losses':losses,'flats':flats,'timeouts':timeouts,'resolved':resolved,
-            'win_rate_pct':round(100*wins/resolved,2) if resolved else None,'unscorable':unscorable}
-   ec=economic_counts(eligible_outcomes); pc=economic_counts(preapproval_outcomes); rc=economic_counts(research_only_outcomes)
+   candidate_by_row_id={id(row):candidate for row,candidate in linked_outcomes}
+   ec=economic_counts(eligible_outcomes,candidate_by_row_id,cost_side); pc=economic_counts(preapproval_outcomes,candidate_by_row_id,cost_side); rc=economic_counts(research_only_outcomes,candidate_by_row_id,cost_side)
    wins=ec['wins']; losses=ec['losses']; flats=ec['flats']; timeouts=ec['timeouts']
    resolved=ec['resolved']; wr=ec['win_rate_pct']
    research_wins=rc['wins']; research_losses=rc['losses']; research_timeouts=rc['timeouts']
