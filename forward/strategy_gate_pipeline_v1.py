@@ -58,7 +58,7 @@ def inspect_structure(rows, observed_at):
             "events":event_names,"policy_note":"Versioned causal swing policy; pivot requires two right-side closed contiguous candles."}
 
 def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observed_at):
-    """Evaluate structure/confirmation evidence; risk fails closed pending approved portfolio policy."""
+    """Evaluate structure, confirmation and bounded paper-risk evidence; never execute."""
     obs=_dt(observed_at); structure=inspect_structure(rows_15m,obs)
     direction=getattr(proposal,"direction","NONE")
     regime=structure["regime"]
@@ -83,10 +83,27 @@ def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observ
     confirmation=ConfirmationEngineV1(ConfirmationPolicyV1()).evaluate(observed_at=obs,candidate=candidate,checks=checks)
     # Wire the declared observation-only risk policy. Portfolio/account/cost
     # evidence remains UNKNOWN, so this can never grant risk approval by itself.
-    geometry_ok=(getattr(proposal,"entry",None) is not None and
-                 getattr(proposal,"stop_loss",None) is not None and
-                 getattr(proposal,"take_profit",None) is not None and
-                 getattr(proposal,"rr",0) >= 3.0)
+    entry_value = getattr(proposal, "entry", None)
+    stop_value = getattr(proposal, "stop_loss", None)
+    target_value = getattr(proposal, "take_profit", None)
+    geometry_ok = False
+    rr_ok = False
+    try:
+        entry_decimal = Decimal(str(entry_value))
+        stop_decimal = Decimal(str(stop_value))
+        target_decimal = Decimal(str(target_value))
+        if all(value.is_finite() and value > 0 for value in
+               (entry_decimal, stop_decimal, target_decimal)):
+            if direction == "LONG":
+                geometry_ok = stop_decimal < entry_decimal < target_decimal
+            elif direction == "SHORT":
+                geometry_ok = target_decimal < entry_decimal < stop_decimal
+            if geometry_ok:
+                actual_rr = abs(target_decimal - entry_decimal) / abs(entry_decimal - stop_decimal)
+                rr_ok = actual_rr >= Decimal("3.0")
+    except (ArithmeticError, TypeError, ValueError):
+        geometry_ok = False
+        rr_ok = False
     cfg_path=Path(__file__).with_name("paper_risk_context_v1.json")
     cfg=json.loads(cfg_path.read_text()) if cfg_path.is_file() else {}
     sizing=None
@@ -107,7 +124,8 @@ def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observ
       RiskCheck("portfolio_exposure","PASS" if risk_context_ok else "UNKNOWN","simulation_only:no_open_live_positions",obs),
       RiskCheck("account_equity_and_sizing","PASS" if risk_context_ok else "UNKNOWN","simulation_equity_and_position_sizing",obs),
       RiskCheck("execution_cost_model","PASS" if risk_context_ok else "UNKNOWN","assumption_based_fee_slippage; funding_not_modeled_for_spot_proxy",obs),
-      RiskCheck("stop_and_reward_geometry","PASS" if geometry_ok else "FAIL","policy:entry-stop-target-min-3R",obs),
+      RiskCheck("entry_stop_target_geometry_valid","PASS" if geometry_ok else "FAIL","policy:entry-stop-target-directional-order",obs),
+      RiskCheck("risk_reward_gate_passed","PASS" if rr_ok else "FAIL","policy:minimum-3R",obs),
     )
     risk=RiskGateV1(RiskPolicyV1()).evaluate(observed_at=obs,confirmation=confirmation,checks=risk_checks)
     # Persist a family-bound evidence envelope only when the independently
