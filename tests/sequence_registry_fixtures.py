@@ -38,5 +38,5 @@ def verified_tabdeal_test_registry():
     }
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return SequenceSemanticsRegistryV1(
-        payload, raw_sha256=hashlib.sha256(raw).hexdigest()
+        payload, raw_sha256=hashlib.sha256(raw).hexdigest(), raw_bytes=raw
     )
