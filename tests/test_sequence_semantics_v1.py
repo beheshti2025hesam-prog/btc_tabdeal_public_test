@@ -71,6 +71,18 @@ def test_registry_constructor_rejects_unbound_claimed_digest():
     with pytest.raises(SequenceSemanticsError, match="SEQUENCE_REGISTRY_RAW_BYTES_HASH_MISMATCH"):
         SequenceSemanticsRegistryV1(payload, raw_sha256="a" * 64)
 
+def test_registry_rejects_payload_not_matching_hashed_bytes():
+    raw_payload = {"schema": "hes_sequence_semantics_registry_v1", "records": []}
+    claimed_payload = {"schema": "hes_sequence_semantics_registry_v1", "records": [{"record_id": "forged"}]}
+    raw = json.dumps(raw_payload).encode()
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_REGISTRY_PAYLOAD_BYTES_MISMATCH"):
+        SequenceSemanticsRegistryV1(
+            claimed_payload,
+            raw_sha256=hashlib.sha256(raw).hexdigest(),
+            raw_bytes=raw,
+        )
+
+
 def test_tabdeal_trade_sequence_is_explicitly_unknown_and_cannot_resolve():
     raw = REGISTRY_PATH.read_bytes()
     registry = SequenceSemanticsRegistryV1.load(
