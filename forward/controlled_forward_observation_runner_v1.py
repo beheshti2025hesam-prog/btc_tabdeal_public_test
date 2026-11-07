@@ -14,6 +14,7 @@ from .forward_observation_path_v1 import ForwardObservationPathV1
 from .observation_session_manager_v1 import ObservationSessionManagerV1
 from .sequence_integrity_diagnostic_journal_v1 import SequenceIntegrityDiagnosticJournalV1
 from .tabdeal_transport_v1 import TabdealReadOnlyTransportV1
+from .sequence_semantics_v1 import SequenceSemanticsRegistryV1, SequenceSemanticsError
 
 
 @dataclass(frozen=True)
@@ -46,17 +47,16 @@ class ControlledForwardObservationRunnerV1:
         max_runtime_seconds: float = 60.0,
         diagnostics_path: str | Path | None = None,
         max_records: int = 100_000,
-        sequence_contract_verified: bool = False,
-        sequence_contract_evidence_ref: str | None = None,
+        sequence_registry: SequenceSemanticsRegistryV1 | None = None,
+        allow_test_registry: bool = False,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
         if max_records <= 0:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
-        self.sequence_contract_verified = sequence_contract_verified is True and bool(
-            isinstance(sequence_contract_evidence_ref, str) and sequence_contract_evidence_ref.strip()
-        )
+        self.sequence_registry = sequence_registry
+        self.allow_test_registry = allow_test_registry is True
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -77,21 +77,27 @@ class ControlledForwardObservationRunnerV1:
             raise ValueError("started_at must be timezone-aware")
         now = now.astimezone(timezone.utc)
 
-        # Do not open a socket or create even a session record until the upstream
-        # sequence semantics are verified against an authoritative evidence reference.
-        if not self.sequence_contract_verified:
+        # Production always uses the code-pinned registry. Synthetic registry injection
+        # is an explicit test-only escape hatch and is denied by default.
+        if self.sequence_registry is not None and not self.allow_test_registry:
             return ControlledObservationRunnerResult(
-                run_id="NOT_STARTED",
-                status="BLOCKED",
-                records_received=0,
+                run_id="NOT_STARTED", status="BLOCKED", records_received=0,
                 journal_path=str(self.journal_path),
-                reason="UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
-                snapshot_id=None,
-                diagnostics=({
-                    "network_started": False,
-                    "session_written": False,
-                    "sequence_contract_evidence_required": True,
-                },),
+                reason="TEST_REGISTRY_INJECTION_NOT_ALLOWED", snapshot_id=None,
+                diagnostics=({"network_started": False, "session_written": False},),
+            )
+        # Resolve exact-scope semantics from the code-pinned registry before any socket/session.
+        try:
+            registry = self.sequence_registry or SequenceSemanticsRegistryV1.load_default()
+            sequence_capabilities = registry.resolve_tabdeal_trade_sequence()
+        except SequenceSemanticsError as exc:
+            return ControlledObservationRunnerResult(
+                run_id="NOT_STARTED", status="BLOCKED", records_received=0,
+                journal_path=str(self.journal_path),
+                reason="UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED", snapshot_id=None,
+                diagnostics=({"network_started": False, "session_written": False,
+                             "sequence_contract_evidence_required": True,
+                             "registry_reason": str(exc)},),
             )
 
         session = self.session_manager.start(started_at=now)
@@ -189,7 +195,10 @@ class ControlledForwardObservationRunnerV1:
             )
 
         observed_at = datetime.now(timezone.utc)
-        result = ForwardObservationPathV1(self.journal_path, max_records=self.max_records).observe(
+        result = ForwardObservationPathV1(
+            self.journal_path, max_records=self.max_records,
+            sequence_capabilities=sequence_capabilities,
+        ).observe(
             records,
             as_of=observed_at,
             forward_run_id=session.run_id,
@@ -199,7 +208,7 @@ class ControlledForwardObservationRunnerV1:
                 **event,
                 "transport_frame_fingerprints": frame_metadata_by_sequence.get(str(event.get("sequence")), []),
             }
-            if event.get("reason") == "CONFLICTING_DUPLICATE_SEQUENCE"
+            if event.get("reason") == "CONFLICTING_DUPLICATE_IDENTITY"
             else event
             for event in result.diagnostics
         )

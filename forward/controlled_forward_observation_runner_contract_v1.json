@@ -1,9 +1,10 @@
 {
   "schema": "hes_controlled_forward_observation_runner_v1",
   "status": "ACTIVE_FAIL_CLOSED",
-  "purpose": "Prevent live observation from starting while upstream trade.sequence semantics are unverified",
-  "sequence_contract_verified_default": false,
-  "sequence_contract_evidence_ref_required": true,
+  "purpose": "Prevent live observation from starting unless exact-scope sequence semantics are resolved from the pinned registry",
+  "sequence_registry_required": true,
+  "registry_sha256_pinned_in_code": true,
+  "tabdeal_broadcast_sequence_status": "UNKNOWN",
   "block_reason": "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
   "block_before_network": true,
   "block_before_session_write": true,

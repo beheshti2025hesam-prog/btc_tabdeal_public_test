@@ -6,6 +6,7 @@ from typing import Any
 
 from .clean_evidence_sequence_gate_v1 import CleanEvidenceSequenceGateV1
 from .sequence_candle_integration_v1 import SequenceAwareCandleIngestionV1
+from .sequence_semantics_v1 import SequenceCapabilitiesV1
 
 
 @dataclass(frozen=True)
@@ -17,17 +18,18 @@ class CleanEvidenceCandleResult:
 
 
 class CleanEvidenceCandleGateV1:
-    def evaluate(self, records: list[dict[str, Any]], *, as_of) -> CleanEvidenceCandleResult:
+    def evaluate(self, records: list[dict[str, Any]], *, as_of,
+                 capabilities: SequenceCapabilitiesV1 | None = None) -> CleanEvidenceCandleResult:
         if not records:
             return CleanEvidenceCandleResult(False, (), (), "NO_FORWARD_RECORDS")
 
-        sequence_result = CleanEvidenceSequenceGateV1().evaluate(records)
+        sequence_result = CleanEvidenceSequenceGateV1().evaluate(records, capabilities=capabilities)
         if not sequence_result.safe:
             return CleanEvidenceCandleResult(
                 False, (), (), sequence_result.reason or "SEQUENCE_UNSAFE"
             )
 
-        integration = SequenceAwareCandleIngestionV1()
+        integration = SequenceAwareCandleIngestionV1(capabilities=capabilities)
         try:
             result = integration.ingest(records, as_of=as_of)
         except (TypeError, ValueError):

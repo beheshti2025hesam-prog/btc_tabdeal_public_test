@@ -1,0 +1,850 @@
+{
+  "schema": "hes_sequence_semantics_registry_v1",
+  "registry_version": 1,
+  "policy": "NO_RUNTIME_CAPABILITY_UNLESS_STATUS_VERIFIED_AND_SOURCE_HASH_REVIEW_PINS_PASS",
+  "records": [
+    {
+      "record_id": "tabdeal_fapi_broadcast_trade_sequence_v1",
+      "key": {
+        "venue": "tabdeal",
+        "product": "fapi_margin",
+        "endpoint": "wss://api1.tabdeal.org/special_margin/broadcast/",
+        "channel": "raw_text_symbol_subscription",
+        "message_type": "trade_envelope",
+        "field_path": "trade.sequence",
+        "protocol_version": "unknown"
+      },
+      "semantic_class": "OPAQUE_METADATA",
+      "scope": [
+        "venue",
+        "product",
+        "endpoint",
+        "channel",
+        "symbol",
+        "connection_id",
+        "session_id"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "reconnect_rule": "NEW_SESSION_EPOCH_NO_CROSS_SESSION_COMPARISON",
+      "duplicate_rule": "ONLY_IDENTICAL_RAW_PAYLOAD_MAY_BE_IDEMPOTENT; REPEATED_FIELD_VALUE_IS_NOT_IDENTITY",
+      "gap_rule": "NEVER_INFER_MISSING_EVENTS_FROM_NUMERIC_DIFFERENCES",
+      "source_evidence": {
+        "url": "https://docs.tabdeal.org/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-10",
+        "source_content_sha256": null,
+        "evidence_status": "INNER_TRADE_SCHEMA_NOT_DOCUMENTED",
+        "evidence_note": "The public documentation describes a trade envelope but does not define the inner trade object or trade.sequence semantics."
+      },
+      "status": "UNKNOWN",
+      "last_verified": "2026-10-10",
+      "confidence": "high_for_reviewed_public_contract_absence_low_for_runtime_semantics",
+      "normalized_field_path": "sequence"
+    },
+    {
+      "record_id": "tabdeal_fapi_agg_depth_rest_sequence_v1",
+      "key": {
+        "venue": "tabdeal",
+        "product": "fapi_margin",
+        "endpoint": "https://api.tabdeal.org/r/fapi/v1/aggDepth",
+        "channel": "rest_response",
+        "message_type": "aggregate_depth_snapshot",
+        "field_path": "sequence",
+        "protocol_version": "unknown"
+      },
+      "semantic_class": "OPAQUE_METADATA",
+      "scope": [
+        "venue",
+        "product",
+        "endpoint",
+        "symbol",
+        "request"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "reconnect_rule": "NO_CROSS_REQUEST_OR_CHANNEL_COMPARISON",
+      "duplicate_rule": "NO_IDENTITY_OR_CONFLICT_RULE",
+      "gap_rule": "NO_GAP_DETECTION",
+      "source_evidence": {
+        "url": "https://docs.tabdeal.org/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-10",
+        "source_content_sha256": null,
+        "evidence_status": "FIELD_SHOWN_SEMANTICS_NOT_DOCUMENTED",
+        "evidence_note": "A sequence field appears in an aggregate-depth REST example; its relation to WebSocket depth or broadcast messages is not documented."
+      },
+      "status": "UNKNOWN",
+      "last_verified": "2026-10-10",
+      "confidence": "high_for_reviewed_public_contract_absence_low_for_runtime_semantics"
+    },
+    {
+      "record_id": "binance_spot_diff_depth_v1",
+      "key": {
+        "venue": "binance",
+        "product": "spot",
+        "endpoint": "wss://stream.binance.com:9443/ws/<symbol>@depth",
+        "channel": "diff_depth",
+        "message_type": "depthUpdate",
+        "field_path": "U..u",
+        "protocol_version": "spot_websocket_streams_current"
+      },
+      "semantic_class": "BOOK_UPDATE_RANGE",
+      "scope": [
+        "venue",
+        "product",
+        "symbol",
+        "depth_stream_session"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "true_within_stream_scope",
+        "contiguous": "true_within_stream_scope",
+        "ordered": "true_within_stream_scope",
+        "comparable_across_reconnect": "false",
+        "comparable_across_symbols": "false",
+        "comparable_across_channels": "false"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "bootstrap_rule": "BUFFER_WEBSOCKET_FETCH_REST_SNAPSHOT_DISCARD_u_LE_SNAPSHOT_ID_FIRST_APPLICABLE_RANGE_MUST_COVER_SNAPSHOT_ID",
+      "gap_rule": "IF_NEXT_U_GT_LOCAL_u_PLUS_1_DISCARD_BOOK_AND_RESTART_SNAPSHOT_BOOTSTRAP",
+      "reconnect_rule": "NEW_SESSION_AND_FRESH_SNAPSHOT_BOOTSTRAP",
+      "source_evidence": {
+        "url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "Official documentation defines U as first update ID, u as final update ID, snapshot lastUpdateId bootstrap, and U > local u + 1 as a missed-update condition. Pin a source snapshot/hash before enabling this record."
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "confidence": "high_for_documented_procedure"
+    },
+    {
+      "record_id": "binance_spot_trade_id_v1",
+      "key": {
+        "venue": "binance",
+        "product": "spot",
+        "endpoint": "wss://stream.binance.com:9443/ws/<symbol>@trade",
+        "channel": "trade",
+        "message_type": "trade",
+        "field_path": "t",
+        "protocol_version": "spot_websocket_streams_current"
+      },
+      "semantic_class": "TRADE_IDENTIFIER",
+      "scope": [
+        "venue",
+        "product",
+        "symbol",
+        "trade_stream"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "false",
+        "comparable_across_channels": "false"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "duplicate_rule": "TRADE_ID_LABEL_ALONE_DOES_NOT_AUTHORIZE_DEDUPLICATION_OR_ORDERING",
+      "source_evidence": {
+        "url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "The trade payload labels t as Trade ID; this registry does not infer uniqueness, monotonicity, or continuity without a pinned exact contract."
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "confidence": "high_for_field_label_low_for_unstated_semantics"
+    },
+    {
+      "record_id": "tabdeal_spot_depth_v1",
+      "key": {
+        "venue": "tabdeal",
+        "product": "spot",
+        "endpoint": "wss://api.tabdeal.org/",
+        "channel": "spot_depth",
+        "message_type": "depthUpdate",
+        "field_path": "none",
+        "protocol_version": "docs_0.9.0"
+      },
+      "semantic_class": "NO_SEQUENCE_FIELD",
+      "scope": [
+        "venue",
+        "product",
+        "endpoint",
+        "channel",
+        "symbol"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "UNKNOWN",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://docs.tabdeal.org/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "CONTRACT_SEMANTICS_UNKNOWN",
+        "evidence_note": "Spot depth sample exposes timestamp and bid/ask arrays but no documented sequence/update-range field."
+      }
+    },
+    {
+      "record_id": "tabdeal_fapi_depth_v1",
+      "key": {
+        "venue": "tabdeal",
+        "product": "fapi_futures_margin",
+        "endpoint": "wss://api1.tabdeal.org/special_margin/stream/",
+        "channel": "depth_topic",
+        "message_type": "depthUpdate",
+        "field_path": "none",
+        "protocol_version": "docs_0.9.0"
+      },
+      "semantic_class": "NO_SEQUENCE_FIELD",
+      "scope": [
+        "venue",
+        "product",
+        "endpoint",
+        "channel",
+        "symbol",
+        "period"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "UNKNOWN",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://docs.tabdeal.org/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "CONTRACT_SEMANTICS_UNKNOWN",
+        "evidence_note": "FAPI depth sample exposes e,E,s,b,a but no sequence/update-range linkage."
+      }
+    },
+    {
+      "record_id": "binance_spot_agg_trade_id_v1",
+      "key": {
+        "venue": "binance",
+        "product": "spot",
+        "endpoint": "wss://stream.binance.com:9443/ws/<symbol>@aggTrade",
+        "channel": "aggTrade",
+        "message_type": "aggTrade",
+        "field_path": "a",
+        "protocol_version": "spot_websocket_streams_current"
+      },
+      "semantic_class": "TRADE_IDENTIFIER",
+      "scope": [
+        "venue",
+        "product",
+        "symbol",
+        "channel"
+      ],
+      "claims": {
+        "unique": "documented_identifier",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "a is the aggregate trade ID; no order-book gap semantics are inferred."
+      }
+    },
+    {
+      "record_id": "binance_usdm_diff_depth_v1",
+      "key": {
+        "venue": "binance",
+        "product": "usdm_futures",
+        "endpoint": "wss://fstream.binance.com/ws/<symbol>@depth",
+        "channel": "diff_depth",
+        "message_type": "depthUpdate",
+        "field_path": "U..u;pu",
+        "protocol_version": "usdm_websocket_streams_current"
+      },
+      "semantic_class": "BOOK_UPDATE_RANGE",
+      "scope": [
+        "venue",
+        "product",
+        "symbol",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "documented_within_stream_scope",
+        "contiguous": "documented_linkage",
+        "ordered": "true_within_stream_scope",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEW_REQUIRED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/How-to-manage-a-local-order-book-correctly",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "Exact current USDⓈ-M schema and synchronization procedure still requires source pinning before any capability is enabled."
+      }
+    },
+    {
+      "record_id": "okx_books_link_v1",
+      "key": {
+        "venue": "okx",
+        "product": "spot_and_derivatives",
+        "endpoint": "wss://ws.okx.com:8443/ws/v5/public",
+        "channel": "books/books-l2-tbt/books50-l2-tbt",
+        "message_type": "books_update",
+        "field_path": "prevSeqId->seqId",
+        "protocol_version": "okx_v5"
+      },
+      "semantic_class": "BOOK_UPDATE_LINK",
+      "scope": [
+        "venue",
+        "product",
+        "instId",
+        "channel",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "linked_with_resets",
+        "contiguous": "not_numeric_contiguous",
+        "ordered": "true_within_instrument_scope",
+        "comparable_across_reconnect": "false",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://www.okx.com/docs-v5/en/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "prevSeqId must link to prior seqId; equality can be keepalive; lower seqId may be maintenance reset/new epoch."
+      }
+    },
+    {
+      "record_id": "okx_public_trade_id_v1",
+      "key": {
+        "venue": "okx",
+        "product": "spot_and_derivatives",
+        "endpoint": "wss://ws.okx.com:8443/ws/v5/public",
+        "channel": "trades",
+        "message_type": "trade",
+        "field_path": "tradeId",
+        "protocol_version": "okx_v5"
+      },
+      "semantic_class": "TRADE_IDENTIFIER",
+      "scope": [
+        "venue",
+        "product",
+        "instId",
+        "channel"
+      ],
+      "claims": {
+        "unique": "documented_trade_identifier",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://www.okx.com/docs-v5/en/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "tradeId is a trade identifier, not the books sequence."
+      }
+    },
+    {
+      "record_id": "bybit_orderbook_v1",
+      "key": {
+        "venue": "bybit",
+        "product": "spot_linear_inverse",
+        "endpoint": "wss://stream.bybit.com/v5/public/<category>",
+        "channel": "orderbook.{depth}.{symbol}",
+        "message_type": "snapshot_or_delta",
+        "field_path": "u;seq",
+        "protocol_version": "bybit_v5"
+      },
+      "semantic_class": "BOOK_UPDATE_ID",
+      "scope": [
+        "venue",
+        "product",
+        "symbol",
+        "topic",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "not_guaranteed",
+        "ordered": "channel_scoped",
+        "comparable_across_reconnect": "false",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "u is update ID, seq cross sequence; repeated u snapshots and u=1 service restart are documented; snapshots replace local book."
+      }
+    },
+    {
+      "record_id": "bybit_public_trade_v1",
+      "key": {
+        "venue": "bybit",
+        "product": "spot_linear_inverse",
+        "endpoint": "wss://stream.bybit.com/v5/public/<category>",
+        "channel": "publicTrade.{symbol}",
+        "message_type": "publicTrade",
+        "field_path": "i;seq",
+        "protocol_version": "bybit_v5"
+      },
+      "semantic_class": "TRADE_IDENTIFIER",
+      "scope": [
+        "venue",
+        "product",
+        "symbol",
+        "channel",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": "trade_id_scoped",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "seq_is_cross_sequence_not_trade_order",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://bybit-exchange.github.io/docs/v5/websocket/public/trade",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "i is trade ID; seq can repeat across messages and is not per-trade identity."
+      }
+    },
+    {
+      "record_id": "coinbase_exchange_feed_sequence_v1",
+      "key": {
+        "venue": "coinbase",
+        "product": "exchange_spot",
+        "endpoint": "wss://ws-feed.exchange.coinbase.com",
+        "channel": "full_or_match_feed",
+        "message_type": "feed_message",
+        "field_path": "sequence",
+        "protocol_version": "exchange_websocket_feed_current"
+      },
+      "semantic_class": "ORDERED_EVENT_SEQUENCE",
+      "scope": [
+        "venue",
+        "product_id",
+        "channel",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": true,
+        "monotonic": true,
+        "contiguous": true,
+        "ordered": true,
+        "comparable_across_reconnect": "false",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://docs.cdp.coinbase.com/exchange/websocket-feed/overview",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "Exchange feed sequence is increasing per product; gaps indicate dropped messages for covered feed messages; not transferable to Advanced Trade."
+      }
+    },
+    {
+      "record_id": "coinbase_advanced_trade_sequence_v1",
+      "key": {
+        "venue": "coinbase",
+        "product": "advanced_trade",
+        "endpoint": "wss://advanced-trade-ws.coinbase.com",
+        "channel": "channel_specific",
+        "message_type": "unknown",
+        "field_path": "sequence",
+        "protocol_version": "advanced_trade_current"
+      },
+      "semantic_class": "UNKNOWN",
+      "scope": [
+        "venue",
+        "product",
+        "channel",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "UNKNOWN",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://docs.cdp.coinbase.com/advanced-trade/docs/ws-overview",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "CONTRACT_SEMANTICS_UNKNOWN",
+        "evidence_note": "Do not copy Coinbase Exchange sequence semantics into Advanced Trade."
+      }
+    },
+    {
+      "record_id": "kraken_spot_v2_book_checksum_v1",
+      "key": {
+        "venue": "kraken",
+        "product": "spot",
+        "endpoint": "wss://ws.kraken.com/v2",
+        "channel": "book",
+        "message_type": "snapshot_or_update",
+        "field_path": "checksum",
+        "protocol_version": "spot_websocket_v2"
+      },
+      "semantic_class": "CHECKSUM",
+      "scope": [
+        "venue",
+        "product",
+        "symbol",
+        "channel",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "application_processing_order_not_numeric_sequence",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://docs.kraken.com/api/docs/websocket-v2/book/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "Use snapshot/update and CRC32 checksum; no numeric sequence capability is recorded."
+      }
+    },
+    {
+      "record_id": "kraken_futures_book_seq_v1",
+      "key": {
+        "venue": "kraken",
+        "product": "futures",
+        "endpoint": "wss://futures.kraken.com/ws/v1",
+        "channel": "book",
+        "message_type": "book_snapshot_or_delta",
+        "field_path": "seq",
+        "protocol_version": "futures_websocket_v1"
+      },
+      "semantic_class": "OPAQUE_METADATA",
+      "scope": [
+        "venue",
+        "product_id",
+        "subscription",
+        "connection_session"
+      ],
+      "claims": {
+        "unique": "unknown",
+        "monotonic": "unknown",
+        "contiguous": "unknown",
+        "ordered": "unknown",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://docs.kraken.com/api/docs/futures-api/websocket/book/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "seq is present but global uniqueness, contiguity and cross-session comparison are not established."
+      }
+    },
+    {
+      "record_id": "gateio_spot_candle_open_time_v1",
+      "key": {
+        "venue": "gateio",
+        "product": "spot",
+        "endpoint": "https://api.gateio.ws/api/v4/spot/candlesticks",
+        "channel": "rest_candlesticks",
+        "message_type": "candle",
+        "field_path": "t",
+        "protocol_version": "gate_api_v4"
+      },
+      "semantic_class": "TIME_BUCKET_KEY",
+      "scope": [
+        "venue",
+        "product",
+        "currency_pair",
+        "interval",
+        "open_time_bucket"
+      ],
+      "claims": {
+        "unique": "per_symbol_interval_bucket",
+        "monotonic": "unknown",
+        "contiguous": "interval_calendar_not_sequence",
+        "ordered": "by_open_time_only",
+        "comparable_across_reconnect": "unknown",
+        "comparable_across_symbols": "unknown",
+        "comparable_across_channels": "unknown"
+      },
+      "capabilities": {
+        "event_identity": false,
+        "ordered_event_sequence": false,
+        "contiguous_gap_detection": false,
+        "book_update_range": false,
+        "prev_current_link": false,
+        "checksum_validation": false,
+        "snapshot_bootstrap": false,
+        "exact_payload_replay_only": false
+      },
+      "status": "SOURCE_REVIEWED_UNPINNED",
+      "last_verified": "2026-10-30",
+      "source_evidence": {
+        "url": "https://www.gate.com/docs/developers/apiv4/en/",
+        "source_kind": "primary",
+        "retrieved_at": "2026-10-30",
+        "source_content_sha256": null,
+        "evidence_status": "SOURCE_REVIEWED_HASH_PIN_PENDING",
+        "evidence_note": "Candle open time is a bucket key; it is not a generic event sequence. HES current Gate.io feed consumes closed OHLCV candles."
+      }
+    }
+  ]
+}

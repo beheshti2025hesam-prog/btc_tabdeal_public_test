@@ -1,4 +1,4 @@
-"""Sequence-aware boundary from fresh Tabdeal trades to closed 15m candles."""
+"""Capability-gated boundary from verified ordered trade events to candles."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,7 +6,11 @@ from typing import Any, Iterable
 
 from .candle_normalizer_v1 import Candle15m, IntervalGap
 from .forward_tabdeal_ingestion_v1 import ingest_closed_candles
-from .sequence_integrity_v1 import SequenceEvent, SequenceIntegrityV1
+from .sequence_semantics_v1 import (
+    SequenceCapabilitiesV1,
+    SequenceEventV2,
+    SequenceIntegrityV2,
+)
 
 
 class SequenceCandleResult:
@@ -14,7 +18,7 @@ class SequenceCandleResult:
         self,
         candles: tuple[Candle15m, ...],
         gaps: tuple[IntervalGap, ...],
-        events: tuple[SequenceEvent, ...],
+        events: tuple[SequenceEventV2, ...],
     ) -> None:
         self.candles = candles
         self.gaps = gaps
@@ -23,15 +27,23 @@ class SequenceCandleResult:
     @property
     def safe_for_decision(self) -> bool:
         return not any(
-            event.status in {"REJECT_STREAM", "ANOMALY"} for event in self.events
+            event.status in {"BLOCKED", "REJECT_STREAM", "ANOMALY"}
+            for event in self.events
         )
 
 
 class SequenceAwareCandleIngestionV1:
-    """Sequence-check first; candle normalization only receives safe records."""
+    """Only a registry-verified scalar sequence may gate this legacy trade path."""
 
-    def __init__(self, *, max_sequence_records: int = 100_000) -> None:
-        self.sequence = SequenceIntegrityV1(max_records=max_sequence_records)
+    def __init__(
+        self,
+        *,
+        capabilities: SequenceCapabilitiesV1 | None = None,
+        max_sequence_records: int = 100_000,
+    ) -> None:
+        self.sequence = SequenceIntegrityV2(
+            capabilities, max_records=max_sequence_records
+        )
 
     def ingest(
         self,
@@ -40,7 +52,7 @@ class SequenceAwareCandleIngestionV1:
         as_of: datetime,
     ) -> SequenceCandleResult:
         safe: list[dict[str, Any]] = []
-        events: list[SequenceEvent] = []
+        events: list[SequenceEventV2] = []
 
         for record in records:
             event = self.sequence.observe(record)
@@ -50,7 +62,6 @@ class SequenceAwareCandleIngestionV1:
             elif event.status == "IDEMPOTENT_DUPLICATE":
                 continue
             else:
-                # Never feed an ambiguous stream into candle formation.
                 return SequenceCandleResult((), (), tuple(events))
 
         candles, gaps = ingest_closed_candles(safe, as_of=as_of)

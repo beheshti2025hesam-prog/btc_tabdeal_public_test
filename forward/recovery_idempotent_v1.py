@@ -1,8 +1,11 @@
-"""Restart/reconnect-safe forward continuity controller."""
+"""Restart/reconnect controller with explicit sequence capability scope."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
-from .sequence_integrity_v1 import SequenceIntegrityV1
+
+from .sequence_semantics_v1 import SequenceCapabilitiesV1, SequenceIntegrityV2
+
 
 @dataclass(frozen=True)
 class RecoveryEvent:
@@ -10,10 +13,11 @@ class RecoveryEvent:
     status: str
     reason: str | None = None
 
+
 class ForwardRecoveryControllerV1:
-    def __init__(self) -> None:
+    def __init__(self, *, capabilities: SequenceCapabilitiesV1 | None = None) -> None:
         self.segment_id = 0
-        self.sequence = SequenceIntegrityV1()
+        self.sequence = SequenceIntegrityV2(capabilities)
         self.reconnects = 0
 
     def start(self) -> RecoveryEvent:
