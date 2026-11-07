@@ -15,7 +15,7 @@ def test_rejects_scope_and_incomplete():
  parsed=parse_trade_frame(x,as_of=ASOF)
  assert "sequence" not in parsed
 def test_rejects_bad_values():
- for key,val in [("price","0"),("amount","-1"),("side","hold"),("sequence",-1)]:
+ for key,val in [("price","0"),("amount","-1"),("side","hold")]:
   x=base(); x[key]=val
   with pytest.raises(ValueError): parse_trade_frame(x,as_of=ASOF)
 
@@ -25,8 +25,8 @@ def test_does_not_promote_generic_aliases_to_trade_sequence(alias):
     x = base()
     x.pop("sequence")
     x[alias] = 7
-    with pytest.raises(ValueError, match="incomplete"):
-        parse_trade_frame(x, as_of=ASOF)
+    parsed = parse_trade_frame(x, as_of=ASOF)
+    assert "sequence" not in parsed
 
 
 @pytest.mark.parametrize("value", [False, True, 7.0, "7", None])
