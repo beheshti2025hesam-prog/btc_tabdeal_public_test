@@ -89,3 +89,40 @@ def test_preapproval_paper_cohort_does_not_change_official_gate_classification()
     preapproval=[row for row,c in linked if c.get('preapproval_paper_eligible') is True]
     assert preapproval == outcomes
     assert unmatched == 0 and ambiguous == 0
+
+def test_timeout_scoring_uses_linked_candidate_geometry_like_evaluator():
+    outcome = {
+        'candidate_event_id':'cand-timeout',
+        'direction':'SHORT',
+        'outcome':'timeouts',
+        'reason':'MAX_HOLD_24H',
+        'exit_price':100.0,
+        'exit_close':100.0,
+    }
+    candidate = {
+        'candidate_event_id':'cand-timeout',
+        'direction':'SHORT',
+        'entry':99.0,
+        'stop_loss':102.0,
+        'take_profit':90.0,
+    }
+    metrics = mod.economic_counts([outcome], {id(outcome):candidate}, cost_side=0.0)
+    assert metrics['timeouts'] == 1
+    assert metrics['losses'] == 1
+    assert metrics['resolved'] == 1
+    assert metrics['unscorable'] == 0
+
+
+def test_unlinked_timeout_without_candidate_geometry_stays_unscorable():
+    outcome = {
+        'direction':'SHORT',
+        'outcome':'timeouts',
+        'reason':'MAX_HOLD_24H',
+        'exit_price':100.0,
+        'exit_close':100.0,
+    }
+    metrics = mod.economic_counts([outcome], {}, cost_side=0.0)
+    assert metrics['timeouts'] == 1
+    assert metrics['losses'] == 0
+    assert metrics['resolved'] == 0
+    assert metrics['unscorable'] == 1
