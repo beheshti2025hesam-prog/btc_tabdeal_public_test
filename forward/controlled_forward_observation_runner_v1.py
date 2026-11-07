@@ -48,6 +48,7 @@ class ControlledForwardObservationRunnerV1:
         diagnostics_path: str | Path | None = None,
         max_records: int = 100_000,
         sequence_registry: SequenceSemanticsRegistryV1 | None = None,
+        allow_test_registry: bool = False,
     ) -> None:
         if max_runtime_seconds <= 0:
             raise ValueError("max_runtime_seconds must be positive")
@@ -55,6 +56,7 @@ class ControlledForwardObservationRunnerV1:
             raise ValueError("max_records must be positive")
         self.max_records = max_records
         self.sequence_registry = sequence_registry
+        self.allow_test_registry = allow_test_registry is True
         self.journal_path = Path(journal_path)
         self.session_path = Path(session_path)
         self.diagnostics_path = (
@@ -75,6 +77,15 @@ class ControlledForwardObservationRunnerV1:
             raise ValueError("started_at must be timezone-aware")
         now = now.astimezone(timezone.utc)
 
+        # Production always uses the code-pinned registry. Synthetic registry injection
+        # is an explicit test-only escape hatch and is denied by default.
+        if self.sequence_registry is not None and not self.allow_test_registry:
+            return ControlledObservationRunnerResult(
+                run_id="NOT_STARTED", status="BLOCKED", records_received=0,
+                journal_path=str(self.journal_path),
+                reason="TEST_REGISTRY_INJECTION_NOT_ALLOWED", snapshot_id=None,
+                diagnostics=({"network_started": False, "session_written": False},),
+            )
         # Resolve exact-scope semantics from the code-pinned registry before any socket/session.
         try:
             registry = self.sequence_registry or SequenceSemanticsRegistryV1.load_default()
