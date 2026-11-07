@@ -1,0 +1,16 @@
+{
+  "policy_id": "HES_PAPER_RISK_CONTEXT_V1",
+  "version": "1.0.0",
+  "status": "SIMULATION_ONLY_NOT_LIVE_APPROVAL",
+  "scope": {"source": "gateio_public_spot", "symbol": "BTC_USDT", "timeframe": "15m"},
+  "initial_simulated_equity_usdt": 10000.0,
+  "risk_fraction_per_trade": 0.005,
+  "max_notional_fraction": 1.0,
+  "fee_fraction_per_side": 0.001,
+  "slippage_fraction_per_side": 0.0005,
+  "funding_cost_model": "NOT_APPLICABLE_TO_SPOT_PROXY; FUTURES FUNDING NOT MODELED",
+  "leverage": 1,
+  "rr_minimum": 3.0,
+  "assumption_notice": "Explicit test assumptions only, not verified Gate.io fees, not user account equity, not live trading permission. Paper PnL must be labeled assumption-based until calibrated against intended instrument and actual fee tier.",
+  "safety": {"historical_inputs_allowed_for_decision": false, "live_execution_enabled": false, "orders_placed": false, "fail_closed_on_missing_or_invalid_data": true}
+}

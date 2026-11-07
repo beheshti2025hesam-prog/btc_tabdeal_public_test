@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 340" role="img" aria-labelledby="title desc">
+  <title id="title">HES monogram</title>
+  <desc id="desc">The original interwoven HES monogram supplied by the owner.</desc>
+  <g fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M60 175 C35 175 15 160 15 135 V55 C15 32 32 15 55 15 C78 15 95 32 95 55 V150"/>
+    <path d="M95 150 V310"/>
+    <path d="M240 30 V150"/>
+    <path d="M95 165 H270 C295 165 315 185 315 210 V270 C315 295 295 315 270 315 C245 315 225 295 225 270 V195"/>
+  </g>
+</svg>

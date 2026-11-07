@@ -1,6 +1,9 @@
 name: Clean Forward Evidence Verification v1
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -12,6 +15,7 @@ permissions:
 
 jobs:
   evidence-boundary:
+    name: Clean Forward Evidence Verification v1
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

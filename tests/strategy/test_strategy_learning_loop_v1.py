@@ -1,0 +1,128 @@
+import json, importlib.util
+from pathlib import Path
+
+SCRIPT = Path(__file__).resolve().parents[2] / 'scripts' / 'run_strategy_learning_loop_v1.py'
+spec = importlib.util.spec_from_file_location('strategy_learning_loop_v1', SCRIPT)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+def test_read_jsonl_counts_and_rejects_malformed(tmp_path):
+    p = tmp_path / 'evidence.jsonl'
+    p.write_text(json.dumps({'decision':'NO_TRADE'}) + '\n' + '\n')
+    assert mod.read_jsonl(p) == [{'decision':'NO_TRADE'}]
+    p.write_text('{not-json}\n')
+    try:
+        mod.read_jsonl(p)
+    except RuntimeError as exc:
+        assert 'malformed evidence' in str(exc)
+    else:
+        raise AssertionError('malformed evidence must fail closed')
+
+def test_hash_is_stable_and_missing_evidence_is_none(tmp_path):
+    p = tmp_path / 'evidence.jsonl'
+    assert mod.sha(p) is None
+    p.write_text('{"x":1}\n')
+    first = mod.sha(p)
+    assert len(first) == 64 and mod.sha(p) == first
+
+def test_learning_loop_source_is_read_only_and_hypothesis_only():
+    source = SCRIPT.read_text()
+    assert "'mode':'READ_ONLY_HYPOTHESIS_ONLY'" in source
+    assert "'policy_mutation_enabled':False" in source
+    assert "'execution_enabled':False" in source
+    assert 'time.sleep(300)' in source
+
+
+def test_only_gate_approved_candidates_count_as_strategy_performance():
+    outcomes = [
+        {'candidate_time': 100, 'outcome': 'losses'},
+        {'candidate_time': 200, 'outcome': 'wins'},
+        {'candidate_time': 300, 'outcome': 'timeouts'},
+        {'candidate_time': 400, 'outcome': 'losses'},
+    ]
+    candidates = [
+        {'candidate_time': 100, 'final_gate_decision': 'NO_TRADE'},
+        {'candidate_time': 200, 'final_gate_decision': 'LONG'},
+        {'candidate_time': 300, 'final_gate_decision': 'NO_TRADE'},
+    ]
+    eligible, research = mod.classify_outcomes_by_gate(outcomes, candidates)
+    assert [x['candidate_time'] for x in eligible] == [200]
+    assert [x['candidate_time'] for x in research] == [100, 300, 400]
+
+
+def test_stable_candidate_ids_are_used_before_legacy_timestamp_fallback():
+    outcomes = [
+        {'candidate_event_id':'cand-A','candidate_time':100,'outcome':'wins'},
+        {'candidate_event_id':'cand-B','candidate_time':100,'outcome':'losses'},
+        {'candidate_time':100,'outcome':'wins'},
+    ]
+    candidates = [
+        {'candidate_event_id':'cand-A','candidate_time':100,'final_gate_decision':'LONG'},
+        {'candidate_event_id':'cand-B','candidate_time':100,'final_gate_decision':'NO_TRADE'},
+    ]
+    linked, unmatched, ambiguous = mod.link_outcomes_to_candidates(outcomes, candidates)
+    assert len(linked) == 2
+    assert unmatched == 1 and ambiguous == 1
+    eligible, research = mod.classify_outcomes_by_gate(outcomes, candidates)
+    assert [x['candidate_event_id'] for x in eligible] == ['cand-A']
+    assert len(research) == 2
+
+
+def test_win_rate_claim_requires_minimum_sample_and_clean_linkage():
+    args = dict(resolved=30, win_rate_pct=90.0, unmatched_outcomes=0,
+                ambiguous_outcomes=0, unscorable_outcomes=0)
+    assert mod.win_rate_target_met(**args, minimum_resolved=30, target_pct=90.0) is False
+    assert mod.win_rate_target_met(**{**args, 'win_rate_pct':90.01}, minimum_resolved=30, target_pct=90.0) is True
+    assert mod.win_rate_target_met(**{**args, 'resolved':29}, minimum_resolved=30, target_pct=90.0) is False
+    assert mod.win_rate_target_met(**{**args, 'unmatched_outcomes':1}, minimum_resolved=30, target_pct=90.0) is False
+    assert mod.win_rate_target_met(**{**args, 'unscorable_outcomes':1}, minimum_resolved=30, target_pct=90.0) is False
+
+
+def test_preapproval_paper_cohort_does_not_change_official_gate_classification():
+    outcomes=[{'candidate_event_id':'cand-paper','candidate_time':100,'outcome':'wins'}]
+    candidates=[{'candidate_event_id':'cand-paper','candidate_time':100,
+                 'final_gate_decision':'NO_TRADE','preapproval_paper_eligible':True}]
+    eligible,research=mod.classify_outcomes_by_gate(outcomes,candidates)
+    assert eligible == []
+    assert len(research) == 1
+    linked,unmatched,ambiguous=mod.link_outcomes_to_candidates(outcomes,candidates)
+    preapproval=[row for row,c in linked if c.get('preapproval_paper_eligible') is True]
+    assert preapproval == outcomes
+    assert unmatched == 0 and ambiguous == 0
+
+def test_timeout_scoring_uses_linked_candidate_geometry_like_evaluator():
+    outcome = {
+        'candidate_event_id':'cand-timeout',
+        'direction':'SHORT',
+        'outcome':'timeouts',
+        'reason':'MAX_HOLD_24H',
+        'exit_price':100.0,
+        'exit_close':100.0,
+    }
+    candidate = {
+        'candidate_event_id':'cand-timeout',
+        'direction':'SHORT',
+        'entry':99.0,
+        'stop_loss':102.0,
+        'take_profit':90.0,
+    }
+    metrics = mod.economic_counts([outcome], {id(outcome):candidate}, cost_side=0.0)
+    assert metrics['timeouts'] == 1
+    assert metrics['losses'] == 1
+    assert metrics['resolved'] == 1
+    assert metrics['unscorable'] == 0
+
+
+def test_unlinked_timeout_without_candidate_geometry_stays_unscorable():
+    outcome = {
+        'direction':'SHORT',
+        'outcome':'timeouts',
+        'reason':'MAX_HOLD_24H',
+        'exit_price':100.0,
+        'exit_close':100.0,
+    }
+    metrics = mod.economic_counts([outcome], {}, cost_side=0.0)
+    assert metrics['timeouts'] == 1
+    assert metrics['losses'] == 0
+    assert metrics['resolved'] == 0
+    assert metrics['unscorable'] == 1

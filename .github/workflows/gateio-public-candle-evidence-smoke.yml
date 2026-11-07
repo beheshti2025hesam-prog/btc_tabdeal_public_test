@@ -1,0 +1,147 @@
+name: Gate.io Public Candle Evidence Smoke v1
+on:
+  push:
+    branches:
+      - feat/mother-v2-orchestration-rebased-20261101
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  gateio-public-candle-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout exact PR head or pushed commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Assert exact candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          echo "EXACT_CHECKOUT_SHA=$(git rev-parse HEAD)"
+      - name: Verify live public Gate.io Spot candle contract
+        run: |
+          mkdir -p artifacts
+          python - <<'PY'
+          import hashlib
+          import json
+          import time
+          from decimal import Decimal, InvalidOperation
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+
+          base = "https://api.gateio.ws/api/v4/spot/candlesticks"
+          profiles = {"1m": 60, "15m": 900, "1h": 3600, "4h": 14400}
+          report = {
+              "schema_version": 1,
+              "status": "PASS",
+              "venue": "gateio",
+              "product": "spot",
+              "symbol": "BTC_USDT",
+              "source": "https://api.gateio.ws/api/v4/spot/candlesticks",
+              "retrieved_at_utc": None,
+              "execution_enabled": False,
+              "candle_schema_contract": "gateio_spot_candlestick_v2",
+              "trade_count_available": False,
+              "taker_buy_flow_available": False,
+              "profiles": {},
+          }
+
+          def dec(value, name):
+              if not isinstance(value, str):
+                  raise ValueError(f"{name}_not_wire_string")
+              try:
+                  result = Decimal(value)
+              except (InvalidOperation, ValueError) as exc:
+                  raise ValueError(f"{name}_not_decimal") from exc
+              if not result.is_finite():
+                  raise ValueError(f"{name}_not_finite")
+              return result
+
+          for interval, seconds in profiles.items():
+              query = urlencode({"currency_pair": "BTC_USDT", "interval": interval, "limit": 5})
+              request = Request(
+                  base + "?" + query,
+                  headers={"Accept": "application/json", "User-Agent": "HES-Gateio-Evidence-Smoke/1.0"},
+                  method="GET",
+              )
+              with urlopen(request, timeout=10) as response:
+                  if response.status != 200:
+                      raise RuntimeError(f"gateio_http_{response.status}")
+                  raw = response.read()
+              response_received_s = int(time.time())
+              raw_sha = hashlib.sha256(raw).hexdigest()
+              rows = json.loads(raw.decode("utf-8"))
+              if not isinstance(rows, list) or not rows:
+                  raise ValueError("empty_or_invalid_candle_response")
+              parsed = []
+              for row in rows:
+                  if not isinstance(row, list) or len(row) != 8:
+                      raise ValueError("gateio_candle_schema_drift_expected_8_fields")
+                  open_s = int(row[0])
+                  # Gate.io Spot order: timestamp, quote volume, close, high, low,
+                  # open, base volume, closed-window flag.
+                  if row[7] not in ("true", "false"):
+                      raise ValueError("gateio_closed_window_flag_invalid")
+                  venue_closed = row[7] == "true"
+                  quote, close, high, low, open_, volume = (
+                      dec(row[1], "quote_volume"), dec(row[2], "close"),
+                      dec(row[3], "high"), dec(row[4], "low"),
+                      dec(row[5], "open"), dec(row[6], "base_volume")
+                  )
+                  if min(open_, high, low, close) <= 0 or min(volume, quote) < 0:
+                      raise ValueError("invalid_ohlcv_sign")
+                  if high < max(open_, low, close) or low > min(open_, high, close):
+                      raise ValueError("invalid_ohlc_bounds")
+                  if open_s % seconds:
+                      raise ValueError("misaligned_candle_timestamp")
+                  if not venue_closed or open_s + seconds > response_received_s:
+                      continue
+                  parsed.append({
+                      "open_time_s": open_s,
+                      "close_time_s": open_s + seconds - 1,
+                      "open": str(open_), "high": str(high), "low": str(low), "close": str(close),
+                      "base_volume": str(volume), "quote_volume": str(quote),
+                  })
+              parsed.sort(key=lambda candle: candle["open_time_s"])
+              if len(parsed) < 3:
+                  raise ValueError("insufficient_closed_candles")
+              parsed = parsed[-3:]
+              for previous, current in zip(parsed, parsed[1:]):
+                  if current["open_time_s"] - previous["open_time_s"] != seconds:
+                      raise ValueError("closed_candle_gap_or_duplicate")
+              age_s = response_received_s - parsed[-1]["close_time_s"]
+              if age_s < 0 or age_s > seconds + 60:
+                  raise ValueError("latest_closed_candle_stale")
+              report["profiles"][interval] = {
+                  "endpoint": "/api/v4/spot/candlesticks",
+                  "wire_field_count": 8,
+                  "closed_flag_field": "string boolean at index 7",
+                  "request_query": {"currency_pair": "BTC_USDT", "interval": interval, "limit": 5},
+                  "raw_response_sha256": raw_sha,
+                  "response_received_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(response_received_s)),
+                  "closed_candles_checked": len(parsed),
+                  "latest_closed_open_time_s": parsed[-1]["open_time_s"],
+                  "latest_closed_close_time_s": parsed[-1]["close_time_s"],
+                  "latest_closed_age_seconds": age_s,
+                  "latest_closed_candle": parsed[-1],
+                  "continuity": "PASS",
+                  "trade_count": "UNKNOWN_NOT_PROVIDED",
+                  "taker_buy_flow": "UNKNOWN_NOT_PROVIDED",
+              }
+          report["retrieved_at_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+          with open("artifacts/gateio-public-candle-evidence.json", "w", encoding="utf-8") as out:
+              json.dump(report, out, sort_keys=True, separators=(",", ":"))
+          print(json.dumps(report, sort_keys=True, separators=(",", ":")))
+          PY
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: gateio-public-candle-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/gateio-public-candle-evidence.json
+          if-no-files-found: error

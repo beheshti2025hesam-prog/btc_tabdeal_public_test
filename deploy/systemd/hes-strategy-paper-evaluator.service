@@ -1,0 +1,30 @@
+[Unit]
+Description=HES Gate.io V2 Forward Paper Evaluator
+After=network-online.target hes-global-market-data-gateio.service hes-global-market-data-gateio-1h.service hes-global-market-data-gateio-4h.service
+Wants=network-online.target
+StartLimitIntervalSec=1h
+StartLimitBurst=2
+ConditionPathExists=/opt/hes-trade-agent/current/scripts/run_strategy_policy_v2_forward_eval.py
+ConditionPathExists=/opt/hes-trade-agent/data/forward/global_market_candles_v1.jsonl
+
+[Service]
+Type=simple
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent/current
+Environment=HES_DATA_ROOT=/opt/hes-trade-agent
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/current/scripts/run_strategy_policy_v2_forward_eval.py
+# Recovery attempts are governed by the audited five-minute HES monitor.
+# Do not let systemd bypass its per-service hourly budget or health preflight.
+Restart=no
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0027
+ReadWritePaths=/opt/hes-trade-agent/data/forward /opt/hes-trade-agent/logs
+
+[Install]
+WantedBy=multi-user.target

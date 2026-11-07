@@ -1,6 +1,10 @@
 name: Forward Integration Verification v1
 
 on:
+  push:
+    branches:
+      - main
+      - forward/integration-gate-test-2026-10-07
   pull_request:
     branches:
       - main
@@ -12,6 +16,7 @@ permissions:
 
 jobs:
   integration:
+    name: Forward Integration Verification v1
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
