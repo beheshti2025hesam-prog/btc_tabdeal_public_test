@@ -20,7 +20,7 @@ from .risk_policy_v1 import RiskPolicyV1
 from .strategy_family_router_v1 import route_strategy_family
 from .strategy_family_context_v1 import build_strategy_family_context, verify_strategy_family_context
 
-PIPELINE_VERSION = "hes-strategy-gate-pipeline-v1.0.0"
+PIPELINE_VERSION = "hes-strategy-gate-pipeline-v1.0.1"
 
 def _dt(value: Any) -> datetime:
     if isinstance(value, datetime): return value.astimezone(timezone.utc)
@@ -74,11 +74,18 @@ def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observ
         structure_labels=structure["labels"],structure_events=structure["events"])
     expected_direction="LONG" if candidate.state=="CANDIDATE_LONG" else "SHORT" if candidate.state=="CANDIDATE_SHORT" else "NONE"
     aligned=(direction==expected_direction and direction!="NONE")
-    event_ok=("BOS_BULLISH" in structure["events"] or "CHOCH_BULLISH" in structure["events"]) if direction=="LONG" else ("BOS_BEARISH" in structure["events"] or "CHOCH_BEARISH" in structure["events"]) if direction=="SHORT" else False
+    # Structural-event presence belongs to the independently detected candidate,
+    # not to the strategy proposal. A NO_TRADE proposal has direction NONE and
+    # must not erase valid structure evidence for a LONG/SHORT candidate.
+    event_direction=expected_direction
+    event_ok=("BOS_BULLISH" in structure["events"] or "CHOCH_BULLISH" in structure["events"]) if event_direction=="LONG" else ("BOS_BEARISH" in structure["events"] or "CHOCH_BEARISH" in structure["events"]) if event_direction=="SHORT" else False
+    candidate_ref=f"proposal_decision:{getattr(proposal,'decision','UNKNOWN')};candidate:{candidate.state}"
+    alignment_ref=f"proposal_direction:{direction};candidate_direction:{expected_direction};regime:{regime}"
+    event_ref=f"candidate_direction:{expected_direction};matching_event_present:{event_ok}"
     checks=(
-      ConfirmationCheck("candidate_valid","PASS" if candidate.state in ("CANDIDATE_LONG","CANDIDATE_SHORT") else "FAIL","policy:"+str(getattr(proposal,"decision","UNKNOWN")),obs),
-      ConfirmationCheck("direction_regime_alignment","PASS" if aligned else "FAIL" if regime!="UNKNOWN" else "UNKNOWN","structure:"+structure["regime"],obs),
-      ConfirmationCheck("structural_event_present","PASS" if event_ok else "FAIL" if structure["status"]=="OBSERVED" else "UNKNOWN","structure:events",obs),
+      ConfirmationCheck("candidate_valid","PASS" if candidate.state in ("CANDIDATE_LONG","CANDIDATE_SHORT") else "FAIL",candidate_ref,obs),
+      ConfirmationCheck("direction_regime_alignment","PASS" if aligned else "FAIL" if regime!="UNKNOWN" else "UNKNOWN",alignment_ref,obs),
+      ConfirmationCheck("structural_event_present","PASS" if event_ok else "FAIL" if structure["status"]=="OBSERVED" else "UNKNOWN",event_ref,obs),
     )
     confirmation=ConfirmationEngineV1(ConfirmationPolicyV1()).evaluate(observed_at=obs,candidate=candidate,checks=checks)
     # Wire the declared observation-only risk policy. Portfolio/account/cost
