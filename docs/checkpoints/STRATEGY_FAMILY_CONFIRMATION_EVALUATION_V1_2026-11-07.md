@@ -50,3 +50,10 @@ Add the missing family-specific confirmation and evaluation contracts without re
 6. Keep the global three-signal daily ceiling, paper-only mode, and explicit user authorization requirement.
 
 **Decision:** safe family-specific confirmation/evaluation contracts are now available for review; runtime wiring and Range strategy acceptance remain OPEN; live execution stays OFF.
+
+
+## Second-pass hardening
+
+- Candidate confirmation now requires canonical Gate.io source binding, a valid evidence SHA-256, exact canonical symbol/timeframe, and non-empty contemporaneous evidence references.
+- The family evaluator now requires the upstream family report itself to be PASS, and malformed check objects or cost-model hashes fail closed.
+- Final isolated-worktree verification after these corrections: **21 focused tests passed; 1,197 full-suite tests passed + 82 subtests**, warnings treated as errors; `git diff --check` passed.
