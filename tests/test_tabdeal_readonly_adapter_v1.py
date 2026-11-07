@@ -1,4 +1,6 @@
 from datetime import datetime,timezone
+import json
+from pathlib import Path
 import pytest
 from forward.tabdeal_readonly_adapter_v1 import parse_trade_frame
 ASOF=datetime(2026,10,7,7,0,tzinfo=timezone.utc)
@@ -47,3 +49,17 @@ def test_missing_optional_sequence_metadata_does_not_reject_core_trade():
     assert parsed["price"] == "100"
     assert parsed["amount"] == "0.1"
     assert "sequence" not in parsed
+
+
+
+def test_contract_keeps_sequence_opaque_and_requires_raw_evidence_before_capture():
+    contract_path = Path(__file__).resolve().parents[1] / "forward" / "tabdeal_readonly_adapter_contract_v1.json"
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    assert contract["sequence_required"] is False
+    assert contract["sequence_semantics"] == "UNKNOWN_OPAQUE_OPTIONAL_METADATA"
+    assert contract["sequence_value_coercion"] is False
+    assert contract["sequence_identity_enabled"] is False
+    assert contract["sequence_ordering_enabled"] is False
+    assert contract["raw_payload_persistence_required_before_any_capture"] is True
+    assert contract["received_at_and_event_timestamp_required_before_any_capture"] is True
+    assert contract["runtime_ingestion_enabled"] is False
