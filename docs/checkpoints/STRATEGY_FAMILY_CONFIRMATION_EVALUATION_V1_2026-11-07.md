@@ -14,13 +14,13 @@ Add the missing family-specific confirmation and evaluation contracts without re
 - `forward/strategy_family_confirmation_v1.py`
   - Trend delegates to the existing `ConfirmationPolicyV1` unchanged (three required checks).
   - Range has its own eight-check contract: candidate validity, persistent RANGE evidence, boundary location, reversal trigger, direction/regime alignment, directional flow confirmation, structure confirmation, and cost-adjusted geometry.
-  - Both paths require exact family/version/symbol/timeframe/regime/direction/time binding and contemporaneous PASS evidence.
+  - Both paths require exact family/version/source/symbol/timeframe/regime/direction/time binding, a valid candidate evidence digest, and contemporaneous PASS evidence.
   - Range returns `RESEARCH_CONFIRMED_LONG/SHORT`, never the `CONFIRMED_LONG/SHORT` state accepted by the shared Risk Gate. The Risk Gate remains the common independent veto.
   - Every result explicitly carries `confirmation_authority=false`, `candidate_generation_authorized=false`, `execution_enabled=false`, and `orders_placed=false`.
 - `forward/strategy_family_evaluation_v1.py`
   - Requires separate, non-overlapping Trend and Range family cohorts; mixed family IDs or reused cohort IDs fail closed.
   - Requires >=100 eligible resolved outcomes per family, strict win rate >90% (exactly 90% fails), positive net expectancy after costs, profit factor >1, valid drawdown reporting, verified fee/slippage evidence, and >=100 independently evidenced OOS outcomes per family with the same strict performance requirements.
-  - Validates report and OOS hashes, outcome-count arithmetic, win-rate arithmetic, and cost-model hashes.
+  - Validates upstream report status, report and OOS hashes, outcome-count arithmetic, win-rate arithmetic, and cost-model hashes; malformed check/report payloads fail closed.
   - Combines daily actionable counts across both families and enforces one global maximum of three per UTC day; it is a cap, not a quota.
   - A performance PASS never authorizes strategy activation, candidate generation, risk approval, or execution. The Range family remains `RESEARCH_ONLY_NOT_ACTIVE`.
 - New deterministic tests in `tests/strategy/test_strategy_family_confirmation_v1.py` and `tests/strategy/test_strategy_family_evaluation_v1.py`.
@@ -35,8 +35,8 @@ Add the missing family-specific confirmation and evaluation contracts without re
 
 ## Verification
 
-- Focused new tests: **18 passed** with warnings treated as errors.
-- Full repository test suite on this branch: **1,194 passed, 82 subtests passed in 14.14s**, warnings treated as errors.
+- Focused new tests: **21 passed** with warnings treated as errors.
+- Full repository test suite on this branch: **1,197 passed, 82 subtests passed in 11.39s**, warnings treated as errors.
 - `git diff --check`: passed.
 - Base is exactly current `main` at the start of this work; work occurred in a separate Git worktree so the sole VPS root checkout and its 372 pre-existing dirty/untracked entries were not touched.
 

@@ -29,6 +29,8 @@ def make_route(family):
 def make_candidate(route, direction="LONG"):
     state = "CANDIDATE_LONG" if direction == "LONG" else "CANDIDATE_SHORT"
     return {
+        "source": "gateio_public_spot",
+        "evidence_sha256": "d" * 64,
         "family_id": route["family_id"],
         "family_version": route["family_version"],
         "state": state,
@@ -114,6 +116,14 @@ def test_family_confirmation_rejects_spoofed_family_version_or_stale_check():
     bad_candidate = evaluate_strategy_family_confirmation(route=route, candidate=candidate, checks=make_checks(RANGE_REQUIRED_CHECKS), observed_at=OBS)
     assert bad_candidate.state == "UNCONFIRMED"
     candidate = make_candidate(route)
+    candidate["source"] = "untrusted_source"
+    bad_source = evaluate_strategy_family_confirmation(route=route, candidate=candidate, checks=make_checks(RANGE_REQUIRED_CHECKS), observed_at=OBS)
+    assert bad_source.state == "UNCONFIRMED"
+    candidate = make_candidate(route)
+    candidate["evidence_sha256"] = "not-a-digest"
+    bad_digest = evaluate_strategy_family_confirmation(route=route, candidate=candidate, checks=make_checks(RANGE_REQUIRED_CHECKS), observed_at=OBS)
+    assert bad_digest.state == "UNCONFIRMED"
+    candidate = make_candidate(route)
     stale = list(make_checks(RANGE_REQUIRED_CHECKS))
     stale[0] = ConfirmationCheck(stale[0].name, "PASS", "stale", datetime(2026, 11, 7, 19, 59, tzinfo=timezone.utc))
     bad_time = evaluate_strategy_family_confirmation(route=route, candidate=candidate, checks=stale, observed_at=OBS)
@@ -128,3 +138,10 @@ def test_family_confirmation_rejects_duplicate_checks_and_authority_tampering():
     route["execution_enabled"] = True
     tampered = evaluate_strategy_family_confirmation(route=route, candidate=make_candidate(route), checks=make_checks(RANGE_REQUIRED_CHECKS), observed_at=OBS)
     assert tampered.state == "UNCONFIRMED"
+
+
+def test_invalid_check_objects_fail_closed_without_raising():
+    route = make_route("range_mean_reversion")
+    result = evaluate_strategy_family_confirmation(route=route, candidate=make_candidate(route), checks=(None,), observed_at=OBS)
+    assert result.state == "UNCONFIRMED"
+    assert result.reason_codes == ("CONFIRMATION_CHECK_INVALID",)

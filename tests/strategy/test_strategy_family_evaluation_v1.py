@@ -26,7 +26,7 @@ def cost_model():
 def oos_report(family_id, version, cost):
     report = {
         "status": "PASS", "family_id": family_id, "family_version": version,
-        "resolved_closed_trade_count": 100, "wins": 91, "losses": 9, "breakevens": 0,
+        "resolved_closed_trade_count": 100, "wins": 91, "losses": 9, "breakevens": 0, "timeouts": 1,
         "win_rate_pct": 91.0, "net_expectancy_after_costs": 0.25,
         "profit_factor_after_costs": 2.0, "maximum_drawdown": 0.08,
         "cost_model": cost, "evidence_sha256": "b" * 64,
@@ -38,7 +38,7 @@ def oos_report(family_id, version, cost):
 def family_report(family_id, version, cohort_id, daily):
     cost = cost_model()
     report = {
-        "schema": SCHEMA, "family_id": family_id, "family_version": version,
+        "schema": SCHEMA, "status": "PASS", "family_id": family_id, "family_version": version,
         "cohort_family_ids": [family_id], "cohort_id": cohort_id,
         "risk_policy_status": "PASS", "execution_enabled": False, "orders_placed": False,
         "resolved_closed_trade_count": 100, "wins": 91, "losses": 9, "breakevens": 0,
@@ -114,3 +114,21 @@ def test_invalid_hash_or_unverified_cost_model_fails_closed():
     result = evaluate_family_acceptance(reports)
     assert result["status"] == "NOT_MET"
     assert "VERIFIED_FEE_SLIPPAGE_MODEL_MISSING" in result["families"]["range_mean_reversion"]["reason_codes"]
+
+
+def test_upstream_family_report_must_itself_be_passed():
+    reports = valid_reports()
+    reports["range_mean_reversion"]["status"] = "NOT_MET"
+    reports["range_mean_reversion"]["report_sha256"] = digest(reports["range_mean_reversion"], "report_sha256")
+    result = evaluate_family_acceptance(reports)
+    assert result["status"] == "NOT_MET"
+    assert "FAMILY_REPORT_NOT_ACCEPTED_BY_UPSTREAM_EVALUATOR" in result["families"]["range_mean_reversion"]["reason_codes"]
+
+
+def test_corrupt_cost_model_hash_fails_closed():
+    reports = valid_reports()
+    reports["trend_breakout"]["cost_model"]["model_sha256"] = "0" * 64
+    reports["trend_breakout"]["report_sha256"] = digest(reports["trend_breakout"], "report_sha256")
+    result = evaluate_family_acceptance(reports)
+    assert result["status"] == "NOT_MET"
+    assert "VERIFIED_FEE_SLIPPAGE_MODEL_MISSING" in result["families"]["trend_breakout"]["reason_codes"]

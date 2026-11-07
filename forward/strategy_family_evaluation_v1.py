@@ -40,15 +40,19 @@ def _digest(value: Mapping[str, Any], field: str) -> str:
 
 
 def _validate_cost(cost: Any) -> bool:
-    return (
+    if not (
         isinstance(cost, Mapping) and cost.get("status") == "VERIFIED"
         and cost.get("fees_slippage_verified") is True
         and _sha(cost.get("evidence_sha256"))
         and _finite(cost.get("fee_fraction_per_side")) and cost["fee_fraction_per_side"] >= 0
         and _finite(cost.get("slippage_fraction_per_side")) and cost["slippage_fraction_per_side"] >= 0
         and _sha(cost.get("model_sha256"))
-        and _digest(cost, "model_sha256") == cost.get("model_sha256")
-    )
+    ):
+        return False
+    try:
+        return _digest(cost, "model_sha256") == cost.get("model_sha256")
+    except (TypeError, ValueError):
+        return False
 
 
 def _validate_oos(oos: Any, family_id: str, family_version: str, cost: Mapping[str, Any]) -> list[str]:
@@ -59,8 +63,9 @@ def _validate_oos(oos: Any, family_id: str, family_version: str, cost: Mapping[s
         reasons.append("INDEPENDENT_OOS_FAMILY_MISMATCH")
     count = oos.get("resolved_closed_trade_count")
     ow, ol, ob = oos.get("wins"), oos.get("losses"), oos.get("breakevens")
+    ot = oos.get("timeouts")
     if (type(count) is not int or count < MINIMUM_RESOLVED_TRADES
-            or any(type(v) is not int or v < 0 for v in (ow, ol, ob))
+            or any(type(v) is not int or v < 0 for v in (ow, ol, ob, ot))
             or count != ow + ol + ob):
         reasons.append("INDEPENDENT_OOS_SAMPLE_TOO_SMALL_OR_INVALID")
     rate = oos.get("win_rate_pct")
@@ -109,6 +114,8 @@ def evaluate_family_acceptance(reports: Mapping[str, Any]) -> dict[str, Any]:
             continue
         if report.get("schema") != SCHEMA or report.get("family_id") != family_id or report.get("family_version") != profile.version:
             reasons.append("FAMILY_REPORT_ID_OR_VERSION_MISMATCH")
+        if report.get("status") != "PASS":
+            reasons.append("FAMILY_REPORT_NOT_ACCEPTED_BY_UPSTREAM_EVALUATOR")
         if report.get("cohort_family_ids") != [family_id]:
             reasons.append("CROSS_FAMILY_COHORT_MIXING_FORBIDDEN")
         cohort_id = report.get("cohort_id")

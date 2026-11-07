@@ -8,12 +8,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Mapping, Sequence
 
 from .confirmation_engine_v1 import ConfirmationCheck
 from .confirmation_policy_v1 import ConfirmationPolicyV1
 from .strategy_family_router_v1 import (
+    CANONICAL_SOURCE,
+    CANONICAL_SYMBOL,
     RANGE_MEAN_REVERSION_RESEARCH_V1,
+    SETUP_TIMEFRAME,
     TREND_BREAKOUT_V2,
 )
 
@@ -65,10 +69,6 @@ class StrategyFamilyConfirmation:
         }
 
 
-def _get(value: Any, key: str, default=None):
-    return value.get(key, default) if isinstance(value, Mapping) else getattr(value, key, default)
-
-
 def _utc(value: Any) -> datetime | None:
     if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         return None
@@ -79,7 +79,8 @@ def _blocked(family_id, family_version, checks, required_count, reason):
     checks = tuple(checks)
     return StrategyFamilyConfirmation(
         family_id, family_version, "UNCONFIRMED",
-        sum(c.state == "PASS" for c in checks), required_count, checks, (reason,),
+        sum(isinstance(c, ConfirmationCheck) and c.state == "PASS" for c in checks),
+        required_count, checks, (reason,),
     )
 
 
@@ -112,11 +113,16 @@ def evaluate_strategy_family_confirmation(
 
     obs = _utc(observed_at)
     candidate_time = _utc(candidate.get("observed_at"))
+    candidate_digest = candidate.get("evidence_sha256")
+    digest_valid = (isinstance(candidate_digest, str) and len(candidate_digest) == 64
+                    and all(ch in "0123456789abcdef" for ch in candidate_digest.lower()))
     state = candidate.get("state")
     direction = candidate.get("direction")
     expected_direction = {"CANDIDATE_LONG": "LONG", "CANDIDATE_SHORT": "SHORT"}.get(state)
     if (
-        obs is None or candidate_time != obs
+        obs is None or candidate_time != obs or not digest_valid
+        or route.get("symbol") != CANONICAL_SYMBOL or route.get("timeframe") != SETUP_TIMEFRAME
+        or candidate.get("source") != CANONICAL_SOURCE
         or candidate.get("family_id") != family_id
         or candidate.get("family_version") != family_version
         or candidate.get("symbol") != route.get("symbol")
@@ -143,7 +149,9 @@ def evaluate_strategy_family_confirmation(
     names = [c.name for c in normalized_checks]
     if len(names) != len(set(names)):
         return _blocked(family_id, family_version, normalized_checks, len(required), "DUPLICATE_CONFIRMATION_CHECK")
-    if any(c.state not in ("PASS", "FAIL", "UNKNOWN") or _utc(c.observed_at) != obs for c in normalized_checks):
+    if any(c.state not in ("PASS", "FAIL", "UNKNOWN") or _utc(c.observed_at) != obs
+           or not isinstance(c.evidence_ref, str) or not c.evidence_ref.strip()
+           for c in normalized_checks):
         return _blocked(family_id, family_version, normalized_checks, len(required), "CONFIRMATION_EVIDENCE_TIME_OR_STATE_INVALID")
     by_name = {c.name: c for c in normalized_checks}
     missing = tuple(name for name in required if name not in by_name)
@@ -159,7 +167,7 @@ def evaluate_strategy_family_confirmation(
     if family_id == TREND_BREAKOUT_V2.family_id:
         # Delegate to the pre-existing Trend policy unchanged.
         result = ConfirmationPolicyV1().evaluate(
-            observed_at=obs, candidate=type("Candidate", (), {"state": state})(), checks=normalized_checks,
+            observed_at=obs, candidate=SimpleNamespace(state=state), checks=normalized_checks,
         )
         return StrategyFamilyConfirmation(
             family_id, family_version, result.state, result.passed_count,
