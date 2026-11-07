@@ -35,7 +35,6 @@ def test_runner_uses_transport_and_writes_observation(tmp_path: Path):
         max_runtime_seconds=1,
         sequence_registry=verified_tabdeal_test_registry(),
         allow_test_registry=True,
-        allow_test_registry=True,
     )
     result = runner.run(
         started_at=datetime(2026, 10, 7, 13, 1, tzinfo=timezone.utc)
