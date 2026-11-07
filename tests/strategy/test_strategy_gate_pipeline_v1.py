@@ -142,3 +142,70 @@ def test_risk_policy_json_required_checks_match_runtime_contract():
     policy_path=Path(__file__).resolve().parents[2]/'forward'/'risk_policy_v1.json'
     policy=json.loads(policy_path.read_text(encoding='utf-8'))
     assert tuple(policy['required_checks'])==RiskPolicyV1.REQUIRED
+
+
+
+def test_structural_event_presence_uses_independent_candidate_direction_when_proposal_is_no_trade(monkeypatch):
+    from forward.opportunity_detector_v1 import OpportunityCandidate
+    import forward.strategy_gate_pipeline_v1 as pipeline
+
+    observed = datetime(2026, 11, 7, 18, 15, tzinfo=timezone.utc)
+
+    def fake_structure(rows, observed_at):
+        return {
+            "observed_at": observed_at.isoformat(),
+            "status": "OBSERVED",
+            "regime": "DOWNTREND",
+            "labels": ["LL", "LH"],
+            "swing_count": 4,
+            "last_swing_high": "110",
+            "last_swing_low": "98",
+            "events": ["BOS_BEARISH"],
+            "policy_note": "test-only causal fixture",
+        }
+
+    def fake_candidate(self, *, observed_at, symbol, timeframe, regime, structure_labels=(), structure_events=()):
+        return OpportunityCandidate(
+            observed_at=observed_at,
+            symbol=symbol,
+            timeframe=timeframe,
+            state="CANDIDATE_SHORT",
+            regime="DOWNTREND",
+            structure_labels=("LL", "LH"),
+            structure_events=("BOS_BEARISH",),
+            reason_codes=("TEST_FIXTURE",),
+            quality_score=0.8,
+        )
+
+    monkeypatch.setattr(pipeline, "inspect_structure", fake_structure)
+    monkeypatch.setattr(pipeline.OpportunityDetectorV1, "evaluate", fake_candidate)
+
+    no_trade = PolicyDecision(
+        POLICY_VERSION, "NO_TRADE", "NONE", 0, None, None, None, None,
+        ("NO_CONFIRMED_20_BAR_BREAKOUT",), {"closed_breakout": "FAIL"},
+    )
+    rows = candles()
+    result = pipeline.evaluate_gate_evidence(
+        proposal=no_trade,
+        rows_15m=rows,
+        frames={"15m": rows, "1h": rows, "4h": rows},
+        source="gateio_public_spot",
+        symbol="BTC_USDT",
+        observed_at=observed,
+    )
+
+    checks = {item["name"]: item for item in result["confirmation"]["checks"]}
+    assert checks["candidate_valid"]["state"] == "PASS"
+    assert checks["direction_regime_alignment"]["state"] == "FAIL"
+    assert checks["direction_regime_alignment"]["evidence_ref"] == (
+        "proposal_direction:NONE;candidate_direction:SHORT;regime:DOWNTREND"
+    )
+    assert checks["structural_event_present"]["state"] == "PASS"
+    assert checks["structural_event_present"]["evidence_ref"] == (
+        "candidate_direction:SHORT;matching_event_present:True"
+    )
+    assert result["confirmation"]["state"] == "UNCONFIRMED"
+    assert result["risk"]["state"] == "RISK_REJECTED"
+    assert result["final_decision"] == "NO_TRADE"
+    assert result["execution_enabled"] is False
+    assert result["orders_placed"] is False
