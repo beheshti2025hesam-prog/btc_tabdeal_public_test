@@ -17,8 +17,14 @@
     "id"
   ],
   "sequence_aliases_enabled": false,
-  "sequence_semantics": "UNKNOWN",
+  "sequence_semantics": "UNKNOWN_OPAQUE_OPTIONAL_METADATA",
   "runtime_ingestion_enabled": false,
   "future_input_rejected": true,
-  "fail_closed": true
+  "fail_closed": true,
+  "sequence_required": false,
+  "sequence_value_coercion": false,
+  "sequence_identity_enabled": false,
+  "sequence_ordering_enabled": false,
+  "raw_payload_persistence_required_before_any_capture": true,
+  "received_at_and_event_timestamp_required_before_any_capture": true
 }
