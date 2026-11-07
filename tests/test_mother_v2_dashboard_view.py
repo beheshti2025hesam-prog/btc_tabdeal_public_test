@@ -46,7 +46,7 @@ class MotherV2DashboardViewTests(unittest.TestCase):
             "updated_at": updated_at if isinstance(updated_at, str) else (updated_at or observed + timedelta(minutes=1)).isoformat(),
             "closed_15m_candle_time": self.candle_time,
             "final_gate_version": "hes-strategy-policy-final-gate-v1.0.0",
-            "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.0",
+            "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.1",
             "source": "gateio_public_spot",
             "symbol": "BTC_USDT",
             "active_candidates": 0, "wins": 0, "losses": 0, "timeouts": 0,
@@ -56,7 +56,7 @@ class MotherV2DashboardViewTests(unittest.TestCase):
             "execution_enabled": execution_enabled, "orders_placed": False,
             "market_data_provenance": self.market_data_provenance(),
             "latest_gate_evidence": {
-                "pipeline_version": "hes-strategy-gate-pipeline-v1.0.0",
+                "pipeline_version": "hes-strategy-gate-pipeline-v1.0.1",
                 "source": "gateio_public_spot", "symbol": "BTC_USDT", "timeframe": "15m",
                 "final_decision": final_decision,
                 "market_data_provenance": self.market_data_provenance(),
