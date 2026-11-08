@@ -128,3 +128,8 @@ The read-only scanner now mirrors the current local backup policy without execut
 - Full-restore/offsite status is explicitly `NOT_CHECKED_BY_SCANNER`; `deletion_authorized=false` always.
 
 This planner is a simulation of the existing policy, not an approval to prune. Same-day extra snapshots remain separate review candidates and are not assumed content-identical.
+
+
+## 12. Evidence-store protection
+
+The scanner includes `/srv/hes-evidence` as an explicit root and classifies all descendants as `KEEP_EVIDENCE`. This store contains provenance/evidence records and must not be treated as temporary data, a cache, or a generic archive. Unknown files inside it remain protected regardless of age.
