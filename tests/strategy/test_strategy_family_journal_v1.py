@@ -161,3 +161,19 @@ def test_family_journal_rejects_mutated_canonical_source_event(tmp_path):
         sync_strategy_family_result_journals(
             candidates_path=candidates, outcomes_path=outcomes, output_dir=output
         )
+
+
+def test_family_journal_rejects_conflicting_top_level_and_route_family_identity(tmp_path):
+    candidates = tmp_path / "candidates.jsonl"
+    candidate = _candidate("trend-candidate", "UPTREND")
+    candidate["strategy_family_id"] = "trend_breakout"
+    candidate["gate_evidence"]["strategy_family_route"]["family_id"] = "range_mean_reversion"
+    _write(candidates, [candidate])
+    _write(tmp_path / "outcomes.jsonl", [])
+
+    with pytest.raises(ValueError, match="ROUTE_IDENTITY_MISMATCH"):
+        sync_strategy_family_result_journals(
+            candidates_path=candidates,
+            outcomes_path=tmp_path / "outcomes.jsonl",
+            output_dir=tmp_path / "family-results",
+        )
