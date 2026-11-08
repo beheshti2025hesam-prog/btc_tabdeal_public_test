@@ -122,7 +122,7 @@ def test_family_journal_rejects_profile_version_mismatch(tmp_path):
     _write(candidates, [candidate])
     _write(tmp_path / "outcomes.jsonl", [])
 
-    with pytest.raises(ValueError, match="PROFILE_VERSION_OR_ACTIVATION_MISMATCH"):
+    with pytest.raises(ValueError, match="ROUTE_IDENTITY_MISMATCH"):
         sync_strategy_family_result_journals(
             candidates_path=candidates,
             outcomes_path=tmp_path / "outcomes.jsonl",
