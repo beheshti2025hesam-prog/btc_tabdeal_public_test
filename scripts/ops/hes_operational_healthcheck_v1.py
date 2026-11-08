@@ -10,11 +10,14 @@ import shutil
 import subprocess
 import syslog
 import time
+from typing import Any
 
 if __package__:
+    from .hes_capacity_trend_v1 import collect_capacity_trend
     from .hes_runtime_healthcheck_v1 import collect_checks
     from .hes_operational_recovery_v1 import DEPLOY_LOCK, OperationalRecoveryV1, deployment_lock_held, verify_active_release
 else:  # systemd executes this file directly from the immutable release
+    from hes_capacity_trend_v1 import collect_capacity_trend
     from hes_runtime_healthcheck_v1 import collect_checks
     from hes_operational_recovery_v1 import DEPLOY_LOCK, OperationalRecoveryV1, deployment_lock_held, verify_active_release
 
@@ -36,6 +39,15 @@ def _host_checks() -> list[dict[str, str]]:
         add('root-disk', 'CRITICAL' if used_pct >= 85 else 'OK', f'{used_pct:.1f}%_used')
     except Exception as exc:
         add('root-disk', 'CRITICAL', type(exc).__name__)
+
+    try:
+        trend = collect_capacity_trend(
+            root=ROOT,
+            state_path=STATE_DIR / 'capacity-trend-v1.json',
+        )
+        add('disk-growth-forecast', trend.get('state', 'WARN'), trend.get('detail', 'capacity_forecast_unknown'))
+    except Exception as exc:
+        add('disk-growth-forecast', 'WARN', f'capacity_trend_error:{type(exc).__name__}')
 
     try:
         ntp = subprocess.run(['timedatectl', 'show', '-p', 'NTPSynchronized', '--value'], capture_output=True, text=True, timeout=5)
