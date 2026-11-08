@@ -39,6 +39,13 @@ def release_provenance(*, root: str | Path = ROOT, script_path: str | Path | Non
     manifest_path = release_root / "HES_RELEASE_MANIFEST_v1.json"
     manifest_bytes = manifest_path.read_bytes()
     manifest = json.loads(manifest_bytes)
+    commit_sha = manifest.get("commit_sha")
+    if (
+        not isinstance(commit_sha, str)
+        or len(commit_sha) != 40
+        or commit_sha != release_root.name
+    ):
+        raise ValueError("SOAK_RELEASE_ID_MISMATCH")
     manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
     sidecar_path = release_root / "HES_RELEASE_MANIFEST_v1.sha256"
     sidecar_fields = sidecar_path.read_text(encoding="utf-8").strip().split()
@@ -48,13 +55,6 @@ def release_provenance(*, root: str | Path = ROOT, script_path: str | Path | Non
         or sidecar_fields[-1] != "HES_RELEASE_MANIFEST_v1.json"
     ):
         raise ValueError("SOAK_RELEASE_MANIFEST_SIDECAR_MISMATCH")
-    commit_sha = manifest.get("commit_sha")
-    if (
-        not isinstance(commit_sha, str)
-        or len(commit_sha) != 40
-        or commit_sha != release_root.name
-    ):
-        raise ValueError("SOAK_RELEASE_ID_MISMATCH")
     source_script = Path(script_path or __file__).resolve()
     if not source_script.is_file():
         raise ValueError("SOAK_SCRIPT_MISSING")
