@@ -30,7 +30,7 @@ def test_old_tmp_is_review_only_never_delete():
     assert classification == "REVIEW_STALE_TEMP"
 
 
-def test_same_day_backup_duplicate_is_review_candidate(tmp_path):
+def test_same_day_extra_backup_is_review_candidate(tmp_path):
     root = tmp_path / "var/backups/hes-trade-agent/encrypted-local"
     root.mkdir(parents=True)
     older = root / "hes-full-20261108T010000Z.tar.gz.gpg"
@@ -40,9 +40,9 @@ def test_same_day_backup_duplicate_is_review_candidate(tmp_path):
 
     report = build_report([root], now=datetime(2026, 11, 8, 3, tzinfo=timezone.utc))
 
-    assert _item(report, older)["classification"] == "REVIEW_SAME_DAY_BACKUP_DUPLICATE"
-    assert _item(report, newer)["classification"] == "KEEP_LATEST_DAILY_BACKUP"
-    assert report["backup_summary"]["same_day_duplicate_candidates"] == 1
+    assert _item(report, older)["classification"] == "REVIEW_SAME_DAY_EXTRA_BACKUP"
+    assert _item(report, newer)["classification"] == "KEEP_LATEST_SAME_DAY_BACKUP"
+    assert report["backup_summary"]["same_day_extra_snapshot_candidates"] == 1
     assert all(row["automatic_action"] == "NONE" for row in report["items"])
 
 
