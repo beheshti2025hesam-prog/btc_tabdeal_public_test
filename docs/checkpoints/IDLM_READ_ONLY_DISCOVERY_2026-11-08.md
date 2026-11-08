@@ -128,3 +128,12 @@
 - Scanner v7 report: 704 entries, zero scan errors, 11 encrypted full archives across 7 UTC dates, four same-day additional snapshots, all 11 archives in `KEEP_DAILY_WINDOW`, zero expired candidates, one unparsed local staging archive, and one local staging sidecar. All 11 full-archive sidecars are present. Report: `/root/hes-idlm-audit-20261108-v7.json`.
 - Current same-day extra snapshots are still retained by the existing policy because all 11 full archives remain inside the seven-day daily window. The planner does not claim they are byte-identical and does not authorize pruning.
 - Latest isolated VPS validation: 22 tests passed; all four modules compiled. No production state/service was changed by validation.
+
+
+## Evidence-store coverage added — scanner v8 — 2026-11-08
+
+- Root filesystem inventory revealed `/srv/hes-evidence` at approximately 411,423,488 allocated bytes across 3,744 files. It was not an explicit scanner root in v7.
+- Scanner v8 adds `/srv/hes-evidence` as an explicit root and classifies all its descendants as `KEEP_EVIDENCE`.
+- Scanner v8 report: 806 entries, zero scan errors; 102 top-level evidence entries protected. Other key classifications: 11 registered worktrees KEEP; 3 backup-staging entries KEEP; 4 same-day extra backups REVIEW; 22 regenerable caches REVIEW; 172 stale temp REVIEW; 297 other temp REVIEW; 156 unknown KEEP.
+- Disk/inodes: 15.23% free disk (8,030,928,896 bytes); 87.05% free inodes. Retention dry-run: 11 daily-window archives, one unparsed staging archive, zero expired candidates, deletion_authorized=false.
+- Isolated VPS validation of the latest code: **23 tests passed**; all four Python modules passed `py_compile`. No production service/state was touched.
