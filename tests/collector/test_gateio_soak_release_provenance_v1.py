@@ -19,7 +19,7 @@ def test_release_provenance_binds_commit_manifest_and_exact_script(tmp_path):
     raw = json.dumps({"commit_sha": commit, "file_count": 1}).encode()
     manifest.write_bytes(raw)
     (release_root / "HES_RELEASE_MANIFEST_v1.sha256").write_text(
-        hashlib.sha256(raw).hexdigest() + "  HES_RELEASE_MANIFEST_v1.json\\n",
+        hashlib.sha256(raw).hexdigest() + "  HES_RELEASE_MANIFEST_v1.json",
         encoding="utf-8",
     )
     script = scripts / "soak.py"
