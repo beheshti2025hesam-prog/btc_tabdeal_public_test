@@ -143,3 +143,21 @@ def test_family_journal_rejects_non_paper_candidate_or_outcome(tmp_path):
             outcomes_path=tmp_path / "outcomes.jsonl",
             output_dir=tmp_path / "family-results",
         )
+
+
+def test_family_journal_rejects_mutated_canonical_source_event(tmp_path):
+    candidates = tmp_path / "candidates.jsonl"
+    outcomes = tmp_path / "outcomes.jsonl"
+    candidate = _candidate("trend-candidate", "UPTREND")
+    _write(candidates, [candidate])
+    _write(outcomes, [_outcome("trend-outcome", "trend-candidate", "losses")])
+    output = tmp_path / "family-results"
+    sync_strategy_family_result_journals(
+        candidates_path=candidates, outcomes_path=outcomes, output_dir=output
+    )
+    candidate["entry"] = 101.0
+    _write(candidates, [candidate])
+    with pytest.raises(ValueError, match="SOURCE_EVENT_MUTATED"):
+        sync_strategy_family_result_journals(
+            candidates_path=candidates, outcomes_path=outcomes, output_dir=output
+        )
