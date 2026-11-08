@@ -119,3 +119,12 @@
 - Refreshed scan v6: 706 entries, zero scan errors, 24 Git worktree registry paths, 11 existing scanned worktrees protected, disk 15.23% free, inodes 87.05% free, `automatic_action=NONE`.
 - Latest isolated VPS validation: **21 tests passed** and all four Python modules passed `py_compile`; no production state or service was touched.
 - Offsite copy and key provenance remain unresolved. Do not claim offsite recovery is complete.
+
+
+## Dry-run backup retention planner — scanner v7 — 2026-11-08
+
+- The scanner now simulates the current local backup policy without executing it: daily <7 UTC date-days; Sunday weekly anchor <28 days; first-of-month monthly anchor <180 days.
+- Future-dated and unparseable encrypted-backup names fail closed as KEEP. Expired files are marked `REVIEW_RETENTION_EXPIRED`; every row carries `retention_action=NONE`. Sidecar presence is reported, not treated as checksum verification. Full restore/offsite are explicitly `NOT_CHECKED_BY_SCANNER`; `deletion_authorized=false`.
+- Scanner v7 report: 704 entries, zero scan errors, 11 encrypted full archives across 7 UTC dates, four same-day additional snapshots, all 11 archives in `KEEP_DAILY_WINDOW`, zero expired candidates, one unparsed local staging archive, and one local staging sidecar. All 11 full-archive sidecars are present. Report: `/root/hes-idlm-audit-20261108-v7.json`.
+- Current same-day extra snapshots are still retained by the existing policy because all 11 full archives remain inside the seven-day daily window. The planner does not claim they are byte-identical and does not authorize pruning.
+- Latest isolated VPS validation: 22 tests passed; all four modules compiled. No production state/service was changed by validation.
