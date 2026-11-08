@@ -118,3 +118,33 @@ def test_dropbox_staging_is_protected_but_not_assumed_offsite():
     )
     assert classification == "KEEP_BACKUP_STAGING"
     assert "not an offsite copy" in reason
+
+
+def test_backup_retention_plan_mirrors_current_policy_without_deleting(tmp_path):
+    root = tmp_path / "var/backups/hes-trade-agent/encrypted-local"
+    root.mkdir(parents=True)
+    names = {
+        "daily": "hes-full-20261107T010000Z.tar.gz.gpg",
+        "weekly": "hes-full-20261101T010000Z.tar.gz.gpg",
+        "monthly": "hes-full-20261001T010000Z.tar.gz.gpg",
+        "expired": "hes-full-20260501T010000Z.tar.gz.gpg",
+        "future": "hes-full-20261109T010000Z.tar.gz.gpg",
+        "unparsed": "hes-full-unknown.tar.gz.gpg",
+    }
+    for name in names.values():
+        (root / name).write_bytes(b"archive")
+        (root / (name + ".sha256")).write_text("sidecar", encoding="utf-8")
+    report = build_report(
+        [root], now=datetime(2026, 11, 8, tzinfo=timezone.utc), registered_worktrees=set()
+    )
+    rows = {Path(row["path"]).name: row for row in report["items"]}
+    assert rows[names["daily"]]["retention_class"] == "KEEP_DAILY_WINDOW"
+    assert rows[names["weekly"]]["retention_class"] == "KEEP_WEEKLY_ANCHOR"
+    assert rows[names["monthly"]]["retention_class"] == "KEEP_MONTHLY_ANCHOR"
+    assert rows[names["expired"]]["retention_class"] == "REVIEW_RETENTION_EXPIRED"
+    assert rows[names["future"]]["retention_class"] == "KEEP_FUTURE_DATED_BACKUP"
+    assert rows[names["unparsed"]]["retention_class"] == "KEEP_UNPARSED_BACKUP_NAME"
+    assert all(row.get("retention_action", "NONE") == "NONE" for row in report["items"])
+    assert report["backup_retention_plan"]["deletion_authorized"] is False
+    assert report["backup_retention_plan"]["expired_review_candidates"] == 1
+    assert rows[names["daily"]]["checksum_sidecar_present"] is True
