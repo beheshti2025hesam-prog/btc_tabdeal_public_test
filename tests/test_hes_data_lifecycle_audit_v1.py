@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import os
 from pathlib import Path
 
 from scripts.ops.hes_data_lifecycle_audit_v1 import _classify, build_report
@@ -45,6 +44,15 @@ def test_same_day_backup_duplicate_is_review_candidate(tmp_path):
     assert _item(report, newer)["classification"] == "KEEP_LATEST_DAILY_BACKUP"
     assert report["backup_summary"]["same_day_duplicate_candidates"] == 1
     assert all(row["automatic_action"] == "NONE" for row in report["items"])
+
+
+def test_backup_parent_protects_unencrypted_and_security_backups():
+    classification, _ = _classify(
+        Path("/var/backups/hes-trade-agent/hes-trade-agent-20261107T160758Z.tar.gz"),
+        age_days=1.0,
+        is_symlink=False,
+    )
+    assert classification == "KEEP_BACKUP"
 
 
 def test_symlink_is_not_followed(tmp_path):
