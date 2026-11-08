@@ -133,3 +133,8 @@ This planner is a simulation of the existing policy, not an approval to prune. S
 ## 12. Evidence-store protection
 
 The scanner includes `/srv/hes-evidence` as an explicit root and classifies all descendants as `KEEP_EVIDENCE`. This store contains provenance/evidence records and must not be treated as temporary data, a cache, or a generic archive. Unknown files inside it remain protected regardless of age.
+
+
+## 13. Phase A inventory depth limitation
+
+Phase A emits one record per direct child of each configured scan root and computes recursive allocated-size/file-count rollups for directories. It does not emit one manifest row per file inside every protected tree. This keeps the first audit bounded and avoids exposing unnecessary internal filenames from protected stores. A later targeted deep-inventory pass may inspect only allowlisted REVIEW candidates; KEEP_EVIDENCE, KEEP_BACKUP, registered worktrees, and other protected roots remain summarized and untouched.
