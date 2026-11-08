@@ -29,7 +29,7 @@ Reuse the existing HES operational/runtime health checks, journald/logrotate, ba
 - Source identity, endpoint/channel, connection/session epochs, receive and venue timestamps, schema fingerprints, registry revisions, and source hashes.
 - Model/policy/config versions, code/run hashes, provenance, decision attribution, reproducibility fixtures.
 - Security/audit records, recovery manifests, backup evidence, current and rollback release pointers.
-- Dirty/untracked files, worktrees, active runtime data, and all unknown or dependency-unverified items.
+- Dirty/untracked files, registered Git worktrees, active runtime data, and all unknown or dependency-unverified items.
 
 ### ARCHIVE — only after proof
 
@@ -55,7 +55,7 @@ For Tabdeal FAPI/Margin, current reviewed public evidence does not establish `tr
 2. Never mutate canonical market data, journals, evidence, model state, or active runtime files in place.
 3. Dry-run is the rollout default; uncertainty means KEEP.
 4. Verify checksums and restore paths before source deletion.
-5. Never remove active/rollback releases, worktrees, dirty/untracked project files, running-service data, or backups without proven dependencies and recovery coverage.
+5. Never remove active/rollback releases, registered worktrees, dirty/untracked project files, running-service data, or backups without proven dependencies and recovery coverage.
 6. Keep an append-only audit trail with policy version, actor, timestamp, target, hashes, action, result, and recovery reference.
 7. Maintain disk and inode reserves; alert and apply backpressure before exhaustion.
 8. No trading/execution authority is granted to IDLM.
@@ -65,7 +65,9 @@ For Tabdeal FAPI/Margin, current reviewed public evidence does not establish `tr
 `scripts/ops/hes_data_lifecycle_audit_v1.py` inventories configured filesystem roots and emits a JSON manifest. It:
 - reports allocated bytes, file counts, scan errors, age, disk and inode availability;
 - classifies protected data, unknown data, caches, logs, temporary workspaces, and backup candidates;
-- identifies additional full backup snapshots when multiple encrypted snapshots exist for the same UTC day; it does not establish byte-level/content identity or verify the backup sidecar checksum;
+- reads the repository's `git worktree list --porcelain` registry and protects exact registered worktree paths;
+- fails closed for temporary paths if the Git worktree registry cannot be verified;
+- identifies additional full backup snapshots when multiple encrypted snapshots exist for the same UTC day; it does not establish byte-level/content identity or verify backup sidecar checksums;
 - never follows symlinks;
 - always emits `automatic_action: NONE`.
 
