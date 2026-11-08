@@ -83,6 +83,14 @@ def test_registered_git_worktree_is_protected(tmp_path):
     assert _item(report, worktree)["classification"] == "KEEP_REGISTERED_WORKTREE"
 
 
+def test_registered_repository_root_does_not_mask_specific_classification():
+    classification, _ = _classify(
+        Path("/opt/hes-trade-agent/releases"), age_days=1.0, is_symlink=False,
+        registered_worktrees={Path("/opt/hes-trade-agent")},
+    )
+    assert classification == "KEEP_PROTECTED"
+
+
 def test_tmp_is_kept_unknown_when_worktree_registry_fails():
     classification, _ = _classify(
         Path("/tmp/old-run"), age_days=30.0, is_symlink=False,
