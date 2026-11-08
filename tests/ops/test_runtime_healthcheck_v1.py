@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+from types import SimpleNamespace
 
 import scripts.ops.hes_runtime_healthcheck_v1 as health
 
@@ -38,6 +39,9 @@ def test_runtime_healthcheck_includes_precision_journal_service():
 
 
 def test_runtime_healthcheck_validates_precision_paper_only_and_daily_cap(tmp_path, monkeypatch):
+    # This test isolates precision/paper-only invariants; disk thresholds have
+    # separate production checks and must not depend on the VPS filesystem.
+    monkeypatch.setattr(health.shutil, "disk_usage", lambda _path: SimpleNamespace(total=100, used=50, free=50))
     now = 2_000_000_000
     data = tmp_path / 'data' / 'forward'
     data.mkdir(parents=True)
