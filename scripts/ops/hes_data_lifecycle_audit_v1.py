@@ -98,10 +98,7 @@ def _classify(
 ) -> tuple[str, str]:
     if is_symlink:
         return "KEEP_SYMLINK", "Symlink target is not followed; review its owner and target explicitly."
-    if registered_worktrees and any(
-        path == worktree or _is_relative_to(path, worktree)
-        for worktree in registered_worktrees
-    ):
+    if registered_worktrees and path in registered_worktrees:
         return "KEEP_REGISTERED_WORKTREE", "Git currently registers this path as a worktree; preserve it until explicitly retired and unregistered."
     if _is_relative_to(path, BACKUP_PARENT):
         return "KEEP_BACKUP", "Backup data remains protected until offsite coverage and restore are verified."
@@ -297,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stale-after-days", type=int, default=7)
     parser.add_argument(
         "--output", type=Path,
-        help="Optional JSON output path; choose a location outside scanned roots.",
+        help="Optional JSON output path; choose a location outside the scanned roots.",
     )
     args = parser.parse_args(argv)
     roots = [Path(path) for path in (args.scan_root or DEFAULT_ROOTS)]
