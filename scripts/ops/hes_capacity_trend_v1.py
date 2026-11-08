@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import math
 import os
 import shutil
 import time
@@ -45,11 +46,15 @@ def _baseline(now: float, total: int, used: int) -> dict[str, Any]:
 def _validate_state(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict) or payload.get("schema") != SCHEMA:
         raise ValueError("capacity_state_schema_invalid")
-    numeric = ("sample_count", "last_sample_at", "last_total_bytes", "last_used_bytes")
+    numeric = ("last_sample_at", "last_total_bytes", "last_used_bytes")
     if any(type(payload.get(key)) not in (int, float) for key in numeric):
         raise ValueError("capacity_state_field_invalid")
+    if type(payload.get("sample_count")) is not int:
+        raise ValueError("capacity_state_sample_count_invalid")
+    if any(not math.isfinite(float(payload[key])) for key in numeric):
+        raise ValueError("capacity_state_non_finite")
     ewma = payload.get("ewma_growth_bytes_per_second")
-    if ewma is not None and (type(ewma) not in (int, float) or ewma < 0):
+    if ewma is not None and (type(ewma) not in (int, float) or not math.isfinite(float(ewma)) or ewma < 0):
         raise ValueError("capacity_state_growth_invalid")
     if payload["sample_count"] < 1 or payload["last_total_bytes"] <= 0:
         raise ValueError("capacity_state_range_invalid")
@@ -72,7 +77,13 @@ def collect_capacity_trend(
     critical_hours: float = CRITICAL_HOURS_TO_FULL,
 ) -> dict[str, Any]:
     """Update one compact hourly sample and return a conservative time-to-full estimate."""
+    if sample_interval_seconds <= 0 or max_sample_gap_seconds < sample_interval_seconds:
+        return {"state": "WARN", "detail": "capacity_sampling_config_invalid", "sample_updated": False}
+    if not 0.0 < alpha <= 1.0 or min_samples < 2 or critical_hours <= 0 or warn_hours <= critical_hours:
+        return {"state": "WARN", "detail": "capacity_forecast_config_invalid", "sample_updated": False}
     now_s = time.time() if now is None else float(now)
+    if not math.isfinite(now_s):
+        return {"state": "WARN", "detail": "capacity_clock_invalid", "sample_updated": False}
     usage = usage_provider(root)
     total, used, free = int(usage.total), int(usage.used), int(usage.free)
     if total <= 0 or not 0 <= used <= total or not 0 <= free <= total:
@@ -120,7 +131,7 @@ def collect_capacity_trend(
     if elapsed >= sample_interval_seconds:
         instant_rate = max(0.0, (used - int(state["last_used_bytes"])) / elapsed)
         ewma = instant_rate if ewma is None else (alpha * instant_rate) + ((1.0 - alpha) * float(ewma))
-        sample_count += 1
+        sample_count = min(min_samples, sample_count + 1)
         state = {
             "schema": SCHEMA,
             "sample_count": sample_count,
