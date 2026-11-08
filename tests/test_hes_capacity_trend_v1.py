@@ -86,3 +86,24 @@ def test_inode_free_check_ok_warn_and_critical():
 def test_inode_zero_total_fails_closed():
     result = inode_free_check(statvfs_provider=lambda _: SimpleNamespace(f_files=0, f_favail=0))
     assert result == ("CRITICAL", "inode_metrics_invalid")
+
+
+def test_sample_count_is_bounded(tmp_path):
+    state = tmp_path / "capacity.json"
+    for i in range(10):
+        result = collect_capacity_trend(
+            state_path=state, now=1000+i*3600,
+            usage_provider=lambda _, used=4000+i*10: usage(10000, used),
+            min_samples=6,
+        )
+    assert result["sample_count"] == 6
+    assert json.loads(state.read_text())["sample_count"] == 6
+
+
+def test_invalid_forecast_configuration_fails_closed():
+    result = collect_capacity_trend(
+        state_path=Path("/unused"), now=1000,
+        usage_provider=lambda _: usage(1000, 500), alpha=0,
+    )
+    assert result["state"] == "WARN"
+    assert result["detail"] == "capacity_forecast_config_invalid"
