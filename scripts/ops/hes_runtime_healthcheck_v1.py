@@ -10,6 +10,11 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+if __package__:
+    from .hes_capacity_trend_v1 import inode_free_check
+else:
+    from hes_capacity_trend_v1 import inode_free_check
+
 ROOT = Path('/opt/hes-trade-agent')
 DATA = ROOT / 'data' / 'forward'
 WITNESS = Path('/var/lib/hes-gateio-1m-integrity/observations.jsonl')
@@ -245,6 +250,9 @@ def collect_checks(
         add('disk-free', state, f'{free_pct:.1f}%')
     except Exception as exc:
         add('disk-free', 'CRITICAL', f'{type(exc).__name__}:{str(exc)[:120]}')
+
+    inode_state, inode_detail = inode_free_check(root)
+    add('inode-free', inode_state, inode_detail)
 
     overall = 'CRITICAL' if any(item['state'] == 'CRITICAL' for item in issues) else ('WARN' if issues else 'OK')
     return {
