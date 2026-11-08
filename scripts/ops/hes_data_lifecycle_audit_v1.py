@@ -23,6 +23,7 @@ DEFAULT_ROOTS = (
     "/var/tmp",
     "/var/backups/hes-trade-agent",
     "/var/backups/hes-trade-agent/encrypted-local",
+    "/var/backups/hes-trade-agent/dropbox-staging",
     "/opt/hes-trade-agent",
     "/opt/sentinelx-cloud-core",
     "/home/hes-remote",
@@ -31,6 +32,7 @@ DEFAULT_ROOTS = (
     "/var/lib",
 )
 BACKUP_PARENT = Path("/var/backups/hes-trade-agent")
+BACKUP_STAGING = BACKUP_PARENT / "dropbox-staging"
 BACKUP_RE = re.compile(r"^hes-full-(\d{8}T\d{6}Z)\.tar\.gz\.gpg$")
 CACHE_NAMES = {
     ".cache", ".npm", ".pytest_cache", ".mypy_cache", ".ruff_cache",
@@ -100,6 +102,8 @@ def _classify(
         return "KEEP_SYMLINK", "Symlink target is not followed; review its owner and target explicitly."
     if registered_worktrees and path in registered_worktrees:
         return "KEEP_REGISTERED_WORKTREE", "Git currently registers this path as a worktree; preserve it until explicitly retired and unregistered."
+    if _is_relative_to(path, BACKUP_STAGING):
+        return "KEEP_BACKUP_STAGING", "Encrypted staging artifact is protected until key, manifest, and remote upload are verified; local staging is not an offsite copy."
     if _is_relative_to(path, BACKUP_PARENT):
         return "KEEP_BACKUP", "Backup data remains protected until offsite coverage and restore are verified."
     if path.name in PROTECTED_NAMES or path.name.startswith("current"):
