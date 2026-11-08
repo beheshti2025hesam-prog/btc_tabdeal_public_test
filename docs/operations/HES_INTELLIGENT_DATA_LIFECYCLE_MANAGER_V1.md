@@ -95,3 +95,16 @@ Choose an output location outside the scanned roots. The report is a review arti
 - Phase A scanner implementation is read-only and intended for review.
 - Existing VPS inventory and findings are recorded separately in `docs/checkpoints/IDLM_READ_ONLY_DISCOVERY_2026-11-08.md`.
 - No production cleanup, retention-setting change, service restart, or live trading action is part of this phase.
+
+
+## 9. Existing health monitor capacity extension — proposed in PR #485
+
+The existing HES health monitor is extended in-place; no duplicate monitor or new systemd service is introduced.
+
+- Runtime health adds inode availability using `statvfs`: at least 10% free = OK, 5–10% = WARN, below 5% = CRITICAL. Probe failure or invalid metrics fail closed as CRITICAL.
+- The existing five-minute operational monitor samples disk capacity at most once per hour and stores a compact EWMA state at `/var/lib/hes-operational-health/capacity-trend-v1.json`.
+- The trend state is a single atomic, mode-0600 JSON record, not an unbounded history. It requires six hourly samples before issuing a forecast; a gap longer than 48 hours or filesystem-size change resets the baseline.
+- Estimated time-to-full below 72 hours = WARN; below 24 hours = CRITICAL. A corrupt state or backward clock produces WARN and preserves the existing state rather than overwriting it.
+- The first five hours report insufficient history as OK; the forecast becomes meaningful only after samples accumulate. Existing free-space checks remain authoritative and immediate.
+- The operational monitor already owns `StateDirectory=hes-operational-health` and `ReadWritePaths=/var/lib/hes-operational-health`; the new state file fits that existing sandbox boundary.
+- This code is in the isolated PR only. It has not been deployed to the VPS or activated by systemd.
