@@ -66,3 +66,21 @@
 6. Keep cleanup in read-only mode until all gates are satisfied; then consider a narrowly allowlisted cache/temp canary.
 
 **Current disposition:** Phase A scanner and dependency discovery are materially advanced. CI/review and restore proof remain open. Production deletion remains disabled.
+
+
+## Backup retention fail-closed hardening — 2026-11-08
+
+- A synthetic test of the live retention loop found a concrete edge case: a syntactically valid future-dated archive filename produced a negative age, left `keep=0`, and was deleted together with its sidecar. This was reproduced with a synthetic 2026-11-09 archive while evaluating policy date 2026-11-08.
+- A minimal fail-closed guard was applied to `/usr/local/sbin/hes-encrypted-local-backup`: if `age < 0`, log `RETENTION_KEEP_FUTURE_DATED` and continue without pruning that archive or its sidecar.
+- The original script was preserved at `/root/hes-encrypted-local-backup.pre-idlm-20261108`.
+- Original SHA-256: `829f29e4625acf870fd3a2cf5320af5cfa88a60bdd457fe067c87255d5843b4f`.
+- Patched SHA-256: `3601316ee10c56589281de3c1dfaf6a7aab073d12b061a03d92f821e9892586d`.
+- `bash -n` passed. A synthetic retention-loop regression passed: future-dated archive and sidecar kept; malformed filename kept; same-day snapshots retained under current policy; expired non-anchor snapshot removed in the synthetic fixture.
+- No backup run was triggered, no service was restarted, no existing archive/sidecar was changed, and the same-day/age retention policy itself was not changed. The next scheduled backup remains the first production execution of this guard.
+
+## Updated CI status
+
+- Latest PR head: `1f43bd214ce0ff25a8323b64ef11a5dea75c1595`.
+- All **32/32** GitHub Actions workflow runs completed successfully.
+- HES Full Regression Gate: **1,195 passed, 82 subtests passed**; `HES_REGRESSION_GATE=PASS`; `LIVE_EXECUTION=OFF`.
+- PR #485 remains draft/open/unmerged; production deployment is not authorized by the PR.
