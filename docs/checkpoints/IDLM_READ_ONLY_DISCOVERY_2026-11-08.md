@@ -84,3 +84,14 @@
 - All **32/32** GitHub Actions workflow runs completed successfully.
 - HES Full Regression Gate: **1,195 passed, 82 subtests passed**; `HES_REGRESSION_GATE=PASS`; `LIVE_EXECUTION=OFF`.
 - PR #485 remains draft/open/unmerged; production deployment is not authorized by the PR.
+
+
+## Selective encrypted-backup restore and offsite check — 2026-11-08
+
+- Latest encrypted archive `hes-full-20261108T023146Z.tar.gz.gpg` passed its SHA-256 sidecar check; decryption and tar listing succeeded with 42,753 members.
+- Three critical files were extracted to an isolated root-only scratch directory, not over live paths, and matched live SHA-256 byte-for-byte: the Gate.io market-data systemd unit (743 bytes), operational health wrapper (3,717 bytes), and immutable release healthcheck module (6,997 bytes). Total restored: 11,457 bytes.
+- Restore manifest: `/root/hes-restore-drill-20261108/restore-drill-manifest.json`. Source archive SHA-256: `4ca5bd124ead428ee255f6198e80de4b3e143a9fcd50bf8235e4b30facf09940`.
+- This is a **selective-file restore drill only**, not a full system restore or complete data recovery proof.
+- Dropbox folder `/HES Trade Agent Backups` exists but direct listing returned zero entries. VPS `/var/backups/hes-trade-agent/dropbox-staging` was also empty. No independent offsite copy is verified.
+- Do not transfer backups to Dropbox without explicit user authorization. If later authorized, transfer encrypted ciphertext and checksum manifest only; never transfer the passphrase/key file.
+- Full restore and offsite coverage remain open acceptance gates. No backup pruning or production cleanup is authorized by this selective restore result.
