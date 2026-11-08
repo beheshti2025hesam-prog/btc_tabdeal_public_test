@@ -113,3 +113,18 @@ The existing HES health monitor is extended in-place; no duplicate monitor or ne
 ## 10. Encrypted staging artifacts
 
 The scanner explicitly inventories `/var/backups/hes-trade-agent/dropbox-staging` and classifies its contents as `KEEP_BACKUP_STAGING`. A local staging artifact is not an offsite copy. Keep the archive and sidecar until its encryption-key provenance, integrity, restore path, and successful remote upload are independently verified. Do not infer offsite status from a filename containing `offsite`.
+
+
+## 11. Dry-run local backup retention planner
+
+The read-only scanner now mirrors the current local backup policy without executing it:
+
+- Daily window: keep all snapshots younger than 7 UTC date-days.
+- Weekly anchor: keep Sunday snapshots younger than 28 date-days.
+- Monthly anchor: keep first-of-month snapshots younger than 180 date-days.
+- Future-dated or unparseable backup names fail closed as KEEP.
+- Expired items are marked `REVIEW_RETENTION_EXPIRED`, with `retention_action=NONE`.
+- The report records whether the SHA-256 sidecar exists, but does not claim that the sidecar was verified.
+- Full-restore/offsite status is explicitly `NOT_CHECKED_BY_SCANNER`; `deletion_authorized=false` always.
+
+This planner is a simulation of the existing policy, not an approval to prune. Same-day extra snapshots remain separate review candidates and are not assumed content-identical.
