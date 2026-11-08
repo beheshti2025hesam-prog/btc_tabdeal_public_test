@@ -29,7 +29,8 @@ DEFAULT_ROOTS = (
     "/var/cache",
     "/var/lib",
 )
-BACKUP_ROOT = Path("/var/backups/hes-trade-agent/encrypted-local")
+BACKUP_PARENT = Path("/var/backups/hes-trade-agent")
+BACKUP_ROOT = BACKUP_PARENT / "encrypted-local"
 BACKUP_RE = re.compile(r"^hes-full-(\d{8}T\d{6}Z)\.tar\.gz\.gpg$")
 CACHE_NAMES = {
     ".cache", ".npm", ".pytest_cache", ".mypy_cache", ".ruff_cache",
@@ -96,7 +97,7 @@ def _classify(
 ) -> tuple[str, str]:
     if is_symlink:
         return "KEEP_SYMLINK", "Symlink target is not followed; review its owner and target explicitly."
-    if _is_relative_to(path, BACKUP_ROOT) or path == Path("/var/backups/hes-trade-agent"):
+    if _is_relative_to(path, BACKUP_PARENT):
         return "KEEP_BACKUP", "Backup data remains protected until offsite coverage and restore are verified."
     if path.name in PROTECTED_NAMES or path.name.startswith("current"):
         return "KEEP_PROTECTED", "Canonical data, evidence, release, rollback, or worktree material is protected."
