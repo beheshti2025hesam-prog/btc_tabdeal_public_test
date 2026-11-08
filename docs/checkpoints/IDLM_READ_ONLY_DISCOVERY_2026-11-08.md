@@ -95,3 +95,15 @@
 - Dropbox folder `/HES Trade Agent Backups` exists but direct listing returned zero entries. VPS `/var/backups/hes-trade-agent/dropbox-staging` was also empty. No independent offsite copy is verified.
 - Do not transfer backups to Dropbox without explicit user authorization. If later authorized, transfer encrypted ciphertext and checksum manifest only; never transfer the passphrase/key file.
 - Full restore and offsite coverage remain open acceptance gates. No backup pruning or production cleanup is authorized by this selective restore result.
+
+
+## Existing monitor capacity extension — isolated PR implementation
+
+- Added `scripts/ops/hes_capacity_trend_v1.py` as a pure helper and integrated it into the existing runtime/operational health checks in the PR branch.
+- Inode availability thresholds: 10% free WARN, 5% free CRITICAL; probe errors/invalid metrics fail closed.
+- Disk growth uses an hourly sample and EWMA in one compact atomic state file, `/var/lib/hes-operational-health/capacity-trend-v1.json`. Six samples are required before forecasting; a gap over 48 hours or filesystem-size change resets the baseline.
+- Forecast thresholds: under 72 hours to full = WARN; under 24 hours = CRITICAL. Corrupt state/backward clock is WARN and preserves the existing state. No unbounded sample log is created.
+- Existing systemd unit confirms `StateDirectory=hes-operational-health` and `ReadWritePaths=/var/lib/hes-operational-health`; the monitor runs as root under `ProtectSystem=strict`. No new service or permission expansion is needed.
+- The current VPS monitor state directory remains unchanged by this PR. No new capacity state file was written to production; no service was restarted.
+- Isolated VPS validation using the repository virtualenv: **20 tests passed**, and all four IDLM/healthcheck Python modules passed `py_compile`. Tests ran in a temporary directory which was removed after validation.
+- The capacity-monitor code remains unmerged/undeployed. First production sample will be collected only after the reviewed release is deployed through the normal release gate.
