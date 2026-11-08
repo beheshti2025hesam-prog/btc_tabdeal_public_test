@@ -347,15 +347,23 @@ def sync_strategy_family_result_journals(
         path = destination / FAMILY_FILES[family_id]
         path.touch(exist_ok=True)
         existing_rows = _load_jsonl(path)
-        existing_ids = {row.get("event_id") for row in existing_rows}
+        existing_by_id = {row.get("event_id"): row for row in existing_rows}
+        if len(existing_by_id) != len(existing_rows):
+            raise ValueError(f"FAMILY_JOURNAL_DUPLICATE_EXISTING_EVENT_ID:{family_id}")
         writer = ForwardJournalV1(path)
         appended[family_id] = 0
         for event in projected[family_id]:
-            if event["event_id"] in existing_ids:
+            existing = existing_by_id.get(event["event_id"])
+            if existing is not None:
+                if (
+                    existing.get("source_record_sha256") != event.get("source_record_sha256")
+                    or existing.get("candidate_source_sha256") != event.get("candidate_source_sha256")
+                ):
+                    raise ValueError(f"FAMILY_JOURNAL_SOURCE_EVENT_MUTATED:{family_id}")
                 continue
             if writer.append_event(event):
                 appended[family_id] += 1
-                existing_ids.add(event["event_id"])
+                existing_by_id[event["event_id"]] = event
         # Validate the entire family journal after append/replay.
         _journal_summary(path, family_id, profile)
 
