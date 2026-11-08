@@ -16,7 +16,7 @@ def test_protected_data_and_evidence_are_keep(tmp_path):
     evidence.mkdir()
     (evidence / "proof.json").write_text("{}", encoding="utf-8")
 
-    report = build_report([tmp_path], now=datetime.now(timezone.utc))
+    report = build_report([tmp_path], now=datetime.now(timezone.utc), registered_worktrees=set())
 
     assert _item(report, data)["classification"] == "KEEP_PROTECTED"
     assert _item(report, evidence)["classification"] == "KEEP_PROTECTED"
@@ -25,7 +25,8 @@ def test_protected_data_and_evidence_are_keep(tmp_path):
 
 def test_old_tmp_is_review_only_never_delete():
     classification, _ = _classify(
-        Path("/tmp/old-run"), age_days=8.0, is_symlink=False, stale_after_days=7
+        Path("/tmp/old-run"), age_days=8.0, is_symlink=False, stale_after_days=7,
+        registered_worktrees=set(),
     )
     assert classification == "REVIEW_STALE_TEMP"
 
@@ -38,7 +39,9 @@ def test_same_day_extra_backup_is_review_candidate(tmp_path):
     older.write_bytes(b"a")
     newer.write_bytes(b"b")
 
-    report = build_report([root], now=datetime(2026, 11, 8, 3, tzinfo=timezone.utc))
+    report = build_report(
+        [root], now=datetime(2026, 11, 8, 3, tzinfo=timezone.utc), registered_worktrees=set()
+    )
 
     assert _item(report, older)["classification"] == "REVIEW_SAME_DAY_EXTRA_BACKUP"
     assert _item(report, newer)["classification"] == "KEEP_LATEST_SAME_DAY_BACKUP"
@@ -51,6 +54,7 @@ def test_backup_parent_protects_unencrypted_and_security_backups():
         Path("/var/backups/hes-trade-agent/hes-trade-agent-20261107T160758Z.tar.gz"),
         age_days=1.0,
         is_symlink=False,
+        registered_worktrees=set(),
     )
     assert classification == "KEEP_BACKUP"
 
@@ -62,7 +66,7 @@ def test_symlink_is_not_followed(tmp_path):
     link = tmp_path / "link"
     link.symlink_to(target, target_is_directory=True)
 
-    report = build_report([tmp_path], now=datetime.now(timezone.utc))
+    report = build_report([tmp_path], now=datetime.now(timezone.utc), registered_worktrees=set())
     row = _item(report, link)
 
     assert row["kind"] == "symlink"
@@ -70,11 +74,28 @@ def test_symlink_is_not_followed(tmp_path):
     assert row["classification"] == "KEEP_SYMLINK"
 
 
+def test_registered_git_worktree_is_protected(tmp_path):
+    worktree = tmp_path / "registered-worktree"
+    worktree.mkdir()
+    report = build_report(
+        [tmp_path], now=datetime.now(timezone.utc), registered_worktrees={worktree}
+    )
+    assert _item(report, worktree)["classification"] == "KEEP_REGISTERED_WORKTREE"
+
+
+def test_tmp_is_kept_unknown_when_worktree_registry_fails():
+    classification, _ = _classify(
+        Path("/tmp/old-run"), age_days=30.0, is_symlink=False,
+        registered_worktrees=set(), worktree_registry_ok=False,
+    )
+    assert classification == "KEEP_UNKNOWN"
+
+
 def test_unknown_is_keep(tmp_path):
     unknown = tmp_path / "unknown-artifact"
     unknown.write_text("keep", encoding="utf-8")
 
-    report = build_report([tmp_path], now=datetime.now(timezone.utc))
+    report = build_report([tmp_path], now=datetime.now(timezone.utc), registered_worktrees=set())
 
     assert _item(report, unknown)["classification"] == "KEEP_UNKNOWN"
     assert _item(report, unknown)["automatic_action"] == "NONE"
