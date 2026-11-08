@@ -91,6 +91,12 @@ def _family_identity(candidate: Mapping[str, Any]) -> dict[str, str] | None:
         or route.get("regime") not in profile.regimes
     ):
         raise ValueError("FAMILY_JOURNAL_ROUTE_SCOPE_MISMATCH")
+    if (
+        route.get("family_id") != family_id
+        or route.get("family_version") != profile.version
+        or route.get("activation_state") != profile.activation_state
+    ):
+        raise ValueError("FAMILY_JOURNAL_ROUTE_IDENTITY_MISMATCH")
     if family_version != profile.version or activation_state != profile.activation_state:
         raise ValueError("FAMILY_JOURNAL_PROFILE_VERSION_OR_ACTIVATION_MISMATCH")
     if (
@@ -224,8 +230,24 @@ def _journal_summary(path: Path, family_id: str, profile: Any) -> dict[str, Any]
         if not isinstance(event_id, str) or not event_id or event_id in seen:
             raise ValueError(f"FAMILY_JOURNAL_EVENT_ID_INVALID:{family_id}")
         seen.add(event_id)
+        if row.get("schema") != SCHEMA or row.get("projection_version") != PROJECTION_VERSION:
+            raise ValueError(f"FAMILY_JOURNAL_SCHEMA_OR_PROJECTION_MISMATCH:{family_id}")
         if row.get("family_id") != family_id:
             raise ValueError(f"FAMILY_JOURNAL_CROSS_FAMILY_CONTAMINATION:{family_id}")
+        if (
+            row.get("family_version") != profile.version
+            or row.get("activation_state") != profile.activation_state
+        ):
+            raise ValueError(f"FAMILY_JOURNAL_PROFILE_MISMATCH:{family_id}")
+        if row.get("event_type") not in ("PAPER_CANDIDATE", "PAPER_OUTCOME"):
+            raise ValueError(f"FAMILY_JOURNAL_EVENT_TYPE_INVALID:{family_id}")
+        digest = row.get("source_record_sha256")
+        if not isinstance(digest, str) or len(digest) != 64:
+            raise ValueError(f"FAMILY_JOURNAL_SOURCE_HASH_INVALID:{family_id}")
+        if row.get("event_type") == "PAPER_OUTCOME":
+            candidate_digest = row.get("candidate_source_sha256")
+            if not isinstance(candidate_digest, str) or len(candidate_digest) != 64:
+                raise ValueError(f"FAMILY_JOURNAL_CANDIDATE_HASH_INVALID:{family_id}")
         if (
             row.get("execution_enabled") is not False
             or row.get("orders_placed") is not False
