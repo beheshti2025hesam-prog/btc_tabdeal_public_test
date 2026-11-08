@@ -107,3 +107,14 @@ def test_unknown_is_keep(tmp_path):
 
     assert _item(report, unknown)["classification"] == "KEEP_UNKNOWN"
     assert _item(report, unknown)["automatic_action"] == "NONE"
+
+
+def test_dropbox_staging_is_protected_but_not_assumed_offsite():
+    classification, reason = _classify(
+        Path("/var/backups/hes-trade-agent/dropbox-staging/hes-agent-offsite.tar.gz.gpg"),
+        age_days=1.0,
+        is_symlink=False,
+        registered_worktrees=set(),
+    )
+    assert classification == "KEEP_BACKUP_STAGING"
+    assert "not an offsite copy" in reason
