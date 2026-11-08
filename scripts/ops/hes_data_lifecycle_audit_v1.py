@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import shutil
 import stat
+import subprocess
 import sys
 from typing import Any
 
@@ -30,7 +31,6 @@ DEFAULT_ROOTS = (
     "/var/lib",
 )
 BACKUP_PARENT = Path("/var/backups/hes-trade-agent")
-BACKUP_ROOT = BACKUP_PARENT / "encrypted-local"
 BACKUP_RE = re.compile(r"^hes-full-(\d{8}T\d{6}Z)\.tar\.gz\.gpg$")
 CACHE_NAMES = {
     ".cache", ".npm", ".pytest_cache", ".mypy_cache", ".ruff_cache",
@@ -93,10 +93,16 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
 
 
 def _classify(
-    path: Path, *, age_days: float, is_symlink: bool, stale_after_days: int = 7
+    path: Path, *, age_days: float, is_symlink: bool, stale_after_days: int = 7,
+    registered_worktrees: set[Path] | None = None, worktree_registry_ok: bool = True,
 ) -> tuple[str, str]:
     if is_symlink:
         return "KEEP_SYMLINK", "Symlink target is not followed; review its owner and target explicitly."
+    if registered_worktrees and any(
+        path == worktree or _is_relative_to(path, worktree)
+        for worktree in registered_worktrees
+    ):
+        return "KEEP_REGISTERED_WORKTREE", "Git currently registers this path as a worktree; preserve it until explicitly retired and unregistered."
     if _is_relative_to(path, BACKUP_PARENT):
         return "KEEP_BACKUP", "Backup data remains protected until offsite coverage and restore are verified."
     if path.name in PROTECTED_NAMES or path.name.startswith("current"):
@@ -106,6 +112,8 @@ def _classify(
     if path == Path("/var/log/journal"):
         return "REVIEW_SYSTEM_LOG_RETENTION", "System journal retention must be tuned through journald policy, not ad-hoc deletion."
     if path in {Path("/tmp"), Path("/var/tmp")} or path.parent in {Path("/tmp"), Path("/var/tmp")}:
+        if not worktree_registry_ok:
+            return "KEEP_UNKNOWN", "Git worktree registry could not be verified; preserve temporary paths until dependencies are known."
         if age_days >= stale_after_days:
             return "REVIEW_STALE_TEMP", "Older temporary workspace; verify run/evidence ownership and process references."
         return "REVIEW_TEMP", "Temporary workspace; verify ownership and reproducibility before any action."
@@ -143,10 +151,33 @@ def _backup_groups(records: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
+def _load_registered_worktrees(repo_root: Path) -> tuple[set[Path], str | None]:
+    if not repo_root.is_dir():
+        return set(), "repository_root_missing"
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+            capture_output=True, text=True, timeout=10, check=True,
+        )
+    except Exception as exc:
+        return set(), f"{type(exc).__name__}:{str(exc)[:120]}"
+    paths: set[Path] = set()
+    for line in result.stdout.splitlines():
+        if line.startswith("worktree "):
+            paths.add(Path(os.path.abspath(line[len("worktree "):])))
+    return paths, None
+
+
 def build_report(
-    scan_roots: list[Path], *, now: datetime | None = None, stale_after_days: int = 7
+    scan_roots: list[Path], *, now: datetime | None = None, stale_after_days: int = 7,
+    registered_worktrees: set[Path] | None = None,
+    worktree_repo_root: Path = Path("/opt/hes-trade-agent"),
 ) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
+    if registered_worktrees is None:
+        registered_worktrees, worktree_registry_error = _load_registered_worktrees(worktree_repo_root)
+    else:
+        worktree_registry_error = None
     records: list[dict[str, Any]] = []
     seen: set[str] = set()
     for root in scan_roots:
@@ -198,6 +229,8 @@ def build_report(
                 classification, reason = _classify(
                     path, age_days=age_days, is_symlink=is_link,
                     stale_after_days=stale_after_days,
+                    registered_worktrees=registered_worktrees,
+                    worktree_registry_ok=worktree_registry_error is None,
                 )
                 records.append({
                     "path": key, "kind": kind, "allocated_bytes": size, "file_count": files,
@@ -236,6 +269,12 @@ def build_report(
         "stale_temp_review_threshold_days": stale_after_days,
         "disk": disk,
         "backup_summary": backup_summary,
+        "worktree_registry": {
+            "repo_root": str(worktree_repo_root),
+            "registered_count": len(registered_worktrees),
+            "paths": sorted(str(path) for path in registered_worktrees),
+            "error": worktree_registry_error,
+        },
         "protected_data_rules": [
             "Trade and NO_TRADE journals/outcomes; decision evidence and counterfactuals.",
             "Canonical candles and raw event payloads with source/session/timestamps/hash/registry lineage.",
