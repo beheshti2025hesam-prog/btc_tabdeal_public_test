@@ -152,6 +152,66 @@ def _backup_groups(records: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
+
+def _backup_retention_plan(records: list[dict[str, Any]], now: datetime) -> dict[str, Any]:
+    counts: dict[str, int] = {}
+    for row in records:
+        if row.get("kind") != "file":
+            continue
+        name = Path(row["path"]).name
+        if name.endswith(".tar.gz.gpg.sha256"):
+            continue
+        if not name.endswith(".tar.gz.gpg"):
+            continue
+        match = BACKUP_RE.match(name)
+        if not match:
+            retention_class = "KEEP_UNPARSED_BACKUP_NAME"
+            reason = "Encrypted-backup filename is not understood; keep until manually identified."
+        else:
+            try:
+                stamp = datetime.strptime(match.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+            except ValueError:
+                stamp = None
+            if stamp is None:
+                retention_class = "KEEP_UNPARSED_BACKUP_NAME"
+                reason = "Encrypted-backup timestamp is invalid; keep until manually identified."
+            else:
+                age_days = (now.date() - stamp.date()).days
+                if age_days < 0:
+                    retention_class = "KEEP_FUTURE_DATED_BACKUP"
+                    reason = "Future-dated backup; fail closed and preserve archive and sidecar."
+                elif age_days < 7:
+                    retention_class = "KEEP_DAILY_WINDOW"
+                    reason = "Within the current seven-day daily retention window."
+                elif age_days < 28 and stamp.weekday() == 6:
+                    retention_class = "KEEP_WEEKLY_ANCHOR"
+                    reason = "Sunday snapshot within the current 28-day weekly retention window."
+                elif age_days < 180 and stamp.day == 1:
+                    retention_class = "KEEP_MONTHLY_ANCHOR"
+                    reason = "First-of-month snapshot within the current 180-day monthly retention window."
+                else:
+                    retention_class = "REVIEW_RETENTION_EXPIRED"
+                    reason = "Outside current daily/weekly/monthly windows; review only, never auto-delete from this report."
+        row["retention_class"] = retention_class
+        row["retention_reason"] = reason
+        row["retention_action"] = "NONE"
+        row["checksum_sidecar_present"] = Path(row["path"] + ".sha256").is_file()
+        counts[retention_class] = counts.get(retention_class, 0) + 1
+    return {
+        "policy_version": "existing_local_backup_retention_v1",
+        "daily_window_days": 7,
+        "weekly_window_days": 28,
+        "monthly_window_days": 180,
+        "retention_class_counts": counts,
+        "expired_review_candidates": counts.get("REVIEW_RETENTION_EXPIRED", 0),
+        "future_dated_kept": counts.get("KEEP_FUTURE_DATED_BACKUP", 0),
+        "unparsed_kept": counts.get("KEEP_UNPARSED_BACKUP_NAME", 0),
+        "restore_status": "NOT_CHECKED_BY_SCANNER",
+        "offsite_status": "NOT_CHECKED_BY_SCANNER",
+        "deletion_authorized": False,
+    }
+
+
 def _load_registered_worktrees(repo_root: Path) -> tuple[set[Path], str | None]:
     if not repo_root.is_dir():
         return set(), "repository_root_missing"
@@ -247,6 +307,7 @@ def build_report(
                 })
 
     backup_summary = _backup_groups(records)
+    backup_retention_plan = _backup_retention_plan(records, now)
     records.sort(key=lambda row: (-int(row.get("allocated_bytes", 0)), row["path"]))
     try:
         usage = shutil.disk_usage("/")
@@ -270,6 +331,7 @@ def build_report(
         "stale_temp_review_threshold_days": stale_after_days,
         "disk": disk,
         "backup_summary": backup_summary,
+        "backup_retention_plan": backup_retention_plan,
         "worktree_registry": {
             "repo_root": str(worktree_repo_root),
             "registered_count": len(registered_worktrees),
