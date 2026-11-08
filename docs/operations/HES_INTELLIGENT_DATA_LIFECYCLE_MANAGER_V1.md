@@ -108,3 +108,8 @@ The existing HES health monitor is extended in-place; no duplicate monitor or ne
 - The first five hours report insufficient history as OK; the forecast becomes meaningful only after samples accumulate. Existing free-space checks remain authoritative and immediate.
 - The operational monitor already owns `StateDirectory=hes-operational-health` and `ReadWritePaths=/var/lib/hes-operational-health`; the new state file fits that existing sandbox boundary.
 - This code is in the isolated PR only. It has not been deployed to the VPS or activated by systemd.
+
+
+## 10. Encrypted staging artifacts
+
+The scanner explicitly inventories `/var/backups/hes-trade-agent/dropbox-staging` and classifies its contents as `KEEP_BACKUP_STAGING`. A local staging artifact is not an offsite copy. Keep the archive and sidecar until its encryption-key provenance, integrity, restore path, and successful remote upload are independently verified. Do not infer offsite status from a filename containing `offsite`.
