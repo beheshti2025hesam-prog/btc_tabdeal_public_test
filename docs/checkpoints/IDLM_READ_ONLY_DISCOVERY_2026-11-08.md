@@ -107,3 +107,15 @@
 - The current VPS monitor state directory remains unchanged by this PR. No new capacity state file was written to production; no service was restarted.
 - Isolated VPS validation using the repository virtualenv: **20 tests passed**, and all four IDLM/healthcheck Python modules passed `py_compile`. Tests ran in a temporary directory which was removed after validation.
 - The capacity-monitor code remains unmerged/undeployed. First production sample will be collected only after the reviewed release is deployed through the normal release gate.
+
+
+## Corrected offsite staging inventory — 2026-11-08
+
+- The Dropbox remote folder `/HES Trade Agent Backups` remains empty (zero entries).
+- Correction to the earlier staging note: VPS `/var/backups/hes-trade-agent/dropbox-staging` is **not empty**. It contains a 69,266,627-byte encrypted archive `hes-agent-offsite-20261107T165625Z.tar.gz.gpg` plus a 112-byte SHA-256 sidecar. The sidecar verifies successfully.
+- The archive is GPG symmetric AES-256/SHA-512 encrypted. Decryption with the current full-backup key file failed with `Bad session key`; the archive's encryption-key provenance is unknown. Do not guess keys or delete the artifact.
+- No offsite/Dropbox systemd service, timer, cron reference, rclone binary/config, or offsite key file was found in the inspected paths. The file is a local staging artifact, not proof of remote backup.
+- Scanner v6 explicitly scans `dropbox-staging` and classifies the directory, encrypted archive, and sidecar as `KEEP_BACKUP_STAGING`.
+- Refreshed scan v6: 706 entries, zero scan errors, 24 Git worktree registry paths, 11 existing scanned worktrees protected, disk 15.23% free, inodes 87.05% free, `automatic_action=NONE`.
+- Latest isolated VPS validation: **21 tests passed** and all four Python modules passed `py_compile`; no production state or service was touched.
+- Offsite copy and key provenance remain unresolved. Do not claim offsite recovery is complete.
