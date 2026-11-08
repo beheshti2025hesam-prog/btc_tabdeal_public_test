@@ -148,3 +148,14 @@ def test_backup_retention_plan_mirrors_current_policy_without_deleting(tmp_path)
     assert report["backup_retention_plan"]["deletion_authorized"] is False
     assert report["backup_retention_plan"]["expired_review_candidates"] == 1
     assert rows[names["daily"]]["checksum_sidecar_present"] is True
+
+
+def test_srv_evidence_store_is_protected():
+    classification, reason = _classify(
+        Path("/srv/hes-evidence/records/manifest.json"),
+        age_days=365.0,
+        is_symlink=False,
+        registered_worktrees=set(),
+    )
+    assert classification == "KEEP_EVIDENCE"
+    assert "Immutable project evidence store" in reason
