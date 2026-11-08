@@ -37,7 +37,7 @@ Immutable cold data may be archived only after retention review, dependency anal
 
 ### REVIEW — not deletion permission
 
-Stale temporary workspaces, same-day duplicate backups, caches, old build/test artifacts, and logs are review candidates. Age, filename, size, cache naming, or lack of recent reads alone never authorizes deletion.
+Stale temporary workspaces, same-day additional backup snapshots, caches, old build/test artifacts, and logs are review candidates. A same-day additional snapshot is not necessarily content-identical to another backup. Age, filename, size, cache naming, or lack of recent reads alone never authorizes deletion.
 
 ### DELETE — gated
 
@@ -65,7 +65,7 @@ For Tabdeal FAPI/Margin, current reviewed public evidence does not establish `tr
 `scripts/ops/hes_data_lifecycle_audit_v1.py` inventories configured filesystem roots and emits a JSON manifest. It:
 - reports allocated bytes, file counts, scan errors, age, disk and inode availability;
 - classifies protected data, unknown data, caches, logs, temporary workspaces, and backup candidates;
-- identifies older full backup files when multiple encrypted snapshots exist for the same UTC day;
+- identifies additional full backup snapshots when multiple encrypted snapshots exist for the same UTC day; it does not establish byte-level/content identity or verify the backup sidecar checksum;
 - never follows symlinks;
 - always emits `automatic_action: NONE`.
 
