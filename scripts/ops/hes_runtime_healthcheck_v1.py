@@ -36,6 +36,7 @@ FRESHNESS_LIMITS = {
     'strategy_learning_v1_report.json': 10 * 60,
     'no_trade_decision_audit_24h_v1.jsonl': 45 * 60,
     'precision_entry_journal_report_v1.json': 120,
+    'strategy_family_results_report_v1.json': 120,
 }
 
 
