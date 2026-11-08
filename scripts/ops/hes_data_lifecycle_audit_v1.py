@@ -123,23 +123,23 @@ def _backup_groups(records: list[dict[str, Any]]) -> dict[str, int]:
         if match:
             day = match.group(1)[:8]
             grouped.setdefault(day, []).append(row)
-    duplicates = 0
+    extra_snapshots = 0
     for rows in grouped.values():
         rows.sort(key=lambda row: Path(row["path"]).name)
         if len(rows) <= 1:
             continue
         for row in rows[:-1]:
-            row["classification"] = "REVIEW_SAME_DAY_BACKUP_DUPLICATE"
+            row["classification"] = "REVIEW_SAME_DAY_EXTRA_BACKUP"
             row["reason"] = (
-                "Older full backup from a day with multiple snapshots. Keep until restore/offsite "
-                "proof and a versioned retention policy authorize pruning."
+                "Additional full backup snapshot from a day with multiple snapshots. It is not proven "
+                "content-identical; keep until restore/offsite proof and a versioned retention policy authorize pruning."
             )
-            duplicates += 1
-        rows[-1]["classification"] = "KEEP_LATEST_DAILY_BACKUP"
+            extra_snapshots += 1
+        rows[-1]["classification"] = "KEEP_LATEST_SAME_DAY_BACKUP"
     return {
         "backup_days": len(grouped),
         "backup_archives": sum(map(len, grouped.values())),
-        "same_day_duplicate_candidates": duplicates,
+        "same_day_extra_snapshot_candidates": extra_snapshots,
     }
 
 
