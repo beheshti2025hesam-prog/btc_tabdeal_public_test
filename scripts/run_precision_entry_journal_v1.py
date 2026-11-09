@@ -65,6 +65,14 @@ def build_precision_event(*, setup_context: Mapping[str, Any], candle: Mapping[s
                           engine_result: Mapping[str, Any], observed_at: datetime) -> dict:
     setup_id = setup_context["setup_id"]
     close_time = int(candle["close_time"])
+    # The worker polls more frequently than the 1m candle cadence. Keep the
+    # immutable event fingerprint stable across repeated polls of the same
+    # closed candle: wall-clock observation time and age_seconds are telemetry,
+    # not new market evidence.
+    stable_engine_result = dict(engine_result)
+    stable_engine_evidence = dict(engine_result.get("evidence", {}))
+    stable_engine_evidence.pop("age_seconds", None)
+    stable_engine_result["evidence"] = stable_engine_evidence
     base = {
         "schema": "hes_precision_entry_event_v1",
         "event_id": f"hes-precision-event:{setup_id}:{close_time}",
@@ -80,11 +88,11 @@ def build_precision_event(*, setup_context: Mapping[str, Any], candle: Mapping[s
         "direction": setup_context["direction"],
         "market_regime": setup_context["market_regime"],
         "reason_codes": list(engine_result.get("reason_codes", [])),
-        "engine_evidence": engine_result.get("evidence", {}),
+        "engine_evidence": stable_engine_evidence,
         "evidence_sha256": _hash({
             "setup_context_sha256": setup_context["evidence_sha256"],
             "candle": dict(candle),
-            "engine_result": dict(engine_result),
+            "engine_result": stable_engine_result,
         }),
         "execution_enabled": False,
         "orders_placed": False,
@@ -199,12 +207,29 @@ def resolve_candidate(candidate: Mapping[str, Any], candles: list[dict]) -> dict
     return None
 
 
+def _immutable_event_identity(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the stable identity payload for a precision observation event."""
+    normalized = dict(record)
+    if normalized.get("schema") == "hes_precision_entry_event_v1":
+        # Older rows included these poll-varying values in the payload hash.
+        # Exclude only telemetry; retain every decision/evidence field so a
+        # genuinely changed decision or market observation remains a conflict.
+        normalized.pop("observed_at", None)
+        normalized.pop("evidence_sha256", None)
+        evidence = normalized.get("engine_evidence")
+        if isinstance(evidence, Mapping):
+            stable_evidence = dict(evidence)
+            stable_evidence.pop("age_seconds", None)
+            normalized["engine_evidence"] = stable_evidence
+    return normalized
+
+
 def append_immutable_event(journal: ForwardJournalV1, record: Mapping[str, Any]) -> bool:
-    """Idempotent append: same ID+same bytes is replay; same ID+different data is conflict."""
+    """Idempotent append: same semantic event is replay; changed evidence is conflict."""
     existing = _read_jsonl(journal.path)
     for prior in existing:
         if prior.get("event_id") == record.get("event_id"):
-            if prior != dict(record):
+            if _immutable_event_identity(prior) != _immutable_event_identity(record):
                 raise ValueError("IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT")
             return False
     return journal.append_event(record)
