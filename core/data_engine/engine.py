@@ -11,7 +11,7 @@ from core.data_engine.validator import RawDataValidator
 from core.models.trade import CanonicalTrade
 
 class DataEngine:
-    """Read -> validate -> normalize -> audit -> deduplicate -> order."""
+    """Read -> validate -> normalize -> audit -> fingerprint-deduplicate -> timestamp-order."""
     def __init__(self, reader=None, validator=None, normalizer=None, deduplicator=None, integrity_audit=None):
         self.reader = reader or RawDataReader()
         self.validator = validator or RawDataValidator()
