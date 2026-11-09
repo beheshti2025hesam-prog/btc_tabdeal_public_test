@@ -57,6 +57,14 @@ def test_precision_event_replay_ignores_poll_telemetry_but_preserves_evidence_co
     assert append_immutable_event(journal, first) is True
     assert append_immutable_event(journal, replay) is False
 
+    # A revised OHLCV bar under the same setup/candle ID is not a replay.
+    revised_candle = dict(candle, high="101.0")
+    revised_bar = build_precision_event(setup_context=CONTEXT, candle=revised_candle,
+                                        engine_result=replay_engine,
+                                        observed_at=NOW.replace(second=30))
+    with pytest.raises(ValueError, match="IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT"):
+        append_immutable_event(journal, revised_bar)
+
     changed_engine = {"state": "READY", "reason_codes": [],
                       "evidence": {"close": 100.0, "age_seconds": 18}}
     changed = build_precision_event(setup_context=CONTEXT, candle=candle,
