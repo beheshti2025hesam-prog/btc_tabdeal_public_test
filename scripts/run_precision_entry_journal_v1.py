@@ -84,6 +84,9 @@ def build_precision_event(*, setup_context: Mapping[str, Any], candle: Mapping[s
         "symbol": "BTC_USDT",
         "timeframe": "1m",
         "candle_close_time": close_time,
+        # Preserve the exact closed market bar as semantic evidence. This lets
+        # replay telemetry vary without hiding a revised OHLCV observation.
+        "candle_evidence": dict(candle),
         "decision": engine_result["state"],
         "direction": setup_context["direction"],
         "market_regime": setup_context["market_regime"],
@@ -212,8 +215,10 @@ def _immutable_event_identity(record: Mapping[str, Any]) -> dict[str, Any]:
     normalized = dict(record)
     if normalized.get("schema") == "hes_precision_entry_event_v1":
         # Older rows included these poll-varying values in the payload hash.
-        # Exclude only telemetry; retain every decision/evidence field so a
-        # genuinely changed decision or market observation remains a conflict.
+        # Exclude the aggregate hash (which included age_seconds historically),
+        # but compare explicit candle_evidence and all semantic engine fields.
+        # Legacy rows without candle_evidence intentionally fail closed against
+        # new rows: their exact OHLCV payload cannot be reconstructed safely.
         normalized.pop("observed_at", None)
         normalized.pop("evidence_sha256", None)
         evidence = normalized.get("engine_evidence")
