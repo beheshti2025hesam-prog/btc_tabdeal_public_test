@@ -72,6 +72,14 @@ def test_precision_event_replay_ignores_poll_telemetry_but_preserves_evidence_co
     with pytest.raises(ValueError, match="IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT"):
         append_immutable_event(journal, changed)
 
+    # A pre-fix row has no raw candle payload; do not silently call it a replay.
+    legacy_journal = ForwardJournalV1(tmp_path / "legacy-precision-events.jsonl")
+    legacy_record = dict(first)
+    legacy_record.pop("candle_evidence")
+    legacy_journal.append_event(legacy_record)
+    with pytest.raises(ValueError, match="IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT"):
+        append_immutable_event(legacy_journal, first)
+
 
 def test_paper_candidate_is_bound_to_setup_and_never_an_order():
     row=candidate()
