@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+import pytest
 
 import scripts.ops.hes_idlm_cache_cleanup_v1 as cleanup
 
@@ -318,3 +323,87 @@ def test_atomic_noreplace_rename_moves_directory_when_destination_absent(tmp_pat
 
     assert not (source_dir / "cache").exists()
     assert (destination_dir / "moved-cache" / "file").read_text() == "preserve"
+
+
+
+def test_tree_fingerprint_is_stable_across_directory_rename(tmp_path):
+    source = tmp_path / "source" / "__pycache__"
+    source.mkdir(parents=True)
+    file_path = source / "module.pyc"
+    file_path.write_bytes(b"stable")
+    before, _ = cleanup._tree_snapshot(source)
+
+    destination = tmp_path / "destination"
+    os.rename(source, destination)
+
+    after, _ = cleanup._tree_snapshot(destination)
+    assert before["tree_sha256"] == after["tree_sha256"]
+
+
+def test_end_to_end_quarantine_and_restore_with_root_privilege(tmp_path):
+    if os.geteuid() != 0:
+        if shutil.which("sudo") is None:
+            pytest.skip("root or passwordless sudo is required for end-to-end safety test")
+        probe = subprocess.run(["sudo", "-n", "true"], capture_output=True)
+        if probe.returncode != 0:
+            pytest.skip("passwordless sudo is unavailable")
+
+    script = r"""
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import scripts.ops.hes_idlm_cache_cleanup_v1 as cleanup
+
+base = Path(sys.argv[1])
+cleanup.ALLOWED_ROOTS = (base,)
+cleanup.REPO_ROOT = base
+cleanup._load_worktrees = lambda _root: (set(), None)
+proc_root = base / "proc"
+proc_root.mkdir()
+target = base / "fixture" / "__pycache__"
+target.mkdir(parents=True)
+cached_file = target / "module.pyc"
+cached_file.write_bytes(b"end-to-end-cache")
+now = datetime.now(timezone.utc)
+old = (now - timedelta(days=15)).timestamp()
+os.utime(cached_file, (old, old))
+os.utime(target, (old, old))
+plan = cleanup.build_cleanup_plan(
+    now=now, registered_worktrees=set(), proc_root=proc_root
+)
+assert plan["eligible_count"] == 1, plan
+manifest_path = base / "plan.json"
+manifest_bytes = (json.dumps(plan, sort_keys=True) + "\n").encode()
+manifest_path.write_bytes(manifest_bytes)
+os.chmod(manifest_path, 0o600)
+digest = hashlib.sha256(manifest_bytes).hexdigest()
+audit_path = base / "audit" / "cleanup.jsonl"
+actions = cleanup.quarantine_manifest(
+    manifest_path,
+    expected_sha256=digest,
+    confirmation=cleanup.CONFIRM_PHRASE,
+    audit_path=audit_path,
+    proc_root=proc_root,
+)
+assert len(actions) == 1
+quarantined = Path(actions[0]["destination"])
+assert quarantined.is_dir() and not target.exists()
+result = cleanup.restore_quarantine(
+    quarantined,
+    confirmation="RESTORE HES QUARANTINED CACHE",
+    audit_path=audit_path,
+)
+assert result["action"] == "RESTORED"
+assert (target / "module.pyc").read_bytes() == b"end-to-end-cache"
+assert not quarantined.exists()
+print("IDLM_QUARANTINE_RESTORE_E2E=PASS")
+"""
+    command = [sys.executable, "-c", script, str(tmp_path)]
+    if os.geteuid() != 0:
+        command = ["sudo", "-n", *command]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + "\n" + result.stderr
+    assert "IDLM_QUARANTINE_RESTORE_E2E=PASS" in result.stdout
