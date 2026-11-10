@@ -692,6 +692,33 @@ def quarantine_manifest(
     return actions
 
 
+def _restore_identity_scan(path: Path) -> set[tuple[int, int]]:
+    root_st = path.lstat()
+    if not stat.S_ISDIR(root_st.st_mode) or stat.S_ISLNK(root_st.st_mode):
+        raise CleanupSafetyError("RESTORE_ROOT_NOT_DIRECTORY")
+    identities: set[tuple[int, int]] = set()
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        current_st = current.lstat()
+        identities.add((current_st.st_dev, current_st.st_ino))
+        if len(identities) > MAX_TREE_ENTRIES:
+            raise CleanupSafetyError("RESTORE_IDENTITY_SCAN_LIMIT")
+        if not stat.S_ISDIR(current_st.st_mode) or stat.S_ISLNK(current_st.st_mode):
+            continue
+        with os.scandir(current) as entries:
+            children = [Path(entry.path) for entry in entries]
+        for child in children:
+            child_st = child.lstat()
+            identities.add((child_st.st_dev, child_st.st_ino))
+            if len(identities) > MAX_TREE_ENTRIES:
+                raise CleanupSafetyError("RESTORE_IDENTITY_SCAN_LIMIT")
+            if stat.S_ISDIR(child_st.st_mode) and not stat.S_ISLNK(child_st.st_mode):
+                if child_st.st_dev == root_st.st_dev:
+                    stack.append(child)
+    return identities
+
+
 def restore_quarantine(
     quarantine_path: Path, *, confirmation: str, audit_path: Path = AUDIT_PATH
 ) -> dict[str, Any]:
@@ -752,20 +779,31 @@ def restore_quarantine(
     if original.parent.stat().st_dev != quarantine_path.stat().st_dev:
         raise CleanupSafetyError("RESTORE_DEVICE_MISMATCH")
     _reject_symlink_components(original.parent)
-    restored_snapshot, identities = _tree_snapshot(quarantine_path)
-    if (
-        restored_snapshot["tree_sha256"] != matched_event.get("tree_sha256")
-        or (restored_snapshot["device"], restored_snapshot["inode"])
-        != (matched_event.get("device"), matched_event.get("inode"))
-    ):
-        raise CleanupSafetyError("QUARANTINE_CONTENT_OR_IDENTITY_CHANGED")
+    restore_fallback = False
+    try:
+        restored_snapshot, identities = _tree_snapshot(quarantine_path)
+        if (
+            restored_snapshot["tree_sha256"] != matched_event.get("tree_sha256")
+            or (restored_snapshot["device"], restored_snapshot["inode"])
+            != (matched_event.get("device"), matched_event.get("inode"))
+        ):
+            raise CleanupSafetyError("QUARANTINE_CONTENT_OR_IDENTITY_CHANGED")
+    except CleanupSafetyError:
+        root_st = quarantine_path.lstat()
+        if (root_st.st_dev, root_st.st_ino) != (
+            matched_event.get("device"), matched_event.get("inode")
+        ):
+            raise CleanupSafetyError("QUARANTINE_ROOT_IDENTITY_CHANGED")
+        identities = _restore_identity_scan(quarantine_path)
+        restore_fallback = True
     refs, ref_errors = _open_reference_scan(identities)
     if ref_errors or refs:
         raise CleanupSafetyError("QUARANTINE_STILL_REFERENCED")
     _append_audit({
         "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
         "action": "RESTORE_INTENT", "source": str(quarantine_path), "destination": str(original),
-        "tree_sha256": restored_snapshot["tree_sha256"],
+        "tree_sha256": matched_event.get("tree_sha256"),
+        "fallback_tree_unverified": restore_fallback,
     }, audit_path)
     quarantine_parent_fd = _open_directory_chain(quarantine_path.parent)
     original_parent_fd = _open_directory_chain(original.parent)
