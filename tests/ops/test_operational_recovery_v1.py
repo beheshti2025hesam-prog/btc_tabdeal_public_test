@@ -316,7 +316,7 @@ def test_post_start_health_failure_blocks_recovery_chain(tmp_path):
                 'state': 'CRITICAL',
                 'detail': 'journal_not_ready',
             })
-        return {'issues': issues}
+        return {'overall': 'CRITICAL' if issues else 'OK', 'issues': issues}
     recovery.health_provider = live_health
 
     result = recovery.run()
@@ -338,6 +338,16 @@ def test_future_repair_audit_timestamp_fails_closed(tmp_path):
     }) + '\n')
 
     with pytest.raises(Exception, match='REPAIR_AUDIT_CLOCK_SKEW'):
+        recovery.run()
+
+    assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
+def test_malformed_health_report_fails_closed_before_any_start(tmp_path):
+    recovery, runner, _, _ = make_recovery(tmp_path, inactive=[REPAIR_ORDER[0]])
+    recovery.health_provider = lambda: {'overall': 'OK'}
+
+    with pytest.raises(Exception, match='HEALTH_REPORT_INVALID'):
         recovery.run()
 
     assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
