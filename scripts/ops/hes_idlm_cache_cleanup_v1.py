@@ -420,13 +420,38 @@ def quarantine_manifest(
         raise CleanupSafetyError("EXPLICIT_CONFIRMATION_REQUIRED")
     if _manifest_digest(manifest_path) != expected_sha256:
         raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
+    _reject_symlink_components(manifest_path)
+    manifest_st = manifest_path.lstat()
+    if not stat.S_ISREG(manifest_st.st_mode):
+        raise CleanupSafetyError("MANIFEST_NOT_REGULAR_FILE")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("policy_version") != POLICY_VERSION or manifest.get("schema") != "hes_idlm_cache_cleanup_plan_v1":
         raise CleanupSafetyError("POLICY_OR_SCHEMA_MISMATCH")
+    if manifest.get("allowed_roots") != [str(root) for root in ALLOWED_ROOTS]:
+        raise CleanupSafetyError("ROOT_SCOPE_MISMATCH")
+    if manifest.get("allowed_directory_names") != sorted(ALLOWED_NAMES):
+        raise CleanupSafetyError("CACHE_NAME_SCOPE_MISMATCH")
+    if manifest.get("minimum_age_days") != MIN_AGE_DAYS:
+        raise CleanupSafetyError("AGE_POLICY_MISMATCH")
     if manifest.get("scan_errors") or manifest.get("worktree_registry", {}).get("error"):
         raise CleanupSafetyError("PLAN_HAS_SCAN_ERRORS")
+    eligible_items = [item for item in manifest.get("candidates", []) if item.get("eligible")]
+    if len(eligible_items) != manifest.get("eligible_count") or len(eligible_items) > MAX_CANDIDATES:
+        raise CleanupSafetyError("CANDIDATE_COUNT_MISMATCH")
+    total_planned_bytes = 0
+    seen_paths: set[str] = set()
+    for item in eligible_items:
+        if item.get("path") in seen_paths:
+            raise CleanupSafetyError("DUPLICATE_CANDIDATE_PATH")
+        seen_paths.add(item.get("path"))
+        size = int(item.get("allocated_bytes", -1))
+        if size < 0 or size > MAX_CANDIDATE_BYTES:
+            raise CleanupSafetyError("CANDIDATE_SIZE_POLICY_MISMATCH")
+        total_planned_bytes += size
+    if total_planned_bytes > MAX_BATCH_BYTES or total_planned_bytes != manifest.get("eligible_allocated_bytes"):
+        raise CleanupSafetyError("BATCH_SIZE_POLICY_MISMATCH")
     actions: list[dict[str, Any]] = []
-    for item in manifest.get("candidates", []):
+    for item in eligible_items:
         if not item.get("eligible"):
             continue
         source = Path(item["path"])
@@ -491,6 +516,7 @@ def restore_quarantine(
         raise CleanupSafetyError("RESTORE_REQUIRES_ROOT")
     if confirmation != "RESTORE HES QUARANTINED CACHE":
         raise CleanupSafetyError("RESTORE_CONFIRMATION_REQUIRED")
+    _reject_symlink_components(quarantine_path)
     if quarantine_path.is_symlink() or not quarantine_path.is_dir():
         raise CleanupSafetyError("QUARANTINE_PATH_INVALID")
     if quarantine_path.parent.parent.name != QUARANTINE_NAME:
@@ -517,7 +543,14 @@ def restore_quarantine(
         raise CleanupSafetyError("RESTORE_ORIGIN_OUTSIDE_ALLOWLIST")
     if original.parent.stat().st_dev != quarantine_path.stat().st_dev:
         raise CleanupSafetyError("RESTORE_DEVICE_MISMATCH")
+    _reject_symlink_components(original.parent)
     os.rename(quarantine_path, original)
+    for directory in (quarantine_path.parent, original.parent):
+        fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
     _append_audit({
         "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
         "action": "RESTORED", "source": str(quarantine_path), "destination": str(original),
