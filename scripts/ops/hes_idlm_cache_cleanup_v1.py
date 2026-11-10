@@ -461,6 +461,12 @@ def quarantine_manifest(
         raise CleanupSafetyError("CACHE_NAME_SCOPE_MISMATCH")
     if manifest.get("minimum_age_days") != MIN_AGE_DAYS:
         raise CleanupSafetyError("AGE_POLICY_MISMATCH")
+    if (
+        manifest.get("execution_enabled") is not False
+        or manifest.get("deletion_authorized") is not False
+        or manifest.get("automatic_action") != "NONE"
+    ):
+        raise CleanupSafetyError("PLAN_EXECUTION_FLAGS_UNSAFE")
     if manifest.get("scan_errors") or manifest.get("worktree_registry", {}).get("error"):
         raise CleanupSafetyError("PLAN_HAS_SCAN_ERRORS")
     eligible_items = [item for item in manifest.get("candidates", []) if item.get("eligible")]
@@ -469,8 +475,10 @@ def quarantine_manifest(
     total_planned_bytes = 0
     seen_paths: set[str] = set()
     for item in eligible_items:
-        if item.get("path") in seen_paths:
-            raise CleanupSafetyError("DUPLICATE_CANDIDATE_PATH")
+        if not isinstance(item.get("path"), str) or item.get("path") in seen_paths:
+            raise CleanupSafetyError("DUPLICATE_OR_INVALID_CANDIDATE_PATH")
+        if item.get("automatic_action") != "NONE":
+            raise CleanupSafetyError("CANDIDATE_ACTION_FLAG_UNSAFE")
         seen_paths.add(item.get("path"))
         size = int(item.get("allocated_bytes", -1))
         if size < 0 or size > MAX_CANDIDATE_BYTES:
@@ -509,6 +517,12 @@ def quarantine_manifest(
             raise CleanupSafetyError("QUARANTINE_DEVICE_MISMATCH")
         run_dir = quarantine_root / uuid.uuid4().hex
         run_dir.mkdir(mode=0o700, exist_ok=False)
+        for directory in (root, quarantine_root):
+            fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
         destination = run_dir / f"{source.name}-{uuid.uuid4().hex}"
         event = {
             "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
@@ -518,13 +532,27 @@ def quarantine_manifest(
         }
         _append_audit(event, audit_path)
         # Revalidate immediately before the atomic same-filesystem rename.
-        current_snapshot, identities = _tree_snapshot(source)
-        refs, errors = _open_reference_scan(identities, proc_root=proc_root)
-        if errors or refs or current_snapshot["tree_sha256"] != item["tree_sha256"]:
-            raise CleanupSafetyError("PRE_RENAME_REVALIDATION_FAILED")
-        if destination.exists() or destination.is_symlink():
-            raise CleanupSafetyError("QUARANTINE_DESTINATION_EXISTS")
-        os.rename(source, destination)
+        try:
+            current_snapshot, identities = _tree_snapshot(source)
+            refs, errors = _open_reference_scan(identities, proc_root=proc_root)
+            if errors or refs or current_snapshot["tree_sha256"] != item["tree_sha256"]:
+                raise CleanupSafetyError("PRE_RENAME_REVALIDATION_FAILED")
+            if destination.exists() or destination.is_symlink():
+                raise CleanupSafetyError("QUARANTINE_DESTINATION_EXISTS")
+        except Exception as exc:
+            _append_audit({
+                **event, "at": datetime.now(timezone.utc).isoformat(),
+                "action": "QUARANTINE_ABORTED", "reason": f"{type(exc).__name__}:{str(exc)[:120]}",
+            }, audit_path)
+            raise
+        try:
+            os.rename(source, destination)
+        except OSError as exc:
+            _append_audit({
+                **event, "at": datetime.now(timezone.utc).isoformat(),
+                "action": "QUARANTINE_ABORTED", "reason": f"RENAME_FAILED:{type(exc).__name__}",
+            }, audit_path)
+            raise
         for directory in (source.parent, run_dir):
             fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
             try:
@@ -561,6 +589,9 @@ def restore_quarantine(
     _reject_symlink_components(audit_path)
     if not stat.S_ISREG(audit_path.lstat().st_mode):
         raise CleanupSafetyError("AUDIT_NOT_REGULAR_FILE")
+    audit_st = audit_path.lstat()
+    if audit_st.st_size > 64 * 1024 * 1024:
+        raise CleanupSafetyError("AUDIT_SIZE_LIMIT")
     original = None
     try:
         lines = audit_path.read_text(encoding="utf-8").splitlines()
