@@ -217,3 +217,35 @@ def test_apply_requires_explicit_phrase_even_for_root(monkeypatch, tmp_path):
         assert str(exc) == "EXPLICIT_CONFIRMATION_REQUIRED"
     else:
         raise AssertionError("apply must require explicit typed confirmation")
+
+
+
+def test_dry_run_manifest_creation_is_exclusive_and_private(tmp_path):
+    import stat
+
+    target = tmp_path / "plan.json"
+    digest = cleanup._write_new_manifest(target, '{"action":"NONE"}\n')
+
+    assert digest == cleanup._manifest_digest(target)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    try:
+        cleanup._write_new_manifest(target, '{"overwritten":true}\n')
+    except FileExistsError:
+        pass
+    else:
+        raise AssertionError("dry-run output must never overwrite an existing file")
+    assert target.read_text() == '{"action":"NONE"}\n'
+
+
+def test_directory_chain_open_rejects_symlink_component(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real, target_is_directory=True)
+
+    try:
+        cleanup._open_directory_chain(link)
+    except OSError:
+        pass
+    else:
+        raise AssertionError("directory descriptor walk must reject symlink components")
