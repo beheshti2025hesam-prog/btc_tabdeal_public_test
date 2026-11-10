@@ -25,7 +25,8 @@ MIN_AGE_DAYS = 14
 MAX_CANDIDATES = 10
 MAX_CANDIDATE_BYTES = 128 * 1024 * 1024
 MAX_BATCH_BYTES = 512 * 1024 * 1024
-MAX_TREE_ENTRIES = 20_000
+MAX_TREE_ENTRIES = 5_000
+MAX_DISCOVERED_CANDIDATES = 100
 QUARANTINE_NAME = ".hes-idlm-quarantine-v1"
 AUDIT_PATH = Path("/var/lib/hes-idlm/cleanup-audit.jsonl")
 REPO_ROOT = Path("/opt/hes-trade-agent")
@@ -275,6 +276,9 @@ def _discover_targets(root: Path, registered: set[Path], device: int) -> tuple[l
                 continue
             if child.name in ALLOWED_NAMES:
                 targets.append(child)
+                if len(targets) > MAX_DISCOVERED_CANDIDATES:
+                    errors.append("CANDIDATE_DISCOVERY_LIMIT")
+                    return targets[:MAX_DISCOVERED_CANDIDATES], errors
                 continue
             stack.append(child)
     return targets, errors
