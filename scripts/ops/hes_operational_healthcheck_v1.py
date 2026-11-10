@@ -126,8 +126,10 @@ def main() -> int:
     if release_check['state'] == 'OK':
         try:
             recovery = OperationalRecoveryV1(
+                # Re-sample on every recovery readiness poll. A frozen preflight
+                # snapshot can hide a newly failing feed/journal while workers start.
                 health_provider=lambda: _recovery_health_report(
-                    preflight_runtime, preflight_host_issues
+                    collect_checks(), _host_checks()
                 )
             ).run()
         except Exception as exc:
