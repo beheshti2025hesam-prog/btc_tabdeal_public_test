@@ -146,3 +146,51 @@ def test_quarantine_restore_path_contract_is_narrow():
     assert cleanup.MIN_AGE_DAYS == 14
     assert cleanup.ALLOWED_NAMES == {"__pycache__", ".pytest_cache"}
     assert cleanup.MAX_CANDIDATES <= 10
+
+
+
+def test_open_current_working_directory_blocks_candidate(monkeypatch, tmp_path):
+    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    cache = tmp_path / "run-a" / "__pycache__"
+    _old_tree(cache, now)
+    proc = tmp_path / "proc"
+    cwd = proc / "321"
+    cwd.mkdir(parents=True)
+    (cwd / "cwd").symlink_to(cache, target_is_directory=True)
+
+    plan = _plan(monkeypatch, tmp_path, now, proc_root=proc)
+
+    row = next(item for item in plan["candidates"] if item["path"] == str(cache))
+    assert row["eligible"] is False
+    assert row["reason"] == "OPEN_PROCESS_REFERENCE"
+
+
+def test_memory_mapping_blocks_candidate(tmp_path):
+    cache = tmp_path / "cache" / "__pycache__"
+    cache.parent.mkdir()
+    file_path = _old_tree(cache, datetime.now(timezone.utc))
+    st = file_path.stat()
+    proc = tmp_path / "proc"
+    maps = proc / "456" / "maps"
+    maps.parent.mkdir(parents=True)
+    device = f"{os.major(st.st_dev):02x}:{os.minor(st.st_dev):02x}"
+    maps.write_text(f"1000-2000 rw-p 00000000 {device} {st.st_ino} {file_path}\n")
+
+    _, identities = cleanup._tree_snapshot(cache)
+    refs, errors = cleanup._open_reference_scan(identities, proc_root=proc)
+
+    assert errors == []
+    assert any(ref.get("mapping") == str(file_path) for ref in refs)
+
+
+def test_tree_entry_limit_fails_closed(monkeypatch, tmp_path):
+    cache = tmp_path / "cache" / ".pytest_cache"
+    _old_tree(cache, datetime.now(timezone.utc))
+    monkeypatch.setattr(cleanup, "MAX_TREE_ENTRIES", 1)
+
+    try:
+        cleanup._tree_snapshot(cache)
+    except cleanup.CleanupSafetyError as exc:
+        assert str(exc) == "TREE_ENTRY_LIMIT"
+    else:
+        raise AssertionError("large tree must fail closed")
