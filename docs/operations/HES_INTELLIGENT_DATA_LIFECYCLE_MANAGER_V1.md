@@ -150,13 +150,13 @@ The first production scanner remains read-only. A separate isolated candidate re
 - Minimum age is 14 days for the directory and every entry inside it. A recent child blocks the whole candidate.
 - The Git worktree registry must be readable. Any registered worktree ancestor/descendant relationship excludes the candidate.
 - Any symlink, mount/device boundary, hard-linked regular file, special file, mixed UID/GID ownership, setuid/setgid bit, unreadable scan, open descriptor, process cwd/root/executable reference, or memory mapping blocks the whole candidate.
-- File contents are SHA-256 hashed. The manifest records exact path, device/inode, size, nanosecond mtime, owner/group, and a deterministic tree digest.
+- File contents are SHA-256 hashed. Directory and file metadata are revalidated across scans (including ctime); the manifest records exact path, device/inode, size, nanosecond mtime, owner/group, and a deterministic tree digest.
 - Conservative bounds: at most 5,000 filesystem entries per candidate, 100 discovered candidates per scan, 128 MiB per candidate, 10 actionable candidates, and 512 MiB per batch.
 
 **Execution boundary:**
-- Normal invocation only emits a dry-run manifest; automatic_action=NONE, execution_enabled=false, and deletion_authorized=false.
+- Normal invocation only emits a new, exclusive, mode-0600 dry-run manifest (existing output is never overwritten); automatic_action=NONE, execution_enabled=false, and deletion_authorized=false.
 - The isolated candidate has no recursive-delete or purge operation. Quarantine is a reversible isolation/canary stage and does not reclaim disk space. Any later purge implementation requires a separate retention/hold policy and explicit owner authorization. An explicit quarantine invocation requires root, the exact SHA-256 of the saved manifest, and the typed phrase QUARANTINE HES TEMP CACHES.
-- Before each same-filesystem atomic rename, it performs a fresh inventory, re-hashes the tree, and rechecks process references. Any mismatch aborts.
-- Items move into a mode-0700 .hes-idlm-quarantine-v1 directory under the same temp root. An append-only mode-0600 audit records intent and completion and is fsynced. Quarantine is reversible through the audited restore command; restore refuses to overwrite an existing path.
+- Before each same-filesystem atomic rename, it performs a fresh inventory, re-hashes the tree, rechecks process references, pins source/destination parent directories with no-follow directory descriptors, and verifies source inode identity before and after rename. Any mismatch aborts.
+- Items move into a mode-0700 .hes-idlm-quarantine-v1 directory under the same temp root. An append-only mode-0600 audit records intent and completion through a pinned no-follow audit-directory descriptor and is fsynced. Restore can recover safely if the process stops after rename but before the completion record is appended, using the audited intent plus exact tree and inode identity. Quarantine is reversible through the audited restore command; restore refuses to overwrite an existing path.
 - No cleanup command has been run. No cache has been moved or deleted. This candidate is not merged, deployed, or enabled on the VPS. The user approved development of this narrow policy, not production execution or release deployment.
 - Production acceptance still requires adversarial tests, exact-head CI, code review, a separate deployment gate, and an explicit owner decision before any canary. Keep the current production scanner read-only until then.
