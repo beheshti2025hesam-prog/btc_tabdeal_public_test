@@ -1,0 +1,514 @@
+#!/usr/bin/env python3
+"""Fail-closed planner and reversible quarantine for narrowly allowlisted temp caches.
+
+Default mode is read-only. The only actionable objects are old __pycache__ and
+.pytest_cache directories below /tmp or /var/tmp. No recursive deletion exists.
+"""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import secrets
+import stat
+import sys
+import uuid
+from typing import Any
+
+POLICY_VERSION = "hes_tmp_cache_quarantine_v1"
+ALLOWED_ROOTS = (Path("/tmp"), Path("/var/tmp"))
+ALLOWED_NAMES = {"__pycache__", ".pytest_cache"}
+MIN_AGE_DAYS = 14
+MAX_CANDIDATES = 10
+MAX_CANDIDATE_BYTES = 128 * 1024 * 1024
+MAX_BATCH_BYTES = 512 * 1024 * 1024
+QUARANTINE_NAME = ".hes-idlm-quarantine-v1"
+AUDIT_PATH = Path("/var/lib/hes-idlm/cleanup-audit.jsonl")
+REPO_ROOT = Path("/opt/hes-trade-agent")
+CONFIRM_PHRASE = "QUARANTINE HES TEMP CACHES"
+
+
+class CleanupSafetyError(RuntimeError):
+    pass
+
+
+def _sha256_file(path: Path, expected: os.stat_result) -> str:
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    digest = hashlib.sha256()
+    try:
+        before = os.fstat(fd)
+        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+            expected.st_dev, expected.st_ino, expected.st_size, expected.st_mtime_ns
+        ):
+            raise CleanupSafetyError("FILE_CHANGED_DURING_OPEN")
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+        after = os.fstat(fd)
+        if (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) != (
+            before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns
+        ):
+            raise CleanupSafetyError("FILE_CHANGED_DURING_HASH")
+    finally:
+        os.close(fd)
+    return digest.hexdigest()
+
+
+def _tree_snapshot(path: Path) -> tuple[dict[str, Any], set[tuple[int, int]]]:
+    root_st = path.lstat()
+    if not stat.S_ISDIR(root_st.st_mode) or stat.S_ISLNK(root_st.st_mode):
+        raise CleanupSafetyError("TARGET_NOT_REAL_DIRECTORY")
+    device = root_st.st_dev
+    stack = [path]
+    rows: list[dict[str, Any]] = []
+    identities: set[tuple[int, int]] = set()
+    total_bytes = 0
+    owner_ids: set[int] = set()
+    group_ids: set[int] = set()
+
+    while stack:
+        current = stack.pop()
+        current_st = current.lstat()
+        if stat.S_ISLNK(current_st.st_mode) or current_st.st_dev != device:
+            raise CleanupSafetyError("SYMLINK_OR_MOUNT_BOUNDARY")
+        owner_ids.add(current_st.st_uid)
+        group_ids.add(current_st.st_gid)
+        identities.add((current_st.st_dev, current_st.st_ino))
+        rel = "." if current == path else current.relative_to(path).as_posix()
+        if current_st.st_mode & (stat.S_ISUID | stat.S_ISGID):
+            raise CleanupSafetyError("SPECIAL_PERMISSION_BIT")
+        rows.append({
+            "path": rel, "kind": "directory", "dev": current_st.st_dev,
+            "ino": current_st.st_ino, "mode": stat.S_IMODE(current_st.st_mode),
+            "uid": current_st.st_uid, "gid": current_st.st_gid,
+            "size": 0, "mtime_ns": current_st.st_mtime_ns,
+        })
+        with os.scandir(current) as entries:
+            children = sorted((Path(entry.path) for entry in entries), key=lambda p: p.name)
+        for child in reversed(children):
+            st = child.lstat()
+            if stat.S_ISLNK(st.st_mode):
+                raise CleanupSafetyError("SYMLINK_PRESENT")
+            if st.st_dev != device:
+                raise CleanupSafetyError("MOUNT_BOUNDARY_PRESENT")
+            if st.st_mode & (stat.S_ISUID | stat.S_ISGID):
+                raise CleanupSafetyError("SPECIAL_PERMISSION_BIT")
+            owner_ids.add(st.st_uid)
+            group_ids.add(st.st_gid)
+            identities.add((st.st_dev, st.st_ino))
+            rel_child = child.relative_to(path).as_posix()
+            if stat.S_ISDIR(st.st_mode):
+                stack.append(child)
+            elif stat.S_ISREG(st.st_mode):
+                if st.st_nlink != 1:
+                    raise CleanupSafetyError("HARDLINK_PRESENT")
+                if st.st_size > MAX_CANDIDATE_BYTES:
+                    raise CleanupSafetyError("FILE_SIZE_LIMIT")
+                total_bytes += st.st_blocks * 512 if hasattr(st, "st_blocks") else st.st_size
+                if total_bytes > MAX_CANDIDATE_BYTES:
+                    raise CleanupSafetyError("CANDIDATE_SIZE_LIMIT")
+                content_hash = _sha256_file(child, st)
+                rows.append({
+                    "path": rel_child, "kind": "file", "dev": st.st_dev,
+                    "ino": st.st_ino, "mode": stat.S_IMODE(st.st_mode),
+                    "uid": st.st_uid, "gid": st.st_gid, "size": st.st_size,
+                    "mtime_ns": st.st_mtime_ns, "nlink": st.st_nlink,
+                    "sha256": content_hash,
+                })
+            else:
+                raise CleanupSafetyError("SPECIAL_FILE_PRESENT")
+
+    if len(owner_ids) != 1 or len(group_ids) != 1:
+        raise CleanupSafetyError("MIXED_OWNERSHIP")
+    rows.sort(key=lambda row: row["path"])
+    encoded = json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()
+    return {
+        "tree_sha256": hashlib.sha256(encoded).hexdigest(),
+        "allocated_bytes": total_bytes,
+        "entry_count": len(rows),
+        "device": device,
+        "inode": root_st.st_ino,
+        "mtime_ns": root_st.st_mtime_ns,
+        "owner_uid": next(iter(owner_ids)),
+        "owner_gid": next(iter(group_ids)),
+        "entries": rows,
+    }, identities
+
+
+def _open_reference_scan(
+    identities: set[tuple[int, int]], proc_root: Path = Path("/proc")
+) -> tuple[list[dict[str, Any]], list[str]]:
+    found: list[dict[str, Any]] = []
+    errors: list[str] = []
+    try:
+        processes = list(proc_root.iterdir())
+    except OSError as exc:
+        return [], [f"PROC_ROOT:{type(exc).__name__}"]
+    for process in processes:
+        if not process.name.isdigit():
+            continue
+        pid = process.name
+        for area in ("fd",):
+            fd_dir = process / area
+            try:
+                fds = list(fd_dir.iterdir())
+            except FileNotFoundError:
+                continue
+            except PermissionError:
+                errors.append(f"PID_{pid}_FD_PERMISSION")
+                continue
+            except OSError as exc:
+                if exc.errno not in (2, 3):
+                    errors.append(f"PID_{pid}_FD_{type(exc).__name__}")
+                continue
+            for fd_path in fds:
+                try:
+                    st = fd_path.stat()
+                except FileNotFoundError:
+                    continue
+                except PermissionError:
+                    errors.append(f"PID_{pid}_FD_STAT_PERMISSION")
+                    continue
+                except OSError:
+                    continue
+                if (st.st_dev, st.st_ino) in identities:
+                    found.append({"pid": int(pid), "fd": fd_path.name})
+        maps_path = process / "maps"
+        try:
+            lines = maps_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except FileNotFoundError:
+            continue
+        except PermissionError:
+            errors.append(f"PID_{pid}_MAPS_PERMISSION")
+            continue
+        except OSError:
+            continue
+        for line in lines:
+            fields = line.split()
+            if len(fields) < 5:
+                continue
+            try:
+                major_hex, minor_hex = fields[3].split(":")
+                dev = os.makedev(int(major_hex, 16), int(minor_hex, 16))
+                inode = int(fields[4])
+            except (ValueError, OSError):
+                continue
+            if inode and (dev, inode) in identities:
+                found.append({"pid": int(pid), "mapping": fields[5] if len(fields) > 5 else "anonymous"})
+    return found, errors
+
+
+def _inside(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _load_worktrees(repo_root: Path) -> tuple[set[Path], str | None]:
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "worktree", "list", "--porcelain"],
+            capture_output=True, text=True, timeout=10, check=True,
+        )
+        paths = {
+            Path(os.path.abspath(line[len("worktree "):]))
+            for line in result.stdout.splitlines() if line.startswith("worktree ")
+        }
+        return paths, None
+    except Exception as exc:
+        return set(), f"{type(exc).__name__}:{str(exc)[:100]}"
+
+
+def _discover_targets(root: Path, registered: set[Path], device: int) -> tuple[list[Path], list[str]]:
+    targets: list[Path] = []
+    errors: list[str] = []
+    stack = [root]
+    quarantine = root / QUARANTINE_NAME
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                children = sorted((Path(entry.path) for entry in entries), key=lambda p: p.name)
+        except OSError as exc:
+            errors.append(f"{current}:{type(exc).__name__}")
+            continue
+        for child in reversed(children):
+            if child == quarantine or child.name == QUARANTINE_NAME:
+                continue
+            try:
+                st = child.lstat()
+            except OSError as exc:
+                errors.append(f"{child}:{type(exc).__name__}")
+                continue
+            if stat.S_ISLNK(st.st_mode) or st.st_dev != device:
+                continue
+            if not stat.S_ISDIR(st.st_mode):
+                continue
+            if any(_inside(child, wt) or _inside(wt, child) for wt in registered):
+                continue
+            if child.name in ALLOWED_NAMES:
+                targets.append(child)
+                continue
+            stack.append(child)
+    return targets, errors
+
+
+def build_cleanup_plan(
+    *, now: datetime | None = None, registered_worktrees: set[Path] | None = None,
+    worktree_registry_error: str | None = None, proc_root: Path = Path("/proc"),
+) -> dict[str, Any]:
+    now = now or datetime.now(timezone.utc)
+    if registered_worktrees is None:
+        registered_worktrees, worktree_registry_error = _load_worktrees(REPO_ROOT)
+    candidates: list[dict[str, Any]] = []
+    scan_errors: list[str] = []
+    if worktree_registry_error:
+        scan_errors.append("WORKTREE_REGISTRY_UNAVAILABLE")
+    for root in ALLOWED_ROOTS:
+        try:
+            root_st = root.lstat()
+            if stat.S_ISLNK(root_st.st_mode) or not stat.S_ISDIR(root_st.st_mode):
+                raise CleanupSafetyError("ROOT_NOT_REAL_DIRECTORY")
+            targets, errors = _discover_targets(root, registered_worktrees or set(), root_st.st_dev)
+            scan_errors.extend(errors)
+        except (OSError, CleanupSafetyError) as exc:
+            scan_errors.append(f"{root}:{type(exc).__name__}")
+            continue
+        for target in targets:
+            row: dict[str, Any] = {
+                "path": str(target), "eligible": False, "reason": "UNASSESSED",
+                "automatic_action": "NONE",
+            }
+            try:
+                snapshot, identities = _tree_snapshot(target)
+                age_seconds = now.timestamp() - snapshot["mtime_ns"] / 1_000_000_000
+                if age_seconds < MIN_AGE_DAYS * 86400:
+                    raise CleanupSafetyError("YOUNGER_THAN_14_DAYS")
+                newest_mtime = max(entry["mtime_ns"] for entry in snapshot["entries"])
+                if now.timestamp() - newest_mtime / 1_000_000_000 < MIN_AGE_DAYS * 86400:
+                    raise CleanupSafetyError("RECENT_ENTRY_PRESENT")
+                refs, ref_errors = _open_reference_scan(identities, proc_root=proc_root)
+                if ref_errors:
+                    raise CleanupSafetyError("PROCESS_REFERENCE_SCAN_INCOMPLETE")
+                if refs:
+                    raise CleanupSafetyError("OPEN_PROCESS_REFERENCE")
+                row.update(snapshot)
+                row.update({
+                    "eligible": True, "reason": "ALLOWLISTED_OLD_CACHE_NO_REFERENCES",
+                    "process_references": [], "automatic_action": "NONE",
+                })
+            except (OSError, CleanupSafetyError) as exc:
+                row["reason"] = str(exc)[:160] or type(exc).__name__
+            candidates.append(row)
+
+    eligible = [row for row in candidates if row["eligible"]]
+    eligible.sort(key=lambda row: row["path"])
+    batch: list[dict[str, Any]] = []
+    batch_bytes = 0
+    for row in eligible:
+        size = int(row["allocated_bytes"])
+        if len(batch) >= MAX_CANDIDATES or batch_bytes + size > MAX_BATCH_BYTES:
+            row["eligible"] = False
+            row["reason"] = "BATCH_BUDGET_EXCEEDED"
+            continue
+        batch.append(row)
+        batch_bytes += size
+    manifest = {
+        "schema": "hes_idlm_cache_cleanup_plan_v1",
+        "policy_version": POLICY_VERSION,
+        "generated_at": now.isoformat(),
+        "minimum_age_days": MIN_AGE_DAYS,
+        "allowed_roots": [str(root) for root in ALLOWED_ROOTS],
+        "allowed_directory_names": sorted(ALLOWED_NAMES),
+        "max_candidates": MAX_CANDIDATES,
+        "max_candidate_bytes": MAX_CANDIDATE_BYTES,
+        "max_batch_bytes": MAX_BATCH_BYTES,
+        "worktree_registry": {
+            "repo_root": str(REPO_ROOT), "registered_count": len(registered_worktrees or set()),
+            "error": worktree_registry_error,
+        },
+        "scan_errors": scan_errors,
+        "candidates": candidates,
+        "eligible_count": len(batch),
+        "eligible_allocated_bytes": batch_bytes,
+        "execution_enabled": False,
+        "deletion_authorized": False,
+        "automatic_action": "NONE",
+    }
+    canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    manifest["manifest_sha256"] = hashlib.sha256(canonical).hexdigest()
+    return manifest
+
+
+def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
+    audit_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if audit_path.parent.is_symlink():
+        raise CleanupSafetyError("AUDIT_PARENT_SYMLINK")
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(audit_path, flags, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        payload = (json.dumps(event, sort_keys=True) + "\n").encode()
+        os.write(fd, payload)
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _manifest_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def quarantine_manifest(
+    manifest_path: Path, *, expected_sha256: str, confirmation: str,
+    audit_path: Path = AUDIT_PATH, proc_root: Path = Path("/proc"),
+) -> list[dict[str, Any]]:
+    if os.geteuid() != 0:
+        raise CleanupSafetyError("APPLY_REQUIRES_ROOT")
+    if confirmation != CONFIRM_PHRASE:
+        raise CleanupSafetyError("EXPLICIT_CONFIRMATION_REQUIRED")
+    if _manifest_digest(manifest_path) != expected_sha256:
+        raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("policy_version") != POLICY_VERSION or manifest.get("schema") != "hes_idlm_cache_cleanup_plan_v1":
+        raise CleanupSafetyError("POLICY_OR_SCHEMA_MISMATCH")
+    if manifest.get("scan_errors") or manifest.get("worktree_registry", {}).get("error"):
+        raise CleanupSafetyError("PLAN_HAS_SCAN_ERRORS")
+    actions: list[dict[str, Any]] = []
+    for item in manifest.get("candidates", []):
+        if not item.get("eligible"):
+            continue
+        source = Path(item["path"])
+        root = next((r for r in ALLOWED_ROOTS if _inside(source, r)), None)
+        if root is None or source.name not in ALLOWED_NAMES:
+            raise CleanupSafetyError("PATH_OUTSIDE_ALLOWLIST")
+        fresh = build_cleanup_plan(
+            registered_worktrees=None, proc_root=proc_root
+        )
+        match = next((r for r in fresh["candidates"] if r["path"] == str(source)), None)
+        if not match or not match.get("eligible") or match.get("tree_sha256") != item.get("tree_sha256"):
+            raise CleanupSafetyError("STALE_OR_CHANGED_MANIFEST")
+        root_st = root.lstat()
+        quarantine_root = root / QUARANTINE_NAME
+        if quarantine_root.exists() and (quarantine_root.is_symlink() or not quarantine_root.is_dir()):
+            raise CleanupSafetyError("QUARANTINE_ROOT_UNSAFE")
+        quarantine_root.mkdir(mode=0o700, exist_ok=True)
+        os.chmod(quarantine_root, 0o700)
+        if quarantine_root.stat().st_dev != root_st.st_dev:
+            raise CleanupSafetyError("QUARANTINE_DEVICE_MISMATCH")
+        run_dir = quarantine_root / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        run_dir.mkdir(mode=0o700, exist_ok=True)
+        destination = run_dir / f"{source.name}-{uuid.uuid4().hex}"
+        event = {
+            "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
+            "action": "QUARANTINE_INTENT", "source": str(source),
+            "destination": str(destination), "tree_sha256": item["tree_sha256"],
+            "manifest_sha256": expected_sha256,
+        }
+        _append_audit(event, audit_path)
+        # Revalidate immediately before the atomic same-filesystem rename.
+        current_snapshot, identities = _tree_snapshot(source)
+        refs, errors = _open_reference_scan(identities, proc_root=proc_root)
+        if errors or refs or current_snapshot["tree_sha256"] != item["tree_sha256"]:
+            raise CleanupSafetyError("PRE_RENAME_REVALIDATION_FAILED")
+        if destination.exists() or destination.is_symlink():
+            raise CleanupSafetyError("QUARANTINE_DESTINATION_EXISTS")
+        os.rename(source, destination)
+        for directory in (source.parent, run_dir):
+            fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        done = {**event, "at": datetime.now(timezone.utc).isoformat(), "action": "QUARANTINED"}
+        _append_audit(done, audit_path)
+        actions.append(done)
+    return actions
+
+
+def restore_quarantine(
+    quarantine_path: Path, *, confirmation: str, audit_path: Path = AUDIT_PATH
+) -> dict[str, Any]:
+    if os.geteuid() != 0:
+        raise CleanupSafetyError("RESTORE_REQUIRES_ROOT")
+    if confirmation != "RESTORE HES QUARANTINED CACHE":
+        raise CleanupSafetyError("RESTORE_CONFIRMATION_REQUIRED")
+    if quarantine_path.is_symlink() or not quarantine_path.is_dir():
+        raise CleanupSafetyError("QUARANTINE_PATH_INVALID")
+    if quarantine_path.parent.name != QUARANTINE_NAME:
+        raise CleanupSafetyError("NOT_IDLM_QUARANTINE")
+    original = None
+    try:
+        lines = audit_path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise CleanupSafetyError("AUDIT_UNAVAILABLE") from exc
+    for line in reversed(lines):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise CleanupSafetyError("AUDIT_CORRUPT") from exc
+        if event.get("action") == "QUARANTINED" and event.get("destination") == str(quarantine_path):
+            original = Path(event["source"])
+            break
+    if original is None:
+        raise CleanupSafetyError("RESTORE_ORIGIN_NOT_AUDITED")
+    if original.exists() or original.is_symlink():
+        raise CleanupSafetyError("RESTORE_DESTINATION_EXISTS")
+    root = next((r for r in ALLOWED_ROOTS if _inside(original, r)), None)
+    if root is None or original.name not in ALLOWED_NAMES:
+        raise CleanupSafetyError("RESTORE_ORIGIN_OUTSIDE_ALLOWLIST")
+    if original.parent.stat().st_dev != quarantine_path.stat().st_dev:
+        raise CleanupSafetyError("RESTORE_DEVICE_MISMATCH")
+    os.rename(quarantine_path, original)
+    _append_audit({
+        "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
+        "action": "RESTORED", "source": str(quarantine_path), "destination": str(original),
+    }, audit_path)
+    return {"action": "RESTORED", "path": str(original)}
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, help="Write a dry-run JSON manifest.")
+    parser.add_argument("--apply-manifest", type=Path, help="Quarantine only after digest and phrase confirmation.")
+    parser.add_argument("--confirm-manifest-sha256")
+    parser.add_argument("--confirm", default="")
+    parser.add_argument("--restore-quarantine", type=Path)
+    args = parser.parse_args(argv)
+    try:
+        if args.restore_quarantine:
+            result = restore_quarantine(args.restore_quarantine, confirmation=args.confirm)
+            print(json.dumps(result, sort_keys=True))
+            return 0
+        if args.apply_manifest:
+            actions = quarantine_manifest(
+                args.apply_manifest, expected_sha256=args.confirm_manifest_sha256 or "",
+                confirmation=args.confirm,
+            )
+            print(json.dumps({"actions": actions}, sort_keys=True))
+            return 0
+        plan = build_cleanup_plan()
+        rendered = json.dumps(plan, indent=2, sort_keys=True) + "\n"
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered, encoding="utf-8")
+            print(f"DRY_RUN_WRITTEN path={args.output} eligible={plan['eligible_count']} action=NONE")
+        else:
+            sys.stdout.write(rendered)
+        return 0
+    except (CleanupSafetyError, OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"FAIL_CLOSED:{type(exc).__name__}:{str(exc)}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
