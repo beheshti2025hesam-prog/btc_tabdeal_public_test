@@ -1,6 +1,6 @@
 # HES Trade Agent — Self-Improvement and Self-Repair Contract v1
 
-**Status:** Candidate for review; not installed or activated on the VPS.  
+**Status (verified 2026-11-10):** The bounded paper-worker recovery V1 and its five-minute operational health timer are installed and active on the sole VPS in immutable release `f5d505567522555ee1be9c260e83085347515721`. The readiness-hardening changes in this PR are a Draft candidate and are not deployed. IDLM cleanup remains read-only and is not activated.  
 **Delivery target:** 2026-11-19.  
 **Market-data boundary:** Gate.io Public Spot BTC_USDT is the canonical live analysis/chart/candle/indicator source. Exchange/broker adapters are execution-only.  
 **Execution boundary:** PAPER-ONLY / NO-TRADE-ONLY; `execution_enabled=false`, `orders_placed=false`.
