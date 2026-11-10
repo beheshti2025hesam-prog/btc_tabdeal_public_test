@@ -409,28 +409,28 @@ def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
         raise CleanupSafetyError("AUDIT_REQUIRES_ROOT")
     _reject_symlink_components(audit_path.parent)
     audit_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    parent_st = audit_path.parent.lstat()
-    if not stat.S_ISDIR(parent_st.st_mode) or parent_st.st_uid != 0:
-        raise CleanupSafetyError("AUDIT_PARENT_UNTRUSTED")
-    os.chmod(audit_path.parent, 0o700)
-    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(audit_path, flags, 0o600)
+    parent_fd = _open_directory_chain(audit_path.parent)
     try:
-        st = os.fstat(fd)
-        if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_nlink != 1:
-            raise CleanupSafetyError("AUDIT_FILE_UNTRUSTED")
-        os.fchmod(fd, 0o600)
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        payload = (json.dumps(event, sort_keys=True) + "\n").encode()
-        view = memoryview(payload)
-        while view:
-            written = os.write(fd, view)
-            view = view[written:]
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    parent_fd = os.open(audit_path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-    try:
+        parent_st = os.fstat(parent_fd)
+        if not stat.S_ISDIR(parent_st.st_mode) or parent_st.st_uid != 0:
+            raise CleanupSafetyError("AUDIT_PARENT_UNTRUSTED")
+        os.fchmod(parent_fd, 0o700)
+        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(audit_path.name, flags, 0o600, dir_fd=parent_fd)
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_nlink != 1:
+                raise CleanupSafetyError("AUDIT_FILE_UNTRUSTED")
+            os.fchmod(fd, 0o600)
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            payload = (json.dumps(event, sort_keys=True) + "\n").encode()
+            view = memoryview(payload)
+            while view:
+                written = os.write(fd, view)
+                view = view[written:]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
         os.fsync(parent_fd)
     finally:
         os.close(parent_fd)
