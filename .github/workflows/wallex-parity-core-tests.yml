@@ -1,0 +1,35 @@
+name: Wallex OHLCV parity core tests
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "tools/wallex_parity/**"
+      - "tests/test_wallex_parity_core.py"
+      - ".github/workflows/wallex-parity-core-tests.yml"
+  push:
+    branches: ["feat/wallex-candle-parity-core"]
+    paths:
+      - "tools/wallex_parity/**"
+      - "tests/test_wallex_parity_core.py"
+      - ".github/workflows/wallex-parity-core-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile parity components
+        run: python -m py_compile tools/wallex_parity/compare_ohlcv.py tools/wallex_parity/capture_wallex_chart.py
+      - name: Run deterministic comparator tests
+        run: python -m unittest discover -s tests -p "test_wallex_parity_core.py" -v
