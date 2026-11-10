@@ -17,11 +17,13 @@ def _old_tree(path: Path, now: datetime, *, file_name="module.pyc"):
 
 def _plan(monkeypatch, tmp_path, now, *, registered=None, registry_error=None, proc_root=None):
     monkeypatch.setattr(cleanup, "ALLOWED_ROOTS", (tmp_path,))
+    proc = proc_root or tmp_path / "proc"
+    proc.mkdir(parents=True, exist_ok=True)
     return cleanup.build_cleanup_plan(
         now=now,
         registered_worktrees=registered if registered is not None else set(),
         worktree_registry_error=registry_error,
-        proc_root=proc_root or tmp_path / "proc",
+        proc_root=proc,
     )
 
 
@@ -59,6 +61,8 @@ def test_recent_file_blocks_entire_cache(monkeypatch, tmp_path):
     file_path = _old_tree(cache, now)
     recent = cache / "recent"
     recent.write_text("active")
+    old = (now - timedelta(days=15)).timestamp()
+    os.utime(cache, (old, old))
     plan = _plan(monkeypatch, tmp_path, now)
 
     row = next(item for item in plan["candidates"] if item["path"] == str(cache))
