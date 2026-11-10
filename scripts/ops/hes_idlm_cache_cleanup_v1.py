@@ -7,12 +7,12 @@ Default mode is read-only. The only actionable objects are old __pycache__ and
 from __future__ import annotations
 
 import argparse
+import fcntl
 from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
-import secrets
 import stat
 import sys
 import uuid
@@ -25,6 +25,7 @@ MIN_AGE_DAYS = 14
 MAX_CANDIDATES = 10
 MAX_CANDIDATE_BYTES = 128 * 1024 * 1024
 MAX_BATCH_BYTES = 512 * 1024 * 1024
+MAX_TREE_ENTRIES = 20_000
 QUARANTINE_NAME = ".hes-idlm-quarantine-v1"
 AUDIT_PATH = Path("/var/lib/hes-idlm/cleanup-audit.jsonl")
 REPO_ROOT = Path("/opt/hes-trade-agent")
@@ -89,6 +90,8 @@ def _tree_snapshot(path: Path) -> tuple[dict[str, Any], set[tuple[int, int]]]:
             "uid": current_st.st_uid, "gid": current_st.st_gid,
             "size": 0, "mtime_ns": current_st.st_mtime_ns,
         })
+        if len(rows) > MAX_TREE_ENTRIES:
+            raise CleanupSafetyError("TREE_ENTRY_LIMIT")
         with os.scandir(current) as entries:
             children = sorted((Path(entry.path) for entry in entries), key=lambda p: p.name)
         for child in reversed(children):
@@ -121,6 +124,8 @@ def _tree_snapshot(path: Path) -> tuple[dict[str, Any], set[tuple[int, int]]]:
                     "mtime_ns": st.st_mtime_ns, "nlink": st.st_nlink,
                     "sha256": content_hash,
                 })
+                if len(rows) > MAX_TREE_ENTRIES:
+                    raise CleanupSafetyError("TREE_ENTRY_LIMIT")
             else:
                 raise CleanupSafetyError("SPECIAL_FILE_PRESENT")
 
@@ -179,6 +184,19 @@ def _open_reference_scan(
                     continue
                 if (st.st_dev, st.st_ino) in identities:
                     found.append({"pid": int(pid), "fd": fd_path.name})
+        for ref_name in ("cwd", "root", "exe"):
+            ref_path = process / ref_name
+            try:
+                ref_stat = ref_path.stat()
+            except FileNotFoundError:
+                continue
+            except PermissionError:
+                errors.append(f"PID_{pid}_{ref_name.upper()}_PERMISSION")
+                continue
+            except OSError:
+                continue
+            if (ref_stat.st_dev, ref_stat.st_ino) in identities:
+                found.append({"pid": int(pid), "reference": ref_name})
         maps_path = process / "maps"
         try:
             lines = maps_path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -350,16 +368,41 @@ def build_cleanup_plan(
     return manifest
 
 
+def _reject_symlink_components(path: Path) -> None:
+    absolute = path.absolute()
+    cursor = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        cursor = cursor / part
+        try:
+            st = cursor.lstat()
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(st.st_mode):
+            raise CleanupSafetyError("SYMLINK_PATH_COMPONENT")
+
+
 def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
+    if os.geteuid() != 0:
+        raise CleanupSafetyError("AUDIT_REQUIRES_ROOT")
+    _reject_symlink_components(audit_path.parent)
     audit_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if audit_path.parent.is_symlink():
-        raise CleanupSafetyError("AUDIT_PARENT_SYMLINK")
+    parent_st = audit_path.parent.lstat()
+    if not stat.S_ISDIR(parent_st.st_mode) or parent_st.st_uid != 0:
+        raise CleanupSafetyError("AUDIT_PARENT_UNTRUSTED")
+    os.chmod(audit_path.parent, 0o700)
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(audit_path, flags, 0o600)
     try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != 0:
+            raise CleanupSafetyError("AUDIT_FILE_UNTRUSTED")
         os.fchmod(fd, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
         payload = (json.dumps(event, sort_keys=True) + "\n").encode()
-        os.write(fd, payload)
+        view = memoryview(payload)
+        while view:
+            written = os.write(fd, view)
+            view = view[written:]
         os.fsync(fd)
     finally:
         os.close(fd)
@@ -403,11 +446,18 @@ def quarantine_manifest(
         if quarantine_root.exists() and (quarantine_root.is_symlink() or not quarantine_root.is_dir()):
             raise CleanupSafetyError("QUARANTINE_ROOT_UNSAFE")
         quarantine_root.mkdir(mode=0o700, exist_ok=True)
-        os.chmod(quarantine_root, 0o700)
-        if quarantine_root.stat().st_dev != root_st.st_dev:
+        quarantine_st = quarantine_root.lstat()
+        if (
+            stat.S_ISLNK(quarantine_st.st_mode)
+            or not stat.S_ISDIR(quarantine_st.st_mode)
+            or quarantine_st.st_uid != 0
+            or stat.S_IMODE(quarantine_st.st_mode) != 0o700
+        ):
+            raise CleanupSafetyError("QUARANTINE_ROOT_UNTRUSTED")
+        if quarantine_st.st_dev != root_st.st_dev:
             raise CleanupSafetyError("QUARANTINE_DEVICE_MISMATCH")
-        run_dir = quarantine_root / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        run_dir.mkdir(mode=0o700, exist_ok=True)
+        run_dir = quarantine_root / uuid.uuid4().hex
+        run_dir.mkdir(mode=0o700, exist_ok=False)
         destination = run_dir / f"{source.name}-{uuid.uuid4().hex}"
         event = {
             "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
