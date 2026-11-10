@@ -270,7 +270,14 @@ class OperationalRecoveryV1:
         for attempt in range(max(1, self.startup_timeout_seconds + 1)):
             if self._active(unit):
                 try:
-                    healthy, _ = self._preflight(inactive_remaining)
+                    # Recompute the remaining inactive set: a worker that became
+                    # active concurrently must no longer have its health issues
+                    # hidden by the original inactive snapshot.
+                    still_inactive = {
+                        candidate for candidate in inactive_remaining
+                        if not self._active(candidate)
+                    }
+                    healthy, _ = self._preflight(still_inactive)
                 except Exception:
                     return False
                 if healthy:
