@@ -449,7 +449,7 @@ def _read_regular_file(
         if (
             not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
             or before.st_size > max_bytes or stat.S_IMODE(before.st_mode) & 0o022
-            or (require_root_owner and before.st_uid != 0)
+            or (require_root_owner and (before.st_uid != 0 or stat.S_IMODE(before.st_mode) & 0o077))
         ):
             raise CleanupSafetyError("REGULAR_FILE_UNSAFE")
         while True:
@@ -461,8 +461,12 @@ def _read_regular_file(
                 raise CleanupSafetyError("REGULAR_FILE_SIZE_LIMIT")
             chunks.append(chunk)
         after = os.fstat(fd)
-        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
-            after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns
+        if (
+            before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns,
+            before.st_ctime_ns, before.st_mode, before.st_uid, before.st_gid, before.st_nlink,
+        ) != (
+            after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns,
+            after.st_ctime_ns, after.st_mode, after.st_uid, after.st_gid, after.st_nlink,
         ) or total != before.st_size:
             raise CleanupSafetyError("REGULAR_FILE_CHANGED_DURING_READ")
     finally:
