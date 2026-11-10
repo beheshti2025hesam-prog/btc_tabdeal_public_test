@@ -352,54 +352,62 @@ def test_end_to_end_quarantine_and_restore_with_root_privilege(tmp_path):
 import hashlib
 import json
 import os
+import shutil
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import scripts.ops.hes_idlm_cache_cleanup_v1 as cleanup
 
-base = Path(sys.argv[1])
-cleanup.ALLOWED_ROOTS = (base,)
-cleanup.REPO_ROOT = base
-cleanup._load_worktrees = lambda _root: (set(), None)
-proc_root = base / "proc"
-proc_root.mkdir()
-target = base / "fixture" / "__pycache__"
-target.mkdir(parents=True)
-cached_file = target / "module.pyc"
-cached_file.write_bytes(b"end-to-end-cache")
-now = datetime.now(timezone.utc)
-old = (now - timedelta(days=15)).timestamp()
-os.utime(cached_file, (old, old))
-os.utime(target, (old, old))
-plan = cleanup.build_cleanup_plan(
-    now=now, registered_worktrees=set(), proc_root=proc_root
-)
-assert plan["eligible_count"] == 1, plan
-manifest_path = base / "plan.json"
-manifest_bytes = (json.dumps(plan, sort_keys=True) + "\n").encode()
-manifest_path.write_bytes(manifest_bytes)
-os.chmod(manifest_path, 0o600)
-digest = hashlib.sha256(manifest_bytes).hexdigest()
-audit_path = base / "audit" / "cleanup.jsonl"
-actions = cleanup.quarantine_manifest(
-    manifest_path,
-    expected_sha256=digest,
-    confirmation=cleanup.CONFIRM_PHRASE,
-    audit_path=audit_path,
-    proc_root=proc_root,
-)
-assert len(actions) == 1
-quarantined = Path(actions[0]["destination"])
-assert quarantined.is_dir() and not target.exists()
-result = cleanup.restore_quarantine(
-    quarantined,
-    confirmation="RESTORE HES QUARANTINED CACHE",
-    audit_path=audit_path,
-)
-assert result["action"] == "RESTORED"
-assert (target / "module.pyc").read_bytes() == b"end-to-end-cache"
-assert not quarantined.exists()
-print("IDLM_QUARANTINE_RESTORE_E2E=PASS")
+def run(base):
+    cleanup.ALLOWED_ROOTS = (base,)
+    cleanup.REPO_ROOT = base
+    cleanup._load_worktrees = lambda _root: (set(), None)
+    proc_root = base / "proc"
+    proc_root.mkdir()
+    target = base / "fixture" / "__pycache__"
+    target.mkdir(parents=True)
+    cached_file = target / "module.pyc"
+    cached_file.write_bytes(b"end-to-end-cache")
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(days=15)).timestamp()
+    os.utime(cached_file, (old, old))
+    os.utime(target, (old, old))
+    plan = cleanup.build_cleanup_plan(
+        now=now, registered_worktrees=set(), proc_root=proc_root
+    )
+    assert plan["eligible_count"] == 1, plan
+    manifest_path = base / "plan.json"
+    manifest_bytes = (json.dumps(plan, sort_keys=True) + "\\n").encode()
+    manifest_path.write_bytes(manifest_bytes)
+    os.chmod(manifest_path, 0o600)
+    digest = hashlib.sha256(manifest_bytes).hexdigest()
+    audit_path = base / "audit" / "cleanup.jsonl"
+    actions = cleanup.quarantine_manifest(
+        manifest_path,
+        expected_sha256=digest,
+        confirmation=cleanup.CONFIRM_PHRASE,
+        audit_path=audit_path,
+        proc_root=proc_root,
+    )
+    assert len(actions) == 1
+    quarantined = Path(actions[0]["destination"])
+    assert quarantined.is_dir() and not target.exists()
+    result = cleanup.restore_quarantine(
+        quarantined,
+        confirmation="RESTORE HES QUARANTINED CACHE",
+        audit_path=audit_path,
+    )
+    assert result["action"] == "RESTORED"
+    assert (target / "module.pyc").read_bytes() == b"end-to-end-cache"
+    assert not quarantined.exists()
+
+base = Path(sys.argv[1]) / "root-test"
+base.mkdir(mode=0o700)
+try:
+    run(base)
+    print("IDLM_QUARANTINE_RESTORE_E2E=PASS")
+finally:
+    shutil.rmtree(base, ignore_errors=True)
 """
     command = [sys.executable, "-c", script, str(tmp_path)]
     if os.geteuid() != 0:
