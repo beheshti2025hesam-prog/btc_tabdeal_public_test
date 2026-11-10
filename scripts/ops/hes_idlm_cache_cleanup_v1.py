@@ -452,6 +452,51 @@ def _manifest_digest(path: Path) -> str:
     return hashlib.sha256(_read_regular_file(path)).hexdigest()
 
 
+def _open_directory_chain(path: Path) -> int:
+    absolute = path.absolute()
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(absolute.anchor, flags)
+    try:
+        for part in absolute.parts[1:]:
+            next_fd = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        if not stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise CleanupSafetyError("PATH_COMPONENT_NOT_DIRECTORY")
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
+
+def _write_new_manifest(path: Path, rendered: str) -> str:
+    _reject_symlink_components(path.parent)
+    parent_st = path.parent.lstat()
+    if not stat.S_ISDIR(parent_st.st_mode):
+        raise CleanupSafetyError("MANIFEST_PARENT_NOT_DIRECTORY")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    fd = os.open(path, flags, 0o600)
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+            raise CleanupSafetyError("MANIFEST_OUTPUT_UNSAFE")
+        os.fchmod(fd, 0o600)
+        payload = rendered.encode("utf-8")
+        view = memoryview(payload)
+        while view:
+            written = os.write(fd, view)
+            view = view[written:]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    parent_fd = _open_directory_chain(path.parent)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
+    return _manifest_digest(path)
+
+
 def quarantine_manifest(
     manifest_path: Path, *, expected_sha256: str, confirmation: str,
     audit_path: Path = AUDIT_PATH, proc_root: Path = Path("/proc"),
@@ -461,7 +506,7 @@ def quarantine_manifest(
     if confirmation != CONFIRM_PHRASE:
         raise CleanupSafetyError("EXPLICIT_CONFIRMATION_REQUIRED")
     _reject_symlink_components(manifest_path)
-    manifest_bytes = _read_regular_file(manifest_path)
+    manifest_bytes = _read_regular_file(manifest_path, require_root_owner=True)
     if hashlib.sha256(manifest_bytes).hexdigest() != expected_sha256:
         raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
     manifest = json.loads(manifest_bytes.decode("utf-8"))
@@ -547,34 +592,59 @@ def quarantine_manifest(
             "manifest_sha256": expected_sha256,
         }
         _append_audit(event, audit_path)
-        # Revalidate immediately before the atomic same-filesystem rename.
+        # Pin both parent directories with no-follow directory descriptors.
+        source_parent_fd = _open_directory_chain(source.parent)
+        run_dir_fd = _open_directory_chain(run_dir)
         try:
-            current_snapshot, identities = _tree_snapshot(source)
-            refs, errors = _open_reference_scan(identities, proc_root=proc_root)
-            if errors or refs or current_snapshot["tree_sha256"] != item["tree_sha256"]:
-                raise CleanupSafetyError("PRE_RENAME_REVALIDATION_FAILED")
-            if destination.exists() or destination.is_symlink():
-                raise CleanupSafetyError("QUARANTINE_DESTINATION_EXISTS")
-        except Exception as exc:
-            _append_audit({
-                **event, "at": datetime.now(timezone.utc).isoformat(),
-                "action": "QUARANTINE_ABORTED", "reason": f"{type(exc).__name__}:{str(exc)[:120]}",
-            }, audit_path)
-            raise
-        try:
-            os.rename(source, destination)
-        except OSError as exc:
-            _append_audit({
-                **event, "at": datetime.now(timezone.utc).isoformat(),
-                "action": "QUARANTINE_ABORTED", "reason": f"RENAME_FAILED:{type(exc).__name__}",
-            }, audit_path)
-            raise
-        for directory in (source.parent, run_dir):
-            fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            # Revalidate immediately before the atomic same-filesystem rename.
             try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+                current_snapshot, identities = _tree_snapshot(source)
+                refs, errors = _open_reference_scan(identities, proc_root=proc_root)
+                source_st = os.stat(source.name, dir_fd=source_parent_fd, follow_symlinks=False)
+                if (
+                    errors or refs
+                    or current_snapshot["tree_sha256"] != item["tree_sha256"]
+                    or not stat.S_ISDIR(source_st.st_mode)
+                    or (source_st.st_dev, source_st.st_ino) != (item["device"], item["inode"])
+                ):
+                    raise CleanupSafetyError("PRE_RENAME_REVALIDATION_FAILED")
+                try:
+                    os.stat(destination.name, dir_fd=run_dir_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    pass
+                else:
+                    raise CleanupSafetyError("QUARANTINE_DESTINATION_EXISTS")
+            except Exception as exc:
+                _append_audit({
+                    **event, "at": datetime.now(timezone.utc).isoformat(),
+                    "action": "QUARANTINE_ABORTED", "reason": f"{type(exc).__name__}:{str(exc)[:120]}",
+                }, audit_path)
+                raise
+            try:
+                os.rename(
+                    source.name, destination.name,
+                    src_dir_fd=source_parent_fd, dst_dir_fd=run_dir_fd,
+                )
+            except OSError as exc:
+                _append_audit({
+                    **event, "at": datetime.now(timezone.utc).isoformat(),
+                    "action": "QUARANTINE_ABORTED", "reason": f"RENAME_FAILED:{type(exc).__name__}",
+                }, audit_path)
+                raise
+            moved_st = os.stat(destination.name, dir_fd=run_dir_fd, follow_symlinks=False)
+            if not stat.S_ISDIR(moved_st.st_mode) or (
+                moved_st.st_dev, moved_st.st_ino
+            ) != (item["device"], item["inode"]):
+                _append_audit({
+                    **event, "at": datetime.now(timezone.utc).isoformat(),
+                    "action": "QUARANTINE_IDENTITY_MISMATCH",
+                }, audit_path)
+                raise CleanupSafetyError("POST_RENAME_IDENTITY_MISMATCH")
+            os.fsync(source_parent_fd)
+            os.fsync(run_dir_fd)
+        finally:
+            os.close(source_parent_fd)
+            os.close(run_dir_fd)
         done = {**event, "at": datetime.now(timezone.utc).isoformat(), "action": "QUARANTINED"}
         _append_audit(done, audit_path)
         actions.append(done)
@@ -639,13 +709,29 @@ def restore_quarantine(
         "action": "RESTORE_INTENT", "source": str(quarantine_path), "destination": str(original),
         "tree_sha256": restored_snapshot["tree_sha256"],
     }, audit_path)
-    os.rename(quarantine_path, original)
-    for directory in (quarantine_path.parent, original.parent):
-        fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    quarantine_parent_fd = _open_directory_chain(quarantine_path.parent)
+    original_parent_fd = _open_directory_chain(original.parent)
+    try:
+        source_st = os.stat(quarantine_path.name, dir_fd=quarantine_parent_fd, follow_symlinks=False)
+        if not stat.S_ISDIR(source_st.st_mode) or (
+            source_st.st_dev, source_st.st_ino
+        ) != (restored_snapshot["device"], restored_snapshot["inode"]):
+            raise CleanupSafetyError("RESTORE_SOURCE_IDENTITY_MISMATCH")
         try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+            os.stat(original.name, dir_fd=original_parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise CleanupSafetyError("RESTORE_DESTINATION_EXISTS")
+        os.rename(
+            quarantine_path.name, original.name,
+            src_dir_fd=quarantine_parent_fd, dst_dir_fd=original_parent_fd,
+        )
+        os.fsync(quarantine_parent_fd)
+        os.fsync(original_parent_fd)
+    finally:
+        os.close(quarantine_parent_fd)
+        os.close(original_parent_fd)
     _append_audit({
         "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
         "action": "RESTORED", "source": str(quarantine_path), "destination": str(original),
@@ -676,9 +762,8 @@ def main(argv: list[str] | None = None) -> int:
         plan = build_cleanup_plan()
         rendered = json.dumps(plan, indent=2, sort_keys=True) + "\n"
         if args.output:
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(rendered, encoding="utf-8")
-            print(f"DRY_RUN_WRITTEN sha256={_manifest_digest(args.output)} path={args.output} eligible={plan['eligible_count']} action=NONE")
+            digest = _write_new_manifest(args.output, rendered)
+            print(f"DRY_RUN_WRITTEN sha256={digest} path={args.output} eligible={plan['eligible_count']} action=NONE")
         else:
             sys.stdout.write(rendered)
         return 0
