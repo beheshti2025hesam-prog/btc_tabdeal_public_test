@@ -788,7 +788,7 @@ def restore_quarantine(
             != (matched_event.get("device"), matched_event.get("inode"))
         ):
             raise CleanupSafetyError("QUARANTINE_CONTENT_OR_IDENTITY_CHANGED")
-    except CleanupSafetyError:
+    except (OSError, CleanupSafetyError):
         root_st = quarantine_path.lstat()
         if (root_st.st_dev, root_st.st_ino) != (
             matched_event.get("device"), matched_event.get("inode")
