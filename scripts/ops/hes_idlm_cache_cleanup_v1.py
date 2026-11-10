@@ -666,6 +666,21 @@ def quarantine_manifest(
                     "action": "QUARANTINE_IDENTITY_MISMATCH",
                 }, audit_path)
                 raise CleanupSafetyError("POST_RENAME_IDENTITY_MISMATCH")
+            post_snapshot, post_identities = _tree_snapshot(destination)
+            post_refs, post_errors = _open_reference_scan(post_identities, proc_root=proc_root)
+            if post_snapshot["tree_sha256"] != item["tree_sha256"]:
+                _append_audit({
+                    **event, "at": datetime.now(timezone.utc).isoformat(),
+                    "action": "QUARANTINE_IDENTITY_MISMATCH",
+                }, audit_path)
+                raise CleanupSafetyError("POST_RENAME_CONTENT_MISMATCH")
+            if post_errors or post_refs:
+                _append_audit({
+                    **event, "at": datetime.now(timezone.utc).isoformat(),
+                    "action": "QUARANTINE_HELD",
+                    "reason": "POST_RENAME_REFERENCE_SCAN_INCOMPLETE_OR_BUSY",
+                }, audit_path)
+                raise CleanupSafetyError("POST_RENAME_REFERENCES_PRESENT_OR_UNVERIFIED")
             os.fsync(source_parent_fd)
             os.fsync(run_dir_fd)
         finally:
@@ -719,7 +734,7 @@ def restore_quarantine(
             event.get("destination") == str(quarantine_path)
             and event.get("action") in {
                 "QUARANTINED", "QUARANTINE_INTENT",
-                "QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH",
+                "QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH", "QUARANTINE_HELD",
             }
         ):
             matched_event = event
