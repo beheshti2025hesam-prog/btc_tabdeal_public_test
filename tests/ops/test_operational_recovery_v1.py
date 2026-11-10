@@ -351,3 +351,48 @@ def test_malformed_health_report_fails_closed_before_any_start(tmp_path):
         recovery.run()
 
     assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
+def test_newly_active_but_unhealthy_worker_blocks_later_recovery(tmp_path):
+    root = tmp_path / 'app'
+    make_release(root, now=2_000_000_000)
+    state = tmp_path / 'state'
+
+    class ConcurrentSystemd(FakeSystemd):
+        def __call__(self, args, **kwargs):
+            result = super().__call__(args, **kwargs)
+            if args[:2] == ['systemctl', 'start'] and args[-1] == REPAIR_ORDER[0]:
+                # Simulate another actor activating the next worker, but its
+                # output has not become healthy yet.
+                self.active.add(REPAIR_ORDER[1])
+            return result
+
+    runner = ConcurrentSystemd(
+        active=set(DEPENDENCIES[REPAIR_ORDER[0]]) | {DEPENDENCIES[REPAIR_ORDER[2]][0]},
+        enabled=REPAIR_ORDER,
+    )
+
+    def live_health():
+        inactive_now = set(REPAIR_ORDER) - runner.active
+        issues = health_report(inactive_now)['issues']
+        if REPAIR_ORDER[1] in runner.active:
+            issues.append({
+                'check': 'freshness:strategy_learning_v1_report.json',
+                'state': 'CRITICAL',
+                'detail': 'stale_after_external_start',
+            })
+        return {'overall': 'CRITICAL' if issues else 'OK', 'issues': issues}
+
+    recovery = OperationalRecoveryV1(
+        root=root, state_dir=state, runner=runner, health_provider=live_health,
+        clock=lambda: 2_000_000_000, sleep=lambda _: None, startup_timeout_seconds=0,
+    )
+
+    result = recovery.run()
+
+    starts = [cmd[-1] for cmd in runner.commands if cmd[:2] == ('systemctl', 'start')]
+    assert starts == [REPAIR_ORDER[0]]
+    assert any(
+        item.get('reason') == 'HEALTH_PRECONDITION_CHANGED'
+        for item in result['actions']
+    )
