@@ -249,3 +249,20 @@ def test_directory_chain_open_rejects_symlink_component(tmp_path):
         pass
     else:
         raise AssertionError("directory descriptor walk must reject symlink components")
+
+
+
+def test_restore_identity_scan_preserves_symlinks_without_following(tmp_path):
+    cache = tmp_path / "quarantine" / "__pycache__"
+    cache.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.write_text("outside")
+    link = cache / "link"
+    link.symlink_to(outside)
+
+    identities = cleanup._restore_identity_scan(cache)
+
+    link_stat = link.lstat()
+    outside_stat = outside.stat()
+    assert (link_stat.st_dev, link_stat.st_ino) in identities
+    assert (outside_stat.st_dev, outside_stat.st_ino) not in identities
