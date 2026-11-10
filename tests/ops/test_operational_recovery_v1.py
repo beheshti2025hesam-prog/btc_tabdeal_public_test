@@ -335,7 +335,7 @@ def test_future_repair_audit_timestamp_fails_closed(tmp_path):
         'at': future,
         'service': REPAIR_ORDER[0],
         'action': 'START_ATTEMPT',
-    }) + '\\n')
+    }) + '\n')
 
     with pytest.raises(Exception, match='REPAIR_AUDIT_CLOCK_SKEW'):
         recovery.run()
