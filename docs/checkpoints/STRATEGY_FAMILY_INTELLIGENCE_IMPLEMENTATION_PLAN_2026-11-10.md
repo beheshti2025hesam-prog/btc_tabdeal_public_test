@@ -44,3 +44,8 @@
 
 ## Current stop conditions
 No live execution, no Risk Gate weakening, no 1m independent setup, no policy mutation, no forced daily trade quota, no claim of >90% performance without verified evidence.
+
+## Follow-up PR publication — 2026-11-10
+- Draft PR #492 is open and stacked on PR #491; initial integration commit: `d8f110efa201637a80175461672f7f7b935c03b4`.
+- The initial candidate was validated locally with 1,325 passed + 82 subtests. At publication time, exact-head GitHub Actions had not yet returned any workflow runs or status checks; do not claim remote CI success until the exact current branch head is checked.
+- No merge, deployment, production mutation or live execution is part of this PR.
