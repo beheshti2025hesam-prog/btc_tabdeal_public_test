@@ -782,15 +782,17 @@ def restore_quarantine(
     restore_fallback = False
     try:
         restored_snapshot, identities = _tree_snapshot(quarantine_path)
+        restore_device, restore_inode = restored_snapshot["device"], restored_snapshot["inode"]
         if (
             restored_snapshot["tree_sha256"] != matched_event.get("tree_sha256")
-            or (restored_snapshot["device"], restored_snapshot["inode"])
+            or (restore_device, restore_inode)
             != (matched_event.get("device"), matched_event.get("inode"))
         ):
             raise CleanupSafetyError("QUARANTINE_CONTENT_OR_IDENTITY_CHANGED")
     except (OSError, CleanupSafetyError):
         root_st = quarantine_path.lstat()
-        if (root_st.st_dev, root_st.st_ino) != (
+        restore_device, restore_inode = root_st.st_dev, root_st.st_ino
+        if (restore_device, restore_inode) != (
             matched_event.get("device"), matched_event.get("inode")
         ):
             raise CleanupSafetyError("QUARANTINE_ROOT_IDENTITY_CHANGED")
@@ -811,7 +813,7 @@ def restore_quarantine(
         source_st = os.stat(quarantine_path.name, dir_fd=quarantine_parent_fd, follow_symlinks=False)
         if not stat.S_ISDIR(source_st.st_mode) or (
             source_st.st_dev, source_st.st_ino
-        ) != (restored_snapshot["device"], restored_snapshot["inode"]):
+        ) != (restore_device, restore_inode):
             raise CleanupSafetyError("RESTORE_SOURCE_IDENTITY_MISMATCH")
         try:
             os.stat(original.name, dir_fd=original_parent_fd, follow_symlinks=False)
