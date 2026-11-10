@@ -1,8 +1,8 @@
 # Strategy-family runtime evidence and research dispatch — checkpoint
 
-**Date:** 2026-11-08  
-**Implementation base:** PR #480 head `cfd2783f9d3a5ee0e3c02e7d2436e5f30ea219e6`  
-**Worktree:** `/opt/hes-trade-agent/.worktrees/strategy-family-confirmation-20261107`  
+**Date:** 2026-11-08
+**Implementation base:** PR #480 head `cfd2783f9d3a5ee0e3c02e7d2436e5f30ea219e6`
+**Worktree:** `/opt/hes-trade-agent/.worktrees/strategy-family-confirmation-20261107`
 **Active release:** unchanged `f5d505567522555ee1be9c260e83085347515721`
 
 ## Delivered in the isolated worktree

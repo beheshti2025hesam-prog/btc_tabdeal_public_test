@@ -1,7 +1,7 @@
 # HES Strategy-Family Runtime Evidence & Research Dispatch — Design
 
-**Date:** 2026-11-08  
-**Base:** `f5d505567522555ee1be9c260e83085347515721`  
+**Date:** 2026-11-08
+**Base:** `f5d505567522555ee1be9c260e83085347515721`
 **Scope:** Gate.io-only BTC_USDT family evidence and 15m family dispatch; research/paper only.
 
 ## Intent

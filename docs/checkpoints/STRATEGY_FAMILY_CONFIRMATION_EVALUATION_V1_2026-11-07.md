@@ -1,8 +1,8 @@
 # HES Trade Agent — Strategy-Family Confirmation & Evaluation Contracts v1
 
-**Date:** 2026-11-07  
-**Branch:** `feat/strategy-family-confirmation-v1`  
-**Base:** `f5d505567522555ee1be9c260e83085347515721` (current `main`)  
+**Date:** 2026-11-07
+**Branch:** `feat/strategy-family-confirmation-v1`
+**Base:** `f5d505567522555ee1be9c260e83085347515721` (current `main`)
 **Disposition:** ISOLATED CONTRACT IMPLEMENTATION / NOT WIRED INTO ACTIVE DECISION PIPELINE / NO STRATEGY ACTIVATION.
 
 ## Objective

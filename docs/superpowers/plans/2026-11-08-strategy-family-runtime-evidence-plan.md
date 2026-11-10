@@ -1,8 +1,8 @@
 # Plan: Strategy-family runtime evidence and research dispatch
 
-**Spec:** `docs/superpowers/specs/2026-11-08-strategy-family-runtime-evidence-design.md`  
-**Base:** `f5d505567522555ee1be9c260e83085347515721`  
-**Worktree:** `/opt/hes-trade-agent/.worktrees/strategy-family-confirmation-20261107`  
+**Spec:** `docs/superpowers/specs/2026-11-08-strategy-family-runtime-evidence-design.md`
+**Base:** `f5d505567522555ee1be9c260e83085347515721`
+**Worktree:** `/opt/hes-trade-agent/.worktrees/strategy-family-confirmation-20261107`
 **Branch:** `feat/strategy-family-confirmation-v1`
 
 ## Global constraints
