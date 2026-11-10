@@ -419,11 +419,16 @@ def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
         fd = os.open(audit_path.name, flags, 0o600, dir_fd=parent_fd)
         try:
             st = os.fstat(fd)
-            if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_nlink != 1:
-                raise CleanupSafetyError("AUDIT_FILE_UNTRUSTED")
+            if (
+                not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_nlink != 1
+                or st.st_size > 64 * 1024 * 1024
+            ):
+                raise CleanupSafetyError("AUDIT_FILE_UNTRUSTED_OR_SIZE_LIMIT")
             os.fchmod(fd, 0o600)
             fcntl.flock(fd, fcntl.LOCK_EX)
             payload = (json.dumps(event, sort_keys=True) + "\n").encode()
+            if st.st_size + len(payload) > 64 * 1024 * 1024:
+                raise CleanupSafetyError("AUDIT_SIZE_LIMIT")
             view = memoryview(payload)
             while view:
                 written = os.write(fd, view)
