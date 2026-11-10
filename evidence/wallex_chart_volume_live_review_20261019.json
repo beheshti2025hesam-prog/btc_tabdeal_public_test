@@ -1,0 +1,191 @@
+{
+  "schema": "hes.wallex_chart_volume_live_review.v1",
+  "captured_at_utc": "2026-10-19T15:07:59.380520+00:00",
+  "read_only": true,
+  "no_api_key_used": true,
+  "no_account_or_order_endpoint_called": true,
+  "source_commit_reviewed": "b490611636cca6d133ba9f9cc08d5d9d6333628b",
+  "candle_capture": {
+    "name": "wallex_BTCUSDT_1m",
+    "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792421878&to=1792422478",
+    "http_status": 200,
+    "date_header": null,
+    "bytes": 581,
+    "sha256": "6cbe981e91041c7cf7e2a91ad1948947f281d6662b79176777c8a146043d5a47"
+  },
+  "trade_capture": {
+    "name": "wallex_BTCUSDT_latest_trades",
+    "url": "https://api.wallex.ir/v1/trades?symbol=BTCUSDT",
+    "http_status": 200,
+    "date_header": null,
+    "bytes": 8503,
+    "sha256": "91c9a54acff09b7e0579b818c5240950aebd962ed237588c6394e6aba44bae23"
+  },
+  "candle_status": "ok",
+  "candle_count": 9,
+  "candle_timestamps_utc": [
+    "2026-10-19T14:58:00+00:00",
+    "2026-10-19T14:59:00+00:00",
+    "2026-10-19T15:00:00+00:00",
+    "2026-10-19T15:01:00+00:00",
+    "2026-10-19T15:02:00+00:00",
+    "2026-10-19T15:03:00+00:00",
+    "2026-10-19T15:04:00+00:00",
+    "2026-10-19T15:05:00+00:00",
+    "2026-10-19T15:06:00+00:00"
+  ],
+  "overlapping_candle_trade_comparisons": [
+    {
+      "candle_open_utc": "2026-10-19T14:58:00+00:00",
+      "observed_trade_count": 3,
+      "trade_ohlc": [
+        "82260.4800000000000000",
+        "82260.4800000000000000",
+        "82171.1800000000000000",
+        "82171.1800000000000000"
+      ],
+      "udf_ohlc": [
+        "82260.48",
+        "82260.48",
+        "82171.18",
+        "82171.18"
+      ],
+      "sum_observed_trade_quantity": "0.0003866400000000",
+      "udf_v": "0.00077328",
+      "ratio_v_to_observed_quantity": "2",
+      "coverage_note": "REST latestTrades has no documented pagination/history cursor; completeness inferred only for this minute if returned list spans the full minute. Validate against live stream or retained raw event capture before treating as conclusive."
+    },
+    {
+      "candle_open_utc": "2026-10-19T15:03:00+00:00",
+      "observed_trade_count": 2,
+      "trade_ohlc": [
+        "82349.5800000000000000",
+        "82349.5800000000000000",
+        "82248.8000000000000000",
+        "82248.8000000000000000"
+      ],
+      "udf_ohlc": [
+        "82349.58",
+        "82349.58",
+        "82248.8",
+        "82248.8"
+      ],
+      "sum_observed_trade_quantity": "0.0006095400000000",
+      "udf_v": "0.00121908",
+      "ratio_v_to_observed_quantity": "2",
+      "coverage_note": "REST latestTrades has no documented pagination/history cursor; completeness inferred only for this minute if returned list spans the full minute. Validate against live stream or retained raw event capture before treating as conclusive."
+    }
+  ],
+  "resolution_acceptance_probe": [
+    {
+      "resolution": "1",
+      "http_status": 200,
+      "s": "ok",
+      "count": 9,
+      "errmsg": null,
+      "sha256": "6cbe981e91041c7cf7e2a91ad1948947f281d6662b79176777c8a146043d5a47"
+    },
+    {
+      "resolution": "5",
+      "http_status": 200,
+      "s": "error",
+      "count": null,
+      "errmsg": "Invalid resolution!",
+      "sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245"
+    },
+    {
+      "resolution": "15",
+      "http_status": 200,
+      "s": "ok",
+      "count": 9,
+      "errmsg": null,
+      "sha256": "6cbe981e91041c7cf7e2a91ad1948947f281d6662b79176777c8a146043d5a47"
+    },
+    {
+      "resolution": "60",
+      "http_status": 200,
+      "s": "ok",
+      "count": 1,
+      "errmsg": null,
+      "sha256": "972fa8592fe4704fd575d72fecb8ff1b3a2fbc3b50209c61159508cf37689ff7"
+    },
+    {
+      "resolution": "180",
+      "http_status": 200,
+      "s": "error",
+      "count": null,
+      "errmsg": "Invalid resolution!",
+      "sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245"
+    },
+    {
+      "resolution": "240",
+      "http_status": 200,
+      "s": "ok",
+      "count": 1,
+      "errmsg": null,
+      "sha256": "972fa8592fe4704fd575d72fecb8ff1b3a2fbc3b50209c61159508cf37689ff7"
+    },
+    {
+      "resolution": "360",
+      "http_status": 200,
+      "s": "error",
+      "count": null,
+      "errmsg": "Invalid resolution!",
+      "sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245"
+    },
+    {
+      "resolution": "480",
+      "http_status": 200,
+      "s": "ok",
+      "count": 1,
+      "errmsg": null,
+      "sha256": "972fa8592fe4704fd575d72fecb8ff1b3a2fbc3b50209c61159508cf37689ff7"
+    },
+    {
+      "resolution": "720",
+      "http_status": 200,
+      "s": "ok",
+      "count": 1,
+      "errmsg": null,
+      "sha256": "972fa8592fe4704fd575d72fecb8ff1b3a2fbc3b50209c61159508cf37689ff7"
+    },
+    {
+      "resolution": "1D",
+      "http_status": 200,
+      "s": "no_data",
+      "count": null,
+      "errmsg": null,
+      "sha256": "4bc31a65f0aefa9b37dfa85119ff889f4c9dd2cdd5933b4af564f0ddff0766ab"
+    },
+    {
+      "resolution": "D",
+      "http_status": 200,
+      "s": "no_data",
+      "count": null,
+      "errmsg": null,
+      "sha256": "4bc31a65f0aefa9b37dfa85119ff889f4c9dd2cdd5933b4af564f0ddff0766ab"
+    },
+    {
+      "resolution": "2D",
+      "http_status": 200,
+      "s": "no_data",
+      "count": null,
+      "errmsg": null,
+      "sha256": "4bc31a65f0aefa9b37dfa85119ff889f4c9dd2cdd5933b4af564f0ddff0766ab"
+    },
+    {
+      "resolution": "3D",
+      "http_status": 200,
+      "s": "no_data",
+      "count": null,
+      "errmsg": null,
+      "sha256": "4bc31a65f0aefa9b37dfa85119ff889f4c9dd2cdd5933b4af564f0ddff0766ab"
+    }
+  ],
+  "chart_source_prior_evidence": "Official Wallex frontend inspection at PR evidence commit maps t/o/h/l/c/v from /v1/udf/history directly to chart bars; this is source-level parity, not independent rendered-pixel verification.",
+  "tradingview_crosscheck": "BTCUSDT TradingView markets page fetched via HTTP; its embedded market list contained Binance, BingX, Bitfinex, Bitget, Bybit, Coinbase, OKX and other exchanges but no Wallex. Therefore it is not an exchange-matched independent source for Wallex volume.",
+  "screenshot_status": "NOT CAPTURED: no local browser binary; Puppeteer browser download was denied with HTTP 403. Do not claim rendered screenshot parity.",
+  "decision": "HOLD / NO_TRADE_ONLY; do not normalize volume; volume semantics and independent rendered chart verification remain blocking."
+}
+
+[executed on device: vps-second-261930 (96decd61-6b7c-4835-bb07-89d2f8b99c29)]

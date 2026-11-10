@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "evidence_id": "WALLEX_NATIVE_OHLCV_BTCUSDT_1M_2026-10-18T160343Z",
+  "source": "wallex_native_udf_history",
+  "endpoint": "https://api.wallex.ir/v1/udf/history",
+  "request": {
+    "symbol": "BTCUSDT",
+    "resolution": "1",
+    "from_unix_seconds": 1792338823,
+    "to_unix_seconds": 1792339423,
+    "from_utc": "2026-10-18T15:53:43.153282+00:00",
+    "to_utc": "2026-10-18T16:03:43.153282+00:00"
+  },
+  "retrieval": {
+    "retrieved_at_utc": "2026-10-18T16:03:43.836194+00:00",
+    "http_date_header": "Sun, 18 Oct 2026 16:03:43 GMT",
+    "estimated_server_clock_offset_seconds": -0.836194,
+    "http_date_offset_threshold_seconds": 5
+  },
+  "raw_response": {
+    "path": "docs/evidence/wallex-native-ohlcv-2026-10-18.raw.json",
+    "byte_length": 561,
+    "sha256": "fd829ff1fab225ce6775151f98da032b8b07503c1acdf40814adfdd873a1b27c",
+    "status": "ok"
+  },
+  "observed_quality": {
+    "returned_candle_count": 9,
+    "first_open_time_utc": "2026-10-18T15:54:00+00:00",
+    "last_open_time_utc": "2026-10-18T16:02:00+00:00",
+    "latest_closed_candle_close_utc": "2026-10-18T16:03:00+00:00",
+    "latest_closed_candle_age_seconds": 43.153282,
+    "observed_gaps": [],
+    "duplicate_timestamps": false,
+    "parser_result": "PASS"
+  },
+  "code_and_ci_provenance": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "pull_request": 320,
+    "branch": "feat/native-wallex-ohlcv-candle-first",
+    "source_commit_sha": "37e0b5c9211333849a9910f12f1f8f52b96bed08",
+    "workflow_name": "Native Wallex OHLCV Candle-First Verification",
+    "workflow_run_id": 39143105580,
+    "deterministic_tests": "PASS — 26 passed in 0.08s",
+    "live_probe": "PASS",
+    "artifact_id": 12142088683,
+    "artifact_zip_sha256": "137c9b04821c573df0bce3b89918dfe25a1dbdb37ce12443628fd67b58c75b5b",
+    "artifact_retention_until_utc": "2027-01-16T16:01:23Z"
+  },
+  "official_frontend_source_observation": {
+    "page_url": "https://wallex.ir/app/trade/BTCUSDT",
+    "retrieved_at_utc": "2026-10-18T16:03:26Z",
+    "page_sha256": "4dbe17ddd62ff1cfe5df1047ed5880487cce227b303c77c3fab98bb5e38c72dc",
+    "history_caller_script_url": "https://wallex.ir/_next/static/chunks/04h_i7nro62s_.js",
+    "history_caller_script_sha256": "8f141e723e44e25e5536ccf2eeec1125096e655b1229aad5ed2b43a219a06b7d",
+    "observed_excerpt": "T.f.get(\"v1/udf/history\",{params:e})",
+    "api_base_script_url": "https://wallex.ir/_next/static/chunks/1-vjpwp5s9c76.js",
+    "api_base_script_sha256": "743e3b12a7ac94b606ff12737a429d89cfe34426c68e35a23ff91dd7e06573a3",
+    "observed_api_base_excerpt": "production:\"https://api.wallex.ir\"",
+    "interpretation": "Official frontend assets include a caller for the native UDF history endpoint and the production Wallex API base. This does not by itself prove exact candle-by-candle parity with the rendered external TradingView chart."
+  },
+  "acceptance": {
+    "native_endpoint_read_only_fetch": "PASS",
+    "raw_sha256_recomputed_from_downloaded_artifact": "PASS",
+    "deterministic_tests_on_source_commit": "PASS",
+    "documented_minute_resolutions_allowlist": "PASS",
+    "freshness_and_gap_smoke_check": "PASS",
+    "http_date_clock_offset_smoke_check": "PASS",
+    "exact_rendered_chart_value_parity": "NOT VERIFIED",
+    "reconnect_retry_policy": "NOT VERIFIED",
+    "production_sla_approval": "NOT APPROVED",
+    "deployment_or_trading_authorized": false,
+    "disposition": "HOLD / NO_TRADE_ONLY"
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "schema": "hes.wallex_resolution_probe.v1",
+  "captured_at_utc": "2026-10-19T15:08:57.020604+00:00",
+  "symbol": "BTCUSDT",
+  "requested_range_start_unix": 1792400880,
+  "requested_range_end_unix": 1792422480,
+  "requested_range_hours": 6,
+  "headers": [
+    "Cache-Control: no-cache",
+    "Pragma: no-cache"
+  ],
+  "results": [
+    {
+      "resolution": "1",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792400880&to=1792422480&_probe=1792422536699015344",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "e445fe759866fe2860e42f997933a3e3931d8c69795224317988d768c88ee81f",
+      "bytes": 22132,
+      "s": "ok",
+      "count": 360,
+      "first_ts": 1792400880,
+      "last_ts": 1792422420,
+      "timestamp_deltas_seconds": [
+        60
+      ],
+      "errmsg": null,
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_1_6h.raw.json"
+    },
+    {
+      "resolution": "5",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=5&from=1792400880&to=1792422480&_probe=1792422536808292099",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "bytes": 44,
+      "s": "error",
+      "count": 0,
+      "first_ts": null,
+      "last_ts": null,
+      "timestamp_deltas_seconds": [],
+      "errmsg": "Invalid resolution!",
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_5_6h.raw.json"
+    },
+    {
+      "resolution": "15",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=15&from=1792400880&to=1792422480&_probe=1792422536832728309",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "e445fe759866fe2860e42f997933a3e3931d8c69795224317988d768c88ee81f",
+      "bytes": 22132,
+      "s": "ok",
+      "count": 360,
+      "first_ts": 1792400880,
+      "last_ts": 1792422420,
+      "timestamp_deltas_seconds": [
+        60
+      ],
+      "errmsg": null,
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_15_6h.raw.json"
+    },
+    {
+      "resolution": "60",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=60&from=1792400880&to=1792422480&_probe=1792422536867104707",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "e861f49f0a786fbd911644186c8c65846a3d4cbc83f8bb4be67a5bd48aa7c334",
+      "bytes": 437,
+      "s": "ok",
+      "count": 6,
+      "first_ts": 1792404000,
+      "last_ts": 1792422000,
+      "timestamp_deltas_seconds": [
+        3600
+      ],
+      "errmsg": null,
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_60_6h.raw.json"
+    },
+    {
+      "resolution": "180",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=180&from=1792400880&to=1792422480&_probe=1792422536894332734",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "bytes": 44,
+      "s": "error",
+      "count": 0,
+      "first_ts": null,
+      "last_ts": null,
+      "timestamp_deltas_seconds": [],
+      "errmsg": "Invalid resolution!",
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_180_6h.raw.json"
+    },
+    {
+      "resolution": "240",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=240&from=1792400880&to=1792422480&_probe=1792422536919408190",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "e861f49f0a786fbd911644186c8c65846a3d4cbc83f8bb4be67a5bd48aa7c334",
+      "bytes": 437,
+      "s": "ok",
+      "count": 6,
+      "first_ts": 1792404000,
+      "last_ts": 1792422000,
+      "timestamp_deltas_seconds": [
+        3600
+      ],
+      "errmsg": null,
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_240_6h.raw.json"
+    },
+    {
+      "resolution": "360",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=360&from=1792400880&to=1792422480&_probe=1792422536944589303",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "bytes": 44,
+      "s": "error",
+      "count": 0,
+      "first_ts": null,
+      "last_ts": null,
+      "timestamp_deltas_seconds": [],
+      "errmsg": "Invalid resolution!",
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_360_6h.raw.json"
+    },
+    {
+      "resolution": "480",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=480&from=1792400880&to=1792422480&_probe=1792422536969483776",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "e861f49f0a786fbd911644186c8c65846a3d4cbc83f8bb4be67a5bd48aa7c334",
+      "bytes": 437,
+      "s": "ok",
+      "count": 6,
+      "first_ts": 1792404000,
+      "last_ts": 1792422000,
+      "timestamp_deltas_seconds": [
+        3600
+      ],
+      "errmsg": null,
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_480_6h.raw.json"
+    },
+    {
+      "resolution": "720",
+      "url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=720&from=1792400880&to=1792422480&_probe=1792422536993562001",
+      "http_status": 200,
+      "date_header": "Mon, 19 Oct 2026 15:08:56 GMT",
+      "sha256": "e861f49f0a786fbd911644186c8c65846a3d4cbc83f8bb4be67a5bd48aa7c334",
+      "bytes": 437,
+      "s": "ok",
+      "count": 6,
+      "first_ts": 1792404000,
+      "last_ts": 1792422000,
+      "timestamp_deltas_seconds": [
+        3600
+      ],
+      "errmsg": null,
+      "raw_path": "/tmp/hes-wallex-review/repo/artifacts/wallex-chart-volume-review-20261019/resolution_720_6h.raw.json"
+    }
+  ],
+  "interpretation": "Observed endpoint behavior only. 1 and 15 returned identical 1-minute timestamps/body for this request; 60, 240, 480, 720 returned identical 1-hour timestamps/body; 5, 180, 360 returned Invalid resolution. This is a live observation requiring exact raw-response review; do not infer a fix or silently remap resolutions."
+}
+
+[executed on device: vps-second-261930 (96decd61-6b7c-4835-bb07-89d2f8b99c29)]
