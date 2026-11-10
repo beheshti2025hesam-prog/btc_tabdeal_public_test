@@ -238,12 +238,23 @@ class OperationalRecoveryV1:
 
     def _preflight(self, inactive: set[str]) -> tuple[bool, list[dict[str, str]]]:
         report = self.health_provider()
+        if not isinstance(report, dict) or not isinstance(report.get('issues'), list):
+            raise RecoveryError('HEALTH_REPORT_INVALID')
+        issues = report['issues']
+        for issue in issues:
+            if (
+                not isinstance(issue, dict)
+                or not isinstance(issue.get('check'), str)
+                or not issue['check']
+                or issue.get('state') not in ('WARN', 'CRITICAL')
+            ):
+                raise RecoveryError('HEALTH_ISSUE_INVALID')
         allowed = set()
         for unit in inactive:
             allowed.update(IGNORABLE_WHEN_INACTIVE[unit])
         unexpected = [
-            issue for issue in report.get('issues', [])
-            if issue.get('check') not in allowed
+            issue for issue in issues
+            if issue['check'] not in allowed
         ]
         return not unexpected, unexpected
 
