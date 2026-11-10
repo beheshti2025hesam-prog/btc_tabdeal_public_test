@@ -315,6 +315,27 @@ class OperationalRecoveryV1:
             for unit in REPAIR_ORDER:
                 if unit not in inactive or self._active(unit):
                     continue
+                # Revalidate immediately before every start. Another worker may
+                # have changed state since the initial preflight or prior start.
+                still_inactive = {
+                    candidate for candidate in inactive
+                    if not self._active(candidate)
+                }
+                try:
+                    preflight_ok, unexpected = self._preflight(still_inactive)
+                except Exception as exc:
+                    actions.append({
+                        'service': unit, 'result': 'SKIPPED',
+                        'reason': f'HEALTH_PREFLIGHT_INVALID:{type(exc).__name__}',
+                    })
+                    break
+                if not preflight_ok:
+                    actions.append({
+                        'service': unit, 'result': 'SKIPPED',
+                        'reason': 'HEALTH_PRECONDITION_CHANGED',
+                        'issues': unexpected[:20],
+                    })
+                    break
                 deps = DEPENDENCIES[unit]
                 missing_deps = [dep for dep in deps if not self._active(dep)]
                 if missing_deps:
