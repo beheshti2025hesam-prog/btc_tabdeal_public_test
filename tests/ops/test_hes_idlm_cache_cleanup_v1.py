@@ -377,7 +377,7 @@ def run(base):
     )
     assert plan["eligible_count"] == 1, plan
     manifest_path = base / "plan.json"
-    manifest_bytes = (json.dumps(plan, sort_keys=True) + "\\n").encode()
+    manifest_bytes = (json.dumps(plan, sort_keys=True) + "\n").encode()
     manifest_path.write_bytes(manifest_bytes)
     os.chmod(manifest_path, 0o600)
     digest = hashlib.sha256(manifest_bytes).hexdigest()
