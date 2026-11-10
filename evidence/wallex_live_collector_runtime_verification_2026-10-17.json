@@ -1,0 +1,48 @@
+{
+  "bounded_live_runs": [
+    {
+      "duration_seconds": 20,
+      "exact_rest_window_match_count": 0,
+      "journal": "evidence/raw/wallex_live_collector_one_event_20261017T135944Z.jsonl",
+      "journal_sha256": "e834593cd99d014216814d7994ace7418f95d50bb77d42679c0366ed19400632",
+      "manifest": "evidence/wallex_live_collector_one_event_manifest_2026-10-17.json",
+      "outcome": "PASS",
+      "rest_latest_timestamp_advanced": true,
+      "valid_trade_records": 1
+    },
+    {
+      "duration_seconds": 20,
+      "manifest": "evidence/wallex_live_collector_silent_2026-10-17.json",
+      "outcome": "FAIL_CLOSED",
+      "rest_after_timestamp": "2026-10-17T13:59:51Z",
+      "rest_before_timestamp": "2026-10-17T13:59:51Z",
+      "rest_latest_timestamp_advanced": false,
+      "valid_trade_records": 0
+    },
+    {
+      "duration_seconds": 60.83,
+      "frames_seen": 1,
+      "manifest": "evidence/wallex_live_collector_60s_silent_2026-10-17.json",
+      "outcome": "FAIL_CLOSED",
+      "rest_latest_timestamp": "2026-10-17T14:06:31Z",
+      "rest_latest_timestamp_advanced": false,
+      "rest_snapshots": 5,
+      "rest_snapshots_byte_identical": true,
+      "valid_trade_records": 0
+    }
+  ],
+  "captured_at": "2026-10-17T14:00:57Z",
+  "collector_code_commit": "1aa0bcaaec78c4dfd53c038614786ab614b0260a",
+  "credentials_used": false,
+  "orders_or_account_mutations": false,
+  "production_collector_started": false,
+  "production_journal_touched": false,
+  "reason": "One bounded session persisted one valid event; a separate session failed closed after receiving no trade events. REST was stale in the silent session, and the prior separate reconnect probe showed REST advancing while WSS was silent. No trade IDs/sequences exist to prove replay or gap-free coverage.",
+  "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+  "target_vps_offline_tests": {
+    "github_actions_run": "https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39038717664",
+    "passed": 30,
+    "result": "PASS"
+  },
+  "verdict": "LIVE_COLLECTION_RELIABILITY_UNVERIFIED; one 60-second interval had stale REST and silent WebSocket, another 20-second interval persisted one trade, and separate earlier probes showed intermittent WebSocket delivery."
+}

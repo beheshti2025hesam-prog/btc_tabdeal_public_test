@@ -1,0 +1,53 @@
+{
+  "collector_code_commit": "1aa0bcaaec78c4dfd53c038614786ab614b0260a",
+  "collector_code_sha256": "edf74733c8f35267283b713ab2f9bda6a9d3c5c88058e7b7957b8ec8e56121af",
+  "credentials_used": false,
+  "duration_seconds": 20,
+  "error": null,
+  "finished_at": "2026-10-17T14:00:05.366101+00:00",
+  "frames_seen": 2,
+  "ignored": 1,
+  "interpretation": "Exact PR collector code ran for 20 seconds in an isolated directory and durably wrote one valid event at 2026-10-17T13:59:50Z. REST latest-trade timestamps advanced across the run, but the later REST latest-window cross-check found no exact field match; this may reflect window turnover or feed inconsistency and does not prove completeness.",
+  "isolated_output_path": "evidence/raw/wallex_live_collector_one_event_20261017T135944Z.jsonl",
+  "journal_bytes": 583,
+  "journal_exists": true,
+  "journal_sha256": "e834593cd99d014216814d7994ace7418f95d50bb77d42679c0366ed19400632",
+  "last_error": null,
+  "latest_rest_crosscheck": {
+    "at": "2026-10-17T14:00:24.039942+00:00",
+    "exact_field_matches_in_current_window": [],
+    "latest_timestamp": "2026-10-17T13:59:51Z",
+    "latest_trade_count": 50,
+    "raw_sha256": "f2d63d2c91b6c583dd8ab5399ead7aed6b5f969b3535491d54b46705177e8dc8",
+    "status": 200
+  },
+  "orders_or_account_mutations": false,
+  "outcome": "PASS",
+  "production_collector_started": false,
+  "production_journal_touched": false,
+  "record_count_readback": 1,
+  "records_valid": true,
+  "records_written": 1,
+  "rejected": 0,
+  "rest_after": {
+    "at": "2026-10-17T14:00:05.403380+00:00",
+    "count": 50,
+    "latest_price": "81514.9200000000000000",
+    "latest_timestamp": "2026-10-17T13:59:51Z",
+    "raw_sha256": "f2d63d2c91b6c583dd8ab5399ead7aed6b5f969b3535491d54b46705177e8dc8",
+    "status": 200
+  },
+  "rest_before": {
+    "at": "2026-10-17T13:59:45.004374+00:00",
+    "count": 50,
+    "latest_price": "81535.4300000000000000",
+    "latest_timestamp": "2026-10-17T13:58:55Z",
+    "raw_sha256": "827c552e2908021a45a37f46c4ad13c56b75e0b3affdf9378412052d9dfefe05",
+    "status": 200
+  },
+  "rest_latest_timestamp_advanced": true,
+  "started_at": "2026-10-17T13:59:45.005068+00:00",
+  "ws_trade_source_timestamps": [
+    "2026-10-17T13:59:50+00:00"
+  ]
+}

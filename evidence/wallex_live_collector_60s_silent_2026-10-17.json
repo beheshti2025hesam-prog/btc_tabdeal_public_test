@@ -1,0 +1,88 @@
+{
+  "captured_at": "2026-10-17T14:08:07.097582+00:00",
+  "collector_code_commit": "1aa0bcaaec78c4dfd53c038614786ab614b0260a",
+  "collector_code_sha256": "edf74733c8f35267283b713ab2f9bda6a9d3c5c88058e7b7957b8ec8e56121af",
+  "credentials_used": false,
+  "duration_seconds": 60.8317,
+  "error": "RuntimeError:Wallex WebSocket produced no valid trade events; refusing success-shaped return",
+  "finished_at": "2026-10-17T14:08:07.097089+00:00",
+  "frames_seen": 1,
+  "ignored": 1,
+  "interpretation": "A 60-second run of the exact PR collector code on the enrolled VPS received only one non-trade session/heartbeat frame and failed closed with zero trade records. Five direct REST snapshots over the same interval returned byte-identical bodies and the same latest-trade timestamp 14:06:31Z, so this interval had no demonstrated market-data freshness on either path. This does not establish whether the venue was globally paused, but the collector correctly refused success.",
+  "journal_bytes": 0,
+  "journal_path": "/srv/hes-evidence/wallex/adapter-validation/live_collector_60s_20261017T140706Z.jsonl",
+  "journal_sha256": null,
+  "last_error": "no_trade_events_received",
+  "orders_or_account_mutations": false,
+  "outcome": "FAIL_CLOSED",
+  "production_collector_started": false,
+  "production_journal_touched": false,
+  "record_count_readback": 0,
+  "records_valid": true,
+  "records_written": 0,
+  "rejected": 0,
+  "rest_latest_timestamps_advanced": false,
+  "rest_response_bodies_identical": true,
+  "rest_samples": [
+    {
+      "at": "2026-10-17T14:07:06.317490+00:00",
+      "http_status": 200,
+      "index": 0,
+      "latest_price": "81514.9200000000000000",
+      "latest_quantity": "0.0005590000000000",
+      "latest_timestamp": "2026-10-17T14:06:31Z",
+      "raw_path": "evidence/raw/wallex_latest_trades_20261017T140706Z.json",
+      "raw_sha256": "1d9318dd2d39da879f26168e6b0a00e3f8233479f7d6cef7b434ba720b093d69",
+      "trade_count": 50
+    },
+    {
+      "at": "2026-10-17T14:07:21.351317+00:00",
+      "http_status": 200,
+      "index": 1,
+      "latest_price": "81514.9200000000000000",
+      "latest_quantity": "0.0005590000000000",
+      "latest_timestamp": "2026-10-17T14:06:31Z",
+      "raw_path": "evidence/raw/wallex_latest_trades_20261017T140706Z.json",
+      "raw_sha256": "1d9318dd2d39da879f26168e6b0a00e3f8233479f7d6cef7b434ba720b093d69",
+      "trade_count": 50
+    },
+    {
+      "at": "2026-10-17T14:07:36.384282+00:00",
+      "http_status": 200,
+      "index": 2,
+      "latest_price": "81514.9200000000000000",
+      "latest_quantity": "0.0005590000000000",
+      "latest_timestamp": "2026-10-17T14:06:31Z",
+      "raw_path": "evidence/raw/wallex_latest_trades_20261017T140706Z.json",
+      "raw_sha256": "1d9318dd2d39da879f26168e6b0a00e3f8233479f7d6cef7b434ba720b093d69",
+      "trade_count": 50
+    },
+    {
+      "at": "2026-10-17T14:07:51.415344+00:00",
+      "http_status": 200,
+      "index": 3,
+      "latest_price": "81514.9200000000000000",
+      "latest_quantity": "0.0005590000000000",
+      "latest_timestamp": "2026-10-17T14:06:31Z",
+      "raw_path": "evidence/raw/wallex_latest_trades_20261017T140706Z.json",
+      "raw_sha256": "1d9318dd2d39da879f26168e6b0a00e3f8233479f7d6cef7b434ba720b093d69",
+      "trade_count": 50
+    },
+    {
+      "at": "2026-10-17T14:08:06.446405+00:00",
+      "http_status": 200,
+      "index": 4,
+      "latest_price": "81514.9200000000000000",
+      "latest_quantity": "0.0005590000000000",
+      "latest_timestamp": "2026-10-17T14:06:31Z",
+      "raw_path": "evidence/raw/wallex_latest_trades_20261017T140706Z.json",
+      "raw_sha256": "1d9318dd2d39da879f26168e6b0a00e3f8233479f7d6cef7b434ba720b093d69",
+      "trade_count": 50
+    }
+  ],
+  "rest_unique_latest_timestamps": [
+    "2026-10-17T14:06:31Z"
+  ],
+  "started_at": "2026-10-17T14:07:06.265389+00:00",
+  "ws_source_timestamps": []
+}

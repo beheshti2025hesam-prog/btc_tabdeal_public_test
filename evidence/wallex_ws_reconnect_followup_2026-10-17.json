@@ -1,0 +1,31 @@
+{
+  "after_rest": {
+    "latest_price": "81514.9100000000000000",
+    "latest_timestamp": "2026-10-17T13:50:05Z",
+    "sha256": "fd2b5aefd4356529620b7f7f1918b74510225dec3827fcea5796c4b4f63b45a3",
+    "status": 200,
+    "trade_count": 50
+  },
+  "before_rest": {
+    "latest_price": "81514.9100000000000000",
+    "latest_timestamp": "2026-10-17T13:50:05Z",
+    "sha256": "fd2b5aefd4356529620b7f7f1918b74510225dec3827fcea5796c4b4f63b45a3",
+    "status": 200,
+    "trade_count": 50
+  },
+  "finished_at": "2026-10-17T13:50:57.613599+00:00",
+  "frames": [
+    {
+      "at": "2026-10-17T13:50:33.563368+00:00",
+      "kind": "initial",
+      "raw": "{\"sid\":\"47eaf7d0-0edb-47d1-9f9f-1742ef2b19af\",\"upgrades\":[],\"pingInterval\":20000,\"pingTimeout\":30000,\"maxPayload\":1048576}\n",
+      "sha256": "818b55a0353ec9f29553965d01e306cf08ee63c8ee919605233354de4091c4b7"
+    }
+  ],
+  "interpretation": "Compare independent REST freshness with bounded WSS after a new handshake. No trade ID/sequence means no completeness/replay proof.",
+  "proxy_disabled": true,
+  "started_at": "2026-10-17T13:50:33.447986+00:00",
+  "ws_error": null,
+  "ws_frame_count": 1,
+  "ws_trade_frame_count": 0
+}

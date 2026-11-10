@@ -1,0 +1,19 @@
+{
+  "adapter_path": "forward/wallex_readonly_adapter_v1.py",
+  "adapter_sha256": "edf74733c8f35267283b713ab2f9bda6a9d3c5c88058e7b7957b8ec8e56121af",
+  "captured_at": "2026-10-17T13:58:00Z",
+  "command": "PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 /opt/hes-trade-agent/.venv/bin/python -m pytest -q -p no:cacheprovider tests/test_wallex_readonly_adapter_v1.py tests/test_wallex_rest_readonly_v1.py",
+  "commit_sha": "1aa0bcaaec78c4dfd53c038614786ab614b0260a",
+  "duration_seconds": 0.36,
+  "environment": "enrolled VPS, existing Python 3.12 virtualenv",
+  "github_actions_run_url": "https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/actions/runs/39038717664",
+  "live_collector_separate_evidence": "adapter-validation/live_collector_crosscheck_20261017T140037Z.json",
+  "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+  "rest_adapter_sha256": "c1aba83a93f9d8aae7ea7da09bc3def9415575025c75e351ebc48c75b3a42863",
+  "rest_test_sha256": "60e9e842749dcaa4bd7b43fdb23ad5712409f0e706896dce635ecbaf3d295ad7",
+  "result": "PASS",
+  "safety": "Isolated copies under /srv/hes-evidence/wallex/adapter-validation; production repository and collector were not changed or started.",
+  "test_path": "tests/test_wallex_readonly_adapter_v1.py",
+  "test_sha256": "4ea273b8499326a8579932b26c6afb834907f79eb9d655cb06d03e3d94967fe8",
+  "tests_passed": 30
+}

@@ -1,0 +1,35 @@
+name: Wallex Read-Only Adapter Tests
+
+on:
+  pull_request:
+    paths:
+      - "forward/wallex_readonly_adapter_v1.py"
+      - "forward/wallex_rest_readonly_v1.py"
+      - "tests/test_wallex_readonly_adapter_v1.py"
+      - "tests/test_wallex_rest_readonly_v1.py"
+      - ".github/workflows/wallex-readonly-adapter-tests.yml"
+      - "requirements.txt"
+  push:
+    branches: ["main"]
+    paths:
+      - "forward/wallex_readonly_adapter_v1.py"
+      - "forward/wallex_rest_readonly_v1.py"
+      - "tests/test_wallex_readonly_adapter_v1.py"
+      - "tests/test_wallex_rest_readonly_v1.py"
+      - ".github/workflows/wallex-readonly-adapter-tests.yml"
+      - "requirements.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  wallex-adapters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest websocket-client
+      - run: python -m pytest -q tests/test_wallex_readonly_adapter_v1.py tests/test_wallex_rest_readonly_v1.py
