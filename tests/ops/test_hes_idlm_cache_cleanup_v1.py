@@ -266,3 +266,55 @@ def test_restore_identity_scan_preserves_symlinks_without_following(tmp_path):
     outside_stat = outside.stat()
     assert (link_stat.st_dev, link_stat.st_ino) in identities
     assert (outside_stat.st_dev, outside_stat.st_ino) not in identities
+
+
+
+def test_atomic_noreplace_rename_preserves_existing_destination(tmp_path):
+    source_dir = tmp_path / "source"
+    destination_dir = tmp_path / "destination"
+    source_dir.mkdir()
+    destination_dir.mkdir()
+    (source_dir / "cache").mkdir()
+    (destination_dir / "cache").mkdir()
+    (destination_dir / "cache" / "keep.txt").write_text("keep")
+
+    source_fd = cleanup._open_directory_chain(source_dir)
+    destination_fd = cleanup._open_directory_chain(destination_dir)
+    try:
+        try:
+            cleanup._rename_noreplace(
+                "cache", "cache",
+                source_dir_fd=source_fd, destination_dir_fd=destination_fd,
+            )
+        except FileExistsError:
+            pass
+        else:
+            raise AssertionError("rename must not overwrite an existing destination")
+        assert (destination_dir / "cache" / "keep.txt").read_text() == "keep"
+        assert (source_dir / "cache").is_dir()
+    finally:
+        os.close(source_fd)
+        os.close(destination_fd)
+
+
+def test_atomic_noreplace_rename_moves_directory_when_destination_absent(tmp_path):
+    source_dir = tmp_path / "source"
+    destination_dir = tmp_path / "destination"
+    source_dir.mkdir()
+    destination_dir.mkdir()
+    (source_dir / "cache").mkdir()
+    (source_dir / "cache" / "file").write_text("preserve")
+
+    source_fd = cleanup._open_directory_chain(source_dir)
+    destination_fd = cleanup._open_directory_chain(destination_dir)
+    try:
+        cleanup._rename_noreplace(
+            "cache", "moved-cache",
+            source_dir_fd=source_fd, destination_dir_fd=destination_fd,
+        )
+    finally:
+        os.close(source_fd)
+        os.close(destination_fd)
+
+    assert not (source_dir / "cache").exists()
+    assert (destination_dir / "moved-cache" / "file").read_text() == "preserve"
