@@ -8,19 +8,25 @@
 - [x] Confirm current router/context/confirmation/evaluation/paper cohort modules exist.
 - [x] Confirm the primary checkout is dirty and must not be reset/cleaned.
 - [x] Create isolated worktree from PR #480 head.
-- [ ] Map existing family IDs, schemas and downstream hard-coded profile registries.
-- [ ] Reconcile PR #480's review/CI before treating it as a stable merge base.
+- [x] Map the existing router/context/confirmation/evaluation/paper cohort/journal/evidence modules; confirmed Range evidence builder and shared Trend evidence provider already exist and must be reused.
+- [ ] Reconcile PR #480's independent review before treating it as a stable merge base. PR #491 is stacked on PR #480.
 
 ## Phase 1 — contracts and research dispatch
-- [ ] Add versioned four-family research catalog without changing the existing router.
-- [ ] Add closed-15m, evidence-bound orchestrator that only marks research eligibility.
-- [ ] Keep candidate generation, confirmation, Risk, activation and execution false.
-- [ ] Add deterministic tests for regime/context routing, stale/invalid evidence, unknown regimes, multiple eligible families, 1m non-authority and fail-closed behavior.
+- [x] Add versioned four-family research dispatch contract without changing the existing router.
+- [x] Add a closed-15m, evidence-bound research dispatcher prototype that only marks research eligibility; actual persisted feature wiring remains open.
+- [x] Keep candidate generation, confirmation, Risk, activation and execution false.
+- [x] Add deterministic tests for regime/context routing, stale/invalid evidence, unknown regimes, multiple eligible families, 1m non-authority and fail-closed behavior.
 - [ ] Replay existing trend baseline to prove no behavior change.
 
+## Phase 1 validation
+- [x] Isolated full repository suite: 1,308 passed + 82 subtests.
+- [x] Focused family suite: 75 passed.
+- [x] Exact-head GitHub CI: 32/32 successful on commit 31323d92dee4e25e96cfec313b4f00721c8a7231.
+- [ ] Independent review of PR #491.
+
 ## Phase 2 — family evaluators and journal
-- [ ] Map and reuse current Trend/Range evaluators and journal; do not create parallel ledgers if existing schemas suffice.
-- [ ] Add Breakout/Retest and Volatility Expansion as research-only evaluators only after historical data contracts and preregistered hypotheses exist.
+- [ ] Wire the existing StrategyEvidenceProviderV1 (Trend) and build_range_family_evidence (Range) into research dispatch; preserve existing strategy_family_journal_v1 and paper cohort ledgers. Do not add parallel ledgers.
+- [ ] Add Breakout/Retest and Volatility Expansion as research-only evaluators only after historical data contracts and preregistered hypotheses exist; reuse market_structure_v1, structure_policy_v1, order_block_v1 and core volatility features.
 - [ ] Attribute every proposal/rejection to family/version/gate; preserve rejected opportunities separately from resolved trades.
 - [ ] Verify no retroactive family attribution and source-hash consistency.
 
