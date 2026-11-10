@@ -697,14 +697,17 @@ def restore_quarantine(
         or run_dir_st.st_uid != 0 or stat.S_IMODE(run_dir_st.st_mode) != 0o700
     ):
         raise CleanupSafetyError("QUARANTINE_DIRECTORY_UNTRUSTED")
-    _reject_symlink_components(audit_path)
-    if not stat.S_ISREG(audit_path.lstat().st_mode):
-        raise CleanupSafetyError("AUDIT_NOT_REGULAR_FILE")
+    audit_parent_fd = _open_directory_chain(audit_path.parent)
     try:
-        audit_bytes = _read_regular_file(audit_path, require_root_owner=True)
-        lines = audit_bytes.decode("utf-8").splitlines()
-    except (OSError, UnicodeDecodeError, CleanupSafetyError) as exc:
-        raise CleanupSafetyError("AUDIT_UNAVAILABLE_OR_UNSAFE") from exc
+        try:
+            audit_bytes = _read_regular_file(
+                audit_path, require_root_owner=True, dir_fd=audit_parent_fd
+            )
+            lines = audit_bytes.decode("utf-8").splitlines()
+        except (OSError, UnicodeDecodeError, CleanupSafetyError) as exc:
+            raise CleanupSafetyError("AUDIT_UNAVAILABLE_OR_UNSAFE") from exc
+    finally:
+        os.close(audit_parent_fd)
     for line in reversed(lines):
         try:
             event = json.loads(line)
