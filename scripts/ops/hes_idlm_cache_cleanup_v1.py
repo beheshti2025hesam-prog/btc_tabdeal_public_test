@@ -416,10 +416,11 @@ def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
 
 
 def _read_regular_file(
-    path: Path, *, max_bytes: int = 64 * 1024 * 1024, require_root_owner: bool = False
+    path: Path, *, max_bytes: int = 64 * 1024 * 1024,
+    require_root_owner: bool = False, dir_fd: int | None = None,
 ) -> bytes:
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(path, flags)
+    fd = os.open(path.name, flags, dir_fd=dir_fd) if dir_fd is not None else os.open(path, flags)
     chunks: list[bytes] = []
     total = 0
     try:
@@ -470,31 +471,28 @@ def _open_directory_chain(path: Path) -> int:
 
 
 def _write_new_manifest(path: Path, rendered: str) -> str:
-    _reject_symlink_components(path.parent)
-    parent_st = path.parent.lstat()
-    if not stat.S_ISDIR(parent_st.st_mode):
-        raise CleanupSafetyError("MANIFEST_PARENT_NOT_DIRECTORY")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
-    fd = os.open(path, flags, 0o600)
+    absolute = path.absolute()
+    parent_fd = _open_directory_chain(absolute.parent)
     try:
-        st = os.fstat(fd)
-        if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
-            raise CleanupSafetyError("MANIFEST_OUTPUT_UNSAFE")
-        os.fchmod(fd, 0o600)
-        payload = rendered.encode("utf-8")
-        view = memoryview(payload)
-        while view:
-            written = os.write(fd, view)
-            view = view[written:]
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    parent_fd = _open_directory_chain(path.parent)
-    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(absolute.name, flags, 0o600, dir_fd=parent_fd)
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+                raise CleanupSafetyError("MANIFEST_OUTPUT_UNSAFE")
+            os.fchmod(fd, 0o600)
+            payload = rendered.encode("utf-8")
+            view = memoryview(payload)
+            while view:
+                written = os.write(fd, view)
+                view = view[written:]
+            os.fsync(fd)
+        finally:
+            os.close(fd)
         os.fsync(parent_fd)
+        return hashlib.sha256(payload).hexdigest()
     finally:
         os.close(parent_fd)
-    return _manifest_digest(path)
 
 
 def quarantine_manifest(
@@ -505,8 +503,14 @@ def quarantine_manifest(
         raise CleanupSafetyError("APPLY_REQUIRES_ROOT")
     if confirmation != CONFIRM_PHRASE:
         raise CleanupSafetyError("EXPLICIT_CONFIRMATION_REQUIRED")
-    _reject_symlink_components(manifest_path)
-    manifest_bytes = _read_regular_file(manifest_path, require_root_owner=True)
+    absolute_manifest = manifest_path.absolute()
+    manifest_parent_fd = _open_directory_chain(absolute_manifest.parent)
+    try:
+        manifest_bytes = _read_regular_file(
+            absolute_manifest, require_root_owner=True, dir_fd=manifest_parent_fd
+        )
+    finally:
+        os.close(manifest_parent_fd)
     if hashlib.sha256(manifest_bytes).hexdigest() != expected_sha256:
         raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
     manifest = json.loads(manifest_bytes.decode("utf-8"))
