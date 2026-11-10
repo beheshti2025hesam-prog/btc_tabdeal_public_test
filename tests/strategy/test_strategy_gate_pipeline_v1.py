@@ -212,3 +212,20 @@ def test_structural_event_presence_uses_independent_candidate_direction_when_pro
     assert result["final_decision"] == "NO_TRADE"
     assert result["execution_enabled"] is False
     assert result["orders_placed"] is False
+
+
+def test_four_family_research_assessment_is_diagnostic_and_does_not_change_gate_decision():
+    p=PolicyDecision(POLICY_VERSION,'NO_TRADE','NONE',100,None,None,None,None,('TEST_NO_TRADE',),{'policy':'NO_TRADE'})
+    rows=candles(); now=rows[-1]['close_time']
+    result=evaluate_gate_evidence(
+        proposal=p, rows_15m=rows, frames={'15m':rows,'1h':rows,'4h':rows},
+        source='gateio_public_spot', symbol='BTC_USDT', observed_at=now,
+    )
+    assessment=result['strategy_family_research_assessment']
+    assert assessment['status']=='BLOCKED'  # test fixture lacks persisted Gate.io provenance
+    assert assessment['reason_codes']
+    assert result['final_decision']=='NO_TRADE'
+    assert result['execution_enabled'] is False
+    assert result['orders_placed'] is False
+    assert assessment['execution_enabled'] is False
+    assert assessment['orders_placed'] is False

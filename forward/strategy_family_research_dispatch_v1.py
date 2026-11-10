@@ -25,22 +25,22 @@ FAMILIES = {
     "trend_continuation": {
         "version": "hes-trend-continuation-research-v1.0.0",
         "regimes": ("UPTREND", "DOWNTREND"),
-        "features": ("trend_persistent", "pullback_at_value", "continuation_structure", "directional_flow"),
+        "features": ("trend_candidate_present", "trend_regime_aligned", "trend_structure_confirmed", "strategy_quality_pass", "cost_adjusted_geometry"),
     },
     "breakout_retest": {
         "version": "hes-breakout-retest-research-v1.0.0",
         "regimes": ("UPTREND", "DOWNTREND", "RANGE"),
-        "features": ("breakout_closed", "acceptance_outside_boundary", "retest_confirmed", "directional_flow"),
+        "features": ("breakout_closed", "acceptance_outside_boundary", "retest_confirmed", "breakout_directional_flow", "breakout_regime_direction_alignment", "breakout_invalidation_defined", "breakout_cost_adjusted_geometry"),
     },
     "range_reversion": {
         "version": "hes-range-reversion-research-v1.0.0",
         "regimes": ("RANGE",),
-        "features": ("range_persistent", "at_range_boundary", "liquidity_sweep_reclaim", "reversal_structure", "directional_flow"),
+        "features": ("range_candidate_valid", "range_persistence", "range_boundary_location", "range_reversal_trigger", "range_direction_regime_alignment", "range_directional_flow_confirmation", "range_structure_confirmation", "range_cost_adjusted_geometry", "range_direction_present", "range_cost_context_bound"),
     },
     "volatility_expansion": {
         "version": "hes-volatility-expansion-research-v1.0.0",
         "regimes": ("UPTREND", "DOWNTREND", "RANGE"),
-        "features": ("compression_preceded", "volatility_expansion_confirmed", "directional_displacement", "structure_confirmation", "directional_flow"),
+        "features": ("compression_preceded", "volatility_expansion_confirmed", "directional_displacement", "structure_confirmation", "volatility_directional_flow", "volatility_regime_direction_alignment", "volatility_invalidation_defined", "volatility_cost_adjusted_geometry"),
     },
 }
 

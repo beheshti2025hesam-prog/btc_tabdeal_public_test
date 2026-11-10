@@ -90,7 +90,7 @@ def test_missing_or_mistimed_feature_evidence_cannot_dispatch():
 def test_false_feature_rejects_only_that_family_not_other_eligible_family():
     names = set(FAMILIES["trend_continuation"]["features"]) | set(FAMILIES["breakout_retest"]["features"])
     data = evidence(names)
-    data["trend_persistent"]["value"] = False
+    data["trend_candidate_present"]["value"] = False
     result = call(feature_evidence=data)
     assert [x["family_id"] for x in result["research_eligible_families"]] == ["breakout_retest"]
     assert "trend_continuation" in result["family_rejections"]
@@ -107,7 +107,7 @@ def test_missing_or_invalid_candle_or_feature_hash_blocks_dispatch():
     assert result["status"] == "BLOCKED"
     assert result["reason_codes"] == ["CANDLE_WINDOW_PROVENANCE_INVALID"]
     data = evidence(FAMILIES["trend_continuation"]["features"])
-    data["trend_persistent"]["source_sha256"] = "bad"
+    data["trend_candidate_present"]["source_sha256"] = "bad"
     result = call(feature_evidence=data)
     assert result["research_eligible_families"] == []
     assert result["status"] == "NO_RESEARCH_FAMILY_ELIGIBLE"

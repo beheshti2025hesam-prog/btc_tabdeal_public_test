@@ -255,3 +255,31 @@ def test_family_paper_reconciliation_rejects_source_file_changed_after_report(tm
     result = mod.read_family_paper_reconciliation()
     assert result['status'] == 'INVALID'
     assert result['reason'] == 'SOURCE_HASH_MISMATCH'
+
+def test_four_family_learning_hypotheses_are_evidence_attributed_and_non_mutating(monkeypatch):
+    families={}
+    for family_id in ("trend_continuation","breakout_retest","range_reversion","volatility_expansion"):
+        families[family_id]={
+            "status":"NOT_ELIGIBLE","direction":None,
+            "features":{"feature_x":False,"feature_y":True},
+            "reason_codes":["FEATURE_NOT_MET"],"evidence_sha256":"a"*64,
+        }
+    assessment={"status":"ASSESSED","families":families}
+    monkeypatch.setattr(mod,"read_decision_journal",lambda *args,**kwargs:{
+        "status":"VERIFIED","events":[{"strategy_family_research_assessment":assessment}]
+    })
+    result=mod.family_research_hypotheses()
+    assert {x["family_id"] for x in result}=={
+        "trend_continuation","breakout_retest","range_reversion","volatility_expansion"
+    }
+    assert all(x["status"]=="HYPOTHESIS_ONLY" for x in result)
+    assert all(x["feature_failure_counts"]=={"feature_x":1} for x in result)
+    assert all("Do not relax thresholds" in x["proposal"] for x in result)
+
+
+def test_four_family_learning_fails_closed_when_journal_not_verified(monkeypatch):
+    monkeypatch.setattr(mod,"read_decision_journal",lambda *args,**kwargs:{"status":"BLOCKED","events":[]})
+    result=mod.family_research_hypotheses()
+    assert len(result)==1
+    assert result[0]["type"]=="FOUR_FAMILY_RESEARCH_JOURNAL_DIAGNOSTIC"
+    assert result[0]["status"]=="HYPOTHESIS_ONLY"

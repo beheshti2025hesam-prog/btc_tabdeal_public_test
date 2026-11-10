@@ -31,6 +31,10 @@ from .strategy_family_confirmation_v1 import (
 )
 from .strategy_family_evidence_v1 import build_range_family_evidence
 from .strategy_family_context_v1 import build_strategy_family_context, verify_strategy_family_context
+from .strategy_family_research_features_v1 import assess_strategy_families
+from .native_ohlcv_gateio_v1 import from_persisted_global_rows
+from .strategy_evidence_provider_v1 import StrategyEvidenceProviderV1
+from .strategy_policy_v1 import StrategyPolicyV1
 
 PIPELINE_VERSION = "hes-strategy-gate-pipeline-v1.1.0"
 
@@ -285,8 +289,39 @@ def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observ
         except (TypeError, ValueError) as exc:
             family_context_status = "REJECTED:" + str(exc)[:120]
 
+    trend_evidence_bundle = None
+    trend_quality = None
+    try:
+        native_15m = from_persisted_global_rows(frames["15m"], timeframe="15m", now_ms=read_time_ms)
+        native_4h = from_persisted_global_rows(frames["4h"], timeframe="4h", now_ms=read_time_ms)
+        trend_evidence_bundle = StrategyEvidenceProviderV1().evaluate(
+            candles_15m=native_15m, candles_4h=native_4h, now_ms=read_time_ms,
+        )
+        trend_quality = StrategyPolicyV1().evaluate(
+            observed_at=trend_evidence_bundle.observed_at,
+            venue=trend_evidence_bundle.venue, product=trend_evidence_bundle.product,
+            symbol=trend_evidence_bundle.symbol, timeframe=trend_evidence_bundle.timeframe,
+            direction=trend_evidence_bundle.direction,
+            checks=trend_evidence_bundle.strategy_checks,
+        )
+    except (KeyError, TypeError, ValueError, OSError, OverflowError):
+        # The research-only Trend family remains ineligible when provider evidence
+        # cannot be built. This diagnostic path never changes existing gates.
+        trend_evidence_bundle = None
+        trend_quality = None
+
+    research_family_assessment = assess_strategy_families(
+        source=source, symbol=symbol, timeframe="15m", regime=regime,
+        observed_at=obs,
+        now=datetime.fromtimestamp(read_time_ms / 1000, tz=timezone.utc),
+        rows_15m=rows_15m, structure=structure,
+        trend_candidate=candidate, range_evidence=family_evidence_result,
+        trend_evidence_bundle=trend_evidence_bundle, trend_quality=trend_quality,
+    )
+
     return {
         "pipeline_version": PIPELINE_VERSION,
+        "strategy_family_research_assessment": research_family_assessment,
         "source": source,
         "symbol": symbol,
         "timeframe": "15m",

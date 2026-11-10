@@ -9,9 +9,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any
+
+from .strategy_family_research_dispatch_v1 import FAMILIES as RESEARCH_FAMILY_CONTRACTS
 
 MAX_LINE_BYTES = 1024 * 1024
 MAX_ROWS = 100
@@ -103,6 +106,163 @@ def _family_attribution(record: dict[str, Any]) -> dict[str, Any]:
     if evidence_status is not None and evidence_status not in ("READY", "NO_CANDIDATE", "BLOCKED"):
         raise JournalProjectionError("invalid_strategy_family_evidence_status")
 
+    research = evidence.get("strategy_family_research_assessment")
+    research_projection = None
+    if research is not None:
+        expected_ids = {"trend_continuation", "breakout_retest", "range_reversion", "volatility_expansion"}
+        if not isinstance(research, dict) or research.get("schema") != "hes_strategy_family_research_assessment_v1":
+            raise JournalProjectionError("invalid_strategy_family_research_assessment")
+        assessment_digest = research.get("assessment_sha256")
+        assessment_payload = {key: value for key, value in research.items() if key != "assessment_sha256"}
+        expected_assessment_digest = sha256(json.dumps(
+            assessment_payload, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=True, allow_nan=False,
+        ).encode("utf-8")).hexdigest()
+        if not isinstance(assessment_digest, str) or assessment_digest != expected_assessment_digest:
+            raise JournalProjectionError("strategy_family_research_assessment_digest_mismatch")
+        if research.get("status") == "BLOCKED":
+            if not isinstance(research.get("reason_codes"), list) or not research["reason_codes"]:
+                raise JournalProjectionError("strategy_family_research_block_reason_missing")
+            if research.get("families") != {} or research.get("research_eligible_family_ids") != []:
+                raise JournalProjectionError("strategy_family_research_blocked_payload_not_empty")
+            if any(research.get(flag) is not False for flag in (
+                "candidate_generation_authorized", "confirmation_approved", "risk_approved",
+                "execution_enabled", "orders_placed"
+            )):
+                raise JournalProjectionError("strategy_family_research_authority_boundary_violation")
+            research_projection = {
+                "schema": research["schema"], "version": research.get("version"),
+                "assessment_sha256": assessment_digest, "status": "BLOCKED", "reason_codes": list(research["reason_codes"]),
+                "source": research.get("source"), "symbol": research.get("symbol"),
+                "setup_timeframe": research.get("setup_timeframe"),
+                "execution_enabled": False, "orders_placed": False,
+            }
+        else:
+            if research.get("status") != "ASSESSED":
+                raise JournalProjectionError("strategy_family_research_status_invalid")
+            if (research.get("source"), research.get("symbol"), research.get("setup_timeframe")) != (
+                "gateio_public_spot", "BTC_USDT", "15m"
+            ):
+                raise JournalProjectionError("strategy_family_research_scope_mismatch")
+            candle_hash = research.get("candle_window_sha256")
+            if not isinstance(candle_hash, str) or len(candle_hash) != 64 or any(ch not in "0123456789abcdef" for ch in candle_hash):
+                raise JournalProjectionError("strategy_family_research_candle_hash_invalid")
+            if research.get("regime") not in ("UPTREND", "DOWNTREND", "RANGE", "UNKNOWN"):
+                raise JournalProjectionError("strategy_family_research_regime_invalid")
+            try:
+                observed_stamp = datetime.fromisoformat(str(research.get("observed_at", "")).replace("Z", "+00:00"))
+                market_observed_stamp = datetime.fromisoformat(str(research.get("market_observed_at", "")).replace("Z", "+00:00"))
+                if (observed_stamp.tzinfo is None or observed_stamp.utcoffset() is None
+                        or market_observed_stamp.tzinfo is None or market_observed_stamp.utcoffset() is None):
+                    raise ValueError("naive")
+                observation_lag=(market_observed_stamp-observed_stamp).total_seconds()
+                if observation_lag < 0 or observation_lag > 900:
+                    raise ValueError("observation_lag")
+            except (TypeError, ValueError):
+                raise JournalProjectionError("strategy_family_research_observed_at_invalid")
+            top_cost_status = research.get("cost_model_status")
+            top_cost_hash = research.get("cost_model_sha256")
+            if top_cost_status not in ("ASSUMPTION_BASED", "UNAVAILABLE", "VERIFIED"):
+                raise JournalProjectionError("strategy_family_research_top_cost_status_invalid")
+            if top_cost_hash is not None and (not isinstance(top_cost_hash, str) or len(top_cost_hash) != 64 or any(ch not in "0123456789abcdef" for ch in top_cost_hash)):
+                raise JournalProjectionError("strategy_family_research_top_cost_hash_invalid")
+            if (top_cost_status == "ASSUMPTION_BASED" and top_cost_hash is None) or (top_cost_status == "UNAVAILABLE" and top_cost_hash is not None):
+                raise JournalProjectionError("strategy_family_research_top_cost_binding_invalid")
+            families = research.get("families")
+            if not isinstance(families, dict) or set(families) != expected_ids:
+                raise JournalProjectionError("strategy_family_research_family_set_invalid")
+            eligible_ids = []
+            family_projection = {}
+            for family_id, item in families.items():
+                if not isinstance(item, dict) or item.get("family_id") != family_id:
+                    raise JournalProjectionError("strategy_family_research_identity_mismatch")
+                if item.get("family_version") != RESEARCH_FAMILY_CONTRACTS[family_id]["version"]:
+                    raise JournalProjectionError("strategy_family_research_version_mismatch")
+                features = item.get("features")
+                required = item.get("required_features")
+                if not isinstance(features, dict) or not isinstance(required, list) or not required or len(required) != len(set(required)) or not set(required).issubset(features):
+                    raise JournalProjectionError("strategy_family_research_features_invalid")
+                if any(type(value) is not bool for value in features.values()):
+                    raise JournalProjectionError("strategy_family_research_feature_value_invalid")
+                diagnostics = item.get("diagnostics", {})
+                if not isinstance(diagnostics, dict):
+                    raise JournalProjectionError("strategy_family_research_diagnostics_invalid")
+                net_rr = diagnostics.get("net_rr_estimate")
+                if net_rr is not None and (isinstance(net_rr, bool) or not isinstance(net_rr, (int, float)) or not math.isfinite(float(net_rr))):
+                    raise JournalProjectionError("strategy_family_research_net_rr_invalid")
+                cost_status = diagnostics.get("cost_model_status")
+                if cost_status is not None and cost_status not in ("ASSUMPTION_BASED", "UNAVAILABLE", "VERIFIED"):
+                    raise JournalProjectionError("strategy_family_research_cost_status_invalid")
+                cost_hash = diagnostics.get("cost_model_sha256")
+                if cost_hash is not None and (not isinstance(cost_hash, str) or len(cost_hash) != 64 or any(ch not in "0123456789abcdef" for ch in cost_hash)):
+                    raise JournalProjectionError("strategy_family_research_cost_hash_invalid")
+                if cost_status == "ASSUMPTION_BASED" and cost_hash != top_cost_hash:
+                    raise JournalProjectionError("strategy_family_research_cost_model_mismatch")
+                digest = item.get("evidence_sha256")
+                if not isinstance(digest, str) or len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+                    raise JournalProjectionError("strategy_family_research_digest_invalid")
+                if item.get("candle_window_sha256") != candle_hash or item.get("observed_at") != research.get("observed_at"):
+                    raise JournalProjectionError("strategy_family_research_provenance_mismatch")
+                digest_payload = {
+                    "candle_window_sha256": candle_hash, "family_id": family_id,
+                    "family_version": item.get("family_version"),
+                    "status": item.get("status"), "direction": item.get("direction"),
+                    "features": features, "required_features": required,
+                    "diagnostics": diagnostics,
+                    "reason_codes": item.get("reason_codes", []),
+                    "observed_at": research.get("observed_at"),
+                }
+                expected_digest = sha256(json.dumps(
+                    digest_payload, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=True, allow_nan=False,
+                ).encode("utf-8")).hexdigest()
+                if digest != expected_digest:
+                    raise JournalProjectionError("strategy_family_research_digest_mismatch")
+                if any(item.get(flag) is not False for flag in (
+                    "candidate_generation_authorized", "confirmation_approved", "risk_approved",
+                    "execution_enabled", "orders_placed"
+                )):
+                    raise JournalProjectionError("strategy_family_research_authority_boundary_violation")
+                should_eligible = all(features[name] for name in required)
+                if item.get("direction") not in (None, "LONG", "SHORT"):
+                    raise JournalProjectionError("strategy_family_research_direction_invalid")
+                if not isinstance(item.get("reason_codes"), list) or any(not isinstance(code, str) for code in item["reason_codes"]):
+                    raise JournalProjectionError("strategy_family_research_reason_codes_invalid")
+                if item.get("status") not in ("RESEARCH_ELIGIBLE", "NOT_ELIGIBLE") or (item.get("status") == "RESEARCH_ELIGIBLE") != should_eligible:
+                    raise JournalProjectionError("strategy_family_research_status_mismatch")
+                if should_eligible:
+                    eligible_ids.append(family_id)
+                family_projection[family_id] = {
+                    "family_version": item["family_version"],
+                    "status": item["status"], "direction": item.get("direction"),
+                    "features": dict(features), "required_features": list(required),
+                    "reason_codes": item.get("reason_codes", []),
+                    "diagnostics": dict(diagnostics), "evidence_sha256": digest,
+                }
+            if set(research.get("research_eligible_family_ids", [])) != set(eligible_ids):
+                raise JournalProjectionError("strategy_family_research_eligibility_mismatch")
+            expected_dispatch_status = "RESEARCH_DISPATCHED" if eligible_ids else "NO_RESEARCH_FAMILY_ELIGIBLE"
+            if (research.get("research_dispatch_status") != expected_dispatch_status
+                    or research.get("research_dispatch_version") != "hes-strategy-family-research-dispatch-v1.0.0"):
+                raise JournalProjectionError("strategy_family_research_dispatch_binding_invalid")
+            if any(research.get(flag) is not False for flag in (
+                "candidate_generation_authorized", "confirmation_approved", "risk_approved",
+                "execution_enabled", "orders_placed"
+            )):
+                raise JournalProjectionError("strategy_family_research_top_level_authority_violation")
+            research_projection = {
+                "schema": research["schema"], "version": research.get("version"),
+                "assessment_sha256": assessment_digest, "status": research.get("status"),
+                "observed_at": research.get("observed_at"),
+                "market_observed_at": research.get("market_observed_at"),
+                "regime": research.get("regime"),
+                "candle_window_sha256": candle_hash,
+                "cost_model_status": top_cost_status, "cost_model_sha256": top_cost_hash,
+                "research_eligible_family_ids": sorted(eligible_ids),
+                "families": family_projection,
+                "execution_enabled": False, "orders_placed": False,
+            }
+
     candidate_digest = candidate.get("evidence_sha256")
     evidence_digest = family_evidence.get("evidence_sha256")
     for digest in (candidate_digest, evidence_digest):
@@ -120,6 +280,7 @@ def _family_attribution(record: dict[str, Any]) -> dict[str, Any]:
         "candidate_direction": candidate_direction,
         "evidence_status": evidence_status,
         "evidence_sha256": evidence_digest or candidate_digest,
+        "research_assessment": research_projection,
     }
 
 
@@ -346,6 +507,7 @@ def read_decision_journal(
                     "strategy_family_candidate_direction": family["candidate_direction"],
                     "strategy_family_evidence_status": family["evidence_status"],
                     "strategy_family_evidence_sha256": family["evidence_sha256"],
+                    "strategy_family_research_assessment": family["research_assessment"],
                     "gate_summary": _gate_summary(record),
                     "market_data_batch_sha256_by_timeframe": _market_batch_hashes(record),
                     "code_release_id": record.get("code_release_id") or (
