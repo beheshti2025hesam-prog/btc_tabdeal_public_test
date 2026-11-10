@@ -7,6 +7,7 @@ Default mode is read-only. The only actionable objects are old __pycache__ and
 from __future__ import annotations
 
 import argparse
+import errno
 import fcntl
 from datetime import datetime, timezone
 import hashlib
@@ -43,8 +44,10 @@ def _sha256_file(path: Path, expected: os.stat_result) -> str:
     digest = hashlib.sha256()
     try:
         before = os.fstat(fd)
-        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
-            expected.st_dev, expected.st_ino, expected.st_size, expected.st_mtime_ns
+        if (
+            before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns
+        ) != (
+            expected.st_dev, expected.st_ino, expected.st_size, expected.st_mtime_ns, expected.st_ctime_ns
         ):
             raise CleanupSafetyError("FILE_CHANGED_DURING_OPEN")
         while True:
@@ -53,8 +56,10 @@ def _sha256_file(path: Path, expected: os.stat_result) -> str:
                 break
             digest.update(chunk)
         after = os.fstat(fd)
-        if (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) != (
-            before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns
+        if (
+            after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns
+        ) != (
+            before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns
         ):
             raise CleanupSafetyError("FILE_CHANGED_DURING_HASH")
     finally:
@@ -90,11 +95,21 @@ def _tree_snapshot(path: Path) -> tuple[dict[str, Any], set[tuple[int, int]]]:
             "ino": current_st.st_ino, "mode": stat.S_IMODE(current_st.st_mode),
             "uid": current_st.st_uid, "gid": current_st.st_gid,
             "size": 0, "mtime_ns": current_st.st_mtime_ns,
+            "ctime_ns": current_st.st_ctime_ns,
         })
         if len(rows) > MAX_TREE_ENTRIES:
             raise CleanupSafetyError("TREE_ENTRY_LIMIT")
         with os.scandir(current) as entries:
             children = sorted((Path(entry.path) for entry in entries), key=lambda p: p.name)
+        current_after = current.lstat()
+        if (
+            current_after.st_dev, current_after.st_ino, current_after.st_mtime_ns,
+            current_after.st_ctime_ns, current_after.st_size,
+        ) != (
+            current_st.st_dev, current_st.st_ino, current_st.st_mtime_ns,
+            current_st.st_ctime_ns, current_st.st_size,
+        ):
+            raise CleanupSafetyError("DIRECTORY_CHANGED_DURING_SCAN")
         for child in reversed(children):
             st = child.lstat()
             if stat.S_ISLNK(st.st_mode):
@@ -181,7 +196,9 @@ def _open_reference_scan(
                 except PermissionError:
                     errors.append(f"PID_{pid}_FD_STAT_PERMISSION")
                     continue
-                except OSError:
+                except OSError as exc:
+                    if exc.errno not in (errno.ENOENT, errno.ESRCH):
+                        errors.append(f"PID_{pid}_FD_STAT_{type(exc).__name__}")
                     continue
                 if (st.st_dev, st.st_ino) in identities:
                     found.append({"pid": int(pid), "fd": fd_path.name})
@@ -194,7 +211,9 @@ def _open_reference_scan(
             except PermissionError:
                 errors.append(f"PID_{pid}_{ref_name.upper()}_PERMISSION")
                 continue
-            except OSError:
+            except OSError as exc:
+                if exc.errno not in (errno.ENOENT, errno.ESRCH):
+                    errors.append(f"PID_{pid}_{ref_name.upper()}_{type(exc).__name__}")
                 continue
             if (ref_stat.st_dev, ref_stat.st_ino) in identities:
                 found.append({"pid": int(pid), "reference": ref_name})
@@ -206,7 +225,9 @@ def _open_reference_scan(
         except PermissionError:
             errors.append(f"PID_{pid}_MAPS_PERMISSION")
             continue
-        except OSError:
+        except OSError as exc:
+            if exc.errno not in (errno.ENOENT, errno.ESRCH):
+                errors.append(f"PID_{pid}_MAPS_{type(exc).__name__}")
             continue
         for line in lines:
             fields = line.split()
