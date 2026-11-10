@@ -412,7 +412,26 @@ def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
 
 
 def _manifest_digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    digest = hashlib.sha256()
+    try:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > 64 * 1024 * 1024:
+            raise CleanupSafetyError("MANIFEST_FILE_UNSAFE")
+        while True:
+            chunk = os.read(fd, 1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+        after = os.fstat(fd)
+        if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
+            after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns
+        ):
+            raise CleanupSafetyError("MANIFEST_CHANGED_DURING_HASH")
+    finally:
+        os.close(fd)
+    return digest.hexdigest()
 
 
 def quarantine_manifest(
@@ -424,11 +443,11 @@ def quarantine_manifest(
     if confirmation != CONFIRM_PHRASE:
         raise CleanupSafetyError("EXPLICIT_CONFIRMATION_REQUIRED")
     _reject_symlink_components(manifest_path)
-    if _manifest_digest(manifest_path) != expected_sha256:
-        raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
     manifest_st = manifest_path.lstat()
     if not stat.S_ISREG(manifest_st.st_mode):
         raise CleanupSafetyError("MANIFEST_NOT_REGULAR_FILE")
+    if _manifest_digest(manifest_path) != expected_sha256:
+        raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("policy_version") != POLICY_VERSION or manifest.get("schema") != "hes_idlm_cache_cleanup_plan_v1":
         raise CleanupSafetyError("POLICY_OR_SCHEMA_MISMATCH")
@@ -526,6 +545,15 @@ def restore_quarantine(
         raise CleanupSafetyError("QUARANTINE_PATH_INVALID")
     if quarantine_path.parent.parent.name != QUARANTINE_NAME:
         raise CleanupSafetyError("NOT_IDLM_QUARANTINE")
+    quarantine_root_st = quarantine_path.parent.parent.lstat()
+    run_dir_st = quarantine_path.parent.lstat()
+    if (
+        stat.S_ISLNK(quarantine_root_st.st_mode) or not stat.S_ISDIR(quarantine_root_st.st_mode)
+        or quarantine_root_st.st_uid != 0 or stat.S_IMODE(quarantine_root_st.st_mode) != 0o700
+        or stat.S_ISLNK(run_dir_st.st_mode) or not stat.S_ISDIR(run_dir_st.st_mode)
+        or run_dir_st.st_uid != 0 or stat.S_IMODE(run_dir_st.st_mode) != 0o700
+    ):
+        raise CleanupSafetyError("QUARANTINE_DIRECTORY_UNTRUSTED")
     _reject_symlink_components(audit_path)
     if not stat.S_ISREG(audit_path.lstat().st_mode):
         raise CleanupSafetyError("AUDIT_NOT_REGULAR_FILE")
@@ -558,6 +586,11 @@ def restore_quarantine(
     refs, ref_errors = _open_reference_scan(identities)
     if ref_errors or refs:
         raise CleanupSafetyError("QUARANTINE_STILL_REFERENCED")
+    _append_audit({
+        "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
+        "action": "RESTORE_INTENT", "source": str(quarantine_path), "destination": str(original),
+        "tree_sha256": restored_snapshot["tree_sha256"],
+    }, audit_path)
     os.rename(quarantine_path, original)
     for directory in (quarantine_path.parent, original.parent):
         fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
