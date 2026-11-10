@@ -7,6 +7,7 @@ Default mode is read-only. The only actionable objects are old __pycache__ and
 from __future__ import annotations
 
 import argparse
+import ctypes
 import errno
 import fcntl
 from datetime import datetime, timezone
@@ -500,6 +501,25 @@ def _open_directory_chain(path: Path) -> int:
         raise
 
 
+def _rename_noreplace(
+    source_name: str, destination_name: str, *, source_dir_fd: int, destination_dir_fd: int
+) -> None:
+    renameat2 = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
+    if renameat2 is None:
+        raise CleanupSafetyError("ATOMIC_NOREPLACE_RENAME_UNAVAILABLE")
+    renameat2.argtypes = [
+        ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint,
+    ]
+    renameat2.restype = ctypes.c_int
+    result = renameat2(
+        source_dir_fd, os.fsencode(source_name),
+        destination_dir_fd, os.fsencode(destination_name), 1,
+    )
+    if result != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), destination_name)
+
+
 def _write_new_manifest(path: Path, rendered: str) -> str:
     absolute = path.absolute()
     parent_fd = _open_directory_chain(absolute.parent)
@@ -656,9 +676,9 @@ def quarantine_manifest(
                 }, audit_path)
                 raise
             try:
-                os.rename(
+                _rename_noreplace(
                     source.name, destination.name,
-                    src_dir_fd=source_parent_fd, dst_dir_fd=run_dir_fd,
+                    source_dir_fd=source_parent_fd, destination_dir_fd=run_dir_fd,
                 )
             except OSError as exc:
                 _append_audit({
@@ -785,9 +805,9 @@ def restore_quarantine(
     root = next((r for r in ALLOWED_ROOTS if _inside(original, r)), None)
     if root is None or original.name not in ALLOWED_NAMES:
         raise CleanupSafetyError("RESTORE_ORIGIN_OUTSIDE_ALLOWLIST")
+    _reject_symlink_components(original.parent)
     if original.parent.stat().st_dev != quarantine_path.stat().st_dev:
         raise CleanupSafetyError("RESTORE_DEVICE_MISMATCH")
-    _reject_symlink_components(original.parent)
     restore_fallback = False
     try:
         restored_snapshot, identities = _tree_snapshot(quarantine_path)
@@ -830,9 +850,9 @@ def restore_quarantine(
             pass
         else:
             raise CleanupSafetyError("RESTORE_DESTINATION_EXISTS")
-        os.rename(
+        _rename_noreplace(
             quarantine_path.name, original.name,
-            src_dir_fd=quarantine_parent_fd, dst_dir_fd=original_parent_fd,
+            source_dir_fd=quarantine_parent_fd, destination_dir_fd=original_parent_fd,
         )
         os.fsync(quarantine_parent_fd)
         os.fsync(original_parent_fd)
