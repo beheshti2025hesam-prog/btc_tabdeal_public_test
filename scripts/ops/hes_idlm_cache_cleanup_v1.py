@@ -285,31 +285,31 @@ def build_cleanup_plan(
                 scan_errors.append(f"{root}:{type(exc).__name__}")
                 continue
             for target in targets:
-            row: dict[str, Any] = {
-                "path": str(target), "eligible": False, "reason": "UNASSESSED",
-                "automatic_action": "NONE",
-            }
-            try:
-                snapshot, identities = _tree_snapshot(target)
-                age_seconds = now.timestamp() - snapshot["mtime_ns"] / 1_000_000_000
-                if age_seconds < MIN_AGE_DAYS * 86400:
-                    raise CleanupSafetyError("YOUNGER_THAN_14_DAYS")
-                newest_mtime = max(entry["mtime_ns"] for entry in snapshot["entries"])
-                if now.timestamp() - newest_mtime / 1_000_000_000 < MIN_AGE_DAYS * 86400:
-                    raise CleanupSafetyError("RECENT_ENTRY_PRESENT")
-                refs, ref_errors = _open_reference_scan(identities, proc_root=proc_root)
-                if ref_errors:
-                    raise CleanupSafetyError("PROCESS_REFERENCE_SCAN_INCOMPLETE")
-                if refs:
-                    raise CleanupSafetyError("OPEN_PROCESS_REFERENCE")
-                row.update(snapshot)
-                row.update({
-                    "eligible": True, "reason": "ALLOWLISTED_OLD_CACHE_NO_REFERENCES",
-                    "process_references": [], "automatic_action": "NONE",
-                })
-            except (OSError, CleanupSafetyError) as exc:
-                row["reason"] = str(exc)[:160] or type(exc).__name__
-            candidates.append(row)
+                row: dict[str, Any] = {
+                    "path": str(target), "eligible": False, "reason": "UNASSESSED",
+                    "automatic_action": "NONE",
+                }
+                try:
+                    snapshot, identities = _tree_snapshot(target)
+                    age_seconds = now.timestamp() - snapshot["mtime_ns"] / 1_000_000_000
+                    if age_seconds < MIN_AGE_DAYS * 86400:
+                        raise CleanupSafetyError("YOUNGER_THAN_14_DAYS")
+                    newest_mtime = max(entry["mtime_ns"] for entry in snapshot["entries"])
+                    if now.timestamp() - newest_mtime / 1_000_000_000 < MIN_AGE_DAYS * 86400:
+                        raise CleanupSafetyError("RECENT_ENTRY_PRESENT")
+                    refs, ref_errors = _open_reference_scan(identities, proc_root=proc_root)
+                    if ref_errors:
+                        raise CleanupSafetyError("PROCESS_REFERENCE_SCAN_INCOMPLETE")
+                    if refs:
+                        raise CleanupSafetyError("OPEN_PROCESS_REFERENCE")
+                    row.update(snapshot)
+                    row.update({
+                        "eligible": True, "reason": "ALLOWLISTED_OLD_CACHE_NO_REFERENCES",
+                        "process_references": [], "automatic_action": "NONE",
+                    })
+                except (OSError, CleanupSafetyError) as exc:
+                    row["reason"] = str(exc)[:160] or type(exc).__name__
+                candidates.append(row)
 
     eligible = [row for row in candidates if row["eligible"]]
     eligible.sort(key=lambda row: row["path"])
