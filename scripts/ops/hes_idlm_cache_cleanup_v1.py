@@ -415,27 +415,41 @@ def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
         os.close(parent_fd)
 
 
-def _manifest_digest(path: Path) -> str:
+def _read_regular_file(
+    path: Path, *, max_bytes: int = 64 * 1024 * 1024, require_root_owner: bool = False
+) -> bytes:
     flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(path, flags)
-    digest = hashlib.sha256()
+    chunks: list[bytes] = []
+    total = 0
     try:
         before = os.fstat(fd)
-        if not stat.S_ISREG(before.st_mode) or before.st_size > 64 * 1024 * 1024:
-            raise CleanupSafetyError("MANIFEST_FILE_UNSAFE")
+        if (
+            not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+            or before.st_size > max_bytes or stat.S_IMODE(before.st_mode) & 0o022
+            or (require_root_owner and before.st_uid != 0)
+        ):
+            raise CleanupSafetyError("REGULAR_FILE_UNSAFE")
         while True:
             chunk = os.read(fd, 1024 * 1024)
             if not chunk:
                 break
-            digest.update(chunk)
+            total += len(chunk)
+            if total > max_bytes:
+                raise CleanupSafetyError("REGULAR_FILE_SIZE_LIMIT")
+            chunks.append(chunk)
         after = os.fstat(fd)
         if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (
             after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns
-        ):
-            raise CleanupSafetyError("MANIFEST_CHANGED_DURING_HASH")
+        ) or total != before.st_size:
+            raise CleanupSafetyError("REGULAR_FILE_CHANGED_DURING_READ")
     finally:
         os.close(fd)
-    return digest.hexdigest()
+    return b"".join(chunks)
+
+
+def _manifest_digest(path: Path) -> str:
+    return hashlib.sha256(_read_regular_file(path)).hexdigest()
 
 
 def quarantine_manifest(
@@ -447,12 +461,10 @@ def quarantine_manifest(
     if confirmation != CONFIRM_PHRASE:
         raise CleanupSafetyError("EXPLICIT_CONFIRMATION_REQUIRED")
     _reject_symlink_components(manifest_path)
-    manifest_st = manifest_path.lstat()
-    if not stat.S_ISREG(manifest_st.st_mode):
-        raise CleanupSafetyError("MANIFEST_NOT_REGULAR_FILE")
-    if _manifest_digest(manifest_path) != expected_sha256:
+    manifest_bytes = _read_regular_file(manifest_path)
+    if hashlib.sha256(manifest_bytes).hexdigest() != expected_sha256:
         raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_bytes.decode("utf-8"))
     if manifest.get("policy_version") != POLICY_VERSION or manifest.get("schema") != "hes_idlm_cache_cleanup_plan_v1":
         raise CleanupSafetyError("POLICY_OR_SCHEMA_MISMATCH")
     if manifest.get("allowed_roots") != [str(root) for root in ALLOWED_ROOTS]:
@@ -517,6 +529,10 @@ def quarantine_manifest(
             raise CleanupSafetyError("QUARANTINE_DEVICE_MISMATCH")
         run_dir = quarantine_root / uuid.uuid4().hex
         run_dir.mkdir(mode=0o700, exist_ok=False)
+        os.chmod(run_dir, 0o700)
+        run_dir_st = run_dir.lstat()
+        if not stat.S_ISDIR(run_dir_st.st_mode) or run_dir_st.st_uid != 0 or stat.S_IMODE(run_dir_st.st_mode) != 0o700:
+            raise CleanupSafetyError("QUARANTINE_RUN_DIRECTORY_UNTRUSTED")
         for directory in (root, quarantine_root):
             fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
             try:
@@ -589,14 +605,11 @@ def restore_quarantine(
     _reject_symlink_components(audit_path)
     if not stat.S_ISREG(audit_path.lstat().st_mode):
         raise CleanupSafetyError("AUDIT_NOT_REGULAR_FILE")
-    audit_st = audit_path.lstat()
-    if audit_st.st_size > 64 * 1024 * 1024:
-        raise CleanupSafetyError("AUDIT_SIZE_LIMIT")
-    original = None
     try:
-        lines = audit_path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise CleanupSafetyError("AUDIT_UNAVAILABLE") from exc
+        audit_bytes = _read_regular_file(audit_path, require_root_owner=True)
+        lines = audit_bytes.decode("utf-8").splitlines()
+    except (OSError, UnicodeDecodeError, CleanupSafetyError) as exc:
+        raise CleanupSafetyError("AUDIT_UNAVAILABLE_OR_UNSAFE") from exc
     for line in reversed(lines):
         try:
             event = json.loads(line)
