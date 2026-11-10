@@ -98,7 +98,7 @@ def make_recovery(tmp_path, *, inactive=REPAIR_ORDER, extra=(), fail_start=(), n
     for unit in REPAIR_ORDER:
         if unit not in inactive_set:
             runner.active.add(unit)
-    provider = lambda: health_report(inactive_set, extra)
+    provider = lambda: health_report(inactive_set.intersection(set(REPAIR_ORDER) - runner.active), extra)
     recovery = OperationalRecoveryV1(
         root=root, state_dir=state, runner=runner, health_provider=provider,
         clock=lambda: now, sleep=lambda _: None, startup_timeout_seconds=0,
@@ -303,3 +303,41 @@ def test_monitor_passes_host_failures_into_recovery_preflight(monkeypatch, tmp_p
 
     assert monitor.main() == 2
     assert host_issues[0] in captured['preflight']['issues']
+
+
+def test_post_start_health_failure_blocks_recovery_chain(tmp_path):
+    recovery, runner, _, _ = make_recovery(tmp_path, inactive=REPAIR_ORDER)
+    def live_health():
+        inactive_now = set(REPAIR_ORDER) - runner.active
+        issues = health_report(inactive_now)['issues']
+        if REPAIR_ORDER[0] in runner.active:
+            issues.append({
+                'check': 'integrity:post_start_journal',
+                'state': 'CRITICAL',
+                'detail': 'journal_not_ready',
+            })
+        return {'issues': issues}
+    recovery.health_provider = live_health
+
+    result = recovery.run()
+
+    assert result['status'] == 'PARTIAL_OR_BLOCKED'
+    assert result['actions'][0]['result'] == 'READINESS_FAILED'
+    starts = [cmd[-1] for cmd in runner.commands if cmd[:2] == ('systemctl', 'start')]
+    assert starts == [REPAIR_ORDER[0]]
+
+
+def test_future_repair_audit_timestamp_fails_closed(tmp_path):
+    recovery, runner, _, state = make_recovery(tmp_path, inactive=[REPAIR_ORDER[0]])
+    state.mkdir(parents=True, exist_ok=True)
+    future = datetime.fromtimestamp(2_000_000_000 + 3600, timezone.utc).isoformat()
+    (state / 'repair-events.jsonl').write_text(json.dumps({
+        'at': future,
+        'service': REPAIR_ORDER[0],
+        'action': 'START_ATTEMPT',
+    }) + '\\n')
+
+    with pytest.raises(Exception, match='REPAIR_AUDIT_CLOCK_SKEW'):
+        recovery.run()
+
+    assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
