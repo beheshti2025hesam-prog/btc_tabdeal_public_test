@@ -392,7 +392,7 @@ def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
     fd = os.open(audit_path, flags, 0o600)
     try:
         st = os.fstat(fd)
-        if not stat.S_ISREG(st.st_mode) or st.st_uid != 0:
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_nlink != 1:
             raise CleanupSafetyError("AUDIT_FILE_UNTRUSTED")
         os.fchmod(fd, 0o600)
         fcntl.flock(fd, fcntl.LOCK_EX)
@@ -404,6 +404,11 @@ def _append_audit(event: dict[str, Any], audit_path: Path = AUDIT_PATH) -> None:
         os.fsync(fd)
     finally:
         os.close(fd)
+    parent_fd = os.open(audit_path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
 
 
 def _manifest_digest(path: Path) -> str:
@@ -418,9 +423,9 @@ def quarantine_manifest(
         raise CleanupSafetyError("APPLY_REQUIRES_ROOT")
     if confirmation != CONFIRM_PHRASE:
         raise CleanupSafetyError("EXPLICIT_CONFIRMATION_REQUIRED")
+    _reject_symlink_components(manifest_path)
     if _manifest_digest(manifest_path) != expected_sha256:
         raise CleanupSafetyError("MANIFEST_DIGEST_MISMATCH")
-    _reject_symlink_components(manifest_path)
     manifest_st = manifest_path.lstat()
     if not stat.S_ISREG(manifest_st.st_mode):
         raise CleanupSafetyError("MANIFEST_NOT_REGULAR_FILE")
@@ -521,6 +526,9 @@ def restore_quarantine(
         raise CleanupSafetyError("QUARANTINE_PATH_INVALID")
     if quarantine_path.parent.parent.name != QUARANTINE_NAME:
         raise CleanupSafetyError("NOT_IDLM_QUARANTINE")
+    _reject_symlink_components(audit_path)
+    if not stat.S_ISREG(audit_path.lstat().st_mode):
+        raise CleanupSafetyError("AUDIT_NOT_REGULAR_FILE")
     original = None
     try:
         lines = audit_path.read_text(encoding="utf-8").splitlines()
@@ -544,6 +552,12 @@ def restore_quarantine(
     if original.parent.stat().st_dev != quarantine_path.stat().st_dev:
         raise CleanupSafetyError("RESTORE_DEVICE_MISMATCH")
     _reject_symlink_components(original.parent)
+    restored_snapshot, identities = _tree_snapshot(quarantine_path)
+    if restored_snapshot["tree_sha256"] != event.get("tree_sha256"):
+        raise CleanupSafetyError("QUARANTINE_CONTENT_CHANGED")
+    refs, ref_errors = _open_reference_scan(identities)
+    if ref_errors or refs:
+        raise CleanupSafetyError("QUARANTINE_STILL_REFERENCED")
     os.rename(quarantine_path, original)
     for directory in (quarantine_path.parent, original.parent):
         fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
