@@ -38,14 +38,21 @@
 
 ## Phase 4 — app integration and delivery
 - [x] Extend existing dashboard/API rather than rebuild; display family state, regime, research eligibility, rejection reasons, feature coverage, estimated net-R/cost context and evidence hash.
-- [ ] Publish follow-up integration as a draft PR, obtain exact-head CI and independent review, and preserve the HOLD gate.
-- [ ] Keep all new families research-only unless individually promoted through explicit approval.
+- [x] Publish follow-up integration as draft PR #492 stacked on PR #491.
+- [ ] Obtain exact-head CI and independent review; preserve the HOLD gate.
+- [x] Keep all new families research-only unless individually promoted through explicit approval.
 - [ ] Immutable release, encrypted Dropbox backup/restore verification, and explicit user authorization before any production promotion.
 
 ## Current stop conditions
 No live execution, no Risk Gate weakening, no 1m independent setup, no policy mutation, no forced daily trade quota, no claim of >90% performance without verified evidence.
 
 ## Follow-up PR publication — 2026-11-10
+
+### Current follow-up state
+- PR #492 remains Draft/open and stacked on PR #491. The branch head was advanced with a documentation-only publication note; the latest PR fetch reports the branch head correctly and GitHub reports mergeable=true.
+- Exact-head workflow query has returned no workflow runs for the latest PR #492 head yet. Treat remote CI as pending, not passed.
+- PR #491 exact-head head `d031203300c4c9ba4cc76dcf1a7504696a4e2d58` has three returned GitHub Actions workflows marked successful. PR #480 exact-head CI was 32/32 successful.
+- Latest isolated full suite: 1,325 passed + 82 subtests; focused dispatcher/features/pipeline/journal/learning suite: 69 passed.
 - Draft PR #492 is open and stacked on PR #491; initial integration commit: `d8f110efa201637a80175461672f7f7b935c03b4`.
 - The initial candidate was validated locally with 1,325 passed + 82 subtests. At publication time, exact-head GitHub Actions had not yet returned any workflow runs or status checks; do not claim remote CI success until the exact current branch head is checked.
 - No merge, deployment, production mutation or live execution is part of this PR.
