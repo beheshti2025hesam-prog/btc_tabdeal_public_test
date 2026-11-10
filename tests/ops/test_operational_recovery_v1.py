@@ -392,7 +392,4 @@ def test_newly_active_but_unhealthy_worker_blocks_later_recovery(tmp_path):
 
     starts = [cmd[-1] for cmd in runner.commands if cmd[:2] == ('systemctl', 'start')]
     assert starts == [REPAIR_ORDER[0]]
-    assert any(
-        item.get('reason') == 'HEALTH_PRECONDITION_CHANGED'
-        for item in result['actions']
-    )
+    assert result['actions'][0]['result'] == 'READINESS_FAILED'
