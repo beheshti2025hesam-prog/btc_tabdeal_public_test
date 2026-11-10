@@ -614,6 +614,7 @@ def quarantine_manifest(
             "at": datetime.now(timezone.utc).isoformat(), "policy_version": POLICY_VERSION,
             "action": "QUARANTINE_INTENT", "source": str(source),
             "destination": str(destination), "tree_sha256": item["tree_sha256"],
+            "device": item["device"], "inode": item["inode"],
             "manifest_sha256": expected_sha256,
         }
         _append_audit(event, audit_path)
@@ -708,16 +709,26 @@ def restore_quarantine(
             raise CleanupSafetyError("AUDIT_UNAVAILABLE_OR_UNSAFE") from exc
     finally:
         os.close(audit_parent_fd)
+    matched_event = None
     for line in reversed(lines):
         try:
             event = json.loads(line)
         except json.JSONDecodeError as exc:
             raise CleanupSafetyError("AUDIT_CORRUPT") from exc
-        if event.get("action") == "QUARANTINED" and event.get("destination") == str(quarantine_path):
-            original = Path(event["source"])
+        if (
+            event.get("destination") == str(quarantine_path)
+            and event.get("action") in {
+                "QUARANTINED", "QUARANTINE_INTENT",
+                "QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH",
+            }
+        ):
+            matched_event = event
             break
-    if original is None:
+    if matched_event is None or matched_event.get("action") in {
+        "QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH",
+    }:
         raise CleanupSafetyError("RESTORE_ORIGIN_NOT_AUDITED")
+    original = Path(matched_event["source"])
     if original.exists() or original.is_symlink():
         raise CleanupSafetyError("RESTORE_DESTINATION_EXISTS")
     root = next((r for r in ALLOWED_ROOTS if _inside(original, r)), None)
@@ -727,8 +738,12 @@ def restore_quarantine(
         raise CleanupSafetyError("RESTORE_DEVICE_MISMATCH")
     _reject_symlink_components(original.parent)
     restored_snapshot, identities = _tree_snapshot(quarantine_path)
-    if restored_snapshot["tree_sha256"] != event.get("tree_sha256"):
-        raise CleanupSafetyError("QUARANTINE_CONTENT_CHANGED")
+    if (
+        restored_snapshot["tree_sha256"] != matched_event.get("tree_sha256")
+        or (restored_snapshot["device"], restored_snapshot["inode"])
+        != (matched_event.get("device"), matched_event.get("inode"))
+    ):
+        raise CleanupSafetyError("QUARANTINE_CONTENT_OR_IDENTITY_CHANGED")
     refs, ref_errors = _open_reference_scan(identities)
     if ref_errors or refs:
         raise CleanupSafetyError("QUARANTINE_STILL_REFERENCED")
