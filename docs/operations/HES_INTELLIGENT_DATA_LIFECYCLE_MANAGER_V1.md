@@ -155,7 +155,7 @@ The first production scanner remains read-only. A separate isolated candidate re
 
 **Execution boundary:**
 - Normal invocation only emits a dry-run manifest; automatic_action=NONE, execution_enabled=false, and deletion_authorized=false.
-- The isolated candidate has no recursive-delete operation. An explicit apply invocation requires root, the exact SHA-256 of the saved manifest, and the typed phrase QUARANTINE HES TEMP CACHES.
+- The isolated candidate has no recursive-delete or purge operation. Quarantine is a reversible isolation/canary stage and does not reclaim disk space. Any later purge implementation requires a separate retention/hold policy and explicit owner authorization. An explicit quarantine invocation requires root, the exact SHA-256 of the saved manifest, and the typed phrase QUARANTINE HES TEMP CACHES.
 - Before each same-filesystem atomic rename, it performs a fresh inventory, re-hashes the tree, and rechecks process references. Any mismatch aborts.
 - Items move into a mode-0700 .hes-idlm-quarantine-v1 directory under the same temp root. An append-only mode-0600 audit records intent and completion and is fsynced. Quarantine is reversible through the audited restore command; restore refuses to overwrite an existing path.
 - No cleanup command has been run. No cache has been moved or deleted. This candidate is not merged, deployed, or enabled on the VPS. The user approved development of this narrow policy, not production execution or release deployment.
