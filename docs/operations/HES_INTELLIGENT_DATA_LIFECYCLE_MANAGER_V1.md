@@ -149,9 +149,9 @@ The first production scanner remains read-only. A separate isolated candidate re
 - Only below /tmp and /var/tmp; no other roots, cache families, logs, workspaces, backups, releases, evidence, journals, or project files.
 - Minimum age is 14 days for the directory and every entry inside it. A recent child blocks the whole candidate.
 - The Git worktree registry must be readable. Any registered worktree ancestor/descendant relationship excludes the candidate.
-- Any symlink, mount/device boundary, hard-linked regular file, special file, mixed UID/GID ownership, setuid/setgid bit, unreadable scan, open descriptor, or memory mapping blocks the whole candidate.
+- Any symlink, mount/device boundary, hard-linked regular file, special file, mixed UID/GID ownership, setuid/setgid bit, unreadable scan, open descriptor, process cwd/root/executable reference, or memory mapping blocks the whole candidate.
 - File contents are SHA-256 hashed. The manifest records exact path, device/inode, size, nanosecond mtime, owner/group, and a deterministic tree digest.
-- Conservative batch ceilings: at most 10 candidates, 128 MiB per candidate, 512 MiB per batch.
+- Conservative bounds: at most 20,000 filesystem entries per candidate, 128 MiB per candidate, 10 candidates, and 512 MiB per batch.
 
 **Execution boundary:**
 - Normal invocation only emits a dry-run manifest; automatic_action=NONE, execution_enabled=false, and deletion_authorized=false.
