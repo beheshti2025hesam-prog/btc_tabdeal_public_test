@@ -273,17 +273,18 @@ def build_cleanup_plan(
     scan_errors: list[str] = []
     if worktree_registry_error:
         scan_errors.append("WORKTREE_REGISTRY_UNAVAILABLE")
-    for root in ALLOWED_ROOTS:
-        try:
-            root_st = root.lstat()
-            if stat.S_ISLNK(root_st.st_mode) or not stat.S_ISDIR(root_st.st_mode):
-                raise CleanupSafetyError("ROOT_NOT_REAL_DIRECTORY")
-            targets, errors = _discover_targets(root, registered_worktrees or set(), root_st.st_dev)
-            scan_errors.extend(errors)
-        except (OSError, CleanupSafetyError) as exc:
-            scan_errors.append(f"{root}:{type(exc).__name__}")
-            continue
-        for target in targets:
+    if not worktree_registry_error:
+        for root in ALLOWED_ROOTS:
+            try:
+                root_st = root.lstat()
+                if stat.S_ISLNK(root_st.st_mode) or not stat.S_ISDIR(root_st.st_mode):
+                    raise CleanupSafetyError("ROOT_NOT_REAL_DIRECTORY")
+                targets, errors = _discover_targets(root, registered_worktrees or set(), root_st.st_dev)
+                scan_errors.extend(errors)
+            except (OSError, CleanupSafetyError) as exc:
+                scan_errors.append(f"{root}:{type(exc).__name__}")
+                continue
+            for target in targets:
             row: dict[str, Any] = {
                 "path": str(target), "eligible": False, "reason": "UNASSESSED",
                 "automatic_action": "NONE",
@@ -444,7 +445,7 @@ def restore_quarantine(
         raise CleanupSafetyError("RESTORE_CONFIRMATION_REQUIRED")
     if quarantine_path.is_symlink() or not quarantine_path.is_dir():
         raise CleanupSafetyError("QUARANTINE_PATH_INVALID")
-    if quarantine_path.parent.name != QUARANTINE_NAME:
+    if quarantine_path.parent.parent.name != QUARANTINE_NAME:
         raise CleanupSafetyError("NOT_IDLM_QUARANTINE")
     original = None
     try:
