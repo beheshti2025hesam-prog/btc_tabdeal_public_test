@@ -149,7 +149,16 @@ def _tree_snapshot(path: Path) -> tuple[dict[str, Any], set[tuple[int, int]]]:
     if len(owner_ids) != 1 or len(group_ids) != 1:
         raise CleanupSafetyError("MIXED_OWNERSHIP")
     rows.sort(key=lambda row: row["path"])
-    encoded = json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()
+    # Directory ctime changes on a legitimate rename; retain it in the scan
+    # evidence but omit it from the stable tree fingerprint. File ctime stays
+    # hashed so content/metadata mutation remains detectable.
+    fingerprint_rows = []
+    for row in rows:
+        stable_row = dict(row)
+        if stable_row["kind"] == "directory":
+            stable_row.pop("ctime_ns", None)
+        fingerprint_rows.append(stable_row)
+    encoded = json.dumps(fingerprint_rows, sort_keys=True, separators=(",", ":")).encode()
     return {
         "tree_sha256": hashlib.sha256(encoded).hexdigest(),
         "allocated_bytes": total_bytes,
