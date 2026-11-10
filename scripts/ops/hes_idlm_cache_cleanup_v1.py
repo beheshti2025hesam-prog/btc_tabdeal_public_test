@@ -363,8 +363,6 @@ def build_cleanup_plan(
         "deletion_authorized": False,
         "automatic_action": "NONE",
     }
-    canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
-    manifest["manifest_sha256"] = hashlib.sha256(canonical).hexdigest()
     return manifest
 
 
@@ -552,7 +550,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(rendered, encoding="utf-8")
-            print(f"DRY_RUN_WRITTEN path={args.output} eligible={plan['eligible_count']} action=NONE")
+            print(f"DRY_RUN_WRITTEN sha256={_manifest_digest(args.output)} path={args.output} eligible={plan['eligible_count']} action=NONE")
         else:
             sys.stdout.write(rendered)
         return 0
