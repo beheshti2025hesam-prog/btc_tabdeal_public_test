@@ -1,0 +1,70 @@
+{
+  "schema": "HES_WALLEX_NATIVE_FEATURE_CONTEXT_CONTRACT_V1",
+  "status": "DRAFT_NOT_RUNTIME_ENABLED",
+  "version": 1,
+  "purpose": "Define a separate research-only consumer for native Wallex OHLCV; never reinterpret legacy sequence-based candles.",
+  "source": {
+    "venue": "wallex",
+    "symbol": "BTCUSDT",
+    "accepted_resolutions": {
+      "1": {"timeframe": "1m", "seconds": 60},
+      "60": {"timeframe": "1h", "seconds": 3600},
+      "1D": {"timeframe": "1D", "seconds": 86400}
+    },
+    "sequence_semantics": "NOT_APPLICABLE_NATIVE_OHLCV"
+  },
+  "required_input": {
+    "schema": "HES_WALLEX_CANDLE_OBSERVATION_V1",
+    "record_sha256_verified": true,
+    "per_candle_canonical_hashes_verified": true,
+    "complete_contiguous_intervals": true,
+    "closed_candles_only": true,
+    "freshness_checked_against_as_of": true,
+    "raw_response_evidence": {
+      "required_for_acceptance": true,
+      "evidence_schema": "HES_WALLEX_RAW_HTTP_RESPONSE_V1",
+      "exact_raw_body_sha256_verified": true,
+      "request_symbol_resolution_range_bound_to_observation": true,
+      "replay_parse_must_reproduce_candle_set": true,
+      "observation_must_reference_raw_evidence": true
+    }
+  },
+  "output": {
+    "mode": "RESEARCH_ONLY_DESCRIPTIVE_FEATURE_CONTEXT",
+    "allowed_features": [
+      "last_close",
+      "close_change_pct_last_two",
+      "latest_range_pct_of_close",
+      "volume_sum_observed_window",
+      "directional_context_last_two"
+    ],
+    "signal_generation": false,
+    "candidate_generation": false,
+    "confirmation": false,
+    "risk_decision": false,
+    "trade_decision": false,
+    "execution": false,
+    "historical_inputs_allowed": false,
+    "future_outcomes_allowed": false,
+    "strategy_tuning_allowed": false
+  },
+  "prohibited": [
+    "wire_into_legacy_runtime_bridge",
+    "wire_into_controlled_forward_observation_runner",
+    "map_native_1m_to_15m_without_a_separate_verified_contract",
+    "fabricate_sequence_ids",
+    "synthesize_missing_candles",
+    "claim_source_replay_without_raw_response_verification",
+    "claim_chart_parity_without_independent_evidence"
+  ],
+  "promotion_gates": [
+    "raw_http_evidence_capture_and_hash_verification",
+    "raw_response_replay_matches_exact_normalized_candle_set",
+    "end_to_end_lineage_from_raw_response_to_feature_context",
+    "adversarial_tests_for_tampering_gap_staleness_and_scope",
+    "independent_runtime_call_graph_review",
+    "explicit_forward_observation_gate_acceptance"
+  ],
+  "fail_closed": true,
+  "execution_enabled": false
+}

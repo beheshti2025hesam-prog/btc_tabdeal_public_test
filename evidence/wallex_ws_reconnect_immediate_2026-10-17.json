@@ -1,0 +1,53 @@
+{
+  "captured_at": "2026-10-17T13:52:18.503633+00:00",
+  "channel": "BTCUSDT@trade",
+  "credentials_used": false,
+  "endpoint": "wss://api.wallex.ir/ws",
+  "gap_free_or_replay_guarantee_proven": false,
+  "interpretation": "Immediate subscription after WebSocket open matches official docs and yielded trade events in each session if the event counts are positive. Without trade IDs/sequences, replay completeness and missed-event recovery remain unprovable.",
+  "orders_or_account_mutations": false,
+  "production_collector_started": false,
+  "sessions": [
+    {
+      "closed_at": "2026-10-17T13:52:09.328934+00:00",
+      "connected_at": "2026-10-17T13:52:00.310057+00:00",
+      "frames": [
+        {
+          "kind": "other",
+          "raw": "{\"sid\":\"18770473-5b91-4895-b8b4-d6f5389d7bd0\",\"upgrades\":[],\"pingInterval\":20000,\"pingTimeout\":30000,\"maxPayload\":1048576}\n",
+          "received_at": "2026-10-17T13:52:00.310708+00:00",
+          "sha256": "a855ca67fc2888260c60c468225dc87e1ae04a53821509a7bf4746131cd76c2d"
+        }
+      ],
+      "proxy_disabled": true,
+      "session": 1,
+      "started_at": "2026-10-17T13:52:00.147973+00:00",
+      "subscribe_immediately_after_open": true,
+      "subscribed_at": "2026-10-17T13:52:00.310387+00:00",
+      "trade_frames": 0,
+      "unique_frame_hashes": 1
+    },
+    {
+      "closed_at": "2026-10-17T13:52:18.503534+00:00",
+      "connected_at": "2026-10-17T13:52:09.485407+00:00",
+      "frames": [
+        {
+          "kind": "other",
+          "raw": "{\"sid\":\"6a647624-e389-4b40-8993-6a09cd0592a5\",\"upgrades\":[],\"pingInterval\":20000,\"pingTimeout\":30000,\"maxPayload\":1048576}\n",
+          "received_at": "2026-10-17T13:52:09.485956+00:00",
+          "sha256": "253b7a97ff7984924bf7e77e7e6ac3e0e5f74dd28eedaba8ffa7b9c6f7b1afa8"
+        }
+      ],
+      "proxy_disabled": true,
+      "session": 2,
+      "started_at": "2026-10-17T13:52:09.329064+00:00",
+      "subscribe_immediately_after_open": true,
+      "subscribed_at": "2026-10-17T13:52:09.485751+00:00",
+      "trade_frames": 0,
+      "unique_frame_hashes": 1
+    }
+  ],
+  "trade_stream_resumed_after_reconnect": false,
+  "transport_reconnect_success": true,
+  "unique_trade_ids_or_sequences_observed": false
+}

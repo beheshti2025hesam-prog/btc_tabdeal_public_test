@@ -1,0 +1,104 @@
+{
+  "captured_at": "2026-10-17T14:03:54.502191+00:00",
+  "code_commit": "37bf4cb8ff60890d94e7c1b114f8f800fb3f41db",
+  "code_sha256": "849b835221050d799c61c90694cc89e9a2562162e168aa33fe257c7aed80ba47",
+  "environment": "isolated exact-commit code copy on enrolled VPS",
+  "interpretation": "Only supported resolutions were sent to the live endpoint. Unsupported resolutions were rejected locally before network access; live success proves bounded availability only, not long-term coverage or chart screenshot parity.",
+  "orders_or_account_mutations": false,
+  "production_collector_started": false,
+  "results": [
+    {
+      "all_closed": true,
+      "first_open_time": "2026-10-17T13:54:00+00:00",
+      "last_open_time": "2026-10-17T14:02:00+00:00",
+      "resolution": "1",
+      "result": "PASS",
+      "returned_closed_candles": 9,
+      "sample": {
+        "close": "81514.92",
+        "high": "81514.92",
+        "low": "81514.92",
+        "open": "81514.92",
+        "volume": "0.000208"
+      },
+      "strictly_increasing": true
+    },
+    {
+      "all_closed": true,
+      "first_open_time": "2026-10-16T15:00:00+00:00",
+      "last_open_time": "2026-10-17T13:00:00+00:00",
+      "resolution": "60",
+      "result": "PASS",
+      "returned_closed_candles": 23,
+      "sample": {
+        "close": "81514.92",
+        "high": "81535.47",
+        "low": "81489.41",
+        "open": "81514.97",
+        "volume": "0.25978242"
+      },
+      "strictly_increasing": true
+    },
+    {
+      "all_closed": true,
+      "first_open_time": "2026-10-15T00:00:00+00:00",
+      "last_open_time": "2026-10-16T00:00:00+00:00",
+      "resolution": "1D",
+      "result": "PASS",
+      "returned_closed_candles": 2,
+      "sample": {
+        "close": "81779.76",
+        "high": "82868.42",
+        "low": "80900",
+        "open": "82250.06",
+        "volume": "13.33745658"
+      },
+      "strictly_increasing": true
+    },
+    {
+      "reason": "unsupported resolution: 5",
+      "resolution": "5",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: 15",
+      "resolution": "15",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: 30",
+      "resolution": "30",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: 180",
+      "resolution": "180",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: 360",
+      "resolution": "360",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: 720",
+      "resolution": "720",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: D",
+      "resolution": "D",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: 1W",
+      "resolution": "1W",
+      "result": "REJECTED_AS_DESIGNED"
+    },
+    {
+      "reason": "unsupported resolution: 1M",
+      "resolution": "1M",
+      "result": "REJECTED_AS_DESIGNED"
+    }
+  ]
+}
