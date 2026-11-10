@@ -1,0 +1,20 @@
+{
+  "captured_at_utc": "2026-10-18T17:31:13.882984+00:00",
+  "delay": "165.125ms",
+  "frequency": "-10.490ppm",
+  "interpretation": "Independent NTP status is available on the observation host. This is stronger than relying only on the exchange HTTP Date header, but it does not approve production freshness/clock thresholds or attest other hosts.",
+  "jitter": "12.934ms",
+  "leap": "normal",
+  "ntp_service_active": true,
+  "observer_role": "dedicated observation VPS; snapshot is not a fleet-wide SLA",
+  "offset": "-5.659ms",
+  "offset_ms": -5.659,
+  "packet_count": 515,
+  "raw_timesync_status": "       Server: 91.189.91.157 (ntp.ubuntu.com)\nPoll interval: 34min 8s (min: 32s; max 34min 8s)\n         Leap: normal\n      Version: 4\n      Stratum: 2\n    Reference: 84A36001\n    Precision: 1us (-24)\nRoot distance: 22.216ms (max: 5s)\n       Offset: -5.659ms\n        Delay: 165.125ms\n       Jitter: 12.934ms\n Packet count: 515\n    Frequency: -10.490ppm\n",
+  "root_distance": "22.216ms (max: 5s)",
+  "schema": "HES_WALLEX_INDEPENDENT_CLOCK_SYNC_SNAPSHOT_V1",
+  "server": "91.189.91.157 (ntp.ubuntu.com)",
+  "stratum": 2,
+  "system_clock_synchronized": true,
+  "time_sync_service": "systemd-timesyncd"
+}
