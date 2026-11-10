@@ -12,7 +12,7 @@ NOW = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
 def evidence(names, value=True, stamp=NOW):
     return {
         name: {"value": value, "evidence_ref": f"gateio://BTC_USDT/15m/{name}",
-               "observed_at": stamp.isoformat()}
+               "observed_at": stamp.isoformat(), "source_sha256": "a" * 64}
         for name in names
     }
 
@@ -22,6 +22,7 @@ def call(**overrides):
         "source": "gateio_public_spot", "symbol": "BTC_USDT",
         "timeframe": "15m", "regime": "UPTREND", "closed_candle": True,
         "observed_at": NOW.isoformat(), "now": NOW.isoformat(),
+        "candle_window_sha256": "b" * 64,
         "feature_evidence": evidence(FAMILIES["trend_continuation"]["features"]),
     }
     args.update(overrides)
@@ -99,3 +100,14 @@ def test_missing_feature_evidence_does_not_block_an_unrelated_family_if_complete
     names = FAMILIES["breakout_retest"]["features"]
     result = call(feature_evidence=evidence(names))
     assert [x["family_id"] for x in result["research_eligible_families"]] == ["breakout_retest"]
+
+
+def test_missing_or_invalid_candle_or_feature_hash_blocks_dispatch():
+    result = call(candle_window_sha256="not-a-hash")
+    assert result["status"] == "BLOCKED"
+    assert result["reason_codes"] == ["CANDLE_WINDOW_PROVENANCE_INVALID"]
+    data = evidence(FAMILIES["trend_continuation"]["features"])
+    data["trend_persistent"]["source_sha256"] = "bad"
+    result = call(feature_evidence=data)
+    assert result["research_eligible_families"] == []
+    assert result["status"] == "NO_RESEARCH_FAMILY_ELIGIBLE"

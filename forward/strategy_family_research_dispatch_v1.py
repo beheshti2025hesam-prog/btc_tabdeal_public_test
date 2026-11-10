@@ -17,6 +17,10 @@ SETUP_TIMEFRAME = "15m"
 PRECISION_TIMEFRAME = "1m"
 MAX_AGE_SECONDS = 900
 
+
+def _is_sha256(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
+
 FAMILIES = {
     "trend_continuation": {
         "version": "hes-trend-continuation-research-v1.0.0",
@@ -71,7 +75,7 @@ def _blocked(reason: str, regime: str = "UNKNOWN") -> dict[str, Any]:
 def dispatch_research_families(
     *, source: str, symbol: str, timeframe: str, regime: str,
     closed_candle: bool, observed_at: Any, now: Any,
-    feature_evidence: Mapping[str, Any],
+    candle_window_sha256: str, feature_evidence: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Return research evaluator eligibility only; fail closed on any bad input."""
     if source != SOURCE:
@@ -92,6 +96,8 @@ def dispatch_research_families(
     age = (current - observed).total_seconds()
     if age < 0 or age > MAX_AGE_SECONDS:
         return _blocked("CLOSED_15M_CONTEXT_STALE_OR_FUTURE", regime)
+    if not _is_sha256(candle_window_sha256):
+        return _blocked("CANDLE_WINDOW_PROVENANCE_INVALID", regime)
     if not isinstance(feature_evidence, Mapping):
         return _blocked("FEATURE_EVIDENCE_INVALID", regime)
 
@@ -112,7 +118,8 @@ def dispatch_research_families(
                 continue
             ref = item.get("evidence_ref")
             stamp = _parse_aware(item.get("observed_at"))
-            if not isinstance(ref, str) or not ref.strip() or stamp != observed:
+            if (not isinstance(ref, str) or not ref.strip() or stamp != observed
+                    or not _is_sha256(item.get("source_sha256"))):
                 missing.append(feature_name)
                 continue
             if item["value"] is False:
@@ -137,6 +144,7 @@ def dispatch_research_families(
         "reason_codes": [] if eligible else ["NO_FAMILY_MET_PREREGISTERED_RESEARCH_CONTEXT"],
         "source": SOURCE, "symbol": SYMBOL, "setup_timeframe": SETUP_TIMEFRAME,
         "regime": regime, "observed_at": observed.isoformat(),
+        "candle_window_sha256": candle_window_sha256,
         "research_eligible_families": eligible, "family_rejections": rejected,
         "daily_signal_limit_is_not_a_quota": True,
         "candidate_generation_authorized": False,

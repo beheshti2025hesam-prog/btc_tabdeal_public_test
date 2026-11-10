@@ -15,13 +15,13 @@
 - [x] Add versioned four-family research dispatch contract without changing the existing router.
 - [x] Add a closed-15m, evidence-bound research dispatcher prototype that only marks research eligibility; actual persisted feature wiring remains open.
 - [x] Keep candidate generation, confirmation, Risk, activation and execution false.
-- [x] Add deterministic tests for regime/context routing, stale/invalid evidence, unknown regimes, multiple eligible families, 1m non-authority and fail-closed behavior.
+- [x] Add deterministic tests for regime/context routing, stale/invalid evidence, unknown regimes, multiple eligible families, 1m non-authority, fail-closed behavior and SHA-256 provenance binding.
 - [ ] Replay existing trend baseline to prove no behavior change.
 
 ## Phase 1 validation
-- [x] Isolated full repository suite: 1,308 passed + 82 subtests.
-- [x] Focused family suite: 75 passed.
-- [x] Exact-head GitHub CI: 32/32 successful on commit 31323d92dee4e25e96cfec313b4f00721c8a7231.
+- [x] Isolated full repository suite: 1,309 passed + 82 subtests.
+- [x] Focused family suite: 76 passed.
+- [x] Exact-head GitHub CI: 32/32 successful on initial code commit 31323d92dee4e25e96cfec313b4f00721c8a7231; latest docs-only follow-up CI is pending.
 - [ ] Independent review of PR #491.
 
 ## Phase 2 — family evaluators and journal
