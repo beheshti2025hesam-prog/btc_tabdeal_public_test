@@ -1,0 +1,114 @@
+{
+  "schema": "hes_raw_trade_replay_audit_v1",
+  "evidence_id": "HES_RAW_TRADE_REPLAY_AUDIT_2026-10-19",
+  "audited_at_utc": "2026-10-19T07:20:00Z",
+  "source": {
+    "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+    "prior": {
+      "commit": "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1",
+      "path": "data/trades.csv",
+      "git_blob_sha1": "1a44d52a0588deb765bbbea04bfb5783dcb1050b",
+      "raw_bytes": 9592808,
+      "raw_sha256": "2c0013ad64aa3fa400a9c66e646382b34b0c1d1ac640a440353d31a78ca346e8"
+    },
+    "current": {
+      "commit": "b9ebecf061dfe9a084797d77b48a2c7846d269e3",
+      "path": "data/trades.csv",
+      "git_blob_sha1": "58d21825e052dbaa42e7eb0695455c19997bff43",
+      "raw_bytes": 10501596,
+      "raw_sha256": "c6c20f30fc6cbf6934c81e7b5e0495f952b7bab5fe2978baca6fdd78c68b90e6"
+    },
+    "source_identity_artifact": {
+      "commit": "e5e7e657af43ddb8b6e8152cf08d51850f01d687",
+      "path": "evidence/source_identity_reconciliation_v1.json",
+      "sha256": "db2c16104034d81d6d0e3b5daee72cd3df97f207e005040aee09c2c8d3b6fcfd",
+      "bytes": 17937
+    }
+  },
+  "byte_integrity": {
+    "fetched_blob_content_is_ascii": true,
+    "recomputed_git_blob_sha1_matches_prior": true,
+    "recomputed_git_blob_sha1_matches_current": true,
+    "sha256_recomputed_from_exact_fetched_source_bytes": true
+  },
+  "raw_trade_validation": {
+    "prior": {
+      "rows": 127201,
+      "symbols": [
+        "BTC_USDT"
+      ],
+      "sides": [
+        "Buy",
+        "Sell"
+      ],
+      "first_trade_utc": "2026-09-22T22:26:16.640Z",
+      "last_trade_utc": "2026-09-28T08:27:38.179Z",
+      "malformed_timestamps": 0,
+      "nonpositive_price_or_amount_rows": 0,
+      "timestamps_nondecreasing": true,
+      "unique_sequence_values": 127201,
+      "duplicate_sequence_occurrences": 0,
+      "observed_15m_buckets": 328,
+      "empty_15m_bucket_boundaries": 22,
+      "empty_15m_buckets_between_observed_buckets": 193
+    },
+    "current": {
+      "rows": 139250,
+      "symbols": [
+        "BTC_USDT"
+      ],
+      "sides": [
+        "Buy",
+        "Sell"
+      ],
+      "first_trade_utc": "2026-09-29T10:13:46.993Z",
+      "last_trade_utc": "2026-10-03T03:28:44.869Z",
+      "malformed_timestamps": 0,
+      "nonpositive_price_or_amount_rows": 0,
+      "timestamps_nondecreasing": true,
+      "unique_sequence_values": 139250,
+      "duplicate_sequence_occurrences": 0,
+      "observed_15m_buckets": 340,
+      "empty_15m_bucket_boundaries": 2,
+      "empty_15m_buckets_between_observed_buckets": 18
+    },
+    "exact_sequence_value_overlap_between_source_files": 0,
+    "interpretation": "Empty 15-minute buckets are reported only as no trade rows in those intervals. They are not treated as proof of missing feed events or sequence gaps."
+  },
+  "record_replay": {
+    "artifact_records": 42,
+    "prior_survivor_records": 14,
+    "current_winner_records": 28,
+    "unique_composite_record_keys": 42,
+    "exact_cross_lineage_record_key_matches": 0,
+    "checks": {
+      "sequence_first_exact_row_found": 42,
+      "sequence_last_exact_row_found": 42,
+      "both_endpoint_timestamps_in_preceding_minute": 42,
+      "entry_price_matches_sequence_last_trade": 42,
+      "exit_price_observed_in_record_minute": 42,
+      "direction_adjusted_gross_return_recomputed_with_absolute_tolerance_1e_12": 42
+    },
+    "method": "Sequence values were treated as exact opaque strings for row lookup only. No numeric sequence monotonicity, contiguity, or missing-event semantics were inferred.",
+    "gross_return_formula": "LONG=(exit_price-entry_price)/entry_price; SHORT=(entry_price-exit_price)/entry_price",
+    "failures": 0
+  },
+  "candle_reference_boundary": {
+    "native_binance_ohlcv_smoke_evidence": "evidence/native_binance_ohlcv_smoke_2026-10-19.json",
+    "native_binance_spot_vs_ui_kline_closed_bars_exact_matches": 5,
+    "tabdeal_trade_rows_compared_directly_to_binance_candles": 0,
+    "reason": "Tabdeal trade rows and Binance Spot/Futures candles are different venues/products. Direct equality would not be a valid same-source candle reconciliation.",
+    "tabdeal_native_ohlcv_endpoint_verified": false
+  },
+  "safety": {
+    "historical_feature_extraction_performed": false,
+    "threshold_changed": false,
+    "winner_reselected": false,
+    "records_deleted": false,
+    "evidence_registry_pinned": false,
+    "network_collector_started": false,
+    "orders_or_account_actions_performed": false,
+    "trading_authorized": false,
+    "disposition": "HOLD / NO_TRADE_ONLY"
+  }
+}
