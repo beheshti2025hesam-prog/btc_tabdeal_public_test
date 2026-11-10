@@ -194,3 +194,26 @@ def test_tree_entry_limit_fails_closed(monkeypatch, tmp_path):
         assert str(exc) == "TREE_ENTRY_LIMIT"
     else:
         raise AssertionError("large tree must fail closed")
+
+
+
+def test_apply_requires_explicit_phrase_even_for_root(monkeypatch, tmp_path):
+    from datetime import datetime
+    import json
+
+    monkeypatch.setattr(cleanup.os, "geteuid", lambda: 0)
+    manifest_path = tmp_path / "plan.json"
+    manifest_path.write_text(json.dumps({
+        "schema": "hes_idlm_cache_cleanup_plan_v1",
+        "policy_version": cleanup.POLICY_VERSION,
+    }))
+    try:
+        cleanup.quarantine_manifest(
+            manifest_path,
+            expected_sha256=cleanup._manifest_digest(manifest_path),
+            confirmation="",
+        )
+    except cleanup.CleanupSafetyError as exc:
+        assert str(exc) == "EXPLICIT_CONFIRMATION_REQUIRED"
+    else:
+        raise AssertionError("apply must require explicit typed confirmation")
