@@ -64,5 +64,7 @@ class SequenceAwareCandleIngestionV1:
             else:
                 return SequenceCandleResult((), (), tuple(events))
 
-        candles, gaps = ingest_closed_candles(safe, as_of=as_of)
+        candles, gaps = ingest_closed_candles(
+            safe, as_of=as_of, capabilities=self.sequence.capabilities
+        )
         return SequenceCandleResult(candles, gaps, tuple(events))
