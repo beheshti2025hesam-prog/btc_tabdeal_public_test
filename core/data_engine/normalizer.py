@@ -24,7 +24,11 @@ class RawDataNormalizer:
         quantity = self._parse_float(row["amount"], "amount")
         side = row["side"].strip().lower()
         timestamp = self._parse_timestamp(row["updated"])
-        sequence = self._parse_int(row["sequence"], "sequence")
+        # Keep the source field byte-for-byte at the CSV-cell level. It is not
+        # an identity, ordering, or gap counter without an exact venue contract.
+        sequence = row.get("sequence") or None
+        if sequence is not None and len(sequence) > 128:
+            raise ValueError("Sequence metadata too long")
         event_id = self._build_event_id(symbol, price, quantity, side, timestamp, sequence)
         return CanonicalTrade(
             event_id=event_id, source=self.source, exchange=self.exchange,
@@ -67,5 +71,6 @@ class RawDataNormalizer:
 
     @staticmethod
     def _build_event_id(symbol, price, quantity, side, timestamp, sequence) -> str:
+        """Build a normalized-row fingerprint, not a venue-issued event ID."""
         payload = "|".join([symbol, str(price), str(quantity), side, timestamp.isoformat(), str(sequence)])
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
