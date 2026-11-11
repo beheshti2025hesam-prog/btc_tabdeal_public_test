@@ -65,7 +65,10 @@ def test_engine_preserves_records_even_when_normalized_fingerprints_match():
     result=DataEngine(reader=R()).load()
     assert len(result)==3
     assert [trade.sequence for trade in result]==["7","7","7"]
-    assert DataEngine(reader=R()).last_quality_report is None
+    engine = DataEngine(reader=R())
+    engine.load()
+    assert engine.last_quality_report.metadata["deduplicated_trades"] == 0
+    assert engine.last_quality_report.metadata["identity_deduplication"] == "DISABLED_UNKNOWN"
 
 def test_normalizer_preserves_sequence_as_opaque_text_and_allows_missing():
     n = RawDataNormalizer(source="stream", exchange="tabdeal")
