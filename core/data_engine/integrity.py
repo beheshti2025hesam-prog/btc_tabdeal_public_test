@@ -29,11 +29,13 @@ class IntegrityAudit:
         sequenced = [t for t in trades if t.sequence is not None]
         sequence_values = [t.sequence for t in sequenced]
         unique_values = set(sequence_values)
-        event_ids = {t.event_id for t in trades}
+        normalized_fingerprints = {t.event_id for t in trades}
         return {
             "total_trades": len(trades),
-            "unique_event_ids": len(event_ids),
-            "duplicate_event_id_count": len(trades) - len(event_ids),
+            "unique_normalized_fingerprints": len(normalized_fingerprints),
+            "normalized_fingerprint_collision_count": len(trades) - len(normalized_fingerprints),
+            "event_identity_status": "UNKNOWN",
+            "duplicate_event_id_count": None,
             "sequenced_trades": len(sequenced),
             "unique_sequence_values": len(unique_values),
             "repeated_sequence_value_count": len(sequence_values) - len(unique_values),
