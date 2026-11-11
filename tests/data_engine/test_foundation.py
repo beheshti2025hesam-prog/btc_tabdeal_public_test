@@ -53,15 +53,19 @@ def test_reader_is_read_only_and_discovers_archives(tmp_path):
     list(reader.read_all())
     assert active.read_text(encoding="utf-8")==before
 
-def test_engine_is_deterministic_and_deduplicates():
+def test_engine_preserves_records_even_when_normalized_fingerprints_match():
     class R:
         def read_all(self):
-            yield row(ts="2026-09-20T10:00:02Z",seq="2")
-            yield row(ts="2026-09-20T10:00:01Z",seq="1")
-            yield row(ts="2026-09-20T10:00:01Z",seq="1")
+            # Distinct source rows: textual price forms differ, but both
+            # normalize to the same numeric value, timestamp and opaque sequence.
+            yield row(ts="2026-09-20T10:00:01Z",seq="7",price="100000")
+            yield row(ts="2026-09-20T10:00:01Z",seq="7",price="100000.0")
+            # A separate later record repeats the opaque sequence.
+            yield row(ts="2026-09-20T10:00:02Z",seq="7",price="100001")
     result=DataEngine(reader=R()).load()
-    assert [t.sequence for t in result]==["1","2"]
-
+    assert len(result)==3
+    assert [trade.sequence for trade in result]==["7","7","7"]
+    assert DataEngine(reader=R()).last_quality_report is None
 
 def test_normalizer_preserves_sequence_as_opaque_text_and_allows_missing():
     n = RawDataNormalizer(source="stream", exchange="tabdeal")
@@ -72,14 +76,12 @@ def test_normalizer_preserves_sequence_as_opaque_text_and_allows_missing():
     assert RawDataValidator().validate_row(missing) == []
     assert n.normalize_row(missing).sequence is None
 
-
 def test_engine_does_not_conflate_distinct_payloads_sharing_opaque_sequence():
     class R:
         def read_all(self):
             yield row(ts="2026-09-20T10:00:01Z", seq="7", price="100000")
             yield row(ts="2026-09-20T10:00:02Z", seq="7", price="100001")
             yield row(ts="2026-09-20T10:00:03Z", seq="007", price="100002")
-
     result = DataEngine(reader=R()).load()
     assert len(result) == 3
     assert [trade.sequence for trade in result] == ["7", "7", "007"]
