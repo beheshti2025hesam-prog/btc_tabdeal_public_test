@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from .candle_normalizer_v1 import TradeObservation, Candle15m, IntervalGap, normalize_trades
+from .sequence_semantics_v1 import SequenceSemanticsRegistryV1, SequenceSemanticsError
 
 REQUIRED = ("symbol", "price", "amount", "side", "source_updated", "sequence")
 SOURCE = "tabdeal_ws_forward_v1"
@@ -28,7 +29,18 @@ def _dt(value: Any) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
+def _require_verified_tabdeal_sequence_capability() -> None:
+    """Fail closed unless the pinned exact-scope registry proves ordered semantics."""
+    try:
+        capabilities = SequenceSemanticsRegistryV1.load_default().resolve_tabdeal_trade_sequence()
+    except SequenceSemanticsError as exc:
+        raise ValueError("SEQUENCE_CAPABILITIES_UNVERIFIED") from exc
+    if not capabilities.supports_scalar_sequence_integrity:
+        raise ValueError("SEQUENCE_CAPABILITIES_UNVERIFIED")
+
+
 def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObservation:
+    _require_verified_tabdeal_sequence_capability()
     missing = [key for key in REQUIRED if key not in record]
     if missing:
         raise ValueError("missing ingestion fields:" + ",".join(missing))
@@ -57,5 +69,6 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
 def ingest_closed_candles(
     records: Iterable[dict[str, Any]], *, as_of: datetime
 ) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
+    _require_verified_tabdeal_sequence_capability()
     trades = tuple(to_trade_observation(record, as_of=as_of) for record in records)
     return normalize_trades(trades, as_of=as_of, expected_symbol="BTC_USDT")
