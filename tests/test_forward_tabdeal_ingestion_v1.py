@@ -38,13 +38,13 @@ def test_valid_tabdeal_record_becomes_trade_observation(monkeypatch):
 
 
 def test_future_record_is_rejected(monkeypatch):
-    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda: None)
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     with pytest.raises(ValueError, match="future"):
         to_trade_observation(rec("2026-10-07T02:00:01+00:00"), as_of=AS_OF)
 
 
 def test_wrong_source_and_symbol_are_rejected(monkeypatch):
-    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda: None)
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     bad = rec()
     bad["source"] = "historical"
     with pytest.raises(ValueError, match="source"):
@@ -55,7 +55,7 @@ def test_wrong_source_and_symbol_are_rejected(monkeypatch):
 
 
 def test_ingestion_emits_only_closed_candles(monkeypatch):
-    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda: None)
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     records = [rec("2026-10-07T01:01:00+00:00", 1),
                rec("2026-10-07T01:14:59+00:00", 2)]
     candles, gaps = ingest_closed_candles(records, as_of=AS_OF)
