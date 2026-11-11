@@ -11,12 +11,14 @@ from core.data_engine.validator import RawDataValidator
 from core.models.trade import CanonicalTrade
 
 class DataEngine:
-    """Read -> validate -> normalize -> audit -> fingerprint-deduplicate -> timestamp-order."""
+    """Read -> validate -> normalize -> audit -> preserve -> timestamp-order."""
     def __init__(self, reader=None, validator=None, normalizer=None, deduplicator=None, integrity_audit=None):
         self.reader = reader or RawDataReader()
         self.validator = validator or RawDataValidator()
         self.normalizer = normalizer or RawDataNormalizer()
-        self.deduplicator = deduplicator or TradeDeduplicator()
+        # Kept for constructor compatibility only. A normalized fingerprint is
+        # not sufficient proof of event identity for an UNKNOWN venue contract.
+        self.deduplicator = deduplicator
         self.integrity_audit = integrity_audit or IntegrityAudit()
         self.last_quality_report = None
 
@@ -33,11 +35,13 @@ class DataEngine:
             canonical.append(self.normalizer.normalize_row(row))
         validation = {"total_rows": total, "valid_rows": valid, "invalid_rows": invalid}
         integrity = self.integrity_audit.audit(canonical)
-        unique = self.deduplicator.deduplicate(canonical)
-        ordered = sorted(unique, key=lambda trade: trade.timestamp)
+        # Do not collapse records by event_id: the generic normalizer creates
+        # a normalized-row fingerprint, not a source-issued unique event ID.
+        # Unknown-identity sources must retain every accepted raw record.
+        ordered = sorted(canonical, key=lambda trade: trade.timestamp)
         self.last_quality_report = DataQualityReport(
             total_trades=len(canonical), validation=validation,
             integrity=integrity["groups"],
-            metadata={"deduplicated_trades": len(ordered)},
+            metadata={"deduplicated_trades": 0, "identity_deduplication": "DISABLED_UNKNOWN"},
         )
         return ordered
