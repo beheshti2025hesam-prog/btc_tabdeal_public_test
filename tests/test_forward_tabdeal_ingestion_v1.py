@@ -30,7 +30,7 @@ def test_unknown_tabdeal_sequence_capabilities_block_before_candle_or_trade_norm
 
 
 def test_valid_tabdeal_record_becomes_trade_observation(monkeypatch):
-    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda: None)
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     trade = to_trade_observation(rec(), as_of=AS_OF)
     assert trade.symbol == "BTC_USDT"
     assert str(trade.price) == "100.25"
