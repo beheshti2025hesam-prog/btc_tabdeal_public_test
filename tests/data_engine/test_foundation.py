@@ -40,7 +40,8 @@ def test_integrity_does_not_infer_tabdeal_sequence_gaps_or_identity():
     assert report["min_sequence_value"] is None
     assert report["max_sequence_value"] is None
     assert report["repeated_sequence_value_count"] == 1
-    assert report["duplicate_event_id_count"] == 0
+    assert report["duplicate_event_id_count"] is None
+    assert report["normalized_fingerprint_collision_count"] == 0
 
 def test_reader_is_read_only_and_discovers_archives(tmp_path):
     active=tmp_path/"trades.csv"
@@ -88,3 +89,18 @@ def test_engine_does_not_conflate_distinct_payloads_sharing_opaque_sequence():
     result = DataEngine(reader=R()).load()
     assert len(result) == 3
     assert [trade.sequence for trade in result] == ["7", "7", "007"]
+
+
+def test_fingerprint_collisions_are_not_misreported_as_duplicate_event_identity():
+    class R:
+        def read_all(self):
+            yield row(ts="2026-09-20T10:00:01Z",seq="7",price="100000")
+            yield row(ts="2026-09-20T10:00:01Z",seq="7",price="100000.0")
+    engine = DataEngine(reader=R())
+    result = engine.load()
+    report = engine.last_quality_report.integrity[("tabdeal", "BTC_USDT")]
+    assert len(result) == 2
+    assert report["event_identity_status"] == "UNKNOWN"
+    assert report["duplicate_event_id_count"] is None
+    assert report["normalized_fingerprint_collision_count"] == 1
+    assert engine.last_quality_report.has_integrity_issues is False
