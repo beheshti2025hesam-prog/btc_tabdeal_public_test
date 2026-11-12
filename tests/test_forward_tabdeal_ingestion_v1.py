@@ -44,6 +44,19 @@ def test_ordered_but_non_unique_sequence_cannot_drive_candle_normalization():
         )
 
 
+def test_ordered_but_non_unique_sequence_cannot_drive_candle_normalization():
+    capabilities = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
+    non_identity_capabilities = replace(capabilities, event_identity=False)
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        to_trade_observation(
+            rec(), as_of=AS_OF, capabilities=non_identity_capabilities
+        )
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        ingest_closed_candles(
+            [rec()], as_of=AS_OF, capabilities=non_identity_capabilities
+        )
+
+
 def test_valid_tabdeal_record_becomes_trade_observation(monkeypatch):
     monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     trade = to_trade_observation(rec(), as_of=AS_OF)
