@@ -20,6 +20,7 @@ from typing import Any
 PROJECT_ROOT = Path("/opt/hes-trade-agent")
 ACTIVE_POINTERS = (PROJECT_ROOT / "current", PROJECT_ROOT / "current-before-4329a3df")
 PROTECTED_PREFIXES = ("KEEP_",)
+REVIEWABLE_CLASSES = {"REVIEW_STALE_TEMP", "REVIEW_TEMP", "REVIEW_REGENERABLE_CACHE", "REVIEW_SYSTEM_LOG_RETENTION", "REVIEW_LOG_POLICY"}
 
 
 def _under(path: str, root: str) -> bool:
@@ -374,7 +375,7 @@ def _source_audit_gate(audit: dict[str, Any], now: datetime) -> tuple[list[str],
         if registry.get("error"):
             errors.append("worktree_registry_unverified")
         paths = registry.get("paths")
-        if not isinstance(paths, list) or not all(isinstance(path, str) for path in paths):
+        if not isinstance(paths, list) or not all(isinstance(path, str) and Path(path).is_absolute() for path in paths):
             errors.append("worktree_registry_paths_invalid")
     age_seconds: float | None = None
     try:
@@ -435,7 +436,7 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
             dependency_status = "UNKNOWN_FAIL_CLOSED"
         else:
             dependency_status = "NO_LIVE_REFERENCE_OBSERVED"
-        protected = classification.startswith(PROTECTED_PREFIXES) or classification == "KEEP_UNKNOWN"
+        protected = classification.startswith(PROTECTED_PREFIXES) or classification not in REVIEWABLE_CLASSES
         if protected or dependency_status != "NO_LIVE_REFERENCE_OBSERVED":
             decision = "KEEP"
         else:
