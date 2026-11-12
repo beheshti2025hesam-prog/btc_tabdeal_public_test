@@ -33,7 +33,7 @@ def _plan(monkeypatch, tmp_path, now, *, registered=None, registry_error=None, p
 
 
 def test_old_allowlisted_cache_is_dry_run_candidate(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     cache = tmp_path / "run-a" / "__pycache__"
     _old_tree(cache, now)
     (tmp_path / "proc").mkdir()
@@ -50,7 +50,7 @@ def test_old_allowlisted_cache_is_dry_run_candidate(monkeypatch, tmp_path):
 
 
 def test_only_exact_cache_names_are_considered(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     old = tmp_path / "run-a" / "scratch"
     _old_tree(old, now)
     (tmp_path / "proc").mkdir()
@@ -61,11 +61,12 @@ def test_only_exact_cache_names_are_considered(monkeypatch, tmp_path):
 
 
 def test_recent_file_blocks_entire_cache(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     cache = tmp_path / "run-a" / ".pytest_cache"
     file_path = _old_tree(cache, now)
     recent = cache / "recent"
     recent.write_text("active")
+    os.utime(recent, (now.timestamp(), now.timestamp()))
     old = (now - timedelta(days=15)).timestamp()
     os.utime(cache, (old, old))
     plan = _plan(monkeypatch, tmp_path, now)
@@ -75,8 +76,29 @@ def test_recent_file_blocks_entire_cache(monkeypatch, tmp_path):
     assert row["reason"] == "RECENT_ENTRY_PRESENT"
 
 
+def test_backdated_file_with_recent_ctime_blocks_entire_cache(monkeypatch, tmp_path):
+    now = datetime.now(timezone.utc) + timedelta(days=15)
+    cache = tmp_path / "run-a" / "__pycache__"
+    _old_tree(cache, now)
+    original_snapshot = cleanup._tree_snapshot
+
+    def snapshot_with_recent_ctime(path):
+        snapshot, identities = original_snapshot(path)
+        for entry in snapshot["entries"]:
+            if entry["kind"] == "file":
+                entry["ctime_ns"] = int((now - timedelta(days=1)).timestamp() * 1_000_000_000)
+        return snapshot, identities
+
+    monkeypatch.setattr(cleanup, "_tree_snapshot", snapshot_with_recent_ctime)
+    plan = _plan(monkeypatch, tmp_path, now)
+
+    row = next(item for item in plan["candidates"] if item["path"] == str(cache))
+    assert row["eligible"] is False
+    assert row["reason"] == "RECENT_ENTRY_PRESENT"
+
+
 def test_symlink_inside_cache_blocks_candidate(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     cache = tmp_path / "run-a" / "__pycache__"
     file_path = _old_tree(cache, now)
     outside = tmp_path / "outside"
@@ -93,7 +115,7 @@ def test_symlink_inside_cache_blocks_candidate(monkeypatch, tmp_path):
 
 
 def test_hardlinked_file_blocks_candidate(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     cache = tmp_path / "run-a" / "__pycache__"
     file_path = _old_tree(cache, now)
     os.link(file_path, tmp_path / "outside-hardlink")
@@ -106,7 +128,7 @@ def test_hardlinked_file_blocks_candidate(monkeypatch, tmp_path):
 
 
 def test_registered_worktree_cache_is_not_discovered(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     worktree = tmp_path / "worktree"
     cache = worktree / "__pycache__"
     _old_tree(cache, now)
@@ -117,7 +139,7 @@ def test_registered_worktree_cache_is_not_discovered(monkeypatch, tmp_path):
 
 
 def test_unavailable_worktree_registry_fails_closed(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     cache = tmp_path / "run-a" / "__pycache__"
     _old_tree(cache, now)
     (tmp_path / "proc").mkdir()
@@ -132,7 +154,7 @@ def test_unavailable_worktree_registry_fails_closed(monkeypatch, tmp_path):
 
 
 def test_open_process_file_descriptor_blocks_candidate(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     cache = tmp_path / "run-a" / "__pycache__"
     file_path = _old_tree(cache, now)
     proc = tmp_path / "proc"
@@ -155,7 +177,7 @@ def test_quarantine_restore_path_contract_is_narrow():
 
 
 def test_open_current_working_directory_blocks_candidate(monkeypatch, tmp_path):
-    now = datetime(2026, 11, 10, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     cache = tmp_path / "run-a" / "__pycache__"
     _old_tree(cache, now)
     proc = tmp_path / "proc"
