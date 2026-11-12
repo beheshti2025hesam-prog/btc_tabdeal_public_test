@@ -76,9 +76,15 @@ def _recovery_health_report(
     host_issues: list[dict[str, str]],
 ) -> dict[str, Any]:
     """Include host-level failures in the recovery preflight, not just reporting."""
+    issues = [*runtime.get("issues", []), *host_issues]
+    overall = (
+        "CRITICAL" if any(row.get("state") == "CRITICAL" for row in issues)
+        else ("WARN" if issues else "OK")
+    )
     return {
         **runtime,
-        "issues": [*runtime.get("issues", []), *host_issues],
+        "overall": overall,
+        "issues": issues,
     }
 
 
