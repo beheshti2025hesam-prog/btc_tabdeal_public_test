@@ -211,13 +211,20 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
                          proc_errors: int | None = None,
                          unit_refs: list[dict[str, str]] | None = None,
                          unit_errors: int | None = None,
-                         backup_status: dict[str, Any] | None = None) -> dict[str, Any]:
+                         backup_status: dict[str, Any] | None = None,
+                         active_targets: list[str] | None = None,
+                         pointer_errors: list[str] | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
     if proc_refs is None or proc_errors is None:
         proc_refs, proc_errors = _proc_references()
     if unit_refs is None or unit_errors is None:
         unit_refs, unit_errors = _systemd_references()
-    active_targets, pointer_errors = _active_targets()
+    if active_targets is None or pointer_errors is None:
+        discovered_targets, discovered_errors = _active_targets()
+        if active_targets is None:
+            active_targets = discovered_targets
+        if pointer_errors is None:
+            pointer_errors = discovered_errors
     items = []
     for row in audit.get("items", []):
         path = str(row.get("path", ""))
