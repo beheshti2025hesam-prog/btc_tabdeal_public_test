@@ -33,7 +33,11 @@ def _require_verified_tabdeal_sequence_capability(
     capabilities: SequenceCapabilitiesV1 | None,
 ) -> None:
     """Fail closed unless an unforgeable registry-issued capability proves ordering."""
-    if capabilities is None or not capabilities.supports_scalar_sequence_integrity:
+    if (
+        capabilities is None
+        or not capabilities.supports_scalar_sequence_integrity
+        or not capabilities.event_identity
+    ):
         raise ValueError("SEQUENCE_CAPABILITIES_UNVERIFIED")
 
 
