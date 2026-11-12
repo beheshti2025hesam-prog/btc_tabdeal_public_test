@@ -36,7 +36,7 @@ class TradeCandleAggregator:
             groups.setdefault((trade.symbol, bucket_epoch), []).append(trade)
         candles = []
         for (symbol, bucket_epoch), group in groups.items():
-            ordered = sorted(group, key=lambda trade: (trade.timestamp, trade.sequence or -1))
+            ordered = sorted(group, key=lambda trade: trade.timestamp)
             start = datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)
             end = datetime.fromtimestamp(bucket_epoch + self.timeframe_seconds, tz=timezone.utc)
             prices = [trade.price for trade in ordered]

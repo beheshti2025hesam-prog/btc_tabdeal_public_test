@@ -1,50 +1,55 @@
 """
 HES Trade Agent - Read-only Data Integrity Audit.
+
+Sequence-like values are descriptive metadata unless an exact venue/channel
+contract grants identity, ordering, and continuity capabilities. This generic
+audit deliberately makes no such inference.
 """
 from collections import defaultdict
 from typing import Iterable
 from core.models.trade import CanonicalTrade
 
+
 class IntegrityAudit:
-    """Audit sequence and timestamp consistency by exchange/symbol."""
+    """Audit normalized event identity and report opaque sequence diagnostics."""
+
     def audit(self, trades: Iterable[CanonicalTrade]) -> dict:
         groups = defaultdict(list)
         for trade in trades:
             groups[(trade.exchange, trade.symbol)].append(trade)
         reports = {key: self._audit_group(group) for key, group in groups.items()}
-        return {"total_trades": sum(r["total_trades"] for r in reports.values()), "groups": reports}
+        return {
+            "total_trades": sum(r["total_trades"] for r in reports.values()),
+            "groups": reports,
+        }
 
     @staticmethod
     def _audit_group(trades: list[CanonicalTrade]) -> dict:
         by_timestamp = sorted(trades, key=lambda trade: trade.timestamp)
         sequenced = [t for t in trades if t.sequence is not None]
-        by_sequence = sorted(sequenced, key=lambda trade: trade.sequence)
-        sequences = [t.sequence for t in sequenced]
-        unique = set(sequences)
-        ordered = sorted(unique)
-        gaps = [cur - prev - 1 for prev, cur in zip(ordered, ordered[1:]) if cur > prev + 1]
-        backward = sum(
-            1 for prev, cur in zip(by_timestamp, by_timestamp[1:])
-            if prev.sequence is not None and cur.sequence is not None and cur.sequence < prev.sequence
-        )
-        timestamp_backward = sum(
-            1 for prev, cur in zip(by_sequence, by_sequence[1:]) if cur.timestamp < prev.timestamp
-        )
-        event_ids = {t.event_id for t in trades}
+        sequence_values = [t.sequence for t in sequenced]
+        unique_values = set(sequence_values)
+        normalized_fingerprints = {t.event_id for t in trades}
         return {
             "total_trades": len(trades),
-            "unique_event_ids": len(event_ids),
-            "duplicate_event_id_count": len(trades) - len(event_ids),
+            "unique_normalized_fingerprints": len(normalized_fingerprints),
+            "normalized_fingerprint_collision_count": len(trades) - len(normalized_fingerprints),
+            "event_identity_status": "UNKNOWN",
+            "duplicate_event_id_count": None,
             "sequenced_trades": len(sequenced),
-            "unique_sequences": len(unique),
-            "duplicate_sequence_count": len(sequences) - len(unique),
-            "sequence_gap_count": len(gaps),
-            "sequence_gap_total": sum(gaps),
-            "largest_sequence_gap": max(gaps, default=0),
-            "min_sequence": min(unique) if unique else None,
-            "max_sequence": max(unique) if unique else None,
-            "backward_sequence_count": backward,
-            "timestamp_backward_count": timestamp_backward,
+            "unique_sequence_values": len(unique_values),
+            "repeated_sequence_value_count": len(sequence_values) - len(unique_values),
+            "sequence_semantics_status": "UNKNOWN",
+            "sequence_ordering_status": "UNKNOWN",
+            "sequence_identity_status": "UNKNOWN",
+            "sequence_gap_count": None,
+            "sequence_gap_total": None,
+            "largest_sequence_gap": None,
+            "duplicate_sequence_count": None,
+            "backward_sequence_count": None,
+            "timestamp_backward_count": None,
+            "min_sequence_value": None,
+            "max_sequence_value": None,
             "first_timestamp": by_timestamp[0].timestamp if by_timestamp else None,
             "last_timestamp": by_timestamp[-1].timestamp if by_timestamp else None,
         }
