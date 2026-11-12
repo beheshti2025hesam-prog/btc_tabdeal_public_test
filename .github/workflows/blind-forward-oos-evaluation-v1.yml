@@ -18,21 +18,22 @@ permissions:
 jobs:
   blind-evaluate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout evaluation code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
       - name: Verify immutable source object
         run: git cat-file -e f396de84cb7f4c6b16e81effc91b653e26049ab4:data/trades.csv
       - name: Verify Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.12"
       - name: Run blind forward evaluator
         run: python scripts/blind_forward_evaluation_v1.py
       - name: Upload blind evaluation artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: blind-forward-evaluation-v1
           path: blind_forward_evaluation_v1.json
