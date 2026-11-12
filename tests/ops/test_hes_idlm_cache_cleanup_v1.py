@@ -394,6 +394,11 @@ def run(base):
     old = (now - timedelta(days=15)).timestamp()
     os.utime(cached_file, (old, old))
     os.utime(target, (old, old))
+    original_build_cleanup_plan = cleanup.build_cleanup_plan
+    def build_cleanup_plan_with_test_clock(*args, **kwargs):
+        kwargs.setdefault("now", now)
+        return original_build_cleanup_plan(*args, **kwargs)
+    cleanup.build_cleanup_plan = build_cleanup_plan_with_test_clock
     plan = cleanup.build_cleanup_plan(
         now=now, registered_worktrees=set(), proc_root=proc_root
     )
