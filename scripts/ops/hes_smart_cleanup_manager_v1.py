@@ -79,25 +79,57 @@ def _proc_references() -> tuple[list[dict[str, Any]], int]:
     return refs, errors
 
 
+def _expand_systemd_path_reference(unit: str, key: str, value: str) -> list[dict[str, str]]:
+    refs: list[dict[str, str]] = []
+    if value.strip():
+        refs.append({"unit": unit, "property": key, "value": value[:2000]})
+    bases = {
+        "StateDirectory": "/var/lib",
+        "CacheDirectory": "/var/cache",
+        "LogsDirectory": "/var/log",
+        "RuntimeDirectory": "/run",
+    }
+    base = bases.get(key)
+    if base:
+        for raw_name in value.split():
+            name = raw_name.split(":", 1)[0]
+            if not name:
+                continue
+            resolved = name if name.startswith("/") else str(Path(base) / name)
+            refs.append({"unit": unit, "property": key + "_resolved", "value": resolved})
+    return refs
+
+
+def _is_concrete_systemd_unit(unit: str) -> bool:
+    return not unit.endswith(("@.service", "@.timer"))
+
+
 def _systemd_references() -> tuple[list[dict[str, str]], int]:
-    """Inspect active unit declarations for explicit path dependencies."""
+    """Inspect running units and enabled service/timer declarations for path dependencies."""
     refs: list[dict[str, str]] = []
     errors = 0
-    try:
-        units = subprocess.run(
-            ["systemctl", "list-units", "--type=service", "--state=running", "--no-legend", "--plain"],
-            capture_output=True, text=True, timeout=20, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return refs, 1
-    if units.returncode != 0:
-        return refs, 1
-    properties = "ExecStart,WorkingDirectory,ReadWritePaths,ReadOnlyPaths,StateDirectory,CacheDirectory,LogsDirectory"
-    for line in units.stdout.splitlines():
-        fields = line.split()
-        if not fields:
+    unit_names: set[str] = set()
+    listing_commands = (
+        ["systemctl", "list-units", "--type=service", "--state=running", "--no-legend", "--plain"],
+        ["systemctl", "list-units", "--type=timer", "--state=active", "--no-legend", "--plain"],
+        ["systemctl", "list-unit-files", "--type=service", "--state=enabled", "--no-legend", "--no-pager"],
+        ["systemctl", "list-unit-files", "--type=timer", "--state=enabled", "--no-legend", "--no-pager"],
+    )
+    for command in listing_commands:
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=20, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            errors += 1
             continue
-        unit = fields[0]
+        if result.returncode != 0:
+            errors += 1
+            continue
+        for line in result.stdout.splitlines():
+            fields = line.split()
+            if fields and fields[0].endswith((".service", ".timer")) and _is_concrete_systemd_unit(fields[0]):
+                unit_names.add(fields[0])
+    properties = "ExecStart,WorkingDirectory,ReadWritePaths,ReadOnlyPaths,StateDirectory,CacheDirectory,LogsDirectory,RuntimeDirectory"
+    for unit in sorted(unit_names):
         try:
             result = subprocess.run(
                 ["systemctl", "show", unit, f"--property={properties}"],
@@ -111,8 +143,7 @@ def _systemd_references() -> tuple[list[dict[str, str]], int]:
             continue
         for prop in result.stdout.splitlines():
             key, _, value = prop.partition("=")
-            if value.strip():
-                refs.append({"unit": unit, "property": key, "value": value[:2000]})
+            refs.extend(_expand_systemd_path_reference(unit, key, value))
     return refs, errors
 
 
