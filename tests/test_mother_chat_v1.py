@@ -291,8 +291,8 @@ def test_command_center_markup_is_present_and_safe():
     assert required.issubset(parser.ids)
     script = (Path(dashboard.__file__).resolve().parent / "static" / "dashboard.js").read_text()
     css = (Path(dashboard.__file__).resolve().parent / "static" / "dashboard.css").read_text()
-    assert "fetch('/api/mother-chat/session'" in script
-    assert "fetch('/api/mother-chat'" in script
+    assert "fetchWithTimeout('/api/mother-chat/session'" in script
+    assert "fetchWithTimeout('/api/mother-chat'" in script
     assert "textContent" in script
     assert "motherChatToken" not in script.split("localStorage", 1)[-1]
     assert "@media(max-width:600px)" in css
