@@ -6,11 +6,12 @@ permissions:
 jobs:
   freeze-manifest:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Build and validate freeze manifest
         run: python scripts/forward_oos_freeze_v1.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: forward-oos-source-freeze-v1
           path: forward_oos_source_freeze_manifest.json
