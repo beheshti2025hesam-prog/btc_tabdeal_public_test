@@ -128,7 +128,7 @@ def _systemd_references() -> tuple[list[dict[str, str]], int]:
             fields = line.split()
             if fields and fields[0].endswith((".service", ".timer")) and _is_concrete_systemd_unit(fields[0]):
                 unit_names.add(fields[0])
-    properties = "ExecStart,WorkingDirectory,ReadWritePaths,ReadOnlyPaths,StateDirectory,CacheDirectory,LogsDirectory,RuntimeDirectory"
+    properties = "ExecStart,ExecStartPre,ExecStartPost,WorkingDirectory,EnvironmentFiles,ReadWritePaths,ReadOnlyPaths,RequiresMountsFor,BindPaths,BindReadOnlyPaths,RootDirectory,RootImage,InaccessiblePaths,TemporaryFileSystem,ConditionPathExists,ConditionPathIsDirectory,StateDirectory,CacheDirectory,LogsDirectory,RuntimeDirectory"
     for unit in sorted(unit_names):
         try:
             result = subprocess.run(
@@ -237,6 +237,34 @@ def _backup_status() -> dict[str, Any]:
     return result
 
 
+def _source_audit_gate(audit: dict[str, Any], now: datetime) -> tuple[list[str], float | None]:
+    errors: list[str] = []
+    if audit.get("schema") != "hes_data_lifecycle_audit_v1":
+        errors.append("unexpected_source_audit_schema")
+    if audit.get("mode") != "READ_ONLY_DRY_RUN":
+        errors.append("source_audit_mode_not_read_only")
+    registry = audit.get("worktree_registry")
+    if not isinstance(registry, dict):
+        errors.append("worktree_registry_missing")
+    else:
+        if registry.get("error"):
+            errors.append("worktree_registry_unverified")
+        paths = registry.get("paths")
+        if not isinstance(paths, list) or not all(isinstance(path, str) for path in paths):
+            errors.append("worktree_registry_paths_invalid")
+    age_seconds: float | None = None
+    try:
+        generated = datetime.fromisoformat(str(audit.get("generated_at", "")).replace("Z", "+00:00"))
+        if generated.tzinfo is None:
+            generated = generated.replace(tzinfo=timezone.utc)
+        age_seconds = (now - generated).total_seconds()
+        if age_seconds < -60 or age_seconds > 900:
+            errors.append("source_audit_stale_or_future_dated")
+    except (TypeError, ValueError):
+        errors.append("source_audit_timestamp_invalid")
+    return errors, age_seconds
+
+
 def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
                          proc_refs: list[dict[str, Any]] | None = None,
                          proc_errors: int | None = None,
@@ -250,6 +278,7 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         proc_refs, proc_errors = _proc_references()
     if unit_refs is None or unit_errors is None:
         unit_refs, unit_errors = _systemd_references()
+    source_audit_errors, source_audit_age = _source_audit_gate(audit, now)
     if active_targets is None or pointer_errors is None:
         discovered_targets, discovered_errors = _active_targets()
         if active_targets is None:
@@ -263,9 +292,10 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         process_matches = _matches_process(path, proc_refs)
         unit_matches = _matches_unit(path, unit_refs)
         active_match = any(_under(target, path) or _under(path, target) for target in active_targets)
-        worktrees = audit.get("worktree_registry", {}).get("paths", [])
+        registry = audit.get("worktree_registry", {})
+        worktrees = registry.get("paths", []) if isinstance(registry, dict) else []
         worktree_match = any(_under(path, root) or _under(root, path) for root in worktrees)
-        dependency_errors = int(proc_errors or 0) + int(unit_errors or 0) + len(pointer_errors)
+        dependency_errors = int(proc_errors or 0) + int(unit_errors or 0) + len(pointer_errors) + len(source_audit_errors)
         if process_matches or unit_matches or active_match or worktree_match:
             dependency_status = "BLOCKED_REFERENCED"
         elif dependency_errors:
@@ -314,6 +344,12 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         "source_audit_schema": audit.get("schema"),
         "source_audit_generated_at": audit.get("generated_at"),
         "inventory_items": len(items),
+        "source_audit_gate": {
+            "status": "PASS" if not source_audit_errors else "FAIL_CLOSED",
+            "age_seconds": round(source_audit_age, 2) if source_audit_age is not None else None,
+            "errors": source_audit_errors,
+            "maximum_age_seconds": 900,
+        },
         "dependency_scan": {
             "process_reference_count": len(proc_refs), "process_scan_errors": proc_errors,
             "running_unit_reference_count": len(unit_refs), "unit_scan_errors": unit_errors,
