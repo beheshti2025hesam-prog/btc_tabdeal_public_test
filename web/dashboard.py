@@ -600,6 +600,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps(snapshot, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
                 return self._send(503, json.dumps({
+                    "schema": "hes.api_error.v1",
                     "status": "BLOCKED", "error": type(exc).__name__,
                     "fail_closed": True, "execution_enabled": False, "orders_placed": False,
                 }, separators=(",", ":")).encode(), "application/json")
