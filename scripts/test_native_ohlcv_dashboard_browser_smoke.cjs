@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
+const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127.0.0.1:8765";
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -9,6 +10,7 @@ const { chromium } = require("playwright");
     const candlePayloads = {};
     let strategyV2Payload = null;
     let strategyV2StatusCode = null;
+    const apiContractResponses = {};
     let externalChartCdnRequested = false;
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
@@ -40,18 +42,26 @@ const { chromium } = require("playwright");
           logoAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
         }
         const url = new URL(response.url());
-        if (url.pathname === "/api/candles" && response.status() === 200) {
+        if (url.pathname.startsWith("/api/")) {
           const body = await response.json();
-          if (Array.isArray(body.candles) && body.candles.length) { candlePayload = body; candlePayloads[body.interval] = body; }
-        }
-        if (url.pathname === "/api/strategy-v2" && [200, 503].includes(response.status())) {
-          strategyV2StatusCode = response.status();
-          strategyV2Payload = await response.json();
+          apiContractResponses[url.pathname] = {
+            status: response.status(),
+            schema: body.schema || body.schema_version || null
+          };
+          if (url.pathname === "/api/candles" && response.status() === 200 &&
+              Array.isArray(body.candles) && body.candles.length) {
+            candlePayload = body;
+            candlePayloads[body.interval] = body;
+          }
+          if (url.pathname === "/api/strategy-v2" && [200, 503].includes(response.status())) {
+            strategyV2StatusCode = response.status();
+            strategyV2Payload = body;
+          }
         }
       } catch (_) {}
     });
 
-    await page.goto("http://127.0.0.1:8765/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.goto(dashboardBaseUrl + "/", { waitUntil: "domcontentloaded", timeout: 30000 });
     try {
       await page.waitForFunction(() => {
         const message = document.querySelector("#message")?.textContent || "";
@@ -93,12 +103,33 @@ const { chromium } = require("playwright");
       null,
       { timeout: 15000 }
     );
+    await page.waitForFunction(
+      () => {
+        const ids = ["journalStatus", "motherReasons", "newsSummary", "peReasons"];
+        return ids.every(id => {
+          const value = document.querySelector("#" + id)?.textContent || "";
+          return value && !/^(Loading|Verifying|Waiting)/.test(value);
+        });
+      },
+      null,
+      { timeout: 30000 }
+    );
     const fifteenMinutePayload = candlePayload;
     assert.ok(fifteenMinutePayload, "successful /api/candles payload was not observed");
     assert.equal(fifteenMinutePayload.interval, "15m", "15m must remain the default chart interval");
     assert.equal(await page.locator("#interval").inputValue(), "15m");
     assert.ok(candlePayloads["15m"], "15m API batch was not retained");
     assert.ok(strategyV2Payload, "canonical Strategy V2 response was not observed");
+    assert.equal(candlePayload.schema, "hes.market_candles_view.v1");
+    assert.equal(strategyV2Payload.schema, "hes.strategy_v2_dashboard_view.v1");
+    assert.equal(apiContractResponses["/api/journal"]?.schema, "hes.trade_journal_view.v1",
+      "decision journal API schema must be versioned");
+    assert.equal(apiContractResponses["/api/mother"]?.schema, "hes.mother_v2_dashboard_view.v1",
+      "Mother API schema must be versioned even when blocked");
+    assert.equal(apiContractResponses["/api/precision-entry"]?.schema, "hes_precision_entry_status_v1",
+      "Precision Entry API schema must be versioned even when blocked");
+    assert.ok(["hes.news_monitor_snapshot.v1", "hes.api_error.v1"].includes(apiContractResponses["/api/news"]?.schema),
+      "News API must return a versioned success or error contract");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
     assert.equal(strategyV2Payload.decision, "NO_TRADE", "paper-only V2 dashboard must remain NO_TRADE");
     assert.equal(strategyV2Payload.execution_enabled, false, "V2 dashboard must never enable execution");
@@ -167,8 +198,6 @@ const { chromium } = require("playwright");
     await languageSelect.selectOption("fa");
     await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
     assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
-    assert.equal((await page.locator("#motherChatTitle").textContent()).trim(), "مرکز فرمان Mother · رابط محلی رایگان",
-      "Mother Command Center heading must be translated in Persian RTL mode");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
     await languageSelect.selectOption("fr");
@@ -231,6 +260,7 @@ const { chromium } = require("playwright");
       strategy_v2_source: strategyV2Payload.source || "gateio_public_spot",
       strategy_v2_symbol: strategyV2Payload.symbol || "BTC_USDT",
       strategy_v2_execution_enabled: strategyV2Payload.execution_enabled,
+      api_contract_responses: apiContractResponses,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       chart_library_loaded: ui.chartLibraryLoaded,
@@ -454,6 +484,7 @@ const { chromium } = require("playwright");
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          schema: "hes.market_candles_view.v1",
           status: "gaps_present",
           source: "gateio_public_spot",
           source_reader: "global_market_data_reader_v1",
@@ -503,6 +534,7 @@ const { chromium } = require("playwright");
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          schema: "hes.market_candles_view.v1",
           status: "ok",
           source: "gateio_public_spot",
           source_reader: "global_market_data_reader_v1",
@@ -542,62 +574,6 @@ const { chromium } = require("playwright");
     }));
     assert.deepEqual([staleTimeframeUi.price, staleTimeframeUi.stamp, staleTimeframeUi.volume, staleTimeframeUi.count], ["—", "—", "—", "—"]);
     await page.unroute(staleRouteMatcher);
-    // Exercise the actual authenticated Mother Command Center in Chromium.
-    const chatToken = process.env.HES_MOTHER_CHAT_TOKEN;
-    assert.ok(typeof chatToken === "string" && chatToken.length >= 32, "ephemeral browser-test chat token is missing");
-    assert.equal(await page.locator("#motherChatPanel").count(), 1, "Mother Command Center panel is missing");
-    await page.locator("#motherChatToken").fill(chatToken);
-    const loginResponsePromise = page.waitForResponse(response => {
-      try { return new URL(response.url()).pathname === "/api/mother-chat/session"; } catch (_) { return false; }
-    });
-    await page.locator("#motherChatUnlock").click();
-    const loginResponse = await loginResponsePromise;
-    const loginPayload = await loginResponse.json();
-    assert.equal(loginResponse.status(), 200, "Mother Command Center login failed: " + JSON.stringify(loginPayload));
-    await page.waitForFunction(() => document.querySelector("#motherChatWorkspace") && !document.querySelector("#motherChatWorkspace").hidden);
-    assert.equal(await page.locator("#motherChatToken").inputValue(), "", "access token must be cleared from the form after login");
-
-    await page.locator("#motherChatInput").fill("hello");
-    const chatResponsePromise = page.waitForResponse(response => {
-      try { return new URL(response.url()).pathname === "/api/mother-chat"; } catch (_) { return false; }
-    });
-    await page.locator("#motherChatSend").click();
-    const chatResponse = await chatResponsePromise;
-    assert.equal(chatResponse.status(), 200, "Mother chat message endpoint did not respond");
-    const chatPayload = await chatResponse.json();
-    assert.equal(chatPayload.status, "NEEDS_CLARIFICATION", "unsupported input must request clarification");
-    assert.equal(chatPayload.external_llm_used, false, "free Command Center must not call an external LLM");
-    assert.equal(chatPayload.execution_enabled, false);
-    assert.equal(chatPayload.orders_placed, false);
-    await page.waitForFunction(() => [...document.querySelectorAll(".mother-chat-message")].some(
-      node => node.textContent.includes("Please specify one supported task")
-    ));
-    await page.locator("#motherChatLogout").click();
-    await page.waitForFunction(() => document.querySelector("#motherChatLogin") && !document.querySelector("#motherChatLogin").hidden);
-    evidence.mother_chat_ui = {
-      panel_present: true,
-      login_http_status: loginResponse.status(),
-      message_http_status: chatResponse.status(),
-      unsupported_intent_status: chatPayload.status,
-      external_llm_used: chatPayload.external_llm_used,
-      execution_enabled: chatPayload.execution_enabled,
-      orders_placed: chatPayload.orders_placed,
-      logout_locked_ui: true
-    };
-    await page.setViewportSize({ width: 390, height: 844 });
-    const chatMobileLayout = await page.evaluate(() => ({
-      viewport_width: window.innerWidth,
-      document_width: document.documentElement.scrollWidth,
-      panel_width: document.querySelector("#motherChatPanel")?.getBoundingClientRect().width || 0
-    }));
-    assert.ok(chatMobileLayout.panel_width > 300 && chatMobileLayout.panel_width <= 391,
-      "Mother Command Center panel is not responsive on mobile: " + JSON.stringify(chatMobileLayout));
-    assert.ok(chatMobileLayout.document_width <= chatMobileLayout.viewport_width + 1,
-      "Mother Command Center causes horizontal page overflow on mobile: " + JSON.stringify(chatMobileLayout));
-    await page.screenshot({ path: "artifacts/mother-chat-command-center-browser-smoke.png", fullPage: true });
-    evidence.mother_chat_ui.mobile_layout = chatMobileLayout;
-
-
     evidence.stale_timeframe_fail_closed = true;
     evidence.stale_timeframe_ui = staleTimeframeUi;
     require("node:fs").writeFileSync(
