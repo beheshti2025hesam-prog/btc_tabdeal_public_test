@@ -147,6 +147,130 @@ def _systemd_references() -> tuple[list[dict[str, str]], int]:
     return refs, errors
 
 
+def _scheduled_job_references() -> tuple[list[dict[str, str]], int]:
+    """Read cron, enabled user units, tmpfiles, logrotate and apt path declarations."""
+    refs: list[dict[str, str]] = []
+    errors = 0
+    files: dict[Path, tuple[str, str | None, str | None]] = {}
+
+    def add_file(path: Path, kind: str, home: str | None = None, username: str | None = None) -> None:
+        try:
+            if path.is_symlink() or not path.is_file():
+                return
+            files[path] = (kind, home, username)
+        except OSError:
+            return
+
+    add_file(Path("/etc/crontab"), "cron", None, None)
+    for root in (Path("/etc/cron.d"), Path("/etc/cron.hourly"), Path("/etc/cron.daily"),
+                 Path("/etc/cron.weekly"), Path("/etc/cron.monthly"),
+                 Path("/var/spool/cron"), Path("/var/spool/cron/crontabs")):
+        try:
+            root_exists = root.is_dir()
+        except OSError:
+            errors += 1
+            continue
+        if not root_exists:
+            continue
+        try:
+            for path in root.iterdir():
+                add_file(path, "cron", None, None)
+        except OSError:
+            errors += 1
+
+    for root in (Path("/etc/tmpfiles.d"), Path("/usr/lib/tmpfiles.d"), Path("/lib/tmpfiles.d"),
+                 Path("/etc/logrotate.d"), Path("/etc/apt/apt.conf.d")):
+        try:
+            root_exists = root.is_dir()
+        except OSError:
+            errors += 1
+            continue
+        if not root_exists:
+            continue
+        try:
+            for path in root.iterdir():
+                add_file(path, "system_maintenance_config", None, None)
+        except OSError:
+            errors += 1
+    add_file(Path("/etc/logrotate.conf"), "system_maintenance_config", None, None)
+
+    user_roots: list[tuple[Path, str | None, str | None]] = [
+        (Path("/etc/systemd/user"), None, None),
+        (Path("/usr/lib/systemd/user"), None, None),
+        (Path("/lib/systemd/user"), None, None),
+        (Path("/root/.config/systemd/user"), "/root", "root"),
+    ]
+    home_root = Path("/home")
+    try:
+        home_root_exists = home_root.is_dir()
+    except OSError:
+        errors += 1
+        home_root_exists = False
+    if home_root_exists:
+        try:
+            for home in home_root.iterdir():
+                if home.is_dir():
+                    user_roots.append((home / ".config/systemd/user", str(home), home.name))
+        except OSError:
+            errors += 1
+    for root, home, username in user_roots:
+        try:
+            root_exists = root.is_dir()
+        except OSError:
+            errors += 1
+            continue
+        if not root_exists:
+            continue
+        try:
+            wants_dirs = [p for p in root.rglob("*.wants") if p.is_dir()]
+            wants_dirs.extend(p for p in root.rglob("*.requires") if p.is_dir())
+            for wants in wants_dirs:
+                for link in wants.iterdir():
+                    if not link.is_symlink():
+                        continue
+                    try:
+                        target = link.resolve(strict=True)
+                        add_file(target, "enabled_user_systemd_unit", home, username)
+                    except OSError:
+                        errors += 1
+        except OSError:
+            errors += 1
+
+    for path, (kind, home, username) in files.items():
+        try:
+            if path.stat().st_size > 1024 * 1024:
+                errors += 1
+                continue
+            content = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            errors += 1
+            continue
+        for line_number, raw in enumerate(content.splitlines(), 1):
+            line = raw.strip()
+            if not line or line.startswith("#") or "/" not in line:
+                continue
+            if kind == "enabled_user_systemd_unit":
+                if "%h" in line:
+                    if home is None:
+                        errors += 1
+                        continue
+                    line = line.replace("%h", home)
+                if "%u" in line and username:
+                    line = line.replace("%u", username)
+                line = line.replace("%t", "/run/user")
+                if "/opt/sentinelx-cloud-core" in line or "${HOME}" in line or "~/" in line:
+                    if home is None:
+                        errors += 1
+                        continue
+                    line = line.replace("/opt/sentinelx-cloud-core", home).replace("${HOME}", home).replace("~/", home + "/")
+            elif "/opt/sentinelx-cloud-core" in line or "${HOME}" in line or "~/" in line:
+                errors += 1
+                continue
+            refs.append({"unit": str(path), "property": kind, "value": line[:2000],
+                         "line": str(line_number)})
+    return refs, errors
+
+
 def _active_targets() -> tuple[list[str], list[str]]:
     targets: list[str] = []
     errors: list[str] = []
@@ -272,13 +396,21 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
                          unit_errors: int | None = None,
                          backup_status: dict[str, Any] | None = None,
                          active_targets: list[str] | None = None,
-                         pointer_errors: list[str] | None = None) -> dict[str, Any]:
+                         pointer_errors: list[str] | None = None,
+                         scheduled_refs: list[dict[str, str]] | None = None,
+                         scheduled_errors: int | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
     if proc_refs is None or proc_errors is None:
         proc_refs, proc_errors = _proc_references()
     if unit_refs is None or unit_errors is None:
         unit_refs, unit_errors = _systemd_references()
     source_audit_errors, source_audit_age = _source_audit_gate(audit, now)
+    if scheduled_refs is None or scheduled_errors is None:
+        discovered_scheduled_refs, discovered_scheduled_errors = _scheduled_job_references()
+        if scheduled_refs is None:
+            scheduled_refs = discovered_scheduled_refs
+        if scheduled_errors is None:
+            scheduled_errors = discovered_scheduled_errors
     if active_targets is None or pointer_errors is None:
         discovered_targets, discovered_errors = _active_targets()
         if active_targets is None:
@@ -291,12 +423,13 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         classification = str(row.get("classification", "KEEP_UNKNOWN"))
         process_matches = _matches_process(path, proc_refs)
         unit_matches = _matches_unit(path, unit_refs)
+        scheduled_matches = _matches_unit(path, scheduled_refs)
         active_match = any(_under(target, path) or _under(path, target) for target in active_targets)
         registry = audit.get("worktree_registry", {})
         worktrees = registry.get("paths", []) if isinstance(registry, dict) else []
         worktree_match = any(_under(path, root) or _under(root, path) for root in worktrees)
-        dependency_errors = int(proc_errors or 0) + int(unit_errors or 0) + len(pointer_errors) + len(source_audit_errors)
-        if process_matches or unit_matches or active_match or worktree_match:
+        dependency_errors = int(proc_errors or 0) + int(unit_errors or 0) + int(scheduled_errors or 0) + len(pointer_errors) + len(source_audit_errors)
+        if process_matches or unit_matches or scheduled_matches or active_match or worktree_match:
             dependency_status = "BLOCKED_REFERENCED"
         elif dependency_errors:
             dependency_status = "UNKNOWN_FAIL_CLOSED"
@@ -315,6 +448,7 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
             "dependency_status": dependency_status,
             "process_references": process_matches,
             "systemd_references": unit_matches,
+            "scheduled_job_references": scheduled_matches,
             "active_or_rollback_release_related": active_match,
             "registered_worktree_related": worktree_match,
             "decision": decision,
@@ -353,6 +487,7 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         "dependency_scan": {
             "process_reference_count": len(proc_refs), "process_scan_errors": proc_errors,
             "running_unit_reference_count": len(unit_refs), "unit_scan_errors": unit_errors,
+            "scheduled_job_reference_count": len(scheduled_refs), "scheduled_job_scan_errors": scheduled_errors,
             "active_release_targets": active_targets, "active_pointer_errors": pointer_errors,
         },
         "disk_capacity": {**disk, "pressure": pressure},
