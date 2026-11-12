@@ -105,6 +105,15 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("HES Trade Agent",page)
         self.assertIn("HOLD / NO_TRADE_ONLY",page)
         self.assertIn('<div class="panel chart-panel">',page)
+        self.assertIn('id="indicatorTitle"',page)
+        self.assertIn('id="indicatorEma"',page)
+        self.assertIn('id="indicatorVwap"',page)
+        with urlopen(self.base+"/static/dashboard.js") as js_response:
+            js=js_response.read().decode()
+        self.assertIn("Native indicators · same Gate.io batch",js)
+        self.assertIn("اندیکاتورهای بومی · همان بستهٔ Gate.io",js)
+        self.assertIn("Native Indikatoren · derselbe Gate.io-Datensatz",js)
+        self.assertIn("Indicateurs natifs · même lot Gate.io",js)
         self.assertNotIn('class="panel" class="chart-panel"',page)
         self.assertIn(dashboard.CHART_ASSET_PATH,page)
         self.assertNotIn("unpkg.com",page)
@@ -147,7 +156,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Gate.io remains the sole live market-data source", page)
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
-        self.assertIn("fetch('/api/news'", script)
+        self.assertIn("fetchWithTimeout('/api/news'", script)
         self.assertNotIn("fetch('/api/signal", script)
 
     def test_mother_panel_and_browser_poll_are_present(self):
@@ -157,7 +166,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Mother Orchestrator · canonical V2 evidence chain", page)
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
-        self.assertIn("fetch('/api/mother'", script)
+        self.assertIn("fetchWithTimeout('/api/mother'", script)
         self.assertIn("witness", script)
 
     def test_mother_endpoint_returns_independently_witnessed_observation(self):
@@ -315,7 +324,60 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(payload["candles"][0]["open"],"100.00")
         self.assertEqual(payload["candles"][0]["volume"],"2.500")
         self.assertFalse(payload["feature_ready"])
+        self.assertEqual(payload["indicators"]["status"], "BLOCKED")
+        self.assertIsNone(payload["indicators"]["ema"])
+        self.assertEqual(payload["indicators"]["input_batch_sha256"], payload["input_batch_sha256"])
         self.assertFalse(payload["execution_enabled"])
+
+    def test_indicator_snapshot_is_bound_to_the_exact_chart_batch(self):
+        batch=sample_batch()
+        snapshot=SimpleNamespace(
+            ema=101.25, vwap=100.75, average_true_range=2.5,
+            realized_volatility=0.0125, volume_ratio=1.4, regime="uptrend",
+        )
+        quality=SimpleNamespace(passed=True, violations=())
+        features=SimpleNamespace(
+            decision_ready=True, reason="NATIVE_OHLCV_FEATURES_READY",
+            snapshot=snapshot, quality=quality,
+            source_response_sha256=batch.response_sha256,
+        )
+        with patch("web.dashboard._SOURCE.fetch",return_value=batch), \
+             patch("web.dashboard._FEATURES.build",return_value=features):
+            with urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m") as response:
+                payload=json.loads(response.read())
+        indicators=payload["indicators"]
+        self.assertEqual(indicators["status"],"READY")
+        self.assertEqual(indicators["input_batch_sha256"],payload["input_batch_sha256"])
+        self.assertEqual(indicators["feature_batch_sha256"],payload["input_batch_sha256"])
+        self.assertEqual(indicators["interval"],"15m")
+        self.assertEqual(indicators["ema"],101.25)
+        self.assertEqual(indicators["vwap"],100.75)
+        self.assertEqual(indicators["regime"],"uptrend")
+        self.assertTrue(indicators["quality_passed"])
+        self.assertFalse(indicators["execution_enabled"])
+        self.assertFalse(indicators["orders_placed"])
+
+    def test_indicator_snapshot_fails_closed_on_batch_provenance_mismatch(self):
+        batch=sample_batch()
+        snapshot=SimpleNamespace(
+            ema=101.25, vwap=100.75, average_true_range=2.5,
+            realized_volatility=0.0125, volume_ratio=1.4, regime="uptrend",
+        )
+        quality=SimpleNamespace(passed=True, violations=())
+        features=SimpleNamespace(
+            decision_ready=True, reason="NATIVE_OHLCV_FEATURES_READY",
+            snapshot=snapshot, quality=quality,
+            source_response_sha256="b"*64,
+        )
+        with patch("web.dashboard._SOURCE.fetch",return_value=batch), \
+             patch("web.dashboard._FEATURES.build",return_value=features):
+            with urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m") as response:
+                payload=json.loads(response.read())
+        indicators=payload["indicators"]
+        self.assertEqual(indicators["status"],"BLOCKED")
+        self.assertEqual(indicators["reason"],"FEATURE_BATCH_PROVENANCE_MISMATCH")
+        self.assertIsNone(indicators["ema"])
+        self.assertFalse(indicators["execution_enabled"])
 
     def test_unsupported_symbol_or_interval_fails_before_source_call(self):
         with patch("web.dashboard._SOURCE.fetch") as fetch:
@@ -485,7 +547,7 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
         self.assertIn("refreshPrecisionEntry", script)
-        self.assertIn("fetch('/api/precision-entry'", script)
+        self.assertIn("fetchWithTimeout('/api/precision-entry'", script)
 
     def test_precision_entry_api_fails_closed_without_valid_15m_setup(self):
         rows = []
@@ -648,6 +710,17 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(batch.interval, "1m")
         self.assertEqual(len(batch.candles), 240)
         self.assertEqual(batch.venue, "gateio")
+
+    def test_dashboard_javascript_api_requests_have_bounded_timeouts(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "web", "static", "dashboard.js")
+        with open(path, encoding="utf-8") as source_file:
+            source = source_file.read()
+        self.assertIn("const API_REQUEST_TIMEOUT_MS=12000;", source)
+        self.assertEqual(source.count("fetch("), 1)  # only inside fetchWithTimeout
+        self.assertIn("fetchWithTimeout('/api/mother-chat/session'", source)
+        self.assertIn("fetchWithTimeout('/api/mother-chat'", source)
+        self.assertIn("},60000)", source)  # chat requests are not cut off by the polling timeout
+        self.assertIn("},5000)", source)   # logout remains bounded
 
 if __name__=="__main__":
     unittest.main()
