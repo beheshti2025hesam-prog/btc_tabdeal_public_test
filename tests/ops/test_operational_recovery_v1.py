@@ -82,7 +82,7 @@ def health_report(inactive, extra=()):
         elif unit == 'hes-precision-entry-journal.service':
             issues.append({'check': 'freshness:precision_entry_journal_report_v1.json', 'state': 'CRITICAL', 'detail': 'stale'})
     issues.extend(extra)
-    return {'overall': 'CRITICAL' if issues else 'OK', 'issues': issues}
+    return {'schema': 'hes_runtime_healthcheck_v1', 'overall': 'CRITICAL' if any(x['state'] == 'CRITICAL' for x in issues) else ('WARN' if issues else 'OK'), 'issues': issues}
 
 
 def make_recovery(tmp_path, *, inactive=REPAIR_ORDER, extra=(), fail_start=(), now=2_000_000_000):
@@ -316,7 +316,7 @@ def test_post_start_health_failure_blocks_recovery_chain(tmp_path):
                 'state': 'CRITICAL',
                 'detail': 'journal_not_ready',
             })
-        return {'overall': 'CRITICAL' if issues else 'OK', 'issues': issues}
+        return {'schema': 'hes_runtime_healthcheck_v1', 'overall': 'CRITICAL' if any(x['state'] == 'CRITICAL' for x in issues) else ('WARN' if issues else 'OK'), 'issues': issues}
     recovery.health_provider = live_health
 
     result = recovery.run()
@@ -353,6 +353,20 @@ def test_malformed_health_report_fails_closed_before_any_start(tmp_path):
     assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
 
 
+def test_inconsistent_health_summary_fails_closed_before_any_start(tmp_path):
+    recovery, runner, _, _ = make_recovery(tmp_path, inactive=[REPAIR_ORDER[0]])
+    recovery.health_provider = lambda: {
+        'schema': 'hes_runtime_healthcheck_v1',
+        'overall': 'CRITICAL',
+        'issues': [],
+    }
+
+    with pytest.raises(Exception, match='HEALTH_REPORT_INCONSISTENT'):
+        recovery.run()
+
+    assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
 def test_newly_active_but_unhealthy_worker_blocks_later_recovery(tmp_path):
     root = tmp_path / 'app'
     make_release(root, now=2_000_000_000)
@@ -381,7 +395,7 @@ def test_newly_active_but_unhealthy_worker_blocks_later_recovery(tmp_path):
                 'state': 'CRITICAL',
                 'detail': 'stale_after_external_start',
             })
-        return {'overall': 'CRITICAL' if issues else 'OK', 'issues': issues}
+        return {'schema': 'hes_runtime_healthcheck_v1', 'overall': 'CRITICAL' if any(x['state'] == 'CRITICAL' for x in issues) else ('WARN' if issues else 'OK'), 'issues': issues}
 
     recovery = OperationalRecoveryV1(
         root=root, state_dir=state, runner=runner, health_provider=live_health,
