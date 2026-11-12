@@ -24,7 +24,7 @@
 - Full-system restore has not been proven; previous selective restore evidence is not a full restore drill.
 
 ## Tests
-- Focused manager + IDLM v1 tests: 19 passed.
+- Focused manager + IDLM v1 tests: 21 passed (including active/rollback pointer and unresolved-pointer fail-closed cases).
 - Full test suite on current-mainline isolated candidate: 1,249 passed, 82 subtests passed; `git diff --check` passed.
 - No production service restart or release deployment.
 
