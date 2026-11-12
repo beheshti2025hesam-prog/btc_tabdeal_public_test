@@ -711,5 +711,16 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(len(batch.candles), 240)
         self.assertEqual(batch.venue, "gateio")
 
+    def test_dashboard_javascript_api_requests_have_bounded_timeouts(self):
+        path = os.path.join(os.path.dirname(__file__), "..", "web", "static", "dashboard.js")
+        with open(path, encoding="utf-8") as source_file:
+            source = source_file.read()
+        self.assertIn("const API_REQUEST_TIMEOUT_MS=12000;", source)
+        self.assertEqual(source.count("fetch("), 1)  # only inside fetchWithTimeout
+        self.assertIn("fetchWithTimeout('/api/mother-chat/session'", source)
+        self.assertIn("fetchWithTimeout('/api/mother-chat'", source)
+        self.assertIn("},60000)", source)  # chat requests are not cut off by the polling timeout
+        self.assertIn("},5000)", source)   # logout remains bounded
+
 if __name__=="__main__":
     unittest.main()
