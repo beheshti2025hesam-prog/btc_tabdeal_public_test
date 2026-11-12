@@ -24,8 +24,8 @@
 - Full-system restore has not been proven; previous selective restore evidence is not a full restore drill.
 
 ## Tests
-- Focused manager + IDLM v1 tests: 23 passed (including active/rollback pointer, unresolved-pointer, systemd-template, and directory-expansion cases).
-- Full test suite on current-mainline isolated candidate after CI-driven test isolation and systemd-template fixes: 1,253 passed, 82 subtests passed; git diff --check passed.
+- Focused manager + IDLM v1 tests: 24 passed (active/rollback pointers, unresolved-pointer fail-closed, systemd templates, directory expansion and unit-reference blocking).
+- Full test suite on current-mainline isolated candidate: 1,254 passed, 82 subtests passed; git diff --check passed.
 - No production service restart or release deployment.
 
 ## Next gates
