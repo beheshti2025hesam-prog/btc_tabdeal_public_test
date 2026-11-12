@@ -238,7 +238,12 @@ class OperationalRecoveryV1:
 
     def _preflight(self, inactive: set[str]) -> tuple[bool, list[dict[str, str]]]:
         report = self.health_provider()
-        if not isinstance(report, dict) or not isinstance(report.get('issues'), list):
+        if (
+            not isinstance(report, dict)
+            or report.get('schema') != 'hes_runtime_healthcheck_v1'
+            or report.get('overall') not in ('OK', 'WARN', 'CRITICAL')
+            or not isinstance(report.get('issues'), list)
+        ):
             raise RecoveryError('HEALTH_REPORT_INVALID')
         issues = report['issues']
         for issue in issues:
@@ -249,6 +254,12 @@ class OperationalRecoveryV1:
                 or issue.get('state') not in ('WARN', 'CRITICAL')
             ):
                 raise RecoveryError('HEALTH_ISSUE_INVALID')
+        expected_overall = (
+            'CRITICAL' if any(issue['state'] == 'CRITICAL' for issue in issues)
+            else ('WARN' if issues else 'OK')
+        )
+        if report.get('overall') != expected_overall:
+            raise RecoveryError('HEALTH_REPORT_INCONSISTENT')
         allowed = set()
         for unit in inactive:
             allowed.update(IGNORABLE_WHEN_INACTIVE[unit])
