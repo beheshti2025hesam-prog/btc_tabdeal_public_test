@@ -137,3 +137,14 @@ def test_uninstantiated_systemd_templates_are_not_queried():
     assert _is_concrete_systemd_unit("hes-worker@instance.service") is True
     assert _is_concrete_systemd_unit("getty@.service") is False
     assert _is_concrete_systemd_unit("hes-cleanup@.timer") is False
+
+
+def test_systemd_directory_reference_blocks_review_candidate():
+    report = build_manager_report(
+        _audit([{"path": "/var/cache/hes-cache", "classification": "REVIEW_REGENERABLE_CACHE"}]),
+        proc_refs=[], proc_errors=0,
+        unit_refs=[{"unit": "hes-worker.service", "property": "CacheDirectory_resolved", "value": "/var/cache/hes-cache"}],
+        unit_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    assert report["items"][0]["dependency_status"] == "BLOCKED_REFERENCED"
+    assert report["items"][0]["decision"] == "KEEP"
