@@ -1,3 +1,4 @@
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -5,6 +6,7 @@ from forward.controlled_observation_run_v1 import ControlledObservationRunV1
 from forward.forward_observation_writer_v1 import ForwardObservationWriterV1
 
 AS_OF=datetime(2026,10,7,2,0,tzinfo=timezone.utc)
+CAPS=verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
 
 def rec(ts,seq,price="100"):
     return {"source_updated":ts,"symbol":"BTC_USDT","price":price,"amount":"1","side":"Buy",
@@ -12,7 +14,7 @@ def rec(ts,seq,price="100"):
 
 def test_controlled_run_writes_closed_candle_and_gap(tmp_path: Path):
     writer=ForwardObservationWriterV1(tmp_path/"obs.jsonl")
-    runner=ControlledObservationRunV1(writer=writer)
+    runner=ControlledObservationRunV1(writer=writer, capabilities=CAPS)
     digests=runner.run(
         forward_run_id="FR-001",
         observed_at=AS_OF,
@@ -31,10 +33,21 @@ def test_controlled_run_writes_closed_candle_and_gap(tmp_path: Path):
     assert '"outcome"' not in lines[2]
 
 def test_controlled_run_rejects_future_input(tmp_path: Path):
-    runner=ControlledObservationRunV1(writer=ForwardObservationWriterV1(tmp_path/"obs.jsonl"))
+    runner=ControlledObservationRunV1(writer=ForwardObservationWriterV1(tmp_path/"obs.jsonl"), capabilities=CAPS)
     try:
         runner.run(forward_run_id="FR-002",observed_at=AS_OF,
                    records=[rec("2026-10-07T02:00:01+00:00",1)])
         assert False
     except ValueError as exc:
         assert "future" in str(exc)
+
+
+def test_controlled_run_blocks_unknown_sequence_before_any_journal_write(tmp_path: Path):
+    runner = ControlledObservationRunV1(writer=ForwardObservationWriterV1(tmp_path / "obs.jsonl"))
+    try:
+        runner.run(forward_run_id="FR-UNKNOWN", observed_at=AS_OF,
+                   records=[rec("2026-10-07T01:01:00+00:00", 1)])
+        assert False
+    except ValueError as exc:
+        assert "SEQUENCE_CAPABILITIES_UNVERIFIED" in str(exc)
+    assert not (tmp_path / "obs.jsonl").exists()
