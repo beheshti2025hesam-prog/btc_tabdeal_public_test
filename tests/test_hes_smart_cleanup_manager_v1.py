@@ -117,3 +117,23 @@ def test_unresolved_release_pointer_fails_closed():
     )
     assert report["items"][0]["dependency_status"] == "UNKNOWN_FAIL_CLOSED"
     assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_systemd_cache_and_state_directories_expand_to_paths():
+    from scripts.ops.hes_smart_cleanup_manager_v1 import _expand_systemd_path_reference
+
+    cache = _expand_systemd_path_reference("example.service", "CacheDirectory", "hes-cache another-cache")
+    state = _expand_systemd_path_reference("example.service", "StateDirectory", "hes-state:hes-user")
+    assert {row["value"] for row in cache if row["property"].endswith("_resolved")} == {
+        "/var/cache/hes-cache", "/var/cache/another-cache"
+    }
+    assert any(row["value"] == "/var/lib/hes-state" for row in state)
+
+
+
+def test_uninstantiated_systemd_templates_are_not_queried():
+    from scripts.ops.hes_smart_cleanup_manager_v1 import _is_concrete_systemd_unit
+
+    assert _is_concrete_systemd_unit("hes-worker@instance.service") is True
+    assert _is_concrete_systemd_unit("getty@.service") is False
+    assert _is_concrete_systemd_unit("hes-cleanup@.timer") is False
