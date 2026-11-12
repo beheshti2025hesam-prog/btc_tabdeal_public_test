@@ -138,8 +138,8 @@ def _tree_snapshot(path: Path) -> tuple[dict[str, Any], set[tuple[int, int]]]:
                     "path": rel_child, "kind": "file", "dev": st.st_dev,
                     "ino": st.st_ino, "mode": stat.S_IMODE(st.st_mode),
                     "uid": st.st_uid, "gid": st.st_gid, "size": st.st_size,
-                    "mtime_ns": st.st_mtime_ns, "nlink": st.st_nlink,
-                    "sha256": content_hash,
+                    "mtime_ns": st.st_mtime_ns, "ctime_ns": st.st_ctime_ns,
+                    "nlink": st.st_nlink, "sha256": content_hash,
                 })
                 if len(rows) > MAX_TREE_ENTRIES:
                     raise CleanupSafetyError("TREE_ENTRY_LIMIT")
@@ -347,8 +347,11 @@ def build_cleanup_plan(
                     age_seconds = now.timestamp() - snapshot["mtime_ns"] / 1_000_000_000
                     if age_seconds < MIN_AGE_DAYS * 86400:
                         raise CleanupSafetyError("YOUNGER_THAN_14_DAYS")
-                    newest_mtime = max(entry["mtime_ns"] for entry in snapshot["entries"])
-                    if now.timestamp() - newest_mtime / 1_000_000_000 < MIN_AGE_DAYS * 86400:
+                    newest_change_ns = max(
+                        max(entry["mtime_ns"], entry.get("ctime_ns", entry["mtime_ns"]))
+                        for entry in snapshot["entries"]
+                    )
+                    if now.timestamp() * 1_000_000_000 - newest_change_ns < MIN_AGE_DAYS * 86400 * 1_000_000_000:
                         raise CleanupSafetyError("RECENT_ENTRY_PRESENT")
                     refs, ref_errors = _open_reference_scan(identities, proc_root=proc_root)
                     if ref_errors:
