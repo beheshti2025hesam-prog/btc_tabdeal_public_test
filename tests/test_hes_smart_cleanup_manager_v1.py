@@ -14,8 +14,14 @@ def _audit(items=None):
     }
 
 
+def _build_report(audit, **kwargs):
+    kwargs.setdefault("scheduled_refs", [])
+    kwargs.setdefault("scheduled_errors", 0)
+    return build_manager_report(audit, **kwargs)
+
+
 def test_unknown_and_protected_items_are_keep_and_never_deleted():
-    report = build_manager_report(
+    report = _build_report(
         _audit([
             {"path": "/srv/hes-evidence", "classification": "KEEP_EVIDENCE", "allocated_bytes": 10},
             {"path": "/opt/unknown", "classification": "KEEP_UNKNOWN", "allocated_bytes": 20},
@@ -29,7 +35,7 @@ def test_unknown_and_protected_items_are_keep_and_never_deleted():
 
 
 def test_open_process_reference_blocks_review_candidate():
-    report = build_manager_report(
+    report = _build_report(
         _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE", "allocated_bytes": 10}]),
         proc_refs=[{"pid": 42, "comm": "worker", "kind": "fd", "path": "/tmp/cache-x/blob"}],
         proc_errors=0, unit_refs=[], unit_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
@@ -40,7 +46,7 @@ def test_open_process_reference_blocks_review_candidate():
 
 
 def test_registered_worktree_and_active_release_are_protected():
-    report = build_manager_report(
+    report = _build_report(
         _audit([
             {"path": "/opt/hes-trade-agent/.worktrees/example", "classification": "REVIEW_STALE_TEMP"},
             {"path": "/opt/hes-trade-agent/releases", "classification": "KEEP_PROTECTED"},
@@ -53,7 +59,7 @@ def test_registered_worktree_and_active_release_are_protected():
 
 
 def test_dependency_scan_error_fails_closed():
-    report = build_manager_report(
+    report = _build_report(
         _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}]),
         proc_refs=[], proc_errors=1, unit_refs=[], unit_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
     )
@@ -62,7 +68,7 @@ def test_dependency_scan_error_fails_closed():
 
 
 def test_no_live_reference_still_means_review_only_not_delete():
-    report = build_manager_report(
+    report = _build_report(
         _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}]),
         proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0, active_targets=[], pointer_errors=[],
         backup_status={"local_latest_sidecar_verified": True, "offsite_latest_sidecar_verified": True,
@@ -77,7 +83,7 @@ def test_no_live_reference_still_means_review_only_not_delete():
 def test_disk_pressure_thresholds():
     audit = _audit([])
     audit["disk"]["free_percent"] = 8
-    report = build_manager_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0, backup_status={})
+    report = _build_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0, backup_status={})
     assert report["disk_capacity"]["pressure"] == "CRITICAL"
 
 
@@ -90,18 +96,18 @@ def test_backup_integrity_gate_requires_remote_hash_and_size_match():
         "dropbox_remote_latest": {"size_bytes": 100},
         "dropbox_quota": {"free_bytes": 500},
     }
-    report = build_manager_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+    report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status=backup)
     assert report["recovery_gate"]["backup_integrity_gate"] == "INCOMPLETE"
     backup["remote_hash_check"] = "PASS"
-    report = build_manager_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+    report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status=backup)
     assert report["recovery_gate"]["backup_integrity_gate"] == "PASS"
 
 
 
 def test_active_release_target_blocks_candidate_even_if_classified_review():
-    report = build_manager_report(
+    report = _build_report(
         _audit([{"path": "/opt/hes-trade-agent/releases/f5-active", "classification": "REVIEW_STALE_TEMP"}]),
         proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0, backup_status={},
         active_targets=["/opt/hes-trade-agent/releases/f5-active"], pointer_errors=[],
@@ -111,7 +117,7 @@ def test_active_release_target_blocks_candidate_even_if_classified_review():
 
 
 def test_unresolved_release_pointer_fails_closed():
-    report = build_manager_report(
+    report = _build_report(
         _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}]),
         proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0, backup_status={},
         active_targets=[], pointer_errors=["pointer_unresolved"],
@@ -141,7 +147,7 @@ def test_uninstantiated_systemd_templates_are_not_queried():
 
 
 def test_systemd_directory_reference_blocks_review_candidate():
-    report = build_manager_report(
+    report = _build_report(
         _audit([{"path": "/var/cache/hes-cache", "classification": "REVIEW_REGENERABLE_CACHE"}]),
         proc_refs=[], proc_errors=0,
         unit_refs=[{"unit": "hes-worker.service", "property": "CacheDirectory_resolved", "value": "/var/cache/hes-cache"}],
@@ -154,7 +160,7 @@ def test_systemd_directory_reference_blocks_review_candidate():
 def test_unverified_worktree_registry_fails_closed():
     audit = _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}])
     audit["worktree_registry"]["error"] = "git_worktree_list_failed"
-    report = build_manager_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+    report = _build_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status={}, active_targets=[], pointer_errors=[])
     assert report["source_audit_gate"]["status"] == "FAIL_CLOSED"
     assert report["items"][0]["dependency_status"] == "UNKNOWN_FAIL_CLOSED"
@@ -164,7 +170,7 @@ def test_unverified_worktree_registry_fails_closed():
 def test_stale_source_audit_fails_closed():
     audit = _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}])
     audit["generated_at"] = "2026-11-11T00:00:00+00:00"
-    report = build_manager_report(audit, now=datetime(2026, 11, 12, tzinfo=timezone.utc),
+    report = _build_report(audit, now=datetime(2026, 11, 12, tzinfo=timezone.utc),
                                   proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status={}, active_targets=[], pointer_errors=[])
     assert "source_audit_stale_or_future_dated" in report["source_audit_gate"]["errors"]
@@ -174,18 +180,51 @@ def test_stale_source_audit_fails_closed():
 def test_wrong_source_schema_fails_closed():
     audit = _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}])
     audit["schema"] = "unexpected"
-    report = build_manager_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+    report = _build_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status={}, active_targets=[], pointer_errors=[])
     assert "unexpected_source_audit_schema" in report["source_audit_gate"]["errors"]
     assert report["items"][0]["decision"] == "KEEP"
 
 
 def test_systemd_environment_file_reference_blocks_candidate():
-    report = build_manager_report(
+    report = _build_report(
         _audit([{"path": "/etc/default/hes-worker", "classification": "REVIEW_STALE_TEMP"}]),
         proc_refs=[], proc_errors=0,
         unit_refs=[{"unit": "hes-worker.service", "property": "EnvironmentFiles", "value": "-/etc/default/hes-worker"}],
         unit_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
     )
     assert report["items"][0]["dependency_status"] == "BLOCKED_REFERENCED"
+    assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_cron_reference_blocks_review_candidate():
+    report = _build_report(
+        _audit([{"path": "/opt/hes-trade-agent/data/important.csv", "classification": "REVIEW_STALE_TEMP"}]),
+        proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+        scheduled_refs=[{"unit": "/etc/cron.d/job", "property": "cron", "value": "python /opt/hes-trade-agent/data/important.csv"}],
+        scheduled_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    assert report["items"][0]["dependency_status"] == "BLOCKED_REFERENCED"
+    assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_enabled_user_systemd_reference_blocks_review_candidate():
+    report = _build_report(
+        _audit([{"path": "/home/alice/.cache/hes", "classification": "REVIEW_REGENERABLE_CACHE"}]),
+        proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+        scheduled_refs=[{"unit": "/etc/systemd/user/foo.service", "property": "enabled_user_systemd_unit",
+                         "value": "WorkingDirectory=/home/alice/.cache/hes"}],
+        scheduled_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    assert report["items"][0]["dependency_status"] == "BLOCKED_REFERENCED"
+    assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_scheduled_job_scan_error_fails_closed():
+    report = _build_report(
+        _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}]),
+        proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+        scheduled_refs=[], scheduled_errors=1, backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    assert report["items"][0]["dependency_status"] == "UNKNOWN_FAIL_CLOSED"
     assert report["items"][0]["decision"] == "KEEP"
