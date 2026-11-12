@@ -390,7 +390,7 @@ def run(base):
     target.mkdir(parents=True)
     cached_file = target / "module.pyc"
     cached_file.write_bytes(b"end-to-end-cache")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc) + timedelta(days=15)
     old = (now - timedelta(days=15)).timestamp()
     os.utime(cached_file, (old, old))
     os.utime(target, (old, old))
