@@ -9,8 +9,8 @@
 
 ## Implementation
 - Reuses IDLM v1 `hes_data_lifecycle_audit_v1` manifest; no duplicate scanner/service.
-- Adds `/proc` file-descriptor, CWD and root reference scanning; running systemd unit path declarations; active/rollback release target protection; registered worktree protection; backup checksum checks; Dropbox quota, remote size and remote content-hash verification.
-- Produces `hes_smart_cleanup_manager_v1` report. A real read-only run over 806 IDLM records reported 308 KEEP, 498 REVIEW_ONLY, 51 live-referenced records, zero process/unit scan errors, zero unknown dependency scans, and zero delete-authorized items.
+- Adds /proc file-descriptor, CWD and root reference scanning; running and enabled systemd service/timer declarations with StateDirectory, CacheDirectory, LogsDirectory and RuntimeDirectory expansion; active/rollback release target protection; registered worktree protection; backup checksum checks; Dropbox quota, remote size and remote content-hash verification.
+- Produces `hes_smart_cleanup_manager_v1` report. A real read-only run over 806 IDLM records reported 309 KEEP, 497 REVIEW_ONLY, 55 live-referenced records, zero process/unit scan errors, zero unknown dependency scans, and zero delete-authorized items.
 - No-live-reference means REVIEW_ONLY, not DELETE. Full restore gate remains BLOCKED_NOT_PROVEN.
 
 ## Live evidence at 2026-11-12 ~15:48 UTC
@@ -24,12 +24,12 @@
 - Full-system restore has not been proven; previous selective restore evidence is not a full restore drill.
 
 ## Tests
-- Focused manager + IDLM v1 tests: 21 passed (including active/rollback pointer and unresolved-pointer fail-closed cases).
-- Full test suite on current-mainline isolated candidate: 1,249 passed, 82 subtests passed; `git diff --check` passed.
+- Focused manager + IDLM v1 tests: 23 passed (including active/rollback pointer, unresolved-pointer, systemd-template, and directory-expansion cases).
+- Full test suite on current-mainline isolated candidate after CI-driven test isolation and systemd-template fixes: 1,253 passed, 82 subtests passed; git diff --check passed.
 - No production service restart or release deployment.
 
 ## Next gates
-1. Rebase/review against current GitHub main exact SHA; do not assume merge commit #485 is still current main.
+1. Draft PR #496 is based on current GitHub main SHA d2b47217e5d6f17e2bea52874991f1c4a649e747; its initial exact-head CI exposed a host-specific pointer test, now fixed with injected pointer state.
 2. Independent code review of process/unit dependency matching and backup status logic.
 3. Repeat read-only scan and soak; preserve all current report outputs and hashes.
 4. Complete an isolated full restore drill for the encrypted offsite bundle (without overwriting the live VPS); selective restore alone is insufficient.
