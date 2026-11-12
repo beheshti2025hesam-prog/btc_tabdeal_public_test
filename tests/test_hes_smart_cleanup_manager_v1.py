@@ -228,3 +228,22 @@ def test_scheduled_job_scan_error_fails_closed():
     )
     assert report["items"][0]["dependency_status"] == "UNKNOWN_FAIL_CLOSED"
     assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_unknown_classification_fails_closed_to_keep():
+    report = _build_report(
+        _audit([{"path": "/tmp/cache-x", "classification": "DELETE_ME"}]),
+        proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+        backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    assert report["items"][0]["decision"] == "KEEP"
+    assert report["items"][0]["automatic_action"] == "NONE"
+
+
+def test_relative_worktree_registry_path_fails_closed():
+    audit = _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}])
+    audit["worktree_registry"]["paths"] = ["relative/worktree"]
+    report = _build_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                           backup_status={}, active_targets=[], pointer_errors=[])
+    assert "worktree_registry_paths_invalid" in report["source_audit_gate"]["errors"]
+    assert report["items"][0]["decision"] == "KEEP"
