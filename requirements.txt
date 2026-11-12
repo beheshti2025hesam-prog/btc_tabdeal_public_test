@@ -1,2 +1,5 @@
 websocket-client
-git+https://github.com/Tabdeal-Exchange/tabdeal-python.git
+requests>=2.34.2,<3
+urllib3>=2.8.0,<3
+certifi>=2026.10.23
+cryptography>=50.0.0,<51
