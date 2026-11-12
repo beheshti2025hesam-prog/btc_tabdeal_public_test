@@ -661,7 +661,7 @@ class Handler(BaseHTTPRequestHandler):
                 "execution_enabled": False,
                 "orders_placed": False,
             }
-            payload={"status":"gaps_present" if batch.gaps else "ok",
+            payload={"schema":"hes.market_candles_view.v1","status":"gaps_present" if batch.gaps else "ok",
                 "source":"gateio_public_spot","source_reader":"global_market_data_reader_v1",
                 "venue":batch.venue,"product":batch.product,
                 "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
@@ -683,7 +683,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200,json.dumps(payload,separators=(",",":")).encode(),"application/json")
         except Exception as exc:
             reason_code = str(exc) if str(exc) in {"latest_closed_candle_stale", "persisted_candle_gaps_present"} else type(exc).__name__
-            return self._send(503,json.dumps({"error":"market_data_unavailable",
+            return self._send(503,json.dumps({"schema":"hes.market_candles_view.v1","error":"market_data_unavailable",
                 "reason":type(exc).__name__,"reason_code":reason_code,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
     def do_POST(self):
         path = urlparse(self.path).path
