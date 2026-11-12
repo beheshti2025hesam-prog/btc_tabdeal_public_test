@@ -82,7 +82,7 @@ def health_report(inactive, extra=()):
         elif unit == 'hes-precision-entry-journal.service':
             issues.append({'check': 'freshness:precision_entry_journal_report_v1.json', 'state': 'CRITICAL', 'detail': 'stale'})
     issues.extend(extra)
-    return {'overall': 'CRITICAL' if issues else 'OK', 'issues': issues}
+    return {'schema': 'hes_runtime_healthcheck_v1', 'overall': 'CRITICAL' if any(x['state'] == 'CRITICAL' for x in issues) else ('WARN' if issues else 'OK'), 'issues': issues}
 
 
 def make_recovery(tmp_path, *, inactive=REPAIR_ORDER, extra=(), fail_start=(), now=2_000_000_000):
@@ -98,7 +98,7 @@ def make_recovery(tmp_path, *, inactive=REPAIR_ORDER, extra=(), fail_start=(), n
     for unit in REPAIR_ORDER:
         if unit not in inactive_set:
             runner.active.add(unit)
-    provider = lambda: health_report(inactive_set, extra)
+    provider = lambda: health_report(inactive_set.intersection(set(REPAIR_ORDER) - runner.active), extra)
     recovery = OperationalRecoveryV1(
         root=root, state_dir=state, runner=runner, health_provider=provider,
         clock=lambda: now, sleep=lambda _: None, startup_timeout_seconds=0,
@@ -303,3 +303,107 @@ def test_monitor_passes_host_failures_into_recovery_preflight(monkeypatch, tmp_p
 
     assert monitor.main() == 2
     assert host_issues[0] in captured['preflight']['issues']
+
+
+def test_post_start_health_failure_blocks_recovery_chain(tmp_path):
+    recovery, runner, _, _ = make_recovery(tmp_path, inactive=REPAIR_ORDER)
+    def live_health():
+        inactive_now = set(REPAIR_ORDER) - runner.active
+        issues = health_report(inactive_now)['issues']
+        if REPAIR_ORDER[0] in runner.active:
+            issues.append({
+                'check': 'integrity:post_start_journal',
+                'state': 'CRITICAL',
+                'detail': 'journal_not_ready',
+            })
+        return {'schema': 'hes_runtime_healthcheck_v1', 'overall': 'CRITICAL' if any(x['state'] == 'CRITICAL' for x in issues) else ('WARN' if issues else 'OK'), 'issues': issues}
+    recovery.health_provider = live_health
+
+    result = recovery.run()
+
+    assert result['status'] == 'PARTIAL_OR_BLOCKED'
+    assert result['actions'][0]['result'] == 'READINESS_FAILED'
+    starts = [cmd[-1] for cmd in runner.commands if cmd[:2] == ('systemctl', 'start')]
+    assert starts == [REPAIR_ORDER[0]]
+
+
+def test_future_repair_audit_timestamp_fails_closed(tmp_path):
+    recovery, runner, _, state = make_recovery(tmp_path, inactive=[REPAIR_ORDER[0]])
+    state.mkdir(parents=True, exist_ok=True)
+    future = datetime.fromtimestamp(2_000_000_000 + 3600, timezone.utc).isoformat()
+    (state / 'repair-events.jsonl').write_text(json.dumps({
+        'at': future,
+        'service': REPAIR_ORDER[0],
+        'action': 'START_ATTEMPT',
+    }) + '\n')
+
+    with pytest.raises(Exception, match='REPAIR_AUDIT_CLOCK_SKEW'):
+        recovery.run()
+
+    assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
+def test_malformed_health_report_fails_closed_before_any_start(tmp_path):
+    recovery, runner, _, _ = make_recovery(tmp_path, inactive=[REPAIR_ORDER[0]])
+    recovery.health_provider = lambda: {'overall': 'OK'}
+
+    with pytest.raises(Exception, match='HEALTH_REPORT_INVALID'):
+        recovery.run()
+
+    assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
+def test_inconsistent_health_summary_fails_closed_before_any_start(tmp_path):
+    recovery, runner, _, _ = make_recovery(tmp_path, inactive=[REPAIR_ORDER[0]])
+    recovery.health_provider = lambda: {
+        'schema': 'hes_runtime_healthcheck_v1',
+        'overall': 'CRITICAL',
+        'issues': [],
+    }
+
+    with pytest.raises(Exception, match='HEALTH_REPORT_INCONSISTENT'):
+        recovery.run()
+
+    assert not any(cmd[:2] == ('systemctl', 'start') for cmd in runner.commands)
+
+
+def test_newly_active_but_unhealthy_worker_blocks_later_recovery(tmp_path):
+    root = tmp_path / 'app'
+    make_release(root, now=2_000_000_000)
+    state = tmp_path / 'state'
+
+    class ConcurrentSystemd(FakeSystemd):
+        def __call__(self, args, **kwargs):
+            result = super().__call__(args, **kwargs)
+            if args[:2] == ['systemctl', 'start'] and args[-1] == REPAIR_ORDER[0]:
+                # Simulate another actor activating the next worker, but its
+                # output has not become healthy yet.
+                self.active.add(REPAIR_ORDER[1])
+            return result
+
+    runner = ConcurrentSystemd(
+        active=set(DEPENDENCIES[REPAIR_ORDER[0]]) | {DEPENDENCIES[REPAIR_ORDER[2]][0]},
+        enabled=REPAIR_ORDER,
+    )
+
+    def live_health():
+        inactive_now = set(REPAIR_ORDER) - runner.active
+        issues = health_report(inactive_now)['issues']
+        if REPAIR_ORDER[1] in runner.active:
+            issues.append({
+                'check': 'freshness:strategy_learning_v1_report.json',
+                'state': 'CRITICAL',
+                'detail': 'stale_after_external_start',
+            })
+        return {'schema': 'hes_runtime_healthcheck_v1', 'overall': 'CRITICAL' if any(x['state'] == 'CRITICAL' for x in issues) else ('WARN' if issues else 'OK'), 'issues': issues}
+
+    recovery = OperationalRecoveryV1(
+        root=root, state_dir=state, runner=runner, health_provider=live_health,
+        clock=lambda: 2_000_000_000, sleep=lambda _: None, startup_timeout_seconds=0,
+    )
+
+    result = recovery.run()
+
+    starts = [cmd[-1] for cmd in runner.commands if cmd[:2] == ('systemctl', 'start')]
+    assert starts == [REPAIR_ORDER[0]]
+    assert result['actions'][0]['result'] == 'READINESS_FAILED'

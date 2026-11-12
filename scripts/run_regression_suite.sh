@@ -12,6 +12,9 @@ trap 'rm -rf "$PYTHONPYCACHEPREFIX"' EXIT
 printf '%s\n' '=== HES REGRESSION GATE: BYTECODE / SYNTAX ==='
 "$PYTHON_BIN" -m compileall -q core forward scripts tests
 
+printf '%s\n' '=== HES REGRESSION GATE: WORKFLOW SUPPLY-CHAIN POLICY ==='
+"$PYTHON_BIN" scripts/check_workflow_action_pins.py
+
 printf '%s\n' '=== HES REGRESSION GATE: FULL TEST SUITE (WARNINGS ARE ERRORS) ==='
 "$PYTHON_BIN" -m pytest -q -W error
 

@@ -193,7 +193,9 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#precisionEntryPanel">Precision</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#motherChatPanel">Command Center</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
 <section class="panel" id="marketPanel" aria-labelledby="marketTitle"><h2 class="panel-title" id="marketTitle">Market overview · Gate.io</h2><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price" data-no-translate>—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" data-no-translate class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume" data-no-translate>—</strong></div><div class="metric"><small>Closed candles</small><strong id="count" data-no-translate>—</strong></div></div>
-<div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div><div id="message" role="status" aria-live="polite" aria-atomic="true">Loading validated closed candles…</div></section>
+<div class="panel chart-panel"><div id="chart" role="img" aria-label="Candlestick chart"></div></div>
+<div class="panel indicator-panel" aria-labelledby="indicatorTitle"><h3 class="panel-title" id="indicatorTitle">Native indicators · same Gate.io batch</h3><div class="metrics" id="indicatorMetrics" role="group" aria-label="Descriptive indicators"><div class="metric"><small>EMA (20)</small><strong id="indicatorEma" data-no-translate>—</strong></div><div class="metric"><small>VWAP (20)</small><strong id="indicatorVwap" data-no-translate>—</strong></div><div class="metric"><small>ATR</small><strong id="indicatorAtr" data-no-translate>—</strong></div><div class="metric"><small>Realized volatility</small><strong id="indicatorVolatility" data-no-translate>—</strong></div><div class="metric"><small>Volume ratio</small><strong id="indicatorVolumeRatio" data-no-translate>—</strong></div><div class="metric"><small>Market regime</small><strong id="indicatorRegime" data-no-translate>—</strong></div></div><p class="muted" id="indicatorStatus" data-no-translate role="status" aria-live="polite">Waiting for the same validated Gate.io candle batch…</p><p class="muted">Descriptive only · no independent signal or trade authorization.</p></div>
+<div id="message" role="status" aria-live="polite" aria-atomic="true">Loading validated closed candles…</div></section>
 <section class="panel" id="precisionEntryPanel" aria-labelledby="precisionEntryTitle"><h2 class="panel-title" id="precisionEntryTitle">Multi-Timeframe Alignment · Precision Entry</h2><div class="metrics"><div class="metric"><small>4H data</small><strong id="pe4h" data-no-translate>Checking…</strong></div><div class="metric"><small>1H data</small><strong id="pe1h" data-no-translate>Checking…</strong></div><div class="metric"><small>15M setup gate</small><strong id="pe15m" data-no-translate>Checking…</strong></div><div class="metric"><small>1M feed</small><strong id="pe1m" data-no-translate>Checking…</strong></div><div class="metric"><small>Precision Entry</small><strong id="peState" data-no-translate>BLOCKED</strong></div><div class="metric"><small>Risk Gate</small><strong id="peRisk" data-no-translate>UNVERIFIED</strong></div></div><p class="muted" id="peReasons" data-no-translate role="status" aria-live="polite">Waiting for validated multi-timeframe evidence…</p><div class="gate"><strong>Advisory only · execution disabled</strong><p class="muted">The 15M setup remains authoritative. The 1M layer cannot create a trade, change direction, bypass Risk Gate, or submit orders. Missing/stale candles, missing provenance-bound entry context, or unapproved setup means BLOCKED / NO_TRADE.</p></div></section>
 <section class="panel" id="strategyV2Panel" aria-labelledby="strategyV2Title"><h2 class="panel-title" id="strategyV2Title">Canonical Strategy V2 · Paper evaluator</h2><div class="metrics"><div class="metric"><small>Canonical decision</small><strong id="v2Decision" data-no-translate>NO_TRADE</strong></div><div class="metric"><small>Evidence status</small><strong id="v2Status" data-no-translate role="status" aria-live="polite">Checking report…</strong></div><div class="metric"><small>Market regime</small><strong id="v2Regime" data-no-translate>UNKNOWN</strong></div><div class="metric"><small>Policy version</small><strong id="v2Version" data-no-translate>—</strong></div><div class="metric"><small>Paper outcomes</small><strong id="v2Outcomes" data-no-translate>—</strong></div><div class="metric"><small>Decision journal</small><strong id="v2Journal" data-no-translate>—</strong></div></div><p class="muted" id="v2Reasons" data-no-translate>Waiting for the canonical V2 evaluator report…</p><div class="gate"><strong>Gate.io data only · execution disabled</strong><p class="muted" id="v2Evidence" data-no-translate>This panel is a read-only projection of the existing Strategy Policy V2 evaluator and canonical journal. It does not calculate a second strategy or submit orders.</p></div></section>
 <section class="panel" id="motherPanel" aria-labelledby="motherTitle"><h2 class="panel-title" id="motherTitle">Mother Orchestrator · canonical V2 evidence chain</h2><div class="metrics"><div class="metric"><small>Orchestration</small><strong id="motherStatus" data-no-translate role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Independent witness</small><strong id="motherWitness" data-no-translate>NOT VERIFIED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace" data-no-translate>—</strong></div></div><p class="muted" id="motherReasons" data-no-translate>Waiting for matched Strategy V2 report and journal evidence…</p><ul id="motherStages" data-no-translate><li class="muted">No verified orchestration stages.</li></ul><div class="gate"><strong>Observation only · execution disabled</strong><p class="muted" id="motherEvidence" data-no-translate>Mother coordinates the existing Strategy V2 specialist outputs. It does not recalculate market data, indicators, strategy or risk, and cannot authorize orders.</p></div></section>
@@ -598,6 +600,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps(snapshot, separators=(",", ":")).encode(), "application/json")
             except Exception as exc:
                 return self._send(503, json.dumps({
+                    "schema": "hes.api_error.v1",
                     "status": "BLOCKED", "error": type(exc).__name__,
                     "fail_closed": True, "execution_enabled": False, "orders_placed": False,
                 }, separators=(",", ":")).encode(), "application/json")
@@ -617,7 +620,49 @@ class Handler(BaseHTTPRequestHandler):
             batch,feature_result=_get_batch(symbol,interval)
             now=datetime.now(timezone.utc); now_ms=int(now.timestamp()*1000); last=batch.candles[-1]
             age=(now_ms-last.close_time_ms)/1000
-            payload={"status":"gaps_present" if batch.gaps else "ok",
+            indicator_snapshot = getattr(feature_result, "snapshot", None)
+            feature_quality = getattr(feature_result, "quality", None)
+            feature_batch_sha256 = getattr(feature_result, "source_response_sha256", None)
+            indicator_provenance_ok = feature_batch_sha256 == batch.response_sha256
+            indicator_quality_ok = getattr(feature_quality, "passed", False) is True
+            indicators_ready = (
+                getattr(feature_result, "decision_ready", False) is True
+                and indicator_snapshot is not None
+                and indicator_provenance_ok
+                and indicator_quality_ok
+            )
+            indicator_reason = (
+                None if indicators_ready else
+                "FEATURE_BATCH_PROVENANCE_MISMATCH" if not indicator_provenance_ok else
+                getattr(feature_result, "reason", "INDICATOR_SNAPSHOT_UNAVAILABLE")
+            )
+            indicators = {
+                "schema": "hes_native_ohlcv_indicator_snapshot_v1",
+                "status": "READY" if indicators_ready else "BLOCKED",
+                "source": "gateio_public_spot",
+                "source_reader": "global_market_data_reader_v1",
+                "venue": batch.venue,
+                "product": batch.product,
+                "symbol": batch.symbol,
+                "interval": batch.interval,
+                "input_batch_sha256": batch.response_sha256,
+                "feature_batch_sha256": feature_batch_sha256,
+                "ema_period": _FEATURES.ema_period,
+                "vwap_period": _FEATURES.vwap_period,
+                "ema": indicator_snapshot.ema if indicators_ready else None,
+                "vwap": indicator_snapshot.vwap if indicators_ready else None,
+                "average_true_range": indicator_snapshot.average_true_range if indicators_ready else None,
+                "realized_volatility": indicator_snapshot.realized_volatility if indicators_ready else None,
+                "volume_ratio": indicator_snapshot.volume_ratio if indicators_ready else None,
+                "regime": indicator_snapshot.regime if indicators_ready else None,
+                "quality_passed": indicator_quality_ok,
+                "quality_violations": list(getattr(feature_quality, "violations", ()) or ()),
+                "decision_ready": indicators_ready,
+                "reason": indicator_reason,
+                "execution_enabled": False,
+                "orders_placed": False,
+            }
+            payload={"schema":"hes.market_candles_view.v1","status":"gaps_present" if batch.gaps else "ok",
                 "source":"gateio_public_spot","source_reader":"global_market_data_reader_v1",
                 "venue":batch.venue,"product":batch.product,
                 "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
@@ -627,7 +672,8 @@ class Handler(BaseHTTPRequestHandler):
                 "interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
                 "fetched_at_ms":batch.fetched_at_ms,"input_batch_sha256":batch.response_sha256,
                 "latest_age_seconds":age,"execution_enabled":False,"orders_placed":False,
-                "feature_ready":feature_result.decision_ready,"feature_reason":feature_result.reason,
+                "feature_ready":indicators_ready,"feature_reason":indicator_reason,
+                "indicators":indicators,
                 "stream_status":_STREAM_STATE["status"],"stream_reason":_STREAM_STATE["reason"],
                 "gaps":[{"expected_open_time_ms":g.expected_open_time_ms,
                     "next_observed_open_time_ms":g.next_observed_open_time_ms,
@@ -638,7 +684,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200,json.dumps(payload,separators=(",",":")).encode(),"application/json")
         except Exception as exc:
             reason_code = str(exc) if str(exc) in {"latest_closed_candle_stale", "persisted_candle_gaps_present"} else type(exc).__name__
-            return self._send(503,json.dumps({"error":"market_data_unavailable",
+            return self._send(503,json.dumps({"schema":"hes.market_candles_view.v1","error":"market_data_unavailable",
                 "reason":type(exc).__name__,"reason_code":reason_code,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
     def do_POST(self):
         path = urlparse(self.path).path

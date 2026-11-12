@@ -1,6 +1,6 @@
 # HES Trade Agent — Self-Improvement and Self-Repair Contract v1
 
-**Status:** Candidate for review; not installed or activated on the VPS.  
+**Status (verified 2026-11-10):** The bounded paper-worker recovery V1 and its five-minute operational health timer are installed and active on the sole VPS in immutable release `f5d505567522555ee1be9c260e83085347515721`. The readiness-hardening changes in this PR are a Draft candidate and are not deployed. IDLM cleanup remains read-only and is not activated.  
 **Delivery target:** 2026-11-19.  
 **Market-data boundary:** Gate.io Public Spot BTC_USDT is the canonical live analysis/chart/candle/indicator source. Exchange/broker adapters are execution-only.  
 **Execution boundary:** PAPER-ONLY / NO-TRADE-ONLY; `execution_enabled=false`, `orders_placed=false`.
@@ -42,7 +42,8 @@ Recovery is permitted only when all conditions hold:
 - The exclusive `/var/lib/hes-operational-health/deployment.lock` is acquired; a deployment must hold the same lock throughout stop/switch/start. A manual hold marker under `/var/lib/hes-operational-health/hold/<unit>.hold` suppresses recovery for that service.
 - All unrelated runtime checks pass: canonical Gate.io feeds are active and fresh, the 1m integrity witness passes, journals are parseable and unique, paper-only flags are intact, disk/NTP/SSH/tunnel checks pass.
 - Each target unit is enabled, its dependencies are active, and the retry budget allows the attempt (maximum two attempts per service per hour, with a 15-minute cooldown).
-- The service is started, never blindly restarted. Readiness is verified; a failed prerequisite stops the recovery chain.
+- The service is started, never blindly restarted. After each start, the monitor must take a fresh runtime + host-health snapshot; the target service's own freshness/journal checks must clear before the next worker is started. A preflight snapshot must never be reused as post-start evidence. A timeout, malformed health report, or any unrelated/new critical issue stops the recovery chain.
+- Repair-audit timestamps must be timezone-aware; future timestamps beyond the clock-skew tolerance fail closed rather than being ignored by the retry-budget calculation.
 
 The recovery audit is append-only, fsynced, mode 0600, and records service, action, reason, active release ID, attempt budget, and result. Corrupt audit state fails closed.
 
@@ -80,3 +81,15 @@ flock -x 9
 ```
 
 Do not run deployment commands outside this lock. The monitor reports `MAINTENANCE` and takes no recovery action while the lock is held. For a deliberate per-service hold outside a deployment, create the corresponding `hold/<unit>.hold` file; remove it only after the operator has reviewed the cause.
+
+
+## 8. Self-cleanup safety contract — staged, not yet activated
+
+The existing IDLM scanner remains the sole inventory/classification source. It is read-only by default; it must not be converted into an unrestricted cleanup command.
+
+- `KEEP` is mandatory for evidence, canonical journals, market-data payloads/candles, registered Git worktrees, immutable releases/candidates, rollback assets, backups, Dropbox staging, unknown/unparsed paths, symlinks, and files with unresolved ownership or provenance.
+- Automatic cleanup, if separately approved in a future release, may target only a small versioned allowlist of demonstrably regenerable caches outside immutable releases and registered worktrees. Age alone is never proof that a file is disposable.
+- Every cleanup candidate must be tied to a fresh inventory, exact path + device/inode + size + mtime + content/tree digest, an explicit policy version, a minimum age, no active process/file reference, and a second pre-action revalidation. Any mismatch cancels the whole batch.
+- Temporary clones, scratch workspaces, old logs, backups, and arbitrary `REVIEW_*` candidates remain manual-review only. No recursive deletion based on wildcard patterns.
+- Cleanup must have a dry-run plan, bounded batch/byte budget, append-only pre/post audit, recoverable quarantine where appropriate, and a tested rollback/rebuild path. If the audit, registry, filesystem identity, or capacity probe is unavailable, take no action.
+- Until the cleanup executor, adversarial tests, owner-approved allowlist, rollback proof, and exact-release deployment gate all pass, keep `automatic_action=NONE` and `deletion_authorized=false`. No cleanup is run by this candidate.

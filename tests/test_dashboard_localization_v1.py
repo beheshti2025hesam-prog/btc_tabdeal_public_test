@@ -47,12 +47,12 @@ class DashboardLocalizationTests(unittest.TestCase):
     def test_localization_does_not_rewrite_api_payloads_or_machine_values(self):
         root = Path(dashboard.__file__).resolve().parents[1]
         script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")
-        self.assertIn("fetch('/api/candles?'+q", script)
-        self.assertIn("fetch('/api/precision-entry'", script)
-        self.assertIn("fetch('/api/strategy-v2'", script)
-        self.assertIn("fetch('/api/mother'", script)
-        self.assertIn("fetch('/api/news'", script)
-        self.assertIn("fetch('/api/journal?limit=50'", script)
+        self.assertIn("fetchWithTimeout('/api/candles?'+q", script)
+        self.assertIn("fetchWithTimeout('/api/precision-entry'", script)
+        self.assertIn("fetchWithTimeout('/api/strategy-v2'", script)
+        self.assertIn("fetchWithTimeout('/api/mother'", script)
+        self.assertIn("fetchWithTimeout('/api/news'", script)
+        self.assertIn("fetchWithTimeout('/api/journal?limit=50'", script)
         for machine_value in ("NO_TRADE", "BLOCKED", "VERIFIED", "1m", "15m", "4h"):
             self.assertIn(machine_value, script)
         self.assertIn("BTCUSDT", dashboard.HTML)

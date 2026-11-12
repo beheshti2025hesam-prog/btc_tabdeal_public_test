@@ -1,24 +1,26 @@
 [Unit]
 Description=HES Gate.io Public Market Data Integrity Soak (24h)
-Wants=network-online.target
-After=network-online.target
+Wants=network-online.target hes-global-market-data-gateio.service hes-global-market-data-gateio-1h.service hes-global-market-data-gateio-4h.service
+After=network-online.target hes-global-market-data-gateio.service hes-global-market-data-gateio-1h.service hes-global-market-data-gateio-4h.service
 
 [Service]
 Type=simple
 User=sentinelx
 Group=sentinelx
-WorkingDirectory=/opt/hes-trade-agent/current
+WorkingDirectory=/opt/hes-trade-agent
 Environment=PYTHONUNBUFFERED=1
 Environment=HES_GLOBAL_MARKET_DATA_ROOT=/opt/hes-trade-agent
 Environment=HES_GATEIO_SOAK_LOG=/opt/hes-trade-agent/data/forward/gateio_feed_soak_24h_v2.jsonl
 ExecStartPre=/bin/bash -c 'f=/opt/hes-trade-agent/data/forward/gateio_feed_soak_24h_v2.jsonl; if [ -f "$f" ]; then mv "$f" "$f.archive.$(date -u +%%Y%%m%%dT%%H%%M%%SZ)"; fi'
-ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/current/scripts/soak_gateio_feed_24h_v2.py
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/scripts/soak_gateio_feed_24h_v2.py
 Restart=no
 TimeoutStopSec=15
 KillSignal=SIGTERM
 NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
 PrivateTmp=true
-ProtectSystem=full
+ProtectSystem=strict
 ProtectHome=true
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
