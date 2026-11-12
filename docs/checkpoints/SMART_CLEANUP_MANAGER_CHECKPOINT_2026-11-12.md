@@ -10,7 +10,7 @@
 ## Implementation
 - Reuses IDLM v1 `hes_data_lifecycle_audit_v1` manifest; no duplicate scanner/service.
 - Adds /proc FD/CWD/root scanning; running and enabled systemd services/timers; environment files, mount/bind paths, path conditions and State/Cache/Logs/Runtime directories; standard cron files; enabled user-systemd unit symlinks; tmpfiles, logrotate and apt maintenance declarations; active/rollback release and registered worktree protection; backup checksum, Dropbox quota, remote size/hash checks.
-- Produces hes_smart_cleanup_manager_v1 report. Latest real read-only run over 818 IDLM records: 318 KEEP, 500 REVIEW_ONLY, 84 live-referenced; 0 process/systemd/scheduled scan errors; 0 unknown dependencies; source-audit gate PASS; delete_authorized=0.
+- Produces hes_smart_cleanup_manager_v1 report. Latest real read-only run over 819 IDLM records: 318 KEEP, 501 REVIEW_ONLY, 84 live-referenced; 0 process/systemd/scheduled scan errors; 0 unknown dependencies; source-audit gate PASS; delete_authorized=0.
 - No-live-reference means REVIEW_ONLY, not DELETE. Full restore gate remains BLOCKED_NOT_PROVEN.
 
 ## Live evidence at 2026-11-12 ~15:48 UTC
@@ -19,15 +19,15 @@
 - Latest local encrypted full backup: 2,116,671,879 bytes; SHA-256 sidecar verification PASS.
 - Latest local offsite archive: 1,450,467,641 bytes; SHA-256 sidecar verification PASS.
 - Dropbox remote stable object: 1,450,467,641 bytes; `rclone check` content hash PASS; zero differences, one matching file.
-- Scheduled/system-maintenance dependency scan: 484 path declarations; 30 inventory items were explicitly blocked by cron/tmpfiles/logrotate/apt references, including journal/log paths and OS-managed temp/cache directories; scan errors 0.
+- Scheduled/system-maintenance dependency scan: 484 path declarations; 30 inventory items explicitly blocked by cron/tmpfiles/logrotate/apt references, including journal/log paths and OS-managed temp/cache directories; scan errors 0.
 - Full offsite archive integrity check: GPG decrypt + gzip test + tar listing PASS; 23,580 entries; zero absolute/traversal paths; required release/systemd/health files found; boot restore not tested.
 - Dropbox Basic: 2,147,483,648 bytes total; 1,450,542,235 used; 696,941,413 free (~664.6 MiB, 32.45% free).
 - Existing local encrypted-backup and Dropbox offsite timers remain enabled/active. Existing offsite cycle remains sole uploader/retention owner.
 - Latest offsite archive passed GPG decryption, gzip integrity and full tar listing: 23,580 entries, zero unsafe paths, required project/systemd/health files present. Full extraction/boot restore remains NOT TESTED; previous selective restore is not a full restore drill.
 
 ## Tests
-- Focused manager + IDLM v1 tests: 31 passed, including cron, enabled user-systemd, scheduled-reference fail-closed, stale-manifest and registry/schema cases.
-- Full test suite on current-mainline isolated candidate: 1,261 passed, 82 subtests passed; git diff --check passed.
+- Focused manager + IDLM v1 tests: 33 passed, including unknown-classification and relative-worktree-path fail-closed cases.
+- Full test suite on current-mainline isolated candidate: 1,263 passed, 82 subtests passed; git diff --check passed.
 - No production service restart or release deployment.
 
 ## Next gates
