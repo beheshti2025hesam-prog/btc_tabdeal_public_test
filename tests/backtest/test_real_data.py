@@ -109,6 +109,47 @@ class RealDataBacktestTests(unittest.TestCase):
         self.assertEqual(result.rows_valid, 1)
         self.assertEqual(result.rows_invalid, 1)
 
+    def test_missing_and_opaque_sequence_values_do_not_break_backtest_ordering(self):
+        rows = [
+            {
+                "symbol": "BTC_USDT",
+                "price": "100",
+                "amount": "1",
+                "side": "Buy",
+                "updated": "2026-09-25T00:00:10+00:00",
+                "sequence": "",
+            },
+            {
+                "symbol": "BTC_USDT",
+                "price": "101",
+                "amount": "1",
+                "side": "Sell",
+                "updated": "2026-09-25T00:00:10+00:00",
+                "sequence": "opaque-venue-token",
+            },
+            {
+                "symbol": "BTC_USDT",
+                "price": "102",
+                "amount": "1",
+                "side": "Buy",
+                "updated": "2026-09-25T00:01:10+00:00",
+                "sequence": "",
+            },
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "trades.csv"
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            result = RealDataBacktest(
+                str(path), timeframe_seconds=60, ema_period=1
+            ).run()
+        self.assertEqual(result.rows_valid, 3)
+        self.assertEqual(result.candles, 2)
+        self.assertEqual(result.observations, 1)
+
+
     def test_runs_oos_walk_forward_on_same_real_data_observations(self):
         rows = []
         base_sequence = 3000
