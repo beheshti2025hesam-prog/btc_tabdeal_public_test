@@ -6,7 +6,8 @@ from scripts.ops.hes_smart_cleanup_manager_v1 import build_manager_report
 def _audit(items=None):
     return {
         "schema": "hes_data_lifecycle_audit_v1",
-        "generated_at": "2026-11-12T00:00:00+00:00",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "mode": "READ_ONLY_DRY_RUN",
         "disk": {"total_bytes": 1000, "used_bytes": 800, "free_bytes": 200, "free_percent": 20},
         "worktree_registry": {"paths": ["/opt/hes-trade-agent/.worktrees/example"]},
         "items": items or [],
@@ -19,7 +20,7 @@ def test_unknown_and_protected_items_are_keep_and_never_deleted():
             {"path": "/srv/hes-evidence", "classification": "KEEP_EVIDENCE", "allocated_bytes": 10},
             {"path": "/opt/unknown", "classification": "KEEP_UNKNOWN", "allocated_bytes": 20},
         ]),
-        now=datetime(2026, 11, 12, tzinfo=timezone.utc), proc_refs=[], proc_errors=0,
+        proc_refs=[], proc_errors=0,
         unit_refs=[], unit_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
     )
     assert [x["decision"] for x in report["items"]] == ["KEEP", "KEEP"]
@@ -144,6 +145,46 @@ def test_systemd_directory_reference_blocks_review_candidate():
         _audit([{"path": "/var/cache/hes-cache", "classification": "REVIEW_REGENERABLE_CACHE"}]),
         proc_refs=[], proc_errors=0,
         unit_refs=[{"unit": "hes-worker.service", "property": "CacheDirectory_resolved", "value": "/var/cache/hes-cache"}],
+        unit_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    assert report["items"][0]["dependency_status"] == "BLOCKED_REFERENCED"
+    assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_unverified_worktree_registry_fails_closed():
+    audit = _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}])
+    audit["worktree_registry"]["error"] = "git_worktree_list_failed"
+    report = build_manager_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                                  backup_status={}, active_targets=[], pointer_errors=[])
+    assert report["source_audit_gate"]["status"] == "FAIL_CLOSED"
+    assert report["items"][0]["dependency_status"] == "UNKNOWN_FAIL_CLOSED"
+    assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_stale_source_audit_fails_closed():
+    audit = _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}])
+    audit["generated_at"] = "2026-11-11T00:00:00+00:00"
+    report = build_manager_report(audit, now=datetime(2026, 11, 12, tzinfo=timezone.utc),
+                                  proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                                  backup_status={}, active_targets=[], pointer_errors=[])
+    assert "source_audit_stale_or_future_dated" in report["source_audit_gate"]["errors"]
+    assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_wrong_source_schema_fails_closed():
+    audit = _audit([{"path": "/tmp/cache-x", "classification": "REVIEW_REGENERABLE_CACHE"}])
+    audit["schema"] = "unexpected"
+    report = build_manager_report(audit, proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                                  backup_status={}, active_targets=[], pointer_errors=[])
+    assert "unexpected_source_audit_schema" in report["source_audit_gate"]["errors"]
+    assert report["items"][0]["decision"] == "KEEP"
+
+
+def test_systemd_environment_file_reference_blocks_candidate():
+    report = build_manager_report(
+        _audit([{"path": "/etc/default/hes-worker", "classification": "REVIEW_STALE_TEMP"}]),
+        proc_refs=[], proc_errors=0,
+        unit_refs=[{"unit": "hes-worker.service", "property": "EnvironmentFiles", "value": "-/etc/default/hes-worker"}],
         unit_errors=0, backup_status={}, active_targets=[], pointer_errors=[],
     )
     assert report["items"][0]["dependency_status"] == "BLOCKED_REFERENCED"
