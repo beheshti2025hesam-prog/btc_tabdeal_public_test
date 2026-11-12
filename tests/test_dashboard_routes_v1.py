@@ -156,7 +156,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Gate.io remains the sole live market-data source", page)
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
-        self.assertIn("fetch('/api/news'", script)
+        self.assertIn("fetchWithTimeout('/api/news'", script)
         self.assertNotIn("fetch('/api/signal", script)
 
     def test_mother_panel_and_browser_poll_are_present(self):
@@ -166,7 +166,7 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("Mother Orchestrator · canonical V2 evidence chain", page)
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
-        self.assertIn("fetch('/api/mother'", script)
+        self.assertIn("fetchWithTimeout('/api/mother'", script)
         self.assertIn("witness", script)
 
     def test_mother_endpoint_returns_independently_witnessed_observation(self):
@@ -547,7 +547,7 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
         self.assertIn("refreshPrecisionEntry", script)
-        self.assertIn("fetch('/api/precision-entry'", script)
+        self.assertIn("fetchWithTimeout('/api/precision-entry'", script)
 
     def test_precision_entry_api_fails_closed_without_valid_15m_setup(self):
         rows = []
