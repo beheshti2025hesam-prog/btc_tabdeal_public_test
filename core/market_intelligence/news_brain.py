@@ -593,7 +593,7 @@ class NewsIntelligenceBrain:
             impact = 0.20 + min(0.45, len(categories) * 0.10) + (0.40 if title_has_high_impact else 0)
             impact = min(1.0, impact)
             age_minutes = (now - published).total_seconds() / 60 if published else None
-            freshness = "unknown" if age_minutes is None else "future_timestamp" if age_minutes < 0 else "fresh" if age_minutes <= 180 else "recent"
+            freshness = ("unknown" if age_minutes is None else "future_timestamp" if age_minutes < 0 else "fresh" if age_minutes <= 180 else "recent" if age_minutes <= 24 * 60 else "aging" if age_minutes <= 72 * 60 else "stale")
             caveats = []
             if age_minutes is None:
                 caveats.append("publication_time_unverified")
