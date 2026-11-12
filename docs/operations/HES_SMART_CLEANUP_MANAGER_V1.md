@@ -8,7 +8,7 @@ Extend the existing IDLM v1 scanner without creating a second inventory engine. 
 
 ## Safety contract
 
-- The manager has no delete, move, truncate, compress, rotate, prune, or service-mutation implementation.
+- The manager rejects source manifests with the wrong schema/mode, a missing or unverified Git worktree registry, or an audit timestamp older than 15 minutes. It has no delete, move, truncate, compress, rotate, prune, or service-mutation implementation.
 - `KEEP_*`, `KEEP_UNKNOWN`, any active process/unit reference, active/rollback release relation, registered worktree relation, or incomplete dependency scan fails closed to `KEEP`.
 - A clean live-reference scan yields at most `REVIEW_ONLY`; it is not permission to delete.
 - A selective restore is not a full-system restore. `full_restore_gate` remains `BLOCKED_NOT_PROVEN` until a separately isolated full recovery drill is evidenced.
@@ -35,4 +35,4 @@ The command reads the existing report, inspects `/proc` and active systemd decla
 
 ## Acceptance boundary
 
-This candidate is suitable for further review and repeated dry-run soak only. Before any canary cleanup can be considered, require exact-SHA CI/full regression, independent review, a separately isolated full restore drill, per-path owner/retention/dependency approval, stale-manifest protection, concurrent-writer and interrupted-operation tests, and an explicit human-approved bounded canary. Unknown remains KEEP. The three-signals-per-day limit and Gate.io canonical market-data architecture are unaffected; IDLM has no trading authority.
+Cron jobs and per-user systemd units are not yet part of the dependency scanner; their possible references therefore remain a known limitation and cannot authorize cleanup. This candidate is suitable for further review and repeated dry-run soak only. Before any canary cleanup can be considered, require exact-SHA CI/full regression, independent review, a separately isolated full restore drill, per-path owner/retention/dependency approval, stale-manifest protection, concurrent-writer and interrupted-operation tests, and an explicit human-approved bounded canary. Unknown remains KEEP. The three-signals-per-day limit and Gate.io canonical market-data architecture are unaffected; IDLM has no trading authority.
