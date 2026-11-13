@@ -87,6 +87,9 @@ def test_directional_family_context_is_hashed_and_remains_non_authorizing(monkey
         source='gateio_public_spot', symbol='BTC_USDT', observed_at=now,
     )
     assert r['risk']['state']=='RISK_APPROVED'
+    assert r['strategy_family_confirmation']['state'] == r['confirmation']['state']
+    assert r['strategy_family_confirmation']['family_id'] == 'trend_breakout'
+    assert r['strategy_family_confirmation']['confirmation_authority'] is False
     risk_checks={c['name']:c['state'] for c in r['risk']['checks']}
     assert set(RiskPolicyV1.REQUIRED) <= set(risk_checks)
     assert all(risk_checks[name]=='PASS' for name in RiskPolicyV1.REQUIRED)

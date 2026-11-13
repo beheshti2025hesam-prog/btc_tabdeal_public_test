@@ -8,6 +8,7 @@ CODE_ROOT=Path(__file__).resolve().parents[1]
 if str(CODE_ROOT) not in sys.path: sys.path.insert(0,str(CODE_ROOT))
 from scripts.runtime_paths_v1 import CODE_ROOT, DATA_ROOT
 from forward.strategy_v2_run_provenance_v1 import validate_run_manifest
+from forward.strategy_family_router_v1 import TREND_BREAKOUT_V2, RANGE_MEAN_REVERSION_RESEARCH_V1
 ROOT=DATA_ROOT; DATA=ROOT/'data/forward'
 sys.path.insert(0, str(CODE_ROOT/'scripts'))
 from forward.neutral_decision_outcomes_v1 import run as update_neutral_outcomes
@@ -66,6 +67,128 @@ def read_acceptance():
   return value
  except (OSError,ValueError,TypeError,json.JSONDecodeError):
   return {}
+
+FAMILY_PROFILES = {
+    TREND_BREAKOUT_V2.family_id: TREND_BREAKOUT_V2,
+    RANGE_MEAN_REVERSION_RESEARCH_V1.family_id: RANGE_MEAN_REVERSION_RESEARCH_V1,
+}
+
+def _canonical_report_sha(value):
+    payload = {key: item for key, item in value.items() if key != 'report_sha256'}
+    raw = json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False).encode('utf-8')
+    return hashlib.sha256(raw).hexdigest()
+
+def read_family_paper_reconciliation():
+    path = DATA / 'strategy_family_paper_reconciliation_v1.json'
+    if not path.is_file():
+        return {'status':'MISSING','fresh':False,'reason':'REPORT_NOT_FOUND','families':{}}
+    try:
+        report = json.loads(path.read_text(encoding='utf-8'))
+        if not isinstance(report, dict) or report.get('schema') != 'hes_strategy_family_paper_reconciliation_v1':
+            return {'status':'INVALID','fresh':False,'reason':'REPORT_SCHEMA_INVALID','families':{}}
+        stamp = datetime.fromisoformat(str(report.get('updated_at','')).replace('Z','+00:00'))
+        if stamp.tzinfo is None or stamp.utcoffset() is None:
+            return {'status':'INVALID','fresh':False,'reason':'REPORT_TIMESTAMP_INVALID','families':{}}
+        if report.get('report_sha256') != _canonical_report_sha(report):
+            return {'status':'INVALID','fresh':False,'reason':'REPORT_HASH_MISMATCH','families':{}}
+        expected = set(FAMILY_PROFILES)
+        summaries = report.get('families')
+        details = report.get('family_reports')
+        if not isinstance(summaries, dict) or not isinstance(details, dict) or set(summaries) != expected or set(details) != expected:
+            return {'status':'INVALID','fresh':False,'reason':'FAMILY_REPORT_SET_INVALID','families':{}}
+        if (report.get('acceptance_is_independent_per_family') is not True
+                or report.get('timestamp_fallback_matching') is not False
+                or report.get('execution_enabled') is not False
+                or report.get('orders_placed') is not False
+                or report.get('risk_gate_modified') is not False
+                or report.get('live_trading_authorized') is not False):
+            return {'status':'INVALID','fresh':False,'reason':'SAFETY_OR_COHORT_BOUNDARY_INVALID','families':{}}
+        source_hashes = report.get('source_hashes')
+        if not isinstance(source_hashes, dict):
+            return {'status':'INVALID','fresh':False,'reason':'SOURCE_HASH_SET_INVALID','families':{}}
+        expected_sources = {
+            'decision_journal_sha256': sha(DATA/'trade_journal_v2.jsonl'),
+            'candidate_ledger_sha256': sha(DATA/'strategy_family_paper_candidates_v1.jsonl'),
+            'outcome_ledger_sha256': sha(DATA/'strategy_family_paper_outcomes_v1.jsonl'),
+            'paper_cost_context_sha256': sha(ROOT/'forward/paper_risk_context_v1.json'),
+        }
+        if any(source_hashes.get(key) != value for key, value in expected_sources.items()):
+            return {'status':'INVALID','fresh':False,'reason':'SOURCE_HASH_MISMATCH','families':{}}
+        market_digest = source_hashes.get('market_data_rows_sha256')
+        if not isinstance(market_digest, str) or len(market_digest) != 64 or any(c not in '0123456789abcdef' for c in market_digest):
+            return {'status':'INVALID','fresh':False,'reason':'MARKET_DATA_HASH_INVALID','families':{}}
+        family_summary = {}
+        for family_id, profile in FAMILY_PROFILES.items():
+            summary = summaries[family_id]
+            detail = details[family_id]
+            if (not isinstance(summary, dict) or not isinstance(detail, dict)
+                    or summary.get('family_id') != family_id
+                    or summary.get('family_version') != profile.version
+                    or detail.get('schema') != 'hes_strategy_family_evaluation_report_v1'
+                    or detail.get('family_id') != family_id
+                    or detail.get('family_version') != profile.version
+                    or detail.get('cohort_family_ids') != [family_id]
+                    or detail.get('execution_enabled') is not False
+                    or detail.get('orders_placed') is not False
+                    or detail.get('source_hashes') != source_hashes
+                    or detail.get('report_sha256') != _canonical_report_sha(detail)):
+                return {'status':'INVALID','fresh':False,'reason':'FAMILY_IDENTITY_OR_HASH_INVALID','families':{}}
+            family_summary[family_id] = {
+                'family_id': family_id,
+                'family_version': profile.version,
+                'candidate_count': summary.get('candidate_count'),
+                'resolved_outcome_count': summary.get('resolved_outcome_count'),
+                'pending_candidate_count': summary.get('pending_candidate_count'),
+                'acceptance_eligible_candidate_count': summary.get('acceptance_eligible_candidate_count'),
+                'acceptance_eligible_metrics': summary.get('acceptance_eligible_metrics'),
+                'research_shadow_metrics': summary.get('research_shadow_metrics'),
+                'acceptance_status': summary.get('acceptance_status'),
+                'acceptance_blockers': summary.get('acceptance_blockers'),
+            }
+        acceptance = report.get('family_acceptance')
+        if (not isinstance(acceptance, dict)
+                or acceptance.get('schema') != 'hes_strategy_family_acceptance_result_v1'
+                or acceptance.get('activation_authorized') is not False
+                or acceptance.get('execution_enabled') is not False
+                or acceptance.get('orders_placed') is not False):
+            return {'status':'INVALID','fresh':False,'reason':'FAMILY_ACCEPTANCE_BOUNDARY_INVALID','families':{}}
+        age = (datetime.now(timezone.utc) - stamp.astimezone(timezone.utc)).total_seconds()
+        if age < -60 or age > 1800:
+            return {'status':'STALE','fresh':False,'reason':'REPORT_OUTSIDE_FRESHNESS_WINDOW','age_seconds':round(age,1),'updated_at':report.get('updated_at'),'report_sha256':report.get('report_sha256'),'families':family_summary,'family_acceptance_status':acceptance.get('status')}
+        return {
+            'status':'VERIFIED','fresh':True,'reason':None,'age_seconds':round(age,1),
+            'updated_at':report.get('updated_at'),'report_sha256':report.get('report_sha256'),
+            'candidate_records':report.get('candidate_records'),'outcome_records':report.get('outcome_records'),
+            'family_acceptance_status':acceptance.get('status'),'families':family_summary,
+        }
+    except (OSError, ValueError, TypeError, json.JSONDecodeError, OverflowError):
+        return {'status':'INVALID','fresh':False,'reason':'REPORT_READ_OR_VALIDATION_ERROR','families':{}}
+
+def family_cohort_hypotheses(snapshot):
+    if not isinstance(snapshot, dict) or snapshot.get('fresh') is not True:
+        status = snapshot.get('status','MISSING') if isinstance(snapshot, dict) else 'MISSING'
+        return [{
+            'hypothesis_id':'family-paper-cohort-integrity-monitor-v1',
+            'type':'FAMILY_COHORT_PIPELINE_DIAGNOSTIC',
+            'report_status':status,
+            'status':'HYPOTHESIS_ONLY',
+            'proposal':'Verify the family-isolated paper cohort report is produced from the canonical Gate.io 15m decision journal with valid hashes and freshness. Do not infer missing trades, merge family cohorts, alter gates, or authorize execution.',
+        }]
+    result = []
+    for family_id, family in sorted(snapshot.get('families',{}).items()):
+        if family.get('acceptance_status') == 'PASS':
+            continue
+        result.append({
+            'hypothesis_id':f'family-paper-cohort-{family_id}-monitor-v1',
+            'type':'FAMILY_PAPER_COHORT_ACCEPTANCE_MONITOR',
+            'family_id':family_id,
+            'candidate_records':family.get('candidate_count'),
+            'resolved_outcomes':family.get('resolved_outcome_count'),
+            'acceptance_blockers':family.get('acceptance_blockers') or [],
+            'proposal':'Continue isolated, forward-only paper collection for this family. Require at least 100 eligible resolved trades, strictly above 90% win rate, positive net expectancy, profit factor above 1, verified fees/slippage, clean provenance/linkage, independent out-of-sample evidence, and the global three-signal daily cap. Never pool families or relax the shared Risk Gate.',
+            'status':'HYPOTHESIS_ONLY',
+        })
+    return result
 def candidate_event_id(row):
     return str(row.get('candidate_event_id') or row.get('event_id') or
                (f"hes-v2-candidate-{row.get('symbol','BTC_USDT')}-15m-{row.get('candidate_time')}"
@@ -180,6 +303,7 @@ def main():
    except Exception as validation_error:
     matured_no_trade_validation_status={'status':'ERROR_FAIL_CLOSED','error':type(validation_error).__name__+':'+str(validation_error)[:160]}
    decisions=read_jsonl(JOURNAL); outcomes=read_jsonl(OUTCOMES); candidates=read_jsonl(CANDIDATES); neutral_outcomes=read_jsonl(NEUTRAL_OUTCOMES)
+   family_cohort_status=read_family_paper_reconciliation()
    counts={}; rejected={}
    for r in decisions:
     d=r.get('decision','UNKNOWN'); counts[d]=counts.get(d,0)+1
@@ -213,6 +337,7 @@ def main():
    matched_outcomes=len(linked_outcomes)
    unresolved_candidates=len(candidate_ids-linked_candidate_ids)
    hypotheses=[]
+   hypotheses.extend(family_cohort_hypotheses(family_cohort_status))
    for reason,n in sorted(rejected.items(),key=lambda x:(-x[1],x[0]))[:10]:
     hypotheses.append({'hypothesis_id':'gate-'+hashlib.sha256(reason.encode()).hexdigest()[:10],'type':'GATE_ATTRIBUTION_REVIEW','gate_reason':reason,'observations':n,'proposal':'Inspect feature availability and rejection calibration; do not relax the gate without a preregistered out-of-sample test.','status':'HYPOTHESIS_ONLY'})
     acceptance=read_acceptance()
@@ -232,7 +357,7 @@ def main():
     f.flush()
    # Reuse the canonical, freshness-checked precision-ledger acceptance result.
    acceptance=read_acceptance()
-   report={'schema':'hes_strategy_learning_loop_v1','updated_at':datetime.now(timezone.utc).isoformat(),'learning_run_id':LEARNING_RUN_ID,'learning_cycle_id':learning_cycle_id,'learning_code_release_id':CODE_ROOT.name,'learning_source_sha256':sha(CODE_ROOT/'scripts/run_strategy_learning_loop_v1.py'),'strategy_run_provenance':strategy_run_provenance,'mode':'READ_ONLY_HYPOTHESIS_ONLY','policy_mutation_enabled':False,'execution_enabled':False,'orders_placed':False,'decision_records':len(decisions),'decision_counts':counts,'gate_rejection_counts':rejected,'candidate_records':len(candidates),'neutral_tracker_status':neutral_tracker_status,'decision_report_24h_status':({'generated_at':decision_report_24h_status.get('generated_at'),'decision_counts':decision_report_24h_status.get('decision_counts'),'no_trade_decisions_in_window':decision_report_24h_status.get('no_trade_decisions_in_window')} if 'schema' in decision_report_24h_status else decision_report_24h_status),'no_trade_decision_audit_status':({'generated_at':no_trade_audit_status.get('generated_at'),'unique_no_trade_decisions':no_trade_audit_status.get('unique_no_trade_decisions'),'screen_status_counts':no_trade_audit_status.get('screen_status_counts')} if 'schema' in no_trade_audit_status else no_trade_audit_status),'matured_no_trade_validation_status':({'generated_at':matured_no_trade_validation_status.get('generated_at'),'decisions_in_matured_cohort':matured_no_trade_validation_status.get('decisions_in_matured_cohort'),'complete_gap_free_24h_decisions':matured_no_trade_validation_status.get('complete_gap_free_24h_decisions'),'directional_counterfactuals':matured_no_trade_validation_status.get('directional_counterfactuals'),'preapproval_hold_counterfactuals':matured_no_trade_validation_status.get('preapproval_hold_counterfactuals'),'rejected_proposal_counterfactuals':matured_no_trade_validation_status.get('rejected_proposal_counterfactuals'),'unverified_proposal_counterfactuals':matured_no_trade_validation_status.get('unverified_proposal_counterfactuals'),'decision_quality_buckets_by_horizon':matured_no_trade_validation_status.get('decision_quality_buckets_by_horizon'),'decision_quality_methodology':matured_no_trade_validation_status.get('decision_quality_methodology'),'validation_status_counts':matured_no_trade_validation_status.get('validation_status_counts'),'horizon_quality_counts':matured_no_trade_validation_status.get('horizon_quality_counts'),'tracker_boundary_mismatches':matured_no_trade_validation_status.get('tracker_boundary_mismatches')} if 'schema' in matured_no_trade_validation_status else matured_no_trade_validation_status),'neutral_decision_outcome_records':len(neutral_outcomes),'neutral_decision_outcome_complete_records':len(neutral_complete),'neutral_decision_outcome_class_counts':neutral_classes,'neutral_outcome_evidence_sha256':sha(NEUTRAL_OUTCOMES),'resolved_outcomes':resolved,'wins':wins,'losses':losses,'flats':flats,'timeouts':timeouts,'unscorable_eligible_outcomes':ec['unscorable'],'preapproval_paper_outcomes':len(preapproval_outcomes),'preapproval_paper_resolved':pc['resolved'],'preapproval_paper_wins':pc['wins'],'preapproval_paper_losses':pc['losses'],'preapproval_paper_flats':pc['flats'],'preapproval_paper_timeouts':pc['timeouts'],'preapproval_paper_win_rate_pct':pc['win_rate_pct'],'preapproval_paper_unscorable_outcomes':pc['unscorable'],'precision_entry_paper_target_met':acceptance.get('status')=='PASS','precision_entry_resolved_closed_trades':int(acceptance.get('resolved_closed_trade_count',0) or 0),'precision_entry_win_rate_pct':acceptance.get('observed_win_rate_pct'),'acceptance_report_fresh':bool(acceptance),'win_rate_pct':wr,'decisive_win_rate_pct':round(100*wins/(wins+losses),2) if wins+losses else None,'cost_model':{'status':'ASSUMPTION_BASED' if cost_side>0 else 'UNAVAILABLE','fee_fraction_per_side':float(cost_cfg.get('fee_fraction_per_side',0) or 0),'slippage_fraction_per_side':float(cost_cfg.get('slippage_fraction_per_side',0) or 0),'note':'Simulation assumptions only; not verified exchange/account costs.'},'performance_scope':'GATE_APPROVED_ONLY','research_only_outcomes':len(research_only_outcomes),'research_only_wins':research_wins,'research_only_losses':research_losses,'research_only_timeouts':research_timeouts,'excluded_rejected_outcomes':len(research_only_outcomes),'outcomes_by_direction':outcome_by_direction,'candidate_outcome_match_count':matched_outcomes,'unmatched_outcome_count':unmatched_outcomes,'ambiguous_legacy_outcome_match_count':ambiguous_outcomes,'preapproval_paper_candidate_count':sum(r.get('preapproval_paper_eligible') is True for r in candidates),'gate_approved_candidate_count':sum(r.get('final_gate_decision') in ('LONG','SHORT') for r in candidates),'gate_rejected_candidate_count':sum(r.get('final_gate_decision') not in ('LONG','SHORT') for r in candidates),'unresolved_candidate_count':unresolved_candidates,'target_win_rate_pct':acceptance.get('target_win_rate_pct'),'minimum_resolved_trades_for_claim':acceptance.get('minimum_resolved_closed_trades'),'target_met':acceptance.get('status')=='PASS','target_policy_status':acceptance.get('status','NOT_MET'),'paper_performance_scope':acceptance.get('performance_cohort','PRECISION_ENTRY_PAPER_ELIGIBLE'),'signal_quality_acceptance':acceptance,'evidence_sha256':{'journal':sha(JOURNAL),'outcomes':sha(OUTCOMES),'candidates':sha(CANDIDATES),'neutral_outcomes':sha(NEUTRAL_OUTCOMES),'precision_events':sha(DATA/'precision_entry_events_v1.jsonl'),'precision_candidates':sha(DATA/'precision_entry_candidates_v1.jsonl'),'precision_outcomes':sha(DATA/'precision_entry_outcomes_v1.jsonl'),'precision_report':sha(DATA/'precision_entry_journal_report_v1.json'),'precision_cost_model':sha(DATA/'precision_entry_cost_model_v1.json'),'precision_independent_oos':sha(DATA/'precision_entry_independent_oos_evidence_v1.json'),'strategy_evaluator_report':sha(DATA/'strategy_policy_v2_eval_report.json'),'strategy_run_manifest_ledger':sha(DATA/'strategy_policy_v2_run_manifests_v2.jsonl'),'legacy_strategy_runs_ledger':sha(DATA/'strategy_policy_v2_runs.jsonl'),'signal_quality_contract':sha(CODE_ROOT/'docs/execution/SIGNAL_QUALITY_ACCEPTANCE_CONTRACT_V1.json'),'matured_no_trade_validation':sha(DATA/'matured_no_trade_validation_v1.json'),'decision_report_24h':sha(DATA/'decision_report_24h_v1.json')},'new_hypotheses_added':len(new),'hypotheses_total':len(old)+len(new),'limitations':['NO_TRADE counterfactual outcomes are observational and do not prove causality','Directionless NO_TRADE records are market-context only, not invented trades','Raw neutral outcome class counts include gate-rejected proposal counterfactuals and directionless context; use gate-qualified matured buckets for attribution.','Net outcome estimates use explicit unverified simulation fee/slippage assumptions, not verified exchange/account costs','No automatic threshold tuning','No policy changes','No live orders','Gate counts are not causal attribution','Official acceptance uses only the append-only 1m precision-entry READY ledger; 15m preapproval and research-only outcomes are excluded; stale or missing acceptance reports fail closed','Cost-adjusted expectancy requires reliable fill and cost model','Stable candidate IDs are preferred; legacy timestamp fallback is accepted only when unique','Cost-adjusted results use explicit unverified simulation fee/slippage assumptions and are not live performance']}
+   report={'schema':'hes_strategy_learning_loop_v1','updated_at':datetime.now(timezone.utc).isoformat(),'learning_run_id':LEARNING_RUN_ID,'learning_cycle_id':learning_cycle_id,'learning_code_release_id':CODE_ROOT.name,'learning_source_sha256':sha(CODE_ROOT/'scripts/run_strategy_learning_loop_v1.py'),'strategy_run_provenance':strategy_run_provenance,'mode':'READ_ONLY_HYPOTHESIS_ONLY','policy_mutation_enabled':False,'execution_enabled':False,'orders_placed':False,'decision_records':len(decisions),'decision_counts':counts,'gate_rejection_counts':rejected,'candidate_records':len(candidates),'neutral_tracker_status':neutral_tracker_status,'decision_report_24h_status':({'generated_at':decision_report_24h_status.get('generated_at'),'decision_counts':decision_report_24h_status.get('decision_counts'),'no_trade_decisions_in_window':decision_report_24h_status.get('no_trade_decisions_in_window')} if 'schema' in decision_report_24h_status else decision_report_24h_status),'no_trade_decision_audit_status':({'generated_at':no_trade_audit_status.get('generated_at'),'unique_no_trade_decisions':no_trade_audit_status.get('unique_no_trade_decisions'),'screen_status_counts':no_trade_audit_status.get('screen_status_counts')} if 'schema' in no_trade_audit_status else no_trade_audit_status),'matured_no_trade_validation_status':({'generated_at':matured_no_trade_validation_status.get('generated_at'),'decisions_in_matured_cohort':matured_no_trade_validation_status.get('decisions_in_matured_cohort'),'complete_gap_free_24h_decisions':matured_no_trade_validation_status.get('complete_gap_free_24h_decisions'),'directional_counterfactuals':matured_no_trade_validation_status.get('directional_counterfactuals'),'preapproval_hold_counterfactuals':matured_no_trade_validation_status.get('preapproval_hold_counterfactuals'),'rejected_proposal_counterfactuals':matured_no_trade_validation_status.get('rejected_proposal_counterfactuals'),'unverified_proposal_counterfactuals':matured_no_trade_validation_status.get('unverified_proposal_counterfactuals'),'decision_quality_buckets_by_horizon':matured_no_trade_validation_status.get('decision_quality_buckets_by_horizon'),'decision_quality_methodology':matured_no_trade_validation_status.get('decision_quality_methodology'),'validation_status_counts':matured_no_trade_validation_status.get('validation_status_counts'),'horizon_quality_counts':matured_no_trade_validation_status.get('horizon_quality_counts'),'tracker_boundary_mismatches':matured_no_trade_validation_status.get('tracker_boundary_mismatches')} if 'schema' in matured_no_trade_validation_status else matured_no_trade_validation_status),'neutral_decision_outcome_records':len(neutral_outcomes),'neutral_decision_outcome_complete_records':len(neutral_complete),'neutral_decision_outcome_class_counts':neutral_classes,'neutral_outcome_evidence_sha256':sha(NEUTRAL_OUTCOMES),'resolved_outcomes':resolved,'wins':wins,'losses':losses,'flats':flats,'timeouts':timeouts,'unscorable_eligible_outcomes':ec['unscorable'],'preapproval_paper_outcomes':len(preapproval_outcomes),'preapproval_paper_resolved':pc['resolved'],'preapproval_paper_wins':pc['wins'],'preapproval_paper_losses':pc['losses'],'preapproval_paper_flats':pc['flats'],'preapproval_paper_timeouts':pc['timeouts'],'preapproval_paper_win_rate_pct':pc['win_rate_pct'],'preapproval_paper_unscorable_outcomes':pc['unscorable'],'precision_entry_paper_target_met':acceptance.get('status')=='PASS','precision_entry_resolved_closed_trades':int(acceptance.get('resolved_closed_trade_count',0) or 0),'precision_entry_win_rate_pct':acceptance.get('observed_win_rate_pct'),'acceptance_report_fresh':bool(acceptance),'win_rate_pct':wr,'decisive_win_rate_pct':round(100*wins/(wins+losses),2) if wins+losses else None,'cost_model':{'status':'ASSUMPTION_BASED' if cost_side>0 else 'UNAVAILABLE','fee_fraction_per_side':float(cost_cfg.get('fee_fraction_per_side',0) or 0),'slippage_fraction_per_side':float(cost_cfg.get('slippage_fraction_per_side',0) or 0),'note':'Simulation assumptions only; not verified exchange/account costs.'},'performance_scope':'GATE_APPROVED_ONLY','research_only_outcomes':len(research_only_outcomes),'research_only_wins':research_wins,'research_only_losses':research_losses,'research_only_timeouts':research_timeouts,'excluded_rejected_outcomes':len(research_only_outcomes),'outcomes_by_direction':outcome_by_direction,'candidate_outcome_match_count':matched_outcomes,'unmatched_outcome_count':unmatched_outcomes,'ambiguous_legacy_outcome_match_count':ambiguous_outcomes,'preapproval_paper_candidate_count':sum(r.get('preapproval_paper_eligible') is True for r in candidates),'gate_approved_candidate_count':sum(r.get('final_gate_decision') in ('LONG','SHORT') for r in candidates),'gate_rejected_candidate_count':sum(r.get('final_gate_decision') not in ('LONG','SHORT') for r in candidates),'unresolved_candidate_count':unresolved_candidates,'target_win_rate_pct':acceptance.get('target_win_rate_pct'),'minimum_resolved_trades_for_claim':acceptance.get('minimum_resolved_closed_trades'),'target_met':acceptance.get('status')=='PASS','target_policy_status':acceptance.get('status','NOT_MET'),'paper_performance_scope':acceptance.get('performance_cohort','PRECISION_ENTRY_PAPER_ELIGIBLE'),'signal_quality_acceptance':acceptance,'family_paper_cohort_status':family_cohort_status,'evidence_sha256':{'family_paper_cohort':sha(DATA/'strategy_family_paper_reconciliation_v1.json'),'journal':sha(JOURNAL),'outcomes':sha(OUTCOMES),'candidates':sha(CANDIDATES),'neutral_outcomes':sha(NEUTRAL_OUTCOMES),'precision_events':sha(DATA/'precision_entry_events_v1.jsonl'),'precision_candidates':sha(DATA/'precision_entry_candidates_v1.jsonl'),'precision_outcomes':sha(DATA/'precision_entry_outcomes_v1.jsonl'),'precision_report':sha(DATA/'precision_entry_journal_report_v1.json'),'precision_cost_model':sha(DATA/'precision_entry_cost_model_v1.json'),'precision_independent_oos':sha(DATA/'precision_entry_independent_oos_evidence_v1.json'),'strategy_evaluator_report':sha(DATA/'strategy_policy_v2_eval_report.json'),'strategy_run_manifest_ledger':sha(DATA/'strategy_policy_v2_run_manifests_v2.jsonl'),'legacy_strategy_runs_ledger':sha(DATA/'strategy_policy_v2_runs.jsonl'),'signal_quality_contract':sha(CODE_ROOT/'docs/execution/SIGNAL_QUALITY_ACCEPTANCE_CONTRACT_V1.json'),'matured_no_trade_validation':sha(DATA/'matured_no_trade_validation_v1.json'),'decision_report_24h':sha(DATA/'decision_report_24h_v1.json')},'new_hypotheses_added':len(new),'hypotheses_total':len(old)+len(new),'limitations':['NO_TRADE counterfactual outcomes are observational and do not prove causality','Directionless NO_TRADE records are market-context only, not invented trades','Raw neutral outcome class counts include gate-rejected proposal counterfactuals and directionless context; use gate-qualified matured buckets for attribution.','Net outcome estimates use explicit unverified simulation fee/slippage assumptions, not verified exchange/account costs','No automatic threshold tuning','No policy changes','No live orders','Gate counts are not causal attribution','Official acceptance uses only the append-only 1m precision-entry READY ledger; 15m preapproval and research-only outcomes are excluded; stale or missing acceptance reports fail closed','Cost-adjusted expectancy requires reliable fill and cost model','Stable candidate IDs are preferred; legacy timestamp fallback is accepted only when unique','Cost-adjusted results use explicit unverified simulation fee/slippage assumptions and are not live performance']}
    REPORT.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n'); STATE.write_text(json.dumps({'last_updated':report['updated_at'],'last_evidence':report['evidence_sha256']},indent=2)+'\n')
    print(json.dumps({'updated_at':report['updated_at'],'decisions':len(decisions),'candidates':len(candidates),'resolved':resolved,'win_rate_pct':wr,'new_hypotheses':len(new),'target_met':report['target_met'],'policy_mutation_enabled':False}),flush=True)
   except Exception as e: print(json.dumps({'error':type(e).__name__+':'+str(e)[:200],'policy_mutation_enabled':False,'execution_enabled':False}),flush=True)
