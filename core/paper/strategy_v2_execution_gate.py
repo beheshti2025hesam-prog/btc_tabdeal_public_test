@@ -18,6 +18,14 @@ from forward.integration_gate_v1 import ForwardIntegrationGateV1
 
 EXPECTED_RECOVERY_CANDIDATE_HEAD = "309ebf36c0ad18752516f928ebc6e0944a632ec9"
 RECOVERY_SCHEMA = "hes.gateio_1m_recovery_24h_evidence.v1"
+RECOVERY_CANDIDATE_1M_SERVICE = "hes-global-market-data-gateio-1m-pr498-candidate.service"
+RECOVERY_REQUIRED_SERVICES = frozenset({
+    "hes-global-market-data-gateio.service",
+    RECOVERY_CANDIDATE_1M_SERVICE,
+    "hes-global-market-data-gateio-1h.service",
+    "hes-global-market-data-gateio-4h.service",
+})
+RECOVERY_MARKET_DATA_ROOT = f"data/forward/pr498_candidate_root_{EXPECTED_RECOVERY_CANDIDATE_HEAD}"
 RECOVERY_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 
 
@@ -39,6 +47,60 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+
+
+def _candidate_collector_manifest_error(
+    value: Any, *, market_data_root: Path, release_dir: Path,
+) -> str | None:
+    """Validate the isolated candidate collector's captured systemd contract."""
+    if not isinstance(value, Mapping) or value.get("schema") != "hes.gateio_1m_candidate_collector_unit.v1":
+        return "RECOVERY_CANDIDATE_COLLECTOR_MANIFEST_SCHEMA_INVALID"
+    if value.get("unit_name") != RECOVERY_CANDIDATE_1M_SERVICE or value.get("candidate_root") != str(market_data_root):
+        return "RECOVERY_CANDIDATE_COLLECTOR_IDENTITY_MISMATCH"
+    properties = value.get("properties")
+    if not isinstance(properties, Mapping):
+        return "RECOVERY_CANDIDATE_COLLECTOR_PROPERTIES_MISSING"
+    expected_forward = str(market_data_root / "data/forward")
+    expected_output = str(market_data_root / "data/forward/global_market_candles_1m_v1.jsonl")
+    expected_script = str(release_dir / "scripts/run_global_market_data_gateio_service.py")
+    environment = str(properties.get("Environment", "")).split()
+    read_write_paths = str(properties.get("ReadWritePaths", "")).split()
+    exec_start = str(properties.get("ExecStart", ""))
+    if (
+        properties.get("ActiveState") != "active"
+        or properties.get("SubState") != "running"
+        or properties.get("User") != "sentinelx"
+        or properties.get("Group") != "sentinelx"
+        or properties.get("WorkingDirectory") != str(release_dir)
+        or properties.get("Restart") != "always"
+        or "HES_GLOBAL_CANDLES_INTERVAL=1m" not in environment
+        or f"HES_GLOBAL_CANDLES_OUTPUT={expected_output}" not in environment
+        or expected_forward not in read_write_paths
+        or expected_script not in exec_start
+        or "/opt/hes-trade-agent/.venv/bin/python" not in exec_start
+    ):
+        return "RECOVERY_CANDIDATE_COLLECTOR_RUNTIME_CONTRACT_MISMATCH"
+    return None
+
+
+def _candidate_soak_wrapper_error(value: str, *, release_dir: Path) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return "RECOVERY_CANDIDATE_SOAK_WRAPPER_EMPTY"
+    required = (
+        str(release_dir / "scripts/soak_gateio_feed_24h_v2.py"),
+        "runpy.run_path(script)",
+        RECOVERY_CANDIDATE_1M_SERVICE,
+        "hes-global-market-data-gateio.service",
+        "hes-global-market-data-gateio-1h.service",
+        "hes-global-market-data-gateio-4h.service",
+    )
+    if any(token not in value for token in required):
+        return "RECOVERY_CANDIDATE_SOAK_WRAPPER_CONTRACT_MISMATCH"
+    if "hes-global-market-data-gateio-1m.service" in value or "hes-global-market-data-gateio-1m-integrity.timer" in value:
+        return "RECOVERY_CANDIDATE_SOAK_WRAPPER_USES_NON_CANDIDATE_1M_SERVICE"
+    return None
 
 
 def verify_gateio_1m_recovery_evidence(
@@ -106,13 +168,32 @@ def verify_gateio_1m_recovery_evidence(
     unsigned = {key: value for key, value in payload.items() if key != "evidence_sha256"}
     if not isinstance(evidence_hash, str) or evidence_hash != _canonical_hash(unsigned):
         return {"status": "BLOCKED", "reason": "RECOVERY_EVIDENCE_HASH_MISMATCH"}
+    market_root_relative = payload.get("candidate_market_data_root")
+    if (
+        market_root_relative != RECOVERY_MARKET_DATA_ROOT
+        or payload.get("candidate_collector_service") != RECOVERY_CANDIDATE_1M_SERVICE
+    ):
+        return {"status": "BLOCKED", "reason": "RECOVERY_CANDIDATE_MARKET_ROOT_OR_SERVICE_MISMATCH"}
+    market_root_unresolved = root / market_root_relative
+    if (
+        market_root_unresolved.is_symlink()
+        or not market_root_unresolved.is_dir()
+        or not market_root_unresolved.resolve().is_relative_to(root / "data/forward")
+    ):
+        return {"status": "BLOCKED", "reason": "RECOVERY_CANDIDATE_MARKET_ROOT_UNSAFE"}
+    market_data_root = market_root_unresolved.resolve()
+    candidate_1m_path = market_data_root / "data/forward/global_market_candles_1m_v1.jsonl"
+    if candidate_1m_path.is_symlink() or not candidate_1m_path.is_file():
+        return {"status": "BLOCKED", "reason": "RECOVERY_CANDIDATE_1M_LEDGER_MISSING_OR_UNSAFE"}
 
-    # Bind the evidence to the exact immutable candidate release and soak script.
+    # Bind the evidence to the exact immutable candidate release and collector.
     release_dir = root / "releases" / EXPECTED_RECOVERY_CANDIDATE_HEAD
     manifest_path = release_dir / "HES_RELEASE_MANIFEST_v1.json"
     sidecar_path = release_dir / "HES_RELEASE_MANIFEST_v1.sha256"
     soak_script = release_dir / "scripts/soak_gateio_feed_24h_v2.py"
     market_reader = release_dir / "forward/global_market_data_reader_v1.py"
+    collector_script = release_dir / "scripts/run_global_market_data_gateio_service.py"
+    collector_module = release_dir / "forward/global_market_data_gateio_v1.py"
     if (
         not release_dir.is_dir()
         or release_dir.is_symlink()
@@ -121,13 +202,19 @@ def verify_gateio_1m_recovery_evidence(
         or sidecar_path.is_symlink()
         or soak_script.is_symlink()
         or market_reader.is_symlink()
+        or collector_script.is_symlink()
+        or collector_module.is_symlink()
         or not manifest_path.is_file()
         or not sidecar_path.is_file()
         or not soak_script.is_file()
         or not market_reader.is_file()
+        or not collector_script.is_file()
+        or not collector_module.is_file()
         or manifest_path.stat().st_mode & 0o222
         or sidecar_path.stat().st_mode & 0o222
         or market_reader.stat().st_mode & 0o222
+        or collector_script.stat().st_mode & 0o222
+        or collector_module.stat().st_mode & 0o222
     ):
         return {"status": "BLOCKED", "reason": "RECOVERY_IMMUTABLE_RELEASE_MISSING_OR_WRITABLE"}
     try:
@@ -152,22 +239,29 @@ def verify_gateio_1m_recovery_evidence(
     }
     script_sha = _file_sha256(soak_script)
     reader_sha = _file_sha256(market_reader)
+    collector_script_sha = _file_sha256(collector_script)
+    collector_module_sha = _file_sha256(collector_module)
     if (
         script_sha != payload.get("soak_script_sha256")
         or script_sha != file_hashes.get("scripts/soak_gateio_feed_24h_v2.py")
         or reader_sha != file_hashes.get("forward/global_market_data_reader_v1.py")
+        or collector_script_sha != payload.get("collector_script_sha256")
+        or collector_script_sha != file_hashes.get("scripts/run_global_market_data_gateio_service.py")
+        or collector_module_sha != payload.get("collector_module_sha256")
+        or collector_module_sha != file_hashes.get("forward/global_market_data_gateio_v1.py")
     ):
         return {"status": "BLOCKED", "reason": "RECOVERY_RELEASE_CODE_HASH_MISMATCH"}
 
     artifacts = payload.get("artifacts")
-    if not isinstance(artifacts, Mapping):
-        return {"status": "BLOCKED", "reason": "RECOVERY_EVIDENCE_ARTIFACTS_MISSING"}
+    required_artifacts = {"candle_ledger", "sample_ledger", "collector_log", "soak_wrapper", "candidate_collector_manifest"}
+    if not isinstance(artifacts, Mapping) or set(artifacts) != required_artifacts:
+        return {"status": "BLOCKED", "reason": "RECOVERY_EVIDENCE_ARTIFACTS_MISSING_OR_UNKNOWN"}
     allowed_root = (root / "data/forward/gateio_1m_recovery_24h").resolve()
     if not allowed_root.is_dir() or allowed_root.is_symlink() or allowed_root.stat().st_mode & 0o222:
         return {"status": "BLOCKED", "reason": "RECOVERY_ARTIFACT_DIRECTORY_NOT_IMMUTABLE"}
     artifact_paths: dict[str, Path] = {}
     artifact_hashes: dict[str, str] = {}
-    for name in ("candle_ledger", "sample_ledger", "collector_log"):
+    for name in ("candle_ledger", "sample_ledger", "collector_log", "soak_wrapper", "candidate_collector_manifest"):
         item = artifacts.get(name)
         if not isinstance(item, Mapping) or not isinstance(item.get("path"), str):
             return {"status": "BLOCKED", "reason": f"RECOVERY_ARTIFACT_{name.upper()}_MISSING"}
@@ -188,6 +282,22 @@ def verify_gateio_1m_recovery_evidence(
         artifact_hashes[name] = digest
     if artifact_paths["collector_log"].stat().st_size == 0:
         return {"status": "BLOCKED", "reason": "RECOVERY_COLLECTOR_LOG_EMPTY"}
+    try:
+        collector_manifest = json.loads(artifact_paths["candidate_collector_manifest"].read_text(encoding="utf-8"))
+        wrapper_text = artifact_paths["soak_wrapper"].read_text(encoding="utf-8")
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return {"status": "BLOCKED", "reason": "RECOVERY_CANDIDATE_RUNTIME_ARTIFACT_INVALID"}
+    manifest_error = _candidate_collector_manifest_error(
+        collector_manifest, market_data_root=market_data_root, release_dir=release_dir
+    )
+    if manifest_error:
+        return {"status": "BLOCKED", "reason": manifest_error}
+    wrapper_error = _candidate_soak_wrapper_error(wrapper_text, release_dir=release_dir)
+    if wrapper_error:
+        return {"status": "BLOCKED", "reason": wrapper_error}
+    collector_log_text = artifact_paths["collector_log"].read_text(encoding="utf-8", errors="replace")
+    if "HES_GLOBAL_MARKET_START" not in collector_log_text or "HES_GLOBAL_MARKET_WS_SUBSCRIBED" not in collector_log_text:
+        return {"status": "BLOCKED", "reason": "RECOVERY_CANDIDATE_COLLECTOR_START_OR_SUBSCRIBE_MISSING"}
 
     try:
         records = [
@@ -209,13 +319,7 @@ def verify_gateio_1m_recovery_evidence(
         return {"status": "BLOCKED", "reason": "RECOVERY_SOAK_SUMMARY_MISSING_OR_DUPLICATED"}
     if len(sample_rows) != payload["samples"]:
         return {"status": "BLOCKED", "reason": "RECOVERY_SAMPLE_LEDGER_COUNT_MISMATCH"}
-    required_services = {
-        "hes-global-market-data-gateio.service",
-        "hes-global-market-data-gateio-1m.service",
-        "hes-global-market-data-gateio-1m-integrity.timer",
-        "hes-global-market-data-gateio-1h.service",
-        "hes-global-market-data-gateio-4h.service",
-    }
+    required_services = RECOVERY_REQUIRED_SERVICES
 
     summary = summary_rows[0]
     if (
