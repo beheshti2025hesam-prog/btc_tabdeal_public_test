@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 from scripts.ops.hes_smart_cleanup_manager_v1 import build_manager_report
 
@@ -319,6 +320,8 @@ def test_active_user_manager_without_bus_fails_closed(monkeypatch):
     def fake_run(command, **kwargs):
         if command[:2] == ["loginctl", "list-users"]:
             return SimpleNamespace(returncode=0, stdout="1000 alice -\n")
+        if command[:2] == ["systemctl", "list-units"]:
+            return SimpleNamespace(returncode=0, stdout="")
         if command[:2] == ["loginctl", "show-user"]:
             return SimpleNamespace(returncode=0, stdout="State=active\nLinger=no\nRuntimePath=/run/user/1000\n")
         raise AssertionError(command)
@@ -338,6 +341,8 @@ def test_active_user_manager_units_are_queried(monkeypatch):
     def fake_run(command, **kwargs):
         if command[:2] == ["loginctl", "list-users"]:
             return SimpleNamespace(returncode=0, stdout="1000 alice -\n")
+        if command[:2] == ["systemctl", "list-units"]:
+            return SimpleNamespace(returncode=0, stdout="")
         if command[:2] == ["loginctl", "show-user"]:
             return SimpleNamespace(returncode=0, stdout="State=active\nLinger=no\nRuntimePath=/run/user/1000\n")
         if command[0] == "runuser" and "list-units" in command:
@@ -389,3 +394,78 @@ def test_systemd_runtime_glob_is_scoped_to_stable_prefix():
     refs = [{"unit": "systemd-tmpfiles", "property": "system_maintenance_config", "value": "x /tmp/systemd-private-%b-*"}]
     assert len(_matches_unit("/tmp/systemd-private-abc123", refs)) == 1
     assert _matches_unit("/tmp/hes-unrelated", refs) == []
+
+
+def test_linger_registry_discovers_user_manager_without_interactive_logind_session(tmp_path):
+    from types import SimpleNamespace
+    from scripts.ops import hes_smart_cleanup_manager_v1 as manager
+
+    linger_dir = tmp_path / "linger"
+    linger_dir.mkdir()
+    (linger_dir / "alice").touch()
+    runtime = tmp_path / "run/user/1001"
+    runtime.mkdir(parents=True)
+    (runtime / "bus").touch()
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[:2] == ["loginctl", "list-users"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[:2] == ["systemctl", "list-units"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[:2] == ["loginctl", "show-user"]:
+            return SimpleNamespace(returncode=0, stdout=f"State=active\nLinger=yes\nRuntimePath={runtime}\n", stderr="")
+        if command[0] == "runuser":
+            if "show" in command:
+                return SimpleNamespace(returncode=0, stdout="WorkingDirectory=/home/alice/.cache/hes\n", stderr="")
+            if "--type=service" in command and "list-units" in command:
+                return SimpleNamespace(returncode=0, stdout="hes-user-agent.service loaded active running\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        raise AssertionError(command)
+
+    with patch.object(manager.subprocess, "run", side_effect=fake_run), patch.object(
+        manager.pwd, "getpwnam", return_value=SimpleNamespace(pw_uid=1001, pw_name="alice")
+    ):
+        refs, errors = manager._user_systemd_runtime_references(linger_dir=linger_dir)
+
+    assert errors == 0
+    assert any(command[:2] == ["loginctl", "show-user"] and command[2] == "alice" for command in calls)
+    assert any(row["value"] == "/home/alice/.cache/hes" for row in refs)
+
+
+def test_active_user_at_service_discovers_manager_missing_from_logind_list(tmp_path):
+    from types import SimpleNamespace
+    from scripts.ops import hes_smart_cleanup_manager_v1 as manager
+
+    linger_dir = tmp_path / "linger"
+    linger_dir.mkdir()
+    runtime = tmp_path / "run/user/1002"
+    runtime.mkdir(parents=True)
+    (runtime / "bus").touch()
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        if command[:2] == ["loginctl", "list-users"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[:2] == ["systemctl", "list-units"]:
+            return SimpleNamespace(returncode=0, stdout="user@1002.service loaded active running\n", stderr="")
+        if command[:2] == ["loginctl", "show-user"]:
+            return SimpleNamespace(returncode=0, stdout=f"State=active\nLinger=no\nRuntimePath={runtime}\n", stderr="")
+        if command[0] == "runuser":
+            if "show" in command:
+                return SimpleNamespace(returncode=0, stdout="WorkingDirectory=/home/bob/.cache/hes\n", stderr="")
+            if "--type=service" in command and "list-units" in command:
+                return SimpleNamespace(returncode=0, stdout="hes-user-worker.service loaded active running\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        raise AssertionError(command)
+
+    with patch.object(manager.subprocess, "run", side_effect=fake_run), patch.object(
+        manager.pwd, "getpwuid", return_value=SimpleNamespace(pw_uid=1002, pw_name="bob")
+    ):
+        refs, errors = manager._user_systemd_runtime_references(linger_dir=linger_dir)
+
+    assert errors == 0
+    assert any(command[:2] == ["loginctl", "show-user"] and command[2] == "bob" for command in calls)
+    assert any(row["value"] == "/home/bob/.cache/hes" for row in refs)
