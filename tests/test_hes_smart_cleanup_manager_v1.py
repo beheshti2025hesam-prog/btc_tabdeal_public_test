@@ -469,3 +469,27 @@ def test_active_user_at_service_discovers_manager_missing_from_logind_list(tmp_p
     assert errors == 0
     assert any(command[:2] == ["loginctl", "show-user"] and command[2] == "bob" for command in calls)
     assert any(row["value"] == "/home/bob/.cache/hes" for row in refs)
+
+
+def test_linger_registry_symlink_entry_fails_closed(tmp_path):
+    from types import SimpleNamespace
+    from scripts.ops import hes_smart_cleanup_manager_v1 as manager
+
+    linger_dir = tmp_path / "linger"
+    linger_dir.mkdir()
+    target = tmp_path / "alice-target"
+    target.touch()
+    (linger_dir / "alice").symlink_to(target)
+
+    def fake_run(command, **kwargs):
+        if command[:2] == ["loginctl", "list-users"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[:2] == ["systemctl", "list-units"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        raise AssertionError(command)
+
+    with patch.object(manager.subprocess, "run", side_effect=fake_run):
+        refs, errors = manager._user_systemd_runtime_references(linger_dir=linger_dir)
+
+    assert errors == 1
+    assert any(row["property"] == "linger_entry_unexpected_type" for row in refs)
