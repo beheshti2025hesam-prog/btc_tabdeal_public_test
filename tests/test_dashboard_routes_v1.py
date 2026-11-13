@@ -170,38 +170,62 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertIn("witness", script)
 
     def test_mother_endpoint_returns_independently_witnessed_observation(self):
-        strategy_view = {"status": "VERIFIED"}
         payload = {
-            "schema": "hes.mother_v2_dashboard_view.v1", "status": "BLOCKED_GATE",
-            "decision": "NO_TRADE", "stages": [{"agent": "confirmation", "state": "UNCONFIRMED"}],
+            "schema": "hes.mother_runtime_dashboard.v1",
+            "runtime_mode": "LIVE_DATA_RUNTIME_SPECIALISTS",
+            "status": "BLOCKED_GATE",
+            "decision": "NO_TRADE",
+            "registered_count": 7,
+            "executed_count": 4,
+            "registered_specialists": [{"name": "data_quality"}, {"name": "market_structure"},
+                                       {"name": "signal"}, {"name": "confirmation"},
+                                       {"name": "risk"}, {"name": "decision"}, {"name": "evaluation"}],
+            "stages": [{"agent": "confirmation", "state": "UNCONFIRMED"}],
             "witness": {"verified": True}, "execution_authorized": False,
             "execution_enabled": False, "orders_placed": False,
         }
-        current_provenance = {
-            "schema": "hes_market_data_batch_provenance_v1", "source": "gateio_public_spot",
-            "symbol": "BTC_USDT", "batch_limit": 240, "timeframes": {},
-        }
-        with patch.object(dashboard, "_current_chart_batch_provenance", return_value=current_provenance), \
-             patch.object(dashboard, "read_strategy_v2_dashboard", return_value=strategy_view) as strategy, \
-             patch.object(dashboard, "read_mother_v2_dashboard", return_value=payload) as mother:
+        with patch.object(dashboard, "_market_data_root", return_value="/tmp/hes-mother-test") as data_root, \
+             patch.object(dashboard, "read_mother_runtime_dashboard", return_value=payload) as mother:
             with urlopen(self.base + "/api/mother") as response:
                 result = json.loads(response.read())
                 self.assertEqual(response.status, 200)
-        strategy.assert_called_once_with(current_market_data_provenance=current_provenance)
-        mother.assert_called_once_with(strategy_view=strategy_view)
+        data_root.assert_called_once_with()
+        mother.assert_called_once_with(data_root="/tmp/hes-mother-test")
         self.assertTrue(result["witness"]["verified"])
         self.assertFalse(result["execution_authorized"])
         self.assertFalse(result["execution_enabled"])
         self.assertFalse(result["orders_placed"])
 
-    def test_mother_endpoint_fails_closed_without_verified_evidence(self):
-        current_provenance = {
-            "schema": "hes_market_data_batch_provenance_v1", "source": "gateio_public_spot",
-            "symbol": "BTC_USDT", "batch_limit": 240, "timeframes": {},
+    def test_mother_endpoint_does_not_depend_on_precomputed_strategy_report(self):
+        payload = {
+            "schema": "hes.mother_runtime_dashboard.v1",
+            "runtime_mode": "LIVE_DATA_RUNTIME_SPECIALISTS",
+            "status": "BLOCKED_GATE",
+            "decision": "NO_TRADE",
+            "registered_count": 7,
+            "executed_count": 4,
+            "registered_specialists": [{"name": name} for name in (
+                "data_quality", "market_structure", "signal", "confirmation",
+                "risk", "decision", "evaluation"
+            )],
+            "stages": [{"agent": "confirmation", "state": "UNCONFIRMED"}],
+            "witness": {"verified": True},
+            "execution_authorized": False,
+            "execution_enabled": False,
+            "orders_placed": False,
         }
-        with patch.object(dashboard, "_current_chart_batch_provenance", return_value=current_provenance), \
-             patch.object(dashboard, "read_strategy_v2_dashboard",
-                          side_effect=dashboard.StrategyV2DashboardError("stale report")):
+        with patch.object(dashboard, "read_strategy_v2_dashboard",
+                          side_effect=AssertionError("precomputed report must not be read")), \
+             patch.object(dashboard, "read_mother_runtime_dashboard", return_value=payload):
+            with urlopen(self.base + "/api/mother") as response:
+                result = json.loads(response.read())
+                self.assertEqual(response.status, 200)
+        self.assertEqual(result["runtime_mode"], "LIVE_DATA_RUNTIME_SPECIALISTS")
+        self.assertEqual(result["registered_count"], 7)
+
+    def test_mother_endpoint_fails_closed_without_verified_evidence(self):
+        with patch.object(dashboard, "read_mother_runtime_dashboard",
+                          side_effect=dashboard.MotherRuntimeDashboardError("live Gate.io data stale")):
             with self.assertRaises(HTTPError) as error:
                 urlopen(self.base + "/api/mother")
         self.assertEqual(error.exception.code, 503)
