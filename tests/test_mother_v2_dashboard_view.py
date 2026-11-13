@@ -110,6 +110,9 @@ class MotherV2DashboardViewTests(unittest.TestCase):
         self.assertEqual([x["agent"] for x in result["stages"]],
                          ["data_quality", "market_structure", "signal", "confirmation"])
         self.assertTrue(result["witness"]["verified"])
+        self.assertEqual(result["coordination_mode"], "PRECOMPUTED_EVIDENCE_ADAPTER")
+        self.assertFalse(result["independent_agent_consensus"])
+        self.assertEqual(result["independent_agent_consensus_status"], "NOT_ESTABLISHED")
         self.assertEqual(result["market_data_provenance"]["timeframes"]["15m"]["input_batch_sha256"], "a" * 64)
         signal_stage = next(stage for stage in result["stages"] if stage["agent"] == "signal")
         self.assertIn("market_batch:15m:sha256:" + "a" * 64, signal_stage["evidence_refs"])
