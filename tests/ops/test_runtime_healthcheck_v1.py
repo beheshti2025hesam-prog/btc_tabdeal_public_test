@@ -135,3 +135,39 @@ def test_runtime_healthcheck_warns_when_disk_free_is_below_fifteen_percent(tmp_p
     disk_check = next(row for row in report['checks'] if row['check'] == 'disk-free')
     assert disk_check['state'] == 'WARN'
     assert disk_check['detail'] == '13.0%'
+
+
+def test_runtime_healthcheck_tolerates_only_small_future_witness_clock_skew(tmp_path, monkeypatch):
+    now = 2_000_000_000
+    data = tmp_path / 'data' / 'forward'
+    data.mkdir(parents=True)
+    for filename in health.FRESHNESS_LIMITS:
+        path = data / filename
+        if filename.endswith('.jsonl'):
+            _write_jsonl(path, [{'observed_at': _iso(now), 'event_id': filename,
+                                 'execution_enabled': False, 'orders_placed': False}])
+        else:
+            path.write_text(json.dumps({
+                'updated_at': _iso(now), 'execution_enabled': False, 'orders_placed': False,
+                'source': 'gateio_public_spot', 'symbol': 'BTC_USDT',
+            }), encoding='utf-8')
+    (data / 'precision_entry_journal_report_v1.json').write_text(json.dumps({
+        'updated_at': _iso(now), 'execution_enabled': False, 'orders_placed': False,
+        'event_count': 0, 'candidate_count': 0, 'outcome_count': 0,
+        'daily_signal_cap': 3, 'daily_signal_cap_is_quota': False,
+    }), encoding='utf-8')
+    witness = tmp_path / 'witness.jsonl'
+    monkeypatch.setattr(health, 'WITNESS', witness)
+    monkeypatch.setattr(health.shutil, 'disk_usage',
+                        lambda _: health.shutil._ntuple_diskusage(100, 50, 50))
+
+    base_witness = {
+        'status': 'PASS', 'source': 'gateio_public_spot', 'symbol': 'BTC_USDT',
+        'timeframe': '1m', 'execution_enabled': False, 'orders_placed': False,
+        'latest_age_seconds': 20,
+    }
+    for offset_seconds, expected_state in ((0.5, 'OK'), (60.1, 'CRITICAL')):
+        _write_jsonl(witness, [{**base_witness, 'observed_at': _iso(now + offset_seconds)}])
+        report = health.collect_checks(root=tmp_path, now=now, runner=FakeRunner())
+        check = next(row for row in report['checks'] if row['check'] == 'integrity:gateio_1m_witness')
+        assert check['state'] == expected_state
