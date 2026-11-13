@@ -193,6 +193,112 @@ def test_conflicting_existing_duplicate_fails_closed(tmp_path):
     assert path.read_bytes() == before
 
 
+
+
+def test_run_treats_socket_timeout_as_idle_and_keeps_connection(monkeypatch):
+    connections = []
+    append_calls = []
+
+    class FakeWebSocket:
+        def __init__(self):
+            self.messages = [json.dumps({"event": "subscribe", "result": {"status": "success"}})]
+            self.closed = False
+        def send(self, _payload):
+            pass
+        def recv(self):
+            if self.messages:
+                return self.messages.pop(0)
+            raise TimeoutError("simulated quiet socket timeout")
+        def close(self):
+            self.closed = True
+
+    socket = FakeWebSocket()
+    def create_connection(*_args, **_kwargs):
+        connections.append(socket)
+        return socket
+    def append(_rows, last_ts):
+        append_calls.append(last_ts)
+        if len(append_calls) == 2:
+            collector.STOP = True
+        return last_ts
+
+    ticks = iter((100.0, 100.0, 121.0))
+    monkeypatch.setattr(collector, "STOP", False)
+    monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
+    monkeypatch.setattr(collector, "_last_saved_ts", lambda _path: -1)
+    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source: [])
+    monkeypatch.setattr(collector, "_append_new", append)
+    monkeypatch.setattr(collector.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(collector.websocket, "create_connection", create_connection)
+
+    collector.run()
+
+    assert len(connections) == 1
+    assert len(append_calls) == 2
+    assert socket.closed is True
+
+
+def test_transient_rest_error_does_not_drop_websocket_session(monkeypatch):
+    from urllib.error import URLError
+
+    connections = []
+    rest_calls = []
+    append_calls = []
+
+    class FakeWebSocket:
+        def __init__(self):
+            self.messages = [
+                json.dumps({"event": "subscribe", "result": {"status": "success"}}),
+                json.dumps({
+                    "channel": "spot.candlesticks", "event": "update",
+                    "result": {"n": f"{collector.INTERVAL}_BTC_USDT", "t": "900",
+                               "v": "2.4", "a": "1.2", "c": "12", "h": "13",
+                               "l": "10", "o": "11"},
+                }),
+            ]
+            self.closed = False
+        def send(self, _payload):
+            pass
+        def recv(self):
+            if self.messages:
+                return self.messages.pop(0)
+            raise RuntimeError("unexpected extra recv")
+        def close(self):
+            self.closed = True
+
+    socket = FakeWebSocket()
+    def create_connection(*_args, **_kwargs):
+        connections.append(socket)
+        return socket
+    def fetch(_source):
+        rest_calls.append(len(rest_calls) + 1)
+        if len(rest_calls) == 2:
+            raise URLError("temporary Gate.io REST timeout")
+        return []
+    def append(_rows, last_ts):
+        append_calls.append(last_ts)
+        if len(append_calls) == 2:
+            collector.STOP = True
+        return last_ts
+
+    ticks = iter((100.0, 100.0, 100.0, 121.0, 121.0))
+    monkeypatch.setattr(collector, "STOP", False)
+    monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
+    monkeypatch.setattr(collector, "_last_saved_ts", lambda _path: -1)
+    monkeypatch.setattr(collector, "fetch_recent_closed", fetch)
+    monkeypatch.setattr(collector, "_append_new", append)
+    monkeypatch.setattr(collector.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(collector.websocket, "create_connection", create_connection)
+
+    collector.run()
+
+    assert len(connections) == 1
+    assert len(rest_calls) == 3
+    assert len(append_calls) == 2
+    assert socket.closed is True
+
 def test_run_reconnects_after_disconnect_with_bounded_backoff(monkeypatch):
     connections = []
     sleeps = []
