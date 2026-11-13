@@ -263,6 +263,9 @@ class MotherOrchestratorV1:
             return finish("BLOCKED_CONFIGURATION", "NO_TRADE", why)
 
         shared = safe
+        gate_failures: list[str] = []
+        risk_veto = False
+        invalid_decision = False
         for name in self.REQUIRED:
             agent = self.agents[name]
             if getattr(agent, "name", None) != name or not callable(getattr(agent, "evaluate", None)):
@@ -283,14 +286,26 @@ class MotherOrchestratorV1:
                 return finish("BLOCKED_INVALID_RESULT", "NO_TRADE", ("AGENT_PAYLOAD_NOT_COPYABLE:" + name,))
             stages.append(result)
             if result.state not in _ALLOWED[name]:
-                reasons = result.reason_codes or ("AGENT_GATE_NOT_PASSED:" + name,)
-                status = "BLOCKED_RISK_VETO" if name == "risk" else "BLOCKED_GATE"
-                return finish(status, "NO_TRADE", reasons)
+                # A failed gate is an observation, not a reason to suppress the
+                # remaining independent specialists. In particular, confirmation
+                # failure must not prevent Risk, Decision, and Evaluation from
+                # running on the same immutable market snapshot. The final outcome
+                # remains NO_TRADE and a risk rejection keeps veto precedence.
+                gate_failures.append("AGENT_GATE_NOT_PASSED:" + name)
+                gate_failures.extend(result.reason_codes)
+                if name == "risk":
+                    risk_veto = True
             if name == "decision":
                 decision = _decision_value(result.payload)
                 if _safe_decision(decision) == "INVALID":
-                    return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
+                    invalid_decision = True
             shared[name] = result
+
+        if invalid_decision:
+            return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
+        if gate_failures:
+            status = "BLOCKED_RISK_VETO" if risk_veto else "BLOCKED_GATE"
+            return finish(status, "NO_TRADE", gate_failures)
 
         # Resolve cross-stage directional disagreement at the existing Mother boundary.
         # This is a coherence check over the same snapshot, not a parallel arbiter.
