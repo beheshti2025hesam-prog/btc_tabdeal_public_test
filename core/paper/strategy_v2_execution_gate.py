@@ -21,6 +21,8 @@ RECOVERY_SCHEMA = "hes.gateio_1m_recovery_24h_evidence.v1"
 RECOVERY_CANDIDATE_1M_SERVICE = "hes-global-market-data-gateio-1m-pr498-candidate.service"
 RECOVERY_REQUIRED_SERVICES = frozenset({
     "hes-global-market-data-gateio.service",
+    "hes-global-market-data-gateio-1m.service",
+    "hes-global-market-data-gateio-1m-integrity.timer",
     RECOVERY_CANDIDATE_1M_SERVICE,
     "hes-global-market-data-gateio-1h.service",
     "hes-global-market-data-gateio-4h.service",
@@ -93,13 +95,13 @@ def _candidate_soak_wrapper_error(value: str, *, release_dir: Path) -> str | Non
         "runpy.run_path(script)",
         RECOVERY_CANDIDATE_1M_SERVICE,
         "hes-global-market-data-gateio.service",
+        "hes-global-market-data-gateio-1m.service",
+        "hes-global-market-data-gateio-1m-integrity.timer",
         "hes-global-market-data-gateio-1h.service",
         "hes-global-market-data-gateio-4h.service",
     )
     if any(token not in value for token in required):
         return "RECOVERY_CANDIDATE_SOAK_WRAPPER_CONTRACT_MISMATCH"
-    if "hes-global-market-data-gateio-1m.service" in value or "hes-global-market-data-gateio-1m-integrity.timer" in value:
-        return "RECOVERY_CANDIDATE_SOAK_WRAPPER_USES_NON_CANDIDATE_1M_SERVICE"
     return None
 
 
