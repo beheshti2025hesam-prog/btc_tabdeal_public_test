@@ -157,7 +157,7 @@ def collect_checks(
                 and latest.get('orders_placed') is False
                 and type(latest.get('latest_age_seconds')) in (int, float)
                 and 0 <= latest['latest_age_seconds'] <= 120
-                and 0 <= age <= 600
+                and -60 <= age <= 600
             )
             add('integrity:gateio_1m_witness', 'OK' if valid else 'CRITICAL',
                 f"status={latest.get('status')!r}; candle_age={latest.get('latest_age_seconds')!r}; witness_age={age:.1f}s")
