@@ -127,3 +127,16 @@ If the Command Center misses a security or acceptance gate, deliver the existing
 ## 9. Non-goals
 
 No second Mother brain, duplicate strategy/risk/market-data engine, parallel frontend, paid LLM/API, autonomous shell agent, self-authorizing policy mutation, exchange account integration, order execution, public dashboard exposure or second VPS. No claim of 90% win rate or profitability is made by this work.
+
+
+## 2026-11-06 deployment update — PR #468 is live on the sole VPS
+
+- PR #468 merged into `main` as `786f9187ac326f27c243507ccbd297b34d01db1b`.
+- Immutable release: `/opt/hes-trade-agent/releases/786f9187ac326f27c243507ccbd297b34d01db1b`; archive SHA-256 `ab1a68531a3469270ec9fea6ebe5617226a2998b07539d199af1618220e5e65c`.
+- The merge tree differs from exact CI-tested candidate `880a60e494ab3ab682718dcfad95dced84e79f62` only in this checkpoint document; all non-checkpoint files are identical. The tested candidate had 32/32 workflows pass, including browser render and full regression. A clean local clone of the merge commit passed 1,127 tests + 82 subtests; compile and pip checks passed.
+- Previous active release: `3c8460efd3a8bf6dd5facd6e9b6cc6ff19a487d0`. New `current` pointer atomically targets the new immutable release. Previous dashboard unit/drop-ins backed up under `releases/rollback-dashboard-before-786f9187ac32/`. Atomic pointer rollback simulation passed.
+- Only `hes-readonly-dashboard.service` was restarted. It is active with zero systemd restart failures. The original dirty checkout was preserved; no reset, clean, checkout, or overwrite.
+- Post-deploy: health and read-only APIs returned HTTP 200; 1m/15m/1h/4h each returned 240 Gate.io public Spot BTC_USDT candles. Security headers passed. Unauthenticated chat returned 401; journal POST returned 405. Seven-sample / 64-second read-only soak passed with zero service restarts and unchanged journal SHA-256 `a7bc4dcfe2e0378ac8f9ac6e931f2818ffc57c4c000880ced0169c0bb0287596`.
+- Mother remains `BLOCKED_GATE / NO_TRADE`; Strategy V2 is `VERIFIED`; execution and orders remain disabled. This is not proof of a >90% win rate or permission for live trading.
+- Production token remains outside Git at `/var/lib/hes-news-monitor/mother-chat/token`, service owner, mode `0600`, parent mode `0700`.
+- Browser CI exercised login/chat/logout with an ephemeral token on the byte-identical code tree. The VPS did not have Playwright installed, so no extra on-host browser automation is claimed.
