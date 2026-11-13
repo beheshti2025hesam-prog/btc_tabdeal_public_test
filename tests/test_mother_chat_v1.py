@@ -58,8 +58,10 @@ def test_explain_decision_uses_only_supplied_mother_evidence():
             "reason_codes": ["EXECUTION_NOT_AUTHORIZED"],
             "stages": [{"agent": "risk", "state": "BLOCKED", "reason_codes": ["RISK_NOT_APPROVED"]}],
             "witness": {"verified": True},
+            "paper_execution_gate": {"status": "READY_FOR_PAPER_SIMULATION", "reason_codes": []},
+            "sequence_validation": {"basis": "CANDLE_OPEN_TIME_CONTINUITY", "trade_sequence_used": False, "trade_sequence_semantics": "UNKNOWN_NOT_USED"},
         },
-        "strategy": {"status": "VERIFIED", "report_sha256": "c" * 64},
+        "strategy": {"status": "VERIFIED", "snapshot_sha256": "c" * 64},
         "trace_id": "a" * 64,
         "evidence_refs": ["report:" + "c" * 64],
     }
@@ -76,7 +78,7 @@ def test_explain_decision_uses_only_supplied_mother_evidence():
 
 def test_market_review_marks_stale_evidence_partial():
     payload = {
-        "strategy": {"market_regime": "RANGE", "decision": "NO_TRADE", "report_sha256": "d" * 64},
+        "strategy": {"market_regime": "RANGE", "decision": "NO_TRADE", "snapshot_sha256": "d" * 64},
         "latest_candle": {"close": "70000", "age_seconds": 2000},
     }
     result = build_chat_response("market review", {"MARKET_REVIEW": lambda: payload})
@@ -164,14 +166,16 @@ def test_localized_explanations_support_german_and_french():
             "trace_id": "a" * 64, "audit_sha256": "b" * 64,
             "reason_codes": ["EXECUTION_NOT_AUTHORIZED"], "stages": [],
             "witness": {"verified": True},
+            "paper_execution_gate": {"status": "READY_FOR_PAPER_SIMULATION", "reason_codes": []},
+            "sequence_validation": {"basis": "CANDLE_OPEN_TIME_CONTINUITY", "trade_sequence_used": False, "trade_sequence_semantics": "UNKNOWN_NOT_USED"},
         },
-        "strategy": {"status": "VERIFIED", "report_sha256": "c" * 64},
+        "strategy": {"status": "VERIFIED", "snapshot_sha256": "c" * 64},
     }
     readers = {"EXPLAIN_DECISION": lambda: payload}
     german = build_chat_response("Warum ist die Entscheidung NO_TRADE?", readers)
     french = build_chat_response("Pourquoi cette décision est-elle NO_TRADE ?", readers)
-    assert "Aufgezeichnete Mother-Entscheidung" in german["answer"]
-    assert "Décision Mother enregistrée" in french["answer"]
+    assert "Live-Mother-Entscheidung" in german["answer"]
+    assert "Décision Mother en direct" in french["answer"]
 
 
 def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path, monkeypatch):
@@ -189,8 +193,10 @@ def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path,
             "trace_id": "a" * 64, "audit_sha256": "b" * 64,
             "reason_codes": ["EXECUTION_NOT_AUTHORIZED"], "stages": [],
             "witness": {"verified": True},
+            "paper_execution_gate": {"status": "READY_FOR_PAPER_SIMULATION", "reason_codes": []},
+            "sequence_validation": {"basis": "CANDLE_OPEN_TIME_CONTINUITY", "trade_sequence_used": False, "trade_sequence_semantics": "UNKNOWN_NOT_USED"},
         },
-        "strategy": {"status": "VERIFIED", "report_sha256": "c" * 64},
+        "strategy": {"status": "VERIFIED", "snapshot_sha256": "c" * 64},
     }
     monkeypatch.setattr(
         dashboard, "_mother_chat_readers",
