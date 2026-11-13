@@ -46,7 +46,10 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
           const body = await response.json();
           apiContractResponses[url.pathname] = {
             status: response.status(),
-            schema: body.schema || body.schema_version || null
+            schema: body.schema || body.schema_version || null,
+            decision: body.decision ?? null,
+            execution_enabled: body.execution_enabled ?? null,
+            orders_placed: body.orders_placed ?? null
           };
           if (url.pathname === "/api/candles" && response.status() === 200 &&
               Array.isArray(body.candles) && body.candles.length) {
