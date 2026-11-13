@@ -205,9 +205,30 @@ def _user_systemd_runtime_references(
     # loginctl list-users may omit a lingered account without an interactive
     # session. The linger registry is an independent source of user managers.
     try:
-        if linger_dir.is_dir():
-            for entry in linger_dir.iterdir():
-                if not entry.is_file():
+        linger_stat = linger_dir.lstat()
+    except FileNotFoundError:
+        linger_stat = None
+    except OSError:
+        linger_stat = None
+        errors += 1
+    if linger_stat is not None:
+        if not stat.S_ISDIR(linger_stat.st_mode):
+            errors += 1
+        else:
+            try:
+                linger_entries = list(linger_dir.iterdir())
+            except OSError:
+                linger_entries = []
+                errors += 1
+            for entry in linger_entries:
+                try:
+                    entry_stat = entry.lstat()
+                except OSError:
+                    errors += 1
+                    continue
+                if not stat.S_ISREG(entry_stat.st_mode):
+                    refs.append({"unit": entry.name, "property": "linger_entry_unexpected_type", "value": str(entry)})
+                    errors += 1
                     continue
                 username = entry.name
                 try:
@@ -217,8 +238,6 @@ def _user_systemd_runtime_references(
                     errors += 1
                     continue
                 users[str(account.pw_uid)] = account.pw_name
-    except OSError:
-        errors += 1
 
     # Also inspect system user@UID.service units so a running manager is not
     # missed if logind's user list is temporarily incomplete.
