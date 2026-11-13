@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.error import URLError
 
 import websocket
 
@@ -395,6 +396,25 @@ def normalize_ws_message(message: dict[str, Any], *, now: int | None = None) -> 
         return None
 
 
+
+def _sync_rest(source: GateioSpotKlineSource, last_ts: int, *, context: str) -> tuple[int, bool]:
+    """Attempt canonical REST reconciliation without dropping a healthy WS session.
+
+    Transient transport failures preserve the last durable candle state and are
+    retried by the normal reconciliation loop. Data/schema/integrity failures
+    still propagate and fail closed.
+    """
+    try:
+        candles = fetch_recent_closed(source)
+    except (URLError, TimeoutError, OSError) as exc:
+        print(
+            f"HES_GLOBAL_MARKET_REST_RETRY context={context} error={type(exc).__name__}",
+            flush=True,
+        )
+        return last_ts, False
+    return _append_new(candles, last_ts), True
+
+
 def run() -> None:
     global STOP
     STOP = False
@@ -407,10 +427,14 @@ def run() -> None:
         flush=True,
     )
     backoff = 2
+    rest_retry_interval = 5 if INTERVAL == "1m" else 20
+    max_backoff = 10 if INTERVAL == "1m" else 60
     while not STOP:
         ws = None
         try:
-            last_ts = _append_new(fetch_recent_closed(source), last_ts)
+            last_ts, rest_ok = _sync_rest(source, last_ts, context="startup")
+            if rest_ok:
+                backoff = 2
             ws = websocket.create_connection(WS_URL, timeout=12, origin="https://www.gate.com")
             ws.send(
                 json.dumps(
@@ -428,7 +452,10 @@ def run() -> None:
             while not STOP:
                 try:
                     raw = ws.recv()
-                except websocket.WebSocketTimeoutException:
+                except (websocket.WebSocketTimeoutException, TimeoutError):
+                    # A quiet socket/read timeout is not itself a broken session.
+                    # Keep the stream alive and let the bounded REST reconciliation
+                    # below maintain the canonical persisted candle feed.
                     if time.monotonic() > deadline and not subscribed:
                         raise RuntimeError("Gate.io WebSocket subscription timed out")
                     raw = None
@@ -446,18 +473,22 @@ def run() -> None:
                     if candle is not None and candle["closed"]:
                         # WS is a wake-up only. Persist the final closed bar from the
                         # shared eight-field REST adapter, never from WS payloads.
-                        last_ts = _append_new(fetch_recent_closed(source), last_ts)
+                        last_ts, rest_ok = _sync_rest(source, last_ts, context="ws_close")
                         last_rest_sync = time.monotonic()
+                        if rest_ok:
+                            backoff = 2
                 # Reconcile at least every 20s even if WS sends a continuous stream
                 # of malformed/unrelated messages and recv() never times out.
-                if subscribed and time.monotonic() - last_rest_sync >= 20:
-                    last_ts = _append_new(fetch_recent_closed(source), last_ts)
+                if subscribed and time.monotonic() - last_rest_sync >= rest_retry_interval:
+                    last_ts, rest_ok = _sync_rest(source, last_ts, context="periodic")
                     last_rest_sync = time.monotonic()
+                    if rest_ok:
+                        backoff = 2
         except Exception as exc:
             print(f"HES_GLOBAL_MARKET_RECONNECT error={type(exc).__name__} wait_s={backoff}", flush=True)
             if not STOP:
                 time.sleep(backoff)
-            backoff = min(backoff * 2, 60)
+            backoff = min(backoff * 2, max_backoff)
         finally:
             if ws is not None:
                 try:
