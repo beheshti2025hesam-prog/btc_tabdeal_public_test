@@ -12,9 +12,11 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import stat
 import subprocess
 import tempfile
+import re
 from typing import Any
 
 PROJECT_ROOT = Path("/opt/hes-trade-agent")
@@ -148,6 +150,115 @@ def _systemd_references() -> tuple[list[dict[str, str]], int]:
     return refs, errors
 
 
+def _register_scheduled_file(
+    path: Path, kind: str, home: str | None, username: str | None,
+    files: dict[Path, tuple[str, str | None, str | None]], refs: list[dict[str, str]],
+) -> int:
+    """Register regular jobs and safely inspect symlinked cron/config entries."""
+    try:
+        if path.is_symlink():
+            target = path.resolve(strict=True)
+            if not target.is_file():
+                refs.append({"unit": str(path), "property": kind + "_unresolved_symlink", "value": str(path)})
+                return 1
+            files[target] = (kind, home, username)
+            refs.append({"unit": str(path), "property": kind + "_symlink_path", "value": str(path)})
+            refs.append({"unit": str(path), "property": kind + "_symlink_target", "value": str(target)})
+            return 0
+        if path.is_file():
+            files[path] = (kind, home, username)
+        return 0
+    except (OSError, RuntimeError):
+        refs.append({"unit": str(path), "property": kind + "_unresolved_path", "value": str(path)})
+        return 1
+
+
+def _user_systemd_runtime_references() -> tuple[list[dict[str, str]], int]:
+    """Inspect active/lingering per-user managers; an uninspectable manager is UNKNOWN."""
+    refs: list[dict[str, str]] = []
+    errors = 0
+    try:
+        users = subprocess.run(
+            ["loginctl", "list-users", "--no-legend", "--no-pager"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return refs, 1
+    if users.returncode != 0:
+        return refs, 1
+    properties = "ExecStart,ExecStartPre,ExecStartPost,WorkingDirectory,EnvironmentFiles,ReadWritePaths,ReadOnlyPaths,RequiresMountsFor,BindPaths,BindReadOnlyPaths,RootDirectory,RootImage,InaccessiblePaths,TemporaryFileSystem,ConditionPathExists,ConditionPathIsDirectory,StateDirectory,CacheDirectory,LogsDirectory,RuntimeDirectory"
+    for line in users.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 2 or not fields[0].isdigit():
+            errors += 1
+            continue
+        uid, username = fields[0], fields[1]
+        try:
+            state_result = subprocess.run(
+                ["loginctl", "show-user", username, "--property=State,Linger,RuntimePath", "--no-pager"],
+                capture_output=True, text=True, timeout=10, check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            errors += 1
+            continue
+        if state_result.returncode != 0:
+            errors += 1
+            continue
+        state = {}
+        for item in state_result.stdout.splitlines():
+            key, _, value = item.partition("=")
+            state[key] = value
+        if state.get("State") != "active" and state.get("Linger") != "yes":
+            continue
+        runtime = state.get("RuntimePath") or f"/run/user/{uid}"
+        bus = Path(runtime) / "bus"
+        if not bus.exists():
+            errors += 1
+            continue
+        prefix = [
+            "runuser", "-u", username, "--", "env",
+            f"XDG_RUNTIME_DIR={runtime}",
+            f"DBUS_SESSION_BUS_ADDRESS=unix:path={bus}",
+            "systemctl", "--user",
+        ]
+        unit_names: set[str] = set()
+        commands = (
+            ["list-units", "--type=service", "--state=running", "--no-legend", "--plain", "--no-pager"],
+            ["list-units", "--type=timer", "--state=active", "--no-legend", "--plain", "--no-pager"],
+            ["list-unit-files", "--type=service", "--state=enabled", "--no-legend", "--no-pager"],
+            ["list-unit-files", "--type=timer", "--state=enabled", "--no-legend", "--no-pager"],
+        )
+        for args in commands:
+            try:
+                result = subprocess.run(prefix + args, capture_output=True, text=True, timeout=20, check=False)
+            except (OSError, subprocess.TimeoutExpired):
+                errors += 1
+                continue
+            if result.returncode != 0:
+                errors += 1
+                continue
+            for row in result.stdout.splitlines():
+                unit_fields = row.split()
+                if unit_fields and unit_fields[0].endswith((".service", ".timer")) and _is_concrete_systemd_unit(unit_fields[0]):
+                    unit_names.add(unit_fields[0])
+        for unit in sorted(unit_names):
+            try:
+                result = subprocess.run(
+                    prefix + ["show", unit, f"--property={properties}"],
+                    capture_output=True, text=True, timeout=10, check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                errors += 1
+                continue
+            if result.returncode != 0:
+                errors += 1
+                continue
+            for prop in result.stdout.splitlines():
+                key, _, value = prop.partition("=")
+                refs.extend(_expand_systemd_path_reference(f"{username}:{unit}", key, value))
+    return refs, errors
+
+
 def _scheduled_job_references() -> tuple[list[dict[str, str]], int]:
     """Read cron, enabled user units, tmpfiles, logrotate and apt path declarations."""
     refs: list[dict[str, str]] = []
@@ -155,12 +266,8 @@ def _scheduled_job_references() -> tuple[list[dict[str, str]], int]:
     files: dict[Path, tuple[str, str | None, str | None]] = {}
 
     def add_file(path: Path, kind: str, home: str | None = None, username: str | None = None) -> None:
-        try:
-            if path.is_symlink() or not path.is_file():
-                return
-            files[path] = (kind, home, username)
-        except OSError:
-            return
+        nonlocal errors
+        errors += _register_scheduled_file(path, kind, home, username, files, refs)
 
     add_file(Path("/etc/crontab"), "cron", None, None)
     for root in (Path("/etc/cron.d"), Path("/etc/cron.hourly"), Path("/etc/cron.daily"),
@@ -231,11 +338,15 @@ def _scheduled_job_references() -> tuple[list[dict[str, str]], int]:
                         continue
                     try:
                         target = link.resolve(strict=True)
-                        add_file(target, "enabled_user_systemd_unit", home, username)
+                        add_file(link, "enabled_user_systemd_unit", home, username)
                     except OSError:
                         errors += 1
         except OSError:
             errors += 1
+
+    runtime_refs, runtime_errors = _user_systemd_runtime_references()
+    refs.extend(runtime_refs)
+    errors += runtime_errors
 
     for path, (kind, home, username) in files.items():
         try:
@@ -248,7 +359,7 @@ def _scheduled_job_references() -> tuple[list[dict[str, str]], int]:
             continue
         for line_number, raw in enumerate(content.splitlines(), 1):
             line = raw.strip()
-            if not line or line.startswith("#") or "/" not in line:
+            if not line or line.startswith(("#", "//")) or "/" not in line:
                 continue
             if kind == "enabled_user_systemd_unit":
                 if "%h" in line:
@@ -295,12 +406,94 @@ def _matches_process(path: str, refs: list[dict[str, Any]]) -> list[dict[str, An
     return matches[:50]
 
 
+_SYSTEMD_HEX_ESCAPE = re.compile(r"\\x([0-9a-fA-F]{2})")
+_GENERIC_PATH_ROOTS = {"/", "/tmp", "/var/tmp", "/var", "/usr", "/etc", "/home", "/opt", "/run", "/root"}
+_BROAD_DIRECTORY_PROPERTIES = {
+    "WorkingDirectory", "ReadWritePaths", "ReadOnlyPaths", "BindPaths", "BindReadOnlyPaths",
+    "InaccessiblePaths", "TemporaryFileSystem", "StateDirectory_resolved", "CacheDirectory_resolved",
+    "LogsDirectory_resolved", "RuntimeDirectory_resolved", "system_maintenance_config", "cron",
+}
+
+
+def _declared_paths(value: str) -> list[str] | None:
+    """Parse declared paths; unresolved variables without a stable prefix fail closed."""
+    protected = _SYSTEMD_HEX_ESCAPE.sub(lambda match: "__HES_HEX_" + match.group(1).upper() + "__", value)
+    try:
+        tokens = shlex.split(protected, posix=True)
+    except ValueError:
+        # Cron scripts contain shell continuations and control syntax. Recover
+        # absolute path tokens rather than treating every shell line as a hit.
+        tokens = re.findall(r"(?<![A-Za-z0-9_])/(?:[^\s\"'`|;&<>]+)", protected)
+        if not tokens:
+            if re.search(r"(?:\$[A-Za-z_{]|~/|%[A-Za-z])[^\s]*[/\\]", protected):
+                return None
+            return []
+    tokens = [re.sub(r"__HES_HEX_([0-9A-F]{2})__", lambda match: chr(int(match.group(1), 16)), token) for token in tokens]
+    paths: list[str] = []
+    for token in tokens:
+        token = token.strip("{};, ")
+        if not token or token.startswith((".*", "./", "../", "/[", "/.*")):
+            continue
+        if token.startswith("PATH="):
+            # PATH is an executable search list, not a declaration that every
+            # file below those directories is a dependency.
+            continue
+        if "=" in token:
+            key, candidate = token.split("=", 1)
+            if key in {"path", "argv[]", "WorkingDirectory", "RootDirectory", "RootImage"}:
+                token = candidate
+        token = token.lstrip("-+!@").strip()
+        if not token or token == "/":
+            continue
+        if token.startswith("/"):
+            if "$" in token or "%" in token:
+                prefix = re.split(r"[$%]", token, maxsplit=1)[0].rstrip("/")
+                if prefix in ("", "/"):
+                    return None
+                if prefix not in paths:
+                    paths.append(prefix if token[len(prefix):].startswith("/") else prefix + "*")
+            else:
+                normalized = os.path.normpath(token)
+                if normalized not in paths:
+                    paths.append(normalized)
+        elif token.startswith(("~/", "${")):
+            return None
+        elif "/" in token and ("$" in token or "%" in token or any(char.isspace() for char in token)):
+            extracted = re.findall(r"(?<![A-Za-z0-9_])/(?:[^\s\"'`|;&<>]+)", token)
+            if not extracted:
+                return None
+            for item in extracted:
+                if item not in paths and item != "/":
+                    paths.append(os.path.normpath(item))
+    return paths
+
+
+def _paths_related(candidate: str, declared: str, property_name: str) -> bool:
+    candidate_abs = os.path.normpath(os.path.abspath(candidate))
+    if "*" in declared:
+        return candidate_abs.startswith(declared.split("*", 1)[0])
+    declared_abs = os.path.normpath(os.path.abspath(declared))
+    # A referenced file beneath a candidate directory, or an exact path, is
+    # always a dependency. Parent directories are contextual only for explicit
+    # directory-access properties; generic roots are never blanket matches.
+    if candidate_abs == declared_abs or _under(declared_abs, candidate_abs):
+        return True
+    if property_name in _BROAD_DIRECTORY_PROPERTIES and declared_abs not in _GENERIC_PATH_ROOTS:
+        return _under(candidate_abs, declared_abs)
+    return False
+
+
 def _matches_unit(path: str, refs: list[dict[str, str]]) -> list[dict[str, str]]:
     matches = []
     for ref in refs:
         value = ref.get("value", "")
-        if path in value:
-            matches.append(ref)
+        declared = _declared_paths(value)
+        if declared is None:
+            matches.append({**ref, "match_reason": "UNPARSED_PATH_DECLARATION_FAIL_CLOSED"})
+            continue
+        property_name = ref.get("property", "")
+        if any(_paths_related(path, target, property_name) for target in declared):
+            matches.append({**ref, "match_reason": "NORMALIZED_PATH_TOKEN_MATCH"})
     return matches[:30]
 
 
