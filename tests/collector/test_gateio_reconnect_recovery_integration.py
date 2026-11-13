@@ -42,7 +42,7 @@ def test_disconnect_reconnect_rest_sync_recovers_and_deduplicates(tmp_path, monk
         [candle(900), candle(1800), candle(2700)],
         [candle(900), candle(1800), candle(2700)],
     ])
-    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source: next(rest_batches))
+    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source, **_kwargs: next(rest_batches))
 
     sockets = []
 
