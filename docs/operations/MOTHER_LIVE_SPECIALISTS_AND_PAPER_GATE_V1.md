@@ -43,7 +43,7 @@ The 24h recovery soak runs the immutable PR #498 candidate commit `309ebf36c0ad1
 
 `/opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/data/forward/global_market_candles_1m_v1.jsonl`
 
-The isolated market root reuses the validated production 15m/1h/4h ledgers read-only; only its 1m ledger is written by the candidate collector. The soak wrapper overrides the release-bound soak's service witness to check the production 15m/1h/4h services plus the isolated candidate 1m service. The wrapper and captured `systemctl show` manifest are both hashed into the evidence package. The release manifest must also bind the collector entrypoint and `forward/global_market_data_gateio_v1.py`, not only the soak script and reader.
+The isolated market root reuses the validated production 15m/1h/4h ledgers read-only; only its 1m ledger is written by the candidate collector. The soak wrapper checks the production 15m/1h/4h services, the official production 1m service and its integrity timer, plus the isolated candidate 1m service. The official 1m service and integrity timer remain required health gates; the separate candidate collector is additionally checked to prove the PR code itself is running without replacing production. The wrapper and captured `systemctl show` manifest are both hashed into the evidence package. The release manifest must also bind the collector entrypoint and `forward/global_market_data_gateio_v1.py`, not only the soak script and reader.
 
 After a passing 24h soak, build the durable evidence package with:
 
