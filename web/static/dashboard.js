@@ -13,7 +13,7 @@ function draw(){if(!candleSeries){$('message').textContent='FAIL CLOSED · chart
 function updateIndicators(j){
  const ids=['indicatorEma','indicatorVwap','indicatorAtr','indicatorVolatility','indicatorVolumeRatio','indicatorRegime'];
  const i=j?.indicators;
- const valid=!!i&&i.status==='READY'&&i.source==='gateio_public_spot'&&i.source_reader==='global_market_data_reader_v1'&&i.symbol===j.symbol&&i.interval===j.interval&&i.input_batch_sha256===j.input_batch_sha256&&i.feature_batch_sha256===j.input_batch_sha256&&i.quality_passed===true&&i.execution_enabled===false&&i.orders_placed===false;
+ const valid=!!i&&i.status==='READY'&&i.source==='gateio_public_spot'&&i.source_reader==='global_market_data_reader_v1'&&i.venue===j.venue&&i.product===j.product&&i.symbol===j.symbol&&i.interval===j.interval&&i.input_batch_sha256===j.input_batch_sha256&&i.feature_batch_sha256===j.input_batch_sha256&&i.quality_passed===true&&i.decision_ready===true&&i.execution_enabled===false&&i.orders_placed===false;
  if(!valid){ids.forEach(id=>$(id).textContent='—');$('indicatorStatus').textContent='GATED · '+(i?.reason||'INDICATOR_EVIDENCE_UNAVAILABLE')+' · no stale or mismatched values shown';return;}
  const finite=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
  const number=(v,d=2)=>finite(v)?Number(v).toLocaleString(undefined,{maximumFractionDigits:d}):'—';

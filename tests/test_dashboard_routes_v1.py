@@ -111,6 +111,8 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base+"/static/dashboard.js") as js_response:
             js=js_response.read().decode()
         self.assertIn("Native indicators · same Gate.io batch",js)
+        self.assertIn("i.venue===j.venue&&i.product===j.product",js)
+        self.assertIn("i.decision_ready===true",js)
         self.assertIn("اندیکاتورهای بومی · همان بستهٔ Gate.io",js)
         self.assertIn("Native Indikatoren · derselbe Gate.io-Datensatz",js)
         self.assertIn("Indicateurs natifs · même lot Gate.io",js)
