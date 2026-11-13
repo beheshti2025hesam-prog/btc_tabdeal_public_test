@@ -138,3 +138,25 @@ The scanner includes `/srv/hes-evidence` as an explicit root and classifies all 
 ## 13. Phase A inventory depth limitation
 
 Phase A emits one record per direct child of each configured scan root and computes recursive allocated-size/file-count rollups for directories. It does not emit one manifest row per file inside every protected tree. This keeps the first audit bounded and avoids exposing unnecessary internal filenames from protected stores. A later targeted deep-inventory pass may inspect only allowlisted REVIEW candidates; KEEP_EVIDENCE, KEEP_BACKUP, registered worktrees, and other protected roots remain summarized and untouched.
+
+
+## 14. Narrow temporary-cache quarantine candidate — isolated PR
+
+The first production scanner remains read-only. A separate isolated candidate reuses its policy boundaries and adds a reversible quarantine planner; it does not change the VPS or the active release.
+
+**Owner-approved development scope (2026-11-10):**
+- Only directory names __pycache__ and .pytest_cache.
+- Only below /tmp and /var/tmp; no other roots, cache families, logs, workspaces, backups, releases, evidence, journals, or project files.
+- Minimum age is 14 days for the directory and every entry inside it. A recent child blocks the whole candidate.
+- The Git worktree registry must be readable. Any registered worktree ancestor/descendant relationship excludes the candidate.
+- Any symlink, mount/device boundary, hard-linked regular file, special file, mixed UID/GID ownership, setuid/setgid bit, unreadable scan, open descriptor, process cwd/root/executable reference, or memory mapping blocks the whole candidate.
+- File contents are SHA-256 hashed. Directory and file metadata are revalidated across scans (including ctime); the manifest records exact path, device/inode, size, nanosecond mtime, owner/group, and a deterministic tree digest.
+- Conservative bounds: at most 5,000 filesystem entries per candidate, 100 discovered candidates per scan, 128 MiB per candidate, 10 actionable candidates, and 512 MiB per batch.
+
+**Execution boundary:**
+- Normal invocation only emits a new, exclusive, mode-0600 dry-run manifest (existing output is never overwritten); automatic_action=NONE, execution_enabled=false, and deletion_authorized=false.
+- The isolated candidate has no recursive-delete or purge operation. Quarantine is a reversible isolation/canary stage and does not reclaim disk space. Any later purge implementation requires a separate retention/hold policy and explicit owner authorization. An explicit quarantine invocation requires root, the exact SHA-256 of the saved manifest, and the typed phrase QUARANTINE HES TEMP CACHES.
+- Before and after each same-filesystem atomic rename, it performs fresh inventory/hash and process-reference checks, pins source/destination parent directories with no-follow directory descriptors, and verifies source inode identity. Any mismatch aborts or holds the item for review.
+- Items move into a mode-0700 .hes-idlm-quarantine-v1 directory under the same temp root. An append-only mode-0600 audit records intent and completion through a pinned no-follow audit-directory descriptor and is fsynced. Restore can recover safely if the process stops after rename but before the completion record is appended. If cache contents changed while quarantined, restore falls back to a bounded no-follow identity scan and preserves the directory contents rather than deleting or rewriting them. Quarantine is reversible through the audited restore command; restore refuses to overwrite an existing path.
+- No cleanup command has been run. No cache has been moved or deleted. This candidate is not merged, deployed, or enabled on the VPS. The user approved development of this narrow policy, not production execution or release deployment.
+- Production acceptance still requires adversarial tests, exact-head CI, code review, a separate deployment gate, and an explicit owner decision before any canary. Keep the current production scanner read-only until then.
