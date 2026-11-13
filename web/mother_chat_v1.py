@@ -304,18 +304,25 @@ def build_chat_response(
         s_status = str(strategy.get("status") or "UNKNOWN")
         witness = mother.get("witness", {})
         witness_ok = isinstance(witness, Mapping) and witness.get("verified") is True
+        paper_gate = mother.get("paper_execution_gate", {})
+        paper_status = str(paper_gate.get("status") or "BLOCKED") if isinstance(paper_gate, Mapping) else "BLOCKED"
+        paper_reasons = paper_gate.get("reason_codes", []) if isinstance(paper_gate, Mapping) else []
         claims.extend([
             _claim("Mother status", m_status, str(mother.get("trace_id") or "") or None),
             _claim("Mother decision", decision, str(mother.get("audit_sha256") or "") or None),
-            _claim("Strategy V2 status", s_status, str(strategy.get("report_sha256") or "") or None),
+            _claim("Live strategy runtime", s_status, str(strategy.get("snapshot_sha256") or "") or None),
             _claim("Independent witness", "VERIFIED" if witness_ok else "NOT VERIFIED"),
+            _claim("Paper simulation gate", paper_status),
+            _claim("Paper gate blockers", paper_reasons if isinstance(paper_reasons, list) else []),
+            _claim("Sequence evidence", mother.get("sequence_validation", {}).get("basis", "UNKNOWN") if isinstance(mother.get("sequence_validation"), Mapping) else "UNKNOWN"),
+            _claim("Trade sequence used", mother.get("sequence_validation", {}).get("trade_sequence_used", True) if isinstance(mother.get("sequence_validation"), Mapping) else True),
         ])
         reasons = mother.get("reason_codes", [])
         if isinstance(reasons, list):
             claims.append(_claim("Mother reason codes", reasons))
-        if m_status != "OBSERVATION_ONLY" or not witness_ok or s_status != "VERIFIED":
+        if m_status != "OBSERVATION_ONLY" or not witness_ok or s_status not in {"VERIFIED", "LIVE_RUNTIME"} or paper_status != "READY_FOR_PAPER_SIMULATION":
             status = "PARTIAL"
-            uncertainties.append("Mother, Strategy or independent-witness acceptance is not fully verified.")
+            uncertainties.append("Mother, specialist, witness or paper-simulation gates are not fully ready.")
         if intent == "EXPLAIN_DECISION":
             stages = mother.get("stages", [])
             if isinstance(stages, list):
@@ -327,10 +334,10 @@ def build_chat_response(
                             + ((" · " + ", ".join(stage.get("reason_codes", []))) if isinstance(stage.get("reason_codes"), list) else ""),
                         ))
             answers = {
-                "fa": f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. اجرا و ثبت سفارش غیرفعال است.",
-                "de": f"Aufgezeichnete Mother-Entscheidung: {decision}. Status: {m_status}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Ausführung und Orderübermittlung bleiben deaktiviert.",
-                "fr": f"Décision Mother enregistrée : {decision}. Statut : {m_status}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. L’exécution et l’envoi d’ordres restent désactivés.",
-                "en": f"Recorded Mother decision: {decision}. Status: {m_status}. Independent witness: {'verified' if witness_ok else 'not verified'}. Execution and order submission remain disabled.",
+                "fa": f"تصمیم زندهٔ Mother: {decision}. وضعیت: {m_status}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. دروازهٔ شبیه‌سازی کاغذی: {paper_status}. اجرای واقعی و ثبت سفارش غیرفعال است.",
+                "de": f"Live-Mother-Entscheidung: {decision}. Status: {m_status}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Paper-Simulationsgate: {paper_status}. Live-Ausführung und Orderübermittlung bleiben deaktiviert.",
+                "fr": f"Décision Mother en direct : {decision}. Statut : {m_status}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. Porte de simulation papier : {paper_status}. L’exécution réelle et l’envoi d’ordres restent désactivés.",
+                "en": f"Live Mother decision: {decision}. Status: {m_status}. Independent witness: {'verified' if witness_ok else 'not verified'}. Paper simulation gate: {paper_status}. Live execution and order submission remain disabled.",
             }
             answer = answers[language]
         else:
@@ -339,10 +346,10 @@ def build_chat_response(
             news_status = news_monitor.get("status", "UNKNOWN") if isinstance(news_monitor, Mapping) else "UNKNOWN"
             claims.append(_claim("News monitor", str(news_status)))
             answers = {
-                "fa": f"وضعیت Mother: {m_status}؛ تصمیم: {decision}؛ Strategy V2: {s_status}؛ پایش اخبار: {news_status}. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است.",
-                "de": f"Mother: {m_status}; Entscheidung: {decision}; Strategy V2: {s_status}; News-Monitor: {news_status}. Gate.io Public Spot BTC_USDT bleibt die einzige Analysequelle; Ausführung ist deaktiviert.",
-                "fr": f"Mother : {m_status} ; décision : {decision} ; Strategy V2 : {s_status} ; surveillance des actualités : {news_status}. Gate.io Public Spot BTC_USDT reste l’unique source d’analyse ; l’exécution est désactivée.",
-                "en": f"Mother: {m_status}; decision: {decision}; Strategy V2: {s_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
+                "fa": f"وضعیت زندهٔ Mother: {m_status}؛ تصمیم: {decision}؛ موتور استراتژی: {s_status}؛ دروازهٔ شبیه‌سازی کاغذی: {paper_status}؛ پایش اخبار: {news_status}. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است.",
+                "de": f"Mother: {m_status}; Entscheidung: {decision}; Strategielaufzeit: {s_status}; Paper-Simulationsgate: {paper_status}; News-Monitor: {news_status}. Gate.io Public Spot BTC_USDT bleibt die einzige Analysequelle; Ausführung ist deaktiviert.",
+                "fr": f"Mother : {m_status} ; décision : {decision} ; moteur de stratégie : {s_status} ; porte de simulation papier : {paper_status} ; surveillance des actualités : {news_status}. Gate.io Public Spot BTC_USDT reste l’unique source d’analyse ; l’exécution est désactivée.",
+                "en": f"Mother: {m_status}; decision: {decision}; Strategy runtime: {s_status}; Paper simulation gate: {paper_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
             }
             answer = answers[language]
 
@@ -357,7 +364,7 @@ def build_chat_response(
         age = candle.get("age_seconds")
         claims.extend([
             _claim("Market source", "Gate.io Public Spot BTC_USDT"),
-            _claim("Market regime", regime, str(strategy.get("report_sha256") or "") or None),
+            _claim("Live market regime", regime, str(strategy.get("snapshot_sha256") or "") or None),
             _claim("Strategy decision", decision),
             _claim("Latest closed 15m candle close", close),
             _claim("Latest candle age seconds", age),
