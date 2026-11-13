@@ -10,6 +10,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import os
+import pwd
 from pathlib import Path
 import shutil
 import shlex
@@ -173,26 +174,87 @@ def _register_scheduled_file(
         return 1
 
 
-def _user_systemd_runtime_references() -> tuple[list[dict[str, str]], int]:
-    """Inspect active/lingering per-user managers; an uninspectable manager is UNKNOWN."""
+def _user_systemd_runtime_references(
+    *, linger_dir: Path = Path("/var/lib/systemd/linger"),
+) -> tuple[list[dict[str, str]], int]:
+    """Inspect active and lingering user managers from logind and systemd state."""
     refs: list[dict[str, str]] = []
     errors = 0
+    users: dict[str, str] = {}
+    active_manager_uids: set[str] = set()
+
     try:
-        users = subprocess.run(
+        listed = subprocess.run(
             ["loginctl", "list-users", "--no-legend", "--no-pager"],
             capture_output=True, text=True, timeout=15, check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
-        return refs, 1
-    if users.returncode != 0:
-        return refs, 1
-    properties = "ExecStart,ExecStartPre,ExecStartPost,WorkingDirectory,EnvironmentFiles,ReadWritePaths,ReadOnlyPaths,RequiresMountsFor,BindPaths,BindReadOnlyPaths,RootDirectory,RootImage,InaccessiblePaths,TemporaryFileSystem,ConditionPathExists,ConditionPathIsDirectory,StateDirectory,CacheDirectory,LogsDirectory,RuntimeDirectory"
-    for line in users.stdout.splitlines():
-        fields = line.split()
-        if len(fields) < 2 or not fields[0].isdigit():
+        listed = None
+        errors += 1
+    if listed is not None:
+        if listed.returncode != 0:
             errors += 1
-            continue
-        uid, username = fields[0], fields[1]
+        else:
+            for line in listed.stdout.splitlines():
+                fields = line.split()
+                if len(fields) < 2 or not fields[0].isdigit():
+                    errors += 1
+                    continue
+                users[fields[0]] = fields[1]
+
+    # loginctl list-users may omit a lingered account without an interactive
+    # session. The linger registry is an independent source of user managers.
+    try:
+        if linger_dir.is_dir():
+            for entry in linger_dir.iterdir():
+                if not entry.is_file():
+                    continue
+                username = entry.name
+                try:
+                    account = pwd.getpwnam(username)
+                except KeyError:
+                    refs.append({"unit": username, "property": "linger_user_unresolved", "value": str(entry)})
+                    errors += 1
+                    continue
+                users[str(account.pw_uid)] = account.pw_name
+    except OSError:
+        errors += 1
+
+    # Also inspect system user@UID.service units so a running manager is not
+    # missed if logind's user list is temporarily incomplete.
+    try:
+        managers = subprocess.run(
+            ["systemctl", "list-units", "--all", "--type=service", "--no-legend", "--plain", "--no-pager", "user@*.service"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        managers = None
+        errors += 1
+    if managers is not None:
+        if managers.returncode != 0:
+            errors += 1
+        else:
+            for line in managers.stdout.splitlines():
+                fields = line.split()
+                if len(fields) < 4 or not fields[0].startswith("user@") or not fields[0].endswith(".service"):
+                    continue
+                if fields[2] not in ("active", "activating", "reloading"):
+                    continue
+                uid = fields[0][5:-8]
+                if not uid.isdigit():
+                    errors += 1
+                    continue
+                active_manager_uids.add(uid)
+                try:
+                    account = pwd.getpwuid(int(uid))
+                except KeyError:
+                    refs.append({"unit": fields[0], "property": "system_user_manager_unresolved", "value": fields[0]})
+                    errors += 1
+                    continue
+                users[uid] = account.pw_name
+
+    properties = "ExecStart,ExecStartPre,ExecStartPost,WorkingDirectory,EnvironmentFiles,ReadWritePaths,ReadOnlyPaths,RequiresMountsFor,BindPaths,BindReadOnlyPaths,RootDirectory,RootImage,InaccessiblePaths,TemporaryFileSystem,ConditionPathExists,ConditionPathIsDirectory,StateDirectory,CacheDirectory,LogsDirectory,RuntimeDirectory"
+    for uid, username in sorted(users.items(), key=lambda item: (item[1], item[0])):
         try:
             state_result = subprocess.run(
                 ["loginctl", "show-user", username, "--property=State,Linger,RuntimePath", "--no-pager"],
@@ -208,7 +270,13 @@ def _user_systemd_runtime_references() -> tuple[list[dict[str, str]], int]:
         for item in state_result.stdout.splitlines():
             key, _, value = item.partition("=")
             state[key] = value
-        if state.get("State") != "active" and state.get("Linger") != "yes":
+        linger_file = (linger_dir / username).is_file()
+        manager_active = uid in active_manager_uids
+        if state.get("State") != "active" and state.get("Linger") != "yes" and not linger_file and not manager_active:
+            continue
+        if linger_file and state.get("Linger") != "yes":
+            refs.append({"unit": username, "property": "linger_registry_logind_mismatch", "value": str(linger_dir / username)})
+            errors += 1
             continue
         runtime = state.get("RuntimePath") or f"/run/user/{uid}"
         bus = Path(runtime) / "bus"
