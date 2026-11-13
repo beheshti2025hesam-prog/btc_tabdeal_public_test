@@ -195,6 +195,15 @@ def test_conflicting_existing_duplicate_fails_closed(tmp_path):
 
 
 
+
+def test_rest_retry_interval_shortens_only_after_1m_transport_failure(monkeypatch):
+    monkeypatch.setattr(collector, "INTERVAL", "1m")
+    assert collector._rest_retry_interval(transient_failure=False) == 20
+    assert collector._rest_retry_interval(transient_failure=True) == 5
+    monkeypatch.setattr(collector, "INTERVAL", "15m")
+    assert collector._rest_retry_interval(transient_failure=True) == 20
+
+
 def test_run_treats_socket_timeout_as_idle_and_keeps_connection(monkeypatch):
     connections = []
     append_calls = []
