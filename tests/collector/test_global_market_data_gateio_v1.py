@@ -222,7 +222,7 @@ def test_run_treats_socket_timeout_as_idle_and_keeps_connection(monkeypatch):
             collector.STOP = True
         return last_ts
 
-    ticks = iter((100.0, 100.0, 121.0))
+    ticks = iter((100.0, 100.0, 100.0, 121.0))
     monkeypatch.setattr(collector, "STOP", False)
     monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
@@ -282,7 +282,7 @@ def test_transient_rest_error_does_not_drop_websocket_session(monkeypatch):
             collector.STOP = True
         return last_ts
 
-    ticks = iter((100.0, 100.0, 100.0, 121.0, 121.0))
+    ticks = iter((100.0, 100.0, 100.0, 100.0, 121.0, 121.0))
     monkeypatch.setattr(collector, "STOP", False)
     monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
