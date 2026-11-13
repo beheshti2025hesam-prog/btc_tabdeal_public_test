@@ -11,6 +11,9 @@ from core.paper.strategy_v2_execution_gate import (
     EXPECTED_RECOVERY_CANDIDATE_HEAD,
     PaperExecutionGateV1,
     RECOVERY_SCHEMA,
+    RECOVERY_CANDIDATE_1M_SERVICE,
+    RECOVERY_MARKET_DATA_ROOT,
+    RECOVERY_REQUIRED_SERVICES,
     _canonical_hash,
     verify_gateio_1m_recovery_evidence,
 )
@@ -112,16 +115,24 @@ class PaperExecutionGateTests(unittest.TestCase):
             (release / "forward").mkdir()
             soak_script = release / "scripts/soak_gateio_feed_24h_v2.py"
             reader_script = release / "forward/global_market_data_reader_v1.py"
+            collector_script = release / "scripts/run_global_market_data_gateio_service.py"
+            collector_module = release / "forward/global_market_data_gateio_v1.py"
             soak_script.write_text("# immutable fixture soak script\n", encoding="utf-8")
             reader_script.write_text("# immutable fixture market reader\n", encoding="utf-8")
+            collector_script.write_text("# immutable fixture collector entry\n", encoding="utf-8")
+            collector_module.write_text("# immutable fixture collector module\n", encoding="utf-8")
             script_hash = sha256(soak_script.read_bytes()).hexdigest()
             reader_hash = sha256(reader_script.read_bytes()).hexdigest()
+            collector_script_hash = sha256(collector_script.read_bytes()).hexdigest()
+            collector_module_hash = sha256(collector_module.read_bytes()).hexdigest()
             manifest = {
                 "commit_sha": EXPECTED_RECOVERY_CANDIDATE_HEAD,
-                "file_count": 2,
+                "file_count": 4,
                 "files": [
                     {"path": "scripts/soak_gateio_feed_24h_v2.py", "sha256": script_hash},
                     {"path": "forward/global_market_data_reader_v1.py", "sha256": reader_hash},
+                    {"path": "scripts/run_global_market_data_gateio_service.py", "sha256": collector_script_hash},
+                    {"path": "forward/global_market_data_gateio_v1.py", "sha256": collector_module_hash},
                 ],
             }
             manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
@@ -137,17 +148,54 @@ class PaperExecutionGateTests(unittest.TestCase):
                 item.chmod(0o555)
             release.chmod(0o555)
 
+            now = datetime(2026, 11, 13, 18, 0, 30, tzinfo=timezone.utc)
+            market_root = root / RECOVERY_MARKET_DATA_ROOT
+            market_forward = market_root / "data/forward"
+            market_forward.mkdir(parents=True)
+            candidate_ledger = market_forward / "global_market_candles_1m_v1.jsonl"
+            candidate_ledger.write_text("fixture candidate ledger\n", encoding="utf-8")
+            wrapper_path = market_root / "run_candidate_soak.py"
+            wrapper_text = "\n".join([
+                "import runpy",
+                f"script = {str(release / 'scripts/soak_gateio_feed_24h_v2.py')!r}",
+                "ns = runpy.run_path(script)",
+                'g = ns["main"].__globals__',
+                'g["SERVICES"] = (',
+                f"    {'hes-global-market-data-gateio.service'!r},",
+                f"    {RECOVERY_CANDIDATE_1M_SERVICE!r},",
+                f"    {'hes-global-market-data-gateio-1h.service'!r},",
+                f"    {'hes-global-market-data-gateio-4h.service'!r},",
+                ")",
+                'raise SystemExit(ns["main"]())',
+                "",
+            ])
+            wrapper_path.write_text(wrapper_text, encoding="utf-8")
+            collector_manifest_path = market_root / "candidate_collector_unit_manifest.json"
+            collector_manifest = {
+                "schema": "hes.gateio_1m_candidate_collector_unit.v1",
+                "unit_name": RECOVERY_CANDIDATE_1M_SERVICE,
+                "captured_at_utc": now.isoformat(),
+                "candidate_root": str(market_root),
+                "properties": {
+                    "Id": RECOVERY_CANDIDATE_1M_SERVICE,
+                    "ActiveState": "active",
+                    "SubState": "running",
+                    "User": "sentinelx",
+                    "Group": "sentinelx",
+                    "WorkingDirectory": str(release),
+                    "ExecStart": f"{{ path=/opt/hes-trade-agent/.venv/bin/python ; argv[]=/opt/hes-trade-agent/.venv/bin/python -u {collector_script} }}",
+                    "Environment": f"PYTHONUNBUFFERED=1 HES_GLOBAL_CANDLES_INTERVAL=1m HES_GLOBAL_CANDLES_OUTPUT={candidate_ledger}",
+                    "ReadWritePaths": str(market_forward),
+                    "Restart": "always",
+                    "RestartUSec": "5s",
+                },
+            }
+            collector_manifest_path.write_text(json.dumps(collector_manifest, sort_keys=True), encoding="utf-8")
+
             artifact_dir = root / "data/forward/gateio_1m_recovery_24h"
             artifact_dir.mkdir(parents=True)
-            now = datetime(2026, 11, 13, 18, 0, 30, tzinfo=timezone.utc)
             run_id = "fixture-official-soak-run"
-            services = [
-                "hes-global-market-data-gateio.service",
-                "hes-global-market-data-gateio-1m.service",
-                "hes-global-market-data-gateio-1m-integrity.timer",
-                "hes-global-market-data-gateio-1h.service",
-                "hes-global-market-data-gateio-4h.service",
-            ]
+            services = sorted(RECOVERY_REQUIRED_SERVICES)
             samples = []
             for i in range(1441):
                 observed = now + timedelta(seconds=i * 60)
@@ -229,7 +277,11 @@ class PaperExecutionGateTests(unittest.TestCase):
                 encoding="utf-8",
             )
             collector_path = artifact_dir / "collector_1m.log"
-            collector_path.write_text("collector started\ncollector healthy\n", encoding="utf-8")
+            collector_path.write_text("HES_GLOBAL_MARKET_START\nHES_GLOBAL_MARKET_WS_SUBSCRIBED\n", encoding="utf-8")
+            wrapper_artifact = artifact_dir / "soak_wrapper.py"
+            wrapper_artifact.write_text(wrapper_path.read_text(encoding="utf-8"), encoding="utf-8")
+            manifest_artifact = artifact_dir / "candidate_collector_manifest.json"
+            manifest_artifact.write_text(collector_manifest_path.read_text(encoding="utf-8"), encoding="utf-8")
             for item in artifact_dir.iterdir():
                 item.chmod(0o444)
             artifact_dir.chmod(0o555)
@@ -240,6 +292,10 @@ class PaperExecutionGateTests(unittest.TestCase):
                                   "sha256": sha256(sample_path.read_bytes()).hexdigest()},
                 "collector_log": {"path": "data/forward/gateio_1m_recovery_24h/collector_1m.log",
                                   "sha256": sha256(collector_path.read_bytes()).hexdigest()},
+                "soak_wrapper": {"path": "data/forward/gateio_1m_recovery_24h/soak_wrapper.py",
+                                 "sha256": sha256(wrapper_artifact.read_bytes()).hexdigest()},
+                "candidate_collector_manifest": {"path": "data/forward/gateio_1m_recovery_24h/candidate_collector_manifest.json",
+                                                  "sha256": sha256(manifest_artifact.read_bytes()).hexdigest()},
             }
             payload = {
                 "schema": RECOVERY_SCHEMA,
@@ -254,6 +310,10 @@ class PaperExecutionGateTests(unittest.TestCase):
                 "max_observed_candle_age_seconds": 30,
                 "release_manifest_sha256": manifest_hash,
                 "soak_script_sha256": script_hash,
+                "collector_script_sha256": collector_script_hash,
+                "collector_module_sha256": collector_module_hash,
+                "candidate_market_data_root": RECOVERY_MARKET_DATA_ROOT,
+                "candidate_collector_service": RECOVERY_CANDIDATE_1M_SERVICE,
                 "final_stats": {
                     "rows": len(candle_rows),
                     "last_open_time": candle_rows[-1]["open_time"],
