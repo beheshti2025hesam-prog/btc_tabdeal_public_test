@@ -456,7 +456,7 @@ def run() -> None:
                     # A quiet socket/read timeout is not itself a broken session.
                     # Keep the stream alive and let the bounded REST reconciliation
                     # below maintain the canonical persisted candle feed.
-                    if time.monotonic() > deadline and not subscribed:
+                    if not subscribed and time.monotonic() > deadline:
                         raise RuntimeError("Gate.io WebSocket subscription timed out")
                     raw = None
                 if raw is not None:
@@ -477,7 +477,7 @@ def run() -> None:
                         last_rest_sync = time.monotonic()
                         if rest_ok:
                             backoff = 2
-                # Reconcile at least every 20s even if WS sends a continuous stream
+                # Reconcile at the bounded retry interval even if WS sends a continuous stream
                 # of malformed/unrelated messages and recv() never times out.
                 if subscribed and time.monotonic() - last_rest_sync >= rest_retry_interval:
                     last_ts, rest_ok = _sync_rest(source, last_ts, context="periodic")
