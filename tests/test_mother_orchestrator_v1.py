@@ -69,11 +69,12 @@ def test_extra_specialist_fails_closed_to_prevent_shadow_agents():
     assert "UNREGISTERED_SPECIALISTS:execution" in r.reason_codes
 
 
-def test_risk_veto_stops_downstream():
+def test_risk_veto_does_not_suppress_decision_or_evaluation():
     a = agents(risk=Stub("risk", "REJECTED", reasons=("RISK_BUDGET_UNKNOWN",)))
     r = MotherOrchestratorV1(a).run(CONTEXT)
     assert r.decision == "NO_TRADE" and r.status == "BLOCKED_RISK_VETO"
-    assert len(r.stages) == 5 and not a["decision"].seen
+    assert tuple(stage.agent for stage in r.stages) == ORDER
+    assert a["decision"].seen and a["evaluation"].seen
 
 
 def test_agent_exception_fails_closed():
@@ -82,10 +83,12 @@ def test_agent_exception_fails_closed():
     assert r.status == "BLOCKED_AGENT_ERROR" and r.decision == "NO_TRADE"
 
 
-def test_unknown_state_fails_closed():
+def test_unknown_state_fails_closed_after_all_independent_specialists_run():
     a = agents(confirmation=Stub("confirmation", "UNKNOWN"))
     r = MotherOrchestratorV1(a).run(CONTEXT)
     assert r.status == "BLOCKED_GATE" and r.decision == "NO_TRADE"
+    assert tuple(stage.agent for stage in r.stages) == ORDER
+    assert a["risk"].seen and a["decision"].seen and a["evaluation"].seen
 
 
 def test_success_is_observation_only_and_auditable():
