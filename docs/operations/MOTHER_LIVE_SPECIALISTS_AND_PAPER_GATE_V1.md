@@ -14,7 +14,7 @@ The seven registered specialists are:
 6. **Decision** — applies the final policy/risk gates and records a no-trade decision whenever a required gate is not approved.
 7. **Evaluation** — reads the existing decision journal; it does not infer outcomes or write new journal records.
 
-A specialist may remain NOT_RUN when an upstream gate blocks the chain. That is intentional fail-fast behavior, not a missing connection. The dashboard exposes registered and actually executed specialists separately.
+On a valid shared market snapshot, all seven specialists are invoked in canonical order even when an upstream gate fails. An unconfirmed signal therefore does not suppress Risk, Decision, or Evaluation; the final result remains NO_TRADE and a risk rejection retains veto precedence. A runtime exception or invalid input still fails closed. The dashboard exposes registered and actually executed specialists separately.
 
 ## Market-data and sequence semantics
 
@@ -39,17 +39,24 @@ The gate reports READY_FOR_PAPER_SIMULATION only when every condition passes. It
 
 ## PR #498 recovery evidence
 
-The required evidence is tied to immutable release commit 309ebf36c0ad18752516f928ebc6e0944a632ec9, its HES_RELEASE_MANIFEST_v1.json, and the exact scripts/soak_gateio_feed_24h_v2.py hash.
+The 24h recovery soak runs the immutable PR #498 candidate commit `309ebf36c0ad18752516f928ebc6e0944a632ec9` without replacing the production 1m collector. Its 1m collector runs as the separate systemd unit `hes-global-market-data-gateio-1m-pr498-candidate.service`, with `WorkingDirectory` and collector entrypoint bound to the exact candidate release and its output isolated at:
 
-After that official soak writes a passing summary, build the durable evidence package with:
+`/opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/data/forward/global_market_candles_1m_v1.jsonl`
+
+The isolated market root reuses the validated production 15m/1h/4h ledgers read-only; only its 1m ledger is written by the candidate collector. The soak wrapper overrides the release-bound soak's service witness to check the production 15m/1h/4h services plus the isolated candidate 1m service. The wrapper and captured `systemctl show` manifest are both hashed into the evidence package. The release manifest must also bind the collector entrypoint and `forward/global_market_data_gateio_v1.py`, not only the soak script and reader.
+
+After a passing 24h soak, build the durable evidence package with:
 
     python scripts/ops/build_gateio_1m_recovery_evidence_v1.py \
       --data-root /opt/hes-trade-agent \
       --release-root /opt/hes-trade-agent/releases/309ebf36c0ad18752516f928ebc6e0944a632ec9 \
-      --soak-log /opt/hes-trade-agent/data/forward/gateio_feed_soak_24h_v2_pr498_309ebf.jsonl \
+      --market-data-root /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9 \
+      --soak-log /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/data/forward/gateio_feed_soak_24h_pr498_candidate.jsonl \
+      --soak-wrapper /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/run_candidate_soak.py \
+      --candidate-collector-manifest /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/candidate_collector_unit_manifest.json \
       --output /opt/hes-trade-agent/data/forward/gateio_1m_recovery_24h_evidence.json
 
-The builder preserves the official soak JSONL, a canonical 1m candle snapshot read with the candidate release reader, and the 1m collector journal. It hashes and makes the artifacts read-only, then runs the same verifier used by Mother. A failed or incomplete soak cannot produce verified recovery evidence.
+The builder preserves the official soak JSONL, canonical 1m snapshot, candidate collector journal, wrapper and collector-unit manifest. It verifies the exact release hashes and candidate service contract, makes evidence artifacts read-only, then runs the same verifier used by Mother. A failed or incomplete soak cannot produce verified recovery evidence.
 
 ## Safety and promotion
 
