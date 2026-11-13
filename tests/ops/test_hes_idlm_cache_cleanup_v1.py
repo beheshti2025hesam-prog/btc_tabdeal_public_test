@@ -442,3 +442,100 @@ finally:
     result = subprocess.run(command, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + "\n" + result.stderr
     assert "IDLM_QUARANTINE_RESTORE_E2E=PASS" in result.stdout
+
+
+
+def test_apply_time_scan_errors_block_quarantine():
+    from scripts.ops.hes_idlm_cache_cleanup_v1 import _require_complete_fresh_scan, CleanupSafetyError
+
+    with pytest.raises(CleanupSafetyError, match="FRESH_SCAN_INCOMPLETE"):
+        _require_complete_fresh_scan({"scan_errors": ["UNREADABLE_ROOT"], "worktree_registry": {"error": None}})
+    with pytest.raises(CleanupSafetyError, match="FRESH_SCAN_INCOMPLETE"):
+        _require_complete_fresh_scan({"scan_errors": [], "worktree_registry": {"error": "REGISTRY_UNAVAILABLE"}})
+    _require_complete_fresh_scan({"scan_errors": [], "worktree_registry": {"error": None}})
+
+
+def test_content_changed_quarantine_event_remains_restorable():
+    from scripts.ops.hes_idlm_cache_cleanup_v1 import _restorable_quarantine_event
+
+    assert _restorable_quarantine_event("QUARANTINE_CONTENT_CHANGED") is True
+    assert _restorable_quarantine_event("QUARANTINE_HELD") is True
+    assert _restorable_quarantine_event("QUARANTINED") is True
+    assert _restorable_quarantine_event("QUARANTINE_ABORTED") is False
+    assert _restorable_quarantine_event("QUARANTINE_IDENTITY_MISMATCH") is False
+
+
+
+def test_content_changed_during_quarantine_can_be_restored_with_contents_preserved(tmp_path):
+    if os.geteuid() != 0:
+        if shutil.which("sudo") is None or subprocess.run(["sudo", "-n", "true"], capture_output=True).returncode != 0:
+            pytest.skip("root or passwordless sudo is required for end-to-end safety test")
+    script = r"""
+import hashlib, json, os, shutil, sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import scripts.ops.hes_idlm_cache_cleanup_v1 as cleanup
+
+def run(base):
+    cleanup.ALLOWED_ROOTS = (base,)
+    cleanup.REPO_ROOT = base
+    cleanup._load_worktrees = lambda _root: (set(), None)
+    proc_root = base / "proc"
+    proc_root.mkdir()
+    target = base / "fixture" / "__pycache__"
+    target.mkdir(parents=True)
+    cached_file = target / "module.pyc"
+    cached_file.write_bytes(b"before-move")
+    now = datetime.now(timezone.utc) + timedelta(days=15)
+    old = (now - timedelta(days=15)).timestamp()
+    os.utime(cached_file, (old, old)); os.utime(target, (old, old))
+    original_build = cleanup.build_cleanup_plan
+    def build_with_clock(*args, **kwargs):
+        kwargs.setdefault("now", now)
+        return original_build(*args, **kwargs)
+    cleanup.build_cleanup_plan = build_with_clock
+    plan = cleanup.build_cleanup_plan(now=now, registered_worktrees=set(), proc_root=proc_root)
+    assert plan["eligible_count"] == 1, plan
+    manifest_path = base / "plan.json"
+    manifest_bytes = (json.dumps(plan, sort_keys=True) + "\n").encode()
+    manifest_path.write_bytes(manifest_bytes); os.chmod(manifest_path, 0o600)
+    digest = hashlib.sha256(manifest_bytes).hexdigest()
+    audit_path = base / "audit" / "cleanup.jsonl"
+    original_snapshot = cleanup._tree_snapshot
+    def mutate_only_after_rename(path):
+        path = Path(path)
+        if path.parent.parent.name == cleanup.QUARANTINE_NAME:
+            (path / "module.pyc").write_bytes(b"changed-during-rename-window")
+        return original_snapshot(path)
+    cleanup._tree_snapshot = mutate_only_after_rename
+    try:
+        cleanup.quarantine_manifest(manifest_path, expected_sha256=digest,
+            confirmation=cleanup.CONFIRM_PHRASE, audit_path=audit_path, proc_root=proc_root)
+        raise AssertionError("content mutation during rename window was not detected")
+    except cleanup.CleanupSafetyError as exc:
+        assert str(exc) == "POST_RENAME_CONTENT_CHANGED_RESTORE_AVAILABLE", str(exc)
+    cleanup._tree_snapshot = original_snapshot
+    events = [json.loads(line) for line in audit_path.read_text().splitlines()]
+    event = next(row for row in reversed(events) if row["action"] == "QUARANTINE_CONTENT_CHANGED")
+    quarantined = Path(event["destination"])
+    assert quarantined.is_dir() and not target.exists()
+    result = cleanup.restore_quarantine(quarantined,
+        confirmation="RESTORE HES QUARANTINED CACHE", audit_path=audit_path)
+    assert result["action"] == "RESTORED"
+    assert (target / "module.pyc").read_bytes() == b"changed-during-rename-window"
+    assert not quarantined.exists()
+
+base = Path(sys.argv[1]) / "root-test"
+base.mkdir(mode=0o700)
+try:
+    run(base)
+    print("IDLM_CONTENT_CHANGED_RESTORE_E2E=PASS")
+finally:
+    shutil.rmtree(base, ignore_errors=True)
+"""
+    command = [sys.executable, "-c", script, str(tmp_path)]
+    if os.geteuid() != 0:
+        command = ["sudo", "-n", *command]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + "\\n" + result.stderr
+    assert "IDLM_CONTENT_CHANGED_RESTORE_E2E=PASS" in result.stdout

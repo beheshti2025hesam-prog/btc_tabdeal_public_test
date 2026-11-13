@@ -557,6 +557,13 @@ def _write_new_manifest(path: Path, rendered: str) -> str:
         os.close(parent_fd)
 
 
+def _require_complete_fresh_scan(report: dict[str, Any]) -> None:
+    """A fresh apply-time inventory must be globally complete, not just locally eligible."""
+    registry = report.get("worktree_registry") or {}
+    if report.get("scan_errors") or registry.get("error"):
+        raise CleanupSafetyError("FRESH_SCAN_INCOMPLETE")
+
+
 def quarantine_manifest(
     manifest_path: Path, *, expected_sha256: str, confirmation: str,
     audit_path: Path = AUDIT_PATH, proc_root: Path = Path("/proc"),
@@ -620,6 +627,7 @@ def quarantine_manifest(
         fresh = build_cleanup_plan(
             registered_worktrees=None, proc_root=proc_root
         )
+        _require_complete_fresh_scan(fresh)
         match = next((r for r in fresh["candidates"] if r["path"] == str(source)), None)
         if not match or not match.get("eligible") or match.get("tree_sha256") != item.get("tree_sha256"):
             raise CleanupSafetyError("STALE_OR_CHANGED_MANIFEST")
@@ -712,9 +720,10 @@ def quarantine_manifest(
             if post_snapshot["tree_sha256"] != item["tree_sha256"]:
                 _append_audit({
                     **event, "at": datetime.now(timezone.utc).isoformat(),
-                    "action": "QUARANTINE_IDENTITY_MISMATCH",
+                    "action": "QUARANTINE_CONTENT_CHANGED",
+                    "reason": "POST_RENAME_TREE_FINGERPRINT_CHANGED",
                 }, audit_path)
-                raise CleanupSafetyError("POST_RENAME_CONTENT_MISMATCH")
+                raise CleanupSafetyError("POST_RENAME_CONTENT_CHANGED_RESTORE_AVAILABLE")
             if post_errors or post_refs:
                 _append_audit({
                     **event, "at": datetime.now(timezone.utc).isoformat(),
@@ -760,6 +769,11 @@ def _restore_identity_scan(path: Path) -> set[tuple[int, int]]:
     return identities
 
 
+def _restorable_quarantine_event(action: str) -> bool:
+    """Identity mismatch is unsafe to auto-restore; content change is recoverable."""
+    return action not in {"QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH"}
+
+
 def restore_quarantine(
     quarantine_path: Path, *, confirmation: str, audit_path: Path = AUDIT_PATH
 ) -> dict[str, Any]:
@@ -802,14 +816,12 @@ def restore_quarantine(
             event.get("destination") == str(quarantine_path)
             and event.get("action") in {
                 "QUARANTINED", "QUARANTINE_INTENT",
-                "QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH", "QUARANTINE_HELD",
+                "QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH", "QUARANTINE_CONTENT_CHANGED", "QUARANTINE_HELD",
             }
         ):
             matched_event = event
             break
-    if matched_event is None or matched_event.get("action") in {
-        "QUARANTINE_ABORTED", "QUARANTINE_IDENTITY_MISMATCH",
-    }:
+    if matched_event is None or not _restorable_quarantine_event(matched_event.get("action", "")):
         raise CleanupSafetyError("RESTORE_ORIGIN_NOT_AUDITED")
     original = Path(matched_event["source"])
     if original.exists() or original.is_symlink():
