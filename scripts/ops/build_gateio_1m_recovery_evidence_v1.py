@@ -222,6 +222,8 @@ def build_evidence(
     journal = subprocess.run(
         [
             "journalctl", "-u", RECOVERY_CANDIDATE_1M_SERVICE,
+            f"--since=@{max(0, int(started_at.timestamp()) - 300)}",
+            f"--until=@{int(finished_at.timestamp())}",
             "--no-pager", "-o", "short-iso",
         ],
         capture_output=True, text=True, timeout=180,
