@@ -1,0 +1,58 @@
+# Mother live specialists and paper-execution gate v1
+
+## Runtime authority
+
+The production Mother API and Command Center use web.mother_runtime_dashboard_view and core.orchestration.mother_runtime_specialists_v1. Every request loads the current shared Gate.io Public Spot BTC_USDT candle ledger and invokes the deterministic HES evaluators. The report-backed mother_v2_dashboard_view is legacy-only and must not be wired back into the live API.
+
+The seven registered specialists are:
+
+1. **Data Quality** — validates the shared 15m/1h/4h candle input, provenance, and the dedicated 1m precision-entry feed.
+2. **Market Structure** — derives the current 15m regime and causal structure from closed candles.
+3. **Signal** — evaluates the active Strategy V2 policy against the current multi-timeframe snapshot.
+4. **Confirmation** — independently detects the opportunity and evaluates direction/structure confirmation.
+5. **Risk** — independently evaluates confirmation, stop/target geometry, minimum 3R, simulation sizing assumptions, exposure and cost-model gates.
+6. **Decision** — applies the final policy/risk gates and records a no-trade decision whenever a required gate is not approved.
+7. **Evaluation** — reads the existing decision journal; it does not infer outcomes or write new journal records.
+
+A specialist may remain NOT_RUN when an upstream gate blocks the chain. That is intentional fail-fast behavior, not a missing connection. The dashboard exposes registered and actually executed specialists separately.
+
+## Market-data and sequence semantics
+
+- Gate.io Public Spot BTC_USDT remains the sole live analysis/chart/candle source.
+- 15m validates the setup; 1m is a precision-entry input only and has direction_authority=false.
+- Sequence validation means **closed-candle open-time alignment, ordering, duplicate and gap checks only**.
+- No venue trade ID, trade.sequence, WebSocket update ID, or sequence-like field is treated as a universal ordering guarantee, identity key, deduplication key, or gap detector. Unknown sequence semantics remain unused.
+
+## Paper-simulation readiness gate
+
+PaperExecutionGateV1 is a readiness gate, not an order executor. It requires all of the following:
+
+- explicit active Strategy V2 policy and ruleset metadata;
+- current Gate.io data, observed structure, candle integrity, clock and 1m health;
+- verified release-bound 24h 1m recovery evidence;
+- a directional strategy candidate and matching confirmation;
+- an evaluated and approved risk result;
+- precision-entry readiness;
+- execution, historical-input leakage and future-outcome leakage all disabled.
+
+The gate reports READY_FOR_PAPER_SIMULATION only when every condition passes. It never calls a venue adapter, creates a position, mutates capital, submits an order, or writes the decision journal. Missing or invalid evidence blocks the gate.
+
+## PR #498 recovery evidence
+
+The required evidence is tied to immutable release commit 309ebf36c0ad18752516f928ebc6e0944a632ec9, its HES_RELEASE_MANIFEST_v1.json, and the exact scripts/soak_gateio_feed_24h_v2.py hash.
+
+After that official soak writes a passing summary, build the durable evidence package with:
+
+    python scripts/ops/build_gateio_1m_recovery_evidence_v1.py \
+      --data-root /opt/hes-trade-agent \
+      --release-root /opt/hes-trade-agent/releases/309ebf36c0ad18752516f928ebc6e0944a632ec9 \
+      --soak-log /opt/hes-trade-agent/data/forward/gateio_feed_soak_24h_v2_pr498_309ebf.jsonl \
+      --output /opt/hes-trade-agent/data/forward/gateio_1m_recovery_24h_evidence.json
+
+The builder preserves the official soak JSONL, a canonical 1m candle snapshot read with the candidate release reader, and the 1m collector journal. It hashes and makes the artifacts read-only, then runs the same verifier used by Mother. A failed or incomplete soak cannot produce verified recovery evidence.
+
+## Safety and promotion
+
+- Mother, paper readiness and dashboard are observation-only.
+- No merge, active-release pointer change, collector restart, live order, or paper position is implied by a green unit test or a passing soak.
+- Policy/ruleset activation and the separate PR #496 full-restore gate remain independent promotion requirements.
