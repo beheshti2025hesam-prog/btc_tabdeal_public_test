@@ -162,6 +162,8 @@ class PaperExecutionGateTests(unittest.TestCase):
                 'g = ns["main"].__globals__',
                 'g["SERVICES"] = (',
                 f"    {'hes-global-market-data-gateio.service'!r},",
+                f"    {'hes-global-market-data-gateio-1m.service'!r},",
+                f"    {'hes-global-market-data-gateio-1m-integrity.timer'!r},",
                 f"    {RECOVERY_CANDIDATE_1M_SERVICE!r},",
                 f"    {'hes-global-market-data-gateio-1h.service'!r},",
                 f"    {'hes-global-market-data-gateio-4h.service'!r},",
