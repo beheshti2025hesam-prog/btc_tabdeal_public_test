@@ -108,6 +108,42 @@ def test_rest_fetch_reuses_native_gateio_adapter_and_persists_explicit_symbol_ma
     assert rows[0]["closed"] is True
 
 
+def test_1m_steady_state_rest_reconciliation_uses_small_overlap_window(monkeypatch):
+    monkeypatch.setattr(collector, "INTERVAL", "1m")
+    monkeypatch.setattr(collector, "INTERVAL_SECONDS", 60)
+    native = SimpleNamespace(
+        open_time_ms=1_799_999_940_000,
+        close_time_ms=1_799_999_999_999,
+        open=Decimal("11"), high=Decimal("13"), low=Decimal("10"), close=Decimal("12"),
+        volume=Decimal("1.2"), quote_volume=Decimal("2.4"), closed=True,
+    )
+    batch = SimpleNamespace(fetched_at_ms=1_800_000_000_000, gaps=(), candles=(native,))
+
+    class FakeSource:
+        def __init__(self): self.kwargs = None
+        def fetch(self, **kwargs): self.kwargs = kwargs; return batch
+
+    source = FakeSource()
+    rows = collector.fetch_recent_closed(source, now=1_800_000_000, last_ts=1_799_999_940)
+    assert source.kwargs == {
+        "symbol": "BTCUSDT", "interval": "1m", "limit": 1000,
+        "start_time_ms": 1_799_999_820_000,
+        "end_time_ms": 1_800_000_000_000,
+        "as_of_ms": 1_800_000_000_000,
+    }
+    assert rows[0]["open_time"] == 1_799_999_940
+
+
+def test_1m_steady_state_reconciliation_fails_closed_on_reported_gap(monkeypatch):
+    monkeypatch.setattr(collector, "INTERVAL", "1m")
+    monkeypatch.setattr(collector, "INTERVAL_SECONDS", 60)
+    class FakeSource:
+        def fetch(self, **kwargs):
+            return SimpleNamespace(fetched_at_ms=1_800_000_000_000, gaps=(object(),), candles=())
+    with pytest.raises(ValueError, match="incremental 1m reconciliation"):
+        collector.fetch_recent_closed(FakeSource(), now=1_800_000_000, last_ts=1_799_999_940)
+
+
 def test_rest_backfill_fails_closed_when_native_adapter_reports_gaps():
     class FakeSource:
         def fetch(self, **kwargs):
@@ -212,8 +248,9 @@ def test_run_treats_socket_timeout_as_idle_and_keeps_connection(monkeypatch):
         def __init__(self):
             self.messages = [json.dumps({"event": "subscribe", "result": {"status": "success"}})]
             self.closed = False
-        def send(self, _payload):
-            pass
+            self.sent = []
+        def send(self, payload):
+            self.sent.append(json.loads(payload))
         def recv(self):
             if self.messages:
                 return self.messages.pop(0)
@@ -231,12 +268,12 @@ def test_run_treats_socket_timeout_as_idle_and_keeps_connection(monkeypatch):
             collector.STOP = True
         return last_ts
 
-    ticks = iter((100.0, 100.0, 100.0, 121.0))
+    ticks = iter((100.0, 100.0, 100.0, 121.0, 121.0, 121.0, 121.0, 121.0, 121.0))
     monkeypatch.setattr(collector, "STOP", False)
     monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
     monkeypatch.setattr(collector, "_last_saved_ts", lambda _path: -1)
-    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source: [])
+    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source, **_kwargs: [])
     monkeypatch.setattr(collector, "_append_new", append)
     monkeypatch.setattr(collector.time, "monotonic", lambda: next(ticks))
     monkeypatch.setattr(collector.websocket, "create_connection", create_connection)
@@ -245,6 +282,7 @@ def test_run_treats_socket_timeout_as_idle_and_keeps_connection(monkeypatch):
 
     assert len(connections) == 1
     assert len(append_calls) == 2
+    assert any(message.get("channel") == "spot.ping" for message in socket.sent)
     assert socket.closed is True
 
 
@@ -280,7 +318,7 @@ def test_transient_rest_error_does_not_drop_websocket_session(monkeypatch):
     def create_connection(*_args, **_kwargs):
         connections.append(socket)
         return socket
-    def fetch(_source):
+    def fetch(_source, **_kwargs):
         rest_calls.append(len(rest_calls) + 1)
         if len(rest_calls) == 2:
             raise URLError("temporary Gate.io REST timeout")
@@ -291,7 +329,7 @@ def test_transient_rest_error_does_not_drop_websocket_session(monkeypatch):
             collector.STOP = True
         return last_ts
 
-    ticks = iter((100.0, 100.0, 100.0, 100.0, 121.0, 121.0))
+    ticks = iter((100.0, 100.0, 100.0, 100.0, 121.0, 121.0, 121.0, 121.0, 121.0, 121.0, 121.0, 121.0))
     monkeypatch.setattr(collector, "STOP", False)
     monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
@@ -333,7 +371,7 @@ def test_run_reconnects_after_disconnect_with_bounded_backoff(monkeypatch):
     monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
     monkeypatch.setattr(collector, "_last_saved_ts", lambda _path: -1)
-    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source: [])
+    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source, **_kwargs: [])
     monkeypatch.setattr(collector, "_append_new", lambda _candles, last_ts: last_ts)
     monkeypatch.setattr(collector.websocket, "create_connection", create_connection)
     monkeypatch.setattr(collector.time, "sleep", lambda seconds: sleeps.append(seconds))
@@ -426,7 +464,7 @@ def test_closed_ws_message_triggers_rest_persistence_only(monkeypatch):
     monkeypatch.setattr(collector.signal, "signal", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(collector, "GateioSpotKlineSource", lambda: object())
     monkeypatch.setattr(collector, "_last_saved_ts", lambda _path: -1)
-    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source: rest_rows)
+    monkeypatch.setattr(collector, "fetch_recent_closed", lambda _source, **_kwargs: rest_rows)
     monkeypatch.setattr(collector, "_append_new", lambda rows, last_ts: appended.append(rows) or last_ts)
     monkeypatch.setattr(collector.websocket, "create_connection", lambda *_args, **_kwargs: socket)
 
