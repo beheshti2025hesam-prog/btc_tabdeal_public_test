@@ -415,6 +415,12 @@ def _sync_rest(source: GateioSpotKlineSource, last_ts: int, *, context: str) -> 
     return _append_new(candles, last_ts), True
 
 
+
+def _rest_retry_interval(*, transient_failure: bool) -> int:
+    """Keep normal REST cadence bounded; accelerate only 1m transient recovery."""
+    return 5 if transient_failure and INTERVAL == "1m" else 20
+
+
 def run() -> None:
     global STOP
     STOP = False
@@ -427,12 +433,13 @@ def run() -> None:
         flush=True,
     )
     backoff = 2
-    rest_retry_interval = 5 if INTERVAL == "1m" else 20
+    rest_retry_interval = 20
     max_backoff = 10 if INTERVAL == "1m" else 60
     while not STOP:
         ws = None
         try:
             last_ts, rest_ok = _sync_rest(source, last_ts, context="startup")
+            rest_retry_interval = _rest_retry_interval(transient_failure=not rest_ok)
             if rest_ok:
                 backoff = 2
             ws = websocket.create_connection(WS_URL, timeout=12, origin="https://www.gate.com")
@@ -475,6 +482,7 @@ def run() -> None:
                         # shared eight-field REST adapter, never from WS payloads.
                         last_ts, rest_ok = _sync_rest(source, last_ts, context="ws_close")
                         last_rest_sync = time.monotonic()
+                        rest_retry_interval = _rest_retry_interval(transient_failure=not rest_ok)
                         if rest_ok:
                             backoff = 2
                 # Reconcile at the bounded retry interval even if WS sends a continuous stream
@@ -482,6 +490,7 @@ def run() -> None:
                 if subscribed and time.monotonic() - last_rest_sync >= rest_retry_interval:
                     last_ts, rest_ok = _sync_rest(source, last_ts, context="periodic")
                     last_rest_sync = time.monotonic()
+                    rest_retry_interval = _rest_retry_interval(transient_failure=not rest_ok)
                     if rest_ok:
                         backoff = 2
         except Exception as exc:
