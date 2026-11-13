@@ -312,7 +312,7 @@ def test_unresolved_environment_path_fails_closed_for_candidate():
     assert matches[0]["match_reason"] == "UNPARSED_PATH_DECLARATION_FAIL_CLOSED"
 
 
-def test_active_user_manager_without_bus_fails_closed(monkeypatch):
+def test_active_user_manager_without_bus_fails_closed(monkeypatch, tmp_path):
     from pathlib import Path
     from types import SimpleNamespace
     from scripts.ops import hes_smart_cleanup_manager_v1 as manager
@@ -328,12 +328,14 @@ def test_active_user_manager_without_bus_fails_closed(monkeypatch):
 
     monkeypatch.setattr(manager.subprocess, "run", fake_run)
     monkeypatch.setattr(Path, "exists", lambda self: False)
-    refs, errors = manager._user_systemd_runtime_references()
+    isolated_linger = tmp_path / "linger"
+    isolated_linger.mkdir()
+    refs, errors = manager._user_systemd_runtime_references(linger_dir=isolated_linger)
     assert refs == []
     assert errors == 1
 
 
-def test_active_user_manager_units_are_queried(monkeypatch):
+def test_active_user_manager_units_are_queried(monkeypatch, tmp_path):
     from pathlib import Path
     from types import SimpleNamespace
     from scripts.ops import hes_smart_cleanup_manager_v1 as manager
@@ -356,7 +358,9 @@ def test_active_user_manager_units_are_queried(monkeypatch):
     original_exists = Path.exists
     monkeypatch.setattr(manager.subprocess, "run", fake_run)
     monkeypatch.setattr(Path, "exists", lambda self: True if str(self) == "/run/user/1000/bus" else original_exists(self))
-    refs, errors = manager._user_systemd_runtime_references()
+    isolated_linger = tmp_path / "linger"
+    isolated_linger.mkdir()
+    refs, errors = manager._user_systemd_runtime_references(linger_dir=isolated_linger)
     assert errors == 0
     assert any(row["unit"] == "alice:hes-user.service" and row["property"] == "WorkingDirectory" for row in refs)
 
