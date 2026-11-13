@@ -46,7 +46,7 @@ class MotherV2DashboardViewTests(unittest.TestCase):
             "updated_at": updated_at if isinstance(updated_at, str) else (updated_at or observed + timedelta(minutes=1)).isoformat(),
             "closed_15m_candle_time": self.candle_time,
             "final_gate_version": "hes-strategy-policy-final-gate-v1.0.0",
-            "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.1",
+            "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.2",
             "source": "gateio_public_spot",
             "symbol": "BTC_USDT",
             "active_candidates": 0, "wins": 0, "losses": 0, "timeouts": 0,
@@ -56,7 +56,7 @@ class MotherV2DashboardViewTests(unittest.TestCase):
             "execution_enabled": execution_enabled, "orders_placed": False,
             "market_data_provenance": self.market_data_provenance(),
             "latest_gate_evidence": {
-                "pipeline_version": "hes-strategy-gate-pipeline-v1.0.1",
+                "pipeline_version": "hes-strategy-gate-pipeline-v1.0.2",
                 "source": "gateio_public_spot", "symbol": "BTC_USDT", "timeframe": "15m",
                 "final_decision": final_decision,
                 "market_data_provenance": self.market_data_provenance(),
@@ -103,12 +103,12 @@ class MotherV2DashboardViewTests(unittest.TestCase):
             report_path=str(self.report), journal_path=str(self.journal), now=self.now
         )
 
-    def test_unconfirmed_gate_is_audited_as_no_trade_and_witnessed(self):
+    def test_unconfirmed_gate_runs_all_specialists_and_risk_vetoes(self):
         result = self.read()
-        self.assertEqual(result["status"], "BLOCKED_GATE")
+        self.assertEqual(result["status"], "BLOCKED_RISK_VETO")
         self.assertEqual(result["decision"], "NO_TRADE")
         self.assertEqual([x["agent"] for x in result["stages"]],
-                         ["data_quality", "market_structure", "signal", "confirmation"])
+                         ["data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation"])
         self.assertTrue(result["witness"]["verified"])
         self.assertEqual(result["market_data_provenance"]["timeframes"]["15m"]["input_batch_sha256"], "a" * 64)
         signal_stage = next(stage for stage in result["stages"] if stage["agent"] == "signal")
@@ -120,13 +120,13 @@ class MotherV2DashboardViewTests(unittest.TestCase):
         self.assertFalse(result["execution_enabled"])
         self.assertFalse(result["orders_placed"])
 
-    def test_risk_veto_is_reached_only_after_confirmation_passes(self):
+    def test_risk_veto_still_runs_decision_and_evaluation(self):
         self.write_report(confirmation_state="CONFIRMED_LONG", risk_state="RISK_REJECTED")
         self.write_journal(confirmation_state="CONFIRMED_LONG", risk_state="RISK_REJECTED")
         result = self.read()
         self.assertEqual(result["status"], "BLOCKED_RISK_VETO")
         self.assertEqual([x["agent"] for x in result["stages"]],
-                         ["data_quality", "market_structure", "signal", "confirmation", "risk"])
+                         ["data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation"])
         self.assertTrue(result["witness"]["verified"])
         self.assertFalse(result["execution_enabled"])
 
