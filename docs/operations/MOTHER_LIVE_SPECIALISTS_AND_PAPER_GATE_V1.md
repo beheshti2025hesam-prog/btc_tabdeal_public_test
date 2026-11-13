@@ -39,9 +39,9 @@ The gate reports READY_FOR_PAPER_SIMULATION only when every condition passes. It
 
 ## PR #498 recovery evidence
 
-The 24h recovery soak runs the immutable PR #498 candidate commit `309ebf36c0ad18752516f928ebc6e0944a632ec9` without replacing the production 1m collector. Its 1m collector runs as the separate systemd unit `hes-global-market-data-gateio-1m-pr498-candidate.service`, with `WorkingDirectory` and collector entrypoint bound to the exact candidate release and its output isolated at:
+The 24h recovery soak runs the immutable PR #498 candidate commit `7bc87617440cee0861cce608c297ef26613ce020` without replacing the production 1m collector. Its 1m collector runs as the separate systemd unit `hes-global-market-data-gateio-1m-pr498-candidate.service`, with `WorkingDirectory` and collector entrypoint bound to the exact candidate release and its output isolated at:
 
-`/opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/data/forward/global_market_candles_1m_v1.jsonl`
+`/opt/hes-trade-agent/data/forward/pr498_candidate_root_7bc87617440cee0861cce608c297ef26613ce020/data/forward/global_market_candles_1m_v1.jsonl`
 
 The isolated market root reuses the validated production 15m/1h/4h ledgers read-only; only its 1m ledger is written by the candidate collector. The soak wrapper checks the production 15m/1h/4h services, the official production 1m service and its integrity timer, plus the isolated candidate 1m service. The official 1m service and integrity timer remain required health gates; the separate candidate collector is additionally checked to prove the PR code itself is running without replacing production. The wrapper and captured `systemctl show` manifest are both hashed into the evidence package. The release manifest must also bind the collector entrypoint and `forward/global_market_data_gateio_v1.py`, not only the soak script and reader.
 
@@ -49,11 +49,11 @@ After a passing 24h soak, build the durable evidence package with:
 
     python scripts/ops/build_gateio_1m_recovery_evidence_v1.py \
       --data-root /opt/hes-trade-agent \
-      --release-root /opt/hes-trade-agent/releases/309ebf36c0ad18752516f928ebc6e0944a632ec9 \
-      --market-data-root /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9 \
-      --soak-log /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/data/forward/gateio_feed_soak_24h_pr498_candidate.jsonl \
-      --soak-wrapper /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/run_candidate_soak.py \
-      --candidate-collector-manifest /opt/hes-trade-agent/data/forward/pr498_candidate_root_309ebf36c0ad18752516f928ebc6e0944a632ec9/candidate_collector_unit_manifest.json \
+      --release-root /opt/hes-trade-agent/releases/7bc87617440cee0861cce608c297ef26613ce020 \
+      --market-data-root /opt/hes-trade-agent/data/forward/pr498_candidate_root_7bc87617440cee0861cce608c297ef26613ce020 \
+      --soak-log /opt/hes-trade-agent/data/forward/pr498_candidate_root_7bc87617440cee0861cce608c297ef26613ce020/data/forward/gateio_feed_soak_24h_pr498_candidate.jsonl \
+      --soak-wrapper /opt/hes-trade-agent/data/forward/pr498_candidate_root_7bc87617440cee0861cce608c297ef26613ce020/run_candidate_soak.py \
+      --candidate-collector-manifest /opt/hes-trade-agent/data/forward/pr498_candidate_root_7bc87617440cee0861cce608c297ef26613ce020/candidate_collector_unit_manifest.json \
       --output /opt/hes-trade-agent/data/forward/gateio_1m_recovery_24h_evidence.json
 
 The builder preserves the official soak JSONL, canonical 1m snapshot, candidate collector journal, wrapper and collector-unit manifest. It verifies the exact release hashes and candidate service contract, makes evidence artifacts read-only, then runs the same verifier used by Mother. A failed or incomplete soak cannot produce verified recovery evidence.

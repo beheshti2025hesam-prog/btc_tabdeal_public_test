@@ -16,7 +16,7 @@ import math
 from forward.activation_gate_v1 import validate_activation
 from forward.integration_gate_v1 import ForwardIntegrationGateV1
 
-EXPECTED_RECOVERY_CANDIDATE_HEAD = "309ebf36c0ad18752516f928ebc6e0944a632ec9"
+EXPECTED_RECOVERY_CANDIDATE_HEAD = "7bc87617440cee0861cce608c297ef26613ce020"
 RECOVERY_SCHEMA = "hes.gateio_1m_recovery_24h_evidence.v1"
 RECOVERY_CANDIDATE_1M_SERVICE = "hes-global-market-data-gateio-1m-pr498-candidate.service"
 RECOVERY_REQUIRED_SERVICES = frozenset({

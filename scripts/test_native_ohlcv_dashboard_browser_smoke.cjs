@@ -124,8 +124,12 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(strategyV2Payload.schema, "hes.strategy_v2_dashboard_view.v1");
     assert.equal(apiContractResponses["/api/journal"]?.schema, "hes.trade_journal_view.v1",
       "decision journal API schema must be versioned");
-    assert.equal(apiContractResponses["/api/mother"]?.schema, "hes.mother_v2_dashboard_view.v1",
-      "Mother API schema must be versioned even when blocked");
+    const motherPayload = apiContractResponses["/api/mother"];
+    assert.equal(motherPayload?.schema, "hes.mother_runtime_dashboard.v1",
+      "Mother API must expose the versioned live-specialist runtime contract");
+    assert.equal(motherPayload?.decision, "NO_TRADE", "Mother must fail closed without a fully approved decision");
+    assert.equal(motherPayload?.execution_enabled, false, "Mother runtime must never enable live execution");
+    assert.equal(motherPayload?.orders_placed, false, "Mother runtime must never place live orders");
     assert.equal(apiContractResponses["/api/precision-entry"]?.schema, "hes_precision_entry_status_v1",
       "Precision Entry API schema must be versioned even when blocked");
     assert.ok(["hes.news_monitor_snapshot.v1", "hes.api_error.v1"].includes(apiContractResponses["/api/news"]?.schema),
