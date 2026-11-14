@@ -235,6 +235,8 @@ def test_news_context_chat_uses_all_four_localized_interpretations():
         assert result["status"] == "OK", locale
         assert explanation in result["answer"], locale
         assert effect in result["answer"], locale
+        if locale == "fr":
+            assert "Flux d’actualités" in result["answer"]
         assert any(row["label"] == "Economic mechanism" and row["value"] == explanation for row in result["claims"])
         assert any(row["label"] == "What to monitor" for row in result["claims"])
         assert result["external_llm_used"] is False
