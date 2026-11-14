@@ -264,6 +264,19 @@ def test_news_context_chat_fails_closed_on_incomplete_locale_or_trade_authority(
     assert "NEWS_INTERPRETATION_UNAVAILABLE:news-event-1" in invalid_authority["uncertainties"]
     assert not any(row["label"] == "Economic mechanism" for row in invalid_authority["claims"])
 
+    payload = _news_context_fixture()
+    payload["news"]["brief"]["findings"][0]["interpretation"]["localized"] = None
+    malformed_locale = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert malformed_locale["status"] == "PARTIAL"
+    assert "NEWS_INTERPRETATION_LOCALE_UNAVAILABLE:en:news-event-1" in malformed_locale["uncertainties"]
+    assert not any(row["label"] == "Economic mechanism" for row in malformed_locale["claims"])
+
+    payload = _news_context_fixture()
+    payload["news"]["brief"]["findings"] = {"unexpected": "mapping"}
+    malformed_findings = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert malformed_findings["status"] == "PARTIAL"
+    assert "NEWS_FINDINGS_INVALID" in malformed_findings["uncertainties"]
+
 
 def test_news_context_chat_surfaces_veto_flags_and_suppresses_stale_items():
     payload = _news_context_fixture()
