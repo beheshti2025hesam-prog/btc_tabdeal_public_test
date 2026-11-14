@@ -194,6 +194,20 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       null,
       { timeout: 30000 }
     );
+    await page.waitForFunction(() => document.querySelectorAll("#newsItems .news-interpretation").length === 2, null, { timeout: 10000 });
+    assert.equal(await page.locator("#newsItems .news-interpretation").count(), 2, "each news item must have its own interpretation panel");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.en.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.en.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("p").textContent(), newsLocales.en.what_happened);
+    assert.equal(await page.locator("#newsItems img").count(), 0, "untrusted headline markup must be rendered as text, not HTML");
+    assert.ok((await page.locator("#newsItems").textContent()).includes('<img src=x onerror=window.__newsXss=1>'),
+      "the literal source headline must remain visible as escaped text");
+    assert.equal(await page.evaluate(() => window.__newsXss || false), false, "news content executed an injected event handler");
+    assert.equal(
+      await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(),
+      "Interpretation unavailable; evidence is insufficient or invalid.",
+      "incomplete locale content must fail closed in the panel"
+    );
     const fifteenMinutePayload = candlePayload;
     assert.ok(fifteenMinutePayload, "successful /api/candles payload was not observed");
     assert.equal(fifteenMinutePayload.interval, "15m", "15m must remain the default chart interval");
