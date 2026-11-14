@@ -53,3 +53,13 @@ The existing local encrypted backup service is now versioned with its deployable
 Live verification on 2026-11-14: local archive hes-full-20261114T030547Z.tar.gz.gpg is 2,271,413,402 bytes; SHA-256 fc791eb373f2d3a7088f7c37858c61f3f51e8e7ef2e44604483412aa8b7e1948 verified against its sidecar. The daily backup service completed successfully. Disk usage fell to 80% (9.7 GiB free) after removing only a completed isolated restore extraction and a superseded failed .partial after the replacement archive passed integrity checks. The operational healthcheck returned overall=OK, disk-free=19.6%.
 
 The cleanup manager itself remains read-only and fail-closed; this backup change does not authorize automatic deletion of application data or activation of a cleanup timer.
+
+## Live encrypted local-backup evidence — 2026-11-14 03:05 UTC
+
+- Completed archive: /opt/hes-trade-agent/backups/local/hes-full-20261114T030547Z.tar.gz.gpg
+- Encrypted archive size: 2,271,413,402 bytes; GPG decryption, gzip integrity, tar listing, and SHA-256 sidecar verification passed.
+- Archive SHA-256: fc791eb373f2d3a7088f7c37858c61f3f51e8e7ef2e44604483412aa8b7e1948.
+- The bounded local retention policy is 7 daily, 4 weekly, and 6 monthly archives; same-day duplicates retain only the newest. The production date override is unset.
+- Disk state after successful backup: 80% used, 9.7 GiB free; operational healthcheck returned overall=OK and 19.6% free.
+- The installed encrypted local-backup service and daily persistent timer remain active. This local archive is not evidence of a Dropbox restore; Dropbox offsite quota and restore verification remain a separate gate.
+- Smart Cleanup Manager remains read-only: no application data, backups, or logs were deleted by the cleanup manager.
