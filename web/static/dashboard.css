@@ -86,3 +86,5 @@ section[id]{scroll-margin-top:68px}
 .news-interpretation>.muted{margin:10px 12px;line-height:1.55}
 [dir="rtl"] .news-interpretation-row{direction:rtl;text-align:right}
 @media(max-width:600px){.news-interpretation-row{grid-template-columns:1fr;gap:3px;padding:8px 10px}}
+
+.news-interpretation>summary:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
