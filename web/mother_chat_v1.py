@@ -416,6 +416,10 @@ def build_chat_response(
         health = monitor.get("source_health", [])
         brief = news.get("brief", {}) if isinstance(news.get("brief"), Mapping) else {}
         findings = brief.get("findings", [])
+        if not isinstance(findings, list):
+            findings = []
+            status = "PARTIAL"
+            uncertainties.append("NEWS_FINDINGS_INVALID")
         claims.extend([
             _claim("News transport status", n_status),
             _claim("News source coverage", coverage),
@@ -458,7 +462,8 @@ def build_chat_response(
                     and mother_use.get("news_alone_can_authorize_trade") is False
                     and mother_use.get("requires_independent_market_confirmation") is True
                 )
-                localized = interpretation.get("localized", {}).get(language) if semantics_valid else None
+                localized_map = interpretation.get("localized") if semantics_valid else None
+                localized = localized_map.get(language) if isinstance(localized_map, Mapping) else None
                 required_fields = (
                     "what_happened", "why_it_matters", "affected_market", "relevance_scope",
                     "potential_effect", "transmission_channel", "time_horizon", "what_to_monitor",
