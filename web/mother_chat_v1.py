@@ -430,18 +430,51 @@ def build_chat_response(
                     continue
                 claims.append(_claim("News item", str(item.get("title") or "Untitled") + " · " + str(item.get("source") or "source unknown")))
                 interpretation = item.get("interpretation")
-                localized = interpretation.get("localized", {}).get(language) if isinstance(interpretation, Mapping) else None
-                if isinstance(interpretation, Mapping) and interpretation.get("schema_version") == "hes.news_item_interpretation.v1":
+                mother_use = interpretation.get("mother_use", {}) if isinstance(interpretation, Mapping) else {}
+                source_facts = interpretation.get("source_facts", {}) if isinstance(interpretation, Mapping) else {}
+                semantics_valid = (
+                    isinstance(interpretation, Mapping)
+                    and interpretation.get("schema_version") == "hes.news_item_interpretation.v1"
+                    and interpretation.get("potential_effect") in {"positive", "negative", "mixed_or_unknown"}
+                    and interpretation.get("relevance_scope") in {
+                        "direct_symbol_or_explicit_tag", "market_or_category_level", "unconfirmed_relevance",
+                    }
+                    and interpretation.get("scores_are_probabilities") is False
+                    and isinstance(source_facts, Mapping)
+                    and source_facts.get("headline") == item.get("title")
+                    and isinstance(mother_use, Mapping)
+                    and mother_use.get("role") == "context_and_confirmation_only"
+                    and mother_use.get("news_alone_can_authorize_trade") is False
+                    and mother_use.get("requires_independent_market_confirmation") is True
+                )
+                localized = interpretation.get("localized", {}).get(language) if semantics_valid else None
+                required_fields = (
+                    "what_happened", "why_it_matters", "affected_market", "relevance_scope",
+                    "potential_effect", "transmission_channel", "time_horizon", "what_to_monitor",
+                    "educational_concept", "uncertainty", "disclaimer",
+                )
+                required_labels = (
+                    "title", "what", "why", "market", "scope", "effect", "channel",
+                    "horizon", "monitor", "education", "uncertainty", "disclaimer",
+                )
+                labels = localized.get("labels") if isinstance(localized, Mapping) else None
+                locale_complete = (
+                    isinstance(localized, Mapping)
+                    and all(isinstance(localized.get(key), str) and localized[key].strip() for key in required_fields)
+                    and isinstance(labels, Mapping)
+                    and all(isinstance(labels.get(key), str) and labels[key].strip() for key in required_labels)
+                )
+                if semantics_valid and locale_complete:
                     claims.append(_claim("News interpretation schema", str(interpretation.get("schema_version"))))
-                    claims.append(_claim("News potential effect", str(interpretation.get("potential_effect") or "mixed_or_unknown")))
-                    claims.append(_claim("News relevance scope", str(interpretation.get("relevance_scope") or "unconfirmed_relevance")))
-                    if isinstance(localized, Mapping):
-                        claims.append(_claim("Economic mechanism", str(localized.get("why_it_matters") or "Not established")))
-                        claims.append(_claim("What to monitor", str(localized.get("what_to_monitor") or "Not established")))
-                        if top_interpretation is None:
-                            top_interpretation = localized
+                    claims.append(_claim("News potential effect", str(localized["potential_effect"])))
+                    claims.append(_claim("News relevance scope", str(localized["relevance_scope"])))
+                    claims.append(_claim("Economic mechanism", localized["why_it_matters"]))
+                    claims.append(_claim("What to monitor", localized["what_to_monitor"]))
+                    if top_interpretation is None:
+                        top_interpretation = localized
                 else:
-                    uncertainties.append("NEWS_INTERPRETATION_UNAVAILABLE:" + str(item.get("item_id") or "unknown"))
+                    reason = "NEWS_INTERPRETATION_LOCALE_UNAVAILABLE:" + language if semantics_valid else "NEWS_INTERPRETATION_UNAVAILABLE"
+                    uncertainties.append(reason + ":" + str(item.get("item_id") or "unknown"))
         answers = {
             "fa": f"وضعیت انتقال اخبار: {n_status}؛ پوشش منابع: {coverage}. اخبار فقط زمینهٔ کمکی هستند و به‌تنهایی جهت معامله یا مجوز ورود ایجاد نمی‌کنند.",
             "de": f"Nachrichtenübertragung: {n_status}; Quellenabdeckung: {coverage}. Nachrichten sind nur Kontext und können weder Handelsrichtung noch Einstieg autorisieren.",
