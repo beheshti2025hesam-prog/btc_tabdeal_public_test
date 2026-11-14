@@ -322,11 +322,11 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.en.labels.title);
     await page.setViewportSize({ width: 390, height: 844 });
     const mobileNewsColumns = await page.locator("#newsItems .news-interpretation-row").first().evaluate(el =>
-      getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+      getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
     assert.equal(mobileNewsColumns, 1, "news education rows must collapse to one column on mobile");
     await page.setViewportSize({ width: 1440, height: 1000 });
     const desktopNewsColumns = await page.locator("#newsItems .news-interpretation-row").first().evaluate(el =>
-      getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+      getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
     assert.equal(desktopNewsColumns, 2, "news education rows must use the two-column desktop layout");
     assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.en.labels.what);
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
