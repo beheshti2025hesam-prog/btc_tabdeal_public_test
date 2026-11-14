@@ -137,7 +137,7 @@ class NewsEducationV1Tests(unittest.TestCase):
             ("crypto", "BTCUSDT", "Crypto market capital flows", "crypto_market"),
             ("us_equities", "SPX", "US stock market earnings beat expectations", "equities"),
             ("iran_stocks", "IRX", "بورس تهران گزارش درآمد شرکت‌ها را منتشر کرد", "equities"),
-            ("forex", "EURUSD", "Forex currency exchange rate shifts", "fx"),
+            ("forex", "EURUSD", "Forex currency pair shifts after market data", "fx"),
             ("metals", "XAUUSD", "Gold and silver prices move on supply data", "commodities"),
         )
         for market, symbol, title, expected_category in cases:
