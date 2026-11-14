@@ -110,6 +110,25 @@ class NewsEducationV1Tests(unittest.TestCase):
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
         self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
 
+    def test_headline_sentiment_never_becomes_market_direction_and_caveats_are_localized(self):
+        interpretation = build_news_item_interpretation_v1(
+            title="Major approval and adoption announced",
+            context={"market": "crypto", "symbol": "BTCUSDT", "venue": "gateio"},
+            categories=("regulation",),
+            directional_bias="positive",
+            impact=0.8,
+            confidence=0.7,
+            freshness="unknown",
+            caveats=("publication_time_unverified", "source_identity_unverified"),
+            reasons=("market_relevant_category",),
+        )
+        self.assertEqual(interpretation["potential_effect"], "mixed_or_unknown")
+        self.assertEqual(interpretation["localized"]["fa"]["potential_effect"], "مختلط یا نامشخص")
+        self.assertIn("بار احساسی تیتر", interpretation["localized"]["fa"]["uncertainty"])
+        self.assertIn("Headline sentiment alone", interpretation["localized"]["en"]["uncertainty"])
+        self.assertNotIn("publication_time_unverified", interpretation["localized"]["en"]["uncertainty"])
+        self.assertNotIn("source_identity_unverified", interpretation["localized"]["de"]["uncertainty"])
+
 
 if __name__ == "__main__":
     unittest.main()
