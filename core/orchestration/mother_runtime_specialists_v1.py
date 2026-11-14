@@ -462,10 +462,17 @@ class ConfirmationSpecialistV1:
         state = "CONFIRMED" if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") and not news_veto_flags else "UNCONFIRMED"
         base_reasons = tuple(confirmation.reason_codes or (() if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") else ("CONFIRMATION_NOT_VALID",)))
         reasons = tuple(dict.fromkeys((*base_reasons, *news_veto_flags)))
+        news_item_refs = tuple(
+            "news_item_id:" + str(item.get("item_id"))
+            for item in news.get("findings", [])
+            if isinstance(item, Mapping) and isinstance(item.get("item_id"), str) and item.get("item_id")
+        ) if isinstance(news.get("findings"), list) else ()
         news_refs = tuple(
             value for value in (
+                "news_context_sha256:" + str(news.get("context_sha256")) if news.get("context_sha256") else None,
                 "news_snapshot_sha256:" + str(news.get("snapshot_sha256")) if news.get("snapshot_sha256") else None,
                 "news_brief_sha256:" + str(news.get("brief_sha256")) if news.get("brief_sha256") else None,
+                *news_item_refs,
             ) if value
         )
         refs = _unique((
