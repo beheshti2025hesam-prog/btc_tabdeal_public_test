@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 import hashlib
 import json
+import math
 import os
 
 from core.orchestration.mother_v1 import MotherOrchestratorV1
@@ -74,9 +75,27 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
         if not isinstance(findings, list):
             raise ValueError("NEWS_FINDINGS_INVALID")
         selected = []
+        seen_item_ids: set[str] = set()
         for item in findings[:5]:
             if not isinstance(item, dict):
                 raise ValueError("NEWS_FINDING_INVALID")
+            item_id = item.get("item_id")
+            if not isinstance(item_id, str) or not item_id.strip() or item_id in seen_item_ids:
+                raise ValueError("NEWS_FINDING_ID_INVALID_OR_DUPLICATED")
+            seen_item_ids.add(item_id)
+            if not isinstance(item.get("title"), str) or not item["title"].strip():
+                raise ValueError("NEWS_FINDING_TITLE_INVALID")
+            if not isinstance(item.get("source"), str) or not item["source"].strip():
+                raise ValueError("NEWS_FINDING_SOURCE_INVALID")
+            if item.get("freshness") not in {"fresh", "recent", "unknown", "future_timestamp"}:
+                raise ValueError("NEWS_FINDING_FRESHNESS_INVALID")
+            categories = item.get("categories", [])
+            if not isinstance(categories, list) or any(not isinstance(value, str) or not value for value in categories):
+                raise ValueError("NEWS_FINDING_CATEGORIES_INVALID")
+            for score_key in ("impact", "relevance"):
+                score = item.get(score_key)
+                if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(float(score)) or not 0 <= score <= 1:
+                    raise ValueError("NEWS_FINDING_SCORE_INVALID:" + score_key)
             interpretation = item.get("interpretation")
             if not isinstance(interpretation, dict) or interpretation.get("schema_version") != "hes.news_item_interpretation.v1":
                 raise ValueError("NEWS_INTERPRETATION_MISSING")
@@ -89,6 +108,10 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
             }
             if not isinstance(localized, dict) or not {"fa", "en", "de", "fr"}.issubset(localized):
                 raise ValueError("NEWS_INTERPRETATION_LOCALES_INCOMPLETE")
+            required_labels = {
+                "title", "what", "why", "market", "scope", "effect", "channel",
+                "horizon", "monitor", "education", "uncertainty", "disclaimer",
+            }
             for locale in ("fa", "en", "de", "fr"):
                 rendered = localized.get(locale)
                 if not isinstance(rendered, dict) or any(
@@ -96,20 +119,37 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
                     for field in required_localized_fields
                 ):
                     raise ValueError("NEWS_INTERPRETATION_CONTENT_INCOMPLETE:" + locale)
+                labels = rendered.get("labels")
+                if not isinstance(labels, dict) or any(
+                    not isinstance(labels.get(key), str) or not labels[key].strip()
+                    for key in required_labels
+                ):
+                    raise ValueError("NEWS_INTERPRETATION_LABELS_INCOMPLETE:" + locale)
             if interpretation.get("potential_effect") not in {"positive", "negative", "mixed_or_unknown"}:
                 raise ValueError("NEWS_INTERPRETATION_EFFECT_INVALID")
+            if interpretation.get("relevance_scope") not in {
+                "direct_symbol_or_explicit_tag", "market_or_category_level", "unconfirmed_relevance",
+            }:
+                raise ValueError("NEWS_INTERPRETATION_RELEVANCE_SCOPE_INVALID")
+            if interpretation.get("impact_level") not in {"low", "medium", "high"}:
+                raise ValueError("NEWS_INTERPRETATION_IMPACT_LEVEL_INVALID")
+            for score_key in ("impact_score", "confidence_score"):
+                score = interpretation.get(score_key)
+                if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(float(score)) or not 0 <= score <= 1:
+                    raise ValueError("NEWS_INTERPRETATION_SCORE_INVALID:" + score_key)
+            source_facts = interpretation.get("source_facts")
+            if not isinstance(source_facts, dict) or source_facts.get("headline") != item.get("title"):
+                raise ValueError("NEWS_INTERPRETATION_SOURCE_FACTS_INVALID")
             if interpretation.get("scores_are_probabilities") is not False:
                 raise ValueError("NEWS_INTERPRETATION_SCORE_SEMANTICS_INVALID")
             mother_use = interpretation.get("mother_use")
             if (
                 not isinstance(mother_use, dict)
+                or mother_use.get("role") != "context_and_confirmation_only"
                 or mother_use.get("news_alone_can_authorize_trade") is not False
                 or mother_use.get("requires_independent_market_confirmation") is not True
             ):
                 raise ValueError("NEWS_INTERPRETATION_AUTHORITY_INVALID")
-            item_id = item.get("item_id")
-            if not isinstance(item_id, str) or not item_id.strip():
-                raise ValueError("NEWS_FINDING_ID_INVALID")
             selected.append({
                 "item_id": item_id,
                 "title": item.get("title"),
