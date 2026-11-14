@@ -108,7 +108,7 @@ class NewsEducationV1Tests(unittest.TestCase):
         )
         self.assertEqual(interpretation["category"], "unclassified")
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
-        self.assertIn("نامشخص", interpretation["localized"]["fa"]["relevance_scope"])
+        self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
 
 
 if __name__ == "__main__":
