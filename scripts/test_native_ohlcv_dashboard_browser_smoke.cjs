@@ -304,6 +304,8 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "تفسیر در دسترس نیست؛ شواهد کافی یا معتبر وجود ندارد.");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().evaluate(el => getComputedStyle(el).direction), "rtl",
+      "news education rows must follow the Persian RTL locale");
     await languageSelect.selectOption("fr");
     await page.waitForFunction(() => document.documentElement.lang === "fr" && document.documentElement.dir === "ltr");
     assert.equal((await decisionHeader.textContent()).trim(), "Décision");
@@ -318,6 +320,14 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal((await decisionHeader.textContent()).trim(), "Decision",
       "English Decision label was not restored after ambiguous translations");
     assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.en.labels.title);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileNewsColumns = await page.locator("#newsItems .news-interpretation-row").first().evaluate(el =>
+      getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+    assert.equal(mobileNewsColumns, 1, "news education rows must collapse to one column on mobile");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const desktopNewsColumns = await page.locator("#newsItems .news-interpretation-row").first().evaluate(el =>
+      getComputedStyle(el).gridTemplateColumns.trim().split(/\\s+/).length);
+    assert.equal(desktopNewsColumns, 2, "news education rows must use the two-column desktop layout");
     assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.en.labels.what);
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
