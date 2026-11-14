@@ -310,10 +310,10 @@ def evaluate_gate_evidence(*, proposal, rows_15m, frames, source, symbol, observ
         trend_evidence_bundle = None
         trend_quality = None
 
+    market_observed_at = datetime.fromtimestamp(read_time_ms / 1000, tz=timezone.utc)
     research_family_assessment = assess_strategy_families(
         source=source, symbol=symbol, timeframe="15m", regime=regime,
-        observed_at=obs,
-        now=datetime.fromtimestamp(read_time_ms / 1000, tz=timezone.utc),
+        observed_at=market_observed_at, now=market_observed_at,
         rows_15m=rows_15m, structure=structure,
         trend_candidate=candidate, range_evidence=family_evidence_result,
         trend_evidence_bundle=trend_evidence_bundle, trend_quality=trend_quality,
