@@ -35,6 +35,16 @@ class NewsEducationV1Tests(unittest.TestCase):
             self.assertTrue(localized["why_it_matters"])
             self.assertTrue(localized["affected_market"])
             self.assertTrue(localized["potential_effect"])
+        expected_market_labels = {
+            "fa": "بازار رمزارز",
+            "en": "Crypto market",
+            "de": "Kryptomarkt",
+            "fr": "Marché des cryptomonnaies",
+        }
+        for locale, label in expected_market_labels.items():
+            self.assertIn(label, interpretation["localized"][locale]["affected_market"])
+            self.assertIn("BTCUSDT", interpretation["localized"][locale]["affected_market"])
+            self.assertIn("gateio", interpretation["localized"][locale]["affected_market"])
             self.assertTrue(localized["transmission_channel"])
             self.assertTrue(localized["time_horizon"])
             self.assertTrue(localized["what_to_monitor"])
@@ -109,6 +119,8 @@ class NewsEducationV1Tests(unittest.TestCase):
             reasons=(),
         )
         self.assertEqual(interpretation["category"], "unclassified")
+        self.assertEqual(interpretation["localized"]["fa"]["affected_market"], "بازار نامشخص · BTCUSDT")
+        self.assertEqual(interpretation["localized"]["de"]["affected_market"], "Nicht näher bestimmter Markt · BTCUSDT")
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
         self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
 
