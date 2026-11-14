@@ -81,10 +81,37 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
             if not isinstance(interpretation, dict) or interpretation.get("schema_version") != "hes.news_item_interpretation.v1":
                 raise ValueError("NEWS_INTERPRETATION_MISSING")
             localized = interpretation.get("localized")
+            required_localized_fields = {
+                "what_happened", "why_it_matters", "affected_market",
+                "relevance_scope", "potential_effect", "transmission_channel",
+                "time_horizon", "what_to_monitor", "educational_concept",
+                "uncertainty", "disclaimer",
+            }
             if not isinstance(localized, dict) or not {"fa", "en", "de", "fr"}.issubset(localized):
                 raise ValueError("NEWS_INTERPRETATION_LOCALES_INCOMPLETE")
+            for locale in ("fa", "en", "de", "fr"):
+                rendered = localized.get(locale)
+                if not isinstance(rendered, dict) or any(
+                    not isinstance(rendered.get(field), str) or not rendered[field].strip()
+                    for field in required_localized_fields
+                ):
+                    raise ValueError("NEWS_INTERPRETATION_CONTENT_INCOMPLETE:" + locale)
+            if interpretation.get("potential_effect") not in {"positive", "negative", "mixed_or_unknown"}:
+                raise ValueError("NEWS_INTERPRETATION_EFFECT_INVALID")
+            if interpretation.get("scores_are_probabilities") is not False:
+                raise ValueError("NEWS_INTERPRETATION_SCORE_SEMANTICS_INVALID")
+            mother_use = interpretation.get("mother_use")
+            if (
+                not isinstance(mother_use, dict)
+                or mother_use.get("news_alone_can_authorize_trade") is not False
+                or mother_use.get("requires_independent_market_confirmation") is not True
+            ):
+                raise ValueError("NEWS_INTERPRETATION_AUTHORITY_INVALID")
+            item_id = item.get("item_id")
+            if not isinstance(item_id, str) or not item_id.strip():
+                raise ValueError("NEWS_FINDING_ID_INVALID")
             selected.append({
-                "item_id": item.get("item_id"),
+                "item_id": item_id,
                 "title": item.get("title"),
                 "source": item.get("source"),
                 "published_at": item.get("published_at"),
