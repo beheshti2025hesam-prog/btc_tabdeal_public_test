@@ -74,3 +74,15 @@ section[id]{scroll-margin-top:68px}
 #motherChatPanel details li{overflow-wrap:anywhere;margin:5px 0}
 #motherChatPanel [hidden]{display:none!important}
 @media(max-width:600px){.mother-chat-messages{max-height:300px}.mother-chat-message{max-width:100%}.mother-chat-actions button{flex:1}}
+
+
+/* Per-item multilingual news interpretation and economic education. */
+.news-interpretation{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:rgba(18,28,44,.55);overflow:hidden}
+.news-interpretation>summary{cursor:pointer;padding:10px 12px;font-weight:650;color:var(--text);line-height:1.45}
+.news-interpretation[open]>summary{border-bottom:1px solid var(--line)}
+.news-interpretation-row{display:grid;grid-template-columns:minmax(130px,190px) minmax(0,1fr);gap:12px;align-items:start;padding:9px 12px;border-bottom:1px solid rgba(39,54,75,.75)}
+.news-interpretation-row strong{color:var(--muted);font-size:.84rem;line-height:1.55}
+.news-interpretation-row p{margin:0;line-height:1.65;overflow-wrap:anywhere;unicode-bidi:plaintext}
+.news-interpretation>.muted{margin:10px 12px;line-height:1.55}
+[dir="rtl"] .news-interpretation-row{direction:rtl;text-align:right}
+@media(max-width:600px){.news-interpretation-row{grid-template-columns:1fr;gap:3px;padding:8px 10px}}
