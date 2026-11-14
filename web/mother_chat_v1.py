@@ -478,7 +478,7 @@ def build_chat_response(
         answers = {
             "fa": f"وضعیت انتقال اخبار: {n_status}؛ پوشش منابع: {coverage}. اخبار فقط زمینهٔ کمکی هستند و به‌تنهایی جهت معامله یا مجوز ورود ایجاد نمی‌کنند.",
             "de": f"Nachrichtenübertragung: {n_status}; Quellenabdeckung: {coverage}. Nachrichten sind nur Kontext und können weder Handelsrichtung noch Einstieg autorisieren.",
-            "fr": f"Transport des actualités : {n_status} ; couverture des sources : {coverage}. Les actualités ne sont qu’un contexte et ne peuvent ni créer une direction ni autoriser une entrée.",
+            "fr": f"Flux d’actualités : {n_status} ; couverture des sources : {coverage}. Les actualités ne sont qu’un contexte et ne peuvent ni créer une direction ni autoriser une entrée.",
             "en": f"News transport: {n_status}; source coverage: {coverage}. News is contextual evidence only and cannot create trade direction or authorize entry.",
         }
         answer = answers[language]
