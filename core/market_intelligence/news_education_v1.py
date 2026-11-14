@@ -93,7 +93,23 @@ def build_news_item_interpretation_v1(
         relevance_scope = "market_or_category_level"
     else:
         relevance_scope = "unconfirmed_relevance"
-    effect = directional_bias if directional_bias in {"positive", "negative"} else "mixed_or_unknown"
+    # Headline sentiment is not a causal market-impact model. Keep the
+    # potential price effect unknown until independent event/market evidence
+    # establishes direction; sentiment remains upstream metadata only.
+    effect = "mixed_or_unknown"
+    localized_caveat_codes = list(caveats)
+    if directional_bias in {"positive", "negative"}:
+        localized_caveat_codes.append("headline_sentiment_not_causal")
+    caveat_labels = {
+        "publication_time_unverified": {"fa": "زمان انتشار تأیید نشده است.", "en": "Publication time is unverified.", "de": "Der Veröffentlichungszeitpunkt ist nicht verifiziert.", "fr": "L'heure de publication n'est pas vérifiée."},
+        "publication_time_in_future": {"fa": "زمان ثبت‌شده در آینده است و باید بررسی شود.", "en": "The recorded publication time is in the future and needs review.", "de": "Der angegebene Veröffentlichungszeitpunkt liegt in der Zukunft und muss geprüft werden.", "fr": "L'heure de publication indiquée est dans le futur et doit être vérifiée."},
+        "source_url_missing": {"fa": "پیوند منبع در دسترس نیست.", "en": "The source URL is missing.", "de": "Die Quellen-URL fehlt.", "fr": "L'URL de la source est absente."},
+        "direction_not_established_by_rules": {"fa": "جهت اثر از قواعد موجود قابل تعیین نیست.", "en": "The direction of impact is not established by the current rules.", "de": "Die Wirkungsrichtung lässt sich mit den aktuellen Regeln nicht bestimmen.", "fr": "La direction de l'effet ne peut pas être établie par les règles actuelles."},
+        "market_relevance_is_category_based": {"fa": "ارتباط فقط در سطح دسته بازار است، نه لزوماً نماد هدف.", "en": "Relevance is category-level, not necessarily specific to the target symbol.", "de": "Der Bezug besteht auf Kategorieebene und nicht zwingend zum Zielsymbol.", "fr": "La pertinence concerne la catégorie et pas nécessairement le symbole cible."},
+        "source_identity_unverified": {"fa": "هویت ناشر تأیید نشده است.", "en": "The publisher identity is unverified.", "de": "Die Identität des Herausgebers ist nicht verifiziert.", "fr": "L'identité de l'éditeur n'est pas vérifiée."},
+        "secondary_ai_summary": {"fa": "محتوا خلاصه ثانویه هوش مصنوعی است و باید با منبع اصلی تطبیق داده شود.", "en": "This is a secondary AI summary and should be checked against the original source.", "de": "Dies ist eine sekundäre KI-Zusammenfassung und sollte mit der Originalquelle abgeglichen werden.", "fr": "Il s'agit d'un résumé secondaire généré par IA, à vérifier auprès de la source originale."},
+        "headline_sentiment_not_causal": {"fa": "بار احساسی تیتر به‌تنهایی رابطه علّی یا جهت حرکت قیمت را ثابت نمی‌کند.", "en": "Headline sentiment alone does not establish causality or price direction.", "de": "Die Stimmung einer Überschrift allein belegt weder Kausalität noch Kursrichtung.", "fr": "Le ton du titre ne suffit pas à établir un lien causal ni une direction des prix."},
+    }
     impact_level = "high" if impact >= 0.75 else "medium" if impact >= 0.45 else "low"
     horizon = "not_established"
     channel = profile["channel"] if profile else {lang: {"fa": "مسیر اثرگذاری هنوز مشخص نیست", "en": "Transmission channel not established", "de": "Wirkungskanal nicht festgestellt", "fr": "Mécanisme non établi"}[lang] for lang in LOCALES}
@@ -144,7 +160,14 @@ def build_news_item_interpretation_v1(
             "time_horizon": horizon_labels[lang],
             "what_to_monitor": monitor[lang],
             "educational_concept": education[lang],
-            "uncertainty": uncertainty_map[lang] + (" " + ", ".join(caveats) if caveats else ""),
+            "uncertainty": uncertainty_map[lang] + (" " + " ".join(
+                caveat_labels.get(code, {}).get(lang, {
+                    "fa": "یک محدودیت شواهدی دیگر نیز نیازمند بررسی است.",
+                    "en": "An additional evidence caveat requires review.",
+                    "de": "Ein weiterer Belegvorbehalt muss geprüft werden.",
+                    "fr": "Une réserve supplémentaire concernant les preuves doit être examinée.",
+                }) for code in dict.fromkeys(localized_caveat_codes)
+            ) if localized_caveat_codes else ""),
             "disclaimer": labels["disclaimer"],
         }
     return {
