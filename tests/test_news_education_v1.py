@@ -176,7 +176,7 @@ class NewsEducationV1Tests(unittest.TestCase):
         expected = {
             "crypto": {"fa": "بازار رمزارز", "en": "Crypto market", "de": "Kryptomarkt", "fr": "Marché des cryptomonnaies"},
             "us_equities": {"fa": "بازار سهام آمریکا", "en": "US equities market", "de": "US-Aktienmarkt", "fr": "Marché des actions américaines"},
-            "iran_stocks": {"fa": "بازار سهام ایران", "en": "Iranian equities market", "de": "Iranischer Aktienmarkt", "fr": "Marché actions iranien"},
+            "iran_stocks": {"fa": "بازار سهام ایران", "en": "Iranian equities market", "de": "Iranischer Aktienmarkt", "fr": "Marché boursier iranien"},
             "forex": {"fa": "بازار فارکس", "en": "Forex market", "de": "Devisenmarkt", "fr": "Marché des changes"},
             "metals": {"fa": "بازار فلزات", "en": "Metals market", "de": "Metallmarkt", "fr": "Marché des métaux"},
         }
