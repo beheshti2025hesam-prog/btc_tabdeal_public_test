@@ -119,8 +119,12 @@ _CATEGORY_TERMS = {
               "treasury yield", "bond yield", "geopolitical", "war", "oil price", "نفت"),
     "crypto_market": ("bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
                       "stablecoin", "liquidation", "fund flows", "on-chain", "بیت کوین"),
-    "equities": ("earnings", "revenue", "guidance", "stock buyback", "dividend", "shares"),
+    "equities": ("earnings", "revenue", "guidance", "stock buyback", "dividend", "shares",
+                 "stock market", "stocks", "بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc",
+                 "سهام", "بازار سهام", "درآمد شرکت", "سود شرکت"),
     "fx": ("forex", "currency", "exchange rate", "dollar index", "dxy", "eur/usd", "usd/jpy"),
+    "commodities": ("gold", "silver", "oil", "crude", "copper", "platinum", "palladium",
+                    "commodity", "commodities", "طلا", "نفت", "نقره", "مس"),
 }
 _POSITIVE = ("approved", "approval", "inflow", "record high", "adoption", "partnership",
              "rate cut", "beats expectations", "bullish", "recovery", "افزایش پذیرش")
@@ -135,9 +139,13 @@ _MARKET_ALIASES = {
     "crypto": ("crypto", "cryptocurrency", "stablecoin", "blockchain",
                "binance", "coinbase", "kraken", "bybit", "okx", "بیت کوین", "رمزارز"),
     "fx": ("forex", "currency", "dollar", "euro", "yen", "gbp", "eur/usd", "usd/jpy", "dxy"),
-    "equities": ("stock", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
-    "iran_equities": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc"),
-    "commodities": ("gold", "silver", "oil", "crude", "copper", "طلا", "نفت"),
+    "forex": ("forex", "currency", "dollar", "euro", "yen", "gbp", "eur/usd", "usd/jpy", "dxy"),
+    "equities": ("stock", "stocks", "stock market", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
+    "us_equities": ("stock", "stocks", "stock market", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
+    "iran_equities": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc", "سهام", "بازار سهام"),
+    "iran_stocks": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc", "سهام", "بازار سهام"),
+    "commodities": ("gold", "silver", "oil", "crude", "copper", "platinum", "palladium", "طلا", "نفت", "نقره", "مس"),
+    "metals": ("gold", "silver", "copper", "platinum", "palladium", "طلا", "نقره", "مس"),
 }
 
 
@@ -581,7 +589,7 @@ class NewsIntelligenceBrain:
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
-                or market in {"commodities", "metals"} and any(c in categories for c in ("macro",))
+                or market in {"commodities", "metals"} and any(c in categories for c in ("macro", "commodities"))
             )
             relevance = 0.15 + (0.40 if market_match else 0) + (0.25 if symbol_match else 0) + (0.20 if category_match else 0) + (0.25 if tagged_match else 0)
             relevance = min(1.0, relevance)
