@@ -292,15 +292,24 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       document.querySelector("#motherTitle")?.textContent.includes("kanonische V2-Nachweiskette"));
     assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Orchestrator");
     assert.equal((await decisionHeader.textContent()).trim(), "Entscheidung");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.de.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.de.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "Einordnung nicht verfügbar; Belege sind unzureichend oder ungültig.");
     assert.equal(await page.evaluate(() => localStorage.getItem("hes-dashboard-locale-v1")), "de");
     await languageSelect.selectOption("fa");
     await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
     assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.fa.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.fa.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "تفسیر در دسترس نیست؛ شواهد کافی یا معتبر وجود ندارد.");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
     await languageSelect.selectOption("fr");
     await page.waitForFunction(() => document.documentElement.lang === "fr" && document.documentElement.dir === "ltr");
     assert.equal((await decisionHeader.textContent()).trim(), "Décision");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.fr.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.fr.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "Interprétation indisponible ; les éléments sont insuffisants ou invalides.");
     await languageSelect.selectOption("en");
     await page.waitForFunction(() => document.documentElement.lang === "en" &&
       document.querySelector("#motherTitle")?.textContent.trim() === "Mother Orchestrator · canonical V2 evidence chain");
@@ -308,6 +317,8 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       "English Mother navigation label was not restored");
     assert.equal((await decisionHeader.textContent()).trim(), "Decision",
       "English Decision label was not restored after ambiguous translations");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.en.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.en.labels.what);
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
