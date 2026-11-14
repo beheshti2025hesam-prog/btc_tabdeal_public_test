@@ -195,3 +195,13 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - The French news-status label was reviewed to use natural wording (`Flux d’actualités`).
 - Tests cover Persian, English, German and French chat responses, complete educational claims, incomplete translations, invalid trade authority, stale items, veto flags and malformed brief/findings/locale containers.
 - Exact tested implementation head before the final malformed-brief assertion-only test commit: `e4ea891b5c10c0497271668b03cb690361f524f7`; CI 3/3 PASS with **1,284 passed + 82 subtests**. A final test-only commit adds the malformed-brief assertion and is being revalidated on the latest branch head.
+
+
+## 18. Final chat and presentation regression — 2026-11-14
+
+- Mother Command Center chat now exposes all useful educational claims from the same interpretation: target-market context, economic mechanism, transmission channel, time horizon, what to monitor, educational concept, uncertainty, potential effect and relevance scope.
+- Chat validates the selected locale's complete fields/labels, source headline identity, allowed semantics and context-only authority contract. Stale items are not used; veto flags and partial coverage downgrade the response; malformed brief/findings/locale payloads fail closed.
+- Added tests for fa/en/de/fr chat output, invalid authority, incomplete/malformed translations, malformed brief/findings, stale-item suppression and veto surfacing.
+- Added responsive interpretation-panel styling for desktop/mobile, RTL alignment and visible keyboard focus.
+- Latest exact tested code/test head: `ec59d9ac5d6a5bb62b3cbbd3bc759f83ebcf6d65`. Exact-head GitHub Actions **3/3 PASS** — full repository pytest **1,284 passed + 82 subtests**, browser render smoke PASS, dashboard native-path/API contract PASS.
+- The prior note about revalidation is superseded by this exact-head PASS.
