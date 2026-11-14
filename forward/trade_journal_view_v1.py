@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .strategy_family_research_dispatch_v1 import FAMILIES as RESEARCH_FAMILY_CONTRACTS
+from .strategy_family_research_features_v1 import VERSION as RESEARCH_ASSESSMENT_VERSION
 
 MAX_LINE_BYTES = 1024 * 1024
 MAX_ROWS = 100
@@ -112,6 +113,8 @@ def _family_attribution(record: dict[str, Any]) -> dict[str, Any]:
         expected_ids = {"trend_continuation", "breakout_retest", "range_reversion", "volatility_expansion"}
         if not isinstance(research, dict) or research.get("schema") != "hes_strategy_family_research_assessment_v1":
             raise JournalProjectionError("invalid_strategy_family_research_assessment")
+        if research.get("version") != RESEARCH_ASSESSMENT_VERSION:
+            raise JournalProjectionError("strategy_family_research_assessment_version_invalid")
         assessment_digest = research.get("assessment_sha256")
         assessment_payload = {key: value for key, value in research.items() if key != "assessment_sha256"}
         expected_assessment_digest = sha256(json.dumps(
@@ -160,14 +163,12 @@ def _family_attribution(record: dict[str, Any]) -> dict[str, Any]:
                     raise ValueError("observation_lag")
             except (TypeError, ValueError):
                 raise JournalProjectionError("strategy_family_research_observed_at_invalid")
-            top_cost_status = research.get("cost_model_status")
-            top_cost_hash = research.get("cost_model_sha256")
-            if top_cost_status not in ("ASSUMPTION_BASED", "UNAVAILABLE", "VERIFIED"):
-                raise JournalProjectionError("strategy_family_research_top_cost_status_invalid")
-            if top_cost_hash is not None and (not isinstance(top_cost_hash, str) or len(top_cost_hash) != 64 or any(ch not in "0123456789abcdef" for ch in top_cost_hash)):
-                raise JournalProjectionError("strategy_family_research_top_cost_hash_invalid")
-            if (top_cost_status == "ASSUMPTION_BASED" and top_cost_hash is None) or (top_cost_status == "UNAVAILABLE" and top_cost_hash is not None):
-                raise JournalProjectionError("strategy_family_research_top_cost_binding_invalid")
+            if "cost_model_status" in research or "cost_model_sha256" in research:
+                raise JournalProjectionError("strategy_family_research_aggregate_cost_fields_unsupported")
+            eligible_raw = research.get("research_eligible_family_ids")
+            if (not isinstance(eligible_raw, list) or any(not isinstance(value, str) for value in eligible_raw)
+                    or len(eligible_raw) != len(set(eligible_raw))):
+                raise JournalProjectionError("strategy_family_research_eligibility_ids_invalid")
             families = research.get("families")
             if not isinstance(families, dict) or set(families) != expected_ids:
                 raise JournalProjectionError("strategy_family_research_family_set_invalid")
@@ -194,10 +195,11 @@ def _family_attribution(record: dict[str, Any]) -> dict[str, Any]:
                 if cost_status is not None and cost_status not in ("ASSUMPTION_BASED", "UNAVAILABLE", "VERIFIED"):
                     raise JournalProjectionError("strategy_family_research_cost_status_invalid")
                 cost_hash = diagnostics.get("cost_model_sha256")
-                if cost_hash is not None and (not isinstance(cost_hash, str) or len(cost_hash) != 64 or any(ch not in "0123456789abcdef" for ch in cost_hash)):
-                    raise JournalProjectionError("strategy_family_research_cost_hash_invalid")
-                if cost_status == "ASSUMPTION_BASED" and cost_hash != top_cost_hash:
-                    raise JournalProjectionError("strategy_family_research_cost_model_mismatch")
+                if cost_status in ("ASSUMPTION_BASED", "VERIFIED"):
+                    if not isinstance(cost_hash, str) or len(cost_hash) != 64 or any(ch not in "0123456789abcdef" for ch in cost_hash):
+                        raise JournalProjectionError("strategy_family_research_cost_hash_missing_or_invalid")
+                elif cost_hash is not None:
+                    raise JournalProjectionError("strategy_family_research_cost_binding_invalid")
                 digest = item.get("evidence_sha256")
                 if not isinstance(digest, str) or len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
                     raise JournalProjectionError("strategy_family_research_digest_invalid")
@@ -257,7 +259,6 @@ def _family_attribution(record: dict[str, Any]) -> dict[str, Any]:
                 "market_observed_at": research.get("market_observed_at"),
                 "regime": research.get("regime"),
                 "candle_window_sha256": candle_hash,
-                "cost_model_status": top_cost_status, "cost_model_sha256": top_cost_hash,
                 "research_eligible_family_ids": sorted(eligible_ids),
                 "families": family_projection,
                 "execution_enabled": False, "orders_placed": False,
