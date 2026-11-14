@@ -41,6 +41,7 @@ class NewsEducationV1Tests(unittest.TestCase):
             self.assertTrue(localized["educational_concept"])
             self.assertTrue(localized["uncertainty"])
             self.assertTrue(localized["disclaimer"])
+            self.assertTrue(localized["labels"]["scope"])
 
     def test_same_canonical_analysis_is_shared_with_mother_payload(self):
         brief = NewsIntelligenceBrain().analyze(
@@ -124,6 +125,7 @@ class NewsEducationV1Tests(unittest.TestCase):
         ):
             self.assertIn("'" + field + "'", source)
         self.assertIn("data-no-translate", source)
+        self.assertIn("key==='relevance_scope'?'scope'", source)
 
     def test_headline_sentiment_never_becomes_market_direction_and_caveats_are_localized(self):
         interpretation = build_news_item_interpretation_v1(
