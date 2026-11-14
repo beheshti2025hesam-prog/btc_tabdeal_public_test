@@ -159,6 +159,8 @@ class NewsEducationV1Tests(unittest.TestCase):
             self.assertIn("'" + field + "'", source)
         self.assertIn("data-no-translate", source)
         self.assertIn("key==='relevance_scope'?'scope'", source)
+        self.assertIn("labelKeys.every", source)
+        self.assertIn("fields.every", source)
 
     def test_headline_sentiment_never_becomes_market_direction_and_caveats_are_localized(self):
         interpretation = build_news_item_interpretation_v1(
