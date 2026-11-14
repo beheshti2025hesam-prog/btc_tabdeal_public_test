@@ -69,6 +69,13 @@ def make_snapshot(now):
     brief = {
         "schema_version": "hes.news_brief.v1",
         "veto_flags": ["HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION"],
+        "provenance": {
+            "event_cluster_assignments": [{"item_id": "event-1", "event_cluster_id": "security-event-1"}],
+            "high_impact_event_clusters": [{
+                "event_id": "security-event-1", "item_count": 1, "source_count": 1,
+                "sources": ["Official"], "item_ids": ["event-1"],
+            }],
+        },
         "findings": [{
             "item_id": "event-1",
             "title": "Exchange security incident",
@@ -109,6 +116,9 @@ class MotherNewsContextTests(unittest.TestCase):
         self.assertEqual(context["findings"][0]["interpretation"]["schema_version"], "hes.news_item_interpretation.v1")
         self.assertEqual(set(context["findings"][0]["interpretation"]["localized"]), {"fa", "en", "de", "fr"})
         self.assertEqual(context["veto_flags"], ["HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION"])
+        self.assertEqual(context["findings"][0]["event_cluster_id"], "security-event-1")
+        self.assertEqual(context["findings"][0]["corroboration_source_count"], 1)
+        self.assertEqual(context["high_impact_event_clusters"][0]["event_id"], "security-event-1")
         self.assertFalse(context["news_alone_can_authorize_trade"])
 
     def test_corrupt_news_digest_fails_closed_for_news_consumption(self):
@@ -189,6 +199,9 @@ class MotherNewsContextTests(unittest.TestCase):
                 "veto_flags": ["HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION"],
                 "findings": [{
                     "item_id": "event-1",
+                    "event_cluster_id": "security-event-1",
+                    "corroboration_item_count": 1,
+                    "corroboration_source_count": 1,
                     "freshness": "fresh",
                     "interpretation": {
                         "schema_version": "hes.news_item_interpretation.v1",
@@ -206,6 +219,9 @@ class MotherNewsContextTests(unittest.TestCase):
         self.assertIn("news_context_sha256:" + "a" * 64, result.evidence_refs)
         self.assertIn("news_snapshot_sha256:" + "b" * 64, result.evidence_refs)
         self.assertIn("news_item_id:event-1", result.evidence_refs)
+        self.assertIn("news_event_cluster_id:security-event-1", result.evidence_refs)
+        self.assertEqual(result.payload["news_items"][0]["event_cluster_id"], "security-event-1")
+        self.assertEqual(result.payload["news_items"][0]["corroboration_source_count"], 1)
 
 
 if __name__ == "__main__":
