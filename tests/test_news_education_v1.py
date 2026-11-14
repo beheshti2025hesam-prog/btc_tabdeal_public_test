@@ -145,6 +145,29 @@ class NewsEducationV1Tests(unittest.TestCase):
         for locale, value in expected.items():
             self.assertEqual(interpretation["localized"][locale]["affected_market"], value)
 
+    def test_all_supported_market_profile_aliases_have_localized_names(self):
+        expected = {
+            "crypto": {"fa": "بازار رمزارز", "en": "Crypto market", "de": "Kryptomarkt", "fr": "Marché des cryptomonnaies"},
+            "us_equities": {"fa": "بازار سهام آمریکا", "en": "US equities market", "de": "US-Aktienmarkt", "fr": "Marché des actions américaines"},
+            "iran_stocks": {"fa": "بازار سهام ایران", "en": "Iranian equities market", "de": "Iranischer Aktienmarkt", "fr": "Marché actions iranien"},
+            "forex": {"fa": "بازار فارکس", "en": "Forex market", "de": "Devisenmarkt", "fr": "Marché des changes"},
+            "metals": {"fa": "بازار فلزات", "en": "Metals market", "de": "Metallmarkt", "fr": "Marché des métaux"},
+        }
+        for market, labels in expected.items():
+            interpretation = build_news_item_interpretation_v1(
+                title="Market profile mapping check",
+                context={"market": market, "symbol": "TEST"},
+                categories=(),
+                directional_bias="mixed_or_unknown",
+                impact=0.1,
+                confidence=0.1,
+                freshness="unknown",
+                caveats=(),
+                reasons=(),
+            )
+            for locale, label in labels.items():
+                self.assertIn(label, interpretation["localized"][locale]["affected_market"])
+
     def test_dashboard_news_renderer_is_localized_and_uses_safe_text_nodes(self):
         dashboard = Path(__file__).resolve().parents[1] / "web" / "static" / "dashboard.js"
         source = dashboard.read_text(encoding="utf-8")
