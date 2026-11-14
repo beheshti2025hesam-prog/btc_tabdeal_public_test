@@ -74,3 +74,17 @@ The Mother boundary now reuses the existing AgentDisagreementResolverV1 contract
 - A direction conflict or invalid/unknown evidence fails closed to NO_TRADE. The existing range guard remains active until the separate range strategy candidate completes its research and validation gates.
 - The resolver's complete assessment set and audit hash are included in the Mother response and independently checked by MotherAuditWitnessV1.
 - This is deterministic evidence arbitration, not an independent LLM majority vote. External LLM usage remains disabled; no orders are submitted and execution remains unauthorized.
+
+## Live Mother consensus verification — 2026-11-14 03:37 UTC
+
+A read-only runtime evaluation on the current Gate.io Spot BTC_USDT 15m snapshot produced:
+
+- Mother status: BLOCKED_RISK_VETO; final decision: NO_TRADE.
+- Snapshot SHA-256: 6b1e4caa89522a4cca8e9211839d57a42d4c5805c7a766760e070e9e8946339a.
+- Consensus: NO_TRADE / MANDATORY_VETO; resolver audit SHA-256: 4cd75daa7f26ec4ec25a18bfa110cd9ff2ae7ccb1e1e8011fbc0caef7e840896.
+- Data Quality passed; Market Structure observed DOWNTREND; Strategy produced no confirmed 20-bar breakout; Confirmation and Risk both vetoed the candidate.
+- Paper gate remained BLOCKED: POLICY_NOT_ACTIVE, RULESET_NOT_ACTIVE, INTEGRATION_GATE_BLOCKED:RECOVERY_UNSAFE, STRATEGY_NO_DIRECTIONAL_CANDIDATE, CONFIRMATION_NOT_APPROVED_FOR_DIRECTION, RISK_GATE_NOT_APPROVED.
+- 1m precision-entry readiness was true, but this did not override the missing 15m directional setup or the Confirmation/Risk vetoes.
+- MotherAuditWitnessV1 verified the complete consensus assessment set. execution_enabled=false, orders_placed=false, execution_authorized=false, venue_adapter_called=false, capital_mutated=false.
+
+This is one live read-only evidence point, not a 24-hour soak acceptance, a paper-trading performance sample, or proof of the requested win-rate target.
