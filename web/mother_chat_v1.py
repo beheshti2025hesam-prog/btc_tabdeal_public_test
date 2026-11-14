@@ -414,12 +414,20 @@ def build_chat_response(
         n_status = str(monitor.get("status") or "UNKNOWN")
         coverage = str(monitor.get("source_profile_status") or "UNKNOWN")
         health = monitor.get("source_health", [])
-        findings = news.get("brief", {}).get("findings", []) if isinstance(news.get("brief"), Mapping) else []
+        brief = news.get("brief", {}) if isinstance(news.get("brief"), Mapping) else {}
+        findings = brief.get("findings", [])
         claims.extend([
             _claim("News transport status", n_status),
             _claim("News source coverage", coverage),
             _claim("Sources with health records", len(health) if isinstance(health, list) else 0),
         ])
+        veto_flags = brief.get("veto_flags", [])
+        if isinstance(veto_flags, list) and veto_flags:
+            safe_flags = [str(flag) for flag in veto_flags if isinstance(flag, str) and flag]
+            if safe_flags:
+                claims.append(_claim("News confirmation flags", " · ".join(safe_flags)))
+                status = "PARTIAL"
+                uncertainties.append("News confirmation flags require independent confirmation.")
         if coverage != "complete":
             status = "PARTIAL"
             uncertainties.append("News coverage is partial or not explicitly complete.")
@@ -429,6 +437,9 @@ def build_chat_response(
                 if not isinstance(item, Mapping):
                     continue
                 claims.append(_claim("News item", str(item.get("title") or "Untitled") + " · " + str(item.get("source") or "source unknown")))
+                if item.get("freshness") not in {"fresh", "recent"}:
+                    uncertainties.append("NEWS_ITEM_FRESHNESS_UNVERIFIED:" + str(item.get("item_id") or "unknown"))
+                    continue
                 interpretation = item.get("interpretation")
                 mother_use = interpretation.get("mother_use", {}) if isinstance(interpretation, Mapping) else {}
                 source_facts = interpretation.get("source_facts", {}) if isinstance(interpretation, Mapping) else {}
