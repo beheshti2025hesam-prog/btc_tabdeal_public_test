@@ -126,8 +126,10 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 ## 11. Candidate implementation status — 2026-11-14
 
 - Implemented on `feat/news-item-interpretation-education-v1`, PR #501, stacked on PR #500.
-- Exact-head CI previously passed all three feature gates: full repository pytest, browser render, and dashboard native-path/API contract. Subsequent hardening changes must pass again on their new exact head before acceptance.
+- Current exact PR head: `ef41180299e0c31faf39eb6616118c2e1b403628`. Exact-head GitHub Actions: **3/3 passed** — full repository pytest (**1,275 passed + 82 subtests**), browser render smoke, and dashboard native-path/API contract (**128 passed + 19 subtests**).
 - V1 remains deterministic/template-based, not a generative LLM. Headline sentiment is not treated as causal market direction: potential price effect stays mixed/unknown until independent event and market evidence can establish direction.
 - Internal caveat codes are rendered as localized explanations rather than exposed to users.
 - No production release, service restart, policy activation, or execution setting has been changed.
-- Remaining release gates: exact-head CI after hardening, independent review, PR #500 parent acceptance, and controlled release regression.
+- Mother now fails closed unless every required localized field is non-empty in all four locales, score semantics are explicit, item identity is valid, and `mother_use` explicitly forbids news-only trade authority while requiring independent market confirmation.
+- Frontend regression covers per-item rendering, required educational fields, locale re-rendering, and safe `textContent` insertion.
+- Remaining release gates: independent human review, PR #500 parent acceptance and its separate recovery/strategy/risk gates, semantic translation review, broader market-profile validation, and controlled release regression.
