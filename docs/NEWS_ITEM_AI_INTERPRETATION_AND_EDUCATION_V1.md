@@ -1,6 +1,6 @@
 # News Item AI Interpretation & Market Education — V1
 
-Status: **Accepted product requirement / implementation pending**
+Status: **Implemented V1 candidate in PR #501; exact-head CI passed; review and parent acceptance pending**
 Recorded: 2026-11-14
 Owner: HES Trade Agent project
 Target surface: Dashboard → News Radar → each individual news item
@@ -122,3 +122,12 @@ Reuse, do not rebuild:
 - Existing source registry and market profiles.
 
 Current implementation is a deterministic keyword/rule-based baseline, not a general-purpose generative LLM. The new educational explanation layer must accurately describe its evidence and uncertainty and must not claim capabilities it does not have.
+
+## 11. Candidate implementation status — 2026-11-14
+
+- Implemented on `feat/news-item-interpretation-education-v1`, PR #501, stacked on PR #500.
+- Exact-head CI previously passed all three feature gates: full repository pytest, browser render, and dashboard native-path/API contract. Subsequent hardening changes must pass again on their new exact head before acceptance.
+- V1 remains deterministic/template-based, not a generative LLM. Headline sentiment is not treated as causal market direction: potential price effect stays mixed/unknown until independent event and market evidence can establish direction.
+- Internal caveat codes are rendered as localized explanations rather than exposed to users.
+- No production release, service restart, policy activation, or execution setting has been changed.
+- Remaining release gates: exact-head CI after hardening, independent review, PR #500 parent acceptance, and controlled release regression.
