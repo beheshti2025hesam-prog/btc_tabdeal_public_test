@@ -92,6 +92,9 @@ class MotherNewsContextTests(unittest.TestCase):
         now = datetime.now(timezone.utc)
         snapshot = make_snapshot(now)
         snapshot["brief"]["findings"][0]["title"] = "tampered"
+        unsigned = dict(snapshot)
+        unsigned.pop("snapshot_sha256", None)
+        snapshot["snapshot_sha256"] = hashlib.sha256(_news_canonical_bytes(unsigned)).hexdigest()
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "news.json"
             path.write_bytes(_news_canonical_bytes(snapshot))
