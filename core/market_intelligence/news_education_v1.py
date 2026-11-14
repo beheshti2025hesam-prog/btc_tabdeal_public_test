@@ -1,7 +1,7 @@
 """Free-first, evidence-grounded multilingual explanations for individual news items.
 
 This is a deterministic educational layer, not a generative LLM or a price predictor.
-One canonical interpretation is shared by the dashboard and Mother Agent.
+One canonical interpretation is shared by the dashboard and Mother Agent. Headline sentiment is never treated as causal price direction.
 """
 from __future__ import annotations
 
