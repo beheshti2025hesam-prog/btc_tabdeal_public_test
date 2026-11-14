@@ -277,6 +277,12 @@ def test_news_context_chat_fails_closed_on_incomplete_locale_or_trade_authority(
     assert malformed_findings["status"] == "PARTIAL"
     assert "NEWS_FINDINGS_INVALID" in malformed_findings["uncertainties"]
 
+    payload = _news_context_fixture()
+    payload["news"]["brief"] = None
+    malformed_brief = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert malformed_brief["status"] == "PARTIAL"
+    assert "NEWS_BRIEF_INVALID" in malformed_brief["uncertainties"]
+
 
 def test_news_context_chat_surfaces_veto_flags_and_suppresses_stale_items():
     payload = _news_context_fixture()
