@@ -215,7 +215,7 @@ def _news_context_fixture():
             "monitor": {"status": "OK", "source_profile_status": "complete", "source_health": []},
             "brief": {"findings": [{
                 "item_id": "news-event-1", "title": "BTC ETF inflows rise",
-                "source": "Official Source", "interpretation": interpretation,
+                "source": "Official Source", "freshness": "fresh", "interpretation": interpretation,
             }]},
         }
     }
@@ -259,6 +259,18 @@ def test_news_context_chat_fails_closed_on_incomplete_locale_or_trade_authority(
     assert invalid_authority["status"] == "PARTIAL"
     assert "NEWS_INTERPRETATION_UNAVAILABLE:news-event-1" in invalid_authority["uncertainties"]
     assert not any(row["label"] == "Economic mechanism" for row in invalid_authority["claims"])
+
+
+def test_news_context_chat_surfaces_veto_flags_and_suppresses_stale_items():
+    payload = _news_context_fixture()
+    item = payload["news"]["brief"]["findings"][0]
+    item["freshness"] = "stale"
+    payload["news"]["brief"]["veto_flags"] = ["NEWS_SOURCE_COVERAGE_INCOMPLETE"]
+    result = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert result["status"] == "PARTIAL"
+    assert any(row["label"] == "News confirmation flags" and "NEWS_SOURCE_COVERAGE_INCOMPLETE" in row["value"] for row in result["claims"])
+    assert "NEWS_ITEM_FRESHNESS_UNVERIFIED:news-event-1" in result["uncertainties"]
+    assert not any(row["label"] == "Economic mechanism" for row in result["claims"])
 
 
 def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path, monkeypatch):
