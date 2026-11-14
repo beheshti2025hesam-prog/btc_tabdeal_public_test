@@ -171,6 +171,21 @@ class MotherNewsContextTests(unittest.TestCase):
         self.assertEqual(context["reason_code"], "NEWS_INTERPRETATION_LABELS_INCOMPLETE:de")
         self.assertEqual(context["findings"], [])
 
+    def test_incomplete_news_source_coverage_is_confirmation_veto(self):
+        result = ConfirmationSpecialistV1(FakeMarket()).evaluate({
+            "news_context": {
+                "status": "READY",
+                "coverage_status": "partial",
+                "veto_flags": ["NEWS_SOURCE_COVERAGE_INCOMPLETE"],
+                "findings": [],
+                "news_alone_can_authorize_trade": False,
+            }
+        })
+        self.assertEqual(result.state, "UNCONFIRMED")
+        self.assertIn("NEWS_SOURCE_COVERAGE_INCOMPLETE", result.reason_codes)
+        self.assertEqual(result.payload["direction"], "NONE")
+        self.assertFalse(result.payload["news_alone_can_authorize_trade"])
+
     def test_news_interpretation_cannot_claim_trade_authority(self):
         now = datetime.now(timezone.utc)
         snapshot = make_snapshot(now)
