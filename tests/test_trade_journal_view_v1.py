@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 import json
 
 import pytest
@@ -319,3 +320,159 @@ def test_family_projection_rejects_candidate_not_matching_evidence_bundle(tmp_pa
     path.write_text(json.dumps(record) + "\n", encoding="utf-8")
     with pytest.raises(JournalProjectionError, match="strategy_family_evidence_candidate_mismatch"):
         read_decision_journal(path)
+
+
+def _research_assessment_fixture():
+    from forward.strategy_family_research_dispatch_v1 import FAMILIES
+    families={}
+    for family_id, profile in FAMILIES.items():
+        features={name:False for name in profile["features"]}
+        required=list(profile["features"])
+        reasons=["REQUIRED_RESEARCH_FEATURE_FALSE:"+",".join(required)]
+        diagnostics = (
+            {"cost_model_status":"UNAVAILABLE","cost_model_sha256":None}
+            if family_id == "range_reversion"
+            else {"cost_model_status":"ASSUMPTION_BASED","cost_model_sha256":"c"*64}
+        )
+        payload={
+            "candle_window_sha256":"b"*64,"family_id":family_id,
+            "family_version":profile["version"],"status":"NOT_ELIGIBLE",
+            "direction":None,"features":features,"required_features":required,
+            "diagnostics":diagnostics,"reason_codes":reasons,
+            "observed_at":"2026-11-10T12:00:00+00:00",
+        }
+        families[family_id]={
+            "family_id":family_id,"family_version":profile["version"],
+            "status":"NOT_ELIGIBLE","direction":None,"features":features,
+            "required_features":required,"diagnostics":diagnostics,"reason_codes":reasons,
+            "candle_window_sha256":"b"*64,"observed_at":"2026-11-10T12:00:00+00:00",
+            "candidate_generation_authorized":False,"confirmation_approved":False,
+            "risk_approved":False,"execution_enabled":False,"orders_placed":False,
+            "evidence_sha256":sha256(json.dumps(payload,sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False).encode()).hexdigest(),
+        }
+    result={
+        "schema":"hes_strategy_family_research_assessment_v1","version":"hes-strategy-family-research-assessment-v1.1.0",
+        "status":"ASSESSED","source":"gateio_public_spot","symbol":"BTC_USDT",
+        "setup_timeframe":"15m","observed_at":"2026-11-10T12:00:00+00:00",
+        "market_observed_at":"2026-11-10T12:00:04+00:00",
+        "regime":"RANGE","candle_window_sha256":"b"*64,
+"families":families,        "research_dispatch_status":"NO_RESEARCH_FAMILY_ELIGIBLE",
+        "research_dispatch_version":"hes-strategy-family-research-dispatch-v1.0.0",
+        "research_eligible_family_ids":[],"candidate_generation_authorized":False,
+        "confirmation_approved":False,"risk_approved":False,
+        "execution_enabled":False,"orders_placed":False,
+    }
+    result["assessment_sha256"]=sha256(json.dumps(result,sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False).encode()).hexdigest()
+    return result
+
+
+def _reseal_research_assessment(assessment, family_id=None):
+    if family_id is not None:
+        item = assessment["families"][family_id]
+        payload = {
+            "candle_window_sha256": assessment["candle_window_sha256"],
+            "family_id": family_id,
+            "family_version": item["family_version"],
+            "status": item["status"],
+            "direction": item.get("direction"),
+            "features": item["features"],
+            "required_features": item["required_features"],
+            "diagnostics": item["diagnostics"],
+            "reason_codes": item.get("reason_codes", []),
+            "observed_at": assessment["observed_at"],
+        }
+        item["evidence_sha256"] = sha256(json.dumps(
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+        ).encode()).hexdigest()
+    assessment["assessment_sha256"] = sha256(json.dumps(
+        {k:v for k,v in assessment.items() if k!="assessment_sha256"},
+        sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+    ).encode()).hexdigest()
+    return assessment
+
+
+def test_research_projection_requires_exact_version_unique_family_ids_and_cost_hashes():
+    from forward.trade_journal_view_v1 import _family_attribution
+    assessment=_research_assessment_fixture()
+    assessment["version"]="unknown-v9"
+    _reseal_research_assessment(assessment)
+    with pytest.raises(JournalProjectionError,match="assessment_version_invalid"):
+        _family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+
+    assessment=_research_assessment_fixture()
+    assessment["research_eligible_family_ids"]=["trend_continuation","trend_continuation"]
+    _reseal_research_assessment(assessment)
+    with pytest.raises(JournalProjectionError,match="eligibility_ids_invalid"):
+        _family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+
+    assessment=_research_assessment_fixture()
+    assessment["families"]["trend_continuation"]["diagnostics"]["cost_model_status"]="VERIFIED"
+    assessment["families"]["trend_continuation"]["diagnostics"]["cost_model_sha256"]=None
+    _reseal_research_assessment(assessment,"trend_continuation")
+    with pytest.raises(JournalProjectionError,match="cost_hash_missing_or_invalid"):
+        _family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+
+
+def test_projects_four_family_research_assessment_from_decision_journal():
+    from forward.trade_journal_view_v1 import _family_attribution
+    assessment=_research_assessment_fixture()
+    result=_family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+    projected=result["research_assessment"]
+    assert set(projected["families"])=={"trend_continuation","breakout_retest","range_reversion","volatility_expansion"}
+    assert projected["research_eligible_family_ids"]==[]
+    assert projected["execution_enabled"] is False
+
+
+def test_journal_rejects_research_assessment_hash_and_authority_tampering():
+    from forward.trade_journal_view_v1 import _family_attribution
+    assessment=_research_assessment_fixture()
+    assessment["families"]["trend_continuation"]["candle_window_sha256"]="c"*64
+    with pytest.raises(JournalProjectionError,match="assessment_digest_mismatch"):
+        _family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+    assessment=_research_assessment_fixture()
+    assessment["families"]["range_reversion"]["execution_enabled"]=True
+    assessment["assessment_sha256"]=sha256(json.dumps(
+        {k:v for k,v in assessment.items() if k!="assessment_sha256"},
+        sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False
+    ).encode()).hexdigest()
+    with pytest.raises(JournalProjectionError,match="authority_boundary"):
+        _family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+
+
+def test_journal_records_blocked_family_assessment_without_fabricating_features():
+    from forward.trade_journal_view_v1 import _family_attribution
+    assessment={
+        "schema":"hes_strategy_family_research_assessment_v1","version":"hes-strategy-family-research-assessment-v1.1.0",
+        "status":"BLOCKED","source":"gateio_public_spot","symbol":"BTC_USDT",
+        "setup_timeframe":"15m","observed_at":None,"reason_codes":["INSUFFICIENT_CLOSED_15M_HISTORY"],
+        "families":{},"research_eligible_family_ids":[],
+        "candidate_generation_authorized":False,"confirmation_approved":False,
+        "risk_approved":False,"execution_enabled":False,"orders_placed":False,
+    }
+    assessment["assessment_sha256"]=sha256(json.dumps(assessment,sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False).encode()).hexdigest()
+    result=_family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+    assert result["research_assessment"]["status"]=="BLOCKED"
+
+
+def test_journal_rejects_unknown_or_changed_research_family_version():
+    from forward.trade_journal_view_v1 import _family_attribution
+    assessment=_research_assessment_fixture()
+    assessment["families"]["trend_continuation"]["family_version"]="unregistered-version"
+    assessment["assessment_sha256"]=sha256(json.dumps(
+        {k:v for k,v in assessment.items() if k!="assessment_sha256"},
+        sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False
+    ).encode()).hexdigest()
+    with pytest.raises(JournalProjectionError,match="research_version_mismatch"):
+        _family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})
+
+
+def test_journal_detects_resealed_assessment_with_tampered_family_evidence_digest():
+    from forward.trade_journal_view_v1 import _family_attribution
+    assessment=_research_assessment_fixture()
+    assessment["families"]["breakout_retest"]["diagnostics"]={"net_rr_estimate":2.5}
+    assessment["assessment_sha256"]=sha256(json.dumps(
+        {k:v for k,v in assessment.items() if k!="assessment_sha256"},
+        sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False
+    ).encode()).hexdigest()
+    with pytest.raises(JournalProjectionError,match="research_digest_mismatch"):
+        _family_attribution({"gate_evidence":{"strategy_family_research_assessment":assessment}})

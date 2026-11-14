@@ -12,35 +12,47 @@
 - [ ] Reconcile PR #480's independent review before treating it as a stable merge base. PR #491 is stacked on PR #480.
 
 ## Phase 1 — contracts and research dispatch
-- [x] Add versioned four-family research dispatch contract without changing the existing router.
-- [x] Add a closed-15m, evidence-bound research dispatcher prototype that only marks research eligibility; actual persisted feature wiring remains open.
+- [x] Add versioned four-family research assessment contract without changing the existing router.
+- [x] Replace the synthetic feature-map prototype with an actual persisted Gate.io 15m OHLCV research assessor; four families are evaluated independently from the same hashed closed-candle window.
 - [x] Keep candidate generation, confirmation, Risk, activation and execution false.
-- [x] Add deterministic tests for regime/context routing, stale/invalid evidence, unknown regimes, multiple eligible families, 1m non-authority, fail-closed behavior and SHA-256 provenance binding.
-- [ ] Replay existing trend baseline to prove no behavior change.
+- [x] Add deterministic tests for canonical Gate.io scope, causal closed-candle features, regime/direction alignment, cost-adjusted invalidation geometry, 1m non-authority, fail-closed behavior and SHA-256 provenance binding.
+- [x] Add the assessor as a diagnostic field to the existing gate pipeline; preserve Trend/Range candidate, confirmation, Risk and final decision paths unchanged.\n- [x] Run a read-only one-shot against the current persisted Gate.io 15m/1h/4h feeds; observed Trend Continuation research eligibility while final decision remained NO_TRADE.
 
 ## Phase 1 validation
 - [x] Isolated full repository suite: 1,309 passed + 82 subtests.
-- [x] Focused family suite: 76 passed.
+- [x] Focused family, pipeline, journal, dashboard-data and learning-loop suite: 47 passed in the latest focused gate/journal/learning suite before final cost-floor/hash tests; full suite rerun required.
 - [x] Exact-head GitHub CI: 32/32 successful on initial code commit 31323d92dee4e25e96cfec313b4f00721c8a7231; latest docs-only follow-up CI is pending.
 - [ ] Independent review of PR #491.
 
 ## Phase 2 — family evaluators and journal
-- [ ] Wire the existing StrategyEvidenceProviderV1 (Trend) and build_range_family_evidence (Range) into research dispatch; preserve existing strategy_family_journal_v1 and paper cohort ledgers. Do not add parallel ledgers.
-- [ ] Add Breakout/Retest and Volatility Expansion as research-only evaluators only after historical data contracts and preregistered hypotheses exist; reuse market_structure_v1, structure_policy_v1, order_block_v1 and core volatility features.
-- [ ] Attribute every proposal/rejection to family/version/gate; preserve rejected opportunities separately from resolved trades.
-- [ ] Verify no retroactive family attribution and source-hash consistency.
+- [x] Reuse existing OpportunityDetectorV1/causal structure path for Trend and existing build_range_family_evidence for Range; preserve strategy_family_journal_v1 and paper cohort ledgers.\n- [x] Add causal Breakout/Retest and Volatility Expansion research-only OHLCV feature evaluators; no new market-data adapter.
+- [x] Freeze their v1 feature definitions and threshold hypotheses in STRATEGY_FAMILY_RESEARCH_PROTOCOL_V1_2026-11-10.md; historical walk-forward/OOS validation remains open.
+- [x] Persist four-family research assessment inside existing decision journal gate_evidence; validate/project it in trade_journal_view_v1; expose per-family statuses in existing dashboard journal.\n- [x] Extend existing read-only Learning Loop to produce HYPOTHESIS_ONLY feature-failure attribution from validated journal projections.
+- [x] Require exact 15m source-window SHA-256, per-family evidence SHA-256, matching observation timestamps and false authority flags; no backfill or retroactive family assignment.
 
 ## Phase 3 — research and simulation
-- [ ] Use Gate.io persisted native closed 15m and forward 1m data; document REST history limits and collection gaps.
+- [ ] Run chronological family-specific research over persisted Gate.io closed 15m rows; 1m remains precision-only and must not originate setup.
 - [ ] Use chronological train/validation/holdout, walk-forward, conservative stop-first intrabar resolution and immutable cost assumptions.
 - [ ] Verify actual execution product, fee tier, spread/slippage and funding/borrow before any net-performance claim.
 - [ ] Publish family-isolated cohort reports with uncertainty intervals; no sample quota or parameter tuning on holdout.
 
 ## Phase 4 — app integration and delivery
-- [ ] Extend existing dashboard/API rather than rebuild; display family lifecycle, regime, research eligibility, rejection reasons, cohort sufficiency and metrics.
-- [ ] Exact-head CI, independent review and evidence gates.
-- [ ] Keep all new families research-only unless individually promoted through explicit approval.
+- [x] Extend existing dashboard/API rather than rebuild; display family state, regime, research eligibility, rejection reasons, feature coverage, estimated net-R/cost context and evidence hash.
+- [x] Publish follow-up integration as draft PR #492 stacked on PR #491.
+- [ ] Obtain exact-head CI and independent review; preserve the HOLD gate.
+- [x] Keep all new families research-only unless individually promoted through explicit approval.
 - [ ] Immutable release, encrypted Dropbox backup/restore verification, and explicit user authorization before any production promotion.
 
 ## Current stop conditions
 No live execution, no Risk Gate weakening, no 1m independent setup, no policy mutation, no forced daily trade quota, no claim of >90% performance without verified evidence.
+
+## Follow-up PR publication — 2026-11-10
+
+### Current follow-up state
+- PR #492 remains Draft/open and stacked on PR #491. The branch head was advanced with a documentation-only publication note; the latest PR fetch reports the branch head correctly and GitHub reports mergeable=true.
+- Exact-head workflow query has returned no workflow runs for the latest PR #492 head yet. Treat remote CI as pending, not passed.
+- PR #491 exact-head head `d031203300c4c9ba4cc76dcf1a7504696a4e2d58` has three returned GitHub Actions workflows marked successful. PR #480 exact-head CI was 32/32 successful.
+- Latest isolated full suite: 1,325 passed + 82 subtests; focused dispatcher/features/pipeline/journal/learning suite: 69 passed.
+- Draft PR #492 is open and stacked on PR #491; initial integration commit: `d8f110efa201637a80175461672f7f7b935c03b4`.
+- The initial candidate was validated locally with 1,325 passed + 82 subtests. At publication time, exact-head GitHub Actions had not yet returned any workflow runs or status checks; do not claim remote CI success until the exact current branch head is checked.
+- No merge, deployment, production mutation or live execution is part of this PR.
