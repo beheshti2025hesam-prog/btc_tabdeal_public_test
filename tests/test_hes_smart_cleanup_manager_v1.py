@@ -91,11 +91,13 @@ def test_disk_pressure_thresholds():
 def test_backup_integrity_gate_requires_remote_hash_and_size_match():
     backup = {
         "local_latest_sidecar_verified": True,
+        "local_evidence_store_covered": True,
         "offsite_latest_sidecar_verified": True,
+        "offsite_evidence_store_covered": True,
         "remote_hash_check": "NOT_RUN",
         "offsite_latest": {"size_bytes": 100},
         "dropbox_remote_latest": {"size_bytes": 100},
-        "dropbox_quota": {"free_bytes": 500},
+        "dropbox_quota": {"total_bytes": 2 * 1024**3, "used_bytes": 3 * 1024**3 // 4, "free_bytes": 2 * 1024**3 - (3 * 1024**3 // 4)},
     }
     report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status=backup)
@@ -104,6 +106,27 @@ def test_backup_integrity_gate_requires_remote_hash_and_size_match():
     report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status=backup)
     assert report["recovery_gate"]["backup_integrity_gate"] == "PASS"
+    backup["offsite_evidence_store_covered"] = False
+    report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                                  backup_status=backup)
+    assert report["recovery_gate"]["backup_integrity_gate"] == "INCOMPLETE"
+
+
+def test_backup_integrity_gate_rejects_dropbox_quota_below_replacement_reserve():
+    backup = {
+        "local_latest_sidecar_verified": True,
+        "local_evidence_store_covered": True,
+        "offsite_latest_sidecar_verified": True,
+        "offsite_evidence_store_covered": True,
+        "remote_hash_check": "PASS",
+        "offsite_latest": {"size_bytes": 100},
+        "dropbox_remote_latest": {"size_bytes": 100},
+        "dropbox_quota": {"total_bytes": 2 * 1024**3, "used_bytes": 2 * 1024**3 - 1024**2, "free_bytes": 1024**2},
+    }
+    report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                           backup_status=backup)
+    assert report["backup_manager"]["dropbox_quota_guard"] == "INCOMPLETE"
+    assert report["recovery_gate"]["backup_integrity_gate"] == "INCOMPLETE"
 
 
 
