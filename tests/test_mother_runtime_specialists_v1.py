@@ -144,6 +144,9 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.assertEqual(result["decision"], "NO_TRADE")
         self.assertEqual(result["registered_count"], 7)
         self.assertEqual(result["executed_count"], 7)
+        self.assertEqual(result["consensus"]["decision"], "LONG")
+        self.assertEqual(result["consensus"]["conflict_class"], "CONSENSUS")
+        self.assertEqual(len(result["consensus"]["audit_sha256"]), 64)
         self.assertEqual(result["executed_specialists"], [
             "data_quality", "market_structure", "signal", "confirmation",
             "risk", "decision", "evaluation",
@@ -170,6 +173,8 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.assertEqual(result["decision"], "NO_TRADE")
         self.assertEqual(result["registered_count"], 7)
         self.assertEqual(result["executed_count"], 7)
+        self.assertEqual(result["consensus"]["decision"], "NO_TRADE")
+        self.assertEqual(result["consensus"]["conflict_class"], "MANDATORY_VETO")
         self.assertEqual(result["executed_specialists"], [
             "data_quality", "market_structure", "signal", "confirmation",
             "risk", "decision", "evaluation",
@@ -185,6 +190,8 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.assertEqual(result["precision_entry"]["status"], "BLOCKED")
         self.assertFalse(result["precision_entry"]["direction_authority"])
         self.assertEqual(result["decision"], "NO_TRADE")
+        self.assertEqual(result["consensus"]["decision"], "LONG")
+        self.assertEqual(result["consensus"]["conflict_class"], "CONSENSUS")
         decision_stage = next(stage for stage in result["stages"] if stage["agent"] == "decision")
         self.assertIn("PRECISION_ENTRY_1M_FEED_NOT_READY", decision_stage["reason_codes"])
         self.assertIn("PRECISION_ENTRY_1M_FEED_NOT_READY", result["paper_execution_gate"]["reason_codes"])

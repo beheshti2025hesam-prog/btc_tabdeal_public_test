@@ -15,6 +15,8 @@ import json
 import re
 from typing import Any, Mapping, Protocol
 
+from core.orchestration.mother_consensus_v1 import resolve_mother_consensus_v1
+
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MAX_REASON_CODES = 64
@@ -51,6 +53,7 @@ class OrchestrationResult:
     schema_version: str = "hes.mother_orchestration.v1"
     trace_id: str = ""
     audit_sha256: str = ""
+    consensus: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         rows = []
@@ -73,6 +76,7 @@ class OrchestrationResult:
             "execution_authorized": False,
             "trace_id": self.trace_id,
             "audit_sha256": self.audit_sha256,
+            "consensus": deepcopy(self.consensus) if self.consensus is not None else None,
             "stages": rows,
         }
 
@@ -232,6 +236,7 @@ class MotherOrchestratorV1:
         trace_id = self._trace_id(safe) if safe is not None else ""
         stages: list[AgentResult] = []
         reasons: list[str] = []
+        consensus_result: dict[str, Any] | None = None
 
         def finish(status: str, decision: str, why: tuple[str, ...] | list[str]) -> OrchestrationResult:
             canonical_reasons = tuple(dict.fromkeys(str(x) for x in why if isinstance(x, str) and x))
@@ -244,11 +249,13 @@ class MotherOrchestratorV1:
             audit = {
                 "version": self.VERSION, "trace_id": trace_id, "status": status,
                 "decision": decision, "reason_codes": list(canonical_reasons),
-                "stages": audit_rows, "execution_authorized": False,
+                "stages": audit_rows, "consensus": deepcopy(consensus_result),
+                "execution_authorized": False,
             }
             digest = sha256(json.dumps(audit, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
             return OrchestrationResult(status, decision, tuple(stages), canonical_reasons, False,
-                                       "hes.mother_orchestration.v1", trace_id, digest)
+                                       "hes.mother_orchestration.v1", trace_id, digest,
+                                       deepcopy(consensus_result))
 
         if context_error:
             return finish("BLOCKED_CONTEXT", "NO_TRADE", (context_error,))
@@ -301,15 +308,15 @@ class MotherOrchestratorV1:
                     invalid_decision = True
             shared[name] = result
 
+        by_agent = {stage.agent: stage for stage in stages}
+        consensus_result = resolve_mother_consensus_v1(context=safe, stage_results=by_agent)
+
         if invalid_decision:
             return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
         if gate_failures:
             status = "BLOCKED_RISK_VETO" if risk_veto else "BLOCKED_GATE"
             return finish(status, "NO_TRADE", gate_failures)
 
-        # Resolve cross-stage directional disagreement at the existing Mother boundary.
-        # This is a coherence check over the same snapshot, not a parallel arbiter.
-        by_agent = {stage.agent: stage for stage in stages}
         signal_payload = by_agent["signal"].payload
         confirmation_payload = by_agent["confirmation"].payload
         structure_payload = by_agent["market_structure"].payload
@@ -319,21 +326,36 @@ class MotherOrchestratorV1:
         final_decision = _decision_value(by_agent["decision"].payload)
         if _safe_decision(final_decision) == "INVALID":
             return finish("BLOCKED_INVALID_DECISION", "NO_TRADE", ("INVALID_DECISION",))
+
         confirmed_direction = (
             confirmation_state.removeprefix("CONFIRMED_")
             if isinstance(confirmation_state, str) and confirmation_state in ("CONFIRMED_LONG", "CONFIRMED_SHORT")
             else None
         )
-        if signal_decision in ("LONG", "SHORT") and confirmed_direction in ("LONG", "SHORT") and signal_decision != confirmed_direction:
-            return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("SIGNAL_CONFIRMATION_DIRECTION_CONFLICT",))
-        if signal_decision in ("LONG", "SHORT"):
-            if regime == "UPTREND" and signal_decision != "LONG":
-                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("MARKET_STRUCTURE_SIGNAL_DIRECTION_CONFLICT",))
-            if regime == "DOWNTREND" and signal_decision != "SHORT":
-                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("MARKET_STRUCTURE_SIGNAL_DIRECTION_CONFLICT",))
+        conflict_class = consensus_result.get("conflict_class")
+        consensus_decision = _safe_decision(consensus_result.get("decision"))
+        if consensus_decision == "INVALID":
+            return finish("BLOCKED_GATE", "NO_TRADE", ("CONSENSUS_DECISION_INVALID",))
+
+        if conflict_class == "DIRECTION_CONFLICT":
+            if signal_decision in ("LONG", "SHORT") and confirmed_direction in ("LONG", "SHORT") and signal_decision != confirmed_direction:
+                why = ("SIGNAL_CONFIRMATION_DIRECTION_CONFLICT",)
+            elif (
+                (regime == "UPTREND" and signal_decision == "SHORT")
+                or (regime == "DOWNTREND" and signal_decision == "LONG")
+            ):
+                why = ("MARKET_STRUCTURE_SIGNAL_DIRECTION_CONFLICT",)
+            else:
+                why = ("CONSENSUS_DIRECTION_CONFLICT",)
+            return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", why)
+
+        if conflict_class not in ("CONSENSUS", "INSUFFICIENT_DIRECTIONAL_QUORUM", "NO_DIRECTION"):
+            why = tuple(consensus_result.get("reason_codes") or ("CONSENSUS_NOT_VERIFIED",))
+            return finish("BLOCKED_GATE", "NO_TRADE", why)
+
+        if final_decision in ("LONG", "SHORT"):
+            if consensus_decision != final_decision:
+                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("FINAL_DECISION_DIRECTION_CONFLICT",))
             if regime == "RANGE":
                 return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("DIRECTIONAL_SIGNAL_IN_RANGE_REGIME",))
-        if final_decision in ("LONG", "SHORT"):
-            if signal_decision != final_decision or confirmed_direction != final_decision:
-                return finish("BLOCKED_DIRECTION_CONFLICT", "NO_TRADE", ("FINAL_DECISION_DIRECTION_CONFLICT",))
         return finish("OBSERVATION_ONLY", final_decision, ("EXECUTION_NOT_AUTHORIZED",))

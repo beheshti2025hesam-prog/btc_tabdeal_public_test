@@ -63,3 +63,14 @@ The builder preserves the official soak JSONL, canonical 1m snapshot, candidate 
 - Mother, paper readiness and dashboard are observation-only.
 - No merge, active-release pointer change, collector restart, live order, or paper position is implied by a green unit test or a passing soak.
 - Policy/ruleset activation and the separate PR #496 full-restore gate remain independent promotion requirements.
+
+
+## Same-snapshot consensus arbitration
+
+The Mother boundary now reuses the existing AgentDisagreementResolverV1 contract; it does not add a second market-data, strategy, or risk engine and does not add a duplicate specialist stage. The resolver consumes the already-computed Data Quality, Market Structure, Signal (mapped to the resolver's strategy role), Confirmation, and Risk results from the same request snapshot. It binds every assessment to the same venue/product/symbol/timeframe, observation timestamp, snapshot hash, and a canonical hash of that stage's evidence.
+
+- Uptrend structure votes LONG; downtrend votes SHORT; range structure is NEUTRAL so a future range-family signal can be considered without pretending that structure is directional.
+- Strategy and Confirmation must both supply the same LONG/SHORT vote; Risk and Data Quality remain mandatory vetoes.
+- A direction conflict or invalid/unknown evidence fails closed to NO_TRADE. The existing range guard remains active until the separate range strategy candidate completes its research and validation gates.
+- The resolver's complete assessment set and audit hash are included in the Mother response and independently checked by MotherAuditWitnessV1.
+- This is deterministic evidence arbitration, not an independent LLM majority vote. External LLM usage remains disabled; no orders are submitted and execution remains unauthorized.

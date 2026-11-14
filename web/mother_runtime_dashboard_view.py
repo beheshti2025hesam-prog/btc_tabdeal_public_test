@@ -1,4 +1,4 @@
-"""Live, read-only Mother dashboard backed by the seven runtime specialists.
+"""Live, read-only Mother dashboard backed by the seven runtime specialists and a same-snapshot consensus resolver.
 
 Unlike the legacy report projection, this path loads the current validated
 Gate.io candle ledger and invokes the existing HES evaluators on every request.
@@ -106,6 +106,7 @@ def read_mother_runtime_dashboard(
         "registered_count": len(registry),
         "executed_count": len(stages),
         "stages": stages,
+        "consensus": result.consensus,
         "witness": witness.as_dict(),
         "execution_authorized": False,
         "execution_enabled": False,
