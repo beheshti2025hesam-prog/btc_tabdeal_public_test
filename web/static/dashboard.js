@@ -110,7 +110,7 @@ function renderNewsItems(items){
   else{
    for(const key of fields){const value=localized[key];if(typeof value!=='string'||!value.trim())continue;
     const row=document.createElement('div');row.className='news-interpretation-row';
-    const label=document.createElement('strong');label.textContent=localized.labels[key==='what_happened'?'what':key==='why_it_matters'?'why':key==='affected_market'?'market':key==='potential_effect'?'effect':key==='transmission_channel'?'channel':key==='time_horizon'?'horizon':key==='what_to_monitor'?'monitor':key==='educational_concept'?'education':key==='uncertainty'?'uncertainty':'market']||key;
+    const label=document.createElement('strong');label.textContent=localized.labels[key==='what_happened'?'what':key==='why_it_matters'?'why':key==='affected_market'?'market':key==='relevance_scope'?'scope':key==='potential_effect'?'effect':key==='transmission_channel'?'channel':key==='time_horizon'?'horizon':key==='what_to_monitor'?'monitor':key==='educational_concept'?'education':key==='uncertainty'?'uncertainty':'market']||key;
     const text=document.createElement('p');text.textContent=value;row.append(label,text);details.appendChild(row);
    }
    const disclaimer=document.createElement('p');disclaimer.className='muted';disclaimer.textContent=localized.disclaimer||'';details.appendChild(disclaimer);
