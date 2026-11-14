@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from core.orchestration.mother_v1 import AgentResult, MotherOrchestratorV1, precomputed_specialists_v1
+from core.orchestration.witness_v1 import MotherAuditWitnessV1
 
 ORDER = ("data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation")
 NOW = datetime.now(timezone.utc)
@@ -69,11 +70,12 @@ def test_extra_specialist_fails_closed_to_prevent_shadow_agents():
     assert "UNREGISTERED_SPECIALISTS:execution" in r.reason_codes
 
 
-def test_risk_veto_stops_downstream():
+def test_risk_veto_does_not_suppress_decision_or_evaluation():
     a = agents(risk=Stub("risk", "REJECTED", reasons=("RISK_BUDGET_UNKNOWN",)))
     r = MotherOrchestratorV1(a).run(CONTEXT)
     assert r.decision == "NO_TRADE" and r.status == "BLOCKED_RISK_VETO"
-    assert len(r.stages) == 5 and not a["decision"].seen
+    assert tuple(stage.agent for stage in r.stages) == ORDER
+    assert a["decision"].seen and a["evaluation"].seen
 
 
 def test_agent_exception_fails_closed():
@@ -82,10 +84,12 @@ def test_agent_exception_fails_closed():
     assert r.status == "BLOCKED_AGENT_ERROR" and r.decision == "NO_TRADE"
 
 
-def test_unknown_state_fails_closed():
+def test_unknown_state_fails_closed_after_all_independent_specialists_run():
     a = agents(confirmation=Stub("confirmation", "UNKNOWN"))
     r = MotherOrchestratorV1(a).run(CONTEXT)
     assert r.status == "BLOCKED_GATE" and r.decision == "NO_TRADE"
+    assert tuple(stage.agent for stage in r.stages) == ORDER
+    assert a["risk"].seen and a["decision"].seen and a["evaluation"].seen
 
 
 def test_success_is_observation_only_and_auditable():
@@ -95,6 +99,34 @@ def test_success_is_observation_only_and_auditable():
     assert tuple(x.agent for x in r.stages) == ORDER
     assert len(r.trace_id) == len(r.audit_sha256) == 64
     assert r.as_dict()["execution_authorized"] is False
+
+
+def test_same_snapshot_consensus_is_exposed_and_independently_witnessed():
+    result = MotherOrchestratorV1(agents()).run(CONTEXT)
+    consensus = result.as_dict()["consensus"]
+    assert consensus["resolver_version"] == "hes-agent-disagreement-resolver-v1"
+    assert consensus["decision"] == "LONG"
+    assert consensus["direction"] == "LONG"
+    assert consensus["conflict_class"] == "CONSENSUS"
+    assert {row["agent_id"] for row in consensus["assessments"]} == {
+        "data_quality", "market_structure", "strategy", "confirmation", "risk"
+    }
+    assert {row["snapshot_sha256"] for row in consensus["assessments"]} == {CONTEXT["snapshot_sha256"]}
+    assert {row["as_of"] for row in consensus["assessments"]} == {CONTEXT["observed_at"]}
+    witness = MotherAuditWitnessV1().verify(result.as_dict())
+    assert witness.verified is True
+
+
+def test_no_directional_signal_does_not_become_a_consensus_trade():
+    a = agents(
+        signal=Stub("signal", payload={"decision": "NO_TRADE", "direction": "NONE"}),
+        decision=Stub("decision", payload={"decision": "NO_TRADE"}),
+    )
+    result = MotherOrchestratorV1(a).run(CONTEXT)
+    assert result.status == "OBSERVATION_ONLY"
+    assert result.decision == "NO_TRADE"
+    assert result.consensus["decision"] == "NO_TRADE"
+    assert result.consensus["conflict_class"] == "INSUFFICIENT_DIRECTIONAL_QUORUM"
 
 
 def test_short_decision_mapping_is_preserved():

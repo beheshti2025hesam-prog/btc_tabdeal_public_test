@@ -18,7 +18,7 @@ from forward.trade_journal_view_v1 import configured_decision_journal, JournalPr
 from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain
 from core.market_intelligence.news_monitor import NewsMonitorV1
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard, StrategyV2DashboardError
-from web.mother_v2_dashboard_view import read_mother_v2_dashboard, MotherV2DashboardError
+from web.mother_runtime_dashboard_view import read_mother_runtime_dashboard, MotherRuntimeDashboardError
 from web.mother_chat_v1 import MotherChatError, MotherChatSecurityV1, build_chat_response, read_json_body
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
@@ -198,7 +198,7 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <div id="message" role="status" aria-live="polite" aria-atomic="true">Loading validated closed candles…</div></section>
 <section class="panel" id="precisionEntryPanel" aria-labelledby="precisionEntryTitle"><h2 class="panel-title" id="precisionEntryTitle">Multi-Timeframe Alignment · Precision Entry</h2><div class="metrics"><div class="metric"><small>4H data</small><strong id="pe4h" data-no-translate>Checking…</strong></div><div class="metric"><small>1H data</small><strong id="pe1h" data-no-translate>Checking…</strong></div><div class="metric"><small>15M setup gate</small><strong id="pe15m" data-no-translate>Checking…</strong></div><div class="metric"><small>1M feed</small><strong id="pe1m" data-no-translate>Checking…</strong></div><div class="metric"><small>Precision Entry</small><strong id="peState" data-no-translate>BLOCKED</strong></div><div class="metric"><small>Risk Gate</small><strong id="peRisk" data-no-translate>UNVERIFIED</strong></div></div><p class="muted" id="peReasons" data-no-translate role="status" aria-live="polite">Waiting for validated multi-timeframe evidence…</p><div class="gate"><strong>Advisory only · execution disabled</strong><p class="muted">The 15M setup remains authoritative. The 1M layer cannot create a trade, change direction, bypass Risk Gate, or submit orders. Missing/stale candles, missing provenance-bound entry context, or unapproved setup means BLOCKED / NO_TRADE.</p></div></section>
 <section class="panel" id="strategyV2Panel" aria-labelledby="strategyV2Title"><h2 class="panel-title" id="strategyV2Title">Canonical Strategy V2 · Paper evaluator</h2><div class="metrics"><div class="metric"><small>Canonical decision</small><strong id="v2Decision" data-no-translate>NO_TRADE</strong></div><div class="metric"><small>Evidence status</small><strong id="v2Status" data-no-translate role="status" aria-live="polite">Checking report…</strong></div><div class="metric"><small>Market regime</small><strong id="v2Regime" data-no-translate>UNKNOWN</strong></div><div class="metric"><small>Policy version</small><strong id="v2Version" data-no-translate>—</strong></div><div class="metric"><small>Paper outcomes</small><strong id="v2Outcomes" data-no-translate>—</strong></div><div class="metric"><small>Decision journal</small><strong id="v2Journal" data-no-translate>—</strong></div></div><p class="muted" id="v2Reasons" data-no-translate>Waiting for the canonical V2 evaluator report…</p><div class="gate"><strong>Gate.io data only · execution disabled</strong><p class="muted" id="v2Evidence" data-no-translate>This panel is a read-only projection of the existing Strategy Policy V2 evaluator and canonical journal. It does not calculate a second strategy or submit orders.</p></div></section>
-<section class="panel" id="motherPanel" aria-labelledby="motherTitle"><h2 class="panel-title" id="motherTitle">Mother Orchestrator · canonical V2 evidence chain</h2><div class="metrics"><div class="metric"><small>Orchestration</small><strong id="motherStatus" data-no-translate role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Independent witness</small><strong id="motherWitness" data-no-translate>NOT VERIFIED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace" data-no-translate>—</strong></div></div><p class="muted" id="motherReasons" data-no-translate>Waiting for matched Strategy V2 report and journal evidence…</p><ul id="motherStages" data-no-translate><li class="muted">No verified orchestration stages.</li></ul><div class="gate"><strong>Observation only · execution disabled</strong><p class="muted" id="motherEvidence" data-no-translate>Mother coordinates the existing Strategy V2 specialist outputs. It does not recalculate market data, indicators, strategy or risk, and cannot authorize orders.</p></div></section>
+<section class="panel" id="motherPanel" aria-labelledby="motherTitle"><h2 class="panel-title" id="motherTitle">Mother Orchestrator · canonical V2 evidence chain</h2><div class="metrics"><div class="metric"><small>Orchestration</small><strong id="motherStatus" data-no-translate role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Independent witness</small><strong id="motherWitness" data-no-translate>NOT VERIFIED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace" data-no-translate>—</strong></div></div><p class="muted" id="motherReasons" data-no-translate>Waiting for live Gate.io data and runtime specialist evaluation…</p><p class="muted" id="motherPaperGate" data-no-translate>Paper simulation gate: awaiting recovery and activation evidence…</p><ul id="motherStages" data-no-translate><li class="muted">No verified orchestration stages.</li></ul><div class="gate"><strong>Observation only · execution disabled</strong><p class="muted" id="motherEvidence" data-no-translate>Mother runs the seven HES specialist evaluators against the current validated Gate.io snapshot. It uses the shared persisted data path and cannot authorize orders.</p></div></section>
 <section class="panel" id="motherChatPanel" aria-labelledby="motherChatTitle"><h2 class="panel-title" id="motherChatTitle">Mother Command Center · free local interface</h2><p class="muted">Bounded read-only commands over existing HES evidence. No paid API, external LLM, account access, order tools, policy changes or journal writes. Chat history stays in this page only.</p><div id="motherChatLogin"><form id="motherChatLoginForm"><label for="motherChatToken">Local access token</label><input id="motherChatToken" type="password" autocomplete="current-password" maxlength="256" required><button id="motherChatUnlock" type="submit">Unlock Command Center</button><p class="muted" id="motherChatLoginStatus" role="status" aria-live="polite">Access is disabled until the operator configures the local token file.</p></form></div><div id="motherChatWorkspace" hidden><div id="motherChatMessages" class="mother-chat-messages" role="log" aria-live="polite" aria-relevant="additions text"><p class="muted">Ask about status, a decision, the market, journal, news or diagnostics.</p></div><form id="motherChatForm"><label for="motherChatInput">Message Mother</label><textarea id="motherChatInput" rows="2" maxlength="1000" required placeholder="مثلاً: چرا تصمیم مادر عدم ترید است؟"></textarea><div class="mother-chat-actions"><button id="motherChatSend" type="submit">Send</button><button id="motherChatLogout" type="button" class="secondary">Lock</button></div></form></div><div class="gate"><strong>Safety boundary</strong><p class="muted">Mother explains recorded evidence; it does not create a new signal. Gate.io Public Spot BTC_USDT remains the sole analysis source. Execution, account access and all write actions remain disabled.</p></div></section>
 <section class="panel" id="newsRadarPanel" aria-labelledby="newsTitle"><h2 class="panel-title" id="newsTitle">News Radar · read-only evidence</h2><div class="metrics"><div class="metric"><small>Monitor</small><strong id="newsStatus" data-no-translate role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Qualified coverage</small><strong id="newsCoverage" data-no-translate>UNKNOWN</strong></div><div class="metric"><small>Sources OK / empty / failed</small><strong id="newsSources" data-no-translate>0 / 0 / 0</strong></div><div class="metric"><small>International / domestic / venue</small><strong id="newsScopes" data-no-translate>0 / 0 / 0</strong></div><div class="metric"><small>Fresh / aging / stale / future / empty / failed / unknown</small><strong id="newsFreshness" data-no-translate>0 / 0 / 0 / 0 / 0 / 0 / 0</strong></div><div class="metric"><small>Last poll (UTC)</small><strong id="newsLastPoll" data-no-translate>—</strong></div></div><p class="muted" id="newsSummary" data-no-translate>Waiting for verified news evidence…</p><p class="muted" id="newsFlags" data-no-translate>News does not originate trade direction or authorize execution.</p><ul id="newsItems" data-no-translate><li class="muted">No verified headlines loaded.</li></ul><h3>Per-source health and freshness</h3><ul id="newsSourceDetails" data-no-translate><li class="muted">No per-source health loaded.</li></ul><div class="gate"><strong>Context only · no trade authorization</strong><p class="muted">Gate.io remains the sole live market-data source. Gate.io announcements are venue-operational news only; candles, indicators and chart data never come from news feeds. News coverage is explicitly partial where shown.</p></div></section>
 <section class="panel" id="safetyPanel" aria-labelledby="safetyTitle"><h2 class="panel-title" id="safetyTitle">Decision and safety gates</h2><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
@@ -212,9 +212,20 @@ _MOTHER_CHAT_SECURITY = MotherChatSecurityV1()
 
 
 def _mother_chat_core_evidence():
-    provenance = _current_chart_batch_provenance()
-    strategy = read_strategy_v2_dashboard(current_market_data_provenance=provenance)
-    mother = read_mother_v2_dashboard(strategy_view=strategy)
+    # Mother computes from the current shared Gate.io candle ledger on every
+    # request. The chat receives a live proposal summary, never a saved report.
+    mother = read_mother_runtime_dashboard(data_root=_market_data_root())
+    proposal = mother.get("strategy_proposal") or {}
+    strategy = {
+        "status": "LIVE_RUNTIME" if mother.get("runtime_mode") == "LIVE_DATA_RUNTIME_SPECIALISTS" else "BLOCKED",
+        "decision": proposal.get("decision", "NO_TRADE"),
+        "market_regime": mother.get("market_regime", "UNKNOWN"),
+        "snapshot_sha256": mother.get("snapshot_sha256"),
+        "quality_score": proposal.get("quality_score"),
+        "reason_codes": proposal.get("reason_codes", []),
+        "execution_enabled": False,
+        "orders_placed": False,
+    }
     return strategy, mother
 
 
@@ -242,7 +253,7 @@ def _mother_chat_readers():
             "trace_id": mother.get("trace_id"),
             "evidence_refs": [x for x in (
                 mother.get("trace_id"), mother.get("audit_sha256"),
-                strategy.get("report_sha256"), mother.get("journal_event_sha256"),
+                strategy.get("snapshot_sha256"), mother.get("journal_event_sha256"),
             ) if isinstance(x, str) and x],
         }
 
@@ -253,7 +264,7 @@ def _mother_chat_readers():
             "trace_id": mother.get("trace_id"),
             "evidence_refs": [x for x in (
                 mother.get("trace_id"), mother.get("audit_sha256"),
-                strategy.get("report_sha256"),
+                strategy.get("snapshot_sha256"),
             ) if isinstance(x, str) and x],
         }
 
@@ -271,7 +282,7 @@ def _mother_chat_readers():
             "latest_candle": {"close": str(latest.close), "age_seconds": age},
             "trace_id": mother.get("trace_id"),
             "evidence_refs": [x for x in (
-                strategy.get("report_sha256"), mother.get("trace_id"),
+                strategy.get("snapshot_sha256"), mother.get("trace_id"),
                 batch.response_sha256,
             ) if isinstance(x, str) and x],
         }
@@ -287,7 +298,7 @@ def _mother_chat_readers():
             "trace_id": mother.get("trace_id"),
             "evidence_refs": [x for x in (
                 journal.get("journal_sha256") if isinstance(journal, dict) else None,
-                strategy.get("report_sha256") if isinstance(strategy, dict) else None,
+                strategy.get("snapshot_sha256") if isinstance(strategy, dict) else None,
                 mother.get("trace_id") if isinstance(mother, dict) else None,
             ) if isinstance(x, str) and x],
         }
@@ -318,6 +329,11 @@ def _mother_chat_readers():
             witness = mother.get("witness", {})
             witness_ok = isinstance(witness, dict) and witness.get("verified") is True
             components["Mother witness"] = {"status": "VERIFIED" if witness_ok else "BLOCKED"}
+            paper_gate = mother.get("paper_execution_gate", {})
+            components["Paper simulation gate"] = {
+                "status": paper_gate.get("status", "BLOCKED") if isinstance(paper_gate, dict) else "BLOCKED",
+                "reason": ", ".join(paper_gate.get("reason_codes", [])) if isinstance(paper_gate, dict) else "evidence_unavailable",
+            }
             trace_id = mother.get("trace_id", "")
         except Exception:
             components["Strategy V2"] = {"status": "BLOCKED", "reason": "evidence_unavailable"}
@@ -578,17 +594,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/mother":
             try:
-                current_provenance = _current_chart_batch_provenance()
-                strategy_view = read_strategy_v2_dashboard(current_market_data_provenance=current_provenance)
-                payload = read_mother_v2_dashboard(strategy_view=strategy_view)
+                payload = read_mother_runtime_dashboard(data_root=_market_data_root())
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
-            except (StrategyV2DashboardError, MotherV2DashboardError, ValueError) as exc:
+            except (MotherRuntimeDashboardError, ValueError) as exc:
                 payload = {
-                    "schema": "hes.mother_v2_dashboard_view.v1", "status": "BLOCKED_EVIDENCE",
-                    "decision": "NO_TRADE", "reason_codes": [str(exc)], "stages": [],
-                    "witness": {"verified": False, "reason_codes": ["MOTHER_EVIDENCE_UNVERIFIED"]},
-                    "execution_authorized": False, "execution_enabled": False,
-                    "orders_placed": False, "fail_closed": True,
+                    "schema": "hes.mother_runtime_dashboard.v1",
+                    "runtime_mode": "BLOCKED",
+                    "status": "BLOCKED_EVIDENCE",
+                    "decision": "NO_TRADE",
+                    "reason_codes": [str(exc)],
+                    "registered_specialists": [],
+                    "executed_specialists": [],
+                    "stages": [],
+                    "witness": {"verified": False, "reason_codes": ["MOTHER_RUNTIME_EVIDENCE_UNVERIFIED"]},
+                    "execution_authorized": False,
+                    "execution_enabled": False,
+                    "orders_placed": False,
+                    "journal_write": False,
+                    "outcomes_inferred": False,
+                    "fail_closed": True,
                 }
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/news":

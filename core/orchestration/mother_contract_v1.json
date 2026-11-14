@@ -67,6 +67,7 @@
     "Realized performance belongs to the separate forward outcome/evaluation pipeline and must never be inferred.",
     "The exact canonical market-data source and scope must be supplied by the upstream validated data path.",
     "Unknown contract versions must be rejected, not silently coerced.",
-    "Signal, confirmation, market-structure regime, and any directional final decision must agree on direction within the same evidence snapshot; disagreement blocks NO_TRADE at the Mother boundary."
+    "Signal, confirmation, market-structure regime, and any directional final decision must agree on direction within the same evidence snapshot; disagreement blocks NO_TRADE at the Mother boundary.",
+    "A deterministic same-snapshot consensus resolver over data quality, market structure, strategy signal, confirmation, and risk must pass before a directional final decision can be observed."
   ]
 }

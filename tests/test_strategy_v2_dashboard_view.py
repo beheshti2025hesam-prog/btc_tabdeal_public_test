@@ -45,7 +45,7 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
             "updated_at": self.now.isoformat(),
             "closed_15m_candle_time": 1793547900,
             "final_gate_version": "hes-strategy-policy-final-gate-v1.0.0",
-            "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.1",
+            "gate_pipeline_version": "hes-strategy-gate-pipeline-v1.0.2",
             "source": "gateio_public_spot",
             "symbol": "BTC_USDT",
             "active_candidates": 0, "wins": 5, "losses": 9, "timeouts": 0,
@@ -92,7 +92,7 @@ class StrategyV2DashboardViewTests(unittest.TestCase):
         self.assertEqual(result["closed_15m_candle_time"], 1793547900)
         self.assertEqual(result["market_data_provenance"]["timeframes"]["15m"]["input_batch_sha256"], "a" * 64)
         self.assertEqual(result["final_gate_version"], "hes-strategy-policy-final-gate-v1.0.0")
-        self.assertEqual(result["gate_pipeline_version"], "hes-strategy-gate-pipeline-v1.0.1")
+        self.assertEqual(result["gate_pipeline_version"], "hes-strategy-gate-pipeline-v1.0.2")
         self.assertEqual(result["journal"]["decision_count"], 1)
         self.assertEqual(result["journal"]["events"][0]["source"], "gateio_public_spot")
         self.assertFalse(result["execution_enabled"])
