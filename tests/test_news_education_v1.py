@@ -119,8 +119,8 @@ class NewsEducationV1Tests(unittest.TestCase):
             reasons=(),
         )
         self.assertEqual(interpretation["category"], "unclassified")
-        self.assertEqual(interpretation["localized"]["fa"]["affected_market"], "بازار نامشخص · BTCUSDT")
-        self.assertEqual(interpretation["localized"]["de"]["affected_market"], "Nicht näher bestimmter Markt · BTCUSDT")
+        self.assertEqual(interpretation["localized"]["fa"]["affected_market"], "بازار رمزارز · BTCUSDT")
+        self.assertEqual(interpretation["localized"]["de"]["affected_market"], "Kryptomarkt · BTCUSDT")
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
         self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
 
