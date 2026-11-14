@@ -169,3 +169,11 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - A hostile headline containing an `img/onerror` payload remains literal text: no image element is created and no injected handler executes.
 - The full browser smoke also continues to verify chart, persisted-feed and no-live-execution contracts.
 - Latest exact code/test head: `ff0d818aad49c196a84745aefc0b74b43e64a158`. Exact-head CI **3/3 PASS** — full repository pytest **1,280 passed + 82 subtests**, browser render smoke PASS (including the new news-panel assertions), dashboard native-path/API contract PASS.
+
+
+## 15. NewsBrain market-profile coverage — 2026-11-14
+
+- Extended the market relevance aliases so US equities, Iran equities, Forex and metals/commodities resolve their intended market-family vocabulary rather than relying only on a target symbol match.
+- Added commodity event terms and Persian equities vocabulary to the existing deterministic classifier; the existing curated economic education profiles are now reachable from these market contexts.
+- Added end-to-end NewsIntelligenceBrain tests for crypto, US equities, Iran equities, Forex and metals. Each fixture must survive relevance filtering, select its expected economic category, retain market/category-level relevance (not claim a direct symbol match), and provide all four localized educational fields.
+- This is still deterministic, evidence-bounded classification; it does not infer an asset-specific causal price direction from a category keyword.
