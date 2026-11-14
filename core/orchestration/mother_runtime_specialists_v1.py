@@ -463,9 +463,16 @@ class ConfirmationSpecialistV1:
         base_reasons = tuple(confirmation.reason_codes or (() if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") else ("CONFIRMATION_NOT_VALID",)))
         reasons = tuple(dict.fromkeys((*base_reasons, *news_veto_flags)))
         news_item_refs = tuple(
-            "news_item_id:" + str(item.get("item_id"))
+            ref
             for item in news.get("findings", [])
-            if isinstance(item, Mapping) and isinstance(item.get("item_id"), str) and item.get("item_id")
+            if isinstance(item, Mapping)
+            for ref in (
+                "news_item_id:" + str(item.get("item_id"))
+                if isinstance(item.get("item_id"), str) and item.get("item_id") else None,
+                "news_event_cluster_id:" + str(item.get("event_cluster_id"))
+                if isinstance(item.get("event_cluster_id"), str) and item.get("event_cluster_id") else None,
+            )
+            if ref
         ) if isinstance(news.get("findings"), list) else ()
         news_refs = tuple(
             value for value in (
@@ -499,6 +506,9 @@ class ConfirmationSpecialistV1:
             "news_items": [
                 {
                     "item_id": item.get("item_id"),
+                    "event_cluster_id": item.get("event_cluster_id"),
+                    "corroboration_item_count": item.get("corroboration_item_count"),
+                    "corroboration_source_count": item.get("corroboration_source_count"),
                     "interpretation": item.get("interpretation"),
                     "freshness": item.get("freshness"),
                 }
