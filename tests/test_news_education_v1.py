@@ -35,6 +35,12 @@ class NewsEducationV1Tests(unittest.TestCase):
             self.assertTrue(localized["why_it_matters"])
             self.assertTrue(localized["affected_market"])
             self.assertTrue(localized["potential_effect"])
+            self.assertTrue(localized["transmission_channel"])
+            self.assertTrue(localized["time_horizon"])
+            self.assertTrue(localized["what_to_monitor"])
+            self.assertTrue(localized["educational_concept"])
+            self.assertTrue(localized["uncertainty"])
+            self.assertTrue(localized["disclaimer"])
         expected_market_labels = {
             "fa": "بازار رمزارز",
             "en": "Crypto market",
@@ -45,12 +51,6 @@ class NewsEducationV1Tests(unittest.TestCase):
             self.assertIn(label, interpretation["localized"][locale]["affected_market"])
             self.assertIn("BTCUSDT", interpretation["localized"][locale]["affected_market"])
             self.assertIn("gateio", interpretation["localized"][locale]["affected_market"])
-            self.assertTrue(localized["transmission_channel"])
-            self.assertTrue(localized["time_horizon"])
-            self.assertTrue(localized["what_to_monitor"])
-            self.assertTrue(localized["educational_concept"])
-            self.assertTrue(localized["uncertainty"])
-            self.assertTrue(localized["disclaimer"])
             self.assertTrue(localized["labels"]["scope"])
 
     def test_same_canonical_analysis_is_shared_with_mother_payload(self):
