@@ -229,3 +229,35 @@ def test_four_family_research_assessment_is_diagnostic_and_does_not_change_gate_
     assert result['orders_placed'] is False
     assert assessment['execution_enabled'] is False
     assert assessment['orders_placed'] is False
+
+
+def test_family_research_pipeline_separates_market_observation_from_candle_close(monkeypatch):
+    import forward.strategy_gate_pipeline_v1 as pipeline
+    seen = {}
+    def fake_assess(**kwargs):
+        seen.update(kwargs)
+        return {
+            "schema": "hes_strategy_family_research_assessment_v1",
+            "version": "hes-strategy-family-research-assessment-v1.1.0",
+            "status": "BLOCKED", "reason_codes": ["TEST_FIXTURE"],
+            "families": {}, "research_eligible_family_ids": [],
+            "candidate_generation_authorized": False, "confirmation_approved": False,
+            "risk_approved": False, "execution_enabled": False, "orders_placed": False,
+        }
+    monkeypatch.setattr(pipeline, "assess_strategy_families", fake_assess)
+    rows = candles()
+    close_boundary = datetime.fromtimestamp(rows[-1]["close_time"], timezone.utc)
+    market_observed = close_boundary + timedelta(seconds=5)
+    p = PolicyDecision(POLICY_VERSION, "NO_TRADE", "NONE", 0, None, None, None, None,
+                       ("TEST_NO_TRADE",), {"policy": "NO_TRADE"})
+    result = pipeline.evaluate_gate_evidence(
+        proposal=p, rows_15m=rows, frames={"15m": rows, "1h": rows, "4h": rows},
+        source="gateio_public_spot", symbol="BTC_USDT",
+        observed_at=close_boundary,
+        now_ms=int(market_observed.timestamp() * 1000),
+    )
+    assert seen["observed_at"] == market_observed
+    assert seen["now"] == market_observed
+    assert result["final_decision"] == "NO_TRADE"
+    assert result["execution_enabled"] is False
+    assert result["orders_placed"] is False
