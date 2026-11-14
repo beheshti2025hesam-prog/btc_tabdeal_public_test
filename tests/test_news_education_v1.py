@@ -47,10 +47,18 @@ class NewsEducationV1Tests(unittest.TestCase):
             "de": "Kryptomarkt",
             "fr": "Marché des cryptomonnaies",
         }
+        expected_context_labels = {
+            "fa": "زمینه بازار هدف",
+            "en": "Target market context",
+            "de": "Kontext des Zielmarkts",
+            "fr": "Contexte du marché cible",
+        }
         for locale, label in expected_market_labels.items():
-            self.assertIn(label, interpretation["localized"][locale]["affected_market"])
-            self.assertIn("BTCUSDT", interpretation["localized"][locale]["affected_market"])
-            self.assertIn("gateio", interpretation["localized"][locale]["affected_market"])
+            localized = interpretation["localized"][locale]
+            self.assertIn(label, localized["affected_market"])
+            self.assertIn("BTCUSDT", localized["affected_market"])
+            self.assertIn("gateio", localized["affected_market"])
+            self.assertEqual(localized["labels"]["market"], expected_context_labels[locale])
             self.assertTrue(localized["labels"]["scope"])
 
     def test_same_canonical_analysis_is_shared_with_mother_payload(self):
