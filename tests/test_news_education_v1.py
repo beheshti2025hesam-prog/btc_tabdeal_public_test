@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from datetime import datetime, timezone
 
 from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceBrain, NewsItem
@@ -109,6 +110,20 @@ class NewsEducationV1Tests(unittest.TestCase):
         self.assertEqual(interpretation["category"], "unclassified")
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
         self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
+
+    def test_dashboard_news_renderer_is_localized_and_uses_safe_text_nodes(self):
+        dashboard = Path(__file__).resolve().parents[1] / "web" / "static" / "dashboard.js"
+        source = dashboard.read_text(encoding="utf-8")
+        self.assertIn("function renderNewsItems(items)", source)
+        self.assertIn("text.textContent=value", source)
+        self.assertIn("renderNewsItems(window.__hesNewsFindings)", source)
+        for field in (
+            "what_happened", "why_it_matters", "affected_market",
+            "relevance_scope", "potential_effect", "transmission_channel",
+            "time_horizon", "what_to_monitor", "educational_concept", "uncertainty",
+        ):
+            self.assertIn("'" + field + "'", source)
+        self.assertIn("data-no-translate", source)
 
     def test_headline_sentiment_never_becomes_market_direction_and_caveats_are_localized(self):
         interpretation = build_news_item_interpretation_v1(
