@@ -24,6 +24,11 @@ def test_backup_script_syntax_and_fail_closed_archive_checks() -> None:
     assert "tar -tzf -" in source
     assert "sha256sum" in source
     assert "MIN_FREE_KB=5242880" in source
+    assert "srv/hes-evidence" in source
+    assert "BACKUP_EVIDENCE_STORE_MISSING_OR_INCOMPLETE" in source
+    assert "expected_evidence_entries" in source
+    assert source.count("\nprune_archives\n") == 1
+    assert "Required evidence store: /srv/hes-evidence" in source
 
 
 def test_retention_keeps_daily_weekly_monthly_and_latest_duplicate(tmp_path: Path) -> None:
@@ -44,6 +49,7 @@ def test_retention_keeps_daily_weekly_monthly_and_latest_duplicate(tmp_path: Pat
         archive = tmp_path / f"hes-full-{stamp}.tar.gz.gpg"
         archive.write_bytes(b"fixture")
         Path(str(archive) + ".sha256").write_text("fixture", encoding="utf-8")
+        Path(str(archive) + ".manifest.txt").write_text("fixture", encoding="utf-8")
 
     env = dict(os.environ, BACKUP_DIR=str(tmp_path), HES_BACKUP_TODAY="2026-11-14")
     run = subprocess.run(
@@ -63,6 +69,7 @@ def test_retention_keeps_daily_weekly_monthly_and_latest_duplicate(tmp_path: Pat
     }
     assert remaining == expected
     assert not (tmp_path / "hes-full-20261102T010000Z.tar.gz.gpg.sha256").exists()
+    assert not (tmp_path / "hes-full-20261102T010000Z.tar.gz.gpg.manifest.txt").exists()
     assert "RETENTION_DELETE_EXPIRED" in run.stdout
     assert "RETENTION_DELETE_DUPLICATE" in run.stdout
 

@@ -63,3 +63,24 @@ The cleanup manager itself remains read-only and fail-closed; this backup change
 - Disk state after successful backup: 80% used, 9.7 GiB free; operational healthcheck returned overall=OK and 19.6% free.
 - The installed encrypted local-backup service and daily persistent timer remain active. This local archive is not evidence of a Dropbox restore; Dropbox offsite quota and restore verification remain a separate gate.
 - Smart Cleanup Manager remains read-only: no application data, backups, or logs were deleted by the cleanup manager.
+
+## Evidence-store backup coverage correction — 2026-11-14
+
+A live audit found a material coverage gap: the independent /srv/hes-evidence store contains 3,744 files (about 414 MiB allocated; 421,318,869 logical bytes), but neither the installed local full-backup script nor the Dropbox offsite builder included it. The store is protected from cleanup, so omitting it from recovery archives was inconsistent.
+
+A streaming tar-to-gzip size estimate for /srv/hes-evidence was 146,800,584 bytes. The Dropbox Basic remote currently stores one stable encrypted offsite object (1,581,153,470 bytes); quota is 2,147,483,648 total, 1,581,229,802 used, 566,253,846 free (73.63% used). The existing 128 MiB upload reserve leaves sufficient estimated headroom for the evidence-store addition, subject to the existing runtime quota guard.
+
+Candidate correction on fix/hes-evidence-backup-coverage-v1 (based on exact PR #496 head c875cb2ec4f96fd7cdc7c8b1f36b2a4c944edbf7):
+
+- Add /srv/hes-evidence to both local and Dropbox offsite archive input sets; fail closed if the required store is missing.
+- Verify the evidence-store directory and exact file/symlink entry count in each encrypted tar listing before accepting the archive.
+- Publish a non-secret local coverage manifest and require the same explicit coverage line in the offsite manifest.
+- Keep local retention sidecars synchronized when an archive is pruned.
+- Raise the offsite archive cap consistently from 1.5 GiB to 1.75 GiB; preserve the existing 128 MiB Dropbox quota reserve and stable remote object replacement/hash check.
+- Make Smart Cleanup Manager's backup-integrity gate require local and offsite evidence coverage, matching remote size/hash, and a valid quota replacement guard. A sidecar/hash pass without coverage is no longer enough.
+
+Validation on the isolated candidate worktree: 102 focused operational tests passed across local backup, offsite coverage, Smart Cleanup Manager, capacity trend and IDLM audit; bash -n passed for local/offsite scripts; Python compile and git diff --check passed.
+
+No production backup script, systemd unit/timer, Dropbox object, active release, VPS service, evidence file, or application file was changed by this candidate. No cleanup/deletion occurred. The current installed backup artifacts still predate this correction, so the live backup coverage gate must remain INCOMPLETE until a new local archive and a new remote offsite archive are built and verified with the new manifest.
+
+Remaining gates: exact-head GitHub CI; review the backup manifest/retention changes; controlled deployment of the updated scripts; successful next local and Dropbox backup cycles with remote SHA/size/quota verification; isolated full extraction test of the new archive; replacement-host/bare-metal recovery remains separate and unproven. Smart Cleanup remains read-only with zero deletion authorization.

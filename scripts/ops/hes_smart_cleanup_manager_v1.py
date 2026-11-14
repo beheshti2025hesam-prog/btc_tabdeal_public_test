@@ -590,8 +590,10 @@ def _backup_status() -> dict[str, Any]:
     result: dict[str, Any] = {
         "local_latest": None,
         "local_latest_sidecar_verified": False,
+        "local_evidence_store_covered": False,
         "offsite_latest": None,
         "offsite_latest_sidecar_verified": False,
+        "offsite_evidence_store_covered": False,
         "dropbox_quota": None,
         "dropbox_remote_latest": None,
         "remote_hash_check": "NOT_RUN",
@@ -607,6 +609,15 @@ def _backup_status() -> dict[str, Any]:
             check = subprocess.run(["sha256sum", "-c", str(sidecar)], cwd=archive.parent, capture_output=True, text=True, timeout=180, check=False)
             result["local_latest_sidecar_verified"] = check.returncode == 0
             result["local_latest_sha256_check"] = check.stdout.strip()[-300:] if check.returncode == 0 else check.stderr.strip()[-300:]
+        coverage_manifest = Path(str(archive) + ".manifest.txt")
+        if coverage_manifest.is_file():
+            try:
+                result["local_evidence_store_covered"] = any(
+                    line.strip() == "Required evidence store: /srv/hes-evidence (coverage verified by archive listing)."
+                    for line in coverage_manifest.read_text(encoding="utf-8").splitlines()
+                )
+            except OSError:
+                result["local_evidence_store_covered"] = False
     offsite = sorted(offsite_dir.glob("hes-offsite-core-*.tar.gz.gpg"), key=lambda p: p.name, reverse=True)
     if offsite:
         archive = offsite[0]
@@ -615,6 +626,15 @@ def _backup_status() -> dict[str, Any]:
         if sidecar.is_file():
             check = subprocess.run(["sha256sum", "-c", str(sidecar)], cwd=archive.parent, capture_output=True, text=True, timeout=60, check=False)
             result["offsite_latest_sidecar_verified"] = check.returncode == 0
+        coverage_manifest = Path(str(archive) + ".manifest.txt")
+        if coverage_manifest.is_file():
+            try:
+                result["offsite_evidence_store_covered"] = any(
+                    line.strip() == "Required evidence store: /srv/hes-evidence (coverage verified by archive listing)."
+                    for line in coverage_manifest.read_text(encoding="utf-8").splitlines()
+                )
+            except OSError:
+                result["offsite_evidence_store_covered"] = False
     try:
         quota = subprocess.run(["rclone", "about", "hesdropbox:", "--json"], capture_output=True, text=True, timeout=45, check=False)
         if quota.returncode == 0:
@@ -749,9 +769,23 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
     backups = backup_status if backup_status is not None else _backup_status()
     remote_size_matches = bool(backups.get("offsite_latest") and backups.get("dropbox_remote_latest")
                                and int(backups["offsite_latest"].get("size_bytes", -1)) == int(backups["dropbox_remote_latest"].get("size_bytes", -2)))
-    backup_gate = bool(backups.get("local_latest_sidecar_verified") and backups.get("offsite_latest_sidecar_verified")
-                       and backups.get("remote_hash_check") == "PASS" and remote_size_matches
-                       and backups.get("dropbox_quota"))
+    quota = backups.get("dropbox_quota") or {}
+    try:
+        quota_total = int(quota.get("total_bytes", -1))
+        quota_used = int(quota.get("used_bytes", -1))
+        quota_free = int(quota.get("free_bytes", -1))
+        remote_size = int((backups.get("dropbox_remote_latest") or {}).get("size_bytes", -1))
+        replacement_size = int((backups.get("offsite_latest") or {}).get("size_bytes", -1))
+        quota_guard = (
+            quota_total > 0 and 0 <= quota_used <= quota_total and 0 <= quota_free <= quota_total
+            and remote_size >= 0 and replacement_size >= 0
+            and quota_free + remote_size >= replacement_size + 128 * 1024 * 1024
+        )
+    except (TypeError, ValueError, AttributeError):
+        quota_guard = False
+    backup_gate = bool(backups.get("local_latest_sidecar_verified") and backups.get("local_evidence_store_covered")
+                       and backups.get("offsite_latest_sidecar_verified") and backups.get("offsite_evidence_store_covered")
+                       and backups.get("remote_hash_check") == "PASS" and remote_size_matches and quota_guard)
     return {
         "schema": "hes_smart_cleanup_manager_v1",
         "generated_at": now.isoformat(),
@@ -772,7 +806,7 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
             "active_release_targets": active_targets, "active_pointer_errors": pointer_errors,
         },
         "disk_capacity": {**disk, "pressure": pressure},
-        "backup_manager": backups,
+        "backup_manager": {**backups, "dropbox_quota_guard": "PASS" if quota_guard else "INCOMPLETE"},
         "recovery_gate": {
             "backup_integrity_gate": "PASS" if backup_gate else "INCOMPLETE",
             "full_restore_gate": "BLOCKED_NOT_PROVEN",

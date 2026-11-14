@@ -12,6 +12,7 @@ MIN_FREE_KB=5242880
 LIST_FILE=''
 PARTIAL_FILE=''
 MANIFEST_PARTIAL_FILE=''
+COVERAGE_MANIFEST_PARTIAL_FILE=''
 
 exec 9>"$LOCK_FILE"
 flock -n 9 || { echo 'backup already running'; exit 0; }
@@ -21,6 +22,7 @@ cleanup() {
   if (( rc != 0 )); then
     if [[ -n "$PARTIAL_FILE" ]]; then rm -f -- "$PARTIAL_FILE"; fi
     if [[ -n "$MANIFEST_PARTIAL_FILE" ]]; then rm -f -- "$MANIFEST_PARTIAL_FILE"; fi
+    if [[ -n "$COVERAGE_MANIFEST_PARTIAL_FILE" ]]; then rm -f -- "$COVERAGE_MANIFEST_PARTIAL_FILE"; fi
   fi
   if [[ -n "$LIST_FILE" ]]; then rm -f -- "$LIST_FILE"; fi
 }
@@ -53,16 +55,15 @@ prune_archives() {
   if (( age < 180 )) && [[ "$dom" == 01 ]]; then keep=1; fi
   if (( keep == 1 )) && [[ "${latest_by_day[$day]:-}" != "$name" ]]; then
    printf 'RETENTION_DELETE_DUPLICATE file=%s latest=%s\\n' "$name" "${latest_by_day[$day]}"
-   rm -f -- "$BACKUP_DIR/$name" "$BACKUP_DIR/$name.sha256"
+   rm -f -- "$BACKUP_DIR/$name" "$BACKUP_DIR/$name.sha256" "$BACKUP_DIR/$name.manifest.txt"
   elif (( keep == 0 )); then
    printf 'RETENTION_DELETE_EXPIRED file=%s age_days=%s\\n' "$name" "$age"
-   rm -f -- "$BACKUP_DIR/$name" "$BACKUP_DIR/$name.sha256"
+   rm -f -- "$BACKUP_DIR/$name" "$BACKUP_DIR/$name.sha256" "$BACKUP_DIR/$name.manifest.txt"
   fi
  done
 }
 
-[[ -d "$ROOT" && -s "$KEY_FILE" ]]
-prune_archives
+[[ -d "$ROOT" && -s "$KEY_FILE" && -d /srv/hes-evidence ]] || { echo "project, evidence store, or encryption key unavailable"; exit 10; }
 /usr/local/sbin/hes-operational-healthcheck >/dev/null
 avail_kb=$(df -Pk "$BACKUP_DIR" | awk 'NR==2{print $4}')
 [[ "$avail_kb" =~ ^[0-9]+$ ]] && (( avail_kb >= MIN_FREE_KB )) || { echo 'insufficient free disk for safe backup'; exit 20; }
@@ -78,7 +79,7 @@ MANIFEST_PARTIAL_FILE="$manifest_tmp"
 
 [[ ! -e "$final" && ! -e "$tmp" ]] || { echo 'refusing to overwrite an existing backup'; exit 17; }
 
-paths=(opt/hes-trade-agent etc/ssh etc/nftables.conf etc/systemd/system)
+paths=(opt/hes-trade-agent srv/hes-evidence etc/ssh etc/nftables.conf etc/systemd/system)
 for p in etc/xray etc/nginx usr/local/sbin/hes-operational-healthcheck usr/local/sbin/hes-runtime-healthcheck usr/local/sbin/hes-encrypted-local-backup; do
   [[ ! -e "/$p" && ! -L "/$p" ]] || paths+=("$p")
 done
@@ -103,6 +104,12 @@ tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --null
 chmod 0600 "$tmp"
 gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$tmp" 2>/dev/null | gzip -t
 gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$tmp" 2>/dev/null | tar -tzf - >/dev/null
+expected_evidence_entries=$(find /srv/hes-evidence -xdev \( -type f -o -type l \) -printf '%y\n' | wc -l)
+gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$tmp" 2>/dev/null | tar -tzf - | awk -v expected="$expected_evidence_entries" '
+  $0 == "srv/hes-evidence/" || $0 == "srv/hes-evidence" { root=1 }
+  index($0, "srv/hes-evidence/") == 1 && $0 !~ /\/$/ { entries++ }
+  END { if (!root || entries != expected) exit 1 }
+' || { echo "BACKUP_EVIDENCE_STORE_MISSING_OR_INCOMPLETE"; exit 22; }
 
 mv "$tmp" "$final"
 PARTIAL_FILE=''
@@ -110,6 +117,23 @@ sha256sum "$final" > "$manifest_tmp"
 chmod 0600 "$manifest_tmp"
 mv "$manifest_tmp" "$manifest"
 MANIFEST_PARTIAL_FILE=''
+coverage_manifest="$BACKUP_DIR/$base.manifest.txt"
+coverage_manifest_tmp="$coverage_manifest.partial"
+COVERAGE_MANIFEST_PARTIAL_FILE="$coverage_manifest_tmp"
+cat > "$coverage_manifest_tmp" <<EOF
+HES encrypted local full backup
+Created UTC: $stamp
+Archive: $base
+Archive bytes: $(stat -c %s "$final")
+SHA-256: $(sha256sum "$final" | awk '{print $1}')
+Required evidence store: /srv/hes-evidence (coverage verified by archive listing).
+Included roots: /opt/hes-trade-agent, /srv/hes-evidence, /etc/ssh, /etc/nftables.conf, /etc/systemd/system and optional configured HES runtime paths.
+External recovery secret: /root/.config/hes-backup/passphrase is intentionally NOT included.
+Encryption: GPG symmetric AES-256.
+EOF
+chmod 0600 "$coverage_manifest_tmp"
+mv "$coverage_manifest_tmp" "$coverage_manifest"
+COVERAGE_MANIFEST_PARTIAL_FILE=''
 
 prune_archives
 printf 'BACKUP_OK file=%s size_bytes=%s sha256=%s\\n' "$final" "$(stat -c %s "$final")" "$(sha256sum "$final" | awk '{print $1}')"
