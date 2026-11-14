@@ -74,6 +74,46 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
         findings = brief.get("findings", [])
         if not isinstance(findings, list):
             raise ValueError("NEWS_FINDINGS_INVALID")
+        provenance = brief.get("provenance")
+        if not isinstance(provenance, dict):
+            raise ValueError("NEWS_PROVENANCE_INVALID")
+        assignments = provenance.get("event_cluster_assignments", [])
+        if not isinstance(assignments, list):
+            raise ValueError("NEWS_EVENT_CLUSTER_ASSIGNMENTS_INVALID")
+        cluster_by_item: dict[str, str] = {}
+        for row in assignments:
+            if not isinstance(row, dict):
+                raise ValueError("NEWS_EVENT_CLUSTER_ASSIGNMENT_INVALID")
+            assigned_item = row.get("item_id")
+            cluster_id = row.get("event_cluster_id")
+            if not isinstance(assigned_item, str) or not assigned_item.strip() or not isinstance(cluster_id, str) or not cluster_id.strip():
+                raise ValueError("NEWS_EVENT_CLUSTER_ASSIGNMENT_INVALID")
+            if assigned_item in cluster_by_item:
+                raise ValueError("NEWS_EVENT_CLUSTER_ASSIGNMENT_DUPLICATED")
+            cluster_by_item[assigned_item] = cluster_id
+        clusters = provenance.get("high_impact_event_clusters", [])
+        if not isinstance(clusters, list):
+            raise ValueError("NEWS_EVENT_CLUSTERS_INVALID")
+        cluster_details: dict[str, dict[str, Any]] = {}
+        for cluster in clusters:
+            if not isinstance(cluster, dict):
+                raise ValueError("NEWS_EVENT_CLUSTER_INVALID")
+            event_id = cluster.get("event_id")
+            item_count = cluster.get("item_count")
+            source_count = cluster.get("source_count")
+            if (
+                not isinstance(event_id, str) or not event_id.strip()
+                or isinstance(item_count, bool) or not isinstance(item_count, int) or item_count < 1
+                or isinstance(source_count, bool) or not isinstance(source_count, int) or source_count < 1
+            ):
+                raise ValueError("NEWS_EVENT_CLUSTER_INVALID")
+            if event_id in cluster_details:
+                raise ValueError("NEWS_EVENT_CLUSTER_DUPLICATED")
+            cluster_details[event_id] = {
+                "event_id": event_id,
+                "item_count": item_count,
+                "source_count": source_count,
+            }
         selected = []
         seen_item_ids: set[str] = set()
         for item in findings[:5]:
@@ -150,8 +190,13 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
                 or mother_use.get("requires_independent_market_confirmation") is not True
             ):
                 raise ValueError("NEWS_INTERPRETATION_AUTHORITY_INVALID")
+            event_cluster_id = cluster_by_item.get(item_id)
+            cluster_detail = cluster_details.get(event_cluster_id, {}) if event_cluster_id else {}
             selected.append({
                 "item_id": item_id,
+                "event_cluster_id": event_cluster_id,
+                "corroboration_item_count": cluster_detail.get("item_count"),
+                "corroboration_source_count": cluster_detail.get("source_count"),
                 "title": item.get("title"),
                 "source": item.get("source"),
                 "published_at": item.get("published_at"),
@@ -171,6 +216,7 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
             "observed_at": stamp.astimezone(timezone.utc).isoformat(),
             "age_seconds": round(age_seconds, 1),
             "veto_flags": list(brief.get("veto_flags", [])) if isinstance(brief.get("veto_flags"), list) else [],
+            "high_impact_event_clusters": list(cluster_details.values()),
             "findings": selected,
             "news_alone_can_authorize_trade": False,
         }
