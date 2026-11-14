@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha256
 from typing import Iterable, Mapping, Sequence
+
+from .news_education_v1 import build_news_item_interpretation_v1
 from urllib.error import URLError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from urllib.parse import urlsplit, urljoin
@@ -64,6 +66,7 @@ class NewsFinding:
     reasons: tuple[str, ...]
     freshness: str
     caveats: tuple[str, ...]
+    interpretation: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -628,7 +631,15 @@ class NewsIntelligenceBrain:
                 age_minutes=round(age_minutes, 1) if age_minutes is not None else None,
                 relevance=round(relevance, 3), impact=round(impact, 3), directional_bias=bias,
                 confidence=round(confidence, 3), categories=categories, matched_terms=matched[:20],
-                reasons=tuple(reasons), freshness=freshness, caveats=tuple(caveats)))
+                reasons=tuple(reasons), freshness=freshness, caveats=tuple(caveats),
+                interpretation=build_news_item_interpretation_v1(
+                    title=item.title.strip(),
+                    context={"market": context.market, "symbol": context.symbol,
+                             "venue": context.venue, "timeframe": context.timeframe},
+                    categories=categories, directional_bias=bias, impact=impact,
+                    confidence=confidence, freshness=freshness,
+                    caveats=tuple(caveats), reasons=tuple(reasons),
+                )))
 
         findings.sort(key=lambda f: (f.impact * f.relevance, f.confidence, f.published_at), reverse=True)
         findings = findings[:self.max_findings]
