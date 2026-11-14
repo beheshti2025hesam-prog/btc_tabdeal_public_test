@@ -124,6 +124,33 @@ class NewsEducationV1Tests(unittest.TestCase):
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
         self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
 
+    def test_economic_transmission_profiles_are_complete_in_all_locales(self):
+        categories = (
+            "monetary_policy", "regulation", "security", "exchange", "macro",
+            "crypto_market", "equities", "fx", "commodities",
+        )
+        for category in categories:
+            interpretation = build_news_item_interpretation_v1(
+                title="Economic event profile check",
+                context={"market": "crypto", "symbol": "BTCUSDT", "venue": "gateio"},
+                categories=(category,),
+                directional_bias="mixed_or_unknown",
+                impact=0.5,
+                confidence=0.5,
+                freshness="fresh",
+                caveats=(),
+                reasons=("market_relevant_category",),
+            )
+            channels = []
+            for locale in LOCALES:
+                localized = interpretation["localized"][locale]
+                self.assertTrue(localized["why_it_matters"])
+                self.assertTrue(localized["transmission_channel"])
+                self.assertTrue(localized["what_to_monitor"])
+                self.assertTrue(localized["educational_concept"])
+                channels.append(localized["transmission_channel"])
+            self.assertEqual(len(set(channels)), 4, category)
+
     def test_unknown_market_uses_localized_unknown_label(self):
         interpretation = build_news_item_interpretation_v1(
             title="Unclassified announcement",
