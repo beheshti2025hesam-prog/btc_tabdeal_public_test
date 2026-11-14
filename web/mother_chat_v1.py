@@ -414,7 +414,13 @@ def build_chat_response(
         n_status = str(monitor.get("status") or "UNKNOWN")
         coverage = str(monitor.get("source_profile_status") or "UNKNOWN")
         health = monitor.get("source_health", [])
-        brief = news.get("brief", {}) if isinstance(news.get("brief"), Mapping) else {}
+        raw_brief = news.get("brief")
+        if not isinstance(raw_brief, Mapping):
+            brief = {}
+            status = "PARTIAL"
+            uncertainties.append("NEWS_BRIEF_INVALID")
+        else:
+            brief = raw_brief
         findings = brief.get("findings", [])
         if not isinstance(findings, list):
             findings = []
