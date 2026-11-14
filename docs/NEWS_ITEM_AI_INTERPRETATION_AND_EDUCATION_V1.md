@@ -205,3 +205,10 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - Added responsive interpretation-panel styling for desktop/mobile, RTL alignment and visible keyboard focus.
 - Latest exact tested code/test head: `ec59d9ac5d6a5bb62b3cbbd3bc759f83ebcf6d65`. Exact-head GitHub Actions **3/3 PASS** — full repository pytest **1,284 passed + 82 subtests**, browser render smoke PASS, dashboard native-path/API contract PASS.
 - The prior note about revalidation is superseded by this exact-head PASS.
+
+
+## 19. RTL and responsive browser acceptance — 2026-11-14
+
+- Extended Playwright assertions to verify interpretation rows follow RTL when Persian is selected while the chart remains LTR.
+- At a 390px mobile viewport the interpretation rows collapse to one column; at a 1440px desktop viewport they use the intended two-column layout.
+- Exact tested code/test head: `cadef2ec71dffbe0118fe8dd3b6991adb3858931`. Exact-head CI **3/3 PASS** — full repository pytest **1,284 passed + 82 subtests**, browser smoke PASS including RTL/mobile/desktop assertions, dashboard native-path/API PASS.
