@@ -494,6 +494,7 @@ def build_chat_response(
                     if top_interpretation is None:
                         top_interpretation = localized
                 else:
+                    status = "PARTIAL"
                     reason = "NEWS_INTERPRETATION_LOCALE_UNAVAILABLE:" + language if semantics_valid else "NEWS_INTERPRETATION_UNAVAILABLE"
                     uncertainties.append(reason + ":" + str(item.get("item_id") or "unknown"))
         answers = {
