@@ -97,13 +97,15 @@ function renderNewsItems(items){
  const unavailable={fa:'تفسیر در دسترس نیست؛ شواهد کافی یا معتبر وجود ندارد.',en:'Interpretation unavailable; evidence is insufficient or invalid.',de:'Einordnung nicht verfügbar; Belege sind unzureichend oder ungültig.',fr:'Interprétation indisponible ; les éléments sont insuffisants ou invalides.'};
  const noItems={fa:'در تصویر فعلی، تیتر تأییدشده و مرتبطی وجود ندارد.',en:'No sufficiently relevant, verified headlines in the current snapshot.',de:'Im aktuellen Snapshot gibt es keine ausreichend relevanten, verifizierten Schlagzeilen.',fr:'Aucun titre vérifié suffisamment pertinent dans l’instantané actuel.'};
  const fields=['what_happened','why_it_matters','affected_market','relevance_scope','potential_effect','transmission_channel','time_horizon','what_to_monitor','educational_concept','uncertainty'];
+ const labelKeys=['title','what','why','market','scope','effect','channel','horizon','monitor','education','uncertainty','disclaimer'];
  for(const item of (Array.isArray(items)?items:[]).slice(0,5)){
   const li=document.createElement('li');
   const headline=document.createElement('p');
   headline.textContent=(item.title||'Untitled')+' · '+(item.source||'Unknown source')+' · '+(item.published_at||'Publication time unverified')+' · impact '+String(item.impact??'—');
   li.appendChild(headline);
   const interpretation=item.interpretation;
-  const localized=interpretation&&interpretation.schema_version==='hes.news_item_interpretation.v1'&&interpretation.localized&&interpretation.localized[locale];
+  const candidate=interpretation&&interpretation.schema_version==='hes.news_item_interpretation.v1'&&interpretation.localized&&interpretation.localized[locale];
+  const localized=candidate&&typeof candidate==='object'&&candidate.labels&&typeof candidate.labels==='object'&&labelKeys.every(key=>typeof candidate.labels[key]==='string'&&candidate.labels[key].trim())&&fields.every(key=>typeof candidate[key]==='string'&&candidate[key].trim())&&typeof candidate.disclaimer==='string'&&candidate.disclaimer.trim()?candidate:null;
   const details=document.createElement('details');details.className='news-interpretation';details.setAttribute('data-no-translate','true');
   const summary=document.createElement('summary');summary.textContent=localized?.labels?.title||({fa:'تفسیر هوش مصنوعی و آموزش اقتصادی',en:'AI interpretation & economic learning',de:'KI-Einordnung & Wirtschaftswissen',fr:'Interprétation IA et pédagogie économique'}[locale]||'AI interpretation & economic learning');details.appendChild(summary);
   if(!localized){const p=document.createElement('p');p.textContent=unavailable[locale]||unavailable.en;details.appendChild(p);}
