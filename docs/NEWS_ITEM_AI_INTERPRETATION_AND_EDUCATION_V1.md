@@ -159,3 +159,13 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - Regression tests cover valid event-cluster/corroboration handoff and incomplete-source-coverage veto behavior.
 - Latest exact tested code/test head: `bebdbadceb9a3143edd14efa8414d77cead4ae46`. Exact-head GitHub Actions: **3/3 PASS** — full repository pytest **1,280 passed + 82 subtests**; browser render smoke PASS; dashboard native-path/API contract PASS.
 - PR #501 remains stacked on PR #500 and is not deployed. The current live News Radar snapshot has no item interpretation object yet, so the new Mother reader correctly rejects it until the producer and consumer are promoted together.
+
+
+## 14. Real-browser news panel regression — 2026-11-14
+
+- Extended the existing Playwright dashboard smoke to inject a versioned news snapshot fixture and verify one expandable interpretation panel per item.
+- Browser assertions verify the English, German, Persian and French headings/field labels and content re-render after locale changes.
+- An incomplete localized item must show the locale-specific unavailable message rather than partial content.
+- A hostile headline containing an `img/onerror` payload remains literal text: no image element is created and no injected handler executes.
+- The full browser smoke also continues to verify chart, persisted-feed and no-live-execution contracts.
+- Latest exact code/test head: `ff0d818aad49c196a84745aefc0b74b43e64a158`. Exact-head CI **3/3 PASS** — full repository pytest **1,280 passed + 82 subtests**, browser render smoke PASS (including the new news-panel assertions), dashboard native-path/API contract PASS.
