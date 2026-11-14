@@ -124,6 +124,27 @@ class NewsEducationV1Tests(unittest.TestCase):
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
         self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
 
+    def test_unknown_market_uses_localized_unknown_label(self):
+        interpretation = build_news_item_interpretation_v1(
+            title="Unclassified announcement",
+            context={"symbol": "BTCUSDT"},
+            categories=(),
+            directional_bias="mixed_or_unknown",
+            impact=0.1,
+            confidence=0.1,
+            freshness="unknown",
+            caveats=(),
+            reasons=(),
+        )
+        expected = {
+            "fa": "بازار نامشخص · BTCUSDT",
+            "en": "Unspecified market · BTCUSDT",
+            "de": "Nicht näher bestimmter Markt · BTCUSDT",
+            "fr": "Marché non précisé · BTCUSDT",
+        }
+        for locale, value in expected.items():
+            self.assertEqual(interpretation["localized"][locale]["affected_market"], value)
+
     def test_dashboard_news_renderer_is_localized_and_uses_safe_text_nodes(self):
         dashboard = Path(__file__).resolve().parents[1] / "web" / "static" / "dashboard.js"
         source = dashboard.read_text(encoding="utf-8")
