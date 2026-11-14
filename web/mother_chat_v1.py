@@ -423,10 +423,25 @@ def build_chat_response(
         if coverage != "complete":
             status = "PARTIAL"
             uncertainties.append("News coverage is partial or not explicitly complete.")
+        top_interpretation = None
         if isinstance(findings, list):
             for item in findings[:5]:
-                if isinstance(item, Mapping):
-                    claims.append(_claim("News item", str(item.get("title") or "Untitled") + " · " + str(item.get("source") or "source unknown")))
+                if not isinstance(item, Mapping):
+                    continue
+                claims.append(_claim("News item", str(item.get("title") or "Untitled") + " · " + str(item.get("source") or "source unknown")))
+                interpretation = item.get("interpretation")
+                localized = interpretation.get("localized", {}).get(language) if isinstance(interpretation, Mapping) else None
+                if isinstance(interpretation, Mapping) and interpretation.get("schema_version") == "hes.news_item_interpretation.v1":
+                    claims.append(_claim("News interpretation schema", str(interpretation.get("schema_version"))))
+                    claims.append(_claim("News potential effect", str(interpretation.get("potential_effect") or "mixed_or_unknown")))
+                    claims.append(_claim("News relevance scope", str(interpretation.get("relevance_scope") or "unconfirmed_relevance")))
+                    if isinstance(localized, Mapping):
+                        claims.append(_claim("Economic mechanism", str(localized.get("why_it_matters") or "Not established")))
+                        claims.append(_claim("What to monitor", str(localized.get("what_to_monitor") or "Not established")))
+                        if top_interpretation is None:
+                            top_interpretation = localized
+                else:
+                    uncertainties.append("NEWS_INTERPRETATION_UNAVAILABLE:" + str(item.get("item_id") or "unknown"))
         answers = {
             "fa": f"وضعیت انتقال اخبار: {n_status}؛ پوشش منابع: {coverage}. اخبار فقط زمینهٔ کمکی هستند و به‌تنهایی جهت معامله یا مجوز ورود ایجاد نمی‌کنند.",
             "de": f"Nachrichtenübertragung: {n_status}; Quellenabdeckung: {coverage}. Nachrichten sind nur Kontext und können weder Handelsrichtung noch Einstieg autorisieren.",
@@ -434,6 +449,8 @@ def build_chat_response(
             "en": f"News transport: {n_status}; source coverage: {coverage}. News is contextual evidence only and cannot create trade direction or authorize entry.",
         }
         answer = answers[language]
+        if top_interpretation is not None:
+            answer += " " + str(top_interpretation.get("why_it_matters") or "") + " " + str(top_interpretation.get("potential_effect") or "")
 
     elif intent == "DIAGNOSE":
         components = data.get("components", {})
