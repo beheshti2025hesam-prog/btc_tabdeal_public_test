@@ -34,14 +34,25 @@ def make_snapshot(now):
             "why_it_matters": "Mechanism",
             "potential_effect": "Potential effect",
             "what_to_monitor": "Price and volume",
+            "affected_market": "crypto / BTCUSDT · gateio",
+            "relevance_scope": "Market-level relevance",
+            "transmission_channel": "Security and liquidity",
+            "time_horizon": "Unknown",
+            "educational_concept": "Counterparty risk",
+            "uncertainty": "Evidence requires verification.",
+            "disclaimer": "Educational context only.",
         }
         for lang in ("fa", "en", "de", "fr")
     }
     interpretation = {
         "schema_version": "hes.news_item_interpretation.v1",
-        "potential_effect": "negative",
+        "potential_effect": "mixed_or_unknown",
+        "scores_are_probabilities": False,
         "localized": localized,
-        "mother_use": {"news_alone_can_authorize_trade": False},
+        "mother_use": {
+            "news_alone_can_authorize_trade": False,
+            "requires_independent_market_confirmation": True,
+        },
     }
     brief = {
         "schema_version": "hes.news_brief.v1",
@@ -102,6 +113,40 @@ class MotherNewsContextTests(unittest.TestCase):
                 context = _load_news_context(observed_at=now)
         self.assertEqual(context["status"], "BLOCKED")
         self.assertEqual(context["reason_code"], "NEWS_BRIEF_DIGEST_MISMATCH")
+        self.assertEqual(context["findings"], [])
+
+    def test_incomplete_translation_fails_closed(self):
+        now = datetime.now(timezone.utc)
+        snapshot = make_snapshot(now)
+        snapshot["brief"]["findings"][0]["interpretation"]["localized"]["fr"]["what_to_monitor"] = ""
+        snapshot["brief_sha256"] = hashlib.sha256(_news_canonical_bytes(snapshot["brief"])).hexdigest()
+        unsigned = dict(snapshot)
+        unsigned.pop("snapshot_sha256", None)
+        snapshot["snapshot_sha256"] = hashlib.sha256(_news_canonical_bytes(unsigned)).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "news.json"
+            path.write_bytes(_news_canonical_bytes(snapshot))
+            with patch.dict(os.environ, {"HES_NEWS_MONITOR_SNAPSHOT": str(path)}):
+                context = _load_news_context(observed_at=now)
+        self.assertEqual(context["status"], "BLOCKED")
+        self.assertEqual(context["reason_code"], "NEWS_INTERPRETATION_CONTENT_INCOMPLETE:fr")
+        self.assertEqual(context["findings"], [])
+
+    def test_news_interpretation_cannot_claim_trade_authority(self):
+        now = datetime.now(timezone.utc)
+        snapshot = make_snapshot(now)
+        snapshot["brief"]["findings"][0]["interpretation"]["mother_use"]["news_alone_can_authorize_trade"] = True
+        snapshot["brief_sha256"] = hashlib.sha256(_news_canonical_bytes(snapshot["brief"])).hexdigest()
+        unsigned = dict(snapshot)
+        unsigned.pop("snapshot_sha256", None)
+        snapshot["snapshot_sha256"] = hashlib.sha256(_news_canonical_bytes(unsigned)).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "news.json"
+            path.write_bytes(_news_canonical_bytes(snapshot))
+            with patch.dict(os.environ, {"HES_NEWS_MONITOR_SNAPSHOT": str(path)}):
+                context = _load_news_context(observed_at=now)
+        self.assertEqual(context["status"], "BLOCKED")
+        self.assertEqual(context["reason_code"], "NEWS_INTERPRETATION_AUTHORITY_INVALID")
         self.assertEqual(context["findings"], [])
 
     def test_high_impact_news_is_confirmation_veto_not_trade_direction(self):
