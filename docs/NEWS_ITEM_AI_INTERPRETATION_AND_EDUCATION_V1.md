@@ -126,10 +126,10 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 ## 11. Candidate implementation status — 2026-11-14
 
 - Implemented on `feat/news-item-interpretation-education-v1`, PR #501, stacked on PR #500.
-- Current exact PR head: `ef41180299e0c31faf39eb6616118c2e1b403628`. Exact-head GitHub Actions: **3/3 passed** — full repository pytest (**1,275 passed + 82 subtests**), browser render smoke, and dashboard native-path/API contract (**128 passed + 19 subtests**).
+- Latest exact code/test head: `f200767188e3b7712f44c62021b7e7ed98ef1179`. Exact-head GitHub Actions: **3/3 passed** — full repository pytest (**1,275 passed + 82 subtests**), browser render smoke, and dashboard native-path/API contract (**128 passed + 19 subtests**). The final change adds a distinct localized relevance-scope label in fa/en/de/fr and regression coverage; the full test suite and both dashboard checks were rerun on this exact code/test head.
 - V1 remains deterministic/template-based, not a generative LLM. Headline sentiment is not treated as causal market direction: potential price effect stays mixed/unknown until independent event and market evidence can establish direction.
 - Internal caveat codes are rendered as localized explanations rather than exposed to users.
 - No production release, service restart, policy activation, or execution setting has been changed.
 - Mother now fails closed unless every required localized field is non-empty in all four locales, score semantics are explicit, item identity is valid, and `mother_use` explicitly forbids news-only trade authority while requiring independent market confirmation.
-- Frontend regression covers per-item rendering, required educational fields, locale re-rendering, and safe `textContent` insertion.
-- Remaining release gates: independent human review, PR #500 parent acceptance and its separate recovery/strategy/risk gates, semantic translation review, broader market-profile validation, and controlled release regression.
+- Frontend regression covers per-item rendering, required educational fields, locale re-rendering, safe `textContent` insertion, and the dedicated translated relevance-scope label.
+- Remaining release gates: pair-level acceptance of the exact candidate, PR #500 parent acceptance and its separate recovery/strategy/risk gates, semantic translation review, broader market-profile validation, and controlled release regression. No third-party reviewer is assumed; this project is being handled by the user and assistant only.
