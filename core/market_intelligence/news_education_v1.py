@@ -67,6 +67,15 @@ _CATEGORY = {
     },
 }
 
+_MARKET_LABELS = {
+    "crypto": {"fa": "بازار رمزارز", "en": "Crypto market", "de": "Kryptomarkt", "fr": "Marché des cryptomonnaies"},
+    "equities": {"fa": "بازار سهام", "en": "Equities market", "de": "Aktienmarkt", "fr": "Marché des actions"},
+    "iran_equities": {"fa": "بازار سهام ایران", "en": "Iranian equities market", "de": "Iranischer Aktienmarkt", "fr": "Marché actions iranien"},
+    "fx": {"fa": "بازار ارز", "en": "Foreign-exchange market", "de": "Devisenmarkt", "fr": "Marché des changes"},
+    "commodities": {"fa": "بازار کالاها", "en": "Commodities market", "de": "Rohstoffmarkt", "fr": "Marché des matières premières"},
+    "unknown": {"fa": "بازار نامشخص", "en": "Unspecified market", "de": "Nicht näher bestimmter Markt", "fr": "Marché non précisé"},
+}
+
 _LABELS = {
     "fa": {"title": "تفسیر هوش مصنوعی و آموزش اقتصادی", "what": "چه اتفاقی افتاده؟", "why": "چرا اهمیت دارد؟", "market": "بازار و دارایی مرتبط", "scope": "دامنه ارتباط خبر", "effect": "اثر احتمالی بر بازار", "channel": "مسیر اثرگذاری", "horizon": "افق زمانی", "monitor": "چه چیزی را دنبال کنیم؟", "education": "نکته آموزشی", "uncertainty": "ابهام‌ها و محدودیت‌ها", "disclaimer": "این تحلیل آموزشی و زمینه‌ای است؛ پیش‌بینی قطعی یا سیگنال معامله نیست."},
     "en": {"title": "AI interpretation & economic learning", "what": "What happened?", "why": "Why does it matter?", "market": "Affected market and asset", "scope": "Relevance scope", "effect": "Potential market effect", "channel": "Transmission channel", "horizon": "Time horizon", "monitor": "What to monitor", "education": "Learning point", "uncertainty": "Uncertainty and limits", "disclaimer": "Educational context only; not a certain forecast or trading signal."},
@@ -82,6 +91,7 @@ def build_news_item_interpretation_v1(
 ) -> dict:
     """Build one canonical, locale-invariant interpretation with four translations."""
     market = str(context.get("market") or "unknown")
+    market_display = _MARKET_LABELS.get(market.casefold(), _MARKET_LABELS["unknown"])
     symbol = str(context.get("symbol") or "")
     venue = str(context.get("venue") or "")
     category = next((name for name in categories if name in _CATEGORY), "")
@@ -152,7 +162,7 @@ def build_news_item_interpretation_v1(
                 "fr": "Titre de la source : " + title,
             }[lang],
             "why_it_matters": why[lang],
-            "affected_market": (market + ((" / " + symbol) if symbol else "") + ((" · " + venue) if venue else "")),
+            "affected_market": (market_display[lang] + ((" · " + symbol) if symbol else "") + ((" · " + venue) if venue else "")),
             "relevance_scope": scope_labels[lang][relevance_scope],
             "potential_effect": effect_labels[lang][effect],
             "impact_level": impact_level,
