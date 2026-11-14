@@ -133,3 +133,18 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - Mother now fails closed unless every required localized field is non-empty in all four locales, score semantics are explicit, item identity is valid, and `mother_use` explicitly forbids news-only trade authority while requiring independent market confirmation.
 - Frontend regression covers per-item rendering, required educational fields, locale re-rendering, safe `textContent` insertion, and the dedicated translated relevance-scope label.
 - Remaining release gates: pair-level acceptance of the exact candidate, PR #500 parent acceptance and its separate recovery/strategy/risk gates, semantic translation review, broader market-profile validation, and controlled release regression. No third-party reviewer is assumed; this project is being handled by the user and assistant only.
+
+
+## 12. Pair-level hardening and market-profile review — 2026-11-14
+
+- The translated market field is deliberately labelled **target market context**, not as proof that the headline affected the target asset. Relevance scope separately distinguishes direct symbol/tag matches, market/category relevance, and unconfirmed relevance.
+- Market-family names are localized for crypto, US equities, Iran equities, FX/Forex, commodities and metals. Tickers and canonical venue identifiers remain unchanged.
+- Curated economic transmission profiles cover monetary policy, regulation, security/counterparty risk, exchange operations, macroeconomics, crypto flows, equities, FX and commodities in all four locales.
+- The source headline is explicitly identified as the source headline and remains in its original language. No unsupported machine translation of arbitrary publisher text is claimed. Educational explanations, market-family names, labels, caveats and disclaimers are localized.
+- Frontend validation now requires every required localized content field and every translated label before rendering. An incomplete interpretation falls back to the selected locale's “analysis unavailable” message; it cannot crash the news list or silently render a partial panel.
+- Mother validation now checks unique non-empty item IDs, source title/source presence, freshness enum, category shape, finite [0,1] item and interpretation scores, allowed effect/relevance/impact semantics, source-fact/headline equality, all required non-empty localized fields and labels, and explicit context-only/no-trade-authority semantics.
+- Mother confirmation evidence refs include the news context digest, snapshot digest, brief digest and each news item ID. The same versioned interpretation is present in the confirmation specialist payload.
+- Regression tests cover all market-profile aliases, all nine economic transmission categories across fa/en/de/fr, unknown-market fallback, localized target-context wording, incomplete localized labels, safe rendering, fail-closed Mother validation and item-level provenance.
+- Exact tested code/test head: `d6c21e37fad843ea1b77068d703deb93720a4151`. Exact-head GitHub Actions: **3/3 PASS** — full repository pytest **1,279 passed + 82 subtests**; dashboard native-path/API contract **128 passed + 19 subtests**; browser render smoke PASS.
+- The current VPS dashboard snapshot still uses the previously deployed news schema and does not yet contain `hes.news_item_interpretation.v1`. This is expected: PR #501 is stacked on the unmerged PR #500 and has not been deployed. The new Mother reader will fail closed on that old snapshot until the controlled release includes the new producer and consumer together.
+- No active dashboard release, news collector, service, policy/ruleset, paper execution permission, or live execution setting was changed.
