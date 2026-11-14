@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 import hashlib
 import json
+import os
 
 from core.orchestration.mother_v1 import MotherOrchestratorV1
 from core.orchestration.mother_runtime_specialists_v1 import (
@@ -32,6 +33,90 @@ def _canonical_hash(value: Any) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode("utf-8")
     ).hexdigest()
+
+
+def _news_canonical_bytes(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+
+
+def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
+    """Load digest-verified item interpretations for Mother; never infer from stale news."""
+    path = Path(os.environ.get("HES_NEWS_MONITOR_SNAPSHOT", "/var/lib/hes-news-monitor/news_brief_latest.json"))
+    try:
+        raw = path.read_bytes()
+        if len(raw) > 2_000_000:
+            raise ValueError("NEWS_SNAPSHOT_TOO_LARGE")
+        snapshot = json.loads(raw.decode("utf-8"))
+        if not isinstance(snapshot, dict) or snapshot.get("schema_version") != "hes.news_monitor_snapshot.v1":
+            raise ValueError("NEWS_SNAPSHOT_SCHEMA_INVALID")
+        unsigned = dict(snapshot)
+        snapshot_digest = unsigned.pop("snapshot_sha256", None)
+        actual_snapshot_digest = hashlib.sha256(_news_canonical_bytes(unsigned)).hexdigest()
+        if not isinstance(snapshot_digest, str) or snapshot_digest != actual_snapshot_digest:
+            raise ValueError("NEWS_SNAPSHOT_DIGEST_MISMATCH")
+        monitor = snapshot.get("monitor")
+        brief = snapshot.get("brief")
+        brief_digest = snapshot.get("brief_sha256")
+        if not isinstance(monitor, dict) or monitor.get("status") not in {"OK", "DEGRADED"}:
+            raise ValueError("NEWS_MONITOR_NOT_READY")
+        if not isinstance(brief, dict) or brief.get("schema_version") != "hes.news_brief.v1":
+            raise ValueError("NEWS_BRIEF_INVALID")
+        if not isinstance(brief_digest, str) or hashlib.sha256(_news_canonical_bytes(brief)).hexdigest() != brief_digest:
+            raise ValueError("NEWS_BRIEF_DIGEST_MISMATCH")
+        stamp = datetime.fromisoformat(str(monitor.get("last_poll_at", "")).replace("Z", "+00:00"))
+        if stamp.tzinfo is None or stamp.utcoffset() is None:
+            raise ValueError("NEWS_TIMESTAMP_INVALID")
+        age_seconds = (observed_at - stamp.astimezone(timezone.utc)).total_seconds()
+        max_age = max(600, int(os.environ.get("HES_NEWS_MONITOR_INTERVAL_SECONDS", "300")) * 3)
+        if age_seconds < -30 or age_seconds > max_age:
+            raise ValueError("NEWS_SNAPSHOT_STALE_OR_FUTURE")
+        findings = brief.get("findings", [])
+        if not isinstance(findings, list):
+            raise ValueError("NEWS_FINDINGS_INVALID")
+        selected = []
+        for item in findings[:5]:
+            if not isinstance(item, dict):
+                raise ValueError("NEWS_FINDING_INVALID")
+            interpretation = item.get("interpretation")
+            if not isinstance(interpretation, dict) or interpretation.get("schema_version") != "hes.news_item_interpretation.v1":
+                raise ValueError("NEWS_INTERPRETATION_MISSING")
+            localized = interpretation.get("localized")
+            if not isinstance(localized, dict) or not {"fa", "en", "de", "fr"}.issubset(localized):
+                raise ValueError("NEWS_INTERPRETATION_LOCALES_INCOMPLETE")
+            selected.append({
+                "item_id": item.get("item_id"),
+                "title": item.get("title"),
+                "source": item.get("source"),
+                "published_at": item.get("published_at"),
+                "freshness": item.get("freshness"),
+                "impact": item.get("impact"),
+                "relevance": item.get("relevance"),
+                "directional_bias": item.get("directional_bias"),
+                "categories": item.get("categories", []),
+                "interpretation": interpretation,
+            })
+        context = {
+            "status": "READY",
+            "coverage_status": str(monitor.get("source_profile_status") or "UNKNOWN"),
+            "monitor_status": str(monitor.get("status")),
+            "snapshot_sha256": snapshot_digest,
+            "brief_sha256": brief_digest,
+            "observed_at": stamp.astimezone(timezone.utc).isoformat(),
+            "age_seconds": round(age_seconds, 1),
+            "veto_flags": list(brief.get("veto_flags", [])) if isinstance(brief.get("veto_flags"), list) else [],
+            "findings": selected,
+            "news_alone_can_authorize_trade": False,
+        }
+        context["context_sha256"] = _canonical_hash(context)
+        return context
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError, OverflowError) as exc:
+        return {
+            "status": "BLOCKED",
+            "reason_code": str(exc) if isinstance(exc, ValueError) and str(exc).startswith("NEWS_") else "NEWS_CONTEXT_UNAVAILABLE_OR_INVALID",
+            "findings": [],
+            "veto_flags": [],
+            "news_alone_can_authorize_trade": False,
+        }
 
 
 def read_mother_runtime_dashboard(
@@ -59,8 +144,12 @@ def read_mother_runtime_dashboard(
         "source": SOURCE, "symbol": SYMBOL, "observed_at": observed.isoformat(),
     })
     registry = specialist_registry_v1()
+    news_context = _load_news_context(observed_at=observed)
     evidence_sha = _canonical_hash({
         "snapshot_sha256": snapshot_sha,
+        "news_context_sha256": news_context.get("context_sha256"),
+        "news_snapshot_sha256": news_context.get("snapshot_sha256"),
+        "news_brief_sha256": news_context.get("brief_sha256"),
         "specialist_registry": registry,
         "runtime_mode": "LIVE_DATA_RUNTIME_SPECIALISTS",
     })
@@ -71,6 +160,7 @@ def read_mother_runtime_dashboard(
         "snapshot_sha256": snapshot_sha,
         "evidence_sha256": evidence_sha,
         "request_id": request_id,
+        "news_context": news_context,
     }
     result = MotherOrchestratorV1(live_specialists_v1(market)).run(context)
     envelope = result.as_dict()
@@ -107,6 +197,18 @@ def read_mother_runtime_dashboard(
         "executed_count": len(stages),
         "stages": stages,
         "consensus": result.consensus,
+        "news_context": {
+            "status": news_context.get("status"),
+            "coverage_status": news_context.get("coverage_status", "UNKNOWN"),
+            "context_sha256": news_context.get("context_sha256"),
+            "snapshot_sha256": news_context.get("snapshot_sha256"),
+            "brief_sha256": news_context.get("brief_sha256"),
+            "age_seconds": news_context.get("age_seconds"),
+            "veto_flags": list(news_context.get("veto_flags", [])),
+            "finding_count": len(news_context.get("findings", [])),
+            "reason_code": news_context.get("reason_code"),
+            "news_alone_can_authorize_trade": False,
+        },
         "witness": witness.as_dict(),
         "execution_authorized": False,
         "execution_enabled": False,
