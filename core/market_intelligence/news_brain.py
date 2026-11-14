@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha256
 from typing import Iterable, Mapping, Sequence
+
+from .news_education_v1 import build_news_item_interpretation_v1
 from urllib.error import URLError
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from urllib.parse import urlsplit, urljoin
@@ -64,6 +66,7 @@ class NewsFinding:
     reasons: tuple[str, ...]
     freshness: str
     caveats: tuple[str, ...]
+    interpretation: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -116,8 +119,12 @@ _CATEGORY_TERMS = {
               "treasury yield", "bond yield", "geopolitical", "war", "oil price", "نفت"),
     "crypto_market": ("bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
                       "stablecoin", "liquidation", "fund flows", "on-chain", "بیت کوین"),
-    "equities": ("earnings", "revenue", "guidance", "stock buyback", "dividend", "shares"),
+    "equities": ("earnings", "revenue", "guidance", "stock buyback", "dividend", "shares",
+                 "stock market", "stocks", "بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc",
+                 "سهام", "بازار سهام", "درآمد شرکت", "سود شرکت"),
     "fx": ("forex", "currency", "exchange rate", "dollar index", "dxy", "eur/usd", "usd/jpy"),
+    "commodities": ("gold", "silver", "oil", "crude", "copper", "platinum", "palladium",
+                    "commodity", "commodities", "طلا", "نفت", "نقره", "مس"),
 }
 _POSITIVE = ("approved", "approval", "inflow", "record high", "adoption", "partnership",
              "rate cut", "beats expectations", "bullish", "recovery", "افزایش پذیرش")
@@ -132,9 +139,13 @@ _MARKET_ALIASES = {
     "crypto": ("crypto", "cryptocurrency", "stablecoin", "blockchain",
                "binance", "coinbase", "kraken", "bybit", "okx", "بیت کوین", "رمزارز"),
     "fx": ("forex", "currency", "dollar", "euro", "yen", "gbp", "eur/usd", "usd/jpy", "dxy"),
-    "equities": ("stock", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
-    "iran_equities": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc"),
-    "commodities": ("gold", "silver", "oil", "crude", "copper", "طلا", "نفت"),
+    "forex": ("forex", "currency", "dollar", "euro", "yen", "gbp", "eur/usd", "usd/jpy", "dxy"),
+    "equities": ("stock", "stocks", "stock market", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
+    "us_equities": ("stock", "stocks", "stock market", "shares", "equity", "earnings", "nasdaq", "s&p 500", "dow jones"),
+    "iran_equities": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc", "سهام", "بازار سهام"),
+    "iran_stocks": ("بورس", "شاخص کل", "سازمان بورس", "کدال", "tsetmc", "سهام", "بازار سهام"),
+    "commodities": ("gold", "silver", "oil", "crude", "copper", "platinum", "palladium", "طلا", "نفت", "نقره", "مس"),
+    "metals": ("gold", "silver", "copper", "platinum", "palladium", "طلا", "نقره", "مس"),
 }
 
 
@@ -578,7 +589,7 @@ class NewsIntelligenceBrain:
                 or market in {"fx", "forex"} and any(c in categories for c in ("fx", "monetary_policy", "macro", "regulation"))
                 or market in {"equities", "us_equities"} and any(c in categories for c in ("equities", "monetary_policy", "macro", "regulation"))
                 or market in {"iran_equities", "iran_stocks"} and any(c in categories for c in ("equities", "macro", "regulation"))
-                or market in {"commodities", "metals"} and any(c in categories for c in ("macro",))
+                or market in {"commodities", "metals"} and any(c in categories for c in ("macro", "commodities"))
             )
             relevance = 0.15 + (0.40 if market_match else 0) + (0.25 if symbol_match else 0) + (0.20 if category_match else 0) + (0.25 if tagged_match else 0)
             relevance = min(1.0, relevance)
@@ -628,7 +639,15 @@ class NewsIntelligenceBrain:
                 age_minutes=round(age_minutes, 1) if age_minutes is not None else None,
                 relevance=round(relevance, 3), impact=round(impact, 3), directional_bias=bias,
                 confidence=round(confidence, 3), categories=categories, matched_terms=matched[:20],
-                reasons=tuple(reasons), freshness=freshness, caveats=tuple(caveats)))
+                reasons=tuple(reasons), freshness=freshness, caveats=tuple(caveats),
+                interpretation=build_news_item_interpretation_v1(
+                    title=item.title.strip(),
+                    context={"market": context.market, "symbol": context.symbol,
+                             "venue": context.venue, "timeframe": context.timeframe},
+                    categories=categories, directional_bias=bias, impact=impact,
+                    confidence=confidence, freshness=freshness,
+                    caveats=tuple(caveats), reasons=tuple(reasons),
+                )))
 
         findings.sort(key=lambda f: (f.impact * f.relevance, f.confidence, f.published_at), reverse=True)
         findings = findings[:self.max_findings]

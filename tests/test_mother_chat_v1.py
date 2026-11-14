@@ -178,6 +178,124 @@ def test_localized_explanations_support_german_and_french():
     assert "Décision Mother en direct" in french["answer"]
 
 
+def _news_context_fixture():
+    localized = {
+        "fa": {
+            "labels": {"title": "تفسیر هوش مصنوعی", "what": "چه اتفاقی افتاده؟", "why": "چرا مهم است؟", "market": "زمینه بازار هدف", "scope": "دامنه ارتباط", "effect": "اثر احتمالی", "channel": "مسیر اثر", "horizon": "افق زمانی", "monitor": "چه چیزی را دنبال کنیم؟", "education": "نکته آموزشی", "uncertainty": "ابهام", "disclaimer": "توضیح"},
+            "what_happened": "تیتر منبع: BTC ETF inflows rise", "why_it_matters": "جریان ETF می‌تواند انتظارات تقاضا را تغییر دهد.", "affected_market": "بازار رمزارز · BTCUSDT", "relevance_scope": "ارتباط بازار", "potential_effect": "مختلط یا نامشخص", "transmission_channel": "عرضه و تقاضا", "time_horizon": "نامشخص", "what_to_monitor": "جریان ETF و حجم", "educational_concept": "جریان سرمایه", "uncertainty": "تیتر جهت قیمت را ثابت نمی‌کند.", "disclaimer": "صرفاً آموزشی."
+        },
+        "en": {
+            "labels": {"title": "AI interpretation", "what": "What happened?", "why": "Why it matters", "market": "Target market context", "scope": "Relevance scope", "effect": "Potential effect", "channel": "Transmission channel", "horizon": "Time horizon", "monitor": "What to monitor", "education": "Learning point", "uncertainty": "Uncertainty", "disclaimer": "Disclaimer"},
+            "what_happened": "Source headline: BTC ETF inflows rise", "why_it_matters": "ETF flows can change demand expectations.", "affected_market": "Crypto market · BTCUSDT", "relevance_scope": "Market-level relevance", "potential_effect": "Mixed or unknown", "transmission_channel": "Supply and demand", "time_horizon": "Unknown", "what_to_monitor": "ETF flows and volume", "educational_concept": "Capital flows", "uncertainty": "The headline alone does not establish price direction.", "disclaimer": "Educational context only."
+        },
+        "de": {
+            "labels": {"title": "KI-Einordnung", "what": "Was ist passiert?", "why": "Warum ist das wichtig?", "market": "Kontext des Zielmarkts", "scope": "Umfang des Marktbezugs", "effect": "Mögliche Wirkung", "channel": "Wirkungskanal", "horizon": "Zeithorizont", "monitor": "Was beobachten?", "education": "Lernhinweis", "uncertainty": "Unsicherheit", "disclaimer": "Hinweis"},
+            "what_happened": "Originalüberschrift: BTC ETF inflows rise", "why_it_matters": "ETF-Zuflüsse können die Nachfrageerwartungen verändern.", "affected_market": "Kryptomarkt · BTCUSDT", "relevance_scope": "Marktbezogene Relevanz", "potential_effect": "Gemischt oder unklar", "transmission_channel": "Angebot und Nachfrage", "time_horizon": "Unbekannt", "what_to_monitor": "ETF-Zuflüsse und Volumen", "educational_concept": "Kapitalflüsse", "uncertainty": "Die Überschrift allein belegt keine Kursrichtung.", "disclaimer": "Nur zu Bildungszwecken."
+        },
+        "fr": {
+            "labels": {"title": "Interprétation IA", "what": "Que s'est-il passé ?", "why": "Pourquoi est-ce important ?", "market": "Contexte du marché cible", "scope": "Portée de la pertinence", "effect": "Effet potentiel", "channel": "Mécanisme", "horizon": "Horizon", "monitor": "À surveiller", "education": "Point pédagogique", "uncertainty": "Incertitude", "disclaimer": "Avertissement"},
+            "what_happened": "Titre source : BTC ETF inflows rise", "why_it_matters": "Les flux des ETF peuvent modifier les anticipations de demande.", "affected_market": "Marché des cryptomonnaies · BTCUSDT", "relevance_scope": "Pertinence au niveau du marché", "potential_effect": "Mitigé ou indéterminé", "transmission_channel": "Offre et demande", "time_horizon": "Indéterminé", "what_to_monitor": "Flux des ETF et volumes", "educational_concept": "Flux de capitaux", "uncertainty": "Le titre seul ne permet pas d'établir une direction des prix.", "disclaimer": "Contexte pédagogique uniquement."
+        }
+    }
+    interpretation = {
+        "schema_version": "hes.news_item_interpretation.v1",
+        "potential_effect": "mixed_or_unknown",
+        "relevance_scope": "market_or_category_level",
+        "scores_are_probabilities": False,
+        "source_facts": {"headline": "BTC ETF inflows rise"},
+        "mother_use": {
+            "role": "context_and_confirmation_only",
+            "news_alone_can_authorize_trade": False,
+            "requires_independent_market_confirmation": True,
+        },
+        "localized": localized,
+    }
+    return {
+        "news": {
+            "monitor": {"status": "OK", "source_profile_status": "complete", "source_health": []},
+            "brief": {"findings": [{
+                "item_id": "news-event-1", "title": "BTC ETF inflows rise",
+                "source": "Official Source", "freshness": "fresh", "interpretation": interpretation,
+            }]},
+        }
+    }
+
+
+def test_news_context_chat_uses_all_four_localized_interpretations():
+    payload = _news_context_fixture()
+    readers = {"NEWS_CONTEXT": lambda: payload}
+    cases = (
+        ("اخبار بازار", "fa", "جریان ETF می‌تواند انتظارات تقاضا را تغییر دهد.", "مختلط یا نامشخص"),
+        ("news source coverage", "en", "ETF flows can change demand expectations.", "Mixed or unknown"),
+        ("Nachrichten zum Markt", "de", "ETF-Zuflüsse können die Nachfrageerwartungen verändern.", "Gemischt oder unklar"),
+        ("Actualités du marché", "fr", "Les flux des ETF peuvent modifier les anticipations de demande.", "Mitigé ou indéterminé"),
+    )
+    for message, locale, explanation, effect in cases:
+        result = build_chat_response(message, readers)
+        assert result["status"] == "OK", locale
+        assert explanation in result["answer"], locale
+        assert effect in result["answer"], locale
+        if locale == "fr":
+            assert "Flux d’actualités" in result["answer"]
+        assert any(row["label"] == "Economic mechanism" and row["value"] == explanation for row in result["claims"])
+        assert any(row["label"] == "What to monitor" for row in result["claims"])
+        assert any(row["label"] == "Economic concept" for row in result["claims"])
+        assert any(row["label"] == "Transmission channel" for row in result["claims"])
+        assert any(row["label"] == "Time horizon" for row in result["claims"])
+        assert any(row["label"] == "Interpretation uncertainty" for row in result["claims"])
+        assert result["external_llm_used"] is False
+        assert result["execution_enabled"] is False
+        assert result["orders_placed"] is False
+
+
+def test_news_context_chat_fails_closed_on_incomplete_locale_or_trade_authority():
+    payload = _news_context_fixture()
+    readers = {"NEWS_CONTEXT": lambda: payload}
+    payload["news"]["brief"]["findings"][0]["interpretation"]["localized"]["de"].pop("what_to_monitor")
+    incomplete = build_chat_response("Nachrichten zum Markt", readers)
+    assert incomplete["status"] == "PARTIAL"
+    assert any("NEWS_INTERPRETATION_LOCALE_UNAVAILABLE:de:news-event-1" == item for item in incomplete["uncertainties"])
+    assert not any(row["label"] == "Economic mechanism" for row in incomplete["claims"])
+
+    payload = _news_context_fixture()
+    payload["news"]["brief"]["findings"][0]["interpretation"]["mother_use"]["news_alone_can_authorize_trade"] = True
+    invalid_authority = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert invalid_authority["status"] == "PARTIAL"
+    assert "NEWS_INTERPRETATION_UNAVAILABLE:news-event-1" in invalid_authority["uncertainties"]
+    assert not any(row["label"] == "Economic mechanism" for row in invalid_authority["claims"])
+
+    payload = _news_context_fixture()
+    payload["news"]["brief"]["findings"][0]["interpretation"]["localized"] = None
+    malformed_locale = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert malformed_locale["status"] == "PARTIAL"
+    assert "NEWS_INTERPRETATION_LOCALE_UNAVAILABLE:en:news-event-1" in malformed_locale["uncertainties"]
+    assert not any(row["label"] == "Economic mechanism" for row in malformed_locale["claims"])
+
+    payload = _news_context_fixture()
+    payload["news"]["brief"]["findings"] = {"unexpected": "mapping"}
+    malformed_findings = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert malformed_findings["status"] == "PARTIAL"
+    assert "NEWS_FINDINGS_INVALID" in malformed_findings["uncertainties"]
+
+    payload = _news_context_fixture()
+    payload["news"]["brief"] = None
+    malformed_brief = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert malformed_brief["status"] == "PARTIAL"
+    assert "NEWS_BRIEF_INVALID" in malformed_brief["uncertainties"]
+
+
+def test_news_context_chat_surfaces_veto_flags_and_suppresses_stale_items():
+    payload = _news_context_fixture()
+    item = payload["news"]["brief"]["findings"][0]
+    item["freshness"] = "stale"
+    payload["news"]["brief"]["veto_flags"] = ["NEWS_SOURCE_COVERAGE_INCOMPLETE"]
+    result = build_chat_response("news source coverage", {"NEWS_CONTEXT": lambda: payload})
+    assert result["status"] == "PARTIAL"
+    assert any(row["label"] == "News confirmation flags" and "NEWS_SOURCE_COVERAGE_INCOMPLETE" in row["value"] for row in result["claims"])
+    assert "NEWS_ITEM_FRESHNESS_UNVERIFIED:news-event-1" in result["uncertainties"]
+    assert not any(row["label"] == "Economic mechanism" for row in result["claims"])
+
+
 def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path, monkeypatch):
     import threading
     from http.server import ThreadingHTTPServer

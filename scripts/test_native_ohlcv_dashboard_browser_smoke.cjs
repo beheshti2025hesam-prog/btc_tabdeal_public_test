@@ -6,6 +6,83 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: "en-US" });
+    const newsLocales = {
+      en: {
+        labels: { title: "AI interpretation & economic learning", what: "What happened?", why: "Why does it matter?", market: "Target market context", scope: "Relevance scope", effect: "Potential market effect", channel: "Transmission channel", horizon: "Time horizon", monitor: "What to monitor", education: "Learning point", uncertainty: "Uncertainty and limits", disclaimer: "Disclaimer" },
+        what_happened: "Source headline: Bitcoin <img src=x onerror=window.__newsXss=1>",
+        why_it_matters: "ETF flows can change demand expectations.",
+        affected_market: "Crypto market · BTCUSDT · gateio",
+        relevance_scope: "Direct symbol match",
+        potential_effect: "Mixed or unknown",
+        transmission_channel: "Supply, demand and capital flows",
+        time_horizon: "Cannot be established from current evidence",
+        what_to_monitor: "ETF flows, price and volume",
+        educational_concept: "Capital flows",
+        uncertainty: "Headline sentiment alone does not establish price direction.",
+        disclaimer: "Educational context only."
+      },
+      de: {
+        labels: { title: "KI-Einordnung & Wirtschaftswissen", what: "Was ist passiert?", why: "Warum ist das wichtig?", market: "Kontext des Zielmarkts", scope: "Umfang des Marktbezugs", effect: "Mögliche Marktwirkung", channel: "Wirkungskanal", horizon: "Zeithorizont", monitor: "Was sollte beobachtet werden?", education: "Lernhinweis", uncertainty: "Unsicherheiten und Grenzen", disclaimer: "Hinweis" },
+        what_happened: "Originalüberschrift: Bitcoin <img src=x onerror=window.__newsXss=1>",
+        why_it_matters: "ETF-Zuflüsse können die Nachfrageerwartungen verändern.",
+        affected_market: "Kryptomarkt · BTCUSDT · gateio",
+        relevance_scope: "Direkter Symboltreffer",
+        potential_effect: "Gemischt oder unklar",
+        transmission_channel: "Angebot, Nachfrage und Kapitalflüsse",
+        time_horizon: "Aus den aktuellen Belegen nicht bestimmbar",
+        what_to_monitor: "ETF-Zuflüsse, Preis und Volumen",
+        educational_concept: "Kapitalflüsse",
+        uncertainty: "Die Stimmung der Überschrift allein belegt keine Kursrichtung.",
+        disclaimer: "Nur zu Informations- und Bildungszwecken."
+      },
+      fa: {
+        labels: { title: "تفسیر هوش مصنوعی و آموزش اقتصادی", what: "چه اتفاقی افتاده؟", why: "چرا اهمیت دارد؟", market: "زمینه بازار هدف", scope: "دامنه ارتباط خبر", effect: "اثر احتمالی بر بازار", channel: "مسیر اثرگذاری", horizon: "افق زمانی", monitor: "چه چیزی را دنبال کنیم؟", education: "نکته آموزشی", uncertainty: "ابهام‌ها و محدودیت‌ها", disclaimer: "توضیح" },
+        what_happened: "تیتر منبع: Bitcoin <img src=x onerror=window.__newsXss=1>",
+        why_it_matters: "جریان ETF می‌تواند انتظارات تقاضا را تغییر دهد.",
+        affected_market: "بازار رمزارز · BTCUSDT · gateio",
+        relevance_scope: "ارتباط مستقیم با نماد",
+        potential_effect: "مختلط یا نامشخص",
+        transmission_channel: "عرضه، تقاضا و جریان سرمایه",
+        time_horizon: "از شواهد فعلی قابل تعیین نیست",
+        what_to_monitor: "جریان ETF، قیمت و حجم",
+        educational_concept: "جریان سرمایه",
+        uncertainty: "احساس تیتر به‌تنهایی جهت قیمت را ثابت نمی‌کند.",
+        disclaimer: "این محتوا صرفاً آموزشی است."
+      },
+      fr: {
+        labels: { title: "Interprétation IA et pédagogie économique", what: "Que s'est-il passé ?", why: "Pourquoi est-ce important ?", market: "Contexte du marché cible", scope: "Portée de la pertinence", effect: "Effet potentiel sur le marché", channel: "Mécanisme de transmission", horizon: "Horizon temporel", monitor: "Éléments à surveiller", education: "Point pédagogique", uncertainty: "Incertitudes et limites", disclaimer: "Avertissement" },
+        what_happened: "Titre de la source : Bitcoin <img src=x onerror=window.__newsXss=1>",
+        why_it_matters: "Les flux des ETF peuvent modifier les anticipations de demande.",
+        affected_market: "Marché des cryptomonnaies · BTCUSDT · gateio",
+        relevance_scope: "Correspondance directe du symbole",
+        potential_effect: "Mitigé ou indéterminé",
+        transmission_channel: "Offre, demande et flux de capitaux",
+        time_horizon: "Impossible à déterminer avec les éléments actuels",
+        what_to_monitor: "Flux des ETF, prix et volumes",
+        educational_concept: "Flux de capitaux",
+        uncertainty: "Le ton du titre ne suffit pas à établir une direction des prix.",
+        disclaimer: "Contexte pédagogique uniquement."
+      }
+    };
+    const newsFixture = {
+      schema: "hes.news_monitor_snapshot.v1",
+      schema_version: "hes.news_monitor_snapshot.v1",
+      monitor: { status: "OK", source_profile_status: "complete", last_poll_at: new Date().toISOString(), source_health: [] },
+      brief: {
+        schema_version: "hes.news_brief.v1",
+        headline: "1 test news item",
+        mother_agent_summary: "Browser fixture only",
+        veto_flags: [],
+        provenance: {},
+        findings: [
+          { item_id: "browser-news-1", title: "Bitcoin <img src=x onerror=window.__newsXss=1>", source: "Browser fixture", published_at: "2026-11-14T07:00:00Z", impact: 0.8, relevance: 0.95, freshness: "fresh", interpretation: { schema_version: "hes.news_item_interpretation.v1", localized: newsLocales } },
+          { item_id: "browser-news-incomplete", title: "Incomplete translation fixture", source: "Browser fixture", published_at: "2026-11-14T07:00:00Z", impact: 0.2, relevance: 0.6, freshness: "fresh", interpretation: { schema_version: "hes.news_item_interpretation.v1", localized: { en: { labels: { title: "Incomplete" }, what_happened: "Partial" } } } }
+        ]
+      }
+    };
+    await page.route("**/api/news", async route => route.fulfill({
+      status: 200, contentType: "application/json", body: JSON.stringify(newsFixture)
+    }));
     let candlePayload = null;
     const candlePayloads = {};
     let strategyV2Payload = null;
@@ -117,6 +194,20 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       null,
       { timeout: 30000 }
     );
+    await page.waitForFunction(() => document.querySelectorAll("#newsItems .news-interpretation").length === 2, null, { timeout: 10000 });
+    assert.equal(await page.locator("#newsItems .news-interpretation").count(), 2, "each news item must have its own interpretation panel");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.en.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.en.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("p").textContent(), newsLocales.en.what_happened);
+    assert.equal(await page.locator("#newsItems img").count(), 0, "untrusted headline markup must be rendered as text, not HTML");
+    assert.ok((await page.locator("#newsItems").textContent()).includes('<img src=x onerror=window.__newsXss=1>'),
+      "the literal source headline must remain visible as escaped text");
+    assert.equal(await page.evaluate(() => window.__newsXss || false), false, "news content executed an injected event handler");
+    assert.equal(
+      await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(),
+      "Interpretation unavailable; evidence is insufficient or invalid.",
+      "incomplete locale content must fail closed in the panel"
+    );
     const fifteenMinutePayload = candlePayload;
     assert.ok(fifteenMinutePayload, "successful /api/candles payload was not observed");
     assert.equal(fifteenMinutePayload.interval, "15m", "15m must remain the default chart interval");
@@ -201,15 +292,26 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       document.querySelector("#motherTitle")?.textContent.includes("kanonische V2-Nachweiskette"));
     assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Orchestrator");
     assert.equal((await decisionHeader.textContent()).trim(), "Entscheidung");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.de.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.de.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "Einordnung nicht verfügbar; Belege sind unzureichend oder ungültig.");
     assert.equal(await page.evaluate(() => localStorage.getItem("hes-dashboard-locale-v1")), "de");
     await languageSelect.selectOption("fa");
     await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
     assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.fa.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.fa.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "تفسیر در دسترس نیست؛ شواهد کافی یا معتبر وجود ندارد.");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().evaluate(el => getComputedStyle(el).direction), "rtl",
+      "news education rows must follow the Persian RTL locale");
     await languageSelect.selectOption("fr");
     await page.waitForFunction(() => document.documentElement.lang === "fr" && document.documentElement.dir === "ltr");
     assert.equal((await decisionHeader.textContent()).trim(), "Décision");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.fr.labels.title);
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.fr.labels.what);
+    assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "Interprétation indisponible ; les éléments sont insuffisants ou invalides.");
     await languageSelect.selectOption("en");
     await page.waitForFunction(() => document.documentElement.lang === "en" &&
       document.querySelector("#motherTitle")?.textContent.trim() === "Mother Orchestrator · canonical V2 evidence chain");
@@ -217,6 +319,16 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       "English Mother navigation label was not restored");
     assert.equal((await decisionHeader.textContent()).trim(), "Decision",
       "English Decision label was not restored after ambiguous translations");
+    assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.en.labels.title);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileNewsColumns = await page.locator("#newsItems .news-interpretation-row").first().evaluate(el =>
+      getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
+    assert.equal(mobileNewsColumns, 1, "news education rows must collapse to one column on mobile");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const desktopNewsColumns = await page.locator("#newsItems .news-interpretation-row").first().evaluate(el =>
+      getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
+    assert.equal(desktopNewsColumns, 2, "news education rows must use the two-column desktop layout");
+    assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.en.labels.what);
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
