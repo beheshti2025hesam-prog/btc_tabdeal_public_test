@@ -132,6 +132,38 @@ class NewsEducationV1Tests(unittest.TestCase):
         self.assertIn("insufficient", interpretation["localized"]["en"]["why_it_matters"].lower())
         self.assertIn("تأیید نشده", interpretation["localized"]["fa"]["relevance_scope"])
 
+    def test_news_brain_relevance_and_category_profiles_cover_supported_markets(self):
+        cases = (
+            ("crypto", "BTCUSDT", "Crypto market capital flows", "crypto_market"),
+            ("us_equities", "SPX", "US stock market earnings beat expectations", "equities"),
+            ("iran_stocks", "IRX", "بورس تهران گزارش درآمد شرکت‌ها را منتشر کرد", "equities"),
+            ("forex", "EURUSD", "Forex currency exchange rate shifts", "fx"),
+            ("metals", "XAUUSD", "Gold and silver prices move on supply data", "commodities"),
+        )
+        for market, symbol, title, expected_category in cases:
+            brief = NewsIntelligenceBrain().analyze(
+                [NewsItem(
+                    title,
+                    "Official market update with verified publication details.",
+                    "Official Source",
+                    "https://example.test/market-update",
+                    NOW.isoformat(),
+                )],
+                MarketContext(market, symbol, "range", "15m", venue="test-venue"),
+                now=NOW,
+            )
+            self.assertEqual(len(brief.findings), 1, market)
+            interpretation = brief.findings[0].interpretation
+            self.assertEqual(interpretation["category"], expected_category, market)
+            self.assertEqual(interpretation["relevance_scope"], "market_or_category_level", market)
+            for locale in LOCALES:
+                localized = interpretation["localized"][locale]
+                self.assertTrue(localized["why_it_matters"], (market, locale))
+                self.assertTrue(localized["transmission_channel"], (market, locale))
+                self.assertTrue(localized["what_to_monitor"], (market, locale))
+                self.assertTrue(localized["educational_concept"], (market, locale))
+                self.assertNotIn("insufficient", localized["why_it_matters"].lower(), (market, locale))
+
     def test_economic_transmission_profiles_are_complete_in_all_locales(self):
         categories = (
             "monetary_policy", "regulation", "security", "exchange", "macro",
