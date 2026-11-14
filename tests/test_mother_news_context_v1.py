@@ -183,6 +183,7 @@ class MotherNewsContextTests(unittest.TestCase):
             "news_context": {
                 "status": "READY",
                 "coverage_status": "partial",
+                "context_sha256": "a" * 64,
                 "snapshot_sha256": "b" * 64,
                 "brief_sha256": "c" * 64,
                 "veto_flags": ["HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION"],
@@ -202,7 +203,9 @@ class MotherNewsContextTests(unittest.TestCase):
         self.assertEqual(result.payload["direction"], "NONE")
         self.assertFalse(result.payload["news_alone_can_authorize_trade"])
         self.assertEqual(len(result.payload["news_items"]), 1)
+        self.assertIn("news_context_sha256:" + "a" * 64, result.evidence_refs)
         self.assertIn("news_snapshot_sha256:" + "b" * 64, result.evidence_refs)
+        self.assertIn("news_item_id:event-1", result.evidence_refs)
 
 
 if __name__ == "__main__":
