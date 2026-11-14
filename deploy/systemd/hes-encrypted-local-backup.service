@@ -1,0 +1,29 @@
+[Unit]
+Description=HES encrypted local full backup with integrity verification
+After=local-fs.target
+Wants=local-fs.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+ExecStart=/usr/local/sbin/hes-encrypted-local-backup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/backups/hes-trade-agent/encrypted-local /run/lock /var/lib/hes-operational-health /root/.gnupg
+ReadOnlyPaths=/opt/hes-trade-agent /etc/ssh /etc/nftables.conf /etc/systemd/system /etc/xray /etc/nginx /usr/local/sbin/hes-operational-healthcheck /root/.config/hes-backup
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelLogs=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
