@@ -70,9 +70,13 @@ _CATEGORY = {
 _MARKET_LABELS = {
     "crypto": {"fa": "بازار رمزارز", "en": "Crypto market", "de": "Kryptomarkt", "fr": "Marché des cryptomonnaies"},
     "equities": {"fa": "بازار سهام", "en": "Equities market", "de": "Aktienmarkt", "fr": "Marché des actions"},
+    "us_equities": {"fa": "بازار سهام آمریکا", "en": "US equities market", "de": "US-Aktienmarkt", "fr": "Marché des actions américaines"},
     "iran_equities": {"fa": "بازار سهام ایران", "en": "Iranian equities market", "de": "Iranischer Aktienmarkt", "fr": "Marché actions iranien"},
+    "iran_stocks": {"fa": "بازار سهام ایران", "en": "Iranian equities market", "de": "Iranischer Aktienmarkt", "fr": "Marché actions iranien"},
     "fx": {"fa": "بازار ارز", "en": "Foreign-exchange market", "de": "Devisenmarkt", "fr": "Marché des changes"},
+    "forex": {"fa": "بازار فارکس", "en": "Forex market", "de": "Devisenmarkt", "fr": "Marché des changes"},
     "commodities": {"fa": "بازار کالاها", "en": "Commodities market", "de": "Rohstoffmarkt", "fr": "Marché des matières premières"},
+    "metals": {"fa": "بازار فلزات", "en": "Metals market", "de": "Metallmarkt", "fr": "Marché des métaux"},
     "unknown": {"fa": "بازار نامشخص", "en": "Unspecified market", "de": "Nicht näher bestimmter Markt", "fr": "Marché non précisé"},
 }
 
