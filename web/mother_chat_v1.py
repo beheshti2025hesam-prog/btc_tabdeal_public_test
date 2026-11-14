@@ -479,8 +479,13 @@ def build_chat_response(
                     claims.append(_claim("News interpretation schema", str(interpretation.get("schema_version"))))
                     claims.append(_claim("News potential effect", str(localized["potential_effect"])))
                     claims.append(_claim("News relevance scope", str(localized["relevance_scope"])))
+                    claims.append(_claim("Target market context", localized["affected_market"]))
                     claims.append(_claim("Economic mechanism", localized["why_it_matters"]))
+                    claims.append(_claim("Transmission channel", localized["transmission_channel"]))
+                    claims.append(_claim("Time horizon", localized["time_horizon"]))
                     claims.append(_claim("What to monitor", localized["what_to_monitor"]))
+                    claims.append(_claim("Economic concept", localized["educational_concept"]))
+                    claims.append(_claim("Interpretation uncertainty", localized["uncertainty"]))
                     if top_interpretation is None:
                         top_interpretation = localized
                 else:
