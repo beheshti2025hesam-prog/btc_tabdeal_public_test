@@ -457,6 +457,7 @@ class ConfirmationSpecialistV1:
                 "HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION",
                 "NEWS_TIMESTAMP_SUSPECT", "NEWS_TIMESTAMP_INVALID",
                 "NEWS_TIMESTAMP_UNVERIFIED", "NEWS_SOURCE_UNVERIFIED",
+                "NEWS_SOURCE_COVERAGE_INCOMPLETE",
             }
         ))) if isinstance(news_veto_flags, (list, tuple)) else ()
         state = "CONFIRMED" if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") and not news_veto_flags else "UNCONFIRMED"
