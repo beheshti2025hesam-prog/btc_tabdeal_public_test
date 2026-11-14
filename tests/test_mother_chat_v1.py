@@ -239,6 +239,10 @@ def test_news_context_chat_uses_all_four_localized_interpretations():
             assert "Flux d’actualités" in result["answer"]
         assert any(row["label"] == "Economic mechanism" and row["value"] == explanation for row in result["claims"])
         assert any(row["label"] == "What to monitor" for row in result["claims"])
+        assert any(row["label"] == "Economic concept" for row in result["claims"])
+        assert any(row["label"] == "Transmission channel" for row in result["claims"])
+        assert any(row["label"] == "Time horizon" for row in result["claims"])
+        assert any(row["label"] == "Interpretation uncertainty" for row in result["claims"])
         assert result["external_llm_used"] is False
         assert result["execution_enabled"] is False
         assert result["orders_placed"] is False
