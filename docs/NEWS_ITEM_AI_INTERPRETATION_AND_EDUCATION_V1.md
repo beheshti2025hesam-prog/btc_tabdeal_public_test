@@ -185,3 +185,13 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - Documentation-only head: `d4c42df13d69fdd3887418e49c63370d25901233`.
 - GitHub Actions ran on the latest branch update and all three required workflows passed: full repository pytest **1,281 passed + 82 subtests**, browser render smoke PASS, dashboard native-path/API contract PASS.
 - Cross-market NewsIntelligenceBrain tests now exercise crypto, US equities, Iran equities, Forex and metals. They verify relevance survives filtering, the intended economic category is selected, and no direct symbol impact is asserted without a symbol match.
+
+
+## 17. Mother Command Center chat integration — 2026-11-14
+
+- The read-only `NEWS_CONTEXT` intent now consumes the same per-item interpretation in fa/en/de/fr and exposes target-market context, economic mechanism, transmission channel, time horizon, what to monitor, educational concept, uncertainty, potential effect and relevance scope as evidence claims.
+- Chat consumption requires the exact interpretation schema, matching source headline, allowed effect/relevance semantics, explicit context-only/no-trade-authority contract, and a complete localized field/label set for the selected language.
+- Stale/unverified freshness is not used to produce an explanation. News veto flags and partial source coverage are surfaced and downgrade the response to PARTIAL; malformed brief/findings/locale containers and invalid authority semantics fail closed.
+- The French news-status label was reviewed to use natural wording (`Flux d’actualités`).
+- Tests cover Persian, English, German and French chat responses, complete educational claims, incomplete translations, invalid trade authority, stale items, veto flags and malformed brief/findings/locale containers.
+- Exact tested implementation head before the final malformed-brief assertion-only test commit: `e4ea891b5c10c0497271668b03cb690361f524f7`; CI 3/3 PASS with **1,284 passed + 82 subtests**. A final test-only commit adds the malformed-brief assertion and is being revalidated on the latest branch head.
