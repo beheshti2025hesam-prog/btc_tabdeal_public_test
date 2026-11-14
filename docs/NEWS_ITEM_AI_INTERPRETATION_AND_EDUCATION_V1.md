@@ -148,3 +148,14 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - Exact tested code/test head: `d6c21e37fad843ea1b77068d703deb93720a4151`. Exact-head GitHub Actions: **3/3 PASS** — full repository pytest **1,279 passed + 82 subtests**; dashboard native-path/API contract **128 passed + 19 subtests**; browser render smoke PASS.
 - The current VPS dashboard snapshot still uses the previously deployed news schema and does not yet contain `hes.news_item_interpretation.v1`. This is expected: PR #501 is stacked on the unmerged PR #500 and has not been deployed. The new Mother reader will fail closed on that old snapshot until the controlled release includes the new producer and consumer together.
 - No active dashboard release, news collector, service, policy/ruleset, paper execution permission, or live execution setting was changed.
+
+
+## 13. Event corroboration and coverage-veto hardening — 2026-11-14
+
+- Mother now receives the news brain's validated `event_cluster_assignments` and `high_impact_event_clusters` from the digest-bound brief provenance.
+- Each selected news item carries its event-cluster ID and, when the cluster is high-impact, the corroborating item/source counts. The confirmation specialist exposes these fields in its payload and adds item and event-cluster IDs to its evidence references.
+- Malformed or duplicate event-cluster assignments and malformed high-impact cluster counts fail closed.
+- `NEWS_SOURCE_COVERAGE_INCOMPLETE` is now consumed as a confirmation veto, alongside high-impact, suspect timestamp and unverified source flags. Partial profile coverage without a source failure is not automatically treated as a failure; the monitor's explicit veto semantics remain authoritative.
+- Regression tests cover valid event-cluster/corroboration handoff and incomplete-source-coverage veto behavior.
+- Latest exact tested code/test head: `bebdbadceb9a3143edd14efa8414d77cead4ae46`. Exact-head GitHub Actions: **3/3 PASS** — full repository pytest **1,280 passed + 82 subtests**; browser render smoke PASS; dashboard native-path/API contract PASS.
+- PR #501 remains stacked on PR #500 and is not deployed. The current live News Radar snapshot has no item interpretation object yet, so the new Mother reader correctly rejects it until the producer and consumer are promoted together.
