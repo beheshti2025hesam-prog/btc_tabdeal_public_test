@@ -177,3 +177,11 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - Added commodity event terms and Persian equities vocabulary to the existing deterministic classifier; the existing curated economic education profiles are now reachable from these market contexts.
 - Added end-to-end NewsIntelligenceBrain tests for crypto, US equities, Iran equities, Forex and metals. Each fixture must survive relevance filtering, select its expected economic category, retain market/category-level relevance (not claim a direct symbol match), and provide all four localized educational fields.
 - This is still deterministic, evidence-bounded classification; it does not infer an asset-specific causal price direction from a category keyword.
+
+
+## 16. Exact-head cross-market regression result — 2026-11-14
+
+- Latest code/test head: `a5fbf47357018171453448b4dded1e00af3aedf9`.
+- Documentation-only head: `d4c42df13d69fdd3887418e49c63370d25901233`.
+- GitHub Actions ran on the latest branch update and all three required workflows passed: full repository pytest **1,281 passed + 82 subtests**, browser render smoke PASS, dashboard native-path/API contract PASS.
+- Cross-market NewsIntelligenceBrain tests now exercise crypto, US equities, Iran equities, Forex and metals. They verify relevance survives filtering, the intended economic category is selected, and no direct symbol impact is asserted without a symbol match.
