@@ -29,7 +29,13 @@ class FakeMarket:
 def make_snapshot(now):
     localized = {
         lang: {
-            "labels": {"title": "Interpretation"},
+            "labels": {
+                "title": "Interpretation", "what": "What", "why": "Why",
+                "market": "Market", "scope": "Scope", "effect": "Effect",
+                "channel": "Channel", "horizon": "Horizon", "monitor": "Monitor",
+                "education": "Education", "uncertainty": "Uncertainty",
+                "disclaimer": "Disclaimer",
+            },
             "what_happened": "Headline",
             "why_it_matters": "Mechanism",
             "potential_effect": "Potential effect",
@@ -47,9 +53,15 @@ def make_snapshot(now):
     interpretation = {
         "schema_version": "hes.news_item_interpretation.v1",
         "potential_effect": "mixed_or_unknown",
+        "relevance_scope": "market_or_category_level",
+        "impact_level": "high",
+        "impact_score": 0.9,
+        "confidence_score": 0.8,
+        "source_facts": {"headline": "Exchange security incident"},
         "scores_are_probabilities": False,
         "localized": localized,
         "mother_use": {
+            "role": "context_and_confirmation_only",
             "news_alone_can_authorize_trade": False,
             "requires_independent_market_confirmation": True,
         },
@@ -130,6 +142,23 @@ class MotherNewsContextTests(unittest.TestCase):
                 context = _load_news_context(observed_at=now)
         self.assertEqual(context["status"], "BLOCKED")
         self.assertEqual(context["reason_code"], "NEWS_INTERPRETATION_CONTENT_INCOMPLETE:fr")
+        self.assertEqual(context["findings"], [])
+
+    def test_missing_translation_label_fails_closed(self):
+        now = datetime.now(timezone.utc)
+        snapshot = make_snapshot(now)
+        del snapshot["brief"]["findings"][0]["interpretation"]["localized"]["de"]["labels"]["scope"]
+        snapshot["brief_sha256"] = hashlib.sha256(_news_canonical_bytes(snapshot["brief"])).hexdigest()
+        unsigned = dict(snapshot)
+        unsigned.pop("snapshot_sha256", None)
+        snapshot["snapshot_sha256"] = hashlib.sha256(_news_canonical_bytes(unsigned)).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "news.json"
+            path.write_bytes(_news_canonical_bytes(snapshot))
+            with patch.dict(os.environ, {"HES_NEWS_MONITOR_SNAPSHOT": str(path)}):
+                context = _load_news_context(observed_at=now)
+        self.assertEqual(context["status"], "BLOCKED")
+        self.assertEqual(context["reason_code"], "NEWS_INTERPRETATION_LABELS_INCOMPLETE:de")
         self.assertEqual(context["findings"], [])
 
     def test_news_interpretation_cannot_claim_trade_authority(self):
