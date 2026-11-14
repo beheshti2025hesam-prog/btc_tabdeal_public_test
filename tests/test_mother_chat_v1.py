@@ -227,7 +227,7 @@ def test_news_context_chat_uses_all_four_localized_interpretations():
     cases = (
         ("اخبار بازار", "fa", "جریان ETF می‌تواند انتظارات تقاضا را تغییر دهد.", "مختلط یا نامشخص"),
         ("news source coverage", "en", "ETF flows can change demand expectations.", "Mixed or unknown"),
-        ("Nachrichtenlage", "de", "ETF-Zuflüsse können die Nachfrageerwartungen verändern.", "Gemischt oder unklar"),
+        ("Nachrichten zum Markt", "de", "ETF-Zuflüsse können die Nachfrageerwartungen verändern.", "Gemischt oder unklar"),
         ("Actualités du marché", "fr", "Les flux des ETF peuvent modifier les anticipations de demande.", "Mitigé ou indéterminé"),
     )
     for message, locale, explanation, effect in cases:
@@ -246,7 +246,7 @@ def test_news_context_chat_fails_closed_on_incomplete_locale_or_trade_authority(
     payload = _news_context_fixture()
     readers = {"NEWS_CONTEXT": lambda: payload}
     payload["news"]["brief"]["findings"][0]["interpretation"]["localized"]["de"].pop("what_to_monitor")
-    incomplete = build_chat_response("Nachrichtenlage", readers)
+    incomplete = build_chat_response("Nachrichten zum Markt", readers)
     assert incomplete["status"] == "PARTIAL"
     assert any("NEWS_INTERPRETATION_LOCALE_UNAVAILABLE:de:news-event-1" == item for item in incomplete["uncertainties"])
     assert not any(row["label"] == "Economic mechanism" for row in incomplete["claims"])
