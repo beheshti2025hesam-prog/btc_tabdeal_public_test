@@ -122,11 +122,8 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
         if (url.pathname.startsWith("/api/")) {
           const body = await response.json();
           apiContractResponses[url.pathname] = {
-            status: response.status(),
-            schema: body.schema || body.schema_version || null,
-            decision: body.decision ?? null,
-            execution_enabled: body.execution_enabled ?? null,
-            orders_placed: body.orders_placed ?? null
+            ...body,
+            http_status: response.status(),
           };
           if (url.pathname === "/api/candles" && response.status() === 200 &&
               Array.isArray(body.candles) && body.candles.length) {
@@ -219,7 +216,19 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(apiContractResponses["/api/journal"]?.schema, "hes.trade_journal_view.v1",
       "decision journal API schema must be versioned");
     const motherPayload = apiContractResponses["/api/mother"];
-    console.log("MOTHER_RUNTIME_DIAGNOSTICS", JSON.stringify(motherPayload));
+    console.log("MOTHER_RUNTIME_DIAGNOSTICS", JSON.stringify({
+      http_status: motherPayload?.http_status,
+      status: motherPayload?.status,
+      registered_count: motherPayload?.registered_count,
+      executed_count: motherPayload?.executed_count,
+      executed_specialists: motherPayload?.executed_specialists,
+      evaluation_state: motherPayload?.stages?.find(stage => stage.agent === "evaluation")?.state,
+      news_status: motherPayload?.news_context?.status,
+      witness_verified: motherPayload?.witness?.verified,
+      execution_enabled: motherPayload?.execution_enabled,
+      orders_placed: motherPayload?.orders_placed,
+      reason_codes: motherPayload?.reason_codes,
+    }));
     assert.equal(motherPayload?.schema, "hes.mother_runtime_dashboard.v1",
       "Mother API must expose the versioned live-specialist runtime contract");
     assert.equal(motherPayload?.decision, "NO_TRADE", "Mother must fail closed without a fully approved decision");
