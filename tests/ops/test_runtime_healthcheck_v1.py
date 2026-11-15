@@ -57,6 +57,10 @@ def test_runtime_healthcheck_validates_precision_paper_only_and_daily_cap(tmp_pa
     witness = tmp_path / 'witness.jsonl'
     _write_jsonl(witness, [{'observed_at': _iso(now), 'status': 'PASS', 'source': 'gateio_public_spot', 'symbol': 'BTC_USDT', 'timeframe': '1m', 'execution_enabled': False, 'orders_placed': False, 'latest_age_seconds': 20}])
     monkeypatch.setattr(health, 'WITNESS', witness)
+    # The healthcheck is expected to evaluate the configured disk threshold,
+    # not the runner's incidental free space while using tmp_path.
+    monkeypatch.setattr(health.shutil, 'disk_usage',
+                        lambda _: health.shutil._ntuple_diskusage(100, 50, 50))
     runner = FakeRunner()
     report = health.collect_checks(root=tmp_path, now=now, runner=runner)
     assert report['overall'] == 'OK'
