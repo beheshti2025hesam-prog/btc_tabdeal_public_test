@@ -36,6 +36,15 @@ def test_cleanup_must_reference_exact_idlm_snapshot():
     idlm,cleanup=source_reports(); cleanup["source_audit_generated_at"]="2026-11-15T14:00:00+00:00"
     with pytest.raises(ValueError,match="exact IDLM"): load_inventory(idlm,cleanup,NOW)
 
+def test_stale_cleanup_report_fails_closed():
+    idlm,cleanup=source_reports()
+    cleanup["generated_at"]=(NOW-timedelta(minutes=16)).isoformat()
+    with pytest.raises(ValueError,match="Smart Cleanup report stale"): load_inventory(idlm,cleanup,NOW)
+
+def test_missing_dependency_scan_field_fails_closed():
+    idlm,cleanup=source_reports(); cleanup["dependency_scan"].pop("unit_scan_errors")
+    with pytest.raises(ValueError,match="field missing"): load_inventory(idlm,cleanup,NOW)
+
 def test_dependency_scan_error_blocks_inventory():
     idlm,cleanup=source_reports(); cleanup["dependency_scan"]["unit_scan_errors"]=1
     with pytest.raises(ValueError,match="dependency scan"): load_inventory(idlm,cleanup,NOW)
