@@ -33,6 +33,7 @@ def test_offsite_cycle_quota_guard_and_evidence_manifest_are_required():
     assert "verify_remote_hash" in source
     assert "tail -n +3" in source
     assert "-name 'hes-offsite-core-*.tar.*.gpg'" in source
+    assert source.count("-name 'hes-offsite-core-*.tar.zst.gpg'") == 2
     subprocess.run(["bash", "-n", str(ROOT / "scripts/hes-dropbox-offsite-cycle.sh")], check=True)
 
 

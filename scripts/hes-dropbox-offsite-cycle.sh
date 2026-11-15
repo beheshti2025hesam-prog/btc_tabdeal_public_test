@@ -47,7 +47,7 @@ if [[ "$latest" =~ ^hes-offsite-core-([0-9]{8})T[0-9]{6}Z\.tar\.zst\.gpg$ ]]; th
 if [[ "${HES_OFFSITE_FORCE_BUILD:-0}" == "1" || "$latest_stamp" != "$today" ]]; then
   bash "$BUILDER"
   latest=''
-  while IFS= read -r f; do latest="$f"; break; done < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.*.gpg' -printf '%f\n' | sort -r)
+  while IFS= read -r f; do latest="$f"; break; done < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.zst.gpg' -printf '%f\n' | sort -r)
 fi
 [[ -n "$latest" ]] || { echo 'NO_OFFSITE_ARCHIVE_FOUND'; exit 11; }
 ARCHIVE="$OUTDIR/$latest"
