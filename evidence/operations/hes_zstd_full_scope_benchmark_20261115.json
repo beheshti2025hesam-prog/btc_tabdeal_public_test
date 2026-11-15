@@ -1,0 +1,28 @@
+{
+  "schema": "hes_zstd_full_scope_benchmark_v1",
+  "date_utc": "2026-11-15",
+  "source": "exact offsite builder include-list semantics; active and rollback releases included",
+  "source_bytes": 4077824000,
+  "member_entries": 30546,
+  "results": {
+    "gzip_1": {"bytes": 1601064546, "elapsed_seconds": 73.89, "max_rss_kib": 8016},
+    "zstd_3_single_thread": {"bytes": 1407220695, "elapsed_seconds": 28.07, "max_rss_kib": 7936},
+    "zstd_9_single_thread": {"bytes": 1228742799, "elapsed_seconds": 160.95, "max_rss_kib": 8000}
+  },
+  "zstd_3_vs_gzip_1_saving_percent": 12.11,
+  "zstd_9_vs_gzip_1_saving_percent": 23.25,
+  "zstd_9_vs_zstd_3_saving_percent": 12.68,
+  "archive_cap_bytes": 1610612736,
+  "zstd_3_cap_headroom_bytes": 203392041,
+  "zstd_9_cap_headroom_bytes": 381869937,
+  "method": "tar stream to compressor to byte counter; no archive file written; nice 15; ionice idle; zstd single-thread",
+  "gpg_encryption_included_in_size_benchmark": false,
+  "production_archive_format_changed": false,
+  "restore_roundtrip_status": "PENDING_FULL_SCOPE_ZSTD_GPG_STREAM_TEST",
+  "notes": [
+    "The source tar stream is 4,077,824,000 bytes.",
+    "Compression results are measured over the full offsite include set, not a project sample.",
+    "The current production offsite archive remains encrypted gzip.",
+    "No local archive, Dropbox object, retention rule, or production service was modified."
+  ]
+}
