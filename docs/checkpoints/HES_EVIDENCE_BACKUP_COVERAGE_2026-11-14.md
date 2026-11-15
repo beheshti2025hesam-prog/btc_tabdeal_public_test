@@ -59,3 +59,8 @@ legacy ReadWritePaths exception and re-adds only the existing staging, lock,
 GPG and rclone paths. A regression test asserts that no project-tree write
 path remains in the builder or service drop-in. This is candidate code only;
 the live unit/drop-in and backup services have not been changed.
+
+
+## Remote streamed restore verification — 2026-11-15
+
+The offsite cycle now streams the exact uploaded Dropbox object back through `rclone cat -> GPG decrypt -> magic-byte gzip/Zstandard helper -> tar listing` after remote hash and size verification. It compares the archived `/srv/hes-evidence` file/symlink count against the count recorded in the archive manifest and fails closed on missing root or count mismatch. This is a streamed archive-integrity/coverage drill, not a full replacement-host extraction; replacement-host recovery remains separate.

@@ -131,6 +131,8 @@ SHA-256: $(sha256sum "$final" | awk '{print $1}')
 Active release: $ACTIVE_REL
 Rollback release: $ROLLBACK_REL
 Required evidence store: /srv/hes-evidence (coverage verified by archive listing).
+Evidence store entries: $archived_evidence_entries
+Evidence store source bytes: $(du -sb /srv/hes-evidence | awk '{print $1}')
 Included: complete project checkout and data, plus the independent /srv/hes-evidence store, except historical release collection; active and rollback releases included; system SSH, nftables, systemd, /etc/hes-trade-agent runtime configuration, optional xray/nginx and HES operational scripts included.
 Dependency evidence: exact Python virtualenv package freeze, Ubuntu platform/Python metadata, and installed apt package inventory are captured under var/backups/hes-trade-agent/offsite-staging/recovery-metadata/offsite-dependency-snapshot (archived explicitly; generated outside the application checkout).
 Excluded: historical release directories other than active/rollback; Python virtualenv binaries and Python test/lint caches. Rebuild the virtualenv from the archived dependency freeze; reinstall OS packages from the archived apt inventory.

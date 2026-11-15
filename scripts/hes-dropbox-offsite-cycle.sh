@@ -100,6 +100,24 @@ fi
 remote_json=$(rclone lsjson "$REMOTE_FILE" --stat)
 remote_size=$(printf '%s' "$remote_json" | python3 -c 'import json,sys; print(int(json.load(sys.stdin)["Size"]))')
 [[ "$remote_size" == "$size" ]] || { echo "REMOTE_SIZE_MISMATCH local=$size remote=$remote_size"; exit 21; }
+
+# Stream the exact Dropbox object through GPG, magic-byte decompression and tar
+# listing. Verify evidence-store entry count against the archived manifest.
+REMOTE_LISTING=$(mktemp "$OUTDIR/.remote-restore-list.XXXXXX")
+trap 'rm -f -- "$REMOTE_LISTING"' EXIT
+rclone cat "$REMOTE_FILE" \
+  | gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt 2>/dev/null \
+  | python3 "$ROOT/scripts/hes-offsite-decompress.py" \
+  | tar -tf - > "$REMOTE_LISTING"
+expected_remote_evidence_entries=$(awk -F': ' '$1 == "Evidence store entries" {print $2; exit}' "$ARCHIVE.manifest.txt")
+[[ "$expected_remote_evidence_entries" =~ ^[0-9]+$ ]] || { echo "MANIFEST_EVIDENCE_ENTRY_COUNT_INVALID"; exit 23; }
+remote_evidence_entries=$(awk 'index($0, "srv/hes-evidence/") == 1 && substr($0,length($0),1) != "/" { n++ } END { print n+0 }' "$REMOTE_LISTING")
+grep -Fxq "srv/hes-evidence/" "$REMOTE_LISTING" || grep -Fxq "srv/hes-evidence" "$REMOTE_LISTING" || { echo "REMOTE_RESTORE_EVIDENCE_ROOT_MISSING"; exit 24; }
+[[ "$remote_evidence_entries" == "$expected_remote_evidence_entries" ]] || { echo "REMOTE_RESTORE_EVIDENCE_ENTRY_MISMATCH expected=$expected_remote_evidence_entries actual=$remote_evidence_entries"; exit 25; }
+echo "REMOTE_RESTORE_LISTING_OK evidence_entries=$remote_evidence_entries"
+rm -f -- "$REMOTE_LISTING"
+trap - EXIT
+
 quota_json=$(rclone about hesdropbox: --json)
 printf '%s' "$quota_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("DROPBOX_QUOTA total={total} used={used} free={free}".format(**d))'
 

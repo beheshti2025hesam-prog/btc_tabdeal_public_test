@@ -127,6 +127,7 @@ Archive: $base
 Archive bytes: $(stat -c %s "$final")
 SHA-256: $(sha256sum "$final" | awk '{print $1}')
 Required evidence store: /srv/hes-evidence (coverage verified by archive listing).
+Evidence store entries: $expected_evidence_entries
 Included roots: /opt/hes-trade-agent, /srv/hes-evidence, /etc/ssh, /etc/nftables.conf, /etc/systemd/system and optional configured HES runtime paths.
 External recovery secret: /root/.config/hes-backup/passphrase is intentionally NOT included.
 Encryption: GPG symmetric AES-256.

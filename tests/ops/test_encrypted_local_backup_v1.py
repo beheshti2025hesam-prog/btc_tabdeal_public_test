@@ -29,6 +29,7 @@ def test_backup_script_syntax_and_fail_closed_archive_checks() -> None:
     assert "expected_evidence_entries" in source
     assert source.count("\nprune_archives\n") == 1
     assert "Required evidence store: /srv/hes-evidence" in source
+    assert "Evidence store entries: $expected_evidence_entries" in source
 
 
 def test_retention_keeps_daily_weekly_monthly_and_latest_duplicate(tmp_path: Path) -> None:

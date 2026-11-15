@@ -12,6 +12,7 @@ def test_offsite_builder_requires_and_verifies_independent_evidence_store():
     assert "evidence_store_incomplete" in source
     assert "expected_evidence_entries" in source
     assert "Required evidence store: /srv/hes-evidence (coverage verified by archive listing)." in source
+    assert "Evidence store entries: $archived_evidence_entries" in source
     assert "MAX_BYTES=$((1536 * 1024 * 1024))" in source
     assert 'base="hes-offsite-core-$stamp.tar.zst.gpg"' in source
     assert "zstd -q -T1 -9" in source
@@ -27,6 +28,9 @@ def test_offsite_cycle_quota_guard_and_evidence_manifest_are_required():
     assert 'REMOTE_FILE="$REMOTE_DIR/hes-offsite-latest.tar.zst.gpg"' in source
     assert 'LEGACY_REMOTE_FILE="$REMOTE_DIR/hes-offsite-latest.tar.gz.gpg"' in source
     assert "REMOTE_OBJECT_RENAME_START" in source
+    assert 'rclone cat "$REMOTE_FILE"' in source
+    assert "REMOTE_RESTORE_LISTING_OK" in source
+    assert "Evidence store entries" in source
     assert "hes-offsite-decompress.py" in source
     assert "hes-offsite-latest.tar.zst.gpg.sha256" in source
     assert "free_bytes + remote_size >= size + RESERVE_BYTES" in source
