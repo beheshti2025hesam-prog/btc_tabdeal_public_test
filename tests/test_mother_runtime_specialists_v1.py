@@ -144,6 +144,25 @@ class MotherRuntimeSpecialistsTests(TestCase):
             )
         return result, confirm_mock, risk_mock
 
+    def test_evaluation_blocks_unverified_journal_without_agent_exception(self):
+        market = SimpleNamespace(ensure_journal=lambda: {
+            "status": "MISSING", "count": 0, "decision_count": 0, "events": [],
+        })
+        result = runtime.EvaluationSpecialistV1(market).evaluate({})
+        self.assertEqual(result.state, "BLOCKED")
+        self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_NOT_VERIFIED",))
+        self.assertEqual(result.payload["journal_status"], "MISSING")
+        self.assertFalse(result.payload["outcomes_inferred"])
+
+    def test_evaluation_blocks_malformed_journal_events_without_agent_exception(self):
+        market = SimpleNamespace(ensure_journal=lambda: {
+            "status": "VERIFIED", "count": 1, "decision_count": 1, "events": "invalid",
+        })
+        result = runtime.EvaluationSpecialistV1(market).evaluate({})
+        self.assertEqual(result.state, "BLOCKED")
+        self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_EVENTS_INVALID",))
+        self.assertFalse(result.payload["outcomes_inferred"])
+
     def test_all_seven_runtime_specialists_execute_independently(self):
         result, confirm_mock, risk_mock = self._run()
         self.assertEqual(result["runtime_mode"], "LIVE_DATA_RUNTIME_SPECIALISTS")
