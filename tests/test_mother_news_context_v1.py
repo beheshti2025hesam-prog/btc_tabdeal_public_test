@@ -203,6 +203,18 @@ class MotherNewsContextTests(unittest.TestCase):
         self.assertEqual(context["reason_code"], "NEWS_INTERPRETATION_AUTHORITY_INVALID")
         self.assertEqual(context["findings"], [])
 
+    def test_missing_or_blocked_news_context_is_a_confirmation_veto(self):
+        for context in (
+            {},
+            {"news_context": {"status": "BLOCKED", "reason_code": "NEWS_INTERPRETATION_MISSING", "veto_flags": []}},
+        ):
+            with self.subTest(context=context):
+                result = ConfirmationSpecialistV1(FakeMarket()).evaluate(context)
+                self.assertEqual(result.state, "UNCONFIRMED")
+                self.assertIn("NEWS_CONTEXT_NOT_READY", result.reason_codes)
+                self.assertEqual(result.payload["direction"], "NONE")
+                self.assertEqual(result.payload["news_alone_can_authorize_trade"], False)
+
     def test_high_impact_news_is_confirmation_veto_not_trade_direction(self):
         result = ConfirmationSpecialistV1(FakeMarket()).evaluate({
             "news_context": {
