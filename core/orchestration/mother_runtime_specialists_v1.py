@@ -580,12 +580,34 @@ class EvaluationSpecialistV1:
 
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
         journal = self.market.ensure_journal()
+        if not isinstance(journal, Mapping):
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_NOT_VERIFIED",), (),
+                {"journal_status": "INVALID", "outcomes_inferred": False,
+                 "evaluation_scope": "DECISION_OBSERVATION_ONLY"},
+                self.VERSION,
+            )
         status = journal.get("status")
         if status not in ("VERIFIED", "EMPTY"):
-            raise ValueError("DECISION_JOURNAL_NOT_VERIFIED")
+            events = journal.get("events", [])
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_NOT_VERIFIED",), (),
+                {"journal_status": status or "UNKNOWN",
+                 "decision_count": journal.get("decision_count", 0),
+                 "event_count": len(events) if isinstance(events, list) else None,
+                 "outcomes_inferred": False,
+                 "evaluation_scope": "DECISION_OBSERVATION_ONLY"},
+                self.VERSION,
+            )
         events = journal.get("events", [])
-        if not isinstance(events, list):
-            raise ValueError("DECISION_JOURNAL_EVENTS_INVALID")
+        if not isinstance(events, list) or any(not isinstance(event, Mapping) for event in events):
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_EVENTS_INVALID",), (),
+                {"journal_status": status, "event_count": None,
+                 "outcomes_inferred": False,
+                 "evaluation_scope": "DECISION_OBSERVATION_ONLY"},
+                self.VERSION,
+            )
         digest = _canonical_hash({
             "record_count": journal.get("count", 0),
             "decision_count": journal.get("decision_count", 0),
