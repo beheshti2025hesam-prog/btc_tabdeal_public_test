@@ -121,6 +121,33 @@ class MotherNewsContextTests(unittest.TestCase):
         self.assertEqual(context["high_impact_event_clusters"][0]["event_id"], "security-event-1")
         self.assertFalse(context["news_alone_can_authorize_trade"])
 
+    def test_legacy_digest_verified_snapshot_gets_deterministic_education(self):
+        now = datetime.now(timezone.utc)
+        snapshot = make_snapshot(now)
+        item = snapshot["brief"]["findings"][0]
+        item.pop("interpretation")
+        item.update({
+            "confidence": 0.72,
+            "caveats": ["secondary_ai_summary"],
+            "reasons": ["market_keyword_match", "market_relevant_category"],
+        })
+        snapshot["brief_sha256"] = hashlib.sha256(_news_canonical_bytes(snapshot["brief"])).hexdigest()
+        unsigned = dict(snapshot)
+        unsigned.pop("snapshot_sha256", None)
+        snapshot["snapshot_sha256"] = hashlib.sha256(_news_canonical_bytes(unsigned)).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "legacy-news.json"
+            path.write_bytes(_news_canonical_bytes(snapshot))
+            with patch.dict(os.environ, {"HES_NEWS_MONITOR_SNAPSHOT": str(path)}):
+                context = _load_news_context(observed_at=now)
+        self.assertEqual(context["status"], "READY")
+        finding = context["findings"][0]
+        self.assertEqual(finding["interpretation_origin"], "deterministic_derived_from_verified_snapshot")
+        self.assertEqual(finding["interpretation"]["schema_version"], "hes.news_item_interpretation.v1")
+        self.assertEqual(set(finding["interpretation"]["localized"]), {"fa", "en", "de", "fr"})
+        self.assertEqual(finding["interpretation"]["potential_effect"], "mixed_or_unknown")
+        self.assertFalse(finding["interpretation"]["mother_use"]["news_alone_can_authorize_trade"])
+
     def test_corrupt_news_digest_fails_closed_for_news_consumption(self):
         now = datetime.now(timezone.utc)
         snapshot = make_snapshot(now)
