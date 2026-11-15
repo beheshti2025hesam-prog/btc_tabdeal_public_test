@@ -30,7 +30,7 @@ from forward.strategy_gate_pipeline_v1 import (
 )
 from forward.strategy_policy_v2 import POLICY_VERSION, evaluate as evaluate_strategy
 from forward.strategy_policy_gate_v1 import GATE_VERSION, enforce_final_gates
-from forward.trade_journal_view_v1 import read_decision_journal
+from forward.trade_journal_view_v1 import JournalProjectionError, read_decision_journal
 from scripts.analyze_gateio_snapshot_v1 import snapshot
 
 SOURCE = "gateio_public_spot"
@@ -579,7 +579,20 @@ class EvaluationSpecialistV1:
         self.market = market
 
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
-        journal = self.market.ensure_journal()
+        try:
+            journal = self.market.ensure_journal()
+        except JournalProjectionError as exc:
+            payload = {
+                "journal_status": "UNVERIFIED",
+                "journal_error_code": str(exc)[:128],
+                "outcomes_inferred": False,
+                "evaluation_scope": "DECISION_OBSERVATION_ONLY",
+            }
+            digest = _canonical_hash(payload)
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_NOT_VERIFIED",),
+                (f"decision_journal_status_sha256:{digest}",), payload, self.VERSION,
+            )
         if not isinstance(journal, Mapping):
             payload = {"journal_status": "INVALID", "outcomes_inferred": False,
                        "evaluation_scope": "DECISION_OBSERVATION_ONLY"}
