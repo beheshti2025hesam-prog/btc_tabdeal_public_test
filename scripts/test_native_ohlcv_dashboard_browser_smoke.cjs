@@ -222,6 +222,18 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(motherPayload?.schema, "hes.mother_runtime_dashboard.v1",
       "Mother API must expose the versioned live-specialist runtime contract");
     assert.equal(motherPayload?.decision, "NO_TRADE", "Mother must fail closed without a fully approved decision");
+    assert.notEqual(motherPayload?.status, "BLOCKED_AGENT_ERROR",
+      "expected evidence gates must return a structured observation, not an agent exception");
+    assert.equal(motherPayload?.registered_count, 7, "Mother must register all seven runtime specialists");
+    assert.equal(motherPayload?.executed_count, 7, "all seven runtime specialists must be recorded");
+    assert.deepEqual(motherPayload?.executed_specialists, [
+      "data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation"
+    ], "Mother must preserve canonical specialist order");
+    assert.equal(motherPayload?.witness?.verified, true, "Mother response must carry a verified audit witness");
+    assert.equal(motherPayload?.stages?.find(stage => stage.agent === "evaluation")?.state, "OBSERVED",
+      "valid journal evaluation must be observed, not an agent error");
+    assert.equal(motherPayload?.news_context?.status, "READY",
+      "digest-verified multilingual News context must reach Mother");
     assert.equal(motherPayload?.execution_enabled, false, "Mother runtime must never enable live execution");
     assert.equal(motherPayload?.orders_placed, false, "Mother runtime must never place live orders");
     assert.equal(apiContractResponses["/api/precision-entry"]?.schema, "hes_precision_entry_status_v1",
