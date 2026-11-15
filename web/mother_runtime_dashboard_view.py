@@ -21,6 +21,7 @@ from core.orchestration.mother_runtime_specialists_v1 import (
     specialist_registry_v1,
 )
 from core.orchestration.witness_v1 import MotherAuditWitnessV1
+from core.market_intelligence.news_education_v1 import build_news_item_interpretation_v1
 
 SOURCE = "gateio_public_spot"
 SYMBOL = "BTC_USDT"
@@ -137,6 +138,47 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
                 if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(float(score)) or not 0 <= score <= 1:
                     raise ValueError("NEWS_FINDING_SCORE_INVALID:" + score_key)
             interpretation = item.get("interpretation")
+            interpretation_origin = "snapshot"
+            if interpretation is None:
+                # Legacy monitor snapshots predate the education field. The
+                # source item, scores, categories and provenance are already
+                # covered by the verified brief/snapshot digests above. Build
+                # only deterministic educational context from those exact
+                # fields; never infer price direction or trade authority.
+                confidence = item.get("confidence")
+                if (
+                    isinstance(confidence, bool)
+                    or not isinstance(confidence, (int, float))
+                    or not math.isfinite(float(confidence))
+                    or not 0 <= float(confidence) <= 1
+                ):
+                    raise ValueError("NEWS_INTERPRETATION_MISSING")
+                context_material = brief.get("context")
+                if not isinstance(context_material, dict):
+                    context_material = snapshot.get("context")
+                if not isinstance(context_material, dict):
+                    raise ValueError("NEWS_INTERPRETATION_MISSING")
+                caveats = item.get("caveats", [])
+                reasons = item.get("reasons", [])
+                if (
+                    not isinstance(caveats, list)
+                    or any(not isinstance(value, str) for value in caveats)
+                    or not isinstance(reasons, list)
+                    or any(not isinstance(value, str) for value in reasons)
+                ):
+                    raise ValueError("NEWS_INTERPRETATION_MISSING")
+                interpretation = build_news_item_interpretation_v1(
+                    title=item["title"],
+                    context={key: str(context_material.get(key) or "") for key in ("market", "symbol", "venue", "timeframe")},
+                    categories=categories,
+                    directional_bias=str(item.get("directional_bias") or "mixed_or_unknown"),
+                    impact=float(item["impact"]),
+                    confidence=float(confidence),
+                    freshness=item["freshness"],
+                    caveats=caveats,
+                    reasons=reasons,
+                )
+                interpretation_origin = "deterministic_derived_from_verified_snapshot"
             if not isinstance(interpretation, dict) or interpretation.get("schema_version") != "hes.news_item_interpretation.v1":
                 raise ValueError("NEWS_INTERPRETATION_MISSING")
             localized = interpretation.get("localized")
@@ -206,6 +248,7 @@ def _load_news_context(*, observed_at: datetime) -> dict[str, Any]:
                 "directional_bias": item.get("directional_bias"),
                 "categories": item.get("categories", []),
                 "interpretation": interpretation,
+                "interpretation_origin": interpretation_origin,
             })
         context = {
             "status": "READY",
