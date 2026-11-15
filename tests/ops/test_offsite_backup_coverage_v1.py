@@ -15,6 +15,7 @@ def test_offsite_builder_requires_and_verifies_independent_evidence_store():
     assert "MAX_BYTES=$((1536 * 1024 * 1024))" in source
     assert 'base="hes-offsite-core-$stamp.tar.zst.gpg"' in source
     assert "zstd -q -T1 -9" in source
+    assert 'command -v zstd >/dev/null' in source
     assert "zstd -t -q" in source
     assert "hes-offsite-decompress.py" in source
     subprocess.run(["bash", "-n", str(ROOT / "scripts/hes-dropbox-offsite-build.sh")], check=True)

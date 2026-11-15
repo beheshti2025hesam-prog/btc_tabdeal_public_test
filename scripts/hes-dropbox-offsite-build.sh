@@ -13,6 +13,7 @@ MIN_FREE_KB=$((3 * 1024 * 1024))
 
 exec 9>"$LOCK_FILE"
 flock -n 9 || { echo "another offsite build is running"; exit 10; }
+command -v zstd >/dev/null || { echo "zstd is required for offsite builds"; exit 19; }
 [[ -d "$ROOT" && -s "$KEY_FILE" && -d /srv/hes-evidence ]] || { echo "project, evidence store, or encryption key unavailable"; exit 11; }
 [[ -L "$ROOT/current" && -L "$ROOT/current-before-4329a3df" ]] || { echo "active/rollback release pointers missing"; exit 12; }
 
