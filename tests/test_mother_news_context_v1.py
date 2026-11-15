@@ -124,6 +124,9 @@ class MotherNewsContextTests(unittest.TestCase):
     def test_legacy_digest_verified_snapshot_gets_deterministic_education(self):
         now = datetime.now(timezone.utc)
         snapshot = make_snapshot(now)
+        snapshot["brief"]["context"] = {
+            "market": "crypto", "symbol": "BTCUSDT", "venue": "gateio", "timeframe": "15m",
+        }
         item = snapshot["brief"]["findings"][0]
         item.pop("interpretation")
         item.update({
