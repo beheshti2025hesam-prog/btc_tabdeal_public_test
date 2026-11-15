@@ -60,7 +60,7 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.one_minute = _rows("1m", 60, self.now)
 
     def _run(self, *, confirmation_state="CONFIRMED_LONG", risk_state="RISK_APPROVED",
-             one_minute_ready=True):
+             one_minute_ready=True, journal_status="VERIFIED"):
         proposal = PolicyDecision(
             POLICY_VERSION, "LONG", "LONG", 95, 100.0, 98.0, 106.0, 3.0,
             ("TEST_DIRECTIONAL_PROPOSAL",), {"policy": "PASS"},
@@ -99,7 +99,7 @@ class MotherRuntimeSpecialistsTests(TestCase):
         })
         journal = {
             "schema": "hes.trade_journal_view.v1",
-            "status": "VERIFIED",
+            "status": journal_status,
             "count": 1,
             "decision_count": 1,
             "events": [{
@@ -152,6 +152,7 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.assertEqual(result.state, "BLOCKED")
         self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_NOT_VERIFIED",))
         self.assertEqual(result.payload["journal_status"], "MISSING")
+        self.assertTrue(result.evidence_refs[0].startswith("decision_journal_status_sha256:"))
         self.assertFalse(result.payload["outcomes_inferred"])
 
     def test_evaluation_blocks_malformed_journal_events_without_agent_exception(self):
@@ -161,6 +162,7 @@ class MotherRuntimeSpecialistsTests(TestCase):
         result = runtime.EvaluationSpecialistV1(market).evaluate({})
         self.assertEqual(result.state, "BLOCKED")
         self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_EVENTS_INVALID",))
+        self.assertTrue(result.evidence_refs[0].startswith("decision_journal_status_sha256:"))
         self.assertFalse(result.payload["outcomes_inferred"])
 
     def test_all_seven_runtime_specialists_execute_independently(self):
@@ -192,6 +194,17 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.assertEqual(result["paper_execution_gate"]["status"], "BLOCKED")
         self.assertIn("POLICY_NOT_ACTIVE", result["paper_execution_gate"]["reason_codes"])
         self.assertIn("INTEGRATION_GATE_BLOCKED:RECOVERY_UNSAFE", result["paper_execution_gate"]["reason_codes"])
+
+    def test_missing_journal_is_structured_gate_block_not_agent_exception(self):
+        result, _, _ = self._run(journal_status="MISSING")
+        self.assertEqual(result["status"], "BLOCKED_GATE")
+        self.assertEqual(result["executed_count"], 7)
+        evaluation = next(stage for stage in result["stages"] if stage["agent"] == "evaluation")
+        self.assertEqual(evaluation["state"], "BLOCKED")
+        self.assertIn("DECISION_JOURNAL_NOT_VERIFIED", evaluation["reason_codes"])
+        self.assertTrue(result["witness"]["verified"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
 
     def test_confirmation_veto_does_not_suppress_risk_decision_or_evaluation(self):
         result, confirm_mock, risk_mock = self._run(confirmation_state="UNCONFIRMED")
