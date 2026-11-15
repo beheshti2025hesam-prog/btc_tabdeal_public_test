@@ -29,12 +29,19 @@ def load_inventory(idlm: dict[str, Any], cleanup: dict[str, Any], now: datetime)
         raise ValueError("Smart Cleanup source schema mismatch")
     if cleanup.get("source_audit_generated_at") != idlm.get("generated_at"):
         raise ValueError("Smart Cleanup did not consume this exact IDLM snapshot")
+    cleanup_age = (now - parse_time(str(cleanup["generated_at"]))).total_seconds()
+    if cleanup_age < -60 or cleanup_age > MAX_REPORT_AGE_SECONDS:
+        raise ValueError("Smart Cleanup report stale or future-dated")
     gate = cleanup.get("source_audit_gate") or {}
-    if gate.get("status") != "PASS" or gate.get("errors") or float(gate.get("age_seconds", 1e9)) > MAX_REPORT_AGE_SECONDS:
+    if gate.get("status") != "PASS" or gate.get("errors") != []:
         raise ValueError("Smart Cleanup source-audit gate failed")
+    if float(gate.get("age_seconds", 1e9)) > MAX_REPORT_AGE_SECONDS:
+        raise ValueError("Smart Cleanup source-audit gate is stale")
     deps = cleanup.get("dependency_scan") or {}
     for key in ("process_scan_errors", "scheduled_job_scan_errors", "unit_scan_errors", "active_pointer_errors"):
-        val = deps.get(key, 0)
+        if key not in deps:
+            raise ValueError("dependency scan field missing: " + key)
+        val = deps[key]
         if val not in (0, [], None):
             raise ValueError("dependency scan not clean: " + key)
     items = cleanup.get("items")
