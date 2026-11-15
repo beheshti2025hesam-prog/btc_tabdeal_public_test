@@ -155,6 +155,19 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.assertTrue(result.evidence_refs[0].startswith("decision_journal_status_sha256:"))
         self.assertFalse(result.payload["outcomes_inferred"])
 
+    def test_evaluation_blocks_journal_projection_error_without_agent_exception(self):
+        def missing_journal():
+            raise runtime.JournalProjectionError("journal_not_a_regular_file")
+        result = runtime.EvaluationSpecialistV1(
+            SimpleNamespace(ensure_journal=missing_journal)
+        ).evaluate({})
+        self.assertEqual(result.state, "BLOCKED")
+        self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_NOT_VERIFIED",))
+        self.assertEqual(result.payload["journal_status"], "UNVERIFIED")
+        self.assertEqual(result.payload["journal_error_code"], "journal_not_a_regular_file")
+        self.assertTrue(result.evidence_refs[0].startswith("decision_journal_status_sha256:"))
+        self.assertFalse(result.payload["outcomes_inferred"])
+
     def test_evaluation_blocks_malformed_journal_events_without_agent_exception(self):
         market = SimpleNamespace(ensure_journal=lambda: {
             "status": "VERIFIED", "count": 1, "decision_count": 1, "events": "invalid",
