@@ -8,15 +8,16 @@ BUILDER="$ROOT/scripts/hes-dropbox-offsite-build.sh"
 OUTDIR=/var/backups/hes-trade-agent/offsite-staging
 KEY_FILE=/root/.config/hes-backup/passphrase
 REMOTE_DIR='hesdropbox:HES Trade Agent Backups'
-REMOTE_FILE="$REMOTE_DIR/hes-offsite-latest.tar.gz.gpg"
+REMOTE_FILE="$REMOTE_DIR/hes-offsite-latest.tar.zst.gpg"
+LEGACY_REMOTE_FILE="$REMOTE_DIR/hes-offsite-latest.tar.gz.gpg"
 LOCK_FILE=/run/lock/hes-dropbox-offsite-cycle.lock
-MAX_BYTES=$((1792 * 1024 * 1024))
+MAX_BYTES=$((1536 * 1024 * 1024))
 RESERVE_BYTES=$((128 * 1024 * 1024))
 
 verify_remote_hash() {
   local tmp rc
   tmp=$(mktemp -d "$OUTDIR/.verify.XXXXXX")
-  ln "$ARCHIVE" "$tmp/hes-offsite-latest.tar.gz.gpg"
+  ln "$ARCHIVE" "$tmp/hes-offsite-latest.tar.zst.gpg"
   if rclone check "$tmp" "$REMOTE_DIR" --one-way --checkers 1; then
     rm -rf "$tmp"
     return 0
@@ -34,18 +35,19 @@ if [[ ! -s "$KEY_FILE" ]]; then echo "OFFSITE_PREREQUISITE_MISSING key_file=$KEY
 if [[ ! -d "$OUTDIR" ]]; then echo "OFFSITE_PREREQUISITE_MISSING outdir=$OUTDIR"; exit 10; fi
 command -v rclone >/dev/null
 command -v gpg >/dev/null
-command -v gzip >/dev/null
+command -v zstd >/dev/null
+command -v python3 >/dev/null
 
 # Build at most one fresh bundle per UTC day; reuse today's verified local bundle on retries.
 today=$(date -u +%Y%m%d)
 latest=''
-while IFS= read -r f; do latest="$f"; break; done < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.gz.gpg' -printf '%f\n' | sort -r)
+while IFS= read -r f; do latest="$f"; break; done < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.zst.gpg' -printf '%f\n' | sort -r)
 latest_stamp=''
-if [[ "$latest" =~ ^hes-offsite-core-([0-9]{8})T[0-9]{6}Z\.tar\.gz\.gpg$ ]]; then latest_stamp="${BASH_REMATCH[1]}"; fi
+if [[ "$latest" =~ ^hes-offsite-core-([0-9]{8})T[0-9]{6}Z\.tar\.zst\.gpg$ ]]; then latest_stamp="${BASH_REMATCH[1]}"; fi
 if [[ "${HES_OFFSITE_FORCE_BUILD:-0}" == "1" || "$latest_stamp" != "$today" ]]; then
   bash "$BUILDER"
   latest=''
-  while IFS= read -r f; do latest="$f"; break; done < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.gz.gpg' -printf '%f\n' | sort -r)
+  while IFS= read -r f; do latest="$f"; break; done < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.*.gpg' -printf '%f\n' | sort -r)
 fi
 [[ -n "$latest" ]] || { echo 'NO_OFFSITE_ARCHIVE_FOUND'; exit 11; }
 ARCHIVE="$OUTDIR/$latest"
@@ -54,8 +56,26 @@ grep -Fxq "Required evidence store: /srv/hes-evidence (coverage verified by arch
 size=$(stat -c %s "$ARCHIVE")
 (( size <= MAX_BYTES )) || { echo "ARCHIVE_OVER_CAP bytes=$size cap=$MAX_BYTES"; exit 13; }
 (cd "$OUTDIR" && sha256sum -c "$latest.sha256")
-gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$ARCHIVE" 2>/dev/null | gzip -t
+gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$ARCHIVE" 2>/dev/null | python3 "$ROOT/scripts/hes-offsite-decompress.py" | tar -tf - >/dev/null
 echo "OFFSITE_LOCAL_ARCHIVE_OK file=$latest bytes=$size"
+
+# Migrate the stable legacy gzip object and its sidecars in place before replacement.
+for pair in \
+  "$LEGACY_REMOTE_FILE|$REMOTE_FILE" \
+  "$LEGACY_REMOTE_FILE.sha256|$REMOTE_FILE.sha256" \
+  "$LEGACY_REMOTE_FILE.manifest.txt|$REMOTE_FILE.manifest.txt"; do
+  old_path=${pair%%|*}
+  new_path=${pair#*|}
+  if rclone lsjson "$old_path" --stat >/dev/null 2>&1; then
+    if rclone lsjson "$new_path" --stat >/dev/null 2>&1; then
+      echo "MIGRATION_BLOCKED both_source_and_destination_exist source=$old_path destination=$new_path"
+      exit 22
+    fi
+    echo "REMOTE_OBJECT_RENAME_START from=$old_path to=$new_path"
+    rclone moveto "$old_path" "$new_path"
+    echo "REMOTE_OBJECT_RENAME_COMPLETE target=$new_path"
+  fi
+done
 
 # A matching Dropbox content hash means today's archive is already safely stored.
 if verify_remote_hash; then
@@ -87,8 +107,10 @@ printf '%s' "$quota_json" | python3 -c 'import json,sys; d=json.load(sys.stdin);
 (
   meta_tmp=$(mktemp -d "$OUTDIR/.metadata.XXXXXX")
   trap 'rm -rf -- "$meta_tmp"' EXIT
-  cp "$ARCHIVE.sha256" "$meta_tmp/hes-offsite-latest.tar.gz.gpg.sha256"
-  cp "$ARCHIVE.manifest.txt" "$meta_tmp/hes-offsite-latest.tar.gz.gpg.manifest.txt"
+  cp "$ARCHIVE.sha256" "$meta_tmp/hes-offsite-latest.tar.zst.gpg.sha256"
+  cp "$ARCHIVE.manifest.txt" "$meta_tmp/hes-offsite-latest.tar.zst.gpg.manifest.txt"
+  cp "$ROOT/scripts/hes-offsite-decompress.py" "$meta_tmp/hes-offsite-decompress.py"
+  (cd "$meta_tmp" && sha256sum hes-offsite-decompress.py > hes-offsite-decompress.py.sha256)
   rclone copy "$meta_tmp" "$REMOTE_DIR" --ignore-times --transfers 1 --checkers 1 --retries 5 --low-level-retries 10
   rclone check "$meta_tmp" "$REMOTE_DIR" --one-way --checkers 1
   echo 'REMOTE_METADATA_VERIFIED'

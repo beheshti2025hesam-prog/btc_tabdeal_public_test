@@ -3,7 +3,9 @@
 ## Finding
 - /srv/hes-evidence: 3,744 files, 414 MiB allocated, 421,318,869 logical bytes.
 - Both /usr/local/sbin/hes-encrypted-local-backup and scripts/hes-dropbox-offsite-build.sh omitted this protected evidence store.
-- Streaming tar-to-gzip estimate: 146,800,584 bytes.
+- Streaming tar-to-gzip estimate: 146,800,584 bytes (historical estimate).
+- Zstandard level-9 single-thread stream for the exact current evidence store: 129,237,064 bytes for 421,318,869 source bytes / 3,744 file+symlink entries.
+- Current verified offsite Zstandard archive: 1,231,702,632 bytes. Adding the measured evidence-store stream gives an estimated 1,360,939,696 bytes, about 250 MiB below the existing 1.5 GiB cap. The final encrypted build must still enforce the cap and exact entry count.
 - Dropbox Basic: 2 GiB total, 1,581,229,802 bytes used, 566,253,846 bytes free; current offsite object 1,581,153,470 bytes. Existing 128 MiB quota reserve is retained.
 
 ## Candidate implementation
@@ -15,7 +17,7 @@ Base: PR #496 exact head c875cb2ec4f96fd7cdc7c8b1f36b2a4c944edbf7.
 - Emit local and offsite coverage manifests.
 - Require both manifests to prove coverage in Smart Cleanup Manager's backup-integrity gate.
 - Require matching remote size/hash and the same 128 MiB quota replacement reserve.
-- Increase the offsite archive cap to 1.75 GiB in builder and cycle, consistently.
+- Keep the existing 1.5 GiB offsite archive cap; the measured Zstandard evidence-store addition is expected to fit with approximately 250 MiB headroom.
 
 ## Validation
 - 102 focused operational tests passed.
@@ -28,10 +30,21 @@ Base: PR #496 exact head c875cb2ec4f96fd7cdc7c8b1f36b2a4c944edbf7.
 2. Review retention sidecar and coverage-manifest behavior.
 3. Controlled deploy of updated scripts only after CI/review.
 4. New local backup must include /srv/hes-evidence; SHA sidecar and coverage manifest must pass.
-5. New offsite bundle must pass GPG/gzip/tar listing, sidecar, remote rclone content hash, remote size and quota guard.
+5. New offsite bundle must pass GPG/Zstandard integrity, magic-byte gzip/zstd decompression, tar listing, helper sidecar SHA-256, remote rclone content hash, remote size and quota guard.
 6. Full archive extraction into isolated scratch must pass; host replacement recovery remains a separate gate.
 
 Status: CANDIDATE / NOT DEPLOYED. Smart Cleanup remains read-only; delete_authorized=0.
+
+## Zstandard integration correction — 2026-11-15
+
+The offsite candidate now retains the already-completed Zstandard format migration:
+- New offsite archives remain `.tar.zst.gpg` at level 9 / one thread; the 1.5 GiB cap is unchanged.
+- The cycle migrates the legacy Dropbox `.tar.gz.gpg` stable object and sidecars by server-side rename to the `.tar.zst.gpg` names before replacement, then verifies remote hash and size.
+- The standalone `hes-offsite-decompress.py` helper detects gzip and Zstandard from decrypted magic bytes, fails closed on unknown formats, and is published with a SHA-256 sidecar.
+- `/srv/hes-evidence` coverage remains mandatory in both local and offsite archives and is verified by exact file/symlink entry count.
+- The dependency snapshot remains outside the source checkout under offsite staging.
+
+The measured Zstandard addition is a capacity estimate only. No production backup scripts, timers, Dropbox object, or release pointer are changed by this PR update; a controlled cycle and restore verification remain required.
 
 ## Follow-up isolation correction — 2026-11-15
 

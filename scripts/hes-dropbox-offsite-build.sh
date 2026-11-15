@@ -8,7 +8,7 @@ ROOT="/opt/hes-trade-agent"
 KEY_FILE="/root/.config/hes-backup/passphrase"
 OUTDIR="/var/backups/hes-trade-agent/offsite-staging"
 LOCK_FILE="/run/lock/hes-dropbox-offsite-build.lock"
-MAX_BYTES=$((1792 * 1024 * 1024))
+MAX_BYTES=$((1536 * 1024 * 1024))
 MIN_FREE_KB=$((3 * 1024 * 1024))
 
 exec 9>"$LOCK_FILE"
@@ -83,7 +83,7 @@ for p in etc/ssh etc/nftables.conf etc/systemd/system etc/hes-trade-agent etc/xr
 done
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-base="hes-offsite-core-$stamp.tar.gz.gpg"
+base="hes-offsite-core-$stamp.tar.zst.gpg"
 tmp="$WORK/$base.partial"
 final="$OUTDIR/$base"
 [[ ! -e "$final" ]] || { echo "refusing to overwrite existing local archive"; exit 17; }
@@ -95,7 +95,7 @@ echo "MAX_ARCHIVE_BYTES=$MAX_BYTES"
 echo "REMOTE_ACTION=NONE"
 
 tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --null --files-from="$LIST" -cf - \
-  | gzip -1 \
+  | zstd -q -T1 -9 \
   | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
       --s2k-mode 3 --s2k-count 65011712 --passphrase-file "$KEY_FILE" --output "$tmp"
 
@@ -106,8 +106,8 @@ if (( size > MAX_BYTES )); then
   exit 30
 fi
 
-gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$tmp" 2>/dev/null | gzip -t
-gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$tmp" 2>/dev/null | tar -tzf - > "$WORK/archive.list"
+gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$tmp" 2>/dev/null | zstd -t -q
+gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$tmp" 2>/dev/null | python3 "$ROOT/scripts/hes-offsite-decompress.py" | tar -tf - > "$WORK/archive.list"
 
 grep -Fxq "$ACTIVE_REL/" "$WORK/archive.list" || grep -Fxq "$ACTIVE_REL" "$WORK/archive.list"
 grep -Fxq "$ROLLBACK_REL/" "$WORK/archive.list" || grep -Fxq "$ROLLBACK_REL" "$WORK/archive.list"
@@ -135,6 +135,8 @@ Dependency evidence: exact Python virtualenv package freeze, Ubuntu platform/Pyt
 Excluded: historical release directories other than active/rollback; Python virtualenv binaries and Python test/lint caches. Rebuild the virtualenv from the archived dependency freeze; reinstall OS packages from the archived apt inventory.
 External recovery secret: /root/.config/hes-backup/passphrase is intentionally NOT included and must remain available through the operator's separate secure escrow.
 Candidates, worktrees, evidence, journals, project archives, hidden workspaces, and unknown project paths are retained in this offsite bundle.
+Compression: Zstandard level 9, single thread; restore detects gzip or zstd from decrypted magic bytes.
+Recovery bootstrap: scripts/hes-offsite-decompress.py is also published as a standalone Dropbox sidecar with SHA-256.
 Encryption: GPG symmetric AES-256; passphrase/key file is NOT included.
 Archive builder remote action: NONE; the separate offsite cycle performs transfer and verifies the remote content hash.
 EOF
