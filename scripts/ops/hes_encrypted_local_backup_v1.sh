@@ -90,7 +90,15 @@ done
 # captures later appends. Any file-content race still fails closed via tar's status.
 LIST_FILE=$(mktemp "$BACKUP_DIR/.include.XXXXXX")
 for p in "${paths[@]}"; do
-  [[ ! -e "/$p" && ! -L "/$p" ]] || find "$p" -mindepth 0 \( -name '__pycache__' -o -name '.pytest_cache' -o -name '.mypy_cache' -o -name '.ruff_cache' \) -prune -o -print0 >> "$LIST_FILE"
+  [[ ! -e "/$p" && ! -L "/$p" ]] || {
+    if [[ "$p" == "srv/hes-evidence" ]]; then
+      # Preserve the independent evidence store completely, including cache-named
+      # artifacts that are part of its recorded evidence set.
+      find "$p" -mindepth 0 -print0 >> "$LIST_FILE"
+    else
+      find "$p" -mindepth 0 \( -name '__pycache__' -o -name '.pytest_cache' -o -name '.mypy_cache' -o -name '.ruff_cache' \) -prune -o -print0 >> "$LIST_FILE"
+    fi
+  }
 done
 
 echo "BACKUP_START utc=$stamp"
