@@ -120,7 +120,7 @@ def main() -> None:
         "brief_sha256": hashlib.sha256(canonical(brief)).hexdigest(),
     }
     snapshot["snapshot_sha256"] = hashlib.sha256(canonical(snapshot)).hexdigest()
-    Path("/tmp/hes-news-monitor-browser-smoke.json").write_bytes(canonical(snapshot) + b"\\n")
+    Path("/tmp/hes-news-monitor-browser-smoke.json").write_bytes(canonical(snapshot) + b"\n")
 
 
 if __name__ == "__main__":
