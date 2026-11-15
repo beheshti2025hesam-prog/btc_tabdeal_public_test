@@ -219,6 +219,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(apiContractResponses["/api/journal"]?.schema, "hes.trade_journal_view.v1",
       "decision journal API schema must be versioned");
     const motherPayload = apiContractResponses["/api/mother"];
+    console.log("MOTHER_RUNTIME_DIAGNOSTICS", JSON.stringify(motherPayload));
     assert.equal(motherPayload?.schema, "hes.mother_runtime_dashboard.v1",
       "Mother API must expose the versioned live-specialist runtime contract");
     assert.equal(motherPayload?.decision, "NO_TRADE", "Mother must fail closed without a fully approved decision");
