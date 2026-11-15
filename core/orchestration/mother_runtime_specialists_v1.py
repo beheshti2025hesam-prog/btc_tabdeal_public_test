@@ -457,9 +457,14 @@ class ConfirmationSpecialistV1:
                 "HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION",
                 "NEWS_TIMESTAMP_SUSPECT", "NEWS_TIMESTAMP_INVALID",
                 "NEWS_TIMESTAMP_UNVERIFIED", "NEWS_SOURCE_UNVERIFIED",
-                "NEWS_SOURCE_COVERAGE_INCOMPLETE",
+                "NEWS_SOURCE_COVERAGE_INCOMPLETE", "NEWS_CONTEXT_NOT_READY",
             }
         ))) if isinstance(news_veto_flags, (list, tuple)) else ()
+        # A missing, stale, malformed or legacy-schema snapshot must never be
+        # interpreted as "no news". Only a fully validated READY context may
+        # leave the upstream confirmation unchanged.
+        if news_status != "READY":
+            news_veto_flags = tuple(sorted(set((*news_veto_flags, "NEWS_CONTEXT_NOT_READY"))))
         state = "CONFIRMED" if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") and not news_veto_flags else "UNCONFIRMED"
         base_reasons = tuple(confirmation.reason_codes or (() if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") else ("CONFIRMATION_NOT_VALID",)))
         reasons = tuple(dict.fromkeys((*base_reasons, *news_veto_flags)))
