@@ -86,6 +86,6 @@ def test_systemd_backup_unit_is_network_isolated_and_read_only_to_project() -> N
     assert "RandomizedDelaySec=20m" in timer
 
 def test_evidence_store_cache_named_entries_are_not_pruned():
-    source = (ROOT / "scripts/ops/hes_encrypted_local_backup_v1.sh").read_text(encoding="utf-8")
+    source = SCRIPT.read_text(encoding="utf-8")
     assert 'if [[ "$p" == "srv/hes-evidence" ]]' in source
     assert 'find "$p" -mindepth 0 -print0 >> "$LIST_FILE"' in source
