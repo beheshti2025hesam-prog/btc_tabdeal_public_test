@@ -23,7 +23,8 @@ case "$ROLLBACK" in "$ROOT"/releases/*) ;; *) echo "rollback release resolves ou
 [[ -d "$ACTIVE" && -d "$ROLLBACK" ]] || { echo "active/rollback release target missing"; exit 15; }
 
 # Capture reproducible dependency metadata before building the archive.
-SNAPSHOT_DIR="$ROOT/docs/checkpoints/offsite-dependency-snapshot"
+# Recovery metadata belongs to protected backup staging, never the live source checkout.
+SNAPSHOT_DIR="$OUTDIR/recovery-metadata/offsite-dependency-snapshot"
 VENV_PYTHON="$ROOT/.venv/bin/python"
 [[ -x "$VENV_PYTHON" ]] || { echo "runtime virtualenv missing; cannot produce dependency snapshot"; exit 18; }
 mkdir -p "$SNAPSHOT_DIR"
@@ -76,7 +77,8 @@ done
 for p in etc/ssh etc/nftables.conf etc/systemd/system etc/hes-trade-agent etc/xray etc/nginx \
          usr/local/sbin/hes-operational-healthcheck \
          usr/local/sbin/hes-runtime-healthcheck \
-         usr/local/sbin/hes-encrypted-local-backup srv/hes-evidence; do
+         usr/local/sbin/hes-encrypted-local-backup srv/hes-evidence \
+         var/backups/hes-trade-agent/offsite-staging/recovery-metadata; do
   [[ ! -e "/$p" && ! -L "/$p" ]] || find "$p" -mindepth 0 -print0 >> "$LIST"
 done
 
@@ -129,7 +131,7 @@ Active release: $ACTIVE_REL
 Rollback release: $ROLLBACK_REL
 Required evidence store: /srv/hes-evidence (coverage verified by archive listing).
 Included: complete project checkout and data, plus the independent /srv/hes-evidence store, except historical release collection; active and rollback releases included; system SSH, nftables, systemd, /etc/hes-trade-agent runtime configuration, optional xray/nginx and HES operational scripts included.
-Dependency evidence: exact Python virtualenv package freeze, Ubuntu platform/Python metadata, and installed apt package inventory are captured under docs/checkpoints/offsite-dependency-snapshot.
+Dependency evidence: exact Python virtualenv package freeze, Ubuntu platform/Python metadata, and installed apt package inventory are captured under var/backups/hes-trade-agent/offsite-staging/recovery-metadata/offsite-dependency-snapshot (archived explicitly; generated outside the application checkout).
 Excluded: historical release directories other than active/rollback; Python virtualenv binaries and Python test/lint caches. Rebuild the virtualenv from the archived dependency freeze; reinstall OS packages from the archived apt inventory.
 External recovery secret: /root/.config/hes-backup/passphrase is intentionally NOT included and must remain available through the operator's separate secure escrow.
 Candidates, worktrees, evidence, journals, project archives, hidden workspaces, and unknown project paths are retained in this offsite bundle.

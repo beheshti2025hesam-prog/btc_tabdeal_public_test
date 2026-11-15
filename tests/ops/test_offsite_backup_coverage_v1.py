@@ -32,3 +32,19 @@ def test_backup_manager_requires_local_and_offsite_evidence_coverage():
     assert '"offsite_evidence_store_covered": False' in source
     assert 'backups.get("local_evidence_store_covered")' in source
     assert 'backups.get("offsite_evidence_store_covered")' in source
+
+def test_offsite_builder_keeps_generated_recovery_metadata_outside_checkout():
+    source = (ROOT / "scripts/hes-dropbox-offsite-build.sh").read_text(encoding="utf-8")
+    assert 'SNAPSHOT_DIR="$OUTDIR/recovery-metadata/offsite-dependency-snapshot"' in source
+    assert 'SNAPSHOT_DIR="$ROOT/docs/checkpoints/offsite-dependency-snapshot"' not in source
+    assert "var/backups/hes-trade-agent/offsite-staging/recovery-metadata" in source
+    assert "generated outside the application checkout" in source
+    subprocess.run(["bash", "-n", str(ROOT / "scripts/hes-dropbox-offsite-build.sh")], check=True)
+
+
+def test_offsite_systemd_dropin_removes_project_tree_write_exception():
+    dropin = ROOT / "deploy/systemd/hes-dropbox-offsite.service.d/90-dependency-snapshot.conf"
+    source = dropin.read_text(encoding="utf-8")
+    assert "ReadWritePaths=" in source
+    assert "ReadWritePaths=/var/backups/hes-trade-agent/offsite-staging /run/lock /root/.gnupg /root/.config/rclone" in source
+    assert "/opt/hes-trade-agent" not in source

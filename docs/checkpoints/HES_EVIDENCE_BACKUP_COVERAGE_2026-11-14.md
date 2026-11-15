@@ -32,3 +32,17 @@ Base: PR #496 exact head c875cb2ec4f96fd7cdc7c8b1f36b2a4c944edbf7.
 6. Full archive extraction into isolated scratch must pass; host replacement recovery remains a separate gate.
 
 Status: CANDIDATE / NOT DEPLOYED. Smart Cleanup remains read-only; delete_authorized=0.
+
+## Follow-up isolation correction — 2026-11-15
+
+The offsite builder previously generated Python/OS dependency snapshots inside
+/opt/hes-trade-agent/docs/checkpoints/, mutating the live checkout and
+requiring a systemd write exception to the source tree. The builder now writes
+these three recovery metadata files under
+/var/backups/hes-trade-agent/offsite-staging/recovery-metadata/offsite-dependency-snapshot.
+That directory is explicitly included in the encrypted archive input list and
+the manifest identifies the archived path. The systemd drop-in resets the
+legacy ReadWritePaths exception and re-adds only the existing staging, lock,
+GPG and rclone paths. A regression test asserts that no project-tree write
+path remains in the builder or service drop-in. This is candidate code only;
+the live unit/drop-in and backup services have not been changed.
