@@ -117,7 +117,7 @@ printf '%s' "$quota_json" | python3 -c 'import json,sys; d=json.load(sys.stdin);
 )
 
 # Keep the two newest local offsite bundles. Never prune until the remote hash and size pass.
-mapfile -t old_archives < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.gz.gpg' -printf '%f\n' | sort -r | tail -n +3)
+mapfile -t old_archives < <(find "$OUTDIR" -maxdepth 1 -type f -name 'hes-offsite-core-*.tar.*.gpg' -printf '%f\n' | sort -r | tail -n +3)
 for f in "${old_archives[@]}"; do
   rm -f -- "$OUTDIR/$f" "$OUTDIR/$f.sha256" "$OUTDIR/$f.manifest.txt"
   echo "LOCAL_OFFSITE_RETENTION_REMOVED=$f"
