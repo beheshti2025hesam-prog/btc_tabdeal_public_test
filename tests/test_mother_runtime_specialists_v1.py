@@ -11,6 +11,7 @@ from unittest.mock import patch
 from forward.global_market_data_reader_v1 import MarketDataRejected
 from forward.strategy_policy_v2 import PolicyDecision, POLICY_VERSION
 from web.mother_runtime_dashboard_view import read_mother_runtime_dashboard
+import web.mother_runtime_dashboard_view as mother_view
 import core.orchestration.mother_runtime_specialists_v1 as runtime
 
 
@@ -130,6 +131,12 @@ class MotherRuntimeSpecialistsTests(TestCase):
             ))
             stack.enter_context(patch.object(runtime, "enforce_final_gates", return_value=final_gate))
             stack.enter_context(patch.object(runtime, "read_decision_journal", return_value=journal))
+            stack.enter_context(patch.object(mother_view, "_load_news_context", return_value={
+                "status": "READY", "coverage_status": "qualified_primary_scope",
+                "context_sha256": "a" * 64, "snapshot_sha256": "b" * 64,
+                "brief_sha256": "c" * 64, "veto_flags": [], "findings": [],
+                "news_alone_can_authorize_trade": False,
+            }))
             result = read_mother_runtime_dashboard(
                 data_root=self.temp.name,
                 now=self.now,
