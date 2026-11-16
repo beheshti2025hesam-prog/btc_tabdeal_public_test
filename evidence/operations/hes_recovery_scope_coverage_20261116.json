@@ -1,0 +1,82 @@
+{
+  "backup_passphrase_included": false,
+  "captured_utc": "2026-11-16T09:55:00Z",
+  "deletions_or_pruning": false,
+  "dropbox_mutation": false,
+  "encrypted_archive": "NOT_CREATED",
+  "items": [
+    {
+      "bytes": 15674,
+      "path": "/etc/ufw"
+    },
+    {
+      "bytes": 287,
+      "path": "/etc/netplan"
+    },
+    {
+      "bytes": 20177,
+      "path": "/etc/apt"
+    },
+    {
+      "bytes": 536727,
+      "path": "/etc/sentinelx"
+    },
+    {
+      "bytes": 540,
+      "path": "/etc/hes-trade-agent"
+    },
+    {
+      "bytes": 6393,
+      "path": "/etc/sysctl.d"
+    },
+    {
+      "bytes": 10,
+      "path": "/etc/modules-load.d"
+    },
+    {
+      "bytes": 511,
+      "path": "/etc/fstab"
+    },
+    {
+      "bytes": 232,
+      "path": "/etc/hosts"
+    },
+    {
+      "bytes": 18,
+      "path": "/etc/hostname"
+    },
+    {
+      "bytes": 1237560,
+      "path": "/var/lib/dpkg/status"
+    },
+    {
+      "bytes": 77740,
+      "path": "/var/lib/apt/extended_states"
+    },
+    {
+      "bytes": 15,
+      "path": "/var/lib/hes-operational-health"
+    },
+    {
+      "bytes": 234702,
+      "path": "/var/lib/systemd"
+    },
+    {
+      "bytes": 1099,
+      "path": "/root/.ssh"
+    },
+    {
+      "bytes": 1705,
+      "path": "/root/.config/rclone"
+    }
+  ],
+  "paths_expected": 16,
+  "paths_present": 16,
+  "production_backup_scripts_changed": false,
+  "production_services_or_timers_changed": false,
+  "schema": "hes_recovery_scope_coverage_v1",
+  "scope": "additional host configuration and runtime state absent from prior explicit backup lists",
+  "source_bytes": 2133390,
+  "tar_mode": "explicit recursive file list; no-recursion; one-file-system; metadata listing only to /dev/null",
+  "tar_stream_listing": "PASS"
+}
