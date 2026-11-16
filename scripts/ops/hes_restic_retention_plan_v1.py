@@ -26,6 +26,9 @@ REQUIRED_FULL_PATHS = frozenset({
     "/var/lib/sentinelx/hes-release-live-replay-8e31",
     "/var/lib/sentinelx/hes-release-manifests", "/var/lib/sentinelx/hes-runtime-snapshots",
     "/var/lib/systemd", "/var/spool/cron/crontabs",
+    "/usr/local/sbin/hes-operational-healthcheck",
+    "/usr/local/sbin/hes-restic-incremental-backup",
+    "/usr/local/sbin/hes-restic-production-dropbox-sync",
 })
 
 def _parse_time(value: Any) -> datetime | None:

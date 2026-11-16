@@ -86,7 +86,7 @@ def test_missing_path_inventory_fails_closed_as_partial():
 def test_defaults_match_live_production_recovery_snapshot_identity():
     assert EXPECTED_HOST == "hes-vps-recovery-v1"
     assert EXPECTED_TAG == "hes-full-recovery-v1"
-    assert len(REQUIRED_FULL_PATHS) == 40
+    assert len(REQUIRED_FULL_PATHS) == 43
 
 
 def test_latest_full_snapshot_selector_rejects_future_dated_full_snapshots():
@@ -98,3 +98,19 @@ def test_latest_full_snapshot_selector_rejects_future_dated_full_snapshots():
 def test_latest_full_snapshot_selector_returns_none_when_only_full_snapshot_is_future():
     future = snap("future-full", "2026-11-17T01:00:00Z")
     assert latest_full_snapshot_id([future], as_of=date(2026, 11, 16)) is None
+
+
+def test_legacy_40_root_snapshots_are_partial_after_backup_runner_paths_are_added():
+    new_runner_paths = {
+        "/usr/local/sbin/hes-operational-healthcheck",
+        "/usr/local/sbin/hes-restic-incremental-backup",
+        "/usr/local/sbin/hes-restic-production-dropbox-sync",
+    }
+    legacy_paths = sorted(REQUIRED_FULL_PATHS - new_runner_paths)
+    legacy = snap("legacy-40-root", "2026-11-16T14:58:11Z", paths=legacy_paths)
+    assert latest_full_snapshot_id([legacy]) is None
+    plan = plan_retention([legacy], date(2026, 11, 16))
+    assert rows(plan, "keep") == {
+        "legacy-40-root": "PARTIAL_SCOPE_NOT_ELIGIBLE_FOR_RETENTION:3_MISSING_PATHS"
+    }
+    assert plan["delete_candidates"] == []
