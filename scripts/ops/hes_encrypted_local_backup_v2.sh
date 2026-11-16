@@ -31,6 +31,12 @@ trap cleanup EXIT
 prune_archives() {
   local name
   local -a expired=()
+  if [[ "${HES_BACKUP_RETENTION_APPLY:-0}" != "1" ]]; then
+    echo "RETENTION_SKIPPED reason=explicit_apply_flag_not_set"
+    python3 "$ROOT/scripts/ops/hes_backup_retention_v2.py" \
+      --directory "$BACKUP_DIR" --today "${HES_BACKUP_TODAY:-$(date -u +%F)}"
+    return 0
+  fi
   mapfile -t expired < <(python3 "$ROOT/scripts/ops/hes_backup_retention_v2.py" \
     --directory "$BACKUP_DIR" --today "${HES_BACKUP_TODAY:-$(date -u +%F)}" --delete-list)
   for name in "${expired[@]}"; do

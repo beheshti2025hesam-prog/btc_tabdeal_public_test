@@ -56,3 +56,11 @@ def test_local_backup_v2_covers_recovery_critical_host_configuration_and_state()
     assert "root/.config/hes-backup/passphrase" in text
     assert "External recovery secret" in text
     assert "intentionally NOT included" in text
+
+
+def test_local_backup_v2_retention_is_report_only_without_explicit_apply_flag():
+    text = SCRIPT.read_text()
+    guard = 'if [[ "${HES_BACKUP_RETENTION_APPLY:-0}" != "1" ]]; then'
+    assert guard in text
+    assert text.index(guard) < text.index('mapfile -t expired')
+    assert "RETENTION_SKIPPED reason=explicit_apply_flag_not_set" in text
