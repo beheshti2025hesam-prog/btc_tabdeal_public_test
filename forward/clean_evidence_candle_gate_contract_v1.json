@@ -6,9 +6,9 @@
   "sequence_gate_required": true,
   "closed_candle_only": true,
   "future_input_allowed": false,
-  "sequence_gap": "BLOCK",
-  "out_of_order": "BLOCK",
-  "conflicting_duplicate": "BLOCK",
+  "sequence_gap": "NO_INFERENCE_FROM_NUMERIC_GAP",
+  "out_of_order": "NO_INFERENCE_FROM_NUMERIC_DECREASE",
+  "conflicting_duplicate": "NO_CONFLICT_INFERENCE_FROM_SEQUENCE",
   "silent_candle_repair": false,
   "historical_inputs_allowed": false,
   "future_outcomes_allowed": false,
@@ -23,5 +23,11 @@
     "source_ordering"
   ],
   "evidence_scope": "tabdeal-futures:BTC_USDT",
-  "failure_mode": "BLOCKED"
+  "failure_mode": "BLOCKED",
+  "identical_duplicate": "PRESERVE_EVERY_EVENT",
+  "sequence_required": false,
+  "sequence_used_for_identity": false,
+  "sequence_used_for_ordering": false,
+  "sequence_used_for_gap_detection": false,
+  "preserve_every_trade_event": true
 }
