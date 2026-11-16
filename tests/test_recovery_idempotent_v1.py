@@ -38,21 +38,22 @@ def test_restart_never_uses_old_sequence_as_resume_proof():
     assert c.observe(rec(1)).status == "ACCEPTED"
 
 
-def test_identical_repeated_sequence_is_not_assumed_idempotent():
+def test_identical_repeated_sequence_is_preserved_as_an_independent_event():
     c = ForwardRecoveryControllerV1()
     c.start()
     r = rec(7)
     assert c.observe(r).status == "ACCEPTED"
     event = c.observe(dict(r))
-    assert event.status == "REJECT_STREAM"
-    assert event.reason == "REPEATED_SEQUENCE_IDENTITY_UNPROVEN"
+    assert event.status == "ACCEPTED"
+    assert event.reason is None
+    assert len(c.sequence._records) == 2
 
 
-def test_conflict_still_rejects_after_recovery():
+def test_same_sequence_with_different_payload_is_not_a_sequence_conflict():
     c = ForwardRecoveryControllerV1()
     c.start()
-    r = rec(7)
-    assert c.observe(r).status == "ACCEPTED"
+    assert c.observe(rec(7)).status == "ACCEPTED"
     event = c.observe(rec(7, price="101"))
-    assert event.status == "REJECT_STREAM"
-    assert event.reason == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
+    assert event.status == "ACCEPTED"
+    assert event.reason is None
+    assert len(c.sequence._records) == 2
