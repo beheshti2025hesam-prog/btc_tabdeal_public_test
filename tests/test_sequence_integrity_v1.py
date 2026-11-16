@@ -66,15 +66,13 @@ def test_reconnect_starts_a_new_local_observation_epoch():
     assert s.observe(rec(10)).status == "ACCEPTED"
 
 
-def test_invalid_sequence_type_fails_closed_without_coercion():
+def test_json_sequence_metadata_types_are_preserved_without_validation():
     s = SequenceIntegrityV1()
-    for value in (True, 1.0, [], {}, ""):
-        try:
-            s.observe(rec(value))
-        except ValueError as exc:
-            assert str(exc) == "invalid sequence"
-        else:
-            raise AssertionError(f"invalid sequence accepted: {value!r}")
+    for value in (True, 1.0, [], {}, "", "0007", -1):
+        event = s.observe(rec(value))
+        assert event.status == "ACCEPTED"
+        assert event.sequence == value
+        assert s._records[-1]["sequence"] == value
 
 
 def test_state_bound_counts_all_observations_not_unique_sequences():
