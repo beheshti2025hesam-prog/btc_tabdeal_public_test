@@ -7,15 +7,17 @@ import pytest
 from forward.collector_adapter_v1 import ForwardCollectorAdapterV1
 
 
-def _observation():
-    return {
+def _observation(sequence="0007"):
+    item = {
         "symbol": "BTC_USDT",
         "price": 100.0,
         "amount": 0.01,
         "side": "buy",
         "observed_at": datetime.now(timezone.utc),
-        "sequence": 1,
     }
+    if sequence is not ...:
+        item["sequence"] = sequence
+    return item
 
 
 def test_adapter_is_disabled_by_default():
@@ -24,9 +26,16 @@ def test_adapter_is_disabled_by_default():
         adapter.accept([_observation()])
 
 
-def test_enabled_adapter_preserves_sequence_identity():
+def test_enabled_adapter_preserves_native_sequence_value():
     adapter = ForwardCollectorAdapterV1(enabled=True)
-    result = adapter.accept([_observation()])
+    result = adapter.accept([_observation("0007")])
     assert len(result) == 1
-    assert result[0].sequence == 1
+    assert result[0].sequence == "0007"
     assert result[0].symbol == "BTC_USDT"
+
+
+def test_enabled_adapter_allows_missing_sequence_metadata():
+    adapter = ForwardCollectorAdapterV1(enabled=True)
+    result = adapter.accept([_observation(...)])
+    assert len(result) == 1
+    assert result[0].sequence is None
