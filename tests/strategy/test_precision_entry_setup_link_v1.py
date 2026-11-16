@@ -38,6 +38,7 @@ def fixture(direction="LONG", regime="UPTREND"):
         "candidate_event_id": f"hes-v2-candidate-BTC_USDT-15m-{NOW}",
         "candidate_time": NOW, "source": "gateio_public_spot",
         "symbol": "BTC_USDT", "preapproval_paper_eligible": True,
+        "final_gate_decision": "NO_TRADE",
         "entry_context": context, "gate_evidence": source_gate,
     }
     view = {
@@ -114,13 +115,11 @@ def test_ambiguous_same_candle_setup_rows_fail_closed():
     assert reason == "AMBIGUOUS_IMMUTABLE_15M_SETUP"
 
 
-def test_final_policy_veto_is_not_bypassed_by_preapproval_context():
-    row, view, context = fixture()
+def test_final_policy_gate_must_remain_closed_for_preapproval_context():
+    row, view, _ = fixture()
     row["final_gate_decision"] = "LONG"
     result, reason = resolve_precision_setup_context(
         setup_rows=[row], strategy_view=view, now_s=NOW + 60
     )
-    # Preapproval is a paper-only research cohort; this resolver never changes
-    # final execution policy and every returned context remains advisory.
-    assert result == context
-    assert result["execution_enabled"] is False
+    assert result is None
+    assert reason == "FINAL_POLICY_GATE_NOT_CLOSED"
