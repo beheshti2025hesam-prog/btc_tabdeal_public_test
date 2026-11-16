@@ -66,9 +66,7 @@ def test_rejects_bad_values():
 
 
 def test_preserves_opaque_sequence_values_without_numeric_assumptions():
-    frame = base()
-    frame["sequence"] = -1
-    assert parse_trade_frame(frame, as_of=ASOF)["sequence"] == -1
-    frame = base()
-    frame["sequence"] = "0007"
-    assert parse_trade_frame(frame, as_of=ASOF)["sequence"] == "0007"
+    for value in (-1, "0007", True, 1.5, [], {}, ""):
+        frame = base()
+        frame["sequence"] = value
+        assert parse_trade_frame(frame, as_of=ASOF)["sequence"] == value
