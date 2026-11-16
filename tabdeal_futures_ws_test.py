@@ -1,3 +1,12 @@
+"""LEGACY RETIRED Tabdeal collector. Do not enable for HES market data.
+
+The historical collector used trade.sequence as a resume/deduplication cursor.
+That behavior is not supported by Tabdeal's documented contract. HES uses Gate.io
+public Spot BTC_USDT as its authoritative market-data source.
+
+This script remains only for archived maintenance tests and refuses normal startup.
+"""
+
 import csv
 import hashlib
 import json
@@ -37,14 +46,7 @@ DEFAULT_RUN_SECONDS = 5 * 60 * 60 + 20 * 60
 
 
 def get_run_seconds():
-    """LEGACY RETIRED Tabdeal collector. Do not enable for HES market data.
-
-The historical collector used trade.sequence as a resume/deduplication cursor.
-That behavior is not supported by Tabdeal's documented contract. HES uses Gate.io
-public Spot BTC_USDT as its authoritative market-data source.
-
-This script remains only for archived maintenance tests and refuses normal startup.
-"""
+    """
     Return the validated collection window from the runtime
     environment.
 
