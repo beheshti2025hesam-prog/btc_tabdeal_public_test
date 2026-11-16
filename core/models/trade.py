@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
+
 @dataclass(frozen=True)
 class CanonicalTrade:
-    """Exchange-agnostic representation of one trade event."""
+    """Exchange-agnostic representation of one received trade event."""
     event_id: str
     source: str
     exchange: str
@@ -17,5 +18,6 @@ class CanonicalTrade:
     quantity: float
     side: str
     timestamp: datetime
-    sequence: Optional[int] = None
+    # Opaque venue metadata; never assume it is an identity or ordering key.
+    sequence: Optional[int | str] = None
     ingested_at: Optional[datetime] = None
