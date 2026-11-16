@@ -8,7 +8,8 @@ ROOT="/opt/hes-trade-agent"
 KEY_FILE="/root/.config/hes-backup/passphrase"
 OUTDIR="/var/backups/hes-trade-agent/offsite-staging"
 LOCK_FILE="/run/lock/hes-dropbox-offsite-build.lock"
-MAX_BYTES=$((1536 * 1024 * 1024))
+# 400 MiB is 19.53% of Dropbox Basic's 2 GiB free tier; fail closed above it.
+MAX_BYTES=$((400 * 1024 * 1024))
 MIN_FREE_KB=$((3 * 1024 * 1024))
 
 exec 9>"$LOCK_FILE"

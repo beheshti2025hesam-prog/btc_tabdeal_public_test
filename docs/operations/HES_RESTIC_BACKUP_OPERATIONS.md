@@ -40,3 +40,18 @@ The compact archive can independently be verified and listed with GPG and Zstand
 - Local backup stops if disk free space falls below 512 MiB or operational health is not healthy.
 - Cache exclusions are scoped strictly to /opt/hes-trade-agent; /srv/hes-evidence is never excluded by cache name and is backed up verbatim, including cache-named evidence artifacts.
 - Backup jobs do not modify trading execution, strategies, market-data sources, release pointers, or order settings.
+
+## Compact Dropbox archive ceiling — 2026-11-16
+
+The encrypted compact recovery-core archive is capped at 400 MiB (419,430,400
+bytes), equal to 19.53% of Dropbox Basic's 2 GiB free tier. The current
+hes-recovery-core-latest.tar.zst.gpg object is 398,216,865 bytes (about 380 MiB,
+18.55% of the 2 GiB tier), so it is within the object-level cap. The builder
+fails closed if a future compact archive exceeds 400 MiB.
+
+The full-scope Restic repository is a separate second recovery layer. Current
+combined HES Dropbox objects occupy 1,378,284,311 bytes (64.18% of the tier),
+with 769,199,337 bytes free; the production 128 MiB reserve guard passes.
+The 400 MiB ceiling applies to the compact archive object, not to the sum of
+both recovery layers. Do not delete either independent recovery object without
+a verified replacement and explicit approval.
