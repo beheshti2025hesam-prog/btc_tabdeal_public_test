@@ -2,12 +2,12 @@
   "schema": "hes_forward_clean_evidence_sequence_gate_v1",
   "status": "ACTIVE_FROM_2026-10-07",
   "policy": "FAIL_CLOSED",
-  "sequence_required": true,
-  "identical_duplicate": "IDEMPOTENT_NO_OP",
-  "sequence_gap": "BLOCK_EVIDENCE_UNVERIFIED",
-  "out_of_order": "BLOCK_EVIDENCE",
-  "conflicting_duplicate": "BLOCK_EVIDENCE",
-  "invalid_sequence": "BLOCK_EVIDENCE",
+  "sequence_required": false,
+  "identical_duplicate": "PRESERVE_EVERY_EVENT",
+  "sequence_gap": "NO_INFERENCE_FROM_NUMERIC_GAP",
+  "out_of_order": "NO_INFERENCE_FROM_NUMERIC_DECREASE",
+  "conflicting_duplicate": "NO_CONFLICT_INFERENCE_FROM_SEQUENCE",
+  "invalid_sequence": "BLOCK_EVIDENCE_IF_PRESENT",
   "silent_repair": false,
   "silent_reorder": false,
   "historical_inputs_allowed": false,
@@ -23,5 +23,9 @@
     "source_ordering"
   ],
   "evidence_scope": "tabdeal-futures:BTC_USDT",
-  "failure_mode": "BLOCKED"
+  "failure_mode": "BLOCKED",
+  "sequence_used_for_identity": false,
+  "sequence_used_for_ordering": false,
+  "sequence_used_for_gap_detection": false,
+  "preserve_every_trade_event": true
 }
