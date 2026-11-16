@@ -12,7 +12,7 @@ The draft implementation and full isolated archive restore are complete. Product
 - Branch: feat/hes-smart-storage-manager-v1
 - Latest commit: 78e5b3405307d83fc06b3274cd26c796b9d2dcc9
 - PR remains OPEN / DRAFT / unmerged.
-- Latest focused regression: 51 tests passed; candidate shell scripts pass bash -n; git diff --check passes.
+- Latest focused regression: 54 tests passed; candidate shell scripts pass bash -n; git diff --check passes.
 
 ## Implemented draft candidates
 
@@ -60,3 +60,12 @@ The draft implementation and full isolated archive restore are complete. Product
 5. Re-measure full local footprint and confirm <=10 GiB and disk health before calling the storage work complete.
 
 **Safety:** no live trading or capital mutation; execution state unchanged.
+
+
+## Fresh storage-manager reconciliation — 2026-11-16 10:29 UTC
+
+- Fresh read-only IDLM scan: 928 items. Exact dependency-aware Smart Cleanup pass: 327 KEEP, 601 REVIEW_ONLY, 88 live-referenced, zero dependency-unknown, delete authorization false.
+- Integrated storage manager report: HES core 7,357,534,208 bytes (~6.85 GiB); complete local footprint 30,596,861,952 bytes (~28.496 GiB); root disk 12.5% free / WARN.
+- Storage Manager now consumes the full-scope Restic restore evidence and reports FULL_ARCHIVE_RESTORE_VERIFIED (32,927 files; 18/18 required paths) separately from replacement-host restore NOT_PROVEN and remote restore NOT_RUN. Cleanup authorization remains false.
+- Latest focused storage/backup regression: 54 passed; shell syntax and git diff checks pass.
+- Evidence: evidence/operations/hes_smart_storage_manager_20261116.json.

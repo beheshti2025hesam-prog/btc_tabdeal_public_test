@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import pytest
-from scripts.ops.hes_smart_storage_manager_v1 import archive_inventory, build_report, compression_advice, load_inventory
+from scripts.ops.hes_smart_storage_manager_v1 import archive_inventory, build_report, compression_advice, load_inventory, restore_assessment
 
 NOW=datetime(2026,11,15,15,0,tzinfo=timezone.utc)
 
@@ -92,6 +92,9 @@ def test_report_has_no_mutation_authority():
     assert result["policy"]["compression_authorized"] is False
     assert result["policy"]["automatic_cleanup_timer_authorized"] is False
     assert result["inventory"]["recovery_gate"]["full_restore_gate"]=="BLOCKED_NOT_PROVEN"
+    assert result["recovery_assessment"]["status"] == "NOT_PROVEN"
+    assert result["policy"]["full_archive_restore_verified"] is False
+    assert "remote restore" in result["policy"]["backup_retention"]
 
 def test_nested_full_scope_compression_evidence_is_parsed_without_overclaiming_local_scope():
     evidence={
@@ -158,3 +161,55 @@ def test_local_backup_benchmark_is_distinguished_from_offsite_scope():
     assert result["production_format_changed"] is False
     assert result["roundtrip_status"] == "PASS_ZSTD_GPG_AND_LEGACY_GZIP_VERIFIER_FIXTURES"
     assert result["compression_authorized"] is False
+
+
+def valid_full_restore_evidence():
+    return {
+        "schema": "hes_restic_fullscope_restore_drill_v1",
+        "integrity_check": "PASS_READ_DATA_45_OF_45_PACKS_NO_ERRORS",
+        "full_restore": {
+            "status": "PASS",
+            "restic_verify": "PASS_32927_FILES",
+            "restored_files": 32927,
+            "restored_file_bytes": 4475458842,
+            "required_recovery_paths": "PASS_18_OF_18",
+            "static_content_comparison": "PASS_8_FILES",
+        },
+    }
+
+
+def test_full_archive_restore_evidence_is_distinguished_from_replacement_host_restore():
+    idlm, cleanup = source_reports()
+    result = build_report(
+        idlm=idlm,
+        cleanup=cleanup,
+        now=NOW,
+        disk={"pressure": "WARN"},
+        quota={"status": "READ_OK", "free_bytes": 123},
+        restore_evidence=valid_full_restore_evidence(),
+    )
+    assert result["recovery_assessment"]["status"] == "FULL_ARCHIVE_RESTORE_VERIFIED"
+    assert result["recovery_assessment"]["full_archive_restore"] == "PASS"
+    assert result["recovery_assessment"]["replacement_host_restore"] == "NOT_PROVEN"
+    assert result["recovery_assessment"]["remote_restore"] == "NOT_RUN"
+    assert result["recovery_assessment"]["cleanup_authorized"] is False
+    assert result["policy"]["full_archive_restore_verified"] is True
+    assert result["policy"]["replacement_host_restore_proven"] is False
+    assert result["policy"]["deletion_authorized"] is False
+    assert result["inventory"]["recovery_gate"]["full_restore_gate"] == "BLOCKED_NOT_PROVEN"
+
+
+def test_missing_restore_evidence_keeps_archive_restore_not_proven():
+    result = restore_assessment(None)
+    assert result["status"] == "NOT_PROVEN"
+    assert result["full_archive_restore"] == "NOT_PROVEN"
+    assert result["cleanup_authorized"] is False
+
+
+def test_invalid_or_incomplete_restore_evidence_fails_closed():
+    evidence = valid_full_restore_evidence()
+    evidence["full_restore"]["restored_files"] = 0
+    result = restore_assessment(evidence)
+    assert result["status"] == "INCOMPLETE_EVIDENCE"
+    assert result["full_archive_restore"] == "NOT_PROVEN"
+    assert result["cleanup_authorized"] is False
