@@ -198,3 +198,15 @@ Live recovery-scope path inventory on 2026-11-16 confirmed all 16 added host-con
 The local and offsite v2 candidates now share the same expanded host-recovery paths: sudo policy, cron and logrotate configuration, security/environment/cloud/network configuration, cron spool, cloud-init state, SentinelX audit log, runtime snapshots, release manifests and the live-replay journal. Both retain AES-256 encryption and omit the external backup passphrase itself. A live inventory confirmed all 33 explicit host paths exist (14,336,143 apparent bytes), and the exact no-persistent-output tar stream/listing passed. Evidence is recorded in evidence/operations/hes_recovery_scope_coverage_20261116.json.
 
 The local v2 candidate's retention step was also hardened: it now emits a retention report only by default. Actual deletion-list processing requires the explicit HES_BACKUP_RETENTION_APPLY=1 environment flag. This flag is not set in the production service, and no production backup or retention operation was run.
+
+### 16. Full-scope Restic restore drill — 2026-11-16
+
+A disposable encrypted Restic v2 repository (Restic 0.16.4, compression max) was built from the complete HES project working set (historical release collection excluded, active and rollback included), independent evidence store, and the expanded 33-path host/runtime recovery set. It processed 4,475,455,640 source bytes and produced a 787,010,021-byte repository. Raw-data stats: 975.376 MiB uncompressed, 749.764 MiB stored, 1.30x compression ratio.
+
+The repository passed read-data integrity over all 45/45 packs with no errors. A full restore to a separate temporary directory—not over the live root—restored 32,927 files, 4,131 directories and 129 symlinks (4.168 GiB). Restic's post-restore verification passed all 32,927 files; all 18 required recovery paths were present; eight static configuration/content comparisons matched. Evidence: evidence/operations/hes_restic_fullscope_restore_drill_20261116.json.
+
+The existing Dropbox archive's remote hash matched its sidecar and an identical local staging copy; GPG decryption, Zstandard integrity and full tar listing passed (35,004 entries). That older archive does not contain the expanded host paths (including UFW, netplan, APT, SentinelX, sudoers, dpkg state and root SSH/rclone configuration), so it is not a complete replacement for the new scope.
+
+Migration remains blocked: the test Restic repository is 787,010,021 bytes, while Dropbox has 780,861,940 bytes free; with the 64 MiB reserve, the shortfall is 73,256,945 bytes. No upload or Dropbox mutation was attempted. The current GPG recovery passphrase exists only on the VPS (mode 0600); no separate external escrow file was found. The disposable Restic repository and its random test password are not production credentials.
+
+This drill proves a full archive restore into an isolated directory on the same host. It does not prove a replacement-host boot or bare-metal OS rebuild. No production backup/service/timer/retention/release pointer or trading execution state was changed.
