@@ -1,6 +1,7 @@
 {
+  "archive_pipeline": "explicit recursive file list; GNU tar no-recursion + one-file-system; listing only to /dev/null",
   "backup_passphrase_included": false,
-  "captured_utc": "2026-11-16T09:55:00Z",
+  "captured_utc": "2026-11-16T10:05:00Z",
   "deletions_or_pruning": false,
   "dropbox_mutation": false,
   "encrypted_archive": "NOT_CREATED",
@@ -46,6 +47,58 @@
       "path": "/etc/hostname"
     },
     {
+      "bytes": 1800,
+      "path": "/etc/sudoers"
+    },
+    {
+      "bytes": 1597,
+      "path": "/etc/sudoers.d"
+    },
+    {
+      "bytes": 699,
+      "path": "/etc/cron.d"
+    },
+    {
+      "bytes": 4369,
+      "path": "/etc/cron.daily"
+    },
+    {
+      "bytes": 102,
+      "path": "/etc/cron.hourly"
+    },
+    {
+      "bytes": 1230,
+      "path": "/etc/cron.weekly"
+    },
+    {
+      "bytes": 2003,
+      "path": "/etc/logrotate.d"
+    },
+    {
+      "bytes": 25303,
+      "path": "/etc/security"
+    },
+    {
+      "bytes": 106,
+      "path": "/etc/environment"
+    },
+    {
+      "bytes": 93587,
+      "path": "/etc/cloud"
+    },
+    {
+      "bytes": 7461,
+      "path": "/etc/network"
+    },
+    {
+      "bytes": 0,
+      "path": "/var/spool/cron/crontabs"
+    },
+    {
+      "bytes": 14393,
+      "path": "/var/lib/cloud"
+    },
+    {
       "bytes": 1237560,
       "path": "/var/lib/dpkg/status"
     },
@@ -54,12 +107,28 @@
       "path": "/var/lib/apt/extended_states"
     },
     {
-      "bytes": 15,
+      "bytes": 35,
       "path": "/var/lib/hes-operational-health"
     },
     {
       "bytes": 234702,
       "path": "/var/lib/systemd"
+    },
+    {
+      "bytes": 7010969,
+      "path": "/var/lib/sentinelx/audit.jsonl"
+    },
+    {
+      "bytes": 3324839,
+      "path": "/var/lib/sentinelx/hes-runtime-snapshots"
+    },
+    {
+      "bytes": 90208,
+      "path": "/var/lib/sentinelx/hes-release-manifests"
+    },
+    {
+      "bytes": 1624067,
+      "path": "/var/lib/sentinelx/hes-release-live-replay-8e31"
     },
     {
       "bytes": 1099,
@@ -70,13 +139,11 @@
       "path": "/root/.config/rclone"
     }
   ],
-  "paths_expected": 16,
-  "paths_present": 16,
+  "paths_expected": 33,
+  "paths_present": 33,
   "production_backup_scripts_changed": false,
   "production_services_or_timers_changed": false,
-  "schema": "hes_recovery_scope_coverage_v1",
-  "scope": "additional host configuration and runtime state absent from prior explicit backup lists",
-  "source_bytes": 2133390,
-  "tar_mode": "explicit recursive file list; no-recursion; one-file-system; metadata listing only to /dev/null",
-  "tar_stream_listing": "PASS"
+  "restore_test": "NOT_RUN",
+  "schema": "hes_recovery_scope_coverage_v2",
+  "source_apparent_bytes": 14336143
 }

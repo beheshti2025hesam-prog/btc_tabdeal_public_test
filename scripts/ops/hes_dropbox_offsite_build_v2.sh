@@ -77,9 +77,14 @@ done
 
 for p in etc/ssh etc/nftables.conf etc/systemd/system etc/ufw etc/netplan \
          etc/apt etc/sentinelx etc/hes-trade-agent etc/sysctl.d etc/modules-load.d \
-         etc/fstab etc/hosts etc/hostname etc/xray etc/nginx \
+         etc/fstab etc/hosts etc/hostname etc/sudoers etc/sudoers.d \
+         etc/cron.d etc/cron.daily etc/cron.hourly etc/cron.weekly \
+         etc/logrotate.d etc/security etc/environment etc/cloud etc/network \
+         etc/xray etc/nginx var/spool/cron/crontabs var/lib/cloud \
          var/lib/dpkg/status var/lib/apt/extended_states \
          var/lib/hes-operational-health var/lib/systemd \
+         var/lib/sentinelx/audit.jsonl var/lib/sentinelx/hes-runtime-snapshots \
+         var/lib/sentinelx/hes-release-manifests var/lib/sentinelx/hes-release-live-replay-8e31 \
          root/.ssh root/.config/rclone \
          usr/local/sbin/hes-operational-healthcheck \
          usr/local/sbin/hes-runtime-healthcheck \

@@ -35,3 +35,30 @@ def test_offsite_builder_keeps_remote_transfer_out_of_build_step():
     assert "REMOTE_ACTION=NONE" in text
     assert "rclone copy" not in text
     assert "rclone copyto" not in text
+
+
+def test_local_and_offsite_v2_recovery_scopes_cover_same_host_state():
+    local = (ROOT / "scripts" / "ops" / "hes_encrypted_local_backup_v2.sh").read_text()
+    offsite = SCRIPT.read_text()
+    required = (
+        "etc/sudoers",
+        "etc/sudoers.d",
+        "etc/cron.d",
+        "etc/cron.daily",
+        "etc/cron.hourly",
+        "etc/cron.weekly",
+        "etc/logrotate.d",
+        "etc/security",
+        "etc/environment",
+        "etc/cloud",
+        "etc/network",
+        "var/spool/cron/crontabs",
+        "var/lib/cloud",
+        "var/lib/sentinelx/audit.jsonl",
+        "var/lib/sentinelx/hes-runtime-snapshots",
+        "var/lib/sentinelx/hes-release-manifests",
+        "var/lib/sentinelx/hes-release-live-replay-8e31",
+    )
+    for path in required:
+        assert path in local
+        assert path in offsite
