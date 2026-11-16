@@ -1,11 +1,14 @@
 """Branch-safe Tabdeal observation collector.
 
 Fresh-data only. No Git commands, no pushes, no historical imports, no orders.
+Sequence is informational metadata only; every trade payload is appended.
+The collector remains disabled by default and is not the HES production data source.
 """
-
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import os
 import time
 from datetime import datetime, timezone
@@ -24,12 +27,13 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _sequence(value: Any) -> int:
-    return int(value)
-
-
-def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
-    """Normalize only a trade-shaped payload; order events are rejected."""
+def normalize_trade(
+    payload: dict[str, Any],
+    *,
+    raw_message: str | None = None,
+    received_at: str | None = None,
+) -> dict[str, Any] | None:
+    """Preserve each trade payload; never require, coerce, compare, or deduplicate sequence."""
     event_type = str(payload.get("type", payload.get("event", ""))).lower()
     if "order" in event_type:
         return None
@@ -40,26 +44,48 @@ def normalize_trade(payload: dict[str, Any]) -> dict[str, Any] | None:
     if not isinstance(data, dict):
         return None
 
-    symbol = data.get("symbol") or data.get("s")
-    price = data.get("price") or data.get("p")
-    amount = data.get("amount") or data.get("q")
-    sequence = data.get("sequence") or data.get("seq")
-    side = data.get("side") or data.get("side_name") or data.get("S")
-    source_updated = data.get("updated")
+    symbol = data.get("symbol") or data.get("s") or SYMBOL
+    if symbol != SYMBOL:
+        return None
 
-    if symbol != SYMBOL or price is None or amount is None or sequence is None:
-        return None
-    if source_updated is None:
-        return None
+    received = received_at or _now()
+    raw_json = raw_message if raw_message is not None else json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    source_updated = data.get("updated")
+    raw_price = data.get("price", data.get("p"))
+    raw_amount = data.get("amount", data.get("q"))
+    price = None
+    amount = None
+    try:
+        candidate = float(raw_price) if raw_price is not None else None
+        if candidate is not None and math.isfinite(candidate) and candidate > 0:
+            price = candidate
+    except (TypeError, ValueError):
+        pass
+    try:
+        candidate = float(raw_amount) if raw_amount is not None else None
+        if candidate is not None and math.isfinite(candidate) and candidate > 0:
+            amount = candidate
+    except (TypeError, ValueError):
+        pass
 
     return {
-        "observed_at": _now(),
-        "source_updated": str(source_updated),
-        "symbol": SYMBOL,
-        "price": float(price),
-        "amount": float(amount),
-        "side": str(side) if side is not None else "UNKNOWN",
-        "sequence": _sequence(sequence),
+        "received_at": received,
+        "observed_at": received,
+        "source_updated": str(source_updated) if source_updated is not None else None,
+        "event_timestamp": str(source_updated) if source_updated is not None else None,
+        "market": symbol,
+        "symbol": symbol,
+        "price": price,
+        "price_raw": raw_price,
+        "amount": amount,
+        "amount_raw": raw_amount,
+        "side": str(data.get("side") or data.get("side_name") or data.get("S") or "UNKNOWN"),
+        "sequence": data.get("sequence"),
+        "raw_payload": payload,
+        "raw_payload_json": raw_json,
+        "raw_payload_sha256": hashlib.sha256(raw_json.encode("utf-8")).hexdigest(),
         "source": "tabdeal_ws_forward_v1",
     }
 
@@ -68,12 +94,11 @@ class ForwardTabdealCollectorV1:
     def __init__(self, output: str = DEFAULT_OUTPUT, *, enabled: bool = False) -> None:
         self.output = Path(output)
         self.enabled = enabled
-        self.last_sequence: int | None = None
 
     def _append(self, record: dict[str, Any]) -> None:
         self.output.parent.mkdir(parents=True, exist_ok=True)
         with self.output.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+            handle.write(json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n")
             handle.flush()
             os.fsync(handle.fileno())
 
@@ -82,36 +107,29 @@ class ForwardTabdealCollectorV1:
             raise RuntimeError("Forward Tabdeal collector is disabled by default.")
 
         started = time.monotonic()
-
         while run_seconds == 0 or time.monotonic() - started < run_seconds:
             ws = None
             try:
                 ws = websocket.create_connection(WS_URL, timeout=15)
                 ws.send(SYMBOL)
-
                 while run_seconds == 0 or time.monotonic() - started < run_seconds:
-                    message = ws.recv()
-                    if not message:
+                    raw_message = ws.recv()
+                    received_at = _now()
+                    if not raw_message:
                         break
-
                     try:
-                        payload = json.loads(message)
+                        payload = json.loads(raw_message)
                     except json.JSONDecodeError:
                         continue
-
-                    record = normalize_trade(payload)
-                    if record is None:
+                    if not isinstance(payload, dict):
                         continue
-
-                    seq = record["sequence"]
-                    if self.last_sequence is not None and seq <= self.last_sequence:
-                        continue
-
-                    self._append(record)
-                    self.last_sequence = seq
+                    record = normalize_trade(
+                        payload, raw_message=raw_message, received_at=received_at
+                    )
+                    if record is not None:
+                        self._append(record)
             except Exception:
-                # Fail closed for the current connection; reconnect without
-                # inventing observations or changing persisted records.
+                # Reconnect/resubscribe only; no sequence-based resume or replay claim.
                 pass
             finally:
                 if ws is not None:
@@ -119,7 +137,6 @@ class ForwardTabdealCollectorV1:
                         ws.close()
                     except Exception:
                         pass
-
             if run_seconds and time.monotonic() - started >= run_seconds:
                 break
             time.sleep(2)
