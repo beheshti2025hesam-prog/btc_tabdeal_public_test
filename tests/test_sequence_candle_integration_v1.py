@@ -43,8 +43,10 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     # negative tests below keep the real verifier wired and fail-closed.
     if request.node.name in {
         "test_verified_contract_allows_unique_records_to_reach_closed_candle",
-        "test_identical_repeated_sequence_blocks_candle_formation",
-        "test_conflicting_reused_sequence_stops_candle_formation",
+        "test_identical_repeated_sequence_is_preserved_in_candle_formation",
+        "test_reused_sequence_with_distinct_event_timestamps_preserves_both_trades",
+        "test_equal_event_timestamp_different_prices_blocks_without_sequence_ordering",
+        "test_missing_sequence_metadata_can_reach_normalizer",
         "test_decreasing_sequence_is_not_assumed_to_be_out_of_order",
         "test_reconnect_requires_explicit_reset_before_new_sequence_epoch",
     }:
@@ -92,18 +94,23 @@ def test_unverified_contract_never_produces_decision_grade_candles():
     assert result.candles == ()
 
 
-def test_identical_repeated_sequence_blocks_candle_formation():
+def test_identical_repeated_sequence_is_preserved_in_candle_formation():
     result = verified_ingestion().ingest([rec(1), dict(rec(1))], as_of=ASOF)
-    assert result.safe_for_decision is False
-    assert result.candles == ()
-    assert result.events[-1].reason == "REPEATED_SEQUENCE_IDENTITY_UNPROVEN"
+    assert result.safe_for_decision is True
+    assert len(result.candles) == 1
+    assert result.candles[0].trade_count == 2
+    assert [event.status for event in result.events] == ["ACCEPTED", "ACCEPTED"]
 
 
-def test_conflicting_reused_sequence_stops_candle_formation():
-    result = verified_ingestion().ingest([rec(1), rec(1, price="101")], as_of=ASOF)
-    assert result.safe_for_decision is False
-    assert result.candles == ()
-    assert result.events[-1].reason == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
+def test_reused_sequence_with_distinct_event_timestamps_preserves_both_trades():
+    result = verified_ingestion().ingest(
+        [rec(1, "2026-10-07T06:30:00+00:00", "100"),
+         rec(1, "2026-10-07T06:35:00+00:00", "101")],
+        as_of=ASOF,
+    )
+    assert result.safe_for_decision is True
+    assert len(result.candles) == 1
+    assert result.candles[0].trade_count == 2
 
 
 def test_decreasing_sequence_is_not_assumed_to_be_out_of_order():
@@ -134,3 +141,25 @@ def test_unregistered_references_cannot_authorize_candle_ingestion():
     assert result.safe_for_decision is False
     assert result.candles == ()
     assert result.reason == "SOURCE_EVIDENCE_REF_NOT_REGISTERED"
+
+
+def test_equal_event_timestamp_different_prices_blocks_without_sequence_ordering():
+    result = verified_ingestion().ingest(
+        [rec(1, "2026-10-07T06:30:00+00:00", "100"),
+         rec(2, "2026-10-07T06:30:00+00:00", "101")],
+        as_of=ASOF,
+    )
+    assert result.safe_for_decision is False
+    assert result.candles == ()
+    assert result.events[-1].reason == "AMBIGUOUS_EQUAL_SOURCE_TIMESTAMP_ORDER"
+
+
+def test_missing_sequence_metadata_can_reach_normalizer():
+    result = verified_ingestion().ingest(
+        [rec(None, "2026-10-07T06:30:00+00:00", "100")],
+        as_of=ASOF,
+    )
+    assert result.safe_for_decision is True
+    assert len(result.candles) == 1
+    assert result.candles[0].first_sequence is None
+    assert result.candles[0].last_sequence is None
