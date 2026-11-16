@@ -20,7 +20,7 @@ class TradeObservation:
     amount: Decimal
     side: str
     updated: datetime
-    sequence: int | str
+    sequence: int | str | None
 
 
 @dataclass(frozen=True)
@@ -35,8 +35,8 @@ class Candle15m:
     close: Decimal
     volume: Decimal
     trade_count: int
-    first_sequence: int | str
-    last_sequence: int | str
+    first_sequence: int | str | None
+    last_sequence: int | str | None
     source_first_observed_at: datetime
     source_last_observed_at: datetime
 
@@ -66,16 +66,16 @@ def normalize_trades(
 ) -> tuple[tuple[Candle15m, ...], tuple[IntervalGap, ...]]:
     """Build closed candles without treating native sequence as identity/order.
 
-    Equal sequence values are blocked rather than deduplicated. Source timestamps
-    determine the primary order; if equal timestamps carry different prices,
-    open/close order is ambiguous and candle construction fails closed.
+    Sequence values are optional informational metadata and are never compared.
+    Every input trade is retained. Source timestamps determine the primary order;
+    if equal timestamps carry different prices, OHLC open/close order is ambiguous
+    and candle construction fails closed.
     """
     if as_of.tzinfo is None:
         raise ValueError("as_of must be timezone-aware")
     as_of = as_of.astimezone(timezone.utc)
 
     observed: list[TradeObservation] = []
-    seen_sequence: dict[tuple[str, int | str], TradeObservation] = {}
     symbol = expected_symbol
 
     for trade in trades:
@@ -86,7 +86,11 @@ def normalize_trades(
             raise ValueError("observation occurs after as_of")
         if trade.price <= 0 or trade.amount < 0:
             raise ValueError("price must be > 0 and amount must be >= 0")
-        if isinstance(trade.sequence, bool) or not isinstance(trade.sequence, (int, str)) or trade.sequence == "":
+        if trade.sequence is not None and (
+            isinstance(trade.sequence, bool)
+            or not isinstance(trade.sequence, (int, str))
+            or trade.sequence == ""
+        ):
             raise ValueError("invalid sequence type")
 
         if symbol is None:
@@ -96,10 +100,6 @@ def normalize_trades(
                 f"mixed symbols are not allowed: expected {symbol}, got {trade.symbol}"
             )
 
-        key = (type(trade.sequence).__name__, trade.sequence)
-        if key in seen_sequence:
-            raise ValueError("REPEATED_SEQUENCE_IDENTITY_UNPROVEN")
-        seen_sequence[key] = trade
         observed.append(trade)
 
     # Python's stable sort preserves receipt order only as a deterministic tie
