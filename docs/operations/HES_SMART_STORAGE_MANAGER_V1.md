@@ -165,3 +165,20 @@ Validation:
 - End-to-end encrypted fixtures passed in both directions: gzip payload named .tar.zst.gpg and zstd payload named .tar.gz.gpg were both detected from content and verified successfully.
 - Active and rollback release paths were required in both fixtures; extraction was not performed.
 - No production verifier was installed/replaced and no backup/restore service or timer was restarted. This change remains in the draft PR until review and the separate production rollout gate.
+
+
+## 13. Fresh complete-footprint audit — 2026-11-16
+
+A fresh root-run, read-only IDLM + dependency-aware Smart Cleanup + Storage Manager audit completed with 929 inventory rows and no deletion authority. Evidence: evidence/operations/hes_storage_budget_audit_20261116.json.
+
+- Project checkout: 6,925,520,896 allocated bytes.
+- Independent evidence store: 431,423,488 allocated bytes.
+- Agent core excluding backup copies: 7,356,944,384 bytes (about 6.85 GiB), within the 10 GiB core target.
+- Local backup and offsite staging roots: 23,239,327,744 bytes.
+- Complete local HES footprint including backups: 30,596,272,128 bytes (28.495 GiB), not within the 10 GiB total-footprint target.
+- Local encrypted full archives: 8 files, 17,735,777,522 bytes.
+- Offsite staging archives: 2 files, 2,727,900,259 bytes.
+- Root filesystem free space: 6,574,469,120 bytes (12.47%, WARN pressure).
+- Dropbox quota remains 780,861,940 bytes free.
+
+Interpretation: the project and independent evidence set are already under 10 GiB. The excess is overwhelmingly backup/staging copies, not the active agent core. The Restic prototype currently covers /opt/hes-trade-agent and /srv/hes-evidence, but it is not yet proven to replace the complete encrypted system backup roots (SSH, firewall, systemd/runtime configuration, dependency metadata). Do not delete or prune the existing eight local archives or two staging archives until a complete replacement scope is built, full recovery is validated, and offsite capacity is available. No production backup, retention, Dropbox object, service, timer, release pointer, or evidence file was changed by this audit.

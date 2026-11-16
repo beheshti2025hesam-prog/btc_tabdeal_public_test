@@ -1,0 +1,57 @@
+{
+  "agent_core_bytes_excluding_backup_copies": 7356944384,
+  "complete_footprint_within_10_gib_target": false,
+  "conclusion": "Core project plus independent evidence store is below 10 GiB; the complete local footprint including backup copies remains above target. Migration/pruning is blocked pending full restore validation and adequate Dropbox capacity.",
+  "core_within_10_gib_target": true,
+  "date_utc": "2026-11-16",
+  "deletion_authorized": false,
+  "disk": {
+    "free_bytes": 6574469120,
+    "free_percent": 12.47,
+    "pressure": "WARN",
+    "total_bytes": 52721094656,
+    "used_bytes": 46146625536
+  },
+  "dropbox_quota": {
+    "free_bytes": 780861940,
+    "status": "READ_OK",
+    "total_bytes": 2147483648,
+    "used_bytes": 1366621708,
+    "used_percent": 63.64
+  },
+  "files_mutated_by_audit": false,
+  "independent_evidence_store_bytes": 431423488,
+  "inventory_classifications": {
+    "KEEP_BACKUP": 31,
+    "KEEP_BACKUP_STAGING": 3,
+    "KEEP_EVIDENCE": 102,
+    "KEEP_PROTECTED": 6,
+    "KEEP_REGISTERED_WORKTREE": 8,
+    "KEEP_SYMLINK": 6,
+    "KEEP_UNKNOWN": 156,
+    "REVIEW_LOG_POLICY": 1,
+    "REVIEW_REGENERABLE_CACHE": 22,
+    "REVIEW_STALE_TEMP": 401,
+    "REVIEW_SYSTEM_LOG_RETENTION": 1,
+    "REVIEW_TEMP": 192
+  },
+  "inventory_items": 929,
+  "local_backup_and_offsite_staging_bytes": 23239327744,
+  "local_backup_archives": {
+    "bytes": 17735777522,
+    "count": 8
+  },
+  "offsite_staging_archives": {
+    "bytes": 2727900259,
+    "count": 2
+  },
+  "production_backup_format_changed": false,
+  "project_checkout_bytes": 6925520896,
+  "retention_changed": false,
+  "schema": "hes_storage_budget_audit_v1",
+  "source": "fresh read-only IDLM v1 + dependency-aware Smart Cleanup v1 + Storage Manager v1 run",
+  "target_gib": 10,
+  "total_local_hes_bytes_including_backups": 30596272128,
+  "total_local_hes_gib": 28.495,
+  "zstd9_vs_gzip1_saving_percent": 21.72
+}
