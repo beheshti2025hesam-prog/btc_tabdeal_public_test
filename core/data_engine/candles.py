@@ -5,7 +5,9 @@ Data Intelligence v1.0
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, List
+
 from core.models.trade import CanonicalTrade
+
 
 @dataclass(frozen=True)
 class Candle:
@@ -20,8 +22,9 @@ class Candle:
     volume: float
     trade_count: int
 
+
 class TradeCandleAggregator:
-    """Aggregate canonical trades into deterministic OHLCV candles."""
+    """Aggregate trades by event time without using sequence as a tie-breaker."""
     def __init__(self, timeframe_seconds: int = 60):
         if timeframe_seconds <= 0:
             raise ValueError("timeframe_seconds must be positive")
@@ -36,7 +39,12 @@ class TradeCandleAggregator:
             groups.setdefault((trade.symbol, bucket_epoch), []).append(trade)
         candles = []
         for (symbol, bucket_epoch), group in groups.items():
-            ordered = sorted(group, key=lambda trade: (trade.timestamp, trade.sequence or -1))
+            # Python's sort is stable: equal event timestamps retain input order,
+            # but differing prices at the same timestamp have no defensible OHLC order.
+            ordered = sorted(group, key=lambda trade: trade.timestamp)
+            for previous, current in zip(ordered, ordered[1:]):
+                if previous.timestamp == current.timestamp and previous.price != current.price:
+                    raise ValueError("AMBIGUOUS_EQUAL_EVENT_TIMESTAMP_ORDER")
             start = datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)
             end = datetime.fromtimestamp(bucket_epoch + self.timeframe_seconds, tz=timezone.utc)
             prices = [trade.price for trade in ordered]
