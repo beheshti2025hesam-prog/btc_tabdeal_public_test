@@ -18,6 +18,13 @@ def test_runner_contract_requires_authoritative_sequence_contract_evidence():
     assert contract["block_before_network"] is True
     assert contract["block_before_session_write"] is True
     assert contract["fail_closed"] is True
+    assert contract["sequence_semantics"]["role"] == "INFORMATIONAL_METADATA_ONLY"
+    assert contract["sequence_semantics"]["required"] is False
+    assert contract["sequence_semantics"]["used_for_identity"] is False
+    assert contract["sequence_semantics"]["used_for_ordering"] is False
+    assert contract["sequence_semantics"]["used_for_gap_detection"] is False
+    assert contract["source_completeness_and_ordering_required"] is True
+    assert contract["raw_trade_payload_persistence_required_before_any_future_production_capture"] is True
 
 
 def test_runner_source_contains_pre_network_sequence_contract_block():
