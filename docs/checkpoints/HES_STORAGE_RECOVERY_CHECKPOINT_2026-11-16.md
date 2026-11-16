@@ -94,7 +94,7 @@ The earlier HOLD / cleanup-not-authorized statements above are historical and ar
 - Two full 43-root snapshots remain under the configured retention policy; the old 40-root and evidence-only predecessors were retired. Local and downloaded remote `restic check --read-data` passed **61/61 packs**, zero errors. Selective restore passed for **13/13 files** with Restic `--verify` and independent SHA-256 comparisons.
 - Local backup timer 02:30 UTC and full-scope Dropbox sync timer 03:30 UTC are enabled. Legacy full-archive and compact-only sync timers are disabled/retired. Retention: 7 daily / 4 weekly / 6 monthly / 2 yearly, grouped by `host,paths`.
 - The 8 legacy local full archives, 3 obsolete full staging archives, 3 superseded compact builds, Nov 7 project tarball, pre-change security snapshot, and temporary compact-only Restic repository were removed after checksum/scope verification and approval. The deletion inventory contains per-file hashes and reasons at `/srv/hes-evidence/operations/backup-retention/cleanup-20261116.json`.
-- Recovery passphrase remains operator-held/memorized off-VPS; the root-only working copy is excluded from all 43 backup roots and Dropbox objects.
+- Owner confirmed 2026-11-16 that the recovery passphrase is stored in the owner's Bitwarden Secure Note. The root-only working copy is excluded from all 43 backup roots and Dropbox objects; never put the secret in Git, Notion, or ChatGPT.
 - Final machine-readable evidence: `/srv/hes-evidence/operations/backup-retention/final-storage-recovery-20261116.json`.
 
 No trading strategy, execution setting, market-data source, release pointer, or order path was changed.
