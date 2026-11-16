@@ -49,7 +49,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     # provenance gate. Production modules are never given a bypass; dedicated
     # negative tests below keep the real verifier wired and fail-closed.
     if request.node.name in {
-        "test_runner_persists_conflict_fingerprint_and_still_blocks",
+        "test_runner_preserves_repeated_sequence_values_without_blocking_or_deduping",
         "test_runner_fails_closed_when_transport_metadata_bound_is_exceeded",
     }:
         monkeypatch.setattr(runner_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
@@ -57,7 +57,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
         monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
 
-def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
+def test_repeated_sequence_is_not_a_conflict_identity_or_order_key():
     guard = SequenceIntegrityV1()
     first = {
         "source": "tabdeal_ws_forward_v1",
@@ -82,7 +82,7 @@ def test_conflicting_duplicate_reports_safe_field_diff_and_hashes():
     assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
 
 
-def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
+def test_runner_preserves_repeated_sequence_values_without_blocking_or_deduping(tmp_path: Path):
     class ConflictTransport:
         def __init__(self, on_record, on_frame_metadata, **kwargs):
             self.on_record = on_record
@@ -94,7 +94,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
                 "amount": "0.1",
                 "side": "buy",
                 "sequence": 41627925358,
-                "timestamp": "2026-10-09T17:00:00+00:00",
+                "timestamp": "2026-10-09T16:00:00+00:00",
             }
             for index, price in enumerate(("100", "101")):
                 self.on_frame_metadata({
@@ -108,7 +108,7 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
                     "sequence_value_type": "int",
                     "sequence_value": 41627925358,
                 })
-                self.on_record({**base, "price": price})
+                self.on_record({**base, "price": price, "timestamp": f"2026-10-09T16:00:0{index}+00:00"})
 
     diagnostics_path = tmp_path / "sequence_integrity_diagnostics_v1.jsonl"
     runner = ControlledForwardObservationRunnerV1(
@@ -127,23 +127,14 @@ def test_runner_persists_conflict_fingerprint_and_still_blocks(tmp_path: Path):
     )
     result = runner.run(started_at=datetime(2026, 10, 9, 17, 1, tzinfo=timezone.utc))
 
-    assert result.status == "BLOCKED"
-    assert result.reason == "SEQUENCE_UNSAFE"
+    assert result.status == "WAITING"
+    assert result.reason == "INSUFFICIENT_CLOSED_CANDLES"
+    assert result.records_received == 2
     assert result.snapshot_id is None
     assert not (tmp_path / "observations.jsonl").exists()
-    assert diagnostics_path.exists()
-    record = json.loads(diagnostics_path.read_text(encoding="utf-8").splitlines()[0])
-    conflict = next(
-        event for event in record["sequence_events"]
-        if event.get("reason") == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
-    )
-    assert conflict["diagnostic"]["differing_fields"] == ["price"]
-    fingerprints = conflict["transport_frame_fingerprints"]
-    assert len(fingerprints) == 2
-    assert fingerprints[0]["raw_frame_sha256"] != fingerprints[1]["raw_frame_sha256"]
-    assert all(item["sequence_field_path"] == "trade.sequence" for item in fingerprints)
-    assert all("price" not in item and "amount" not in item for item in fingerprints)
-    assert any(item.get("diagnostic_persistence") == "PERSISTED" for item in result.diagnostics)
+    assert not diagnostics_path.exists()
+    assert any(item.get("sequence_used_for_identity_or_grouping") is False for item in result.diagnostics)
+    assert any(item.get("transport_frame_metadata_records") == 2 for item in result.diagnostics)
 
 
 def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path):
@@ -195,7 +186,7 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
                 self.on_frame_metadata({
                     "schema": "hes_transport_frame_fingerprint_v1",
                     "raw_frame_sha256": f"frame-hash-{sequence}",
-                    "sequence_value": sequence,
+                    "sequence_value": 7,
                 })
             self.on_record({
                 "symbol": "BTC_USDT",
@@ -228,3 +219,4 @@ def test_runner_fails_closed_when_transport_metadata_bound_is_exceeded(tmp_path:
     assert result.records_received == 1
     assert not journal_path.exists()
     assert result.diagnostics[0]["observation_written"] is False
+    assert result.diagnostics[0]["frame_metadata_record_limit"] == 50000
