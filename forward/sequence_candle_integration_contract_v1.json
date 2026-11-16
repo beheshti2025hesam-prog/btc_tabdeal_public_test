@@ -4,10 +4,10 @@
   "mode": "OBSERVATION_ONLY",
   "sequence_gate_before_candle": true,
   "anomaly_policy": "NO_CANDLE_AND_NO_DECISION",
-  "conflicting_duplicate_policy": "NO_CANDLE_AND_NO_DECISION",
-  "identical_duplicate_policy": "IDEMPOTENT",
+  "conflicting_duplicate_policy": "NO_CONFLICT_INFERENCE_FROM_SEQUENCE",
+  "identical_duplicate_policy": "PRESERVE_EVERY_EVENT",
   "gap_policy": "NO_REPAIR",
-  "out_of_order_policy": "NO_REORDER",
+  "out_of_order_policy": "NO_NUMERIC_ORDER_INFERENCE",
   "reconnect_requires_explicit_reset": true,
   "future_outcome_allowed": false,
   "execution_enabled": false,
@@ -22,5 +22,11 @@
     "source_ordering"
   ],
   "evidence_scope": "tabdeal-futures:BTC_USDT",
-  "failure_mode": "BLOCKED"
+  "failure_mode": "BLOCKED",
+  "sequence_gap_policy": "NO_NUMERIC_GAP_INFERENCE",
+  "missing_sequence_metadata": "ALLOWED",
+  "sequence_used_for_identity": false,
+  "sequence_used_for_ordering": false,
+  "sequence_used_for_gap_detection": false,
+  "preserve_every_trade_event": true
 }
