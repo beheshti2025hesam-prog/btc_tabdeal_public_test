@@ -139,7 +139,7 @@ def test_runner_preserves_repeated_sequence_values_without_blocking_or_deduping(
 def test_diagnostic_journal_hash_chain_and_fail_closed_corruption(tmp_path: Path):
     path = tmp_path / "diagnostics.jsonl"
     journal = SequenceIntegrityDiagnosticJournalV1(path)
-    event = {"sequence": 7, "status": "REJECT_STREAM", "reason": "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"}
+    event = {"sequence": 7, "status": "REJECT_STREAM", "reason": "SEQUENCE_OBSERVATION_BOUND_EXCEEDED"}
 
     first = journal.append_blocked_run(
         run_id="OBS-1",
