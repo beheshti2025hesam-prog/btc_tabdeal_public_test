@@ -171,26 +171,19 @@ class ControlledForwardObservationRunnerV1:
 
         records: list[dict[str, Any]] = []
         record_bound_exceeded = False
-        frame_metadata_by_sequence: dict[str, list[dict[str, Any]]] = {}
+        frame_metadata: list[dict[str, Any]] = []
         metadata_bound_exceeded = False
 
         def collect_frame_metadata(metadata: dict[str, Any]) -> None:
             nonlocal metadata_bound_exceeded
-            # Prefer the untouched source value; normalized aliases must not erase type/format.
-            value = metadata.get("sequence_value")
-            if type(value) not in (int, str):
-                value = metadata.get("normalized_sequence")
-            if type(value) not in (int, str):
-                return
-            key = f"{type(value).__name__}:{value}"
-            if key not in frame_metadata_by_sequence and len(frame_metadata_by_sequence) >= 50000:
+            # Keep one fingerprint per received frame. Never group or key events
+            # by sequence: the provider does not define it as an event identity.
+            if len(frame_metadata) >= min(self.max_records, 50000):
                 # Avoid raising inside a WebSocket callback, where client libraries
                 # may swallow callback exceptions and leave a partial run looking successful.
                 metadata_bound_exceeded = True
                 return
-            entries = frame_metadata_by_sequence.setdefault(key, [])
-            if len(entries) < 2:
-                entries.append(dict(metadata))
+            frame_metadata.append(dict(metadata))
 
         def collect(record: dict[str, Any]) -> None:
             nonlocal record_bound_exceeded
@@ -237,7 +230,7 @@ class ControlledForwardObservationRunnerV1:
                 snapshot_id=None,
                 diagnostics=({
                     "reason": "TRANSPORT_METADATA_BOUND_EXCEEDED",
-                    "distinct_sequence_limit": 50000,
+                    "frame_metadata_record_limit": min(self.max_records, 50000),
                     "observation_written": False,
                 },),
             )
@@ -279,23 +272,12 @@ class ControlledForwardObservationRunnerV1:
             as_of=observed_at,
             forward_run_id=session.run_id,
         )
-        def sequence_metadata_key(value: Any) -> str:
-            return f"{type(value).__name__}:{value}"
-
-        diagnostics = tuple(
-            {
-                **event,
-                "transport_frame_fingerprints": frame_metadata_by_sequence.get(
-                    sequence_metadata_key(event.get("sequence")), []
-                ),
-            }
-            if event.get("reason") in {
-                "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN",
-                "REPEATED_SEQUENCE_IDENTITY_UNPROVEN",
-            }
-            else event
-            for event in result.diagnostics
-        )
+        diagnostics = tuple(result.diagnostics)
+        if frame_metadata:
+            diagnostics = (*diagnostics, {
+                "transport_frame_metadata_records": len(frame_metadata),
+                "sequence_used_for_identity_or_grouping": False,
+            })
         if result.status == "BLOCKED" and result.reason == "SEQUENCE_UNSAFE":
             try:
                 persisted = SequenceIntegrityDiagnosticJournalV1(self.diagnostics_path).append_blocked_run(
