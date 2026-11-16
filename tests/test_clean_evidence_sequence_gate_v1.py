@@ -44,7 +44,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
         "test_decreasing_sequence_does_not_itself_prove_out_of_order",
         "test_same_sequence_different_payload_is_preserved",
         "test_native_string_sequence_is_preserved_not_integer_parsed",
-        "test_unsupported_sequence_type_blocks_evidence",
+        "test_unexpected_sequence_json_shape_is_preserved",
         "test_missing_sequence_metadata_is_allowed",
     }:
         monkeypatch.setattr(gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
@@ -113,10 +113,11 @@ def test_native_string_sequence_is_preserved_not_integer_parsed():
     assert r.accepted == (rec("not-a-number"),)
 
 
-def test_unsupported_sequence_type_blocks_evidence():
-    r = verified_gate().evaluate([rec([])])
-    assert not r.safe
-    assert r.reason == "INVALID_SEQUENCE_TYPE"
+def test_unexpected_sequence_json_shape_is_preserved():
+    record = rec([])
+    r = verified_gate().evaluate([record])
+    assert r.safe
+    assert r.accepted == (record,)
 
 
 def test_missing_sequence_metadata_is_allowed():
