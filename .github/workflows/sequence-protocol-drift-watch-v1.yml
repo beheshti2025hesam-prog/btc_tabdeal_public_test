@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "17 6 1 * *"
   workflow_dispatch:
+  repository_dispatch:
+    types:
+      - exchange-api-announcement
+      - schema-observed
+      - protocol-version-change
   push:
     branches: [main]
     paths:
@@ -63,11 +68,11 @@ jobs:
               f"- Sources requiring review: {report['review_required_sources']}",
               "- Automatic capability promotion: **disabled**",
               "",
-              "| Status | Records | Source |",
-              "|---|---|---|",
+              "| Status | Records | Last-Modified | ETag | Source |",
+              "|---|---|---|---|---|",
           ]
           for source in report["sources"]:
-              lines.append(f"| {source['status']} | {', '.join(source['record_ids'])} | {source['url']} |")
+              lines.append(f"| {source['status']} | {', '.join(source['record_ids'])} | {source.get('last_modified') or 'n/a'} | {source.get('etag') or 'n/a'} | {source['url']} |")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as stream:
               stream.write("\n".join(lines) + "\n")
           PY
@@ -82,7 +87,7 @@ jobs:
           retention-days: 90
 
       - name: Raise scheduled review alert after preserving evidence
-        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.audit.outcome == 'failure'
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch') && steps.audit.outcome == 'failure'
         run: |
           echo "::error::Sequence protocol sources are unpinned, changed, conflicting, or unreachable. Review the uploaded evidence before changing registry capabilities."
           exit 1

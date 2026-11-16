@@ -128,6 +128,9 @@ def fetch_source(url: str, *, timeout: float, max_bytes: int) -> dict[str, Any]:
             "http_status": int(getattr(response, "status", 200)),
             "final_url": final_url,
             "body_bytes": len(body),
+            "content_type": response.headers.get("Content-Type"),
+            "last_modified": response.headers.get("Last-Modified"),
+            "etag": response.headers.get("ETag"),
             "actual_sha256": sha256(body),
         }
 

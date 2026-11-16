@@ -1,3 +1,4 @@
+from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 
@@ -33,6 +34,8 @@ def caps(**overrides):
         source_content_sha256="b" * 64,
         review_revision="synthetic-test-only",
         status="VERIFIED",
+        last_verified=date.today().isoformat(),
+        max_age_days=90,
         _issuer_token=_REGISTRY_CAPABILITY_ISSUER,
     )
     values.update(overrides)
@@ -305,3 +308,68 @@ def test_exact_venue_product_channel_key_mismatch_blocks():
     result = engine.observe(value)
     assert result.status == "BLOCKED"
     assert result.reason == "SEQUENCE_CONTRACT_KEY_MISMATCH"
+
+
+def test_capability_expires_when_verification_date_is_stale():
+    stale = (datetime.now(timezone.utc).date() - timedelta(days=91)).isoformat()
+    assert caps(last_verified=stale).verified is False
+    assert caps(last_verified=stale).supports_scalar_sequence_integrity is False
+
+
+def test_registry_refuses_expired_verified_contract():
+    from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
+    stale = (datetime.now(timezone.utc).date() - timedelta(days=91)).isoformat()
+    registry = verified_tabdeal_test_registry(last_verified=stale)
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_VERIFICATION_EXPIRED"):
+        registry.resolve_tabdeal_trade_sequence()
+
+
+def test_registry_refuses_future_verification_date():
+    from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
+    future = (datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()
+    registry = verified_tabdeal_test_registry(last_verified=future)
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_VERIFICATION_DATE_IN_FUTURE"):
+        registry.resolve_tabdeal_trade_sequence()
+
+
+def test_registry_rejects_invalid_freshness_policy():
+    payload = {"schema": "hes_sequence_semantics_registry_v1", "records": [], "verification_policy": {"max_age_days": True}}
+    raw = json.dumps(payload).encode()
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_VERIFICATION_MAX_AGE_INVALID"):
+        SequenceSemanticsRegistryV1(payload, raw_sha256=hashlib.sha256(raw).hexdigest(), raw_bytes=raw)
+
+
+def test_runtime_registry_uses_utc_ninety_day_freshness_policy():
+    raw = REGISTRY_PATH.read_bytes()
+    registry = SequenceSemanticsRegistryV1.load(REGISTRY_PATH, expected_sha256=hashlib.sha256(raw).hexdigest())
+    assert registry.max_verification_age_days == 90
+
+
+def test_registry_rejects_non_utc_freshness_policy():
+    payload = {"schema": "hes_sequence_semantics_registry_v1", "records": [], "verification_policy": {"max_age_days": 90, "clock": "local"}}
+    raw = json.dumps(payload).encode()
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_VERIFICATION_CLOCK_UNSUPPORTED"):
+        SequenceSemanticsRegistryV1(payload, raw_sha256=hashlib.sha256(raw).hexdigest(), raw_bytes=raw)
+
+
+def test_capability_rejects_non_iso_verification_date():
+    assert caps(last_verified="2026-W47-1").verified is False
+
+
+def test_runtime_registry_revision_is_versioned():
+    raw = REGISTRY_PATH.read_bytes()
+    registry = SequenceSemanticsRegistryV1.load(REGISTRY_PATH, expected_sha256=hashlib.sha256(raw).hexdigest())
+    assert registry.registry_version == 2
+    assert registry.max_verification_age_days == 90
+
+
+def test_capability_remains_fresh_on_the_ninetieth_day_boundary():
+    boundary = (datetime.now(timezone.utc).date() - timedelta(days=90)).isoformat()
+    assert caps(last_verified=boundary).verified is True
+
+
+def test_registry_rejects_non_iso_verification_date():
+    from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
+    registry = verified_tabdeal_test_registry(last_verified="2026-W47-1")
+    with pytest.raises(SequenceSemanticsError, match="SEQUENCE_VERIFICATION_DATE_INVALID"):
+        registry.resolve_tabdeal_trade_sequence()
