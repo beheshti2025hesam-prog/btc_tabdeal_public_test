@@ -87,3 +87,14 @@ def test_defaults_match_live_production_recovery_snapshot_identity():
     assert EXPECTED_HOST == "hes-vps-recovery-v1"
     assert EXPECTED_TAG == "hes-full-recovery-v1"
     assert len(REQUIRED_FULL_PATHS) == 40
+
+
+def test_latest_full_snapshot_selector_rejects_future_dated_full_snapshots():
+    full = snap("valid-full", "2026-11-16T13:55:53Z")
+    future = snap("future-full", "2026-11-17T01:00:00Z")
+    assert latest_full_snapshot_id([full, future], as_of=date(2026, 11, 16)) == "valid-full"
+
+
+def test_latest_full_snapshot_selector_returns_none_when_only_full_snapshot_is_future():
+    future = snap("future-full", "2026-11-17T01:00:00Z")
+    assert latest_full_snapshot_id([future], as_of=date(2026, 11, 16)) is None

@@ -51,14 +51,17 @@ def latest_full_snapshot_id(
     *, expected_host: str = EXPECTED_HOST,
     expected_tag: str = EXPECTED_TAG,
     required_paths: frozenset[str] = REQUIRED_FULL_PATHS,
+    as_of: date | None = None,
 ) -> str | None:
+    as_of = as_of or datetime.now(timezone.utc).date()
     eligible: list[tuple[datetime, str]] = []
     for snap in snapshots:
         sid = str(snap.get("id") or "")
         dt = _parse_time(snap.get("time"))
         tags = snap.get("tags") or []
-        if (sid and dt is not None and snap.get("hostname") == expected_host
-                and expected_tag in tags and not missing_full_paths(snap, required_paths)):
+        if (sid and dt is not None and dt.date() <= as_of
+                and snap.get("hostname") == expected_host and expected_tag in tags
+                and not missing_full_paths(snap, required_paths)):
             eligible.append((dt, sid))
     return max(eligible, key=lambda item: item[0])[1] if eligible else None
 
@@ -128,7 +131,8 @@ def plan_retention(
         keep[sid] = "LATEST_FULL_SCOPE_AVAILABLE_FAIL_SAFE"
 
     latest_full = latest_full_snapshot_id(
-        snapshots, expected_host=expected_host, expected_tag=expected_tag, required_paths=required_paths
+        snapshots, expected_host=expected_host, expected_tag=expected_tag,
+        required_paths=required_paths, as_of=today
     )
     return {
         "schema": "hes_restic_retention_plan_v2_full_scope",
