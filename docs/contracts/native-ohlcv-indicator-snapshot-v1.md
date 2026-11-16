@@ -26,6 +26,16 @@ The UI displays values only when both hashes match, the feature pipeline reports
 
 These values are calculated by the existing `NativeOHLCVFeaturePipelineV1` from Gate.io candles. No additional indicator implementation or external data provider is introduced.
 
+## Chart overlays
+
+The same hes_native_ohlcv_indicator_snapshot_v1 response also carries series_schema=hes_native_ohlcv_indicator_series_v1, ema_series, and vwap_series. Each point is {time, value}, where time is the matching candle open_time in Unix seconds. The series contain every eligible point from the configured period onward and end on the latest candle in the same response.
+
+- EMA points are the existing EMACalculator output aligned to the corresponding native candle open time.
+- VWAP points use the same existing rolling quote-volume / base-volume calculation and configured VWAP period as the scalar snapshot.
+- The browser only renders the supplied points; it does not calculate or approximate indicators.
+- Both series must be complete, ordered, finite, positive, and aligned to the exact candle timestamps. Missing, extra, stale, out-of-batch, incomplete, or mismatched series block the indicator snapshot and produce empty arrays.
+- EMA/VWAP visibility controls are presentation-only. They do not change the feature pipeline, strategy, signals, journals, or execution.
+
 ## Safety boundary
 
 The snapshot is descriptive only. It cannot create, rank, confirm, or authorize a trade; it cannot alter the 15m setup gate or 1m Precision Entry role; it cannot write journals or submit orders. The response always states `execution_enabled=false` and `orders_placed=false`.
