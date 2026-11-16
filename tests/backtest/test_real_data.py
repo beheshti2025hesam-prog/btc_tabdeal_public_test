@@ -149,3 +149,40 @@ class RealDataBacktestTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_sequence_is_not_used_as_event_order_or_dedup_key(self):
+        rows = [
+            {"symbol": "BTC_USDT", "price": "100", "amount": "1", "side": "Buy",
+             "updated": "2026-09-25T00:00:01+00:00", "sequence": "7"},
+            {"symbol": "BTC_USDT", "price": "101", "amount": "1", "side": "Buy",
+             "updated": "2026-09-25T00:00:02+00:00", "sequence": "7"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "trades.csv"
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            result = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=1)
+            trades, read, invalid = result._load_trades()
+        self.assertEqual(read, 2)
+        self.assertEqual(invalid, 0)
+        self.assertEqual(len(trades), 2)
+        self.assertEqual([t.sequence for t in trades], ["7", "7"])
+
+    def test_equal_timestamp_conflict_is_not_resolved_by_sequence(self):
+        rows = [
+            {"symbol": "BTC_USDT", "price": "100", "amount": "1", "side": "Buy",
+             "updated": "2026-09-25T00:00:01+00:00", "sequence": "1"},
+            {"symbol": "BTC_USDT", "price": "101", "amount": "1", "side": "Buy",
+             "updated": "2026-09-25T00:00:01+00:00", "sequence": "2"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "trades.csv"
+            with path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            with self.assertRaisesRegex(ValueError, "AMBIGUOUS_EQUAL_EVENT_TIMESTAMP_ORDER"):
+                RealDataBacktest(str(path), timeframe_seconds=60, ema_period=1).run()
