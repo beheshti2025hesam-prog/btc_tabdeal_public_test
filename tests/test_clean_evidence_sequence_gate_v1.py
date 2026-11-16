@@ -45,6 +45,7 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
         "test_same_sequence_different_payload_is_preserved",
         "test_native_string_sequence_is_preserved_not_integer_parsed",
         "test_unsupported_sequence_type_blocks_evidence",
+        "test_missing_sequence_metadata_is_allowed",
     }:
         monkeypatch.setattr(gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
 
