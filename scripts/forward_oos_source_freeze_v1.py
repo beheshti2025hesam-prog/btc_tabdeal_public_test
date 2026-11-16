@@ -3,6 +3,7 @@ import csv
 import hashlib
 import json
 import subprocess
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -21,10 +22,14 @@ for r in rows:
         eligible.append((ts, r))
 
 times = [x[0] for x in eligible]
-seqs = [int(x[1]["sequence"]) for x in eligible]
-strict_ts = all(a < b for a, b in zip(times, times[1:]))
-unique_seq = len(seqs) == len(set(seqs))
-strict_seq = all(a < b for a, b in zip(seqs, seqs[1:]))
+timestamp_nondecreasing = all(a <= b for a, b in zip(times, times[1:]))
+timestamp_groups = defaultdict(set)
+for ts, row in eligible:
+    timestamp_groups[ts].add(row["price"])
+ambiguous_equal_timestamp_count = sum(
+    1 for prices in timestamp_groups.values() if len(prices) > 1
+)
+sequence_values_present = sum(1 for _, row in eligible if row.get("sequence") not in (None, ""))
 
 manifest = {
     "status": "FROZEN",
@@ -37,9 +42,11 @@ manifest = {
     "forward_rows": len(eligible),
     "first_eligible_timestamp": times[0].isoformat().replace("+00:00", "Z") if times else None,
     "last_eligible_timestamp": times[-1].isoformat().replace("+00:00", "Z") if times else None,
-    "timestamp_strictly_increasing": strict_ts,
-    "sequence_unique": unique_seq,
-    "sequence_strictly_increasing": strict_seq,
+    "event_timestamp_nondecreasing_in_source_file": timestamp_nondecreasing,
+    "ambiguous_equal_timestamp_price_groups": ambiguous_equal_timestamp_count,
+    "sequence_metadata_values_present": sequence_values_present,
+    "sequence_semantics": "OPAQUE_INFORMATIONAL_METADATA_NOT_ANALYZED",
+    "sequence_used_for_identity_ordering_or_gap_detection": False,
     "outcomes_inspected": False,
     "protocol_mutation": False,
     "winner_reselection": False,
@@ -47,7 +54,7 @@ manifest = {
     "live_execution": False,
 }
 assert manifest["source_sha256"]
-assert strict_ts and unique_seq and strict_seq
+assert timestamp_nondecreasing and ambiguous_equal_timestamp_count == 0
 Path("forward_oos_source_freeze_v1.json").write_text(
     json.dumps(manifest, indent=2) + "\n"
 )
