@@ -79,7 +79,7 @@ def load():
             invalid += 1
         else:
             trades.append(norm.normalize_row(row))
-    trades.sort(key=lambda t: (t.timestamp, t.sequence or -1))
+    trades.sort(key=lambda t: t.timestamp)
     return trades, total, invalid
 
 def validate_frozen_protocol_contract():
@@ -113,13 +113,10 @@ def main():
         buy = sum(t.quantity for t in g if t.side == "buy")
         sell = sum(t.quantity for t in g if t.side == "sell")
         total = buy + sell
-        seq = [t.sequence for t in g if t.sequence is not None]
         pressure[k] = (
             buy / total if total else 0.0,
             buy - sell,
             len(g),
-            min(seq) if seq else None,
-            max(seq) if seq else None,
         )
 
     em = {(x.symbol, x.timestamp): x.value for x in ema}
@@ -138,7 +135,7 @@ def main():
         if p is None or ev is None or vv is None:
             continue
 
-        br, delta, count, s0, s1 = p
+        br, delta, count = p
         fs = FeatureSnapshot(
             symbol=c.symbol, timeframe_seconds=60, close=c.close, ema=ev, vwap=vv,
             buy_sell_delta=delta, buy_ratio=br, timestamp=c.end
@@ -156,8 +153,9 @@ def main():
 
         observations.append({
             "timestamp": c.end.isoformat(),
-            "sequence_first": s0,
-            "sequence_last": s1,
+            "sequence_first": None,
+            "sequence_last": None,
+            "sequence_semantics": "OPAQUE_INFORMATIONAL_METADATA_NOT_USED_FOR_ORDER_OR_IDENTITY",
             "entry_price": c.close,
             "exit_price": n.close,
             "gross_return": gross,
