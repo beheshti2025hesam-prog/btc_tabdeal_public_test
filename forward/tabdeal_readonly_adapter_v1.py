@@ -46,12 +46,6 @@ def parse_trade_frame(frame: dict[str, Any], *, as_of: datetime) -> dict[str, An
         raise ValueError("incomplete trade frame")
     # Sequence is source metadata: preserve its native scalar type and value.
     # Schema-specific type validation belongs to a reviewed source contract.
-    if sequence is not None and (
-        isinstance(sequence, bool)
-        or not isinstance(sequence, (int, str))
-        or sequence == ""
-    ):
-        raise ValueError("invalid sequence type")
     updated = _timestamp(ts)
     dt = datetime.fromisoformat(updated)
     if dt > as_of.astimezone(timezone.utc):
