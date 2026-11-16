@@ -53,3 +53,14 @@ def test_systemd_units_are_sandboxed_and_timers_are_separate():
     assert "03:30:00 UTC" in sync_timer
     assert "02:30:00 UTC" in local_timer
     assert "hes-restic-incremental-backup" in local_service
+
+
+def test_cache_exclusions_are_scoped_to_project_and_preserve_evidence_cache_names():
+    source = (OPS / "hes_restic_incremental_backup_v1.sh").read_text()
+    block = source.split("printf '%s\\n' \\", 1)[1].split(' > "$EXCLUDE"', 1)[0]
+    patterns = re.findall(r"'([^']+)'", block)
+    assert patterns
+    assert all(pattern.startswith("/opt/hes-trade-agent/") for pattern in patterns)
+    assert "/opt/hes-trade-agent/**/__pycache__" in patterns
+    assert not any(pattern.startswith("**/") for pattern in patterns)
+    assert not any("/srv/hes-evidence" in pattern for pattern in patterns)
