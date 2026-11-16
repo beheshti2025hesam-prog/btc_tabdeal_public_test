@@ -73,3 +73,11 @@ def test_collector_remains_disabled_by_default():
         assert "disabled" in str(exc)
     else:
         raise AssertionError("collector must remain disabled by default")
+
+
+
+def test_unexpected_sequence_json_shape_is_preserved_verbatim():
+    source = payload(sequence={"opaque": [1, 2, 3]})
+    record = normalize_trade(source)
+    assert record["sequence"] == {"opaque": [1, 2, 3]}
+    assert record["raw_payload"] == source
