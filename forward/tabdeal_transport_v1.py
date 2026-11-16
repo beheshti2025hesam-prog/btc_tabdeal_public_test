@@ -68,11 +68,6 @@ class TabdealReadOnlyTransportV1:
             record = parse_trade_frame(frame, as_of=self.as_of_provider())
             if self.on_frame_metadata is not None:
                 sequence_value = trade.get("sequence")
-                safe_sequence_value = (
-                    sequence_value if type(sequence_value) is int
-                    or (type(sequence_value) is str and len(sequence_value) <= 64)
-                    else None
-                )
                 self.on_frame_metadata({
                     "schema": "hes_transport_frame_fingerprint_v1",
                     "raw_frame_sha256": raw_frame_sha256,
@@ -82,7 +77,7 @@ class TabdealReadOnlyTransportV1:
                     "trade_keys": sorted(trade.keys()),
                     "sequence_field_path": "trade.sequence" if "sequence" in trade else None,
                     "sequence_value_type": type(sequence_value).__name__,
-                    "sequence_value": safe_sequence_value,
+                    "sequence_value": sequence_value,
                     "normalized_sequence": record.get("sequence"),
                 })
             self.on_record(record)
