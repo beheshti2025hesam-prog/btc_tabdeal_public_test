@@ -12,7 +12,7 @@ from typing import Any, Iterable
 
 from .candle_normalizer_v1 import TradeObservation, Candle15m, IntervalGap, normalize_trades
 
-REQUIRED = ("symbol", "price", "amount", "side", "source_updated", "sequence")
+REQUIRED = ("symbol", "price", "amount", "side", "source_updated")
 SOURCE = "tabdeal_ws_forward_v1"
 
 
@@ -42,8 +42,12 @@ def to_trade_observation(record: dict[str, Any], *, as_of: datetime) -> TradeObs
         raise ValueError("future source observation")
     if record["symbol"] != "BTC_USDT":
         raise ValueError("unsupported symbol")
-    sequence = record["sequence"]
-    if isinstance(sequence, bool) or not isinstance(sequence, (int, str)) or sequence == "":
+    sequence = record.get("sequence")
+    if sequence is not None and (
+        isinstance(sequence, bool)
+        or not isinstance(sequence, (int, str))
+        or sequence == ""
+    ):
         raise ValueError("invalid sequence type")
     return TradeObservation(
         symbol=record["symbol"],
