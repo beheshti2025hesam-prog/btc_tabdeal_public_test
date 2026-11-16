@@ -83,3 +83,15 @@ def test_volume_volatility_and_regime():
     assert vol.return_stddev > 0 and vol.average_true_range == (4 + 3) / 2
     regime = MarketRegimeClassifier().classify(candles)[0]
     assert regime.label == "uptrend"
+
+
+
+def test_equal_event_timestamp_different_prices_blocks_without_sequence_tiebreaker():
+    from core.models.trade import CanonicalTrade
+    import pytest
+
+    timestamp = datetime(2026, 9, 24, 0, 0, 1, tzinfo=timezone.utc)
+    first = CanonicalTrade("a", "test", "tabdeal", "BTC_USDT", 100, 1, "buy", timestamp, "1")
+    second = CanonicalTrade("b", "test", "tabdeal", "BTC_USDT", 101, 1, "buy", timestamp, "2")
+    with pytest.raises(ValueError, match="AMBIGUOUS_EQUAL_EVENT_TIMESTAMP_ORDER"):
+        TradeCandleAggregator(60).aggregate([first, second])
