@@ -1,0 +1,38 @@
+{
+  "schema": "hes_current_storage_footprint_v1",
+  "captured_utc": "2026-11-16T14:13:00Z",
+  "measurement": "du -sB1 allocated bytes; non-overlapping top-level roots",
+  "components": {
+    "/opt/hes-trade-agent": 6926864384,
+    "/srv/hes-evidence": 433963008,
+    "/var/backups/hes-trade-agent": 25428451328
+  },
+  "core_bytes": 7360827392,
+  "complete_local_hes_bytes": 32789278720,
+  "complete_local_hes_gib": 30.537,
+  "backup_subtrees": {
+    "encrypted_local_bytes": 17735966720,
+    "offsite_staging_bytes": 4098072576,
+    "restic_production_repo_bytes": 816357376
+  },
+  "counts": {
+    "local_full_archives": 8,
+    "offsite_staging_archives": 3,
+    "restic_snapshots": 3,
+    "full_scope_restic_snapshots": 1
+  },
+  "filesystem": {
+    "total_bytes": 53687091200,
+    "free_bytes_reported_rounded": "4.1 GiB",
+    "used_percent": 92
+  },
+  "targets": {
+    "core_under_10_gib": true,
+    "complete_footprint_under_10_gib": false
+  },
+  "mutations": {
+    "deletions": false,
+    "pruning": false,
+    "moves": false
+  }
+}

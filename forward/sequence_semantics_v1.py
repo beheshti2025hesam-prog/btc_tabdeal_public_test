@@ -6,6 +6,7 @@ scope-bound registry record and a pinned primary-source content hash.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -44,13 +45,24 @@ class SequenceCapabilitiesV1:
     source_content_sha256: str
     review_revision: str
     status: str
+    last_verified: str = ""
+    max_age_days: int = 90
     _issuer_token: object | None = field(default=None, repr=False, compare=False)
 
     @property
     def verified(self) -> bool:
+        try:
+            verified_on = date.fromisoformat(self.last_verified)
+            if not isinstance(self.last_verified, str) or verified_on.isoformat() != self.last_verified:
+                raise ValueError("date must use YYYY-MM-DD")
+            age_days = (datetime.now(timezone.utc).date() - verified_on).days
+            fresh = type(self.max_age_days) is int and 1 <= self.max_age_days <= 3650 and 0 <= age_days <= self.max_age_days
+        except (TypeError, ValueError):
+            fresh = False
         return (
             self._issuer_token is _REGISTRY_CAPABILITY_ISSUER
             and self.status == "VERIFIED"
+            and fresh
             and _sha256(self.registry_sha256)
             and _sha256(self.source_content_sha256)
             and bool(self.record_id and self.contract_key and self.field_path and self.scope and self.review_revision)
@@ -173,7 +185,7 @@ class SequenceIntegrityV2:
         self._count = 0
 
 
-DEFAULT_REGISTRY_SHA256 = "d4ca2bf1843fc32ac4bd0800b02d9e435083e74de48010c4b08294d255fee479"
+DEFAULT_REGISTRY_SHA256 = "e24b501ff93cc93ebe50e3794f98975250ddc22e5b391da6efc0fd2b30f02f9d"
 DEFAULT_TABDEAL_TRADE_RECORD_ID = "tabdeal_fapi_broadcast_trade_sequence_v1"
 TABDEAL_TRADE_SEQUENCE_KEY = {
     "venue": "tabdeal",
@@ -202,11 +214,26 @@ class SequenceSemanticsRegistryV1:
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_PAYLOAD_BYTES_MISMATCH")
         if payload.get("schema") != self.SCHEMA:
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_SCHEMA_INVALID")
+        registry_version = payload.get("registry_version", 1)
+        if type(registry_version) is not int or registry_version < 1:
+            raise SequenceSemanticsError("SEQUENCE_REGISTRY_VERSION_INVALID")
+        self.registry_version = registry_version
         records = payload.get("records")
         if not isinstance(records, list):
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_RECORDS_INVALID")
         if not _sha256(raw_sha256):
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_HASH_INVALID")
+        verification_policy = payload.get("verification_policy", {})
+        if not isinstance(verification_policy, dict):
+            raise SequenceSemanticsError("SEQUENCE_VERIFICATION_POLICY_INVALID")
+        max_age_days = verification_policy.get("max_age_days", 90)
+        if type(max_age_days) is not int or not 1 <= max_age_days <= 3650:
+            raise SequenceSemanticsError("SEQUENCE_VERIFICATION_MAX_AGE_INVALID")
+        if verification_policy.get("clock", "UTC") != "UTC":
+            raise SequenceSemanticsError("SEQUENCE_VERIFICATION_CLOCK_UNSUPPORTED")
+        if verification_policy.get("stale_behavior", "FAIL_CLOSED_NO_CAPABILITY") != "FAIL_CLOSED_NO_CAPABILITY":
+            raise SequenceSemanticsError("SEQUENCE_VERIFICATION_STALE_POLICY_UNSUPPORTED")
+        self.max_verification_age_days = max_age_days
         self.registry_sha256 = raw_sha256
         self._records: dict[str, dict[str, Any]] = {}
         self._keys: set[tuple[str, ...]] = set()
@@ -309,6 +336,18 @@ class SequenceSemanticsRegistryV1:
             raise SequenceSemanticsError("SEQUENCE_REGISTRY_SCOPE_MISMATCH")
         evidence = record.get("source_evidence", {})
         caps = record.get("capabilities", {})
+        last_verified = record.get("last_verified")
+        try:
+            verified_on = date.fromisoformat(last_verified)
+            if not isinstance(last_verified, str) or verified_on.isoformat() != last_verified:
+                raise ValueError("date must use YYYY-MM-DD")
+        except (TypeError, ValueError) as exc:
+            raise SequenceSemanticsError("SEQUENCE_VERIFICATION_DATE_INVALID") from exc
+        age_days = (datetime.now(timezone.utc).date() - verified_on).days
+        if age_days < 0:
+            raise SequenceSemanticsError("SEQUENCE_VERIFICATION_DATE_IN_FUTURE")
+        if age_days > self.max_verification_age_days:
+            raise SequenceSemanticsError("SEQUENCE_VERIFICATION_EXPIRED")
         if evidence.get("source_kind") != "primary" or not _sha256(evidence.get("source_content_sha256")):
             raise SequenceSemanticsError("SEQUENCE_PRIMARY_EVIDENCE_NOT_PINNED")
         if record.get("semantic_class") != "ORDERED_EVENT_SEQUENCE":
@@ -329,5 +368,7 @@ class SequenceSemanticsRegistryV1:
             source_content_sha256=evidence["source_content_sha256"],
             review_revision=record["independent_review_revision"],
             status=record["status"],
+            last_verified=last_verified,
+            max_age_days=self.max_verification_age_days,
             _issuer_token=_REGISTRY_CAPABILITY_ISSUER,
         )

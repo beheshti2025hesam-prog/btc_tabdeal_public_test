@@ -1,4 +1,5 @@
 """Synthetic-only registry fixture. Never use this evidence in production."""
+from datetime import date
 import hashlib
 import json
 
@@ -9,10 +10,11 @@ from forward.sequence_semantics_v1 import (
 )
 
 
-def verified_tabdeal_test_registry():
+def verified_tabdeal_test_registry(*, last_verified: str | None = None, max_age_days: int = 90):
     payload = {
         "schema": "hes_sequence_semantics_registry_v1",
         "registry_version": 1,
+        "verification_policy": {"max_age_days": max_age_days, "clock": "UTC", "stale_behavior": "FAIL_CLOSED_NO_CAPABILITY"},
         "records": [{
             "record_id": DEFAULT_TABDEAL_TRADE_RECORD_ID,
             "key": TABDEAL_TRADE_SEQUENCE_KEY,
@@ -33,6 +35,7 @@ def verified_tabdeal_test_registry():
                 "source_content_sha256": "a" * 64,
             },
             "status": "VERIFIED",
+            "last_verified": last_verified or date.today().isoformat(),
             "independent_review_revision": "synthetic-test-only",
         }],
     }

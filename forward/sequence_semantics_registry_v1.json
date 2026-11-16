@@ -1,6 +1,6 @@
 {
   "schema": "hes_sequence_semantics_registry_v1",
-  "registry_version": 1,
+  "registry_version": 2,
   "policy": "NO_RUNTIME_CAPABILITY_UNLESS_STATUS_VERIFIED_AND_SOURCE_HASH_REVIEW_PINS_PASS",
   "records": [
     {
@@ -846,5 +846,10 @@
         "evidence_note": "Candle open time is a bucket key; it is not a generic event sequence. HES current Gate.io feed consumes closed OHLCV candles."
       }
     }
-  ]
+  ],
+  "verification_policy": {
+    "max_age_days": 90,
+    "clock": "UTC",
+    "stale_behavior": "FAIL_CLOSED_NO_CAPABILITY"
+  }
 }
