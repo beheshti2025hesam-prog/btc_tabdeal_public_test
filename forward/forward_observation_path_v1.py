@@ -1,6 +1,6 @@
 """End-to-end forward observation path.
 
-Tabdeal read-only frame -> sequence -> closed candle -> structure -> regime
+Tabdeal read-only frame -> opaque sequence metadata -> closed candle -> structure -> regime
 -> quality -> deterministic snapshot -> append-only journal.
 
 Observation-only and fail-closed: no signals, trades, execution, historical
