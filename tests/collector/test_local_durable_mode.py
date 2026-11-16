@@ -16,6 +16,7 @@ def write_trade_csv(path: Path, rows):
 
 
 def test_local_durable_mode_skips_git_sync_and_publication(monkeypatch, tmp_path):
+    monkeypatch.setenv("HES_ALLOW_RETIRED_TABDEAL_COLLECTOR_TEST", "1")
     monkeypatch.chdir(tmp_path)
     write_trade_csv(
         tmp_path / "data/trades.csv",
@@ -45,6 +46,7 @@ def test_local_durable_mode_skips_git_sync_and_publication(monkeypatch, tmp_path
 
 
 def test_local_durable_mode_fails_closed_when_file_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("HES_ALLOW_RETIRED_TABDEAL_COLLECTOR_TEST", "1")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(collector, "LOCAL_DURABLE_MODE", True)
     monkeypatch.setattr(collector, "acquire_single_writer_lock", lambda: None)
@@ -60,6 +62,7 @@ def test_local_durable_mode_fails_closed_when_file_missing(monkeypatch, tmp_path
 
 @pytest.mark.parametrize("rows", [[], [["BTC_USDT", "100", "0.1", "Buy", "bad-time", "100"]]])
 def test_local_durable_mode_rejects_empty_or_invalid_evidence(monkeypatch, tmp_path, rows):
+    monkeypatch.setenv("HES_ALLOW_RETIRED_TABDEAL_COLLECTOR_TEST", "1")
     monkeypatch.chdir(tmp_path)
     write_trade_csv(tmp_path / "data/trades.csv", rows)
     monkeypatch.setattr(collector, "LOCAL_DURABLE_MODE", True)
