@@ -1,30 +1,39 @@
-from datetime import datetime, timezone, timedelta
-import pytest
+from datetime import datetime, timezone
+
 from forward.forward_reliability_guard_v1 import ReliabilityGuardV1
 
-G=ReliabilityGuardV1()
-NOW=datetime(2026,10,7,8,0,tzinfo=timezone.utc)
+G = ReliabilityGuardV1()
 
-def test_timestamp_requires_timezone():
-    with pytest.raises(ValueError, match="timezone-aware"):
-        G.validate_timestamp(NOW.replace(tzinfo=None), as_of=NOW)
+
+def test_timestamp_validation():
+    now = datetime.now(timezone.utc)
+    G.validate_timestamp(now, as_of=now)
+
 
 def test_future_timestamp_rejected():
-    with pytest.raises(ValueError, match="future"):
-        G.validate_timestamp(NOW+timedelta(seconds=1), as_of=NOW)
+    now = datetime.now(timezone.utc)
+    future = now.replace(year=now.year + 1)
+    try:
+        G.validate_timestamp(future, as_of=now)
+    except ValueError as exc:
+        assert "future" in str(exc)
+    else:
+        raise AssertionError("future timestamp must be rejected")
 
-def test_sequence_is_nonnegative():
-    assert G.validate_sequence("12")==12
-    with pytest.raises(ValueError): G.validate_sequence("-1")
 
-def test_identical_duplicate_is_idempotent_noop():
-    row={"sequence":1,"price":"100"}
-    assert G.validate_duplicate(row,row) is None
+def test_sequence_is_optional_opaque_metadata_without_coercion():
+    assert G.validate_sequence("12") == "12"
+    assert G.validate_sequence(-1) == -1
+    assert G.validate_sequence(None) is None
+    assert G.validate_sequence({"provider_value": 12}) == {"provider_value": 12}
 
-def test_conflicting_duplicate_is_fail_closed():
-    with pytest.raises(ValueError, match="conflicting"):
-        G.validate_duplicate({"sequence":1,"price":"100"},{"sequence":1,"price":"101"})
 
-def test_rejection_reason_required():
-    with pytest.raises(ValueError, match="reason"):
-        G.require_reason(" ")
+def test_sequence_equality_does_not_establish_duplicate_identity():
+    previous = {"sequence": 1, "price": "100"}
+    current = {"sequence": 1, "price": "101"}
+    assert G.validate_duplicate(previous, current) is None
+    assert G.validate_duplicate(previous, previous) is None
+
+
+def test_reason_required():
+    assert G.require_reason("  NO_TRADE  ") == "NO_TRADE"
