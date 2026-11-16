@@ -4,7 +4,7 @@ Data Contract v1.0.
 """
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
@@ -19,5 +19,5 @@ class CanonicalTrade:
     side: str
     timestamp: datetime
     # Opaque venue metadata; never assume it is an identity or ordering key.
-    sequence: Optional[int | str] = None
+    sequence: Any = None
     ingested_at: Optional[datetime] = None
