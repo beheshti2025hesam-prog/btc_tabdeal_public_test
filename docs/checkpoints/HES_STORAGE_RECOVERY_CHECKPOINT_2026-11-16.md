@@ -83,3 +83,18 @@ The draft implementation and full isolated archive restore are complete. Product
 ## Current footprint after verified offsite replacement — 2026-11-16 14:13 UTC
 
 A fresh direct allocated-byte measurement (non-overlapping roots) reports `/opt/hes-trade-agent` 6,926,864,384 bytes, `/srv/hes-evidence` 433,963,008 bytes, and `/var/backups/hes-trade-agent` 25,428,451,328 bytes. Core is 7,360,827,392 bytes (about 6.86 GiB); complete local HES footprint is 32,789,278,720 bytes (30.537 GiB). The backup root currently includes eight local full archives (17,735,966,720 bytes), three offsite staging archives (4,098,072,576 bytes), and the local Restic repository (816,357,376 bytes). Root filesystem reports 92% used and about 4.1 GiB free. The 10 GiB core target is met; the complete-footprint target is not. No files were deleted, pruned or moved. Evidence: `evidence/operations/hes_current_storage_footprint_20261116.json`.
+
+## Final superseding update — 2026-11-16 15:20 UTC
+
+The earlier HOLD / cleanup-not-authorized statements above are historical and are superseded by the explicit operator approval in this conversation and the completed migration below.
+
+- Complete local HES footprint, including retained backups: **9.0394 GiB**, under the 10 GiB limit. Root filesystem: 52% used, approximately 23 GiB free.
+- Dropbox now retains two independent recovery objects: the full-scope encrypted Restic repository at `HES Trade Agent Backups/restic-production-v1` (67 files, 978,987,537 bytes) and the compact AES-256/Zstandard archive `hes-recovery-core-latest.tar.zst.gpg` (398,216,865 bytes, 8,897 entries). Dropbox free capacity: **770,192,673 bytes**; 128 MiB reserve is preserved.
+- The full Restic recovery scope is now **43 roots**. In addition to the original 40, it includes `/usr/local/sbin/hes-operational-healthcheck`, `/usr/local/sbin/hes-restic-incremental-backup`, and `/usr/local/sbin/hes-restic-production-dropbox-sync`, so restored systemd units can re-establish their own backup automation.
+- Two full 43-root snapshots remain under the configured retention policy; the old 40-root and evidence-only predecessors were retired. Local and downloaded remote `restic check --read-data` passed **61/61 packs**, zero errors. Selective restore passed for **13/13 files** with Restic `--verify` and independent SHA-256 comparisons.
+- Local backup timer 02:30 UTC and full-scope Dropbox sync timer 03:30 UTC are enabled. Legacy full-archive and compact-only sync timers are disabled/retired. Retention: 7 daily / 4 weekly / 6 monthly / 2 yearly, grouped by `host,paths`.
+- The 8 legacy local full archives, 3 obsolete full staging archives, 3 superseded compact builds, Nov 7 project tarball, pre-change security snapshot, and temporary compact-only Restic repository were removed after checksum/scope verification and approval. The deletion inventory contains per-file hashes and reasons at `/srv/hes-evidence/operations/backup-retention/cleanup-20261116.json`.
+- Recovery passphrase remains operator-held/memorized off-VPS; the root-only working copy is excluded from all 43 backup roots and Dropbox objects.
+- Final machine-readable evidence: `/srv/hes-evidence/operations/backup-retention/final-storage-recovery-20261116.json`.
+
+No trading strategy, execution setting, market-data source, release pointer, or order path was changed.
