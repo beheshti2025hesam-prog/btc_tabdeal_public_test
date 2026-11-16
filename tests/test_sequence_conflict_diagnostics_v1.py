@@ -74,12 +74,11 @@ def test_repeated_sequence_is_not_a_conflict_identity_or_order_key():
     assert guard.observe(first).status == "ACCEPTED"
     event = guard.observe(conflicting)
 
-    assert event.status == "REJECT_STREAM"
-    assert event.reason == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
-    assert event.diagnostic["differing_fields"] == ["price"]
-    assert event.diagnostic["first_values"] == {"price": "100"}
-    assert event.diagnostic["conflicting_values"] == {"price": "101"}
-    assert event.diagnostic["first_payload_sha256"] != event.diagnostic["conflicting_payload_sha256"]
+    assert event.status == "ACCEPTED"
+    assert event.reason is None
+    assert event.diagnostic is None
+    assert len(guard._records) == 2
+    assert guard._records == [first, conflicting]
 
 
 def test_runner_preserves_repeated_sequence_values_without_blocking_or_deduping(tmp_path: Path):
