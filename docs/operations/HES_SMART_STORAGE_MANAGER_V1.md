@@ -154,3 +154,14 @@ The copy simulation produced an 818,060,463-byte remote repository (48/48 packs 
 Evidence is recorded in evidence/operations/hes_restic_offsite_capacity_gate_20261116.json. A new fail-closed preflight, scripts/ops/hes_restic_offsite_capacity_gate_v1.py, now compares the measured repository bytes with live rclone about hesdropbox: --json quota and a 64 MiB reserve. It rejects inconsistent quota readings and never authorizes transfer itself. With the observed Dropbox capacity (2,147,483,648 total; 1,366,621,708 used; 780,861,940 free) and the prototype's 818,060,463-byte repository, the gate returns BLOCKED_INSUFFICIENT_FREE_QUOTA: 104,307,387 bytes short including reserve (37,198,523 bytes short before reserve).
 
 This is a preflight implementation and a verified block, not an offsite deployment. The current Dropbox archive, checksum, manifest, and decompression sidecar were left untouched. No Restic remote repository was initialized; no upload, overwrite, deletion, local archive pruning, or service/timer change was made. Transfer remains blocked until enough free quota exists and a post-copy full integrity check plus selective/full restore are demonstrated.
+
+
+## 12. Restore compression detection hardening — 2026-11-16
+
+The encrypted archive verifier now determines the decoder from the first four bytes of the decrypted payload, not from the archive filename. It recognizes the gzip magic (1F 8B) and Zstandard frame magic (28 B5 2F FD), then streams the already-read prefix and remaining decrypted bytes into the selected decoder without buffering the archive to disk or memory. Filename suffix remains only a compatibility hint for callers that have not yet opened the encrypted stream; it is not authoritative during verification.
+
+Validation:
+- 11 archive-verifier tests passed, including wrong/misleading suffix and unknown-magic cases.
+- End-to-end encrypted fixtures passed in both directions: gzip payload named .tar.zst.gpg and zstd payload named .tar.gz.gpg were both detected from content and verified successfully.
+- Active and rollback release paths were required in both fixtures; extraction was not performed.
+- No production verifier was installed/replaced and no backup/restore service or timer was restarted. This change remains in the draft PR until review and the separate production rollout gate.
