@@ -5,11 +5,12 @@ from datetime import datetime
 import math
 from typing import Dict, Iterable, List
 
-REQUIRED_COLUMNS = {"symbol", "price", "amount", "side", "updated", "sequence"}
+REQUIRED_COLUMNS = {"symbol", "price", "amount", "side", "updated"}
 VALID_SIDES = {"buy", "sell"}
 
+
 class RawDataValidator:
-    """Validate raw trade structure and hard boundaries without mutation."""
+    """Validate trade fields; sequence is optional opaque metadata."""
     def validate_row(self, row: Dict[str, str]) -> List[str]:
         errors = []
         missing = REQUIRED_COLUMNS - set(row.keys())
@@ -27,8 +28,6 @@ class RawDataValidator:
             errors.append("Invalid side")
         if not row.get("updated"):
             errors.append("Empty updated timestamp")
-        if not row.get("sequence"):
-            errors.append("Empty sequence")
         try:
             price = float(row["price"])
             if not math.isfinite(price) or price <= 0:
@@ -42,12 +41,6 @@ class RawDataValidator:
         except (ValueError, TypeError):
             errors.append("Invalid amount")
         try:
-            sequence = int(row["sequence"])
-            if sequence <= 0:
-                errors.append("Invalid sequence")
-        except (ValueError, TypeError):
-            errors.append("Invalid sequence")
-        try:
             value = row["updated"]
             if value.endswith("Z"):
                 value = value[:-1] + "+00:00"
@@ -56,6 +49,7 @@ class RawDataValidator:
                 errors.append("Timestamp must be timezone-aware")
         except (ValueError, TypeError, AttributeError):
             errors.append("Invalid timestamp")
+        # Do not parse, require, compare, or reject optional trade.sequence metadata.
         return errors
 
     def validate_rows(self, rows: Iterable[Dict[str, str]]) -> Dict[str, int]:
