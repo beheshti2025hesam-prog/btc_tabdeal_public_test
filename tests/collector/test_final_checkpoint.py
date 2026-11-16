@@ -8,6 +8,7 @@ import tabdeal_futures_ws_test as collector
 
 
 def test_main_raises_when_final_checkpoint_fails(monkeypatch):
+    monkeypatch.setenv("HES_ALLOW_RETIRED_TABDEAL_COLLECTOR_TEST", "1")
     closed = {"value": False}
 
     monkeypatch.setattr(collector, "load_global_last_sequence", lambda: None)
@@ -27,6 +28,7 @@ def test_main_raises_when_final_checkpoint_fails(monkeypatch):
 
 
 def test_main_completes_when_final_checkpoint_succeeds(monkeypatch):
+    monkeypatch.setenv("HES_ALLOW_RETIRED_TABDEAL_COLLECTOR_TEST", "1")
     closed = {"value": False}
 
     monkeypatch.setattr(collector, "load_global_last_sequence", lambda: None)
@@ -42,3 +44,10 @@ def test_main_completes_when_final_checkpoint_succeeds(monkeypatch):
     collector.main()
 
     assert closed["value"] is True
+
+
+
+def test_legacy_collector_refuses_normal_startup(monkeypatch):
+    monkeypatch.delenv("HES_ALLOW_RETIRED_TABDEAL_COLLECTOR_TEST", raising=False)
+    with pytest.raises(RuntimeError, match="Legacy Tabdeal collector is retired"):
+        collector.main()
