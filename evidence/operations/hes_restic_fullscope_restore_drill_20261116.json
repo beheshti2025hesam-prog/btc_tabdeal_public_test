@@ -41,6 +41,19 @@
     "target": "temporary isolated path under /var/tmp; never restored over live root"
   },
   "integrity_check": "PASS_READ_DATA_45_OF_45_PACKS_NO_ERRORS",
+  "latest_local_gzip_archive": {
+    "active_release_present": true,
+    "archive_verifier": "PASS",
+    "bytes": 2454418968,
+    "extraction_performed": false,
+    "gpg_symmetric_aes256_decrypt": "PASS",
+    "gzip_integrity_test": "PASS",
+    "members": 60801,
+    "name": "hes-full-20261116T023147Z.tar.gz.gpg",
+    "rollback_release_present": true,
+    "sha256": "2df8ec077bc77029e611b42dca0d6c2973de08d5dedc28ec4378c0ed4943d9a6",
+    "unsafe_paths": 0
+  },
   "limitations": [
     "This is a full archive restore drill to an isolated directory on the same host, not a replacement-host boot or bare-metal OS rebuild.",
     "Temporary Restic repository used a disposable test password and was not uploaded or retained as a production repository.",
