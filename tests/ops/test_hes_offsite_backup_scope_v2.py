@@ -62,3 +62,11 @@ def test_local_and_offsite_v2_recovery_scopes_cover_same_host_state():
     for path in required:
         assert path in local
         assert path in offsite
+
+def test_offsite_compact_archive_is_capped_below_one_fifth_of_dropbox_basic():
+    text = SCRIPT.read_text()
+    assert "MAX_BYTES=$((400 * 1024 * 1024))" in text
+    assert "1536 * 1024 * 1024" not in text
+    cap = 400 * 1024 * 1024
+    quota = 2 * 1024 * 1024 * 1024
+    assert cap * 5 < quota
