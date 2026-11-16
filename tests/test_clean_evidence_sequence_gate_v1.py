@@ -39,10 +39,10 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     # negative tests below keep the real verifier wired and fail-closed.
     if request.node.name in {
         "test_verified_contract_accepts_unique_native_sequences_without_gap_assumptions",
-        "test_identical_repeated_sequence_is_not_idempotently_deduplicated",
+        "test_identical_repeated_sequence_is_preserved_not_deduplicated",
         "test_numeric_jump_does_not_itself_prove_loss",
         "test_decreasing_sequence_does_not_itself_prove_out_of_order",
-        "test_same_sequence_different_payload_blocks_evidence",
+        "test_same_sequence_different_payload_is_preserved",
         "test_native_string_sequence_is_preserved_not_integer_parsed",
         "test_unsupported_sequence_type_blocks_evidence",
     }:
@@ -78,12 +78,13 @@ def test_verified_contract_accepts_unique_native_sequences_without_gap_assumptio
     assert r.reason == "SOURCE_CONTRACT_GATES_VERIFIED"
 
 
-def test_identical_repeated_sequence_is_not_idempotently_deduplicated():
+def test_identical_repeated_sequence_is_preserved_not_deduplicated():
     x = rec(10)
-    r = verified_gate().evaluate([x, x, rec(11)])
-    assert not r.safe
-    assert r.reason == "REPEATED_SEQUENCE_IDENTITY_UNPROVEN"
-    assert r.accepted == ()
+    records = [x, x, rec(11)]
+    r = verified_gate().evaluate(records)
+    assert r.safe
+    assert r.reason == "SOURCE_CONTRACT_GATES_VERIFIED"
+    assert r.accepted == tuple(records)
 
 
 def test_numeric_jump_does_not_itself_prove_loss():
@@ -98,10 +99,11 @@ def test_decreasing_sequence_does_not_itself_prove_out_of_order():
     assert len(r.accepted) == 3
 
 
-def test_same_sequence_different_payload_blocks_evidence():
-    r = verified_gate().evaluate([rec(10, "1"), rec(10, "2")])
-    assert not r.safe
-    assert r.reason == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
+def test_same_sequence_different_payload_is_preserved():
+    records = [rec(10, "1"), rec(10, "2")]
+    r = verified_gate().evaluate(records)
+    assert r.safe
+    assert r.accepted == tuple(records)
 
 
 def test_native_string_sequence_is_preserved_not_integer_parsed():
@@ -114,3 +116,10 @@ def test_unsupported_sequence_type_blocks_evidence():
     r = verified_gate().evaluate([rec([])])
     assert not r.safe
     assert r.reason == "INVALID_SEQUENCE_TYPE"
+
+
+def test_missing_sequence_metadata_is_allowed():
+    record = {"price": "1", "amount": "1", "symbol": "BTC_USDT"}
+    r = verified_gate().evaluate([record])
+    assert r.safe
+    assert r.accepted == (record,)
