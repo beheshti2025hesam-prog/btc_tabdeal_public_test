@@ -1,7 +1,7 @@
 {
   "schema": "hes_controlled_forward_observation_runner_v1",
   "status": "ACTIVE_FAIL_CLOSED",
-  "purpose": "Prevent live observation from starting while upstream trade.sequence semantics are unverified",
+  "purpose": "Prevent live observation from starting until exact-feed sequence semantics, source completeness, source ordering, and evidence provenance are independently reviewed and pinned",
   "sequence_contract_verified_default": false,
   "sequence_contract_evidence_ref_required": true,
   "block_reason": "UPSTREAM_SEQUENCE_CONTRACT_UNVERIFIED",
@@ -38,5 +38,18 @@
     "pair_audit_record_required": true,
     "failure_mode": "BLOCKED",
     "production_observation_authorized": false
-  }
+  },
+  "sequence_semantics": {
+    "field": "trade.sequence",
+    "role": "INFORMATIONAL_METADATA_ONLY",
+    "required": false,
+    "used_for_identity": false,
+    "used_for_deduplication": false,
+    "used_for_ordering": false,
+    "used_for_gap_detection": false,
+    "repeated_values": "PRESERVE_EVERY_EVENT",
+    "numeric_jumps_or_decreases": "NO_INFERENCE"
+  },
+  "source_completeness_and_ordering_required": true,
+  "raw_trade_payload_persistence_required_before_any_future_production_capture": true
 }
