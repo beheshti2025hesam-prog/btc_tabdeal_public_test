@@ -7,7 +7,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class SequenceEvent:
-    sequence: int | str | None
+    sequence: Any
     status: str
     reason: str | None = None
     diagnostic: dict[str, Any] | None = None
@@ -29,13 +29,8 @@ class SequenceIntegrityV1:
         self._records: list[dict[str, Any]] = []
 
     @staticmethod
-    def _seq(value: Any) -> int | str | None:
-        if value is None:
-            return None
-        if isinstance(value, bool) or not isinstance(value, (int, str)):
-            raise ValueError("invalid sequence")
-        if value == "":
-            raise ValueError("invalid sequence")
+    def _seq(value: Any) -> Any:
+        # JSON-decoded provider metadata is preserved verbatim, regardless of type.
         return value
 
     def observe(self, record: dict[str, Any]) -> SequenceEvent:
