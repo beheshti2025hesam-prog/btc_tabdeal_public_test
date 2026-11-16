@@ -91,11 +91,14 @@ def test_disk_pressure_thresholds():
 def test_backup_integrity_gate_requires_remote_hash_and_size_match():
     backup = {
         "local_latest_sidecar_verified": True,
+        "local_evidence_store_covered": True,
         "offsite_latest_sidecar_verified": True,
+        "offsite_evidence_store_covered": True,
         "remote_hash_check": "NOT_RUN",
         "offsite_latest": {"size_bytes": 100},
         "dropbox_remote_latest": {"size_bytes": 100},
         "dropbox_quota": {"free_bytes": 500},
+        "dropbox_quota_guard": "PASS",
     }
     report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                                   backup_status=backup)
@@ -497,3 +500,45 @@ def test_linger_registry_symlink_entry_fails_closed(tmp_path):
 
     assert errors == 1
     assert any(row["property"] == "linger_entry_unexpected_type" for row in refs)
+
+
+def test_full_snapshot_selector_ignores_partial_and_future_snapshots():
+    from scripts.ops.hes_smart_cleanup_manager_v1 import _select_latest_full_snapshot
+    from datetime import timedelta
+    now = datetime(2026, 11, 16, 18, 0, tzinfo=timezone.utc)
+    roots = [f"/root/{i}" for i in range(41)] + ["/opt/hes-trade-agent", "/srv/hes-evidence"]
+    older = {"id": "older", "hostname": "hes-vps-recovery-v1", "tags": ["hes-full-recovery-v1"],
+             "paths": roots, "time": (now - timedelta(hours=1)).isoformat()}
+    partial = {**older, "id": "partial", "paths": ["/srv/hes-evidence"],
+               "time": (now + timedelta(minutes=1)).isoformat()}
+    future = {**older, "id": "future", "time": (now + timedelta(minutes=10)).isoformat()}
+    latest = {**older, "id": "latest", "time": (now - timedelta(minutes=2)).isoformat()}
+    chosen = _select_latest_full_snapshot([older, partial, future, latest], now=now)
+    assert chosen is not None and chosen["id"] == "latest"
+
+
+def test_restic_backup_gate_requires_evidence_coverage_hash_match_and_quota():
+    backup = {
+        "backup_backend": "restic",
+        "local_latest_sidecar_verified": True,
+        "local_evidence_store_covered": True,
+        "offsite_latest_sidecar_verified": True,
+        "offsite_evidence_store_covered": True,
+        "remote_hash_check": "PASS",
+        "offsite_latest": {"size_bytes": 1000},
+        "dropbox_remote_latest": {"size_bytes": 1000},
+        "dropbox_quota": {"free_bytes": 300 * 1024 * 1024},
+        "dropbox_quota_guard": "PASS",
+        "latest_full_restore_matches": False,
+    }
+    report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                           backup_status=backup, active_targets=[], pointer_errors=[])
+    assert report["recovery_gate"]["backup_integrity_gate"] == "PASS"
+    assert report["recovery_gate"]["archive_restore_gate"] == "STALE_OR_NOT_PROVEN"
+    assert report["recovery_gate"]["replacement_host_restore_gate"] == "NOT_PROVEN"
+    assert report["recovery_gate"]["full_restore_gate"] == "BLOCKED_NOT_PROVEN"
+    assert report["recovery_gate"]["cleanup_authorization"] is False
+    backup["dropbox_quota_guard"] = "BLOCKED_INSUFFICIENT_CAPACITY"
+    report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+                           backup_status=backup, active_targets=[], pointer_errors=[])
+    assert report["recovery_gate"]["backup_integrity_gate"] == "INCOMPLETE"
