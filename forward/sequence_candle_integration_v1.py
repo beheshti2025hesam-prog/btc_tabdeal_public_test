@@ -135,10 +135,7 @@ class SequenceAwareCandleIngestionV1:
             reason = str(exc)
             if "future" in reason.lower():
                 reason = "INVALID_FORWARD_INPUT"
-            elif reason not in {
-                "AMBIGUOUS_EQUAL_SOURCE_TIMESTAMP_ORDER",
-                "REPEATED_SEQUENCE_IDENTITY_UNPROVEN",
-            }:
+            elif reason != "AMBIGUOUS_EQUAL_SOURCE_TIMESTAMP_ORDER":
                 reason = "CANDLE_NORMALIZATION_FAILED"
             blocked_event = SequenceEvent(
                 self.sequence.last_sequence if self.sequence.last_sequence is not None else "",
