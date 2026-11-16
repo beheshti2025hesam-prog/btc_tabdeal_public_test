@@ -56,11 +56,28 @@ def test_mixed_symbols_are_rejected():
         )
 
 
-def test_conflicting_duplicate_sequence_is_rejected():
-    with pytest.raises(ValueError, match="Conflicting duplicate sequence"):
-        normalize_trades(
-            [t("2026-10-07T01:01:00", 1, "100"),
-             t("2026-10-07T01:02:00", 1, "101")],
-            as_of=datetime(2026, 10, 7, 1, 15, tzinfo=timezone.utc),
-            expected_symbol="BTC_USDT",
-        )
+def test_repeated_sequence_is_preserved_as_two_independent_trades():
+    candles, gaps = normalize_trades(
+        [t("2026-10-07T01:01:00", 1, "100"),
+         t("2026-10-07T01:02:00", 1, "101")],
+        as_of=datetime(2026, 10, 7, 1, 15, tzinfo=timezone.utc),
+        expected_symbol="BTC_USDT",
+    )
+    assert len(candles) == 1
+    assert candles[0].trade_count == 2
+    assert candles[0].first_sequence == 1
+    assert candles[0].last_sequence == 1
+    assert gaps == ()
+
+
+def test_missing_sequence_metadata_is_allowed():
+    candles, gaps = normalize_trades(
+        [t("2026-10-07T01:01:00", None, "100")],
+        as_of=datetime(2026, 10, 7, 1, 15, tzinfo=timezone.utc),
+        expected_symbol="BTC_USDT",
+    )
+    assert len(candles) == 1
+    assert candles[0].trade_count == 1
+    assert candles[0].first_sequence is None
+    assert candles[0].last_sequence is None
+    assert gaps == ()
