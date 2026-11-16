@@ -95,7 +95,8 @@ def test_future_input_fails_closed_when_contract_gate_is_explicitly_satisfied():
 
 def test_repeated_sequence_does_not_block_candle_evidence():
     now = datetime.now(timezone.utc)
-    timestamp = now - timedelta(minutes=30)
+    bucket_start = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
+    timestamp = bucket_start - timedelta(minutes=30)
     data = [
         rec(10, timestamp, "100"),
         rec(10, timestamp + timedelta(minutes=1), "101"),
