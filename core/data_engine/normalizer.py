@@ -5,11 +5,14 @@ import hashlib
 import math
 from datetime import datetime, timezone
 from typing import Dict
+
 from core.models.trade import CanonicalTrade
+
 
 class RawDataNormalizer:
     DEFAULT_SOURCE = "raw_csv"
     DEFAULT_EXCHANGE = "tabdeal"
+
     def __init__(self, source: str = DEFAULT_SOURCE, exchange: str = DEFAULT_EXCHANGE) -> None:
         if not source.strip():
             raise ValueError("source must not be empty")
@@ -17,6 +20,7 @@ class RawDataNormalizer:
             raise ValueError("exchange must not be empty")
         self.source = source
         self.exchange = exchange
+        self._row_ordinal = 0
 
     def normalize_row(self, row: Dict[str, str]) -> CanonicalTrade:
         symbol = row["symbol"]
@@ -24,8 +28,12 @@ class RawDataNormalizer:
         quantity = self._parse_float(row["amount"], "amount")
         side = row["side"].strip().lower()
         timestamp = self._parse_timestamp(row["updated"])
-        sequence = self._parse_int(row["sequence"], "sequence")
-        event_id = self._build_event_id(symbol, price, quantity, side, timestamp, sequence)
+        # trade.sequence is optional opaque metadata. Preserve the native CSV value.
+        sequence = row.get("sequence") or None
+        self._row_ordinal += 1
+        event_id = self._build_event_id(
+            self.source, self.exchange, symbol, price, quantity, side, timestamp, self._row_ordinal
+        )
         return CanonicalTrade(
             event_id=event_id, source=self.source, exchange=self.exchange,
             symbol=symbol, price=price, quantity=quantity, side=side,
@@ -43,16 +51,6 @@ class RawDataNormalizer:
         return parsed
 
     @staticmethod
-    def _parse_int(value: str, field_name: str) -> int:
-        try:
-            parsed = int(value)
-        except (ValueError, TypeError) as exc:
-            raise ValueError(f"Invalid {field_name}: {value!r}") from exc
-        if parsed <= 0:
-            raise ValueError(f"Invalid {field_name}: {value!r}")
-        return parsed
-
-    @staticmethod
     def _parse_timestamp(value: str) -> datetime:
         if not value:
             raise ValueError("Invalid timestamp: empty value")
@@ -66,6 +64,10 @@ class RawDataNormalizer:
         return timestamp.astimezone(timezone.utc)
 
     @staticmethod
-    def _build_event_id(symbol, price, quantity, side, timestamp, sequence) -> str:
-        payload = "|".join([symbol, str(price), str(quantity), side, timestamp.isoformat(), str(sequence)])
+    def _build_event_id(source, exchange, symbol, price, quantity, side, timestamp, row_ordinal) -> str:
+        # Row ordinal preserves separate receipt occurrences, including byte-identical rows.
+        payload = "|".join([
+            source, exchange, symbol, str(price), str(quantity), side,
+            timestamp.isoformat(), str(row_ordinal),
+        ])
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
