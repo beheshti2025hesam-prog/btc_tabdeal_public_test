@@ -7,7 +7,7 @@ compression, rotation, or service-mutation path. Unknown means KEEP.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import pwd
@@ -584,19 +584,210 @@ def _matches_unit(path: str, refs: list[dict[str, str]]) -> list[dict[str, str]]
     return matches[:30]
 
 
+def _select_latest_full_snapshot(snapshots: list[dict[str, Any]], *, now: datetime | None = None) -> dict[str, Any] | None:
+    """Select only a current, non-future, exact-host/tag full-scope Restic snapshot."""
+    now = now or datetime.now(timezone.utc)
+    valid: list[tuple[datetime, dict[str, Any]]] = []
+    for snapshot in snapshots:
+        paths = set(snapshot.get("paths") or [])
+        if snapshot.get("hostname") != "hes-vps-recovery-v1":
+            continue
+        if "hes-full-recovery-v1" not in (snapshot.get("tags") or []):
+            continue
+        if len(paths) != 43 or "/opt/hes-trade-agent" not in paths or "/srv/hes-evidence" not in paths:
+            continue
+        try:
+            captured = datetime.fromisoformat(str(snapshot.get("time", "")).replace("Z", "+00:00"))
+            if captured.tzinfo is None:
+                captured = captured.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        if captured <= now + timedelta(minutes=5):
+            valid.append((captured, snapshot))
+    return max(valid, key=lambda item: item[0])[1] if valid else None
+
+
+def _restic_backup_status() -> dict[str, Any]:
+    repo = Path("/var/backups/hes-trade-agent/restic-production-v1/repo")
+    key = Path("/root/.config/hes-backup/passphrase")
+    remote = "hesdropbox:HES Trade Agent Backups/restic-production-v1"
+    reserve_bytes = 128 * 1024 * 1024
+    result: dict[str, Any] = {
+        "backup_backend": "restic",
+        "local_latest": None,
+        "local_latest_sidecar_verified": False,
+        "local_evidence_store_covered": False,
+        "offsite_latest": None,
+        "offsite_latest_sidecar_verified": False,
+        "offsite_evidence_store_covered": False,
+        "dropbox_quota": None,
+        "dropbox_quota_status": "NOT_RUN",
+        "dropbox_remote_latest": None,
+        "remote_size_status": "NOT_RUN",
+        "dropbox_quota_guard": "INCOMPLETE",
+        "remote_hash_check": "NOT_RUN",
+        "full_restore_status": "NOT_PROVEN",
+        "latest_full_restore_matches": False,
+        "replacement_host_restore_status": "NOT_PROVEN",
+    }
+    if not repo.is_dir() or not key.is_file() or not shutil.which("restic"):
+        result["restic_status"] = "PREREQUISITE_MISSING"
+        return result
+
+    env = dict(os.environ)
+    env.update({
+        "RESTIC_REPOSITORY": str(repo),
+        "RESTIC_PASSWORD_FILE": str(key),
+        "RESTIC_CACHE_DIR": "/run/hes-restic",
+    })
+    try:
+        snapshots_run = subprocess.run(
+            ["restic", "snapshots", "--json"], capture_output=True, text=True,
+            timeout=90, check=False, env=env,
+        )
+        snapshots = json.loads(snapshots_run.stdout) if snapshots_run.returncode == 0 else []
+        full = _select_latest_full_snapshot(snapshots)
+        if full:
+            paths = set(full.get("paths") or [])
+            result["local_latest"] = {
+                "snapshot_id": full.get("id"),
+                "time": full.get("time"),
+                "host": full.get("hostname"),
+                "tags": full.get("tags") or [],
+                "roots": len(paths),
+                "size_bytes": None,
+            }
+            result["local_evidence_store_covered"] = "/srv/hes-evidence" in paths
+        else:
+            result["restic_status"] = "NO_VALID_43_ROOT_FULL_SNAPSHOT"
+
+        local_bytes = 0
+        local_files = 0
+        for base, dirs, files in os.walk(repo, followlinks=False):
+            dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(base, d))]
+            for name in files:
+                path = os.path.join(base, name)
+                try:
+                    st = os.stat(path, follow_symlinks=False)
+                except OSError:
+                    continue
+                if os.path.isfile(path) and not os.path.islink(path):
+                    local_bytes += st.st_size
+                    local_files += 1
+        if result["local_latest"] is not None:
+            result["local_latest"]["size_bytes"] = local_bytes
+            result["local_latest"]["file_count"] = local_files
+            result["offsite_latest"] = {
+                "path": remote,
+                "size_bytes": local_bytes,
+                "file_count": local_files,
+            }
+            result["offsite_evidence_store_covered"] = result["local_evidence_store_covered"]
+
+        local_check = subprocess.run(
+            ["restic", "check", "--read-data-subset=1/20"],
+            capture_output=True, text=True, timeout=240, check=False, env=env,
+        )
+        result["local_latest_sidecar_verified"] = local_check.returncode == 0
+        result["local_integrity_check"] = "PASS" if local_check.returncode == 0 else "FAIL"
+        result["local_integrity_detail"] = (local_check.stdout + local_check.stderr).strip()[-500:]
+
+        quota = subprocess.run(
+            ["rclone", "about", "hesdropbox:", "--json"],
+            capture_output=True, text=True, timeout=45, check=False,
+        )
+        if quota.returncode == 0:
+            q = json.loads(quota.stdout)
+            total, used, free = (int(q.get(k, 0)) for k in ("total", "used", "free"))
+            result["dropbox_quota"] = {
+                "total_bytes": total, "used_bytes": used, "free_bytes": free,
+                "used_percent": round(100 * used / total, 2) if total else None,
+            }
+            result["dropbox_quota_status"] = "PASS"
+        else:
+            result["dropbox_quota_status"] = "FAIL"
+            result["dropbox_quota_detail"] = quota.stderr.strip()[-500:]
+
+        remote_size = subprocess.run(
+            ["rclone", "size", remote, "--json"],
+            capture_output=True, text=True, timeout=90, check=False,
+        )
+        if remote_size.returncode == 0:
+            remote_data = json.loads(remote_size.stdout)
+            result["remote_size_status"] = "PASS"
+            remote_bytes = int(remote_data.get("bytes", 0))
+            remote_files = int(remote_data.get("count", 0))
+            result["dropbox_remote_latest"] = {
+                "size_bytes": remote_bytes, "file_count": remote_files,
+            }
+            result["remote_hash_check"] = "NOT_RUN"
+            if result["local_latest"] is not None:
+                check = subprocess.run(
+                    ["rclone", "check", str(repo), remote, "--checkers", "4"],
+                    capture_output=True, text=True, timeout=300, check=False,
+                )
+                result["remote_hash_check"] = "PASS" if check.returncode == 0 else "FAIL"
+                result["remote_hash_check_detail"] = (check.stdout + check.stderr).strip()[-500:]
+                result["offsite_latest_sidecar_verified"] = check.returncode == 0
+                result["offsite_latest"]["remote_file_count"] = remote_files
+                result["offsite_latest"]["remote_size_bytes"] = remote_bytes
+        else:
+            result["remote_size_status"] = "FAIL"
+            result["remote_size_detail"] = remote_size.stderr.strip()[-500:]
+
+        quota_data = result.get("dropbox_quota") or {}
+        if result.get("local_latest") and result.get("dropbox_remote_latest"):
+            free = int(quota_data.get("free_bytes", -1))
+            remote_bytes = int(result["dropbox_remote_latest"].get("size_bytes", -1))
+            required = int(result["local_latest"].get("size_bytes", -1))
+            if free >= 0 and remote_bytes >= 0 and required >= 0:
+                result["dropbox_quota_guard"] = (
+                    "PASS" if free + remote_bytes >= required + reserve_bytes else "BLOCKED_INSUFFICIENT_CAPACITY"
+                )
+
+        # A same-host archive restore is recorded separately from replacement-host recovery.
+        restore_evidence_candidates = (
+            Path("/srv/hes-evidence/operations/backup-retention/restic-latest-full-restore-20261116.json"),
+            Path("/srv/hes-evidence/operations/backup-retention/restore-drill-20261116.json"),
+        )
+        restore_evidence = next((path for path in restore_evidence_candidates if path.is_file()), None)
+        if restore_evidence is not None:
+            try:
+                evidence = json.loads(restore_evidence.read_text(encoding="utf-8"))
+                result["full_restore_status"] = evidence.get("result", "NOT_PROVEN")
+                result["restore_drill_snapshot_id"] = evidence.get("snapshot_id")
+                result["latest_full_restore_matches"] = bool(
+                    evidence.get("result") == "PASS"
+                    and evidence.get("restic_restore_verify") == "PASS"
+                    and evidence.get("temporary_target_cleanup") == "PASS"
+                    and evidence.get("snapshot_id")
+                    and result.get("local_latest")
+                    and evidence.get("snapshot_id") == result["local_latest"].get("snapshot_id")
+                )
+                result["restore_evidence_path"] = str(restore_evidence)
+            except (OSError, ValueError, TypeError):
+                result["full_restore_status"] = "EVIDENCE_UNREADABLE"
+    except (OSError, subprocess.TimeoutExpired, ValueError, TypeError, KeyError):
+        result["restic_status"] = "UNAVAILABLE_OR_UNPARSEABLE"
+    return result
+
+
 def _backup_status() -> dict[str, Any]:
+    """Prefer the production Restic repository; retain legacy read-only fallback."""
+    if Path("/var/backups/hes-trade-agent/restic-production-v1/repo").is_dir():
+        return _restic_backup_status()
+
     local_dir = Path("/var/backups/hes-trade-agent/encrypted-local")
     offsite_dir = Path("/var/backups/hes-trade-agent/offsite-staging")
     result: dict[str, Any] = {
-        "local_latest": None,
-        "local_latest_sidecar_verified": False,
-        "offsite_latest": None,
-        "offsite_latest_sidecar_verified": False,
-        "dropbox_quota": None,
-        "dropbox_remote_latest": None,
-        "remote_hash_check": "NOT_RUN",
-        "full_restore_status": "NOT_PROVEN",
-        "selective_restore_status": "PREVIOUSLY_REPORTED_PASS_NOT_REPEATED_BY_THIS_RUN",
+        "backup_backend": "legacy_gpg_archive",
+        "local_latest": None, "local_latest_sidecar_verified": False,
+        "local_evidence_store_covered": False, "offsite_latest": None,
+        "offsite_latest_sidecar_verified": False, "offsite_evidence_store_covered": False,
+        "dropbox_quota": None, "dropbox_remote_latest": None,
+        "remote_hash_check": "NOT_RUN", "dropbox_quota_guard": "INCOMPLETE",
+        "full_restore_status": "NOT_PROVEN", "latest_full_restore_matches": False,
+        "replacement_host_restore_status": "NOT_PROVEN",
     }
     local = sorted(local_dir.glob("hes-full-*.tar.gz.gpg"), key=lambda p: p.name, reverse=True)
     if local:
@@ -606,7 +797,6 @@ def _backup_status() -> dict[str, Any]:
         if sidecar.is_file():
             check = subprocess.run(["sha256sum", "-c", str(sidecar)], cwd=archive.parent, capture_output=True, text=True, timeout=180, check=False)
             result["local_latest_sidecar_verified"] = check.returncode == 0
-            result["local_latest_sha256_check"] = check.stdout.strip()[-300:] if check.returncode == 0 else check.stderr.strip()[-300:]
     offsite = sorted(offsite_dir.glob("hes-offsite-core-*.tar.gz.gpg"), key=lambda p: p.name, reverse=True)
     if offsite:
         archive = offsite[0]
@@ -622,21 +812,6 @@ def _backup_status() -> dict[str, Any]:
             total, used, free = (int(q.get(k, 0)) for k in ("total", "used", "free"))
             result["dropbox_quota"] = {"total_bytes": total, "used_bytes": used, "free_bytes": free,
                                         "used_percent": round(100 * used / total, 2) if total else None}
-        remote = subprocess.run(["rclone", "lsjson", "hesdropbox:HES Trade Agent Backups/hes-offsite-latest.tar.gz.gpg", "--stat"],
-                                capture_output=True, text=True, timeout=45, check=False)
-        if remote.returncode == 0:
-            data = json.loads(remote.stdout)
-            result["dropbox_remote_latest"] = {"size_bytes": int(data.get("Size", 0)), "modified": data.get("ModTime")}
-            if offsite:
-                with tempfile.TemporaryDirectory(prefix="hes-smart-cleanup-verify-", dir=str(offsite_dir)) as temp_dir:
-                    local_link = Path(temp_dir) / "hes-offsite-latest.tar.gz.gpg"
-                    os.link(offsite[0], local_link)
-                    check = subprocess.run(
-                        ["rclone", "check", temp_dir, "hesdropbox:HES Trade Agent Backups", "--one-way", "--checkers", "1"],
-                        capture_output=True, text=True, timeout=240, check=False,
-                    )
-                    result["remote_hash_check"] = "PASS" if check.returncode == 0 else "FAIL"
-                    result["remote_hash_check_detail"] = (check.stdout + check.stderr).strip()[-500:]
     except (OSError, subprocess.TimeoutExpired, ValueError, TypeError):
         result["dropbox_status"] = "UNAVAILABLE_OR_UNPARSEABLE"
     return result
@@ -749,9 +924,16 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
     backups = backup_status if backup_status is not None else _backup_status()
     remote_size_matches = bool(backups.get("offsite_latest") and backups.get("dropbox_remote_latest")
                                and int(backups["offsite_latest"].get("size_bytes", -1)) == int(backups["dropbox_remote_latest"].get("size_bytes", -2)))
-    backup_gate = bool(backups.get("local_latest_sidecar_verified") and backups.get("offsite_latest_sidecar_verified")
-                       and backups.get("remote_hash_check") == "PASS" and remote_size_matches
-                       and backups.get("dropbox_quota"))
+    backup_gate = bool(
+        backups.get("local_latest_sidecar_verified")
+        and backups.get("local_evidence_store_covered")
+        and backups.get("offsite_latest_sidecar_verified")
+        and backups.get("offsite_evidence_store_covered")
+        and backups.get("remote_hash_check") == "PASS"
+        and remote_size_matches
+        and backups.get("dropbox_quota")
+        and backups.get("dropbox_quota_guard") == "PASS"
+    )
     return {
         "schema": "hes_smart_cleanup_manager_v1",
         "generated_at": now.isoformat(),
@@ -775,9 +957,11 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         "backup_manager": backups,
         "recovery_gate": {
             "backup_integrity_gate": "PASS" if backup_gate else "INCOMPLETE",
+            "archive_restore_gate": "PASS" if backups.get("latest_full_restore_matches") else "STALE_OR_NOT_PROVEN",
+            "replacement_host_restore_gate": "NOT_PROVEN",
             "full_restore_gate": "BLOCKED_NOT_PROVEN",
             "cleanup_authorization": False,
-            "reason": "A selective restore is not a full-system recovery drill; no deletion can be authorized from this report.",
+            "reason": "Same-host archive restore and replacement-host recovery are separate gates; no deletion is authorized.",
         },
         "summary": {
             "keep": sum(x["decision"] == "KEEP" for x in items),

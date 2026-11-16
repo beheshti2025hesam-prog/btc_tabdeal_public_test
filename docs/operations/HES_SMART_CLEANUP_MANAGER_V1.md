@@ -63,3 +63,22 @@ The cleanup manager itself remains read-only and fail-closed; this backup change
 - Disk state after successful backup: 80% used, 9.7 GiB free; operational healthcheck returned overall=OK and 19.6% free.
 - The installed encrypted local-backup service and daily persistent timer remain active. This local archive is not evidence of a Dropbox restore; Dropbox offsite quota and restore verification remain a separate gate.
 - Smart Cleanup Manager remains read-only: no application data, backups, or logs were deleted by the cleanup manager.
+
+## Production Restic + Dropbox adapter — 2026-11-16
+
+The read-only backup adapter prefers the existing production Restic repository at
+/var/backups/hes-trade-agent/restic-production-v1/repo; it does not create a
+second repository or backup service. It selects only the latest non-future
+snapshot matching host hes-vps-recovery-v1, tag hes-full-recovery-v1, the
+43-root full-scope contract, and both the project and independent evidence roots.
+It then checks local Restic integrity, compares the local repository with the
+existing Dropbox restic-production-v1 destination using rclone check, reads the
+Basic quota, and applies the same 128 MiB reserve calculation as the existing
+sync runner. Partial evidence-only snapshots cannot masquerade as full
+recovery snapshots.
+
+Same-host isolated archive restore is reported separately from replacement-host
+boot/bare-metal recovery. Even with a passing archive-restore drill, the
+replacement-host gate remains NOT_PROVEN, the overall full-recovery gate
+remains blocked, and deletion authorization remains false. The previous GPG
+archive detector is retained only as a read-only legacy fallback.
