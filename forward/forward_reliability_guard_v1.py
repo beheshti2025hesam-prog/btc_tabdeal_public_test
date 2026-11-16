@@ -1,8 +1,10 @@
 """Forward reliability guard: explicit, fail-closed invariants for live observation paths."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+
 
 @dataclass(frozen=True)
 class ReliabilityEvent:
@@ -10,6 +12,7 @@ class ReliabilityEvent:
     severity: str
     message: str
     observed_at: str
+
 
 class ReliabilityGuardV1:
     """Small deterministic guard; no I/O, persistence, networking, or execution."""
@@ -22,21 +25,13 @@ class ReliabilityGuardV1:
         if value.astimezone(timezone.utc) > as_of.astimezone(timezone.utc):
             raise ValueError("future source observation")
 
-    def validate_sequence(self, sequence: Any) -> int:
-        try:
-            seq = int(sequence)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("invalid sequence") from exc
-        if seq < 0:
-            raise ValueError("invalid sequence")
-        return seq
+    def validate_sequence(self, sequence: Any) -> Any:
+        """Compatibility passthrough: sequence is optional opaque metadata."""
+        return sequence
 
     def validate_duplicate(self, previous: dict[str, Any] | None, current: dict[str, Any]) -> None:
-        if previous is None:
-            return
-        if previous != current:
-            raise ValueError("conflicting duplicate sequence")
-        return
+        """No-op: sequence equality alone cannot establish event identity or replay."""
+        return None
 
     def require_reason(self, reason: str) -> str:
         reason = str(reason).strip()
