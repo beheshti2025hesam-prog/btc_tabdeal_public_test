@@ -1,16 +1,7 @@
-"""Forward collector adapter boundary.
-
-This module deliberately does NOT import or execute the legacy collector's
-GitHub checkpoint/push path. It defines a branch-safe handoff contract for
-fresh observations only.
-
-The adapter remains disabled until an explicit runtime implementation is
-wired and tested.
-"""
-
+"""Forward collector adapter boundary; sequence is optional opaque metadata."""
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
 
 
 @dataclass(frozen=True)
@@ -20,12 +11,11 @@ class ForwardObservation:
     amount: float
     side: str
     observed_at: datetime
-    sequence: int
+    sequence: Any = None
 
 
 class ForwardCollectorAdapterV1:
     """Fail-closed adapter for fresh forward observations."""
-
     def __init__(self, *, enabled: bool = False) -> None:
         self.enabled = enabled
 
@@ -34,7 +24,6 @@ class ForwardCollectorAdapterV1:
             raise RuntimeError(
                 "Forward collector adapter is disabled until branch-safe runtime wiring is verified."
             )
-
         result: list[ForwardObservation] = []
         for item in observations:
             result.append(
@@ -44,7 +33,7 @@ class ForwardCollectorAdapterV1:
                     amount=float(item["amount"]),
                     side=str(item["side"]),
                     observed_at=item["observed_at"],
-                    sequence=int(item["sequence"]),
+                    sequence=item.get("sequence"),
                 )
             )
         return tuple(result)
