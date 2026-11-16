@@ -31,10 +31,11 @@ printf '%s\n' \
   '/opt/hes-trade-agent/.pytest_cache' \
   '/opt/hes-trade-agent/.mypy_cache' \
   '/opt/hes-trade-agent/.ruff_cache' \
-  '**/__pycache__' \
-  '**/.pytest_cache' \
-  '**/.mypy_cache' \
-  '**/.ruff_cache' > "$EXCLUDE"
+  '/opt/hes-trade-agent/__pycache__' \
+  '/opt/hes-trade-agent/**/__pycache__' \
+  '/opt/hes-trade-agent/**/.pytest_cache' \
+  '/opt/hes-trade-agent/**/.mypy_cache' \
+  '/opt/hes-trade-agent/**/.ruff_cache' > "$EXCLUDE"
 while IFS= read -r d; do
   [[ "$d" == "$ACTIVE" || "$d" == "$ROLLBACK" ]] || printf '%s\n' "$d" >> "$EXCLUDE"
 done < <(find /opt/hes-trade-agent/releases -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort)

@@ -38,4 +38,5 @@ The compact archive can independently be verified and listed with GPG and Zstand
 - Dropbox upload is blocked unless current free capacity plus any existing remote repository size can accommodate the complete local repository and a 128 MiB reserve.
 - Remote repository sync is checked after transfer; mismatch fails the job.
 - Local backup stops if disk free space falls below 512 MiB or operational health is not healthy.
+- Cache exclusions are scoped strictly to /opt/hes-trade-agent; /srv/hes-evidence is never excluded by cache name and is backed up verbatim, including cache-named evidence artifacts.
 - Backup jobs do not modify trading execution, strategies, market-data sources, release pointers, or order settings.
