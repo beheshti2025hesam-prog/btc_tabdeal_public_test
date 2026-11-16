@@ -94,7 +94,7 @@ class RealDataBacktest:
 
     def run(self) -> RealDataBacktestResult:
         trades, rows_read, rows_invalid = self._load_trades()
-        trades.sort(key=lambda t: (t.timestamp, t.sequence or -1))
+        trades.sort(key=lambda t: t.timestamp)
 
         candles = TradeCandleAggregator(self.timeframe_seconds).aggregate(trades)
         ema = EMACalculator(self.ema_period).calculate(candles)
