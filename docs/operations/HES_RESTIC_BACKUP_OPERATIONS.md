@@ -17,7 +17,7 @@ The former 1.37 GB daily full-archive Dropbox job is retired. The full-scope Res
 | `hes-encrypted-local-backup.timer` | Daily 02:30 UTC, up to 20 min random delay | Incremental Restic backup of 43 recovery roots; health and free-space gates; exact full-scope verification; scope-aware retention; partial read-data integrity check |
 | `hes-restic-production-dropbox-sync.timer` | Daily 03:30 UTC, up to 5 min random delay | Quota-guarded `rclone sync`, 128 MiB reserve, then bidirectional `rclone check` |
 
-The legacy `hes-dropbox-offsite.timer` and temporary compact-only `hes-restic-production-dropbox-sync.timer` are disabled. The full-scope production sync timer is enabled.
+The legacy `hes-dropbox-offsite.timer` and temporary compact-only `hes-restic-dropbox-sync.timer` are disabled. The full-scope production sync timer is enabled.
 
 ## Retention safety
 
