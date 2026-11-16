@@ -41,6 +41,8 @@ def resolve_precision_setup_context(
         return None, "AMBIGUOUS_IMMUTABLE_15M_SETUP"
 
     row = matches[0]
+    if row.get("final_gate_decision") != "NO_TRADE":
+        return None, "FINAL_POLICY_GATE_NOT_CLOSED"
     context = row["entry_context"]
     source_gate = row["gate_evidence"]
     if row.get("candidate_event_id") != f"hes-v2-candidate-BTC_USDT-15m-{candle_time}":
