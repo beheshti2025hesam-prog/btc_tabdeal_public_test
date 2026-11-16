@@ -1,4 +1,4 @@
-name: HES Trade Agent — Source Identity Reconciliation Lock v1
+name: HES Trade Agent — Historical Source Bytes & Return Arithmetic Check v2
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  lock:
+  historical-source-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -31,13 +31,13 @@ jobs:
           test "$actual" = "$EXPECTED_SHA"
           printf 'EXACT_CHECKOUT_SHA=%s\\n' "$actual"
 
-      - name: Fetch exact source commits
+      - name: Fetch exact historical source commits
         run: |
           git fetch --no-tags origin b8c4fe4fa054dbfa4fca17d2f307d269c16335e1
           git fetch --no-tags origin b9ebecf061dfe9a084797d77b48a2c7846d269e3
           git fetch --no-tags origin e5f85f06b19b8427f761b95ab56ad15ccd7053c0
 
-      - name: Verify source bytes and all 42 record lineages
+      - name: Verify source bytes and recompute historical return arithmetic without sequence identity
         run: |
           python - <<'PY'
           import csv, hashlib, io, json, math, subprocess
@@ -45,7 +45,7 @@ jobs:
           from decimal import Decimal
           from pathlib import Path
 
-          p = Path("evidence/source_identity_reconciliation_v1.json")
+          p = Path("evidence/source_identity_reconciliation_v2.json")
           raw = p.read_bytes()
           d = json.loads(raw)
 
@@ -65,8 +65,18 @@ jobs:
               assert rows and rows[0].get("symbol") == "BTC_USDT"
               return rows, actual_blob, len(raw_source)
 
-          assert d["status"] == "SOURCE_IDENTITY_LOCKED"
+          assert d["status"] == "HISTORICAL_RESEARCH_ONLY_SEQUENCE_IDENTITY_UNVERIFIED"
           assert d["protocol"] == {"train":800,"test":400,"step":400,"folds":8,"gross_threshold_bps":14}
+          assert d["record_key"] == ["timestamp","entry_price","exit_price","gross_return","direction"]
+          policy = d["sequence_metadata_policy"]
+          assert policy["semantics"] == "OPAQUE_INFORMATIONAL_METADATA_ONLY"
+          assert policy["used_for_identity"] is False
+          assert policy["used_for_row_lookup"] is False
+          assert policy["used_for_range_selection"] is False
+          assert policy["used_for_ordering"] is False
+          assert policy["used_for_gap_detection"] is False
+          assert policy["used_for_deduplication"] is False
+
           assert d["sources"]["prior"]["raw_blob_sha"] == "1a44d52a0588deb765bbbea04bfb5783dcb1050b"
           assert d["sources"]["prior"]["source_commit"] == "b8c4fe4fa054dbfa4fca17d2f307d269c16335e1"
           assert d["sources"]["current"]["raw_blob_sha"] == "58d21825e052dbaa42e7eb0695455c19997bff43"
@@ -99,33 +109,39 @@ jobs:
           }
 
           keys = []
+          entry_price_sanity = exit_price_sanity = timestamp_range_checks = 0
           for r in records:
               lineage = r["lineage"]
               assert lineage in source_sets
-              k = tuple(r[x] for x in d["record_key"])
-              keys.append((lineage, k))
+              key = tuple(r[x] for x in d["record_key"])
+              keys.append((lineage, key))
               assert r["evaluated"] is True
               assert r["gross_return"] > 0.0014
               rows = source_sets[lineage]
 
-              first_seq, last_seq = str(r["sequence_first"]), str(r["sequence_last"])
-              first_hits = [i for i, row in enumerate(rows) if row["sequence"] == first_seq]
-              last_hits = [i for i, row in enumerate(rows) if row["sequence"] == last_seq]
-              assert len(first_hits) == 1, {"lineage":lineage,"sequence_first":first_seq,"hits":len(first_hits)}
-              assert len(last_hits) == 1, {"lineage":lineage,"sequence_last":last_seq,"hits":len(last_hits)}
-              first_i, last_i = first_hits[0], last_hits[0]
-              assert first_i <= last_i, {"lineage":lineage,"sequence_first":first_seq,"sequence_last":last_seq}
-              interval = rows[first_i:last_i + 1]
-              assert interval and all(row["symbol"] == "BTC_USDT" for row in interval)
-
               entry = Decimal(str(r["entry_price"]))
               exit_ = Decimal(str(r["exit_price"]))
-              assert any(Decimal(row["price"]) == entry for row in interval), {
-                  "lineage":lineage,"timestamp":r["timestamp"],"entry_price":str(entry)
-              }
-
+              assert entry > 0 and exit_ > 0
               event_time = datetime.fromisoformat(r["timestamp"].replace("Z", "+00:00"))
               assert event_time.tzinfo is not None and event_time.utcoffset() is not None
+              row_times = [
+                  datetime.fromisoformat(row["updated"].replace("Z", "+00:00"))
+                  for row in rows
+              ]
+              assert min(row_times) <= event_time <= max(row_times)
+              timestamp_range_checks += 1
+
+              # Sanity only: this does not prove a unique trade identity or a sequence interval.
+              entry_rows = [
+                  row for row in rows
+                  if Decimal(row["price"]) == entry
+                  and datetime.fromisoformat(row["updated"].replace("Z", "+00:00")) <= event_time
+              ]
+              assert entry_rows, {
+                  "lineage":lineage,"timestamp":r["timestamp"],"entry_price":str(entry)
+              }
+              entry_price_sanity += 1
+
               minute = event_time.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M")
               exit_rows = [
                   row for row in rows
@@ -135,8 +151,7 @@ jobs:
               assert exit_rows, {
                   "lineage":lineage,"timestamp":r["timestamp"],"exit_price":str(exit_)
               }
-              last_time = datetime.fromisoformat(rows[last_i]["updated"])
-              assert last_time.tzinfo is not None and last_time < event_time
+              exit_price_sanity += 1
 
               calculated = (
                   (exit_ - entry) / entry if r["direction"] == "LONG"
@@ -150,12 +165,12 @@ jobs:
               }
 
           assert len(keys) == len(set(keys))
-          prior_keys = {k for lineage,k in keys if lineage == "prior_14_survivor"}
-          current_keys = {k for lineage,k in keys if lineage == "current_28_winner"}
+          prior_keys = {key for lineage, key in keys if lineage == "prior_14_survivor"}
+          current_keys = {key for lineage, key in keys if lineage == "current_28_winner"}
           assert prior_keys.isdisjoint(current_keys)
 
           lock = {
-              "status":"SOURCE_IDENTITY_RECONCILIATION_HASH_LOCKED",
+              "status":"SOURCE_BYTES_AND_RETURN_ARITHMETIC_RECONCILED_SEQUENCE_IDENTITY_UNVERIFIED",
               "artifact_path":str(p),
               "artifact_sha256":hashlib.sha256(raw).hexdigest(),
               "artifact_bytes":len(raw),
@@ -172,24 +187,33 @@ jobs:
                   "current_source_bytes":current_bytes,
                   "current_source_rows":len(current_rows),
                   "protocol_contract_blob_verified":True,
-                  "sequence_endpoints_verified":42,
-                  "entry_prices_verified_within_sequence_ranges":42,
-                  "exit_prices_verified_at_record_minute":42,
-                  "gross_returns_recomputed":42,
+                  "event_timestamp_range_sanity_checks":timestamp_range_checks,
+                  "entry_price_prior_occurrence_sanity_checks":entry_price_sanity,
+                  "exit_price_at_record_minute_sanity_checks":exit_price_sanity,
+                  "gross_returns_recomputed":42
               },
-              "safety":d["claim_boundary"],
+              "sequence_policy":{
+                  "sequence_fields_preserved_as_metadata":True,
+                  "sequence_used_for_identity":False,
+                  "sequence_used_for_row_lookup":False,
+                  "sequence_used_for_range_selection":False,
+                  "sequence_used_for_ordering":False,
+                  "sequence_used_for_gap_detection":False,
+                  "sequence_endpoints_verified":False
+              },
+              "claim_boundary":d["claim_boundary"]
           }
-          Path("evidence/source_identity_reconciliation_v1.lock.json").write_text(
-              json.dumps(lock, indent=2) + "\n", encoding="utf-8"
+          Path("evidence/source_identity_reconciliation_v2.lock.json").write_text(
+              json.dumps(lock, indent=2) + "\\n", encoding="utf-8"
           )
           print(json.dumps(lock, indent=2))
           PY
 
-      - name: Upload immutable reconciliation artifact
+      - name: Upload historical research-only reconciliation artifact
         uses: actions/upload-artifact@v4
         with:
-          name: source-identity-reconciliation-v1
+          name: historical-source-arithmetic-reconciliation-v2
           path: |
-            evidence/source_identity_reconciliation_v1.json
-            evidence/source_identity_reconciliation_v1.lock.json
+            evidence/source_identity_reconciliation_v2.json
+            evidence/source_identity_reconciliation_v2.lock.json
           if-no-files-found: error
