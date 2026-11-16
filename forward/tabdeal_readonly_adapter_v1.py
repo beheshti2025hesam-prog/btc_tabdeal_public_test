@@ -40,13 +40,17 @@ def parse_trade_frame(frame: dict[str, Any], *, as_of: datetime) -> dict[str, An
     price = frame.get("price", frame.get("p"))
     amount = frame.get("amount", frame.get("q"))
     side = frame.get("side", frame.get("S"))
-    sequence = frame.get("sequence", frame.get("seq", frame.get("id")))
+    sequence = frame.get("sequence")
     ts = frame.get("source_updated", frame.get("timestamp", frame.get("T", frame.get("time"))))
-    if any(v is None for v in (price, amount, side, sequence, ts)):
+    if any(v is None for v in (price, amount, side, ts)):
         raise ValueError("incomplete trade frame")
     # Sequence is source metadata: preserve its native scalar type and value.
     # Schema-specific type validation belongs to a reviewed source contract.
-    if isinstance(sequence, bool) or not isinstance(sequence, (int, str)) or sequence == "":
+    if sequence is not None and (
+        isinstance(sequence, bool)
+        or not isinstance(sequence, (int, str))
+        or sequence == ""
+    ):
         raise ValueError("invalid sequence type")
     updated = _timestamp(ts)
     dt = datetime.fromisoformat(updated)
