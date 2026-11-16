@@ -68,7 +68,19 @@ MANIFEST_PARTIAL_FILE="$manifest_tmp"
 
 [[ ! -e "$final" && ! -e "$tmp" ]] || { echo 'refusing to overwrite an existing backup'; exit 17; }
 
-paths=(opt/hes-trade-agent srv/hes-evidence etc/ssh etc/nftables.conf etc/systemd/system)
+# Recovery-critical host configuration and state. These paths are protected by
+# the existing AES-256 encrypted archive; the archive passphrase remains external.
+# Keep credentials/configuration needed to reconnect and reproduce the host, but
+# never include the backup encryption key itself.
+paths=(
+  opt/hes-trade-agent srv/hes-evidence
+  etc/ssh etc/nftables.conf etc/systemd/system etc/ufw etc/netplan
+  etc/apt etc/sentinelx etc/hes-trade-agent etc/sysctl.d etc/modules-load.d
+  etc/fstab etc/hosts etc/hostname
+  var/lib/dpkg/status var/lib/apt/extended_states
+  var/lib/hes-operational-health var/lib/systemd
+  root/.ssh root/.config/rclone
+)
 for p in etc/xray etc/nginx usr/local/sbin/hes-operational-healthcheck usr/local/sbin/hes-runtime-healthcheck usr/local/sbin/hes-encrypted-local-backup; do
   [[ ! -e "/$p" && ! -L "/$p" ]] || paths+=("$p")
 done
@@ -129,7 +141,7 @@ Required evidence store: /srv/hes-evidence (coverage verified by archive listing
 Evidence store entries: $expected_evidence_entries
 Active release: $ACTIVE_REL
 Rollback release: $ROLLBACK_REL
-Included roots: /opt/hes-trade-agent, /srv/hes-evidence, /etc/ssh, /etc/nftables.conf, /etc/systemd/system and optional configured HES runtime paths.
+Included roots: project and evidence stores; SSH, nftables, systemd, UFW, netplan, APT, SentinelX and HES runtime configuration; sysctl/modules, host identity/network mount files; dpkg/apt package state; HES operational state; root SSH and rclone configuration. All included secrets are protected by AES-256 encryption. The backup encryption passphrase itself is intentionally excluded and must remain in separate secure escrow.
 External recovery secret: /root/.config/hes-backup/passphrase is intentionally NOT included.
 Encryption: GPG symmetric AES-256.
 EOF

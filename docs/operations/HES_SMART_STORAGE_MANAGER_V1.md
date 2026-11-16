@@ -182,3 +182,11 @@ A fresh root-run, read-only IDLM + dependency-aware Smart Cleanup + Storage Mana
 - Dropbox quota remains 780,861,940 bytes free.
 
 Interpretation: the project and independent evidence set are already under 10 GiB. The excess is overwhelmingly backup/staging copies, not the active agent core. The Restic prototype currently covers /opt/hes-trade-agent and /srv/hes-evidence, but it is not yet proven to replace the complete encrypted system backup roots (SSH, firewall, systemd/runtime configuration, dependency metadata). Do not delete or prune the existing eight local archives or two staging archives until a complete replacement scope is built, full recovery is validated, and offsite capacity is available. No production backup, retention, Dropbox object, service, timer, release pointer, or evidence file was changed by this audit.
+
+### 14. Recovery-scope completeness correction — 2026-11-16
+
+A live comparison of the installed local backup and Dropbox offsite builder found that the previous explicit path lists omitted recovery-critical host state: UFW and netplan configuration, APT sources/preferences and package state, SentinelX host configuration, sysctl/modules configuration, HES operational state, root SSH material, and the rclone remote configuration. The backup encryption passphrase remains intentionally external.
+
+The draft v2 local-backup candidate now adds these paths to its encrypted archive scope and updates its coverage manifest. The scope is still a candidate only: no production script or unit was replaced, no backup was created, and no retention/deletion was run as part of this change.
+
+Important remaining gate: the installed offsite builder has a separate explicit path list and has not yet been brought into parity with the expanded local candidate. The current Dropbox archive therefore must not be treated as a complete system-recovery replacement. Before migration, both local and offsite archive scopes must be aligned, their manifests must enumerate required roots, and an isolated restore must validate the sensitive host configuration and application/runtime recovery. The external backup passphrase must remain available through separate secure escrow; it must never be included in its own archive.

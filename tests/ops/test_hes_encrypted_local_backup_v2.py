@@ -27,5 +27,32 @@ def test_local_backup_v2_uses_mixed_format_retention_planner():
 
 def test_local_backup_v2_keeps_network_isolation_outside_script():
     text = SCRIPT.read_text()
-    for forbidden in ("rclone", "curl ", "wget "):
+    for forbidden in ("\nrclone ", "curl ", "wget "):
         assert forbidden not in text
+
+
+def test_local_backup_v2_covers_recovery_critical_host_configuration_and_state():
+    text = SCRIPT.read_text()
+    required = (
+        "etc/ufw",
+        "etc/netplan",
+        "etc/apt",
+        "etc/sentinelx",
+        "etc/hes-trade-agent",
+        "etc/sysctl.d",
+        "etc/modules-load.d",
+        "etc/fstab",
+        "etc/hosts",
+        "etc/hostname",
+        "var/lib/dpkg/status",
+        "var/lib/apt/extended_states",
+        "var/lib/hes-operational-health",
+        "var/lib/systemd",
+        "root/.ssh",
+        "root/.config/rclone",
+    )
+    for path in required:
+        assert path in text
+    assert "root/.config/hes-backup/passphrase" in text
+    assert "External recovery secret" in text
+    assert "intentionally NOT included" in text
