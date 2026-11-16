@@ -20,7 +20,7 @@ class TradeObservation:
     amount: Decimal
     side: str
     updated: datetime
-    sequence: int | str | None
+    sequence: object | None
 
 
 @dataclass(frozen=True)
@@ -35,8 +35,8 @@ class Candle15m:
     close: Decimal
     volume: Decimal
     trade_count: int
-    first_sequence: int | str | None
-    last_sequence: int | str | None
+    first_sequence: object | None
+    last_sequence: object | None
     source_first_observed_at: datetime
     source_last_observed_at: datetime
 
@@ -86,13 +86,6 @@ def normalize_trades(
             raise ValueError("observation occurs after as_of")
         if trade.price <= 0 or trade.amount < 0:
             raise ValueError("price must be > 0 and amount must be >= 0")
-        if trade.sequence is not None and (
-            isinstance(trade.sequence, bool)
-            or not isinstance(trade.sequence, (int, str))
-            or trade.sequence == ""
-        ):
-            raise ValueError("invalid sequence type")
-
         if symbol is None:
             symbol = trade.symbol
         if trade.symbol != symbol:
