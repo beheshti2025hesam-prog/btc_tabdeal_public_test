@@ -41,8 +41,9 @@ def pinned_test_evidence_registry(tmp_path: Path, monkeypatch, request):
     # Dedicated negative tests still use the real production verifier.
     if request.node.name in {
         "test_future_input_fails_closed_when_contract_gate_is_explicitly_satisfied",
-        "test_conflicting_sequence_reuse_blocks_candle_evidence",
+        "test_repeated_sequence_does_not_block_candle_evidence",
         "test_unverified_sequence_jump_does_not_infer_a_missing_trade",
+        "test_equal_event_timestamp_different_prices_blocks_without_sequence_ordering",
     }:
         monkeypatch.setattr(sequence_gate_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
         monkeypatch.setattr(integration_module, "verify_source_evidence_bundle", lambda *args, **kwargs: object())
@@ -92,14 +93,18 @@ def test_future_input_fails_closed_when_contract_gate_is_explicitly_satisfied():
     assert not r.safe and r.reason == "INVALID_FORWARD_INPUT"
 
 
-def test_conflicting_sequence_reuse_blocks_candle_evidence():
+def test_repeated_sequence_does_not_block_candle_evidence():
     now = datetime.now(timezone.utc)
-    timestamp = now - timedelta(minutes=20)
-    data = [rec(10, timestamp, "100"), rec(10, timestamp, "101")]
+    timestamp = now - timedelta(minutes=30)
+    data = [
+        rec(10, timestamp, "100"),
+        rec(10, timestamp + timedelta(minutes=1), "101"),
+    ]
     r = verified_gate().evaluate(data, as_of=now)
-    assert not r.safe
-    assert r.reason == "SOURCE_SEQUENCE_REUSE_OBSERVED_ORDERING_SEMANTICS_UNKNOWN"
-    assert r.candles == ()
+    assert r.safe
+    assert r.reason == "CANDLE_SAFE"
+    assert len(r.candles) == 1
+    assert r.candles[0].trade_count == 2
 
 
 def test_unverified_sequence_jump_does_not_infer_a_missing_trade():
@@ -118,3 +123,13 @@ def test_unverified_sequence_jump_does_not_infer_a_missing_trade():
     ).evaluate(data, as_of=now)
     assert r.safe
     assert r.reason == "CANDLE_SAFE"
+
+
+def test_equal_event_timestamp_different_prices_blocks_without_sequence_ordering():
+    now = datetime.now(timezone.utc)
+    timestamp = now - timedelta(minutes=30)
+    data = [rec(10, timestamp, "100"), rec(12, timestamp, "101")]
+    r = verified_gate().evaluate(data, as_of=now)
+    assert not r.safe
+    assert r.reason == "AMBIGUOUS_EQUAL_SOURCE_TIMESTAMP_ORDER"
+    assert r.candles == ()
