@@ -29,7 +29,7 @@ jobs:
         run: |
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$EXPECTED_SHA"
-          printf 'EXACT_CHECKOUT_SHA=%s\\n' "$actual"
+          printf 'EXACT_CHECKOUT_SHA=%s\n' "$actual"
 
       - name: Fetch exact historical source commits
         run: |
@@ -204,7 +204,7 @@ jobs:
               "claim_boundary":d["claim_boundary"]
           }
           Path("evidence/source_identity_reconciliation_v2.lock.json").write_text(
-              json.dumps(lock, indent=2) + "\\n", encoding="utf-8"
+              json.dumps(lock, indent=2) + "\n", encoding="utf-8"
           )
           print(json.dumps(lock, indent=2))
           PY
