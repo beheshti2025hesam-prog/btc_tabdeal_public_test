@@ -40,3 +40,117 @@ The current Smart Cleanup report confirms encrypted local/offsite backup integri
 3. Versioned zstd archive/restore implementation with legacy gzip compatibility before any format migration.
 4. Full restore proof in a safe isolated target before changing backup retention.
 5. Explicitly reviewed and reversible cache cleanup canary only after the dependency-aware scanner and restore gates permit it.
+
+
+## 10. HES 10 GiB storage objective and measured baseline — 2026-11-16
+
+The requested storage ceiling is tracked in two explicit scopes so backups are not hidden inside a vague "agent size" number:
+
+1. **Agent core:** project checkout (including releases/candidates/worktrees) plus independent /srv/hes-evidence.
+2. **Complete local HES footprint:** agent core plus all HES local backups and offsite staging copies. Ubuntu and SentinelX platform files are reported separately and are not counted as HES application data.
+
+Fresh root-run IDLM + dependency-aware Smart Cleanup + Storage Manager snapshot (all exact source timestamps matched; 918 rows):
+- Agent project checkout: 6,924,898,304 allocated bytes.
+- Independent evidence store: 431,423,488 allocated bytes.
+- Agent core total: 7,356,321,792 bytes (~6.85 GiB), currently within the 10 GiB target.
+- Local backup + offsite staging roots: 23,239,327,744 bytes.
+- Complete local HES footprint: 30,595,649,536 bytes (~28.49 GiB), about 18.5 GiB over the aspirational 10 GiB complete-footprint target.
+- Root filesystem: 50 GiB total, 86% used, about 6.93 GiB free at the time of this audit; inode availability remains healthy.
+- Eight local full encrypted gzip backups consume 17,735,777,522 logical bytes. Two local offsite staging Zstandard bundles consume 2,727,900,259 bytes. The two older security-stability restore trees and other protected backup material are included in the backup-root total.
+- Dropbox Basic remote quota read: 2 GiB total, 1,366,621,708 bytes used, 780,861,940 bytes free. No remote object was changed.
+
+The budget report sums only direct-child allocated-byte rows from the same IDLM/Smart Cleanup snapshot. Nested rows are excluded to avoid double counting. The code reports both scopes and refuses to call the complete footprint within budget while backups exceed the cap.
+
+### 10.1 Local backup Zstandard v2 candidate
+
+A separate, uninstalled candidate was added:
+- scripts/ops/hes_encrypted_local_backup_v2.sh
+- scripts/ops/hes_backup_retention_v2.py
+- Existing hes_backup_archive_verify_v1.py is reused for both gzip and Zstandard archive verification.
+
+Candidate behavior:
+- New local full backups use .tar.zst.gpg, Zstandard level 9, one thread, low CPU priority and idle I/O priority, then AES-256 GPG encryption.
+- Frozen NUL-delimited include list, tar --no-recursion, exact /srv/hes-evidence entry-count check, SHA-256 sidecar and coverage manifest are retained.
+- Before accepting the archive, the verifier decrypts and streams decompression, checks member paths, and requires both current active and rollback release directories.
+- Mixed-format retention understands legacy .tar.gz.gpg and new .tar.zst.gpg names under the existing 7-day daily / 28-day Sunday / 180-day first-of-month policy. Same-day superseded archives are selected by parsed UTC timestamp, not filename format. Invalid/future/unparseable names fail closed to KEEP.
+- The helper's default output is a report with automatic_action=NONE and delete_authorized=false; the backup script only invokes the delete-list after the new archive has passed verification, preserving the existing retention behavior.
+- The candidate script is network-isolated; Dropbox upload remains a separate existing workflow.
+- The live systemd service, installed /usr/local/sbin script, timer, existing gzip archives and retention settings were not changed.
+
+### 10.2 Local-scope compression benchmark — 2026-11-16
+
+The benchmark uses the exact local-backup include-list semantics (project checkout, independent evidence store, SSH/nftables/systemd and optional runtime scripts), freezes 60,803 path entries, streams to byte counters, and writes no archive. Compression runs at low CPU and idle I/O priority. Results:
+- Raw tar stream: 7,315,415,040 bytes; 60,807 entries.
+- Gzip level 1: 2,453,424,957 output bytes, 122 seconds.
+- Zstandard level 3, one thread: 2,193,274,296 output bytes, 63 seconds (10.60% smaller than gzip level 1).
+- Zstandard level 9, one thread: 1,920,590,051 output bytes, 303 seconds (21.72% smaller than gzip level 1; 12.43% smaller than zstd level 3).
+- Evidence JSON: evidence/operations/hes_local_backup_zstd_benchmark_20261116.json.
+- No production backup archive was created, replaced or deleted by this benchmark. The root free-space reading did not change.
+
+The earlier independent full-scope offsite benchmark measured Zstandard level 9 at 23.25% smaller than gzip level 1 and passed a full encrypted streaming round-trip over 30,546 members. That result is not substituted for the local-scope comparison.
+
+### 10.3 Validation performed
+
+- Local backup retention planner, v2 backup script contract, gzip/zstd archive verifier and storage budget/compression parser: 34 focused tests passed.
+- IDLM temporary-cache quarantine safety suite after scan-completeness correction: 25 tests passed.
+- Storage manager + archive verifier + retention + backup-v2 + lifecycle audit suite: 46 tests passed.
+- Encrypted fixture round-trips: both Zstandard and legacy gzip archives passed the streaming verifier; active/rollback paths present, no unsafe member paths, no extraction performed.
+- Live retention dry-run over current local backup folder kept all eight valid full backups and two nonstandard archive names; no deletion was proposed.
+- Root-run dependency-aware audit: 918 items; 366 KEEP, 552 REVIEW_ONLY, 304 live-referenced, zero dependency-unknown. Full restore gate remains BLOCKED_NOT_PROVEN; delete_authorized=0.
+
+### 10.4 Cleanup boundary and next engineering steps
+
+The largest regenerable-cache classifications are outside the HES project itself:
+- /opt/sentinelx-cloud-core/.cache ~1.03 GB.
+- /home/hes-remote/.cache ~0.97 GB.
+- /home/hes-remote/.npm ~0.72 GB.
+These are SentinelX/platform-user caches, not HES-owned project data. Although the dependency scan observed no live process/unit references, they remain REVIEW_ONLY; no cache was deleted. They must not be silently counted as HES cleanup or removed without a separate platform-owner decision.
+
+Within HES, the checkout is ~6.85 GiB and the largest subtrees are releases (~2.92 GB), candidates (~1.64 GB), and registered worktrees (~1.11 GB). These contain versioned code and working branches; they are not disposable caches. A future release/worktree compaction planner must verify active/rollback pointers, systemd/process/scheduled-job references, clean Git state, exact commit provenance and remote GitHub availability before proposing any removal.
+
+The 10 GiB agent-core target is currently met. The 10 GiB complete-local-footprint target is not yet met because full local backup retention is the dominant cost. Next steps are: finish the exact local gzip comparison; validate the Zstandard v2 candidate on an isolated archive fixture; prototype content-deduplicated/incremental snapshots or a reduced local staging model while preserving a verified offsite recovery copy; and prove a full restore before changing backup retention. No live deletion, quarantine, backup migration, service change or release-pointer change is authorized by this report.
+
+
+### 10.5 Temporary-cache scanner completeness correction
+
+The isolated IDLM cache-quarantine candidate initially hit its 100-directory discovery cap and failed closed. A bounded correction raised the discovery ceiling to 300 (the observed /tmp + /var/tmp candidate-name count was 267) and explicitly skips systemd-private temporary roots. ENOENT/ESRCH races for ephemeral paths are treated as vanished entries, not actionable scan targets; permission and other scan errors still block execution.
+
+Fresh root-run dry-run after this correction:
+- Git worktree registry: readable, 25 registered worktrees.
+- scan_errors: empty.
+- 10 cache directories eligible under the narrow existing allowlist, total 716,800 allocated bytes (~0.68 MiB), all within one old pip-build-env temporary tree.
+- automatic_action=NONE, execution_enabled=false, deletion_authorized=false.
+- No quarantine or deletion was performed. The recovered scan completeness did not uncover a meaningful multi-gigabyte HES cleanup opportunity; larger platform caches remain outside the HES-owned cleanup allowlist.
+- IDLM cache-quarantine safety suite after the correction: 25 tests passed.
+
+### 10.6 Restic deduplication prototype — 2026-11-16
+
+Restic 0.16.4 (Ubuntu package, extracted and run from an isolated temporary directory; not installed system-wide) was evaluated with repository format v2 and maximum compression.
+
+Full-scope local prototype:
+- Source: /opt/hes-trade-agent plus /srv/hes-evidence, excluding only regenerable Python bytecode and test/linter caches.
+- Processed 6.713 GiB across 54,372 files / 5,965 directories.
+- Encrypted repository size after first snapshot: 804,782,531 bytes.
+- Repository raw-data statistics: 1,014.515 MiB uncompressed, 766.449 MiB stored, 1.32x ratio, 24.45% compression space saving.
+- restic check --read-data: PASS, no errors.
+- Selective restore of active release manifest and independent evidence sample: PASS, both byte-for-byte cmp matched.
+- Separate incremental fixture: unchanged second snapshot added 0 bytes; a small third-snapshot change added 2,642 repository bytes.
+
+Offsite feasibility:
+- A local simulation copied all 48/48 packs into a second Restic repository initialized with source chunker parameters.
+- Simulated remote repository was 818,060,463 bytes, exceeding last observed Dropbox free quota (780,861,940 bytes) by 37,198,523 bytes (~35.5 MiB).
+- No Dropbox upload occurred. Simulation repository was not retained after isolated SentinelX job cleanup; its post-copy read-data check and restore are NOT RUN. Do not describe remote-copy test as restore-verified.
+- A quota-aware backup scope/profile or additional remote storage capacity is needed before offsite adoption.
+
+Prototype evidence only. No Restic package installation, production service/timer change, retention change, Dropbox object mutation, archive deletion, or release-pointer change was made. Prototype password was temporary and not reused for production.
+
+
+## 11. Restic deduplicated backup and Dropbox capacity gate — 2026-11-16
+
+The isolated Restic 0.16.4 prototype is recorded in evidence/operations/hes_restic_dedup_prototype_20261116.json. It covered the HES project checkout and independent evidence store (6.713 GiB source); the local encrypted repository was 804,782,531 bytes. Restic raw-data statistics reported 1,014.515 MiB uncompressed and 766.449 MiB stored. The local repository passed check --read-data; selective restore of the release manifest and evidence sample passed hash comparison. The fixture proved unchanged second snapshots add zero bytes and a small third-snapshot change added 2,642 bytes.
+
+The copy simulation produced an 818,060,463-byte remote repository (48/48 packs copied). The remote post-copy check --read-data and restore were not completed, and no Dropbox upload occurred. The isolated prototype workspace was removed by its temporary-job cleanup; it is not a production repository.
+
+Evidence is recorded in evidence/operations/hes_restic_offsite_capacity_gate_20261116.json. A new fail-closed preflight, scripts/ops/hes_restic_offsite_capacity_gate_v1.py, now compares the measured repository bytes with live rclone about hesdropbox: --json quota and a 64 MiB reserve. It rejects inconsistent quota readings and never authorizes transfer itself. With the observed Dropbox capacity (2,147,483,648 total; 1,366,621,708 used; 780,861,940 free) and the prototype's 818,060,463-byte repository, the gate returns BLOCKED_INSUFFICIENT_FREE_QUOTA: 104,307,387 bytes short including reserve (37,198,523 bytes short before reserve).
+
+This is a preflight implementation and a verified block, not an offsite deployment. The current Dropbox archive, checksum, manifest, and decompression sidecar were left untouched. No Restic remote repository was initialized; no upload, overwrite, deletion, local archive pruning, or service/timer change was made. Transfer remains blocked until enough free quota exists and a post-copy full integrity check plus selective/full restore are demonstrated.

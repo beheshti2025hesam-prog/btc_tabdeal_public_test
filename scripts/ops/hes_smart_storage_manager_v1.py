@@ -5,7 +5,7 @@ import argparse
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 import json, shutil, subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 ROOT = Path("/opt/hes-trade-agent")
@@ -124,15 +124,81 @@ def compression_advice(evidence: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(evidence, dict):
         return {"status":"NO_BENCHMARK","recommendation":"KEEP_CURRENT_FORMAT_UNTIL_BENCHMARKED"}
     try:
-        raw,gz,z3,z9=(int(evidence[k]) for k in ("source_bytes","gzip1_bytes","zstd3_bytes","zstd9_bytes"))
-        if min(raw,gz,z3,z9) <= 0 or max(gz,z3,z9) >= raw: raise ValueError
-    except (KeyError,TypeError,ValueError):
-        return {"status":"INVALID_EVIDENCE","recommendation":"KEEP_CURRENT_FORMAT"}
-    saving=round(100*(gz-z9)/gz,2)
-    return {"status":"SAMPLE_BENCHMARK_ONLY","sample_bytes":raw,"gzip1_bytes":gz,"zstd3_bytes":z3,
-            "zstd9_bytes":z9,"zstd9_vs_gzip1_saving_percent":saving,
-            "recommendation":"PROTOTYPE_ZSTD9_NEW_ARCHIVES_ONLY" if saving >= 5 else "KEEP_GZIP1",
-            "legacy_gzip_restore_required":True,"production_format_changed":False}
+        raw = int(evidence["source_bytes"])
+        results = evidence["results"]
+        gz = int(results["gzip_1"]["bytes"])
+        z3 = int(results["zstd_3_single_thread"]["bytes"])
+        z9 = int(results["zstd_9_single_thread"]["bytes"])
+        if min(raw, gz, z3, z9) <= 0 or max(gz, z3, z9) >= raw:
+            raise ValueError
+    except (KeyError, TypeError, ValueError):
+        # Accept the original flat test/fixture schema for backward compatibility.
+        try:
+            raw, gz, z3, z9 = (int(evidence[k]) for k in
+                               ("source_bytes", "gzip1_bytes", "zstd3_bytes", "zstd9_bytes"))
+            if min(raw, gz, z3, z9) <= 0 or max(gz, z3, z9) >= raw:
+                raise ValueError
+        except (KeyError, TypeError, ValueError):
+            return {"status":"INVALID_EVIDENCE","recommendation":"KEEP_CURRENT_FORMAT"}
+    saving = round(100 * (gz-z9) / gz, 2)
+    is_local = evidence.get("scope") == "local_backup"
+    return {
+        "status": "LOCAL_BACKUP_STREAM_BENCHMARK" if is_local else "FULL_SCOPE_STREAM_BENCHMARK_NOT_LOCAL_BACKUP_PROOF",
+        "source_bytes": raw, "gzip1_bytes": gz, "zstd3_bytes": z3, "zstd9_bytes": z9,
+        "zstd9_vs_gzip1_saving_percent": saving,
+        "benchmark_source": evidence.get("source", "legacy_fixture"),
+        "gpg_encryption_included_in_size_benchmark": evidence.get("gpg_encryption_included_in_size_benchmark", False),
+        "roundtrip_status": (evidence.get("restore_roundtrip_status") or
+                             evidence.get("fixture_roundtrip_status") or
+                             (evidence.get("roundtrip") or {}).get("status", "NOT_PROVEN")),
+        "recommendation": "PROTOTYPE_ZSTD9_FOR_LOCAL_BACKUP_V2" if saving >= 5 else "KEEP_GZIP1",
+        "legacy_gzip_restore_required": True,
+        "production_format_changed": False,
+        "compression_authorized": False,
+        "note": ("Exact local-backup include-list stream benchmark; encrypted archive fixture passed, but no production archive was written."
+                 if is_local else "Full-scope offsite include-set benchmark; local-backup-specific benchmark still required.")
+    }
+
+def direct_child_bytes(items: list[dict[str, Any]], root: str) -> int:
+    base = PurePosixPath(root)
+    total = 0
+    for item in items:
+        try:
+            path = PurePosixPath(str(item["path"]))
+            size = int(item.get("allocated_bytes") or 0)
+        except (KeyError, TypeError, ValueError):
+            continue
+        # Only immediate children are counted. Nested manifest rows are not added
+        # again, preventing the scanner's overlapping-root reports from double counting.
+        if path.parent == base and size >= 0:
+            total += size
+    return total
+
+def storage_budget(items: list[dict[str, Any]], target_gib: int = 10) -> dict[str, Any]:
+    target = int(target_gib) * 1024**3
+    project = direct_child_bytes(items, "/opt/hes-trade-agent")
+    evidence = direct_child_bytes(items, "/srv/hes-evidence")
+    backups = direct_child_bytes(items, "/var/backups/hes-trade-agent")
+    core = project + evidence
+    total = core + backups
+    return {
+        "target_gib": target_gib,
+        "target_bytes": target,
+        "scope": "HES local project checkout + independent evidence store + local backup/staging roots; excludes Ubuntu and SentinelX platform files",
+        "components_bytes": {
+            "project_checkout_including_releases_candidates_worktrees": project,
+            "independent_evidence_store": evidence,
+            "local_backups_and_offsite_staging": backups
+        },
+        "agent_core_bytes_excluding_backup_copies": core,
+        "total_local_hes_bytes_including_backups": total,
+        "total_local_hes_gib": round(total / 1024**3, 3),
+        "core_within_target": core <= target,
+        "complete_footprint_within_target": total <= target,
+        "over_target_bytes": max(0, total-target),
+        "counting_method": "sum only direct-child allocated-byte rows from the exact IDLM/Smart Cleanup snapshot; nested rows are excluded to avoid double counting",
+        "no_data_mutated": True
+    }
 
 def dropbox_quota() -> dict[str, Any]:
     if not shutil.which("rclone"): return {"status":"UNAVAILABLE"}
@@ -160,11 +226,13 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
         "inventory_source":"IDLM_V1_PLUS_SMART_CLEANUP_MANAGER_V1",
         "inventory":inventory,
         "summary":{"local_backup":local,"offsite_staging":offsite,"dropbox_quota":quota},
+        "storage_budget":storage_budget(cleanup.get("items", []), target_gib=10),
         "compression":compression_advice(evidence),
         "policy":{"canonical_market_data":"Gate.io Public Spot BTC_USDT",
           "backup_destination":"encrypted Dropbox","backup_retention":"unchanged until full restore gate passes",
           "unknown_or_unverified":"KEEP","deletion_authorized":False,"move_authorized":False,
-          "compression_authorized":False,"automatic_cleanup_timer_authorized":False},
+          "compression_authorized":False,"automatic_cleanup_timer_authorized":False,
+          "local_footprint_target_gib":10},
         "invariants":["Uses the existing IDLM and dependency-aware Smart Cleanup inventories; does not rescan project trees.",
           "No file is deleted, moved, truncated, rotated, pruned or compressed by this report.",
           "All backups and active/rollback releases remain protected.",
