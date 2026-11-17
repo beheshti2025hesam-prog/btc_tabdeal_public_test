@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from web.mother_chat_v1 import build_chat_response
+from web.mother_chat_v1 import build_chat_response, classify_intent
+from web.hoshyar_local_v1 import HoshyarConversationMemoryV1, HoshyarLocalAssistantV1
 
 
 TRACE = "a" * 64
@@ -151,4 +152,111 @@ def test_persian_change_preparation_never_applies_a_change():
     assert response["language"] == "fa"
     assert response["direction"] == "rtl"
     assert "هیچ تغییری را اعمال نمی‌کند" in response["answer"]
+    _assert_read_only(response)
+
+
+class _NeverCallLocalModel:
+    def route_intent(self, messages):
+        raise AssertionError("deterministic Persian intent unexpectedly called local LLM")
+
+    def general_answer(self, messages):
+        raise AssertionError("deterministic Persian response unexpectedly called local LLM")
+
+
+def _assistant(memory):
+    return HoshyarLocalAssistantV1(_NeverCallLocalModel(), memory, allow_freeform=True)
+
+
+def _status_reader():
+    return {
+        "mother": {"status": "BLOCKED_GATE", "decision": "NO_TRADE", "reason_codes": ["NO_TRADE"]},
+        "strategy": {"status": "VERIFIED"},
+        "news": {"monitor": {"status": "OK"}},
+    }
+
+
+def _decision_reader():
+    return {
+        "mother": {
+            "status": "BLOCKED_GATE",
+            "decision": "NO_TRADE",
+            "reason_codes": ["NO_CONFIRMED_20_BAR_BREAKOUT"],
+            "stages": [],
+            "witness": {"verified": True},
+        },
+        "strategy": {"status": "VERIFIED"},
+    }
+
+
+def test_stale_or_incomplete_market_data_policy_is_deterministic_and_fail_closed():
+    prompt = "اگر داده بازار قدیمی یا ناقص باشد چه باید کرد؟"
+    assert classify_intent(prompt) == "DATA_QUALITY_POLICY"
+    response = build_chat_response(prompt, {}, language="fa")
+    assert response["intent"] == "DATA_QUALITY_POLICY"
+    assert response["status"] == "CHAT_ONLY"
+    assert "BLOCKED / NO_TRADE" in response["answer"]
+    assert "حدس" in response["answer"]
+    assert "سلامت زندهٔ Feed را بررسی نمی‌کند" in response["answer"]
+    assert response["uncertainties"] == ["LIVE_DATA_NOT_READ"]
+    _assert_read_only(response)
+
+
+def test_mixed_english_mother_decision_and_short_followup_are_deterministic(tmp_path):
+    prompt = "چرا Mother تصمیم NO_TRADE گرفت؟"
+    assert classify_intent(prompt) == "EXPLAIN_DECISION"
+    memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
+    assistant = _assistant(memory)
+    first = assistant.respond(prompt, {"EXPLAIN_DECISION": _decision_reader}, language="fa")
+    assert first["intent"] == "EXPLAIN_DECISION"
+    assert first["local_llm_used"] is False
+    assert "NO_CONFIRMED_20_BAR_BREAKOUT" in first["answer"]
+    followup = assistant.respond("چرا؟", {"EXPLAIN_DECISION": _decision_reader}, language="fa")
+    assert followup["intent"] == "EXPLAIN_DECISION"
+    assert followup["local_llm_used"] is False
+    assert "NO_CONFIRMED_20_BAR_BREAKOUT" in followup["answer"]
+    _assert_read_only(followup)
+
+
+def test_live_trade_permission_question_is_deterministic_status_query(tmp_path):
+    prompt = "آیا اجازه معامله واقعی داری؟"
+    assert classify_intent(prompt) == "ASK_STATUS"
+    assistant = _assistant(HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
+    response = assistant.respond(prompt, {"ASK_STATUS": _status_reader}, language="fa")
+    assert response["intent"] == "ASK_STATUS"
+    assert response["local_llm_used"] is False
+    assert "NO_TRADE" in response["answer"]
+    assert "اجرا خاموش است" in response["answer"]
+    _assert_read_only(response)
+
+
+def test_conversation_summary_uses_local_sqlite_history_without_local_model(tmp_path):
+    memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
+    memory.append_turn(
+        "وضعیت فعلی HES چیست؟",
+        "Mother: BLOCKED_GATE / NO_TRADE",
+    )
+    memory.append_turn(
+        "چرا Mother تصمیم NO_TRADE گرفت؟",
+        "دلایل ثبت‌شده: NO_CONFIRMED_20_BAR_BREAKOUT",
+    )
+    assistant = _assistant(memory)
+    response = assistant.respond("خلاصه مکالمه قبلی را بگو", {}, language="fa")
+    assert response["intent"] == "GENERAL_CHAT"
+    assert response["status"] == "CHAT_ONLY"
+    assert response["direction"] == "rtl"
+    assert response["local_llm_used"] is False
+    assert response["conversation_memory_used"] is True
+    assert "خلاصهٔ گفت‌وگوی ثبت‌شده" in response["answer"]
+    assert "NO_CONFIRMED_20_BAR_BREAKOUT" in response["answer"]
+    assert "وضعیت زندهٔ بازار را دوباره بررسی نمی‌کند" in response["answer"]
+    _assert_read_only(response)
+
+
+def test_persian_greeting_from_local_assistant_sets_rtl_without_model(tmp_path):
+    assistant = _assistant(HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
+    response = assistant.respond("سلام رفیق، خوبی؟", {}, language="fa")
+    assert response["intent"] == "GENERAL_CHAT"
+    assert response["status"] == "CHAT_ONLY"
+    assert response["direction"] == "rtl"
+    assert response["local_llm_used"] is False
     _assert_read_only(response)
