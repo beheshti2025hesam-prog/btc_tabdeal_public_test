@@ -32,13 +32,13 @@ MAX_STORED_MESSAGES = 200
 MEMORY_RETENTION_SECONDS = 30 * 24 * 60 * 60
 ALLOWED_INTENTS = frozenset({
     "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
-    "NEWS_CONTEXT", "DIAGNOSE", "PREPARE_CHANGE", "EXPLAIN_CHANGE_CONTROL", "PROJECT_MEMORY", "UNKNOWN", "GENERAL_CHAT",
+    "NEWS_CONTEXT", "DIAGNOSE", "DATA_QUALITY_POLICY", "PREPARE_CHANGE", "EXPLAIN_CHANGE_CONTROL", "PROJECT_MEMORY", "UNKNOWN", "GENERAL_CHAT",
 })
 
 ROUTE_SYSTEM_PROMPT = (
     "Classify the last user message using recent conversation history. Choose exactly one intent from: "
     "ASK_STATUS, EXPLAIN_DECISION, MARKET_REVIEW, SPECIALIST_REVIEW, JOURNAL_REVIEW, NEWS_CONTEXT, DIAGNOSE, "
-    "PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "
+    "DATA_QUALITY_POLICY, PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "    "DATA_QUALITY_POLICY explains fail-closed behavior for stale, incomplete, contradictory or gapped market data. "
     "EXPLAIN_DECISION means why a recorded Mother/Strategy decision was made; "
     "EXPLAIN_CHANGE_CONTROL means the owner's approval process for a proposed change; "
     "SPECIALIST_REVIEW means summarize only the verified seven-stage Mother specialist evidence; missing downstream stages are not reached, never invented. "
@@ -124,6 +124,63 @@ def _deterministic_general_answer(message: str, language: str) -> str | None:
             "en": "Hello! Good to have you here. I can help with HES status, recorded decisions, or development. What would you like to tackle first?",
         }[language]
     return None
+
+
+_CONVERSATION_SUMMARY_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pattern in (
+    r"خلاصه.{0,18}(?:مکالمه|گفت.?وگو|صحبت.?های قبلی)",
+    r"(?:مکالمه|گفت.?وگو).{0,18}(?:خلاصه|جمع.?بندی)",
+    r"\b(?:summari[sz]e (?:the )?(?:previous )?conversation|conversation summary|summari[sz]e our chat)\b",
+    r"\b(?:gespräch zusammenfassen|zusammenfassung des gesprächs)\b",
+    r"\b(?:résume(?:r)? la conversation|résumé de la conversation)\b",
+))
+
+
+def _deterministic_conversation_summary(
+    message: str, history: list[dict[str, str]], language: str, memory_available: bool
+) -> str | None:
+    if not any(pattern.search(str(message or "")) for pattern in _CONVERSATION_SUMMARY_PATTERNS):
+        return None
+    if not memory_available:
+        return {
+            "fa": "حافظهٔ محاوره‌ای در دسترس نیست؛ خلاصه‌ای ساخته نشد.",
+            "de": "Der Gesprächsspeicher ist nicht verfügbar; es wurde keine Zusammenfassung erstellt.",
+            "fr": "La mémoire de conversation est indisponible; aucun résumé n'a été créé.",
+            "en": "Conversation memory is unavailable; no summary was created.",
+        }[language]
+    pairs = []
+    for index in range(len(history) - 1):
+        user_item = history[index]
+        assistant_item = history[index + 1]
+        if user_item.get("role") == "user" and assistant_item.get("role") == "assistant":
+            user_text = " ".join(str(user_item.get("content") or "").split())
+            assistant_text = " ".join(str(assistant_item.get("content") or "").split())
+            if user_text and assistant_text:
+                pairs.append((user_text[:100], assistant_text[:100]))
+    if not pairs:
+        return {
+            "fa": "هنوز گفت‌وگوی قبلی در حافظهٔ محلی ثبت نشده است؛ چیزی برای خلاصه‌سازی وجود ندارد.",
+            "de": "Es sind noch keine früheren Gesprächsrunden im lokalen Speicher vorhanden.",
+            "fr": "Aucun échange précédent n'est encore enregistré dans la mémoire locale.",
+            "en": "No earlier conversation turns are recorded in local memory yet.",
+        }[language]
+    labels = {
+        "fa": ("خلاصهٔ گفت‌وگوی ثبت‌شده، بر پایهٔ دو نوبت اخیر:", "پرسش", "پاسخ ثبت‌شده"),
+        "de": ("Zusammenfassung der letzten zwei gespeicherten Gesprächsrunden:", "Frage", "Gespeicherte Antwort"),
+        "fr": ("Résumé des deux derniers échanges enregistrés :", "Question", "Réponse enregistrée"),
+        "en": ("Summary of the last two stored conversation turns:", "Question", "Recorded answer"),
+    }
+    heading, question_label, answer_label = labels[language]
+    rows = []
+    for user_text, assistant_text in pairs[-2:]:
+        rows.append(f"- {question_label}: {user_text}")
+        rows.append(f"  - {answer_label}: {assistant_text}")
+    footer = {
+        "fa": "این خلاصه فقط از پیام‌های ذخیره‌شده ساخته شده و وضعیت زندهٔ بازار را دوباره بررسی نمی‌کند.",
+        "de": "Diese Zusammenfassung nutzt nur gespeicherte Nachrichten und prüft keine Live-Marktdaten erneut.",
+        "fr": "Ce résumé utilise uniquement les messages enregistrés et ne vérifie pas à nouveau le marché en direct.",
+        "en": "This summary uses stored messages only and does not re-check live market data.",
+    }[language]
+    return heading + "\n" + "\n".join(rows) + "\n" + footer
 
 
 _HES_CONTEXT_TERMS = (
@@ -440,7 +497,9 @@ class HoshyarLocalAssistantV1:
         except HoshyarLocalError:
             history = []
 
-        deterministic_general_answer = _deterministic_general_answer(message, effective_language)
+        deterministic_general_answer = _deterministic_conversation_summary(message, history, effective_language, memory_ok)
+        if deterministic_general_answer is None:
+            deterministic_general_answer = _deterministic_general_answer(message, effective_language)
         deterministic_intent = (
             "GENERAL_CHAT" if deterministic_general_answer is not None
             else ("UNKNOWN" if _is_casual_greeting(message) else classify_intent(message))
@@ -496,6 +555,7 @@ class HoshyarLocalAssistantV1:
                     "schema_version": "hes.mother_chat.v1",
                     "router_version": "hes-hoshyar-local-llm-v2",
                     "intent": "GENERAL_CHAT", "status": "CHAT_ONLY", "answer": answer, "language": effective_language,
+                    "direction": "rtl" if effective_language == "fa" else "ltr",
                     "claims": [], "uncertainties": [], "evidence_refs": [], "trace_id": "",
                     "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     "external_llm_used": False, "execution_enabled": False,

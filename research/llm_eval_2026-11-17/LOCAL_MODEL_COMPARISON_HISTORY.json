@@ -1,0 +1,45 @@
+[
+  {
+    "model": "Qwen3.5-2B Q4_K_M",
+    "size": "1.384 GB",
+    "peak_rss": "2,037,680 kB (~1.94 GiB)",
+    "speed": "~3.58–3.67 generated tok/s; one CPU thread, nice 19",
+    "functional_result": "6/8 passed; stale-data policy misrouted to MARKET_REVIEW; conversation summary routed to unconfigured PROJECT_MEMORY reader",
+    "latency": "91.768 s total for 8 turns (4 local-model calls)",
+    "decision": "NO_GO_PRODUCTION",
+    "safety": "all external LLM / execution / order / journal / policy flags false",
+    "reason": "Two critical intent/usefulness failures and high latency. Common eight-turn flow is now covered deterministically without invoking a model."
+  },
+  {
+    "model": "Qwen3-0.6B Q4_K_M",
+    "size": "484 MB",
+    "peak_rss": "~1.04 GB",
+    "speed": "4.7–7.8 tok/s; 53-token sample ~10s",
+    "decision": "REJECT",
+    "reason": "English internal reasoning, leaked think content, weak Persian and failed safety explanation"
+  },
+  {
+    "model": "Qwen3-1.7B Q4_K_M",
+    "size": "1.28 GB",
+    "peak_rss": "~2.14 GB",
+    "speed": "~1.7–2.0 tok/s; short answers >22s",
+    "decision": "REJECT",
+    "reason": "Vague Persian, incorrect blocker explanation, invented EXECUTION_NOT_AUTHORIZED"
+  },
+  {
+    "model": "Qwen2.5-0.5B-Instruct Q4_K_M",
+    "size": "398 MB",
+    "peak_rss": "~0.55 GB",
+    "speed": "5.8–8.0 tok/s",
+    "decision": "REJECT",
+    "reason": "Repetitive/nonsensical Persian or prompt echo; unreliable evidence explanation"
+  },
+  {
+    "model": "Deterministic Mother Chat",
+    "size": "N/A",
+    "peak_rss": "N/A",
+    "speed": "API sample 0.48–0.77s (not token-speed comparable)",
+    "decision": "KEEP_FREE_ARCHITECTURE",
+    "reason": "Bounded deterministic router, multilingual templates, evidence refs and read-only safety boundary"
+  }
+]

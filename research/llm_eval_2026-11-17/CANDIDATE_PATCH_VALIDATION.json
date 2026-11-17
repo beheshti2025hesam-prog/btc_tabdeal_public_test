@@ -1,0 +1,21 @@
+{
+  "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+  "base_main_commit": "bcd24be8af0f6fc9fc5909c4641489f9edd44865",
+  "candidate_status": "isolated patch; not merged or deployed",
+  "patch_files": {
+    "web/mother_chat_v1.py": "6b0871674e18826e36ef2e4a4e88b1894600ab833eb01f281799dceaf779c0a1",
+    "web/hoshyar_local_v1.py": "5e9c53c34fc76daf0705e39d662cf43bd9655c9a9d25aca171168510cd0a9e00",
+    "tests/test_mother_chat_persian_eval_v1.py": "cd71e803594f52b5699732f776c858900496d54bb0219668877a0b4bc316d171"
+  },
+  "focused_test_command": "python -m pytest -q -W error tests/test_mother_chat_v1.py tests/test_mother_chat_persian_eval_v1.py",
+  "focused_test_result": "53 passed",
+  "persian_regression_result": "14 passed",
+  "deterministic_eight_turn_result": "8/8 passed",
+  "local_llm_calls_in_eight_turns": 0,
+  "eight_turn_total_latency_seconds": 0.1734,
+  "all_safety_flags_false": true,
+  "py_compile": "PASS",
+  "live_market_data_used": false,
+  "production_deployed": false,
+  "verified_at_utc": "2026-11-17T15:12:44.052202+00:00"
+}
