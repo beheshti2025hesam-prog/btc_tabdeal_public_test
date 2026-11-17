@@ -1,10 +1,10 @@
 {
   "benchmark_id": "HES-FA-LLM-EVAL-2026-11-17-v2",
-  "created_at_utc": "2026-11-17T14:54:03.461567+00:00",
+  "created_at_utc": "2026-11-17T14:57:26.715447+00:00",
   "execution_mode": "deterministic Mother Chat candidate with synthetic fixtures",
   "not_live_market_data": true,
   "not_llm_inference": true,
-  "source_module_sha256": "a985eb03139b4299c60ad014c489525afecf8e7c895dbd404306614aaff61d0e",
+  "source_module_sha256": "a014b2cc8ec67764b256c7d703d0134aa1d87c6b1e20515bba2a7981a5aafa65",
   "cases_total": 8,
   "cases_passed": 8,
   "cases_failed": 0,
