@@ -246,13 +246,17 @@ def build_chat_response(
     message: str,
     readers: Mapping[str, Callable[[], Mapping[str, Any]]],
     *,
+    language: str | None = None,
     now: float | None = None,
 ) -> dict[str, Any]:
     """Return a bounded, evidence-only response; never invokes a model or mutates state."""
     if not isinstance(message, str) or not message.strip() or len(message) > MAX_MESSAGE_CHARS:
         raise MotherChatError("CHAT_MESSAGE_INVALID", 400)
     intent = classify_intent(message)
-    language = _language(message)
+    if language is None or language == "auto":
+        language = _language(message)
+    elif language not in {"fa", "en", "de", "fr"}:
+        raise MotherChatError("CHAT_LANGUAGE_INVALID", 400)
     is_fa = language == "fa"
     if intent == "UNKNOWN":
         answers = {
@@ -262,7 +266,7 @@ def build_chat_response(
             "en": "Please specify one supported task: status, explain the decision, market review, journal, news, or diagnostics.",
         }
         answer = answers[language]
-        return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now)
+        return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now, language=language)
     if intent == "PREPARE_CHANGE":
         answers = {
             "fa": "برای تهیهٔ پیش‌نویس، نام بخش و تغییر موردنظر را مشخص کن. این رابط فقط پیش‌نویس می‌سازد و هیچ تغییری را اعمال نمی‌کند.",
@@ -271,20 +275,20 @@ def build_chat_response(
             "en": "Specify the component and requested change. This interface can prepare a proposal only; it cannot apply changes.",
         }
         answer = answers[language]
-        return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now)
+        return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now, language=language)
     reader = readers.get(intent)
     if not callable(reader):
-        return _response(intent, "BLOCKED", "Evidence reader is not configured.", [], ["CHAT_READER_NOT_CONFIGURED"], "", now)
+        return _response(intent, "BLOCKED", "Evidence reader is not configured.", [], ["CHAT_READER_NOT_CONFIGURED"], "", now, language=language)
     try:
         data = reader()
     except Exception:
         return _response(
             intent, "BLOCKED",
             {"fa": "شواهد معتبر در دسترس نیست؛ پاسخ با حالت ایمن متوقف شد.", "de": "Verifizierte Nachweise sind nicht verfügbar; die Anfrage wurde sicher blockiert.", "fr": "Les preuves vérifiées sont indisponibles ; la demande a été bloquée par sécurité.", "en": "Verified evidence is unavailable; the request was safely blocked."}[language],
-            [], ["CHAT_EVIDENCE_UNAVAILABLE"], "", now,
+            [], ["CHAT_EVIDENCE_UNAVAILABLE"], "", now, language=language,
         )
     if not isinstance(data, Mapping):
-        return _response(intent, "BLOCKED", "Evidence payload is invalid.", [], ["CHAT_EVIDENCE_INVALID"], "", now)
+        return _response(intent, "BLOCKED", "Evidence payload is invalid.", [], ["CHAT_EVIDENCE_INVALID"], "", now, language=language)
 
     claims: list[dict[str, Any]] = []
     uncertainties: list[str] = []
@@ -298,7 +302,7 @@ def build_chat_response(
         mother = data.get("mother", {})
         strategy = data.get("strategy", {})
         if not isinstance(mother, Mapping) or not isinstance(strategy, Mapping):
-            return _response(intent, "BLOCKED", "Mother/Strategy evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now)
+            return _response(intent, "BLOCKED", "Mother/Strategy evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
         m_status = str(mother.get("status") or "UNKNOWN")
         decision = str(mother.get("decision") or "NO_TRADE")
         s_status = str(strategy.get("status") or "UNKNOWN")
@@ -350,7 +354,7 @@ def build_chat_response(
         strategy = data.get("strategy", {})
         candle = data.get("latest_candle", {})
         if not isinstance(strategy, Mapping) or not isinstance(candle, Mapping):
-            return _response(intent, "BLOCKED", "Market evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now)
+            return _response(intent, "BLOCKED", "Market evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
         regime = str(strategy.get("market_regime") or "UNKNOWN")
         decision = str(strategy.get("decision") or "NO_TRADE")
         close = str(candle.get("close") or "UNKNOWN")
@@ -377,7 +381,7 @@ def build_chat_response(
         journal = data.get("journal", {})
         strategy = data.get("strategy", {})
         if not isinstance(journal, Mapping):
-            return _response(intent, "BLOCKED", "Journal evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now)
+            return _response(intent, "BLOCKED", "Journal evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
         j_status = str(journal.get("status") or "UNKNOWN")
         count = journal.get("decision_count", journal.get("count", 0))
         claims.extend([
@@ -403,7 +407,7 @@ def build_chat_response(
         news = data.get("news", {})
         monitor = news.get("monitor", {}) if isinstance(news, Mapping) else {}
         if not isinstance(monitor, Mapping):
-            return _response(intent, "BLOCKED", "News evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now)
+            return _response(intent, "BLOCKED", "News evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
         n_status = str(monitor.get("status") or "UNKNOWN")
         coverage = str(monitor.get("source_profile_status") or "UNKNOWN")
         health = monitor.get("source_health", [])
@@ -431,7 +435,7 @@ def build_chat_response(
     elif intent == "DIAGNOSE":
         components = data.get("components", {})
         if not isinstance(components, Mapping):
-            return _response(intent, "BLOCKED", "Diagnostic evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now)
+            return _response(intent, "BLOCKED", "Diagnostic evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
         for name, component in components.items():
             if isinstance(component, Mapping):
                 claims.append(_claim(str(name), str(component.get("status") or "UNKNOWN") + ((" · " + str(component.get("reason"))) if component.get("reason") else "")))
@@ -448,7 +452,7 @@ def build_chat_response(
         answer = answers[language]
 
     refs = _refs(*evidence, trace_id or None)
-    return _response(intent, status, answer, claims, uncertainties, trace_id, now, refs)
+    return _response(intent, status, answer, claims, uncertainties, trace_id, now, refs, language=language)
 
 
 def _response(
@@ -460,11 +464,15 @@ def _response(
     trace_id: str,
     now: float | None,
     evidence_refs: list[str] | None = None,
+    *,
+    language: str | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "router_version": ROUTER_VERSION,
         "intent": intent,
+        "language": language or "en",
+        "direction": "rtl" if language == "fa" else "ltr",
         "status": status,
         "answer": answer,
         "claims": claims[:40],
