@@ -230,7 +230,7 @@ def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path,
     base = f"http://127.0.0.1:{server.server_port}"
     origin = base
     try:
-        body = json.dumps({"message": "why decision"}).encode()
+        body = json.dumps({"message": "why decision", "language": "fr"}).encode()
         unauthenticated = Request(base + "/api/mother-chat", data=body, headers={
             "Content-Type": "application/json", "Origin": origin,
         }, method="POST")
@@ -255,10 +255,25 @@ def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path,
         with urlopen(chat) as response:
             result = json.loads(response.read())
         assert result["intent"] == "EXPLAIN_DECISION"
+        assert result["language"] == "fr"
+        assert result["direction"] == "ltr"
         assert result["external_llm_used"] is False
         assert result["execution_enabled"] is False
         assert result["orders_placed"] is False
         assert result["journal_write"] is False
+
+        invalid_language = Request(base + "/api/mother-chat", data=json.dumps({
+            "message": "why decision", "language": "xx",
+        }).encode(), headers={
+            "Content-Type": "application/json", "Origin": origin, "Cookie": cookie,
+        }, method="POST")
+        with pytest.raises(HTTPError) as bad_language:
+            urlopen(invalid_language)
+        try:
+            assert bad_language.value.code == 400
+            assert json.loads(bad_language.value.read())["error"] == "CHAT_LANGUAGE_INVALID"
+        finally:
+            bad_language.value.close()
 
         forbidden = Request(base + "/api/orders", data=b"{}", headers={
             "Content-Type": "application/json", "Origin": origin,
