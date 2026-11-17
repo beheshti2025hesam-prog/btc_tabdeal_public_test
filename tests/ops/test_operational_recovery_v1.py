@@ -193,6 +193,7 @@ def test_recovery_never_targets_feed_dashboard_or_order_services():
         'hes-strategy-paper-evaluator.service',
         'hes-strategy-learning-loop.service',
         'hes-precision-entry-journal.service',
+        'hes-indicator-strategy-forward-paper.service',
     }
     assert all('gateio' not in unit and 'dashboard' not in unit and 'execution' not in unit for unit in REPAIR_ORDER)
 

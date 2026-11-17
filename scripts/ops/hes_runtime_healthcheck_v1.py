@@ -28,6 +28,7 @@ SERVICE_UNITS = (
     'hes-strategy-paper-evaluator.service',
     'hes-strategy-learning-loop.service',
     'hes-precision-entry-journal.service',
+    'hes-indicator-strategy-forward-paper.service',
     'hes-readonly-dashboard.service',
 )
 
@@ -41,6 +42,7 @@ FRESHNESS_LIMITS = {
     'strategy_learning_v1_report.json': 10 * 60,
     'no_trade_decision_audit_24h_v1.jsonl': 45 * 60,
     'precision_entry_journal_report_v1.json': 120,
+    'indicator_strategy_forward_paper_report_v1.json': 120,
     'strategy_family_results_report_v1.json': 120,
 }
 
@@ -65,6 +67,118 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f'row_not_object:{number}')
             rows.append(row)
     return rows
+
+
+def _check_indicator_forward_paper(data: Path, add: Callable[[str, str, str], None]) -> None:
+    """Verify the observer's isolated research ledgers and fail-closed safety flags."""
+    report_path = data / 'indicator_strategy_forward_paper_report_v1.json'
+    state_path = data / 'indicator_strategy_forward_paper_state_v1.json'
+    if report_path.exists():
+        try:
+            report = json.loads(report_path.read_text(encoding='utf-8'))
+            if not isinstance(report, dict) or report.get('schema') != 'hes_indicator_strategy_forward_paper_report_v1':
+                raise ValueError('report_schema_invalid')
+            identity_ok = report.get('source') == 'gateio_public_spot' and report.get('symbol') == 'BTC_USDT'
+            add('indicator_forward:source_identity', 'OK' if identity_ok else 'CRITICAL',
+                'gateio_public_spot/BTC_USDT' if identity_ok else 'source_or_symbol_mismatch')
+            safety = report.get('safety')
+            safe = (
+                isinstance(safety, dict)
+                and safety.get('research_only') is True
+                and safety.get('performance_eligible') is False
+                and safety.get('training_label_eligible') is False
+                and safety.get('decision_authority') is False
+                and safety.get('candidate_generation_authorized') is False
+                and safety.get('risk_gate_bypass') is False
+                and safety.get('execution_enabled') is False
+                and safety.get('orders_placed') is False
+            )
+            add('indicator_forward:paper_only', 'OK' if safe else 'CRITICAL',
+                'all_safety_flags_locked' if safe else 'unsafe_or_missing_safety_flags')
+
+            specs = (
+                ('indicator_strategy_forward_paper_journal_v1.jsonl', 'decision_records'),
+                ('indicator_strategy_forward_paper_outcomes_v1.jsonl', 'outcome_records'),
+            )
+            decision_ids: set[str] = set()
+            for filename, count_key in specs:
+                expected = report.get(count_key)
+                if type(expected) is not int or expected < 0:
+                    raise ValueError(f'{count_key}_invalid')
+                path = data / filename
+                if not path.exists():
+                    rows = []
+                    if expected:
+                        add(f'indicator_forward:{filename}:count', 'CRITICAL', f'missing_but_reported_count={expected}')
+                    else:
+                        add(f'indicator_forward:{filename}:count', 'OK', 'empty_ledger_not_yet_created')
+                else:
+                    rows = _load_jsonl(path)
+                    add(f'indicator_forward:{filename}:count',
+                        'OK' if len(rows) == expected else 'CRITICAL', f'{len(rows)}!={expected}' if len(rows) != expected else f'{len(rows)}_records')
+                ids = [str(row.get('event_id') or '') for row in rows]
+                identity_safe = bool(all(ids)) and len(ids) == len(set(ids))
+                add(f'indicator_forward:{filename}:identity', 'OK' if identity_safe else 'CRITICAL',
+                    'unique_event_ids' if identity_safe else 'missing_or_duplicate_event_id')
+                if filename.endswith('_journal_v1.jsonl'):
+                    decision_ids.update(ids)
+                    row_safe = all(
+                        row.get('research_only') is True
+                        and row.get('performance_eligible') is False
+                        and row.get('training_label_eligible') is False
+                        and row.get('decision_authority') is False
+                        and row.get('candidate_generation_authorized') is False
+                        and row.get('risk_gate_bypass') is False
+                        and row.get('execution_enabled') is False
+                        and row.get('orders_placed') is False
+                        and row.get('evidence_source') == 'gateio_public_spot'
+                        and row.get('symbol') == 'BTC_USDT'
+                        and row.get('timeframe') == '15m'
+                        and row.get('entry_timeframe') == '1m'
+                        for row in rows
+                    )
+                else:
+                    row_safe = all(
+                        row.get('research_only') is True
+                        and row.get('performance_eligible') is False
+                        and row.get('training_label_eligible') is False
+                        and row.get('decision_authority') is False
+                        and row.get('execution_enabled') is False
+                        and row.get('orders_placed') is False
+                        and row.get('symbol') == 'BTC_USDT'
+                        and row.get('timeframe') == '15m'
+                        and row.get('entry_timeframe') == '1m'
+                        and row.get('candidate_event_id') in decision_ids
+                        and (row.get('direction') != 'SHORT' or row.get('economics_status') == 'NOT_ECONOMICALLY_VALIDATED_FROM_SPOT')
+                        for row in rows
+                    )
+                add(f'indicator_forward:{filename}:paper_only', 'OK' if row_safe else 'CRITICAL',
+                    'records_research_only_and_linked' if row_safe else 'unsafe_or_unlinked_record')
+        except Exception as exc:
+            add('indicator_forward:integrity', 'CRITICAL', f'{type(exc).__name__}:{str(exc)[:120]}')
+    else:
+        add('indicator_forward:report_missing', 'CRITICAL', 'report_missing')
+
+    if not state_path.exists():
+        add('indicator_forward:state_missing', 'CRITICAL', 'state_missing')
+    else:
+        try:
+            state = json.loads(state_path.read_text(encoding='utf-8'))
+            valid = (
+                isinstance(state, dict)
+                and state.get('schema') == 'hes_indicator_strategy_forward_paper_state_v2'
+                and state.get('bootstrap_mode') == 'NO_RETROACTIVE_TRADES'
+                and type(state.get('last_processed_1m_open_time')) is int
+                and type(state.get('last_processed_signal_close_time')) is int
+                and type(state.get('processed_1m_bars')) is int
+                and state.get('processed_1m_bars') >= 0
+                and isinstance(state.get('active'), dict)
+                and set(state.get('active', {})).issubset({'trend_confirmation', 'momentum_breakout', 'range_mean_reversion'})
+            )
+            add('indicator_forward:state_integrity', 'OK' if valid else 'CRITICAL',
+                'valid_forward_only_cursor' if valid else 'state_schema_or_cursor_invalid')
+        except Exception as exc:
+            add('indicator_forward:state_integrity', 'CRITICAL', f'{type(exc).__name__}:{str(exc)[:120]}')
 
 
 def collect_checks(
@@ -242,6 +356,8 @@ def collect_checks(
             add('precision:integrity', 'CRITICAL', f'{type(exc).__name__}:{str(exc)[:120]}')
     else:
         add('precision:report', 'CRITICAL', 'precision_report_missing')
+
+    _check_indicator_forward_paper(data, add)
 
     try:
         usage = shutil.disk_usage(root)

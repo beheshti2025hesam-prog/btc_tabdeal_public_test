@@ -48,3 +48,25 @@ def test_news_monitor_state_is_scoped_to_systemd_state_directory():
     assert "StateDirectory=hes-news-monitor" in dropin
     assert "StateDirectoryMode=0750" in dropin
     assert "ReadWritePaths=/opt/hes-trade-agent" not in dropin
+
+
+def test_indicator_forward_paper_service_is_feed_ordered_and_monitor_recovered():
+    unit = (ROOT / "deploy/systemd/hes-indicator-strategy-forward-paper.service").read_text()
+    expected = (
+        "hes-global-market-data-gateio-1m.service",
+        "hes-global-market-data-gateio.service",
+        "hes-global-market-data-gateio-1h.service",
+        "hes-global-market-data-gateio-4h.service",
+    )
+    for service in expected:
+        assert service in unit.split("After=", 1)[1].splitlines()[0]
+        assert service in unit.split("Wants=", 1)[1].splitlines()[0]
+    assert "WorkingDirectory=/opt/hes-trade-agent/current" in unit
+    assert "ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/current/scripts/run_indicator_strategy_forward_paper_v1.py --daemon" in unit
+    assert "Restart=no" in unit
+    assert "StartLimitBurst=2" in unit
+    assert "NoNewPrivileges=true" in unit
+    assert "ProtectSystem=strict" in unit
+    assert "ReadWritePaths=/opt/hes-trade-agent/data/forward" in unit
+    assert "CapabilityBoundingSet=" in unit
+    assert "AmbientCapabilities=" in unit

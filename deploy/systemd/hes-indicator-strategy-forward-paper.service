@@ -1,0 +1,33 @@
+[Unit]
+Description=HES Indicator Strategy Family V1 - Forward Paper Observer (No Orders)
+After=network-online.target hes-global-market-data-gateio-1m.service hes-global-market-data-gateio.service hes-global-market-data-gateio-1h.service hes-global-market-data-gateio-4h.service
+Wants=network-online.target hes-global-market-data-gateio-1m.service hes-global-market-data-gateio.service hes-global-market-data-gateio-1h.service hes-global-market-data-gateio-4h.service
+StartLimitIntervalSec=1h
+StartLimitBurst=2
+
+[Service]
+Type=simple
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent/current
+Environment=HES_DATA_ROOT=/opt/hes-trade-agent
+Environment=PYTHONPATH=/opt/hes-trade-agent/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/current/scripts/run_indicator_strategy_forward_paper_v1.py --daemon
+# Recovery is governed by the audited HES monitor; systemd must not restart outside its budget.
+Restart=no
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+ReadWritePaths=/opt/hes-trade-agent/data/forward
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+MemoryMax=512M
+CPUQuota=20%
+
+[Install]
+WantedBy=multi-user.target
