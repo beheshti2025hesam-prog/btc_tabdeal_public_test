@@ -21,3 +21,9 @@ A timed-out process is terminated and discarded. No automatic retry is assumed s
 
 ## Validation
 `tests/test_mother_supervisor_runtime_integration_v1.py` verifies market-state round-trip between sequential specialists, duplicate idempotency, timeout-to-UNKNOWN mapping, and Mother NO_TRADE behavior. Existing Mother runtime, orchestrator, witness and full repository suites remain required release gates.
+
+## 24-hour read-only acceptance soak
+
+Use `scripts/ops/mother_supervisor_soak_v1.py` under a transient systemd service with the same sandbox properties as `hes-readonly-dashboard.service`. The runner executes one live Mother observation every 300 seconds for 24 hours, checks the seven-stage order, witness, supervisor circuits/worker cleanup and all read-only invariants, and writes JSONL plus a final summary under `STATE_DIRECTORY`. It uses a private read-only copy of the current trade journal for the Evaluation specialist so the independent Strategy V2 journal writer cannot create false positives during the soak. The production journal itself is never passed as the soak journal and is never modified.
+
+Release approval requires the soak summary to report `status=PASS`, `complete=true`, zero failures, an unchanged private journal snapshot, and no active/in-flight supervisor workers at every observation. This soak validates process/runtime reliability, not strategy profitability or trade performance.
