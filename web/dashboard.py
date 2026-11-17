@@ -336,6 +336,17 @@ def _mother_chat_readers():
             ) if isinstance(x, str) and x],
         }
 
+    def strategy_reader():
+        strategy, mother = _mother_chat_core_evidence()
+        return {
+            "strategy": strategy,
+            "trace_id": mother.get("trace_id"),
+            "evidence_refs": [x for x in (
+                strategy.get("report_sha256"), mother.get("trace_id"),
+                mother.get("audit_sha256"),
+            ) if isinstance(x, str) and x],
+        }
+
     def diagnose_reader():
         components = {}
         try:
@@ -377,6 +388,7 @@ def _mother_chat_readers():
         "JOURNAL_REVIEW": journal_reader,
         "NEWS_CONTEXT": news_reader,
         "DIAGNOSE": diagnose_reader,
+        "STRATEGY_REVIEW": strategy_reader,
     }
 
 
