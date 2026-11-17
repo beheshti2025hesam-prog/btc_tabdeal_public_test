@@ -485,18 +485,25 @@ def build_chat_response(
         s_status = str(strategy.get("status") or "UNKNOWN")
         witness = mother.get("witness", {})
         witness_ok = isinstance(witness, Mapping) and witness.get("verified") is True
+        paper_gate = mother.get("paper_execution_gate", {})
+        paper_status = str(paper_gate.get("status") or "BLOCKED") if isinstance(paper_gate, Mapping) else "BLOCKED"
+        paper_reasons = paper_gate.get("reason_codes", []) if isinstance(paper_gate, Mapping) else []
         claims.extend([
             _claim("Mother status", m_status, str(mother.get("trace_id") or "") or None),
             _claim("Mother decision", decision, str(mother.get("audit_sha256") or "") or None),
-            _claim("Strategy V2 status", s_status, str(strategy.get("report_sha256") or "") or None),
+            _claim("Live strategy runtime", s_status, str(strategy.get("snapshot_sha256") or "") or None),
             _claim("Independent witness", "VERIFIED" if witness_ok else "NOT VERIFIED"),
+            _claim("Paper simulation gate", paper_status),
+            _claim("Paper gate blockers", paper_reasons if isinstance(paper_reasons, list) else []),
+            _claim("Sequence evidence", mother.get("sequence_validation", {}).get("basis", "UNKNOWN") if isinstance(mother.get("sequence_validation"), Mapping) else "UNKNOWN"),
+            _claim("Trade sequence used", mother.get("sequence_validation", {}).get("trade_sequence_used", True) if isinstance(mother.get("sequence_validation"), Mapping) else True),
         ])
         reasons = mother.get("reason_codes", [])
         if isinstance(reasons, list):
             claims.append(_claim("Mother reason codes", reasons))
-        if m_status != "OBSERVATION_ONLY" or not witness_ok or s_status != "VERIFIED":
+        if m_status != "OBSERVATION_ONLY" or not witness_ok or s_status not in {"VERIFIED", "LIVE_RUNTIME"} or paper_status != "READY_FOR_PAPER_SIMULATION":
             status = "PARTIAL"
-            uncertainties.append("Mother, Strategy or independent-witness acceptance is not fully verified.")
+            uncertainties.append("Mother, specialist, witness or paper-simulation gates are not fully ready.")
         if intent == "EXPLAIN_DECISION":
             stages = mother.get("stages", [])
             if isinstance(stages, list):
@@ -514,10 +521,10 @@ def build_chat_response(
             ) if isinstance(stages, list) else ""
             reason_detail = " | ".join(part for part in (reason_text, stage_reason_text) if part) or "not recorded"
             answers = {
-                "fa": f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. دلایل ثبت‌شده: {reason_detail}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. اجرا و ثبت سفارش غیرفعال است.",
-                "de": f"Aufgezeichnete Mother-Entscheidung: {decision}. Status: {m_status}. Erfasste Gründe: {reason_detail}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Ausführung und Orderübermittlung bleiben deaktiviert.",
-                "fr": f"Décision Mother enregistrée : {decision}. Statut : {m_status}. Motifs enregistrés : {reason_detail}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. L’exécution et l’envoi d’ordres restent désactivés.",
-                "en": f"Recorded Mother decision: {decision}. Status: {m_status}. Recorded reasons: {reason_detail}. Independent witness: {'verified' if witness_ok else 'not verified'}. Execution and order submission remain disabled.",
+                "fa": f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. دلایل: {reason_detail}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. دروازهٔ شبیه‌سازی کاغذی: {paper_status}. اجرای واقعی و ثبت سفارش غیرفعال است.",
+                "de": f"Live-Mother-Entscheidung / aufgezeichnete Mother-Entscheidung: {decision}. Status: {m_status}. Gründe: {reason_detail}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Paper-Simulationsgate: {paper_status}. Live-Ausführung und Orderübermittlung bleiben deaktiviert.",
+                "fr": f"Décision Mother en direct / enregistrée : {decision}. Statut : {m_status}. Motifs : {reason_detail}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. Porte de simulation papier : {paper_status}. L’exécution réelle et l’envoi d’ordres restent désactivés.",
+                "en": f"Recorded Mother decision: {decision}. Status: {m_status}. Reasons: {reason_detail}. Independent witness: {'verified' if witness_ok else 'not verified'}. Paper simulation gate: {paper_status}. Live execution and order submission remain disabled.",
             }
             answer = answers[language]
         else:
@@ -526,10 +533,10 @@ def build_chat_response(
             news_status = news_monitor.get("status", "UNKNOWN") if isinstance(news_monitor, Mapping) else "UNKNOWN"
             claims.append(_claim("News monitor", str(news_status)))
             answers = {
-                "fa": f"وضعیت Mother: {m_status}؛ تصمیم: {decision}؛ Strategy V2: {s_status}؛ پایش اخبار: {news_status}. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است.",
-                "de": f"Mother: {m_status}; Entscheidung: {decision}; Strategy V2: {s_status}; News-Monitor: {news_status}. Gate.io Public Spot BTC_USDT bleibt die einzige Analysequelle; Ausführung ist deaktiviert.",
-                "fr": f"Mother : {m_status} ; décision : {decision} ; Strategy V2 : {s_status} ; surveillance des actualités : {news_status}. Gate.io Public Spot BTC_USDT reste l’unique source d’analyse ; l’exécution est désactivée.",
-                "en": f"Mother: {m_status}; decision: {decision}; Strategy V2: {s_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
+                "fa": f"وضعیت زندهٔ Mother: {m_status}؛ تصمیم: {decision}؛ موتور استراتژی: {s_status}؛ دروازهٔ شبیه‌سازی کاغذی: {paper_status}؛ پایش اخبار: {news_status}. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است.",
+                "de": f"Mother: {m_status}; Entscheidung: {decision}; Strategielaufzeit: {s_status}; Paper-Simulationsgate: {paper_status}; News-Monitor: {news_status}. Gate.io Public Spot BTC_USDT bleibt die einzige Analysequelle; Ausführung ist deaktiviert.",
+                "fr": f"Mother : {m_status} ; décision : {decision} ; moteur de stratégie : {s_status} ; porte de simulation papier : {paper_status} ; surveillance des actualités : {news_status}. Gate.io Public Spot BTC_USDT reste l’unique source d’analyse ; l’exécution est désactivée.",
+                "en": f"Mother: {m_status}; decision: {decision}; Strategy runtime: {s_status}; Paper simulation gate: {paper_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
             }
             answer = answers[language]
 
@@ -703,7 +710,7 @@ def build_chat_response(
         age = candle.get("age_seconds")
         claims.extend([
             _claim("Market source", "Gate.io Public Spot BTC_USDT"),
-            _claim("Market regime", regime, str(strategy.get("report_sha256") or "") or None),
+            _claim("Live market regime", regime, str(strategy.get("snapshot_sha256") or "") or None),
             _claim("Strategy decision", decision),
             _claim("Latest closed 15m candle close", close),
             _claim("Latest candle age seconds", age),
@@ -753,26 +760,104 @@ def build_chat_response(
         n_status = str(monitor.get("status") or "UNKNOWN")
         coverage = str(monitor.get("source_profile_status") or "UNKNOWN")
         health = monitor.get("source_health", [])
-        findings = news.get("brief", {}).get("findings", []) if isinstance(news.get("brief"), Mapping) else []
+        raw_brief = news.get("brief")
+        if not isinstance(raw_brief, Mapping):
+            brief = {}
+            status = "PARTIAL"
+            uncertainties.append("NEWS_BRIEF_INVALID")
+        else:
+            brief = raw_brief
+        findings = brief.get("findings", [])
+        if not isinstance(findings, list):
+            findings = []
+            status = "PARTIAL"
+            uncertainties.append("NEWS_FINDINGS_INVALID")
         claims.extend([
             _claim("News transport status", n_status),
             _claim("News source coverage", coverage),
             _claim("Sources with health records", len(health) if isinstance(health, list) else 0),
         ])
+        veto_flags = brief.get("veto_flags", [])
+        if isinstance(veto_flags, list) and veto_flags:
+            safe_flags = [str(flag) for flag in veto_flags if isinstance(flag, str) and flag]
+            if safe_flags:
+                claims.append(_claim("News confirmation flags", " · ".join(safe_flags)))
+                status = "PARTIAL"
+                uncertainties.append("News confirmation flags require independent confirmation.")
         if coverage != "complete":
             status = "PARTIAL"
             uncertainties.append("News coverage is partial or not explicitly complete.")
+        top_interpretation = None
         if isinstance(findings, list):
             for item in findings[:5]:
-                if isinstance(item, Mapping):
-                    claims.append(_claim("News item", str(item.get("title") or "Untitled") + " · " + str(item.get("source") or "source unknown")))
+                if not isinstance(item, Mapping):
+                    continue
+                claims.append(_claim("News item", str(item.get("title") or "Untitled") + " · " + str(item.get("source") or "source unknown")))
+                if item.get("freshness") not in {"fresh", "recent"}:
+                    uncertainties.append("NEWS_ITEM_FRESHNESS_UNVERIFIED:" + str(item.get("item_id") or "unknown"))
+                    continue
+                interpretation = item.get("interpretation")
+                mother_use = interpretation.get("mother_use", {}) if isinstance(interpretation, Mapping) else {}
+                source_facts = interpretation.get("source_facts", {}) if isinstance(interpretation, Mapping) else {}
+                semantics_valid = (
+                    isinstance(interpretation, Mapping)
+                    and interpretation.get("schema_version") == "hes.news_item_interpretation.v1"
+                    and interpretation.get("potential_effect") in {"positive", "negative", "mixed_or_unknown"}
+                    and interpretation.get("relevance_scope") in {
+                        "direct_symbol_or_explicit_tag", "market_or_category_level", "unconfirmed_relevance",
+                    }
+                    and interpretation.get("scores_are_probabilities") is False
+                    and isinstance(source_facts, Mapping)
+                    and source_facts.get("headline") == item.get("title")
+                    and isinstance(mother_use, Mapping)
+                    and mother_use.get("role") == "context_and_confirmation_only"
+                    and mother_use.get("news_alone_can_authorize_trade") is False
+                    and mother_use.get("requires_independent_market_confirmation") is True
+                )
+                localized_map = interpretation.get("localized") if semantics_valid else None
+                localized = localized_map.get(language) if isinstance(localized_map, Mapping) else None
+                required_fields = (
+                    "what_happened", "why_it_matters", "affected_market", "relevance_scope",
+                    "potential_effect", "transmission_channel", "time_horizon", "what_to_monitor",
+                    "educational_concept", "uncertainty", "disclaimer",
+                )
+                required_labels = (
+                    "title", "what", "why", "market", "scope", "effect", "channel",
+                    "horizon", "monitor", "education", "uncertainty", "disclaimer",
+                )
+                labels = localized.get("labels") if isinstance(localized, Mapping) else None
+                locale_complete = (
+                    isinstance(localized, Mapping)
+                    and all(isinstance(localized.get(key), str) and localized[key].strip() for key in required_fields)
+                    and isinstance(labels, Mapping)
+                    and all(isinstance(labels.get(key), str) and labels[key].strip() for key in required_labels)
+                )
+                if semantics_valid and locale_complete:
+                    claims.append(_claim("News interpretation schema", str(interpretation.get("schema_version"))))
+                    claims.append(_claim("News potential effect", str(localized["potential_effect"])))
+                    claims.append(_claim("News relevance scope", str(localized["relevance_scope"])))
+                    claims.append(_claim("Target market context", localized["affected_market"]))
+                    claims.append(_claim("Economic mechanism", localized["why_it_matters"]))
+                    claims.append(_claim("Transmission channel", localized["transmission_channel"]))
+                    claims.append(_claim("Time horizon", localized["time_horizon"]))
+                    claims.append(_claim("What to monitor", localized["what_to_monitor"]))
+                    claims.append(_claim("Economic concept", localized["educational_concept"]))
+                    claims.append(_claim("Interpretation uncertainty", localized["uncertainty"]))
+                    if top_interpretation is None:
+                        top_interpretation = localized
+                else:
+                    status = "PARTIAL"
+                    reason = "NEWS_INTERPRETATION_LOCALE_UNAVAILABLE:" + language if semantics_valid else "NEWS_INTERPRETATION_UNAVAILABLE"
+                    uncertainties.append(reason + ":" + str(item.get("item_id") or "unknown"))
         answers = {
             "fa": f"وضعیت انتقال اخبار: {n_status}؛ پوشش منابع: {coverage}. اخبار فقط زمینهٔ کمکی هستند و به‌تنهایی جهت معامله یا مجوز ورود ایجاد نمی‌کنند.",
             "de": f"Nachrichtenübertragung: {n_status}; Quellenabdeckung: {coverage}. Nachrichten sind nur Kontext und können weder Handelsrichtung noch Einstieg autorisieren.",
-            "fr": f"Transport des actualités : {n_status} ; couverture des sources : {coverage}. Les actualités ne sont qu’un contexte et ne peuvent ni créer une direction ni autoriser une entrée.",
+            "fr": f"Flux d’actualités : {n_status} ; couverture des sources : {coverage}. Les actualités ne sont qu’un contexte et ne peuvent ni créer une direction ni autoriser une entrée.",
             "en": f"News transport: {n_status}; source coverage: {coverage}. News is contextual evidence only and cannot create trade direction or authorize entry.",
         }
         answer = answers[language]
+        if top_interpretation is not None:
+            answer += " " + str(top_interpretation.get("why_it_matters") or "") + " " + str(top_interpretation.get("potential_effect") or "")
 
     elif intent == "DIAGNOSE":
         components = data.get("components", {})

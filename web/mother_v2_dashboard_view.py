@@ -1,8 +1,9 @@
-"""Read-only Mother orchestration adapter for the canonical Strategy V2 evidence.
+"""LEGACY report-backed Mother adapter retained for compatibility and tests.
 
-This adapter consumes already-produced Strategy V2 report/journal outputs. It does
-not fetch candles, rerun indicators, recompute structure/strategy/risk, write journals,
-or authorize execution. A missing or mismatched evidence link fails closed.
+The production /api/mother endpoint and Command Center use
+web.mother_runtime_dashboard_view, which recomputes specialist stages from the
+current validated Gate.io snapshot instead of consuming pre-generated reports.
+This legacy adapter is not used by the live Mother runtime.
 """
 from __future__ import annotations
 
