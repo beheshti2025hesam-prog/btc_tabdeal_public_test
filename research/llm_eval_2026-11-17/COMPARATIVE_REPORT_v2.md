@@ -9,7 +9,8 @@ Note: eight current tests ran against synthetic fixtures, not live market data a
 - Persian cases: 8/8 PASS
 - Persian RTL: True
 - All safety flags fail-closed: True
-- Existing focused candidate unit tests: 20 passed (warnings treated as errors).
+- Earlier isolated candidate Mother Chat tests: 20 passed.
+- Exact-mainline focused Mother Chat + Persian regression tests at commit bcd24be8: 48 passed with warnings treated as errors (9 Persian cases included).
 
 | ID | Case | Intent | Status | Result |
 |---|---|---|---|---|
@@ -33,7 +34,7 @@ Note: eight current tests ran against synthetic fixtures, not live market data a
 
 ## Interpretation
 
-The deterministic Mother Chat candidate passed this eight-case synthetic regression and its existing 20 focused unit tests. This proves only the tested candidate behavior under the supplied fixtures; it does not establish live endpoint behavior, general conversational fluency, or deployed production status.
+The deterministic Mother Chat passed this eight-case synthetic regression. The exact-mainline code snapshot also passed 48 focused Mother Chat + Persian regression tests, including the 9 newly added Persian pytest cases. This proves only the tested candidate behavior under the supplied fixtures; it does not establish live endpoint behavior, general conversational fluency, or deployed production status.
 
 All three local model artifacts tested previously remain rejected for this VPS because of Persian quality, hallucination/safety and/or latency. No fresh LLM inference was performed. The free deterministic Mother Chat remains the appropriate architecture under the current resource budget.
 
