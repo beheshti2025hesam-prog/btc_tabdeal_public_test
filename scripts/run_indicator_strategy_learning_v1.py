@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 CODE_ROOT=Path(__file__).resolve().parents[1]
-ROOT=Path(os.environ.get("HES_DATA_ROOT",str(CODE_ROOT))).expanduser().resolve()
+ROOT=Path(os.environ.get("HES_DATA_ROOT","/opt/hes-trade-agent")).expanduser().resolve()
 JOURNAL=ROOT/"data/forward/indicator_strategy_shadow_journal_v1.jsonl"
 OUTCOMES=ROOT/"data/forward/indicator_strategy_shadow_outcomes_v1.jsonl"
 FORWARD_JOURNAL=ROOT/"data/forward/indicator_strategy_forward_paper_journal_v1.jsonl"
