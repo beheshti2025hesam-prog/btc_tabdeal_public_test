@@ -43,6 +43,10 @@ if (!token) throw new Error("HES_MOTHER_CHAT_TOKEN is required");
       await assistant.waitFor({ state: "visible", timeout: 5000 });
       assert.equal(await assistant.getAttribute("lang"), item.expected);
       assert.equal(await assistant.getAttribute("dir"), item.direction);
+      const userBubble = page.locator(".mother-chat-message.user").last();
+      if (item.language === "fa" && item.message === "status") {
+        assert.equal(await userBubble.getAttribute("dir"), "ltr", "response locale must not rewrite the prompt direction");
+      }
       assert.ok((await assistant.locator("p").textContent()).trim().length > 0);
       evidence.locales.push({ selected: item.language, detected_or_selected: body.language, direction: body.direction, intent: body.intent, status: body.status });
     }
