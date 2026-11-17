@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          nohup env PYTHONPATH=. HES_BINANCE_STREAM_ENABLED=0 python -m web.dashboard >/tmp/hes-dashboard-browser-smoke.log 2>&1 &
+          nohup env PYTHONPATH=. HES_BINANCE_STREAM_ENABLED=0 HES_NEWS_MONITOR_SNAPSHOT=/tmp/hes-news-monitor-browser-smoke.json python -m web.dashboard >/tmp/hes-dashboard-browser-smoke.log 2>&1 &
           echo $! >/tmp/hes-dashboard-browser-smoke.pid
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8765/healthz >/dev/null; then exit 0; fi
@@ -73,6 +73,9 @@ jobs:
         run: |
           mkdir -p artifacts
           node scripts/test_native_ohlcv_dashboard_browser_smoke.cjs
+      - name: Verify Mother chat multilingual selector and response locales
+        timeout-minutes: 2
+        run: node scripts/test_mother_chat_multilingual_browser_smoke.cjs
       - name: Upload browser evidence and screenshot
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -81,6 +84,8 @@ jobs:
           path: |
             artifacts/native-ohlcv-dashboard-browser-smoke.json
             artifacts/native-ohlcv-dashboard-browser-smoke.png
+            artifacts/mother-chat-command-center-browser-smoke.png
+            artifacts/mother-chat-multilingual-browser-smoke.json
             /tmp/hes-dashboard-browser-smoke.log
           if-no-files-found: warn
           retention-days: 14
