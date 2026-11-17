@@ -116,9 +116,6 @@ def test_model_routes_followup_using_recent_history_and_mother_evidence(tmp_path
     assert llm.answer_calls == []
     assert result["local_llm_used"] is False
     assert result["external_llm_used"] is False
-    specialist_claims = [claim for claim in result["claims"] if claim["label"].startswith("Mother specialist ")]
-    assert len(specialist_claims) == 1
-    assert specialist_claims[0]["label"] == "Mother specialist risk"
     assert result["execution_enabled"] is False
     assert result["orders_placed"] is False
 
@@ -337,4 +334,7 @@ def test_specialist_followup_reuses_intent_without_model_rerouting(tmp_path):
     assert llm.route_calls == []
     assert llm.answer_calls == []
     assert result["external_llm_used"] is False
+    specialist_claims = [claim for claim in result["claims"] if claim["label"].startswith("Mother specialist ")]
+    assert len(specialist_claims) == 1
+    assert specialist_claims[0]["label"] == "Mother specialist risk"
     assert result["execution_enabled"] is False
