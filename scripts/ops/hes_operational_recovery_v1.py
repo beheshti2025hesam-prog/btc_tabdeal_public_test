@@ -28,6 +28,7 @@ REPAIR_ORDER = (
     'hes-strategy-paper-evaluator.service',
     'hes-strategy-learning-loop.service',
     'hes-precision-entry-journal.service',
+    'hes-indicator-strategy-forward-paper.service',
 )
 
 DEPENDENCIES = {
@@ -42,6 +43,12 @@ DEPENDENCIES = {
     'hes-precision-entry-journal.service': (
         'hes-global-market-data-gateio-1m.service',
         'hes-strategy-paper-evaluator.service',
+    ),
+    'hes-indicator-strategy-forward-paper.service': (
+        'hes-global-market-data-gateio-1m.service',
+        'hes-global-market-data-gateio.service',
+        'hes-global-market-data-gateio-1h.service',
+        'hes-global-market-data-gateio-4h.service',
     ),
 }
 
@@ -60,6 +67,12 @@ IGNORABLE_WHEN_INACTIVE = {
         'service:hes-precision-entry-journal.service',
         'freshness:precision_entry_journal_report_v1.json',
         'precision:report',
+    },
+    'hes-indicator-strategy-forward-paper.service': {
+        'service:hes-indicator-strategy-forward-paper.service',
+        'freshness:indicator_strategy_forward_paper_report_v1.json',
+        'indicator_forward:report_missing',
+        'indicator_forward:state_missing',
     },
 }
 
