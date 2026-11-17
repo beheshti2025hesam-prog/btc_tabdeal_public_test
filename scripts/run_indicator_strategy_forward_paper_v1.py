@@ -212,7 +212,7 @@ def _new_state(frames, *, migration_from=None):
         "last_processed_signal_close_time":int(latest_15m["close_time"]),
         "processed_1m_bars":0,"active":{}}
 
-def run_once():
+def run_once(process_mode="ONE_SHOT"):
     src=load_market_input(root=DATA_ROOT,min_bars=220)
     frames=src["timeframes"]
     frames["1m"]=read_closed_candles("1m",root=DATA_ROOT,min_bars=220)
@@ -237,7 +237,8 @@ def run_once():
     decisions_count=sum(1 for _ in DECISIONS.open()) if DECISIONS.exists() else 0
     outcomes_count=sum(1 for _ in OUTCOMES.open()) if OUTCOMES.exists() else 0
     report={"schema":"hes_indicator_strategy_forward_paper_report_v1","updated_at":utc_now(),
-        "status":"FORWARD_PAPER_OBSERVATION_ACTIVE" if state["processed_1m_bars"] else "BOOTSTRAPPED_WAITING_FOR_NEXT_15M_SIGNAL",
+        "status":("DAEMON_LOOP_ACTIVE" if process_mode=="DAEMON" else "ONE_SHOT_CURSOR_ADVANCED" if count else "ONE_SHOT_NO_NEW_CLOSED_BAR" if state["processed_1m_bars"] else "BOOTSTRAPPED_WAITING_FOR_NEXT_15M_SIGNAL"),
+        "process_mode":process_mode,
         "source":SOURCE,"symbol":SYMBOL,"latest_closed_15m_time":int(frames["15m"][-1]["close_time"]),
         "latest_closed_1m_time":int(frames["1m"][-1]["close_time"]),
         "new_1m_bars_processed":count,"processed_1m_bars_total":state["processed_1m_bars"],
@@ -270,7 +271,7 @@ def main():
     if not args.daemon:
         print(json.dumps(run_once(),indent=2));return
     while True:
-        try: print(json.dumps(run_once(),sort_keys=True),flush=True)
+        try: print(json.dumps(run_once(process_mode="DAEMON"),sort_keys=True),flush=True)
         except Exception as exc:
             print(json.dumps({"error":type(exc).__name__+":"+str(exc)[:200],
                 "decision":"NO_TRADE","execution_enabled":False}),flush=True)
