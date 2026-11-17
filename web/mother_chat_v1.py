@@ -332,7 +332,7 @@ def _specialist_target(message: str) -> str | None:
     matches = []
     for stage, aliases in _SPECIALIST_ALIASES.items():
         for alias in aliases:
-            if any("\\u0600" <= ch <= "\\u06ff" for ch in alias):
+            if any(0x0600 <= ord(ch) <= 0x06ff for ch in alias):
                 found = alias in normalized
             else:
                 found = re.search(
@@ -621,10 +621,10 @@ def build_chat_response(
                 claims.append(_claim("Evaluation boundary", "OBSERVED means decision-observation validation only; outcomes_inferred=false."))
             claims.append(_claim("Coverage boundary", "Seven canonical Mother stages only; the separate Learning Loop is not included."))
         answers = {
-            "fa": "گزارش خواندنی زنجیرهٔ هفت‌مرحله‌ای تخصص‌های Mother؛ بدون محاسبهٔ مجدد و بدون اختیار معاملاتی:\\n" + "\\n".join(rows) + "\\nLearning Loop مسیر جداگانه‌ای است و در این گزارش پوشش داده نشده است.",
-            "de": "Lesender Bericht über die sieben kanonischen Mother-Stufen; keine Neuberechnung und keine Handelsbefugnis:\\n" + "\\n".join(rows) + "\\nDer Learning Loop ist ein separater Pfad und hier nicht enthalten.",
-            "fr": "Rapport en lecture seule sur les sept étapes canoniques de Mother ; aucun recalcul ni pouvoir de trading :\\n" + "\\n".join(rows) + "\\nLe Learning Loop est un processus distinct et n’est pas inclus ici.",
-            "en": "Read-only report of the seven canonical Mother stages; no recomputation and no trading authority:\\n" + "\\n".join(rows) + "\\nThe Learning Loop is separate and is not covered by this report.",
+            "fa": "گزارش خواندنی زنجیرهٔ هفت‌مرحله‌ای تخصص‌های Mother؛ بدون محاسبهٔ مجدد و بدون اختیار معاملاتی:\n" + "\n".join(rows) + "\nLearning Loop مسیر جداگانه‌ای است و در این گزارش پوشش داده نشده است.",
+            "de": "Lesender Bericht über die sieben kanonischen Mother-Stufen; keine Neuberechnung und keine Handelsbefugnis:\n" + "\n".join(rows) + "\nDer Learning Loop ist ein separater Pfad und hier nicht enthalten.",
+            "fr": "Rapport en lecture seule sur les sept étapes canoniques de Mother ; aucun recalcul ni pouvoir de trading :\n" + "\n".join(rows) + "\nLe Learning Loop est un processus distinct et n’est pas inclus ici.",
+            "en": "Read-only report of the seven canonical Mother stages; no recomputation and no trading authority:\n" + "\n".join(rows) + "\nThe Learning Loop is separate and is not covered by this report.",
         }
         answer = answers[language]
 
