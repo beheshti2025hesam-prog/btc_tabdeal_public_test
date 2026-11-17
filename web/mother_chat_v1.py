@@ -255,7 +255,7 @@ def build_chat_response(
     intent = classify_intent(message)
     if language is None or language == "auto":
         language = _language(message)
-    elif language not in {"fa", "en", "de", "fr"}:
+    elif not isinstance(language, str) or language not in {"fa", "en", "de", "fr"}:
         raise MotherChatError("CHAT_LANGUAGE_INVALID", 400)
     is_fa = language == "fa"
     if intent == "UNKNOWN":
