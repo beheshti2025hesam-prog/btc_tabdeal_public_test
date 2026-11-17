@@ -74,6 +74,34 @@ def test_explain_decision_uses_only_supplied_mother_evidence():
     assert result["journal_write"] is False
 
 
+def test_explicit_response_language_overrides_prompt_detection_and_sets_direction():
+    payload = {
+        "mother": {
+            "status": "OBSERVATION_ONLY", "decision": "NO_TRADE",
+            "trace_id": "a" * 64, "audit_sha256": "b" * 64,
+            "reason_codes": [], "stages": [], "witness": {"verified": True},
+        },
+        "strategy": {"status": "VERIFIED", "report_sha256": "c" * 64},
+    }
+    result = build_chat_response(
+        "status", {"ASK_STATUS": lambda: payload}, language="fa"
+    )
+    assert result["language"] == "fa"
+    assert result["direction"] == "rtl"
+    assert "وضعیت Mother" in result["answer"]
+    english = build_chat_response(
+        "وضعیت سیستم", {"ASK_STATUS": lambda: payload}, language="en"
+    )
+    assert english["language"] == "en"
+    assert english["direction"] == "ltr"
+    assert english["answer"].startswith("Mother:")
+
+
+def test_invalid_response_language_is_rejected():
+    with pytest.raises(MotherChatError, match="CHAT_LANGUAGE_INVALID"):
+        build_chat_response("status", {}, language="xx")
+
+
 def test_market_review_marks_stale_evidence_partial():
     payload = {
         "strategy": {"market_regime": "RANGE", "decision": "NO_TRADE", "report_sha256": "d" * 64},
@@ -286,7 +314,7 @@ def test_command_center_markup_is_present_and_safe():
     required = {
         "motherChatPanel", "motherChatLoginForm", "motherChatToken",
         "motherChatWorkspace", "motherChatMessages", "motherChatForm",
-        "motherChatInput", "motherChatSend", "motherChatLogout",
+        "motherChatInput", "motherChatSend", "motherChatLogout", "motherChatLanguage",
     }
     assert required.issubset(parser.ids)
     script = (Path(dashboard.__file__).resolve().parent / "static" / "dashboard.js").read_text()
@@ -297,6 +325,8 @@ def test_command_center_markup_is_present_and_safe():
     assert "motherChatToken" not in script.split("localStorage", 1)[-1]
     assert "@media(max-width:600px)" in css
     assert 'maxlength="1000"' in dashboard.HTML
+    assert 'value="auto"' in dashboard.HTML
+    assert "language:language" in script
     assert 'aria-live="polite"' in dashboard.HTML
 
 
