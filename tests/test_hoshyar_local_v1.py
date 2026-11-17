@@ -282,3 +282,56 @@ def test_api_key_file_must_be_private(tmp_path):
 
 def test_project_memory_intent_is_allowlisted():
     assert "PROJECT_MEMORY" in ALLOWED_INTENTS
+
+
+def test_specialist_intent_is_allowlisted_for_local_router():
+    assert "SPECIALIST_REVIEW" in ALLOWED_INTENTS
+
+
+def test_specialist_followup_reuses_intent_without_model_rerouting(tmp_path):
+    states = {
+        "data_quality": "PASS", "market_structure": "PASS", "signal": "PASS",
+        "confirmation": "CONFIRMED", "risk": "APPROVED",
+        "decision": "DECIDED", "evaluation": "OBSERVED",
+    }
+    names = tuple(states)
+    stages = [
+        {
+            "agent": name, "agent_version": name + "-v1", "state": states[name],
+            "reason_codes": [], "evidence_refs": ["sha256:" + str(index + 1) * 64],
+        }
+        for index, name in enumerate(names)
+    ]
+    payload = {
+        "mother": {
+            "status": "OBSERVATION_ONLY", "decision": "NO_TRADE",
+            "reason_codes": ["EXECUTION_NOT_AUTHORIZED"],
+            "trace_id": "a" * 64, "audit_sha256": "b" * 64,
+            "stages": stages, "witness": {"verified": True, "audit_sha256": "b" * 64},
+            "outcomes_inferred": False,
+        },
+        "strategy": {
+            "status": "VERIFIED", "report_sha256": "c" * 64,
+            "latest_gate_evidence": {
+                "structure": {"status": "OBSERVED", "regime": "RANGE"},
+                "confirmation": {"state": "CONFIRMED_LONG", "reason_codes": []},
+                "risk": {"state": "RISK_APPROVED", "reason_codes": []},
+            },
+        },
+        "trace_id": "a" * 64, "evidence_refs": ["sha256:" + "d" * 64],
+    }
+    memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
+    memory.append_turn("بررسی ایجنت ریسک", "Risk specialist report.")
+    llm = FakeLLM(intent="GENERAL_CHAT")
+    assistant = HoshyarLocalAssistantV1(llm, memory)
+    result = assistant.respond(
+        "بیشتر توضیح بده",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="fa",
+    )
+    assert result["intent"] == "SPECIALIST_REVIEW"
+    assert result["status"] == "OK"
+    assert llm.route_calls == []
+    assert llm.answer_calls == []
+    assert result["external_llm_used"] is False
+    assert result["execution_enabled"] is False
