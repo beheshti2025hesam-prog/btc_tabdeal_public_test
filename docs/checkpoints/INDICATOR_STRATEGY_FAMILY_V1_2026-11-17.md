@@ -113,14 +113,17 @@ A separate closed-candle forward observer has now been added in the development 
 - `deploy/systemd/hes-indicator-strategy-forward-paper.service` (deployment template only)
 - `tests/strategy/test_indicator_strategy_forward_paper_v1.py`
 
-The observer reuses the canonical Gate.io Public Spot BTC_USDT closed-candle reader and the universal indicator engine. It processes each newly closed 15m bar exactly once, derives the setup only from the preceding closed 15m candle, constrains 1h/4h context to candles closed no later than the signal close, and uses the next 15m candle open as the hypothetical entry. It records all three variant decisions, including explicit NO_TRADE observations, into a separate forward-paper journal and resolves positions with stop-first same-candle handling, gap-aware stop fills, 3R geometry and a 96-bar maximum hold.
+The observer reuses the canonical Gate.io Public Spot BTC_USDT closed-candle reader and the universal indicator engine. It processes newly closed 1m bars and evaluates a setup only when a 15m candle has just closed. The setup uses only that closed 15m candle, with 1h/4h context constrained to candles closed no later than the signal close. Entry is simulated at the first 1m candle open at that 15m close; the record is written after that 1m candle closes. It records all three variant decisions, including explicit NO_TRADE observations, into a separate forward-paper journal and resolves positions with stop-first same-candle handling, gap-aware stop fills, 3R geometry and a 1,440-minute maximum hold.
 
 The learning bridge now reads the forward-paper ledgers separately from historical replay and reports per-variant/per-regime forward-paper diagnostics. These labels remain research-only; they do not count toward production acceptance or the supervised-training gate.
 
-**Baseline initialized:** current latest closed 15m candle cursor was recorded with `NO_RETROACTIVE_TRADES`; zero historical backfill, zero forward decisions, zero outcomes and zero open positions. The observer is waiting for the next newly closed 15m candle.
+**Baseline initialized:** current latest closed 1m cursor and latest closed 15m signal cursor were recorded with `NO_RETROACTIVE_TRADES`; zero historical backfill, zero forward decisions, zero outcomes and zero open positions. The observer is waiting for the next 15m signal close and its corresponding 1m entry candle.
 
 **Deployment boundary:** the systemd template passed syntax verification, but it has deliberately not been installed, enabled, or started. The active immutable release, dashboard symlink and existing paper-evaluator/learning services were not changed. The new observer must first enter a clean, immutable release through the normal GitHub/CI review path; the development checkout is dirty and cannot be treated as a deployable release.
 
-Forward-paper safety remains strict: no orders, no execution authority, no risk-gate bypass, no threshold tuning, no model training, no strategy promotion. SHORT outcomes remain unscored economically from Spot data; 20 bps costs are assumptions, not verified execution costs.
+Forward-paper safety remains strict: no orders, no execution authority, no risk-gate bypass, no threshold tuning, no model training, no strategy promotion. SHORT outcomes remain unscored economically from Spot data; 20 bps costs are assumptions, not verified execution costs. The 1m bar-open fill is hypothetical and is only observed/recorded after that 1m candle has closed.
 
-Focused validation after this addition: **52 tests passed**, including the new forward observer and learning-bridge tests. The observer baseline was successfully initialized against the current Gate.io closed-candle feed.
+Focused validation after this addition: **53 tests passed**, including the new forward observer and learning-bridge tests. The observer baseline was successfully initialized against the current Gate.io 1m/15m/1h/4h closed-candle feeds.
+
+- Forward observer source SHA-256: `0ee781bcd9e7cbab239d102dab82ddbedbc145f12e03015416f6839e5b118656`.
+- Forward observer test SHA-256: `7f8bbe4b84925d47a473fee89ad592aa8359be09132498e6e3183c45186412fd`.
