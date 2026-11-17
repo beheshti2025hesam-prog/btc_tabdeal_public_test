@@ -40,6 +40,8 @@ def test_classifies_supported_persian_and_english_intents():
     assert classify_intent("What is the market status?") == "MARKET_REVIEW"
     assert classify_intent("اخبار بازار") == "NEWS_CONTEXT"
     assert classify_intent("why is the market ranging?") == "MARKET_REVIEW"
+    assert classify_intent("بررسی استراتژی") == "STRATEGY_REVIEW"
+    assert classify_intent("improve strategy") == "STRATEGY_REVIEW"
 
 
 def test_ambiguous_or_unsupported_intents_need_clarification():
@@ -117,6 +119,59 @@ def test_invalid_response_language_is_rejected():
     for invalid in ("xx", [], {}, 1):
         with pytest.raises(MotherChatError, match="CHAT_LANGUAGE_INVALID"):
             build_chat_response("status", {}, language=invalid)
+
+
+
+def test_strategy_review_uses_only_verified_canonical_fields_and_never_mutates():
+    payload = {
+        "status": "VERIFIED",
+        "agent_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
+        "source": "gateio_public_spot",
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "market_regime": "RANGE",
+        "decision": "NO_TRADE",
+        "active_candidates": 3,
+        "wins": 4,
+        "losses": 2,
+        "timeouts": 1,
+        "resolved_win_rate_pct": None,
+        "outcomes_inferred": False,
+        "directional_candidates_blocked_until_gates_approved": True,
+        "report_sha256": "d" * 64,
+        "latest_gate_evidence": {
+            "structure": {"status": "OBSERVED", "regime": "RANGE"},
+            "confirmation": {"state": "UNCONFIRMED", "reason_codes": ["CONFIRMATION_MISSING"]},
+            "risk": {"state": "NOT_APPROVED", "reason_codes": ["RISK_NOT_APPROVED"]},
+        },
+    }
+    called = []
+    result = build_chat_response(
+        "بررسی استراتژی",
+        {"STRATEGY_REVIEW": lambda: called.append(True) or {"strategy": payload}},
+        language="fa",
+    )
+    assert result["status"] == "OK"
+    assert result["intent"] == "STRATEGY_REVIEW"
+    assert result["claims"][0]["value"] == payload["agent_version"]
+    assert any(claim["label"] == "Reported losses" and claim["value"] == 2 for claim in result["claims"])
+    assert any("نتایج تحقق‌یافته" in result["answer"] for _ in [0])
+    assert result["execution_enabled"] is False
+    assert result["orders_placed"] is False
+    assert result["journal_write"] is False
+    assert result["policy_mutation"] is False
+    assert called == [True]
+
+
+def test_strategy_review_blocks_unverified_strategy_evidence():
+    result = build_chat_response(
+        "strategy review",
+        {"STRATEGY_REVIEW": lambda: {"strategy": {"status": "BLOCKED"}}},
+    )
+    assert result["status"] == "BLOCKED"
+    assert result["uncertainties"] == ["STRATEGY_EVIDENCE_NOT_VERIFIED"]
+    assert result["execution_enabled"] is False
+    assert result["policy_mutation"] is False
 
 
 def test_market_review_marks_stale_evidence_partial():
