@@ -65,6 +65,7 @@ refreshMother();setInterval(refreshMother,15000);
  const loginBox=$('motherChatLogin'),workspace=$('motherChatWorkspace');
  const messages=$('motherChatMessages'),loginStatus=$('motherChatLoginStatus');
  const languageSelect=$('motherChatLanguage');
+ const conversation=[];
  function selectedLanguage(){return languageSelect?.value||'auto';}
  function inferUserLanguage(text){
   const value=String(text||'').toLowerCase();
@@ -77,7 +78,7 @@ refreshMother();setInterval(refreshMother,15000);
   const inferred=role==='user'?inferUserLanguage(text):(language&&language!=='auto'?language:(/[\u0600-\u06ff]/.test(String(text||''))?'fa':(document.documentElement.lang||'en')));
   const article=document.createElement('article');article.className='mother-chat-message '+role;
   article.lang=inferred;article.dir=inferred==='fa'?'rtl':'ltr';
-  const heading=document.createElement('strong');heading.textContent=role==='user'?'You':'Mother · '+(status||'EVIDENCE');
+  const heading=document.createElement('strong');heading.textContent=role==='user'?'You':'Mother';
   const body=document.createElement('p');body.textContent=String(text||'');
   article.append(heading,body);messages.appendChild(article);messages.scrollTop=messages.scrollHeight;
  }
@@ -99,7 +100,7 @@ refreshMother();setInterval(refreshMother,15000);
  function showWorkspace(){
   loginBox.hidden=true;workspace.hidden=false;messages.replaceChildren();
   const lang=selectedLanguage()==='auto'?(document.documentElement.lang||'en'):selectedLanguage();
-  const greeting={fa:'مرکز فرمان باز شد. درباره وضعیت، تصمیم ثبت‌شده، بازار، ژورنال، اخبار یا عیب‌یابی بپرس. از مدل خارجی استفاده نمی‌شود.',en:'Command Center unlocked. Ask about status, a recorded decision, market context, journal, news or diagnostics. No external model is used.',de:'Command Center entsperrt. Fragen Sie nach Status, einer aufgezeichneten Entscheidung, Markt, Journal, Nachrichten oder Diagnose. Es wird kein externes Modell verwendet.',fr:'Centre de commande déverrouillé. Posez une question sur le statut, une décision enregistrée, le marché, le journal, les actualités ou le diagnostic. Aucun modèle externe n’est utilisé.'};
+  const greeting={fa:'سلام! 😊 خوش اومدی. من Mother هستم. راحت و طبیعی باهام حرف بزن؛ می‌تونیم درباره وضعیت HES، بررسی استراتژی، تصمیم‌ها، بازار و شواهدشون با هم صحبت کنیم. از کجا شروع کنیم؟',en:'Hey, welcome! 😊 I’m Mother. Talk to me naturally—we can explore HES status, strategy reviews, decisions, market context and their evidence together. Where would you like to start?',de:'Hallo und willkommen! 😊 Ich bin Mother. Sprich ganz natürlich mit mir – wir können den HES-Status, Strategiebewertungen, Entscheidungen, Marktkontext und ihre Nachweise gemeinsam ansehen. Womit möchtest du beginnen?',fr:'Bonjour et bienvenue ! 😊 Je suis Mother. Parlons naturellement : nous pouvons examiner ensemble l’état de HES, la stratégie, les décisions, le marché et leurs preuves. Par quoi veux-tu commencer ?'};
   bubble('mother',greeting[lang]||greeting.en,'READY',lang);$('motherChatInput').focus();
  }
  loginForm.addEventListener('submit',async event=>{
@@ -112,15 +113,19 @@ refreshMother();setInterval(refreshMother,15000);
   event.preventDefault();const input=$('motherChatInput'),message=input.value.trim();if(!message)return;
   const button=$('motherChatSend'),language=selectedLanguage();button.disabled=true;input.value='';bubble('user',message,'',language);
   try{
-   const response=await fetchWithTimeout('/api/mother-chat',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,language})},60000);
+   const history=conversation.slice(-6);
+   const response=await fetchWithTimeout('/api/mother-chat',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,language,history})},60000);
    const result=await response.json();
    if(response.status===401){showLogin('Session expired. Unlock the Command Center again.');bubble('mother','Session expired; no request was processed.','BLOCKED',language);return;}
    if(!response.ok)throw Error(result.error||'CHAT_REQUEST_FAILED');
-   bubble('mother',result.answer||'No answer was returned.',result.status||'UNKNOWN',result.language||language);evidenceDetails(result);
+   conversation.push({role:'user',content:message},{role:'assistant',content:String(result.answer||'')});
+   if(conversation.length>12)conversation.splice(0,conversation.length-12);
+   const mode=result.llm_used?'LOCAL LLM':'DETERMINISTIC FALLBACK';
+   bubble('mother',result.answer||'No answer was returned.',(result.status==='BLOCKED'||result.status==='PARTIAL'?result.status:mode),result.language||language);evidenceDetails(result);
   }catch(error){bubble('mother','Request blocked · '+error.message,'BLOCKED',language);}
   finally{button.disabled=false;}
  });
- $('motherChatLogout').addEventListener('click',async()=>{try{await fetchWithTimeout('/api/mother-chat/logout',{method:'POST',credentials:'same-origin'},5000);}catch(_){}showLogin('Command Center locked.');messages.replaceChildren();});
+ $('motherChatLogout').addEventListener('click',async()=>{try{await fetchWithTimeout('/api/mother-chat/logout',{method:'POST',credentials:'same-origin'},5000);}catch(_){}conversation.length=0;showLogin('Command Center locked.');messages.replaceChildren();});
 })(); 
 
 async function refreshNewsMonitor(){try{const r=await fetchWithTimeout('/api/news',{cache:'no-store'}),j=await r.json();if(!r.ok)throw Error(j.error||'News monitor unavailable');const m=j.monitor||{},b=j.brief||{},p=b.provenance||{},h=m.source_health||p.source_health||[];const count=s=>h.filter(x=>x.status===s).length,scope=s=>h.filter(x=>x.source_scope===s).length,freshness=s=>h.filter(x=>x.freshness_status===s).length;$('newsStatus').textContent=m.status||'UNKNOWN';$('newsCoverage').textContent=m.source_profile_status||'UNKNOWN';$('newsSources').textContent=count('ok')+' / '+count('ok_empty')+' / '+count('failed');$('newsScopes').textContent=scope('international')+' / '+scope('domestic')+' / '+scope('venue');$('newsFreshness').textContent=freshness('fresh')+' / '+freshness('aging')+' / '+freshness('stale')+' / '+freshness('future')+' / '+freshness('empty')+' / '+freshness('failed')+' / '+freshness('unknown');$('newsLastPoll').textContent=m.last_poll_at||'—';$('newsSummary').textContent=(b.headline||'No headline')+' · '+(b.mother_agent_summary||'');$('newsFlags').textContent=(b.veto_flags||[]).join(' · ')||'No explicit news flags; context only. '+(m.last_error||'');const sourceList=$('newsSourceDetails');sourceList.replaceChildren();for(const source of h){const li=document.createElement('li');const age=source.newest_age_minutes==null?'age unknown':Math.round(source.newest_age_minutes/60)+'h old';li.textContent=(source.source_id||'unknown-source')+' · '+(source.source_scope||'scope unknown')+' · transport '+(source.status||'unknown')+' · freshness '+(source.freshness_status||'not available')+' · '+(source.newest_published_at||'no publication timestamp')+' · '+age;sourceList.appendChild(li)}if(!sourceList.children.length){const li=document.createElement('li');li.textContent='No per-source health loaded.';sourceList.appendChild(li)}const list=$('newsItems');list.replaceChildren();for(const item of (b.findings||[]).slice(0,5)){const li=document.createElement('li');li.textContent=(item.title||'Untitled')+' · '+(item.source||'Unknown source')+' · '+(item.published_at||'Publication time unverified')+' · impact '+String(item.impact??'—');list.appendChild(li)}if(!list.children.length){const li=document.createElement('li');li.textContent='No sufficiently relevant, verified headlines in the current snapshot.';list.appendChild(li)}}catch(e){$('newsStatus').textContent='BLOCKED';$('newsCoverage').textContent='UNKNOWN';$('newsSources').textContent='—';$('newsScopes').textContent='—';$('newsFreshness').textContent='—';$('newsLastPoll').textContent='—';$('newsSummary').textContent='FAIL CLOSED · '+e.message;$('newsFlags').textContent='No fresh verified news snapshot; no directional inference or execution.';const sourceList=$('newsSourceDetails');sourceList.replaceChildren();const sourceError=document.createElement('li');sourceError.textContent='Per-source freshness unavailable.';sourceList.appendChild(sourceError);const list=$('newsItems');list.replaceChildren();const li=document.createElement('li');li.textContent='News evidence unavailable or stale.';list.appendChild(li)}}

@@ -40,12 +40,34 @@ def test_classifies_supported_persian_and_english_intents():
     assert classify_intent("What is the market status?") == "MARKET_REVIEW"
     assert classify_intent("اخبار بازار") == "NEWS_CONTEXT"
     assert classify_intent("why is the market ranging?") == "MARKET_REVIEW"
+    assert classify_intent("بررسی استراتژی") == "STRATEGY_REVIEW"
+    assert classify_intent("improve strategy") == "STRATEGY_REVIEW"
 
 
 def test_ambiguous_or_unsupported_intents_need_clarification():
     assert classify_intent("اخبار و ژورنال را بررسی کن") == "UNKNOWN"
     assert classify_intent("سلام، حالت چطوره؟") == "UNKNOWN"
     assert classify_intent("why is it red today?") == "UNKNOWN"
+
+
+def test_greetings_and_capability_questions_are_conversational_in_all_languages():
+    assert classify_intent("سلام") == "SOCIAL_CHAT"
+    assert classify_intent("hello") == "SOCIAL_CHAT"
+    assert classify_intent("از دست تو چه کاری بر می آید") == "ABOUT_CAPABILITIES"
+    assert classify_intent("what can you do") == "ABOUT_CAPABILITIES"
+    assert classify_intent("was kannst du") == "ABOUT_CAPABILITIES"
+    assert classify_intent("que peux-tu faire") == "ABOUT_CAPABILITIES"
+    for language in ("fa", "en", "de", "fr"):
+        greeting = build_chat_response("سلام", {}, language=language)
+        assert greeting["status"] == "OK"
+        assert greeting["intent"] == "SOCIAL_CHAT"
+        assert "NEEDS_CLARIFICATION" not in greeting["status"]
+        answer = build_chat_response("از دست تو چه کاری بر می آید", {}, language=language)
+        assert answer["status"] == "OK"
+        assert answer["intent"] == "ABOUT_CAPABILITIES"
+        assert answer["execution_enabled"] is False
+        assert answer["orders_placed"] is False
+        assert answer["journal_write"] is False
 
 
 def test_explain_decision_uses_only_supplied_mother_evidence():
@@ -99,6 +121,59 @@ def test_invalid_response_language_is_rejected():
             build_chat_response("status", {}, language=invalid)
 
 
+
+def test_strategy_review_uses_only_verified_canonical_fields_and_never_mutates():
+    payload = {
+        "status": "VERIFIED",
+        "agent_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
+        "source": "gateio_public_spot",
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "market_regime": "RANGE",
+        "decision": "NO_TRADE",
+        "active_candidates": 3,
+        "wins": 4,
+        "losses": 2,
+        "timeouts": 1,
+        "resolved_win_rate_pct": None,
+        "outcomes_inferred": False,
+        "directional_candidates_blocked_until_gates_approved": True,
+        "report_sha256": "d" * 64,
+        "latest_gate_evidence": {
+            "structure": {"status": "OBSERVED", "regime": "RANGE"},
+            "confirmation": {"state": "UNCONFIRMED", "reason_codes": ["CONFIRMATION_MISSING"]},
+            "risk": {"state": "NOT_APPROVED", "reason_codes": ["RISK_NOT_APPROVED"]},
+        },
+    }
+    called = []
+    result = build_chat_response(
+        "بررسی استراتژی",
+        {"STRATEGY_REVIEW": lambda: called.append(True) or {"strategy": payload}},
+        language="fa",
+    )
+    assert result["status"] == "OK"
+    assert result["intent"] == "STRATEGY_REVIEW"
+    assert result["claims"][0]["value"] == payload["agent_version"]
+    assert any(claim["label"] == "Reported losses" and claim["value"] == 2 for claim in result["claims"])
+    assert any("نتایج تحقق‌یافته" in result["answer"] for _ in [0])
+    assert result["execution_enabled"] is False
+    assert result["orders_placed"] is False
+    assert result["journal_write"] is False
+    assert result["policy_mutation"] is False
+    assert called == [True]
+
+
+def test_strategy_review_blocks_unverified_strategy_evidence():
+    result = build_chat_response(
+        "strategy review",
+        {"STRATEGY_REVIEW": lambda: {"strategy": {"status": "BLOCKED"}}},
+    )
+    assert result["status"] == "BLOCKED"
+    assert result["uncertainties"] == ["STRATEGY_EVIDENCE_NOT_VERIFIED"]
+    assert result["execution_enabled"] is False
+    assert result["policy_mutation"] is False
+
+
 def test_market_review_marks_stale_evidence_partial():
     payload = {
         "strategy": {"market_regime": "RANGE", "decision": "NO_TRADE", "report_sha256": "d" * 64},
@@ -118,10 +193,11 @@ def test_reader_failure_fails_closed_without_exposing_exception():
     assert result["uncertainties"] == ["CHAT_EVIDENCE_UNAVAILABLE"]
 
 
-def test_unsupported_message_does_not_call_any_reader():
+def test_greeting_does_not_call_any_reader():
     called = []
     result = build_chat_response("سلام", {"ASK_STATUS": lambda: called.append(True) or {}})
-    assert result["status"] == "NEEDS_CLARIFICATION"
+    assert result["status"] == "OK"
+    assert result["intent"] == "SOCIAL_CHAT"
     assert called == []
 
 
@@ -338,7 +414,7 @@ def test_command_center_markup_is_present_and_safe():
     assert "@media(max-width:600px)" in css
     assert 'maxlength="1000"' in dashboard.HTML
     assert 'value="auto"' in dashboard.HTML
-    assert "JSON.stringify({message,language})" in script
+    assert "JSON.stringify({message,language,history})" in script
     assert 'aria-live="polite"' in dashboard.HTML
 
 
