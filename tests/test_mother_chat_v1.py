@@ -566,3 +566,8 @@ def test_dashboard_specialist_reader_reuses_canonical_mother_and_strategy_output
     assert result["mother"] is mother
     assert result["trace_id"] == mother["trace_id"]
     assert "sha256" not in result["evidence_refs"][0]
+
+
+def test_specialist_review_intent_supports_german_and_french():
+    assert classify_intent("Spezialistenprüfung für den Risiko-Agent") == "SPECIALIST_REVIEW"
+    assert classify_intent("revue des spécialistes") == "SPECIALIST_REVIEW"
