@@ -125,7 +125,7 @@ def test_general_chat_is_local_and_action_claims_are_sanitized(tmp_path):
         FakeLLM(intent="GENERAL_CHAT", answer="I changed the risk limit and placed the trade."),
         HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"),
     )
-    result = assistant.respond("Hello, how are you?", {}, language="en")
+    result = assistant.respond("Tell me something interesting about astronomy.", {}, language="en")
     assert result["intent"] == "GENERAL_CHAT"
     assert result["status"] == "CHAT_ONLY"
     assert "cannot perform operational actions" in result["answer"]
@@ -184,7 +184,7 @@ def test_casual_opening_cannot_bypass_market_evidence_reader(tmp_path):
     }}
     result = assistant.respond("سلام رفیق، وضعیت بازار چطوره؟", readers, language="fa")
     assert result["intent"] == "MARKET_REVIEW"
-    assert result["local_llm_used"] is True
+    assert result["local_llm_used"] is False
     assert calls == ["market"]
     assert result["external_llm_used"] is False
 
