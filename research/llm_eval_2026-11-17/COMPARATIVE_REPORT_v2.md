@@ -44,4 +44,4 @@ From the candidate directory: python -m pytest -q -W error tests/test_mother_cha
 
 ## Deployment boundary
 
-Recorded 8/8 execution: isolated forward/hoshyar-integration-worktree candidate. This branch also adds a pytest regression file against the repository-root Mother Chat module so CI can verify the current mainline implementation. Neither test fixture execution nor CI implies a production deployment. This evaluation did not change the release pointer, restart services, install models, or alter production chat routes. Production rollout remains subject to the existing PR/release acceptance gate.
+Tested source: forward/hoshyar-integration-worktree candidate. It is not the active immutable release. This evaluation did not change the release pointer, restart services, install models, or alter production chat routes. Production rollout remains subject to the existing PR/release acceptance gate.
