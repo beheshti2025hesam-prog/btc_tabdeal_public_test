@@ -135,3 +135,13 @@ Focused validation after this addition: **53 tests passed**, including the new f
 - PR is open and marked ready for review; it is not merged.
 - The current head's required workflow runs have been queued; CI has not yet completed. No merge or deployment has been performed.
 - The local SSH fetch path failed strict host-key verification, so the branch was prepared through the authenticated GitHub repository workflow. The dirty development checkout was not reset or cleaned.
+
+
+## 9. Operational monitoring and bounded recovery integration (2026-11-17)
+
+- Hardened the observer systemd template to start after the canonical Gate.io 1m/15m/1h/4h feed services, use the existing monitored-recovery policy (Restart=no), apply a finite systemd start limit, and run without ambient Linux capabilities.
+- Added the observer to the existing five-minute runtime health inventory. The health check verifies the report's Gate.io BTC_USDT identity, research-only and no-execution flags, state cursor/bootstrap contract, append-only decision/outcome counts, unique event IDs, and outcome-to-decision linkage.
+- Added the observer to the existing bounded recovery chain only after all four required feed services are active. Recovery remains under the existing immutable-release verification, deployment lock, manual hold, health preflight, cooldown and per-hour retry budget. No new monitor or timer was created.
+- Added focused tests for valid bootstrap state, unsafe report flags, unlinked outcomes, recovery dependencies and the systemd service contract.
+- The updated service template passed systemd-analyze verify on the VPS; all four Gate.io feed dependencies were active at verification time.
+- The observer has not been installed, enabled or started. It remains blocked on final-head CI/review, merge and clean immutable-release deployment. The existing 742-entry dirty development checkout and active release pointer were left untouched.
