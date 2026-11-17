@@ -437,9 +437,10 @@ class HoshyarLocalAssistantV1:
             else ("UNKNOWN" if _is_casual_greeting(message) else classify_intent(message))
         )
         specialist_context_message = None
-        if deterministic_intent == "UNKNOWN":
-            deterministic_intent = _resolve_contextual_followup_intent(message, history) or deterministic_intent
-            if deterministic_intent == "SPECIALIST_REVIEW" and _is_contextual_followup(message):
+        contextual_intent = _resolve_contextual_followup_intent(message, history)
+        if contextual_intent is not None:
+            deterministic_intent = contextual_intent
+            if contextual_intent == "SPECIALIST_REVIEW":
                 specialist_context_message = next(
                     (item.get("content", "") for item in reversed(history) if item.get("role") == "user"),
                     None,
