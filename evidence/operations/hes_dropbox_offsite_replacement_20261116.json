@@ -1,0 +1,46 @@
+{
+  "schema": "hes_dropbox_offsite_replacement_v1",
+  "captured_utc": "2026-11-16T14:08:00Z",
+  "remote_path": "HES Trade Agent Backups/hes-offsite-latest.tar.zst.gpg",
+  "operation": "in-place replacement of the previously approved stable backup object; no separate second copy was created",
+  "source_archive": {
+    "name": "hes-offsite-core-20261116T135324Z.tar.zst.gpg",
+    "bytes": 1369944609,
+    "sha256": "16a1c3ced6be0723dd80494eb4b7b2b8a02cbe661ca94430b13b3777b927da52",
+    "compression": "Zstandard level 9",
+    "encryption": "GPG symmetric AES-256"
+  },
+  "previous_remote_object_bytes": 1366543290,
+  "verification": {
+    "local_sha256": "PASS",
+    "remote_rclone_content_hash": "PASS",
+    "remote_size_match": "PASS",
+    "remote_gpg_decrypt": "PASS",
+    "remote_zstd_and_tar_listing": "PASS",
+    "recovery_critical_paths": "PASS_33_OF_33",
+    "active_release": "f5d505567522555ee1be9c260e83085347515721",
+    "rollback_release": "737d0555f9348f1e2584714a988d0751bb4448d4",
+    "independent_evidence_entries": 3744,
+    "sidecar_metadata": "PASS"
+  },
+  "dropbox_quota": {
+    "total_bytes": 2147483648,
+    "used_before_bytes": 1366621708,
+    "free_before_bytes": 780861940,
+    "used_after_bytes": 1370023308,
+    "free_after_bytes": 777460340,
+    "reserve_bytes": 134217728
+  },
+  "recovery_secret": {
+    "included_in_archive": false,
+    "stored_in_dropbox": false,
+    "operator_reports_memorized_off_vps": true
+  },
+  "safety": {
+    "old_local_staging_copy_retained": true,
+    "local_full_archives_deleted": false,
+    "local_staging_pruned": false,
+    "production_backup_timers_changed": false,
+    "trading_execution_changed": false
+  }
+}

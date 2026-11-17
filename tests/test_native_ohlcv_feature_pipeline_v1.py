@@ -62,6 +62,35 @@ def test_volume_dependent_features_fail_closed_without_explicit_semantics_approv
     assert result.reason == "VOLUME_SEMANTICS_UNAPPROVED"
 
 
+def test_indicator_series_align_to_native_candle_open_times_and_match_snapshot_values():
+    rows = [
+        row(BASE + i * INTERVAL, close=str(100 + i), quote=str(250 + 10 * i))
+        for i in range(4)
+    ]
+    source = batch(rows)
+    result = NativeOHLCVFeaturePipelineV1(
+        ema_period=3, vwap_period=3, momentum_period=2, volume_semantics_approved=True
+    ).build(source, now_ms=source.fetched_at_ms + 1)
+    expected_times = (BASE // 1000 + 2 * 900, BASE // 1000 + 3 * 900)
+    assert result.decision_ready
+    assert tuple(point[0] for point in result.ema_series) == expected_times
+    assert tuple(point[0] for point in result.vwap_series) == expected_times
+    assert result.ema_series[-1][1] == result.snapshot.ema
+    assert result.vwap_series[-1][1] == result.snapshot.vwap
+    assert result.vwap_series[0][1] == 104.0
+    assert result.vwap_series[1][1] == 108.0
+
+
+def test_indicator_series_are_not_exposed_when_volume_semantics_are_unapproved():
+    source = batch([row(BASE + i * INTERVAL, close=str(100 + i)) for i in range(4)])
+    result = NativeOHLCVFeaturePipelineV1(
+        ema_period=3, vwap_period=3, momentum_period=2
+    ).build(source, now_ms=source.fetched_at_ms + 1)
+    assert not result.decision_ready
+    assert result.ema_series == ()
+    assert result.vwap_series == ()
+
+
 def test_volume_features_can_be_ready_only_with_explicit_approval():
     source = batch([row(BASE + i * INTERVAL, close=str(100 + i)) for i in range(4)])
     result = NativeOHLCVFeaturePipelineV1(

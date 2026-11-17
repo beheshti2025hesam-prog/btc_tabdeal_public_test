@@ -1,0 +1,244 @@
+{
+  "compression": {
+    "benchmark_source": "exact local encrypted-backup include-list semantics; frozen NUL-delimited list",
+    "compression_authorized": false,
+    "gpg_encryption_included_in_size_benchmark": false,
+    "gzip1_bytes": 2453424957,
+    "legacy_gzip_restore_required": true,
+    "note": "Exact local-backup include-list stream benchmark; encrypted archive fixture passed, but no production archive was written.",
+    "production_format_changed": false,
+    "recommendation": "PROTOTYPE_ZSTD9_FOR_LOCAL_BACKUP_V2",
+    "roundtrip_status": "PASS_ZSTD_GPG_AND_LEGACY_GZIP_VERIFIER_FIXTURES",
+    "source_bytes": 7315415040,
+    "status": "LOCAL_BACKUP_STREAM_BENCHMARK",
+    "zstd3_bytes": 2193274296,
+    "zstd9_bytes": 1920590051,
+    "zstd9_vs_gzip1_saving_percent": 21.72
+  },
+  "disk": {
+    "free_bytes": 6589747200,
+    "free_percent": 12.5,
+    "inode_free": 2893638,
+    "inode_free_percent": 88.31,
+    "inode_total": 3276800,
+    "path": "/",
+    "pressure": "WARN",
+    "total_bytes": 52721094656,
+    "used_bytes": 46131347456
+  },
+  "generated_at": "2026-11-16T10:31:46.585564+00:00",
+  "invariants": [
+    "Uses the existing IDLM and dependency-aware Smart Cleanup inventories; does not rescan project trees.",
+    "No file is deleted, moved, truncated, rotated, pruned or compressed by this report.",
+    "All backups and active/rollback releases remain protected.",
+    "New compression format must be versioned; legacy gzip archives remain readable and retained.",
+    "Dropbox free quota is a hard budget; never upload an unbounded second copy or exceed the free tier.",
+    "Full archive restore evidence is distinct from replacement-host recovery; remote restore and explicit approval remain required before retention or cleanup authorization."
+  ],
+  "inventory": {
+    "classification_counts": {
+      "KEEP_BACKUP": 31,
+      "KEEP_BACKUP_STAGING": 3,
+      "KEEP_EVIDENCE": 102,
+      "KEEP_PROTECTED": 6,
+      "KEEP_REGISTERED_WORKTREE": 8,
+      "KEEP_SYMLINK": 6,
+      "KEEP_UNKNOWN": 156,
+      "REVIEW_LOG_POLICY": 1,
+      "REVIEW_REGENERABLE_CACHE": 22,
+      "REVIEW_STALE_TEMP": 401,
+      "REVIEW_SYSTEM_LOG_RETENTION": 1,
+      "REVIEW_TEMP": 191
+    },
+    "classification_storage": {
+      "KEEP_BACKUP": {
+        "allocated_bytes": 40906014720,
+        "items": 31
+      },
+      "KEEP_BACKUP_STAGING": {
+        "allocated_bytes": 138551296,
+        "items": 3
+      },
+      "KEEP_EVIDENCE": {
+        "allocated_bytes": 431423488,
+        "items": 102
+      },
+      "KEEP_PROTECTED": {
+        "allocated_bytes": 6141779968,
+        "items": 6
+      },
+      "KEEP_REGISTERED_WORKTREE": {
+        "allocated_bytes": 593387520,
+        "items": 8
+      },
+      "KEEP_SYMLINK": {
+        "allocated_bytes": 0,
+        "items": 6
+      },
+      "KEEP_UNKNOWN": {
+        "allocated_bytes": 2017648640,
+        "items": 156
+      },
+      "REVIEW_LOG_POLICY": {
+        "allocated_bytes": 2039808,
+        "items": 1
+      },
+      "REVIEW_REGENERABLE_CACHE": {
+        "allocated_bytes": 2964639744,
+        "items": 22
+      },
+      "REVIEW_STALE_TEMP": {
+        "allocated_bytes": 475111424,
+        "items": 401
+      },
+      "REVIEW_SYSTEM_LOG_RETENTION": {
+        "allocated_bytes": 460214272,
+        "items": 1
+      },
+      "REVIEW_TEMP": {
+        "allocated_bytes": 1003511808,
+        "items": 191
+      }
+    },
+    "deletion_authorized": false,
+    "dependency_scan": {
+      "process_reference_count": 332,
+      "running_unit_reference_count": 195,
+      "scan_errors": 0,
+      "scheduled_job_reference_count": 484
+    },
+    "items": 928,
+    "recovery_gate": {
+      "backup_integrity_gate": "INCOMPLETE",
+      "cleanup_authorization": false,
+      "full_restore_gate": "BLOCKED_NOT_PROVEN",
+      "reason": "A selective restore is not a full-system recovery drill; no deletion can be authorized from this report."
+    },
+    "source_age_seconds": 155.0,
+    "source_cleanup_generated_at": "2026-11-16T10:29:16.986403+00:00",
+    "source_idlm_generated_at": "2026-11-16T10:29:11.582078+00:00",
+    "status": "PASS"
+  },
+  "inventory_source": "IDLM_V1_PLUS_SMART_CLEANUP_MANAGER_V1",
+  "mode": "READ_ONLY_CAPACITY_AND_COMPRESSION_PLAN",
+  "policy": {
+    "automatic_cleanup_timer_authorized": false,
+    "backup_destination": "encrypted Dropbox",
+    "backup_retention": "unchanged until remote restore and replacement-host recovery gates pass",
+    "canonical_market_data": "Gate.io Public Spot BTC_USDT",
+    "compression_authorized": false,
+    "deletion_authorized": false,
+    "full_archive_restore_verified": true,
+    "local_footprint_target_gib": 10,
+    "move_authorized": false,
+    "replacement_host_restore_proven": false,
+    "unknown_or_unverified": "KEEP"
+  },
+  "recovery_assessment": {
+    "cleanup_authorized": false,
+    "full_archive_restore": "PASS",
+    "reason": "Full archive restored and verified in an isolated same-host directory; replacement-host and remote restore remain separate gates.",
+    "remote_restore": "NOT_RUN",
+    "replacement_host_restore": "NOT_PROVEN",
+    "required_recovery_paths": "PASS_18_OF_18",
+    "restored_file_bytes": 4475458842,
+    "restored_files": 32927,
+    "status": "FULL_ARCHIVE_RESTORE_VERIFIED"
+  },
+  "schema": "hes_smart_storage_manager_v1",
+  "storage_budget": {
+    "agent_core_bytes_excluding_backup_copies": 7357534208,
+    "complete_footprint_within_target": false,
+    "components_bytes": {
+      "independent_evidence_store": 431423488,
+      "local_backups_and_offsite_staging": 23239327744,
+      "project_checkout_including_releases_candidates_worktrees": 6926110720
+    },
+    "core_within_target": true,
+    "counting_method": "sum only direct-child allocated-byte rows from the exact IDLM/Smart Cleanup snapshot; nested rows are excluded to avoid double counting",
+    "no_data_mutated": true,
+    "over_target_bytes": 19859443712,
+    "scope": "HES local project checkout + independent evidence store + local backup/staging roots; excludes Ubuntu and SentinelX platform files",
+    "target_bytes": 10737418240,
+    "target_gib": 10,
+    "total_local_hes_bytes_including_backups": 30596861952,
+    "total_local_hes_gib": 28.496
+  },
+  "summary": {
+    "dropbox_quota": {
+      "free_bytes": 780861940,
+      "status": "READ_OK",
+      "total_bytes": 2147483648,
+      "used_bytes": 1366621708,
+      "used_percent": 63.64
+    },
+    "local_backup": {
+      "archive_count": 8,
+      "archives": [
+        {
+          "format": "gzip",
+          "name": "hes-full-20261108T023146Z.tar.gz.gpg",
+          "size_bytes": 1976539241
+        },
+        {
+          "format": "gzip",
+          "name": "hes-full-20261110T024716Z.tar.gz.gpg",
+          "size_bytes": 2094008926
+        },
+        {
+          "format": "gzip",
+          "name": "hes-full-20261111T165131Z.tar.gz.gpg",
+          "size_bytes": 2116393779
+        },
+        {
+          "format": "gzip",
+          "name": "hes-full-20261112T120213Z.tar.gz.gpg",
+          "size_bytes": 2116671879
+        },
+        {
+          "format": "gzip",
+          "name": "hes-full-20261113T122836Z.tar.gz.gpg",
+          "size_bytes": 2114032617
+        },
+        {
+          "format": "gzip",
+          "name": "hes-full-20261114T161722Z.tar.gz.gpg",
+          "size_bytes": 2421336808
+        },
+        {
+          "format": "gzip",
+          "name": "hes-full-20261115T174451Z.tar.gz.gpg",
+          "size_bytes": 2442375304
+        },
+        {
+          "format": "gzip",
+          "name": "hes-full-20261116T023147Z.tar.gz.gpg",
+          "size_bytes": 2454418968
+        }
+      ],
+      "errors": 0,
+      "same_day_multiple": {},
+      "status": "PASS",
+      "total_bytes": 17735777522
+    },
+    "offsite_staging": {
+      "archive_count": 2,
+      "archives": [
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261115T175449Z.tar.zst.gpg",
+          "size_bytes": 1361356969
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261116T044148Z.tar.zst.gpg",
+          "size_bytes": 1366543290
+        }
+      ],
+      "errors": 0,
+      "same_day_multiple": {},
+      "status": "PASS",
+      "total_bytes": 2727900259
+    }
+  }
+}

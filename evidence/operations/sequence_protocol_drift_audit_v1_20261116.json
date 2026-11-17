@@ -1,0 +1,155 @@
+{
+  "automatic_capability_promotion": false,
+  "capabilities_modified": false,
+  "generated_at_utc": "2026-11-16T12:38:39.309623+00:00",
+  "overall_status": "REVIEW_REQUIRED",
+  "policy": "DOCUMENT_DRIFT_ONLY; HUMAN_REVIEW_REQUIRED; UNKNOWN_NEVER_GRANTS_CAPABILITY",
+  "records_total": 17,
+  "registry_path": "forward/sequence_semantics_registry_v1.json",
+  "registry_sha256": "d4ca2bf1843fc32ac4bd0800b02d9e435083e74de48010c4b08294d255fee479",
+  "registry_version": 1,
+  "review_required_sources": 11,
+  "schema": "hes_sequence_protocol_drift_audit_v1",
+  "sources": [
+    {
+      "baseline_state": "UNPINNED",
+      "error": "The read operation timed out",
+      "error_type": "TimeoutError",
+      "expected_sha256": null,
+      "record_ids": [
+        "bybit_orderbook_v1"
+      ],
+      "status": "SOURCE_FETCH_FAILED_REVIEW_REQUIRED",
+      "url": "https://bybit-exchange.github.io/docs/v5/websocket/public/orderbook"
+    },
+    {
+      "actual_sha256": "2eb66ff5a103ca0cd8eb0f024b81b1847d0a707a3714d50219288bd1c936c701",
+      "baseline_state": "UNPINNED",
+      "body_bytes": 49481,
+      "expected_sha256": null,
+      "final_url": "https://bybit-exchange.github.io/docs/v5/websocket/public/trade",
+      "http_status": 200,
+      "record_ids": [
+        "bybit_public_trade_v1"
+      ],
+      "status": "BASELINE_UNPINNED_REVIEW_REQUIRED",
+      "url": "https://bybit-exchange.github.io/docs/v5/websocket/public/trade"
+    },
+    {
+      "baseline_state": "UNPINNED",
+      "error": "<urlopen error [Errno 101] Network is unreachable>",
+      "error_type": "URLError",
+      "expected_sha256": null,
+      "record_ids": [
+        "binance_usdm_diff_depth_v1"
+      ],
+      "status": "SOURCE_FETCH_FAILED_REVIEW_REQUIRED",
+      "url": "https://developers.binance.com/docs/derivatives/usds-margined-futures/websocket-market-streams/How-to-manage-a-local-order-book-correctly"
+    },
+    {
+      "baseline_state": "UNPINNED",
+      "error": "<urlopen error [Errno 101] Network is unreachable>",
+      "error_type": "URLError",
+      "expected_sha256": null,
+      "record_ids": [
+        "coinbase_advanced_trade_sequence_v1"
+      ],
+      "status": "SOURCE_FETCH_FAILED_REVIEW_REQUIRED",
+      "url": "https://docs.cdp.coinbase.com/advanced-trade/docs/ws-overview"
+    },
+    {
+      "baseline_state": "UNPINNED",
+      "error": "<urlopen error [Errno 101] Network is unreachable>",
+      "error_type": "URLError",
+      "expected_sha256": null,
+      "record_ids": [
+        "coinbase_exchange_feed_sequence_v1"
+      ],
+      "status": "SOURCE_FETCH_FAILED_REVIEW_REQUIRED",
+      "url": "https://docs.cdp.coinbase.com/exchange/websocket-feed/overview"
+    },
+    {
+      "actual_sha256": "32fc52d1a1627439ff7fe43176e57f0de8d939e93a63175f9a7ff5fdd8fd3a9e",
+      "baseline_state": "UNPINNED",
+      "body_bytes": 282200,
+      "expected_sha256": null,
+      "final_url": "https://docs.kraken.com/exchange/api-reference/futures-websocket/book",
+      "http_status": 200,
+      "record_ids": [
+        "kraken_futures_book_seq_v1"
+      ],
+      "status": "BASELINE_UNPINNED_REVIEW_REQUIRED",
+      "url": "https://docs.kraken.com/api/docs/futures-api/websocket/book/"
+    },
+    {
+      "actual_sha256": "7f26dc4f497a98baab3d271bf39c1859d4613a61cd0c8a01d51f4239b828ecd5",
+      "baseline_state": "UNPINNED",
+      "body_bytes": 485793,
+      "expected_sha256": null,
+      "final_url": "https://docs.kraken.com/exchange/api-reference/spot-websocket-v2/book",
+      "http_status": 200,
+      "record_ids": [
+        "kraken_spot_v2_book_checksum_v1"
+      ],
+      "status": "BASELINE_UNPINNED_REVIEW_REQUIRED",
+      "url": "https://docs.kraken.com/api/docs/websocket-v2/book/"
+    },
+    {
+      "actual_sha256": "c84ff7715cfefe568f1541f2e42dc07b8595f9b3ae6961d1b6680e6873943d8d",
+      "baseline_state": "UNPINNED",
+      "body_bytes": 426660,
+      "expected_sha256": null,
+      "final_url": "https://docs.tabdeal.org/",
+      "http_status": 200,
+      "record_ids": [
+        "tabdeal_fapi_agg_depth_rest_sequence_v1",
+        "tabdeal_fapi_broadcast_trade_sequence_v1",
+        "tabdeal_fapi_depth_v1",
+        "tabdeal_spot_depth_v1"
+      ],
+      "status": "BASELINE_UNPINNED_REVIEW_REQUIRED",
+      "url": "https://docs.tabdeal.org/"
+    },
+    {
+      "actual_sha256": "11717a7321d60481de6a5e38f97c099f6dd9b9f11dc537d3efc46e4b61632da7",
+      "baseline_state": "UNPINNED",
+      "body_bytes": 488343,
+      "expected_sha256": null,
+      "final_url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md",
+      "http_status": 200,
+      "record_ids": [
+        "binance_spot_agg_trade_id_v1",
+        "binance_spot_diff_depth_v1",
+        "binance_spot_trade_id_v1"
+      ],
+      "status": "BASELINE_UNPINNED_REVIEW_REQUIRED",
+      "url": "https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md"
+    },
+    {
+      "actual_sha256": "6cfd24f7da065826465038c348609e94c6805fde5e7d11efdf12cc9b4157c415",
+      "baseline_state": "UNPINNED",
+      "body_bytes": 315998,
+      "expected_sha256": null,
+      "final_url": "https://www.gate.com/docs/developers/apiv4/en/",
+      "http_status": 200,
+      "record_ids": [
+        "gateio_spot_candle_open_time_v1"
+      ],
+      "status": "BASELINE_UNPINNED_REVIEW_REQUIRED",
+      "url": "https://www.gate.com/docs/developers/apiv4/en/"
+    },
+    {
+      "baseline_state": "UNPINNED",
+      "error": "HTTP Error 403: Forbidden",
+      "error_type": "HTTPError",
+      "expected_sha256": null,
+      "record_ids": [
+        "okx_books_link_v1",
+        "okx_public_trade_id_v1"
+      ],
+      "status": "SOURCE_FETCH_FAILED_REVIEW_REQUIRED",
+      "url": "https://www.okx.com/docs-v5/en/"
+    }
+  ],
+  "sources_total": 11
+}

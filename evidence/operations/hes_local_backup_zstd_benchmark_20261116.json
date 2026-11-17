@@ -1,0 +1,28 @@
+{
+  "schema": "hes_local_backup_zstd_benchmark_v1",
+  "scope": "local_backup",
+  "date_utc": "2026-11-16",
+  "source": "exact local encrypted-backup include-list semantics; frozen NUL-delimited list",
+  "member_entries": 60807,
+  "source_bytes": 7315415040,
+  "results": {
+    "gzip_1": {"bytes": 2453424957, "elapsed_seconds": 122, "max_rss_kib": null},
+    "zstd_3_single_thread": {"bytes": 2193274296, "elapsed_seconds": 63, "max_rss_kib": null},
+    "zstd_9_single_thread": {"bytes": 1920590051, "elapsed_seconds": 303, "max_rss_kib": null}
+  },
+  "zstd_3_vs_gzip_1_saving_percent": 10.60,
+  "zstd_9_vs_gzip_1_saving_percent": 21.72,
+  "zstd_9_vs_zstd_3_saving_percent": 12.43,
+  "gpg_encryption_included_in_size_benchmark": false,
+  "archive_written": false,
+  "production_archive_format_changed": false,
+  "method": "tar stream -> gzip/zstd -> byte counter; no output archive written; nice 15; ionice idle; zstd single-thread",
+  "fixture_roundtrip_status": "PASS_ZSTD_GPG_AND_LEGACY_GZIP_VERIFIER_FIXTURES",
+  "notes": [
+    "The include-list had 60,807 entries and raw tar stream measured 7,315,415,040 bytes.",
+    "Zstandard level 9 reduced the same local include-list stream by 21.72% versus gzip level 1.",
+    "Zstandard level 9 took 303 seconds versus 122 seconds for gzip level 1 and 63 seconds for zstd level 3.",
+    "The encrypted fixture verifier passed for both Zstandard and legacy gzip and checked active/rollback release paths; no extraction was performed.",
+    "No production local archive, Dropbox object, retention policy, or service was modified."
+  ]
+}

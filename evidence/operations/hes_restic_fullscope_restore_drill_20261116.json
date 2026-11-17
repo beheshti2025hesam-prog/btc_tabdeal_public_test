@@ -1,0 +1,91 @@
+{
+  "captured_utc": "2026-11-16T10:20:00Z",
+  "dropbox_capacity": {
+    "free_bytes": 780861940,
+    "repository_bytes": 787010021,
+    "required_with_reserve_bytes": 854118885,
+    "reserve_bytes": 67108864,
+    "shortfall_bytes": 73256945,
+    "status": "BLOCKED_INSUFFICIENT_FREE_QUOTA"
+  },
+  "existing_dropbox_archive": {
+    "bytes": 1366543290,
+    "gpg_decrypt": "PASS",
+    "local_staging_copy_hash": "PASS_IDENTICAL",
+    "missing_expanded_recovery_paths": [
+      "etc/ufw",
+      "etc/netplan",
+      "etc/apt",
+      "etc/sentinelx",
+      "etc/sudoers.d",
+      "var/lib/dpkg/status",
+      "root/.ssh",
+      "root/.config/rclone"
+    ],
+    "name": "hes-offsite-latest.tar.zst.gpg",
+    "remote_hash_vs_sidecar": "PASS",
+    "sha256": "7ab2866d5537966bc2078fdd5e12c606879d5576a15c89c75e824d51f05f5f9a",
+    "tar_listing": "PASS_35004_ENTRIES",
+    "zstd_test": "PASS"
+  },
+  "full_restore": {
+    "required_recovery_paths": "PASS_18_OF_18",
+    "restic_verify": "PASS_32927_FILES",
+    "restore_size_gib": 4.168,
+    "restored_directories": 4131,
+    "restored_file_bytes": 4475458842,
+    "restored_files": 32927,
+    "restored_symlinks": 129,
+    "static_content_comparison": "PASS_8_FILES",
+    "status": "PASS",
+    "target": "temporary isolated path under /var/tmp; never restored over live root"
+  },
+  "integrity_check": "PASS_READ_DATA_45_OF_45_PACKS_NO_ERRORS",
+  "latest_local_gzip_archive": {
+    "active_release_present": true,
+    "archive_verifier": "PASS",
+    "bytes": 2454418968,
+    "extraction_performed": false,
+    "gpg_symmetric_aes256_decrypt": "PASS",
+    "gzip_integrity_test": "PASS",
+    "members": 60801,
+    "name": "hes-full-20261116T023147Z.tar.gz.gpg",
+    "rollback_release_present": true,
+    "sha256": "2df8ec077bc77029e611b42dca0d6c2973de08d5dedc28ec4378c0ed4943d9a6",
+    "unsafe_paths": 0
+  },
+  "limitations": [
+    "This is a full archive restore drill to an isolated directory on the same host, not a replacement-host boot or bare-metal OS rebuild.",
+    "Temporary Restic repository used a disposable test password and was not uploaded or retained as a production repository.",
+    "Production migration remains blocked by Dropbox quota reserve and missing external recovery-secret escrow."
+  ],
+  "production_changes": {
+    "backup_service_or_timer_changed": false,
+    "dropbox_mutation": false,
+    "production_archive_migrated": false,
+    "production_backup_format_changed": false,
+    "release_pointer_changed": false,
+    "restic_installed": false,
+    "retention_or_deletion": false,
+    "trading_execution_or_capital_mutation": false
+  },
+  "recovery_secret": {
+    "external_escrow_found": false,
+    "local_mode": "0600 root:root",
+    "local_passphrase_file_present": true,
+    "secret_content_recorded": false
+  },
+  "repository_bytes": 787010021,
+  "repository_format": 2,
+  "restic_raw_data_stats": {
+    "compression_ratio": 1.3,
+    "space_saving_percent": 23.13,
+    "stored_mib": 749.764,
+    "uncompressed_mib": 975.376
+  },
+  "schema": "hes_restic_fullscope_restore_drill_v1",
+  "scope": "HES checkout excluding historical release collection (active and rollback releases included), independent /srv/hes-evidence, and expanded 33-path host/runtime recovery set; .venv and reproducible caches excluded",
+  "snapshot_id": "058470640b6d2231076768931cc37aaefbdf11fe9c72e4a18ca19a9f2afaff57",
+  "source_processed_bytes": 4475455640,
+  "tool": "Restic 0.16.4"
+}
