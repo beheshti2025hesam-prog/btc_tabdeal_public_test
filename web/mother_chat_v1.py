@@ -285,7 +285,7 @@ def build_chat_response(
         return _response(
             intent, "BLOCKED",
             {"fa": "شواهد معتبر در دسترس نیست؛ پاسخ با حالت ایمن متوقف شد.", "de": "Verifizierte Nachweise sind nicht verfügbar; die Anfrage wurde sicher blockiert.", "fr": "Les preuves vérifiées sont indisponibles ; la demande a été bloquée par sécurité.", "en": "Verified evidence is unavailable; the request was safely blocked."}[language],
-            [], ["CHAT_EVIDENCE_UNAVAILABLE"], "", now,
+            [], ["CHAT_EVIDENCE_UNAVAILABLE"], "", now, language=language,
         )
     if not isinstance(data, Mapping):
         return _response(intent, "BLOCKED", "Evidence payload is invalid.", [], ["CHAT_EVIDENCE_INVALID"], "", now, language=language)
