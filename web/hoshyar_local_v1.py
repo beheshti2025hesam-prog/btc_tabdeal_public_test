@@ -76,7 +76,7 @@ def _is_casual_greeting(message: str) -> bool:
     return any(pattern.search(text) for pattern in _CASUAL_GREETING_PATTERNS)
 
 _CAPABILITY_QUESTION_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
-    r"(?:از تو|از شما).{0,35}(?:چه کار|چه کاری|چه کمکی).{0,35}(?:برمی.?آی|برمیاد|می.?توانی|می.?تونی)",
+    r"(?:از تو|از شما).{0,35}(?:چه کار|چه کاری|چه کمکی).{0,35}(?:بر\\s*می\\s*آی|برمیاد|می.?توانی|می.?تونی)",
     r"(?:چه کارهایی|چه کاری|چه کمکی).{0,35}(?:می.?توانی|می.?تونی|از دستت برمی.?آید)",
     r"\b(?:what can you do|how can you help|your capabilities|what are you capable of)\b",
     r"\b(?:was kannst du tun|wobei kannst du helfen|was sind deine fähigkeiten)\b",
