@@ -44,6 +44,10 @@ if (!token) throw new Error("HES_MOTHER_CHAT_TOKEN is required");
       assert.equal(await assistant.getAttribute("lang"), item.expected);
       assert.equal(await assistant.getAttribute("dir"), item.direction);
       const userBubble = page.locator(".mother-chat-message.user").last();
+      const expectedPromptLanguage = item.message === "status" ? "en" :
+        item.message.startsWith("وضعیت") ? "fa" : "de";
+      assert.equal(await userBubble.getAttribute("lang"), expectedPromptLanguage, "prompt language must be detected independently");
+      assert.equal(await userBubble.getAttribute("dir"), expectedPromptLanguage === "fa" ? "rtl" : "ltr");
       if (item.language === "fa" && item.message === "status") {
         assert.equal(await userBubble.getAttribute("dir"), "ltr", "response locale must not rewrite the prompt direction");
       }
