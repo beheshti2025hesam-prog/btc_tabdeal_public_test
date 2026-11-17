@@ -149,16 +149,25 @@ def _is_contextual_followup(message: str) -> bool:
     return any(pattern.search(str(message or "")) for pattern in _CONTEXTUAL_FOLLOWUP_PATTERNS)
 
 
+def _previous_non_contextual_user_message(history: list[dict[str, str]]) -> str | None:
+    for item in reversed(history):
+        if item.get("role") != "user":
+            continue
+        content = str(item.get("content") or "")
+        if content and not _is_contextual_followup(content):
+            return content
+    return None
+
+
 def _resolve_contextual_followup_intent(
     message: str, history: list[dict[str, str]]
 ) -> str | None:
-    """Resolve a short follow-up from the last user intent; never reuse old HES facts."""
+    """Resolve short follow-ups through the latest non-follow-up user request."""
     if not _is_contextual_followup(message):
         return None
-    previous_user = next(
-        (item.get("content", "") for item in reversed(history) if item.get("role") == "user"),
-        "",
-    )
+    previous_user = _previous_non_contextual_user_message(history)
+    if not previous_user:
+        return None
     previous_intent = classify_intent(previous_user)
     supported = {
         "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
@@ -441,10 +450,7 @@ class HoshyarLocalAssistantV1:
         if contextual_intent is not None:
             deterministic_intent = contextual_intent
             if contextual_intent == "SPECIALIST_REVIEW":
-                specialist_context_message = next(
-                    (item.get("content", "") for item in reversed(history) if item.get("role") == "user"),
-                    None,
-                )
+                specialist_context_message = _previous_non_contextual_user_message(history)
         local_used = False
         intent = deterministic_intent
         if deterministic_intent == "UNKNOWN" and self.allow_freeform:
