@@ -75,6 +75,55 @@ def _is_casual_greeting(message: str) -> bool:
         return False
     return any(pattern.search(text) for pattern in _CASUAL_GREETING_PATTERNS)
 
+_CAPABILITY_QUESTION_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"(?:از تو|از شما).{0,35}(?:چه کار|چه کاری|چه کمکی).{0,35}(?:برمی.?آی|برمیاد|می.?توانی|می.?تونی)",
+    r"(?:چه کارهایی|چه کاری|چه کمکی).{0,35}(?:می.?توانی|می.?تونی|از دستت برمی.?آید)",
+    r"\b(?:what can you do|how can you help|your capabilities|what are you capable of)\b",
+    r"\b(?:was kannst du tun|wobei kannst du helfen|was sind deine fähigkeiten)\b",
+    r"\b(?:que peux-tu faire|comment peux-tu aider|quelles sont tes capacités)\b",
+))
+
+
+def _deterministic_general_answer(message: str, language: str) -> str | None:
+    """Answer common onboarding turns without spending CPU on a weak local model."""
+    normalized = " ".join(
+        str(message or "").casefold().replace("ي", "ی").replace("ك", "ک").split()
+    )
+    if any(pattern.search(normalized) for pattern in _CAPABILITY_QUESTION_PATTERNS):
+        return {
+            "fa": (
+                "من دستیار HES Trade AI هستم. می‌توانم وضعیت و سلامت اجزای HES را از شواهد موجود بخوانم؛ "
+                "داده و رژیم بازار Gate.io، تصمیم‌های Mother و Strategy، ژورنال و اخبار را توضیح بدهم؛ "
+                "چک‌پوینت‌های پروژه را جست‌وجو کنم و برای عیب‌یابی یا توسعه، طرح و تست آماده کنم. "
+                "به حساب صرافی دسترسی ندارم، سفارش ثبت نمی‌کنم و هیچ تغییر عملیاتی را بدون تأیید دقیق تو منتشر نمی‌کنم."
+            ),
+            "de": (
+                "Ich bin der HES-Trade-AI-Assistent. Ich kann verfügbare HES-Status- und Gesundheitsnachweise lesen, "
+                "Gate.io-Marktdaten, Mother-/Strategy-Entscheidungen, Journal und Nachrichten erklären, "
+                "Projekt-Checkpoints durchsuchen sowie Diagnose- und Entwicklungsvorschläge mit Tests vorbereiten. "
+                "Ich habe keinen Börsenkontozugriff, platziere keine Orders und veröffentliche keine Änderung ohne deine ausdrückliche Freigabe."
+            ),
+            "fr": (
+                "Je suis l’assistant HES Trade AI. Je peux lire les preuves disponibles sur l’état de HES, "
+                "expliquer les données Gate.io, les décisions Mother/Strategy, le journal et les actualités, "
+                "rechercher les checkpoints du projet et préparer des diagnostics ou propositions avec tests. "
+                "Je n’accède pas aux comptes d’exchange, je ne passe aucun ordre et je ne publie aucun changement sans ton approbation explicite."
+            ),
+            "en": (
+                "I'm the HES Trade AI assistant. I can read available HES health/status evidence; explain Gate.io market data, "
+                "Mother and Strategy decisions, the journal and news; search project checkpoints; and prepare diagnostics, "
+                "development proposals and tests. I have no exchange-account access, place no orders, and publish no operational change without your explicit approval."
+            ),
+        }[language]
+    if _is_casual_greeting(normalized):
+        return {
+            "fa": "سلام رفیق! خوش اومدی 😊 من آماده‌ام؛ می‌تونیم وضعیت HES رو بررسی کنیم، تصمیم‌های مادر رو بفهمیم یا روی توسعهٔ ایجنت کار کنیم. تو بگو از کجا شروع کنیم.",
+            "de": "Hallo! Schön, dass du da bist. Ich kann dir bei HES-Status, Entscheidungen oder der Weiterentwicklung helfen. Womit sollen wir anfangen?",
+            "fr": "Salut ! Ravi de te retrouver. Je peux t’aider avec l’état de HES, ses décisions ou son développement. Par quoi commence-t-on ?",
+            "en": "Hello! Good to have you here. I can help with HES status, recorded decisions, or development. What would you like to tackle first?",
+        }[language]
+    return None
+
 
 _HES_CONTEXT_TERMS = (
     "hes", "mother", "gate.io", "btc", "bitcoin", "no_trade", "strategy v2", "journal", "risk gate",
@@ -341,7 +390,11 @@ class HoshyarLocalAssistantV1:
         except HoshyarLocalError:
             history = []
 
-        deterministic_intent = "UNKNOWN" if _is_casual_greeting(message) else classify_intent(message)
+        deterministic_general_answer = _deterministic_general_answer(message, effective_language)
+        deterministic_intent = (
+            "GENERAL_CHAT" if deterministic_general_answer is not None
+            else ("UNKNOWN" if _is_casual_greeting(message) else classify_intent(message))
+        )
         local_used = False
         intent = deterministic_intent
         if deterministic_intent == "UNKNOWN":
@@ -361,24 +414,28 @@ class HoshyarLocalAssistantV1:
         if intent == "GENERAL_CHAT":
             has_recent_hes_context = any(_has_hes_context(item.get("content", "")) for item in history[-4:])
             if _has_hes_context(message) or (
-                not _is_casual_greeting(message)
+                deterministic_general_answer is None
+                and not _is_casual_greeting(message)
                 and _is_contextual_followup(message)
                 and has_recent_hes_context
             ):
                 intent = "UNKNOWN"
             else:
-                system_prompt = GENERAL_CHAT_SYSTEM_PROMPT + f" Selected response language: {effective_language}."
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    *history[-MAX_HISTORY_MESSAGES:],
-                    {"role": "user", "content": message},
-                ]
-                try:
-                    answer = self.llm.general_answer(messages)
-                    local_used = True
-                except HoshyarLocalError:
-                    answer = ""
-                answer = self._safe_general_answer(answer, effective_language)
+                if deterministic_general_answer is not None:
+                    answer = deterministic_general_answer
+                else:
+                    system_prompt = GENERAL_CHAT_SYSTEM_PROMPT + f" Selected response language: {effective_language}."
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        *history[-MAX_HISTORY_MESSAGES:],
+                        {"role": "user", "content": message},
+                    ]
+                    try:
+                        answer = self.llm.general_answer(messages)
+                        local_used = True
+                    except HoshyarLocalError:
+                        answer = ""
+                    answer = self._safe_general_answer(answer, effective_language)
                 result = {
                     "schema_version": "hes.mother_chat.v1",
                     "router_version": "hes-hoshyar-local-llm-v2",
