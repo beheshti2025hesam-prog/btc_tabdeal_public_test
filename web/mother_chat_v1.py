@@ -56,11 +56,11 @@ _INTENT_TERMS = {
 
 def _language(message: str) -> str:
     text = message.casefold()
-    if any("\u0600" <= ch <= "\u06ff" for ch in message):
+    if any("\\u0600" <= ch <= "\\u06ff" for ch in message):
         return "fa"
-    if re.search(r"\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste)\b", text):
+    if re.search(r"\\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste|was kannst du|wobei kannst du|guten tag|hallo|fähigkeiten)\\b", text):
         return "de"
-    if re.search(r"\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement)\b", text):
+    if re.search(r"\\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement|que peux-tu|comment peux-tu|bonjour|salut|capacités)\\b", text):
         return "fr"
     return "en"
 
@@ -91,7 +91,7 @@ def _is_capability_question(message: str) -> bool:
 
 
 def _general_chat_response(message: str, language: str, now: float | None) -> dict[str, Any] | None:
-    if _is_casual_greeting(message):
+    if _is_casual_greeting(message) and not _is_capability_question(message):
         answers = {
             "fa": "سلام رفیق! خوش اومدی 😊 من آماده‌ام؛ می‌تونیم وضعیت HES رو بررسی کنیم، تصمیم‌های مادر رو بفهمیم یا روی توسعهٔ ایجنت کار کنیم. تو بگو از کجا شروع کنیم.",
             "de": "Hallo! Schön, dass du da bist. Ich kann dir bei HES-Status, Entscheidungen oder der Weiterentwicklung helfen. Womit sollen wir anfangen?",
