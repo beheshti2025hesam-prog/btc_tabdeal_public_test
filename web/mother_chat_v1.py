@@ -48,6 +48,7 @@ _INTENT_TERMS = {
     "ASK_STATUS": ("وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services", "gesundheit", "dienste", "statut", "santé", "services"),
     "EXPLAIN_DECISION": ("چرا تصمیم", "دلیل تصمیم", "علت تصمیم", "چرا مادر", "چرا عدم ترید", "چرا no_trade", "تصمیم مادر", "تصمیم ایجنت", "explain", "why decision", "why no trade", "decision", "mother decision", "warum entscheidung", "warum no trade", "grund", "entscheidung", "pourquoi décision", "pourquoi no trade", "décision", "raison"),
     "MARKET_REVIEW": ("تحلیل بازار", "وضعیت بازار", "بازار", "قیمت", "کندل", "روند", "market", "candles", "price", "regime", "markt", "kerzen", "kurs", "trend", "marché", "bougie", "prix", "tendance"),
+    "STRATEGY_REVIEW": ("بررسی استراتژی", "بهبود استراتژی", "استراتژی", "strategy review", "review strategy", "improve strategy", "optimize strategy", "strategies"),
     "PREPARE_CHANGE": ("پیشنهاد تغییر", "پیشنویس تغییر", "پیش‌نویس تغییر", "طراحی تغییر", "prepare change", "draft change", "änderung vorbereiten", "proposition de changement", "préparer une modification"),
 }
 
@@ -370,6 +371,58 @@ def build_chat_response(
                 "en": f"Mother: {m_status}; decision: {decision}; Strategy V2: {s_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
             }
             answer = answers[language]
+
+    elif intent == "STRATEGY_REVIEW":
+        strategy = data.get("strategy", {})
+        if not isinstance(strategy, Mapping):
+            return _response(intent, "BLOCKED", "Strategy evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
+        strategy_status = str(strategy.get("status") or "UNKNOWN")
+        if strategy_status != "VERIFIED":
+            return _response(intent, "BLOCKED", {
+                "fa": "گزارش معتبر استراتژی در دسترس نیست؛ هیچ نتیجه یا پیشنهاد تغییری ساخته نمی‌شود.",
+                "de": "Ein verifizierter Strategiebericht ist nicht verfügbar; es wird keine Schlussfolgerung oder Änderung vorgeschlagen.",
+                "fr": "Le rapport de stratégie vérifié est indisponible ; aucune conclusion ni modification n’est proposée.",
+                "en": "A verified strategy report is unavailable; no conclusion or change proposal is generated.",
+            }[language], [], ["STRATEGY_EVIDENCE_NOT_VERIFIED"], trace_id, now, language=language)
+        gate = strategy.get("latest_gate_evidence", {})
+        if not isinstance(gate, Mapping):
+            return _response(intent, "BLOCKED", "Strategy gate evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
+        structure = gate.get("structure", {})
+        confirmation = gate.get("confirmation", {})
+        risk = gate.get("risk", {})
+        if not all(isinstance(x, Mapping) for x in (structure, confirmation, risk)):
+            return _response(intent, "PARTIAL", "Some specialist evidence is unavailable; review is incomplete.", [], ["SPECIALIST_EVIDENCE_INCOMPLETE"], trace_id, now, language=language)
+        counts = {key: strategy.get(key) for key in ("active_candidates", "wins", "losses", "timeouts")}
+        claims.extend([
+            _claim("Policy version", strategy.get("agent_version", "UNKNOWN"), str(strategy.get("report_sha256") or "") or None),
+            _claim("Market", str(strategy.get("source", "UNKNOWN")) + " · " + str(strategy.get("symbol", "UNKNOWN"))),
+            _claim("Timeframe", strategy.get("timeframe", "UNKNOWN")),
+            _claim("Market regime", strategy.get("market_regime", "UNKNOWN")),
+            _claim("Canonical decision", strategy.get("decision", "UNKNOWN")),
+            _claim("Active candidates", counts["active_candidates"]),
+            _claim("Reported wins", counts["wins"]),
+            _claim("Reported losses", counts["losses"]),
+            _claim("Reported timeouts", counts["timeouts"]),
+            _claim("Resolved win rate", strategy.get("resolved_win_rate_pct")),
+            _claim("Structure state", structure.get("status", "UNKNOWN") + " · " + str(structure.get("regime", "UNKNOWN"))),
+            _claim("Confirmation state", confirmation.get("state", "UNKNOWN")),
+            _claim("Confirmation reason codes", confirmation.get("reason_codes", [])),
+            _claim("Risk state", risk.get("state", "UNKNOWN")),
+            _claim("Risk reason codes", risk.get("reason_codes", [])),
+            _claim("Directional candidates gate", "BLOCKED_UNTIL_GATES_APPROVED" if strategy.get("directional_candidates_blocked_until_gates_approved") is True else "UNKNOWN"),
+        ])
+        if strategy.get("outcomes_inferred") is not False:
+            status = "PARTIAL"
+            uncertainties.append("Outcome provenance is not explicitly marked as non-inferred.")
+        if strategy.get("resolved_win_rate_pct") is None:
+            uncertainties.append("No verified resolved win-rate value is present in this report.")
+        answers = {
+            "fa": f"بازبینی فقط‌خواندنی استراتژی {strategy.get('agent_version', 'نامشخص')}: رژیم {strategy.get('market_regime', 'نامشخص')}، تصمیم ثبت‌شده {strategy.get('decision', 'نامشخص')}، وضعیت ساختار {structure.get('status', 'نامشخص')}، تأیید {confirmation.get('state', 'نامشخص')} و ریسک {risk.get('state', 'نامشخص')}. آمار گزارش‌شده: {counts['wins']} برد، {counts['losses']} باخت، {counts['timeouts']} timeout و {counts['active_candidates']} کاندید فعال. این داده‌ها به‌تنهایی مجوز تغییر پارامتر نیستند؛ برای بهبود واقعی باید نتایج تحقق‌یافته و آزمون رو‌به‌جلو بررسی شوند.",
+            "en": f"Read-only strategy review for {strategy.get('agent_version', 'unknown')}: regime {strategy.get('market_regime', 'unknown')}, recorded decision {strategy.get('decision', 'unknown')}, structure {structure.get('status', 'unknown')}, confirmation {confirmation.get('state', 'unknown')}, risk {risk.get('state', 'unknown')}. Reported counts: {counts['wins']} wins, {counts['losses']} losses, {counts['timeouts']} timeouts, {counts['active_candidates']} active candidates. These fields alone do not justify parameter changes; genuine improvement requires matured realized outcomes and forward testing.",
+            "de": f"Nur lesende Strategiebewertung für {strategy.get('agent_version', 'unbekannt')}: Regime {strategy.get('market_regime', 'unbekannt')}, aufgezeichnete Entscheidung {strategy.get('decision', 'unbekannt')}, Struktur {structure.get('status', 'unbekannt')}, Bestätigung {confirmation.get('state', 'unbekannt')}, Risiko {risk.get('state', 'unbekannt')}. Gemeldete Werte: {counts['wins']} Gewinne, {counts['losses']} Verluste, {counts['timeouts']} Timeouts, {counts['active_candidates']} aktive Kandidaten. Diese Angaben allein rechtfertigen keine Parameteränderung; echte Verbesserung erfordert ausgereifte realisierte Ergebnisse und Vorwärtstests.",
+            "fr": f"Revue de stratégie en lecture seule pour {strategy.get('agent_version', 'inconnue')} : régime {strategy.get('market_regime', 'inconnu')}, décision enregistrée {strategy.get('decision', 'inconnue')}, structure {structure.get('status', 'inconnue')}, confirmation {confirmation.get('state', 'inconnue')}, risque {risk.get('state', 'inconnu')}. Valeurs rapportées : {counts['wins']} gains, {counts['losses']} pertes, {counts['timeouts']} délais dépassés, {counts['active_candidates']} candidats actifs. Ces champs seuls ne justifient pas un changement de paramètres ; une amélioration réelle exige des résultats réalisés à maturité et des tests prospectifs.",
+        }
+        answer = answers[language]
 
     elif intent == "MARKET_REVIEW":
         strategy = data.get("strategy", {})
