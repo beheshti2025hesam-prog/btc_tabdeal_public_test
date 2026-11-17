@@ -72,9 +72,9 @@ _GREETING_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
 _CAPABILITY_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
     r"(?:از تو|از شما).{0,35}(?:چه کار|چه کاری|چه کمکی).{0,35}(?:بر\\s*می\\s*آی|برمیاد|می.?توانی|می.?تونی)",
     r"(?:چه کارهایی|چه کاری|چه کمکی).{0,35}(?:می.?توانی|می.?تونی|از دستت برمی.?آید)",
-    r"\\b(?:what can you do|how can you help|your capabilities|what are you capable of)\\b",
-    r"\\b(?:was kannst du tun|wobei kannst du helfen|was sind deine fähigkeiten)\\b",
-    r"\\b(?:que peux-tu faire|comment peux-tu aider|quelles sont tes capacités)\\b",
+    r"\b(?:what can you do|how can you help|your capabilities|what are you capable of)\\b",
+    r"\b(?:was kannst du tun|wobei kannst du helfen|was sind deine fähigkeiten)\\b",
+    r"\b(?:que peux-tu faire|comment peux-tu aider|quelles sont tes capacités)\\b",
 ))
 
 
