@@ -125,5 +125,13 @@ Forward-paper safety remains strict: no orders, no execution authority, no risk-
 
 Focused validation after this addition: **53 tests passed**, including the new forward observer and learning-bridge tests. The observer baseline was successfully initialized against the current Gate.io 1m/15m/1h/4h closed-candle feeds.
 
-- Forward observer source SHA-256: `0ee781bcd9e7cbab239d102dab82ddbedbc145f12e03015416f6839e5b118656`.
+- Forward observer source SHA-256: `4d33d07c2d12ad1a05487bddfb3ea1d8b57db0acb92cb429b7c16b04975101c7`.
 - Forward observer test SHA-256: `7f8bbe4b84925d47a473fee89ad592aa8359be09132498e6e3183c45186412fd`.
+
+
+## 8. Mainline review gate
+
+- GitHub PR: https://github.com/beheshti2025hesam-prog/btc_tabdeal_public_test/pull/526
+- PR is open and marked ready for review; it is not merged.
+- The current head's required workflow runs have been queued; CI has not yet completed. No merge or deployment has been performed.
+- The local SSH fetch path failed strict host-key verification, so the branch was prepared through the authenticated GitHub repository workflow. The dirty development checkout was not reset or cleaned.
