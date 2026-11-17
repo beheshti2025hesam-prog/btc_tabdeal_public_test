@@ -132,9 +132,10 @@ _HES_CONTEXT_TERMS = (
 )
 _CONTEXTUAL_FOLLOWUP_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
     r"(?:پس|بنابراین).{0,18}(?:علت|دلیل|چرا)|(?:علتش|دلیلش|چرایش|همون|در موردش|راجع بهش)",
-    r"\b(?:why was that|what about that|and why|the reason|why did it)\b",
-    r"\b(?:warum das|weshalb das|und warum|der grund dazu)\b",
-    r"\b(?:pourquoi cela|et pourquoi|la raison|pourquoi alors)\b",
+    r"^(?:چرا|چطور|بیشتر(?: توضیح بده)?|توضیح بده|ادامه بده)[؟?! .]*$",
+    r"\b(?:why|why was that|what about that|and why|the reason|why did it|tell me more|explain that|go on)\b",
+    r"\b(?:warum|warum das|weshalb das|und warum|der grund dazu|mehr dazu|erklär das)\b",
+    r"\b(?:pourquoi|pourquoi cela|et pourquoi|la raison|pourquoi alors|plus de détails|explique cela)\b",
 ))
 
 
@@ -145,6 +146,35 @@ def _has_hes_context(message: str) -> bool:
 
 def _is_contextual_followup(message: str) -> bool:
     return any(pattern.search(str(message or "")) for pattern in _CONTEXTUAL_FOLLOWUP_PATTERNS)
+
+
+def _resolve_contextual_followup_intent(
+    message: str, history: list[dict[str, str]]
+) -> str | None:
+    """Resolve a short follow-up from the last user intent; never reuse old HES facts."""
+    if not _is_contextual_followup(message):
+        return None
+    previous_user = next(
+        (item.get("content", "") for item in reversed(history) if item.get("role") == "user"),
+        "",
+    )
+    previous_intent = classify_intent(previous_user)
+    supported = {
+        "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "JOURNAL_REVIEW",
+        "NEWS_CONTEXT", "DIAGNOSE", "PROJECT_MEMORY",
+    }
+    if previous_intent not in supported:
+        return None
+    why_patterns = (
+        r"^(?:چرا|علتش|دلیلش|چرایش|پس چرا|بنابراین چرا)[؟?! .]*$",
+        r"\\b(?:why|the reason|why was that|and why)\\b",
+        r"\\b(?:warum|weshalb|der grund)\\b",
+        r"\\b(?:pourquoi|la raison)\\b",
+    )
+    is_why = any(re.search(pattern, str(message or "").casefold()) for pattern in why_patterns)
+    if previous_intent == "ASK_STATUS" and is_why:
+        return "EXPLAIN_DECISION"
+    return previous_intent
 
 
 class HoshyarLocalError(RuntimeError):
@@ -395,6 +425,8 @@ class HoshyarLocalAssistantV1:
             "GENERAL_CHAT" if deterministic_general_answer is not None
             else ("UNKNOWN" if _is_casual_greeting(message) else classify_intent(message))
         )
+        if deterministic_intent == "UNKNOWN":
+            deterministic_intent = _resolve_contextual_followup_intent(message, history) or deterministic_intent
         local_used = False
         intent = deterministic_intent
         if deterministic_intent == "UNKNOWN":
