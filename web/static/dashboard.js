@@ -78,7 +78,7 @@ refreshMother();setInterval(refreshMother,15000);
   const inferred=role==='user'?inferUserLanguage(text):(language&&language!=='auto'?language:(/[\u0600-\u06ff]/.test(String(text||''))?'fa':(document.documentElement.lang||'en')));
   const article=document.createElement('article');article.className='mother-chat-message '+role;
   article.lang=inferred;article.dir=inferred==='fa'?'rtl':'ltr';
-  const heading=document.createElement('strong');heading.textContent=role==='user'?'You':'Mother · '+(status||'EVIDENCE');
+  const heading=document.createElement('strong');heading.textContent=role==='user'?'You':'Mother';
   const body=document.createElement('p');body.textContent=String(text||'');
   article.append(heading,body);messages.appendChild(article);messages.scrollTop=messages.scrollHeight;
  }
@@ -100,7 +100,7 @@ refreshMother();setInterval(refreshMother,15000);
  function showWorkspace(){
   loginBox.hidden=true;workspace.hidden=false;messages.replaceChildren();
   const lang=selectedLanguage()==='auto'?(document.documentElement.lang||'en'):selectedLanguage();
-  const greeting={fa:'مرکز فرمان باز شد. درباره وضعیت، تصمیم ثبت‌شده، بازار، ژورنال، اخبار یا عیب‌یابی بپرس. از مدل خارجی استفاده نمی‌شود.',en:'Command Center unlocked. Ask about status, a recorded decision, market context, journal, news or diagnostics. No external model is used.',de:'Command Center entsperrt. Fragen Sie nach Status, einer aufgezeichneten Entscheidung, Markt, Journal, Nachrichten oder Diagnose. Es wird kein externes Modell verwendet.',fr:'Centre de commande déverrouillé. Posez une question sur le statut, une décision enregistrée, le marché, le journal, les actualités ou le diagnostic. Aucun modèle externe n’est utilisé.'};
+  const greeting={fa:'سلام! 😊 خوش اومدی. من Mother هستم. راحت و طبیعی باهام حرف بزن؛ می‌تونیم درباره وضعیت HES، تصمیم‌ها، بازار و شواهدشون با هم صحبت کنیم. از کجا شروع کنیم؟',en:'Hey, welcome! 😊 I’m Mother. Talk to me naturally—we can explore HES status, decisions, market context and their evidence together. Where would you like to start?',de:'Hallo und willkommen! 😊 Ich bin Mother. Sprich ganz natürlich mit mir – wir können den HES-Status, Entscheidungen, Marktkontext und ihre Nachweise gemeinsam ansehen. Womit möchtest du beginnen?',fr:'Bonjour et bienvenue ! 😊 Je suis Mother. Parlons naturellement : nous pouvons examiner ensemble l’état de HES, les décisions, le marché et leurs preuves. Par quoi veux-tu commencer ?'};
   bubble('mother',greeting[lang]||greeting.en,'READY',lang);$('motherChatInput').focus();
  }
  loginForm.addEventListener('submit',async event=>{
@@ -121,7 +121,7 @@ refreshMother();setInterval(refreshMother,15000);
    conversation.push({role:'user',content:message},{role:'assistant',content:String(result.answer||'')});
    if(conversation.length>12)conversation.splice(0,conversation.length-12);
    const mode=result.llm_used?'LOCAL LLM':'DETERMINISTIC FALLBACK';
-   bubble('mother',result.answer||'No answer was returned.',(result.status||'UNKNOWN')+' · '+mode,result.language||language);evidenceDetails(result);
+   bubble('mother',result.answer||'No answer was returned.',(result.status==='BLOCKED'||result.status==='PARTIAL'?result.status:mode),result.language||language);evidenceDetails(result);
   }catch(error){bubble('mother','Request blocked · '+error.message,'BLOCKED',language);}
   finally{button.disabled=false;}
  });
