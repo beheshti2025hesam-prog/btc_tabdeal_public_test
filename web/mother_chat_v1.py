@@ -42,6 +42,7 @@ class MotherChatError(ValueError):
 
 
 _INTENT_TERMS = {
+    "PROJECT_MEMORY": ("حافظه پروژه", "حافظهٔ پروژه", "حافظه hes", "چک پوینت", "چک‌پوینت", "master checkpoint", "project memory", "project checkpoint", "roadmap", "نقشه راه", "نقشهٔ راه", "چه تصمیمی درباره", "قبلا چه تصمیمی", "قبلاً چه تصمیمی", "ما درباره چه تصمیمی", "چه چیزی ثبت کردیم", "تصمیم قبلی پروژه", "گزارش قبلی پروژه", "what did we decide", "what was recorded", "previous project decision", "project history", "was haben wir beschlossen", "frühere projektentscheidung", "mémoire du projet", "qu'avons-nous décidé", "décision précédente du projet"),
     "NEWS_CONTEXT": ("اخبار", "خبر", "رویداد خبری", "news", "headline", "nachrichten", "meldung", "actualités", "nouvelles"),
     "JOURNAL_REVIEW": ("ژورنال", "نتایج معاملات", "نتیجه معاملات", "عملکرد ترید", "برد و باخت", "journal", "outcomes", "performance", "ergebnisse", "résultats"),
     "DIAGNOSE": ("عیب یابی", "عیب‌یابی", "خطا", "اشکال", "مشکل سیستم", "diagnose", "diagnostics", "error", "fault", "fehler", "erreur", "panne"),
@@ -49,6 +50,7 @@ _INTENT_TERMS = {
     "EXPLAIN_DECISION": ("چرا تصمیم", "دلیل تصمیم", "علت تصمیم", "چرا مادر", "چرا عدم ترید", "چرا no_trade", "تصمیم مادر", "تصمیم ایجنت", "explain", "why decision", "why no trade", "decision", "mother decision", "warum entscheidung", "warum no trade", "grund", "entscheidung", "pourquoi décision", "pourquoi no trade", "décision", "raison"),
     "MARKET_REVIEW": ("تحلیل بازار", "وضعیت بازار", "بازار", "قیمت", "کندل", "روند", "market", "candles", "price", "regime", "markt", "kerzen", "kurs", "trend", "marché", "bougie", "prix", "tendance"),
     "PREPARE_CHANGE": ("پیشنهاد تغییر", "پیشنویس تغییر", "پیش‌نویس تغییر", "طراحی تغییر", "prepare change", "draft change", "änderung vorbereiten", "proposition de changement", "préparer une modification"),
+    "EXPLAIN_CHANGE_CONTROL": ("چه زمانی می‌تواند اعمال", "چه وقت می‌تواند اعمال", "اجازه تغییر", "تأیید تغییر", "تایید تغییر", "اعمال تغییر", "تغییر عملیاتی", "انتشار تغییر", "تغییر نسخه عملیاتی", "when can you apply", "change approval", "approval required", "production change", "deploy approval", "exact diff", "wann darfst du ändern", "produktionsänderung", "änderungsfreigabe", "quand peux-tu appliquer", "approbation modification", "validation changement", "changement en production"),
 }
 
 
@@ -248,11 +250,14 @@ def build_chat_response(
     *,
     language: str | None = None,
     now: float | None = None,
+    intent_override: str | None = None,
 ) -> dict[str, Any]:
-    """Return a bounded, evidence-only response; never invokes a model or mutates state."""
+    """Return a bounded, evidence-only response; an optional intent must be allowlisted."""
     if not isinstance(message, str) or not message.strip() or len(message) > MAX_MESSAGE_CHARS:
         raise MotherChatError("CHAT_MESSAGE_INVALID", 400)
-    intent = classify_intent(message)
+    if intent_override is not None and intent_override not in _INTENT_TERMS:
+        raise MotherChatError("CHAT_INTENT_OVERRIDE_REJECTED", 400)
+    intent = intent_override or classify_intent(message)
     if language is None or language == "auto":
         language = _language(message)
     elif not isinstance(language, str) or language not in {"fa", "en", "de", "fr"}:
@@ -267,6 +272,15 @@ def build_chat_response(
         }
         answer = answers[language]
         return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now, language=language)
+    if intent == "EXPLAIN_CHANGE_CONTROL":
+        answers = {
+            "fa": "فقط پس از تأیید صریح و مشخص تو برای همان تغییر، همان فایل/نسخه و همان هدف؛ آن هم بعد از آزمایش جداگانه، تست موفق، بازبینی و آماده‌بودن برنامه بازگشت. اجازه کلی یا مبهم کافی نیست و هوشیار خودش تصمیم به انتشار نمی‌گیرد.",
+            "de": "Nur nach deiner ausdrücklichen Freigabe genau dieser Änderung, der betroffenen Datei/Version und des Ziels – und erst nach isoliertem Test, erfolgreichen Prüfungen, Review und vorbereitetem Rollback. Eine pauschale Zustimmung reicht nicht; HOSHYAR entscheidet nicht selbst über die Veröffentlichung.",
+            "fr": "Uniquement après ton approbation explicite de cette modification précise, du fichier/de la version et de la cible, puis après expérimentation isolée, tests réussis, revue et plan de retour arrière. Une autorisation générale ne suffit pas ; HOSHYAR ne décide jamais seul de la mise en production.",
+            "en": "Only after you explicitly approve the exact change, affected file/version and target—and only after isolated testing, passing checks, review and a ready rollback plan. General approval is not enough; HOSHYAR never decides on its own to publish a change.",
+        }
+        answer = answers[language]
+        return _response(intent, "OK", answer, [], [], "", now, language=language)
     if intent == "PREPARE_CHANGE":
         answers = {
             "fa": "برای تهیهٔ پیش‌نویس، نام بخش و تغییر موردنظر را مشخص کن. این رابط فقط پیش‌نویس می‌سازد و هیچ تغییری را اعمال نمی‌کند.",
@@ -276,6 +290,54 @@ def build_chat_response(
         }
         answer = answers[language]
         return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now, language=language)
+    if intent == "PROJECT_MEMORY":
+        reader = readers.get(intent)
+        if not callable(reader):
+            return _response(intent, "BLOCKED", "Project memory reader is not configured.", [], ["PROJECT_MEMORY_READER_NOT_CONFIGURED"], "", now, language=language)
+        try:
+            data = reader()
+        except Exception:
+            return _response(intent, "BLOCKED", {"fa": "حافظهٔ محلی پروژه در دسترس نیست؛ هیچ نتیجه‌ای حدس زده نشد.", "de": "Der lokale Projektspeicher ist nicht verfügbar; es wurde nichts geraten.", "fr": "La mémoire locale du projet est indisponible ; aucune réponse n'a été devinée.", "en": "Local project memory is unavailable; no result was guessed."}[language], [], ["PROJECT_MEMORY_UNAVAILABLE"], "", now, language=language)
+        if not isinstance(data, Mapping):
+            return _response(intent, "BLOCKED", "Project memory payload is invalid.", [], ["PROJECT_MEMORY_INVALID"], "", now, language=language)
+        matches = data.get("matches", [])
+        refs = data.get("evidence_refs", [])
+        trace_id = str(data.get("trace_id") or "")
+        uncertainties = data.get("uncertainties", [])
+        if not isinstance(matches, list):
+            matches = []
+        if not isinstance(refs, list):
+            refs = []
+        if not isinstance(uncertainties, list):
+            uncertainties = []
+        claims: list[dict[str, Any]] = []
+        rows: list[str] = []
+        for item in matches[:4]:
+            if not isinstance(item, Mapping):
+                continue
+            title = str(item.get("title") or "Untitled")[:180]
+            path = str(item.get("path") or "unknown")[:240]
+            excerpt = " ".join(str(item.get("excerpt") or "").split())[:500]
+            digest = str(item.get("sha256") or "")
+            source_ref = "sha256:" + digest if re.fullmatch(r"[0-9a-f]{64}", digest) else None
+            claims.append(_claim("Local project record", {"title": title, "path": path, "excerpt": excerpt, "modified_at": item.get("modified_at")}, source_ref))
+            rows.append(f"{title} — {excerpt} [source: {path}; sha256: {digest[:12]}]")
+        if not rows:
+            answers = {
+                "fa": "در پوشه‌های محلیِ مجاز، سند مرتبطی پیدا نشد. این جست‌وجو صفحه‌های صرفاً Notion یا منابع متصل دیگر را پوشش نمی‌دهد.",
+                "de": "In den freigegebenen lokalen Ordnern wurde kein passender Eintrag gefunden. Nur-Notion-Seiten und andere verbundene Quellen sind nicht enthalten.",
+                "fr": "Aucun document correspondant n'a été trouvé dans les dossiers locaux autorisés. Les pages uniquement dans Notion et les autres sources connectées ne sont pas incluses.",
+                "en": "No matching record was found in the approved local folders. Notion-only pages and other connected sources are not included.",
+            }
+            return _response(intent, "EMPTY", answers[language], [], [str(x) for x in uncertainties[:10]], trace_id, now, _refs(*refs), language=language)
+        prefixes = {
+            "fa": "در اسناد محلیِ مجاز پروژه این موارد مرتبط پیدا شد:",
+            "de": "In den freigegebenen lokalen Projektunterlagen wurden diese Einträge gefunden:",
+            "fr": "Ces éléments pertinents ont été trouvés dans les documents locaux autorisés du projet :",
+            "en": "These relevant records were found in the approved local project documents:",
+        }
+        answer = prefixes[language] + "\n\n" + "\n\n".join(f"{index}. {row}" for index, row in enumerate(rows, 1))
+        return _response(intent, "PARTIAL", answer, claims, [str(x) for x in uncertainties[:10]], trace_id, now, _refs(*refs), language=language)
     reader = readers.get(intent)
     if not callable(reader):
         return _response(intent, "BLOCKED", "Evidence reader is not configured.", [], ["CHAT_READER_NOT_CONFIGURED"], "", now, language=language)
@@ -330,11 +392,17 @@ def build_chat_response(
                             str(stage.get("state") or "UNKNOWN")
                             + ((" · " + ", ".join(stage.get("reason_codes", []))) if isinstance(stage.get("reason_codes"), list) else ""),
                         ))
+            reason_text = ", ".join(str(item)[:120] for item in reasons[:8] if isinstance(item, str)) if isinstance(reasons, list) else ""
+            stage_reason_text = "; ".join(
+                str(stage.get("agent") or "unknown") + ": " + ", ".join(str(code)[:120] for code in stage.get("reason_codes", [])[:5] if isinstance(code, str))
+                for stage in stages if isinstance(stage, Mapping) and isinstance(stage.get("reason_codes", []), list) and stage.get("reason_codes")
+            ) if isinstance(stages, list) else ""
+            reason_detail = " | ".join(part for part in (reason_text, stage_reason_text) if part) or "not recorded"
             answers = {
-                "fa": f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. اجرا و ثبت سفارش غیرفعال است.",
-                "de": f"Aufgezeichnete Mother-Entscheidung: {decision}. Status: {m_status}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Ausführung und Orderübermittlung bleiben deaktiviert.",
-                "fr": f"Décision Mother enregistrée : {decision}. Statut : {m_status}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. L’exécution et l’envoi d’ordres restent désactivés.",
-                "en": f"Recorded Mother decision: {decision}. Status: {m_status}. Independent witness: {'verified' if witness_ok else 'not verified'}. Execution and order submission remain disabled.",
+                "fa": f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. دلایل ثبت‌شده: {reason_detail}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. اجرا و ثبت سفارش غیرفعال است.",
+                "de": f"Aufgezeichnete Mother-Entscheidung: {decision}. Status: {m_status}. Erfasste Gründe: {reason_detail}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Ausführung und Orderübermittlung bleiben deaktiviert.",
+                "fr": f"Décision Mother enregistrée : {decision}. Statut : {m_status}. Motifs enregistrés : {reason_detail}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. L’exécution et l’envoi d’ordres restent désactivés.",
+                "en": f"Recorded Mother decision: {decision}. Status: {m_status}. Recorded reasons: {reason_detail}. Independent witness: {'verified' if witness_ok else 'not verified'}. Execution and order submission remain disabled.",
             }
             answer = answers[language]
         else:

@@ -1,0 +1,48 @@
+[Unit]
+Description=HES HOSHYAR Local LLM (Qwen3.5 2B Q4_K_M)
+Documentation=https://github.com/ggml-org/llama.cpp
+After=local-fs.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=sentinelx
+Group=sentinelx
+WorkingDirectory=/opt/hes-trade-agent/forward/hoshyar-runtime
+UMask=0077
+ExecStart=/usr/bin/nice -n 10 /opt/hes-trade-agent/forward/hoshyar-runtime/bin/llama-b12248/llama-server --model /opt/hes-trade-agent/forward/hoshyar-runtime/models/Qwen3.5-2B-Q4_K_M.gguf --host 127.0.0.1 --port 18082 --ctx-size 4096 --threads 2 --threads-batch 2 --batch-size 64 --ubatch-size 32 --parallel 1 --no-webui --poll 0 --reasoning off --api-key-file /var/lib/hes-news-monitor/hoshyar-llm-api-keys
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120
+TimeoutStopSec=30
+KillSignal=SIGTERM
+KillMode=mixed
+LimitNOFILE=8192
+Nice=10
+OOMScoreAdjust=500
+CPUWeight=20
+CPUQuota=125%
+IOWeight=20
+MemoryHigh=2600M
+MemoryMax=3G
+TasksMax=128
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+LockPersonality=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+ReadOnlyPaths=/opt/hes-trade-agent/forward/hoshyar-runtime/bin /opt/hes-trade-agent/forward/hoshyar-runtime/models /var/lib/hes-news-monitor/hoshyar-llm-api-keys
+
+[Install]
+WantedBy=multi-user.target
