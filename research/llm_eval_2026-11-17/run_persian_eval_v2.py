@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 PROJECT=Path(__file__).resolve().parents[2]
 CANDIDATE=PROJECT
 if not (CANDIDATE/"web/mother_chat_v1.py").is_file():
+    CANDIDATE=PROJECT/"candidates/persian-eval-mainline-snapshot-20261117"
+if not (CANDIDATE/"web/mother_chat_v1.py").is_file():
     CANDIDATE=PROJECT/"forward/hoshyar-integration-worktree"
 MODULE=CANDIDATE/"web/mother_chat_v1.py"
 OUT=Path(__file__).resolve().parent
