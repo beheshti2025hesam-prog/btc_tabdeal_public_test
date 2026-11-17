@@ -73,6 +73,15 @@ def test_witness_rejects_tampered_audit_fields():
     assert result.reason_codes == ("WITNESS_AUDIT_DIGEST_MISMATCH",)
 
 
+def test_witness_rejects_tampered_consensus_audit():
+    output = MotherOrchestratorV1(agent_map()).run(CONTEXT).as_dict()
+    tampered = deepcopy(output)
+    tampered["consensus"]["audit_sha256"] = "0" * 64
+    result = MotherAuditWitnessV1().verify(tampered)
+    assert result.verified is False
+    assert result.reason_codes == ("WITNESS_CONSENSUS_DIGEST_MISMATCH",)
+
+
 def test_witness_rejects_execution_authorization_even_with_original_hash():
     output = MotherOrchestratorV1(agent_map()).run(CONTEXT).as_dict()
     output["execution_authorized"] = True
