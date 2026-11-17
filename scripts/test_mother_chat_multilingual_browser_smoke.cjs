@@ -17,8 +17,10 @@ if (!token) throw new Error("HES_MOTHER_CHAT_TOKEN is required");
     await page.locator("#motherChatWorkspace").waitFor({ state: "visible", timeout: 10000 });
 
     const cases = [
+      { language: "en", message: "status", expected: "en", direction: "ltr" },
       { language: "fr", message: "status", expected: "fr", direction: "ltr" },
-      { language: "fa", message: "وضعیت سیستم", expected: "fa", direction: "rtl" },
+      { language: "fa", message: "status", expected: "fa", direction: "rtl" },
+      { language: "auto", message: "وضعیت سیستم", expected: "fa", direction: "rtl" },
       { language: "auto", message: "Warum ist die Entscheidung NO_TRADE?", expected: "de", direction: "ltr" }
     ];
     for (const item of cases) {
