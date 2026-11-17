@@ -571,3 +571,18 @@ def test_dashboard_specialist_reader_reuses_canonical_mother_and_strategy_output
 def test_specialist_review_intent_supports_german_and_french():
     assert classify_intent("Spezialistenprüfung für den Risiko-Agent") == "SPECIALIST_REVIEW"
     assert classify_intent("revue des spécialistes") == "SPECIALIST_REVIEW"
+
+
+def test_specialist_context_message_keeps_generic_followup_on_prior_target():
+    payload = _verified_specialist_payload()
+    result = build_chat_response(
+        "بیشتر توضیح بده",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="fa",
+        intent_override="SPECIALIST_REVIEW",
+        specialist_context_message="بررسی ایجنت ریسک",
+    )
+    specialist_claims = [claim for claim in result["claims"] if claim["label"].startswith("Mother specialist ")]
+    assert result["status"] == "OK"
+    assert len(specialist_claims) == 1
+    assert specialist_claims[0]["label"] == "Mother specialist risk"
