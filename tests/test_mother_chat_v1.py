@@ -540,7 +540,7 @@ def test_specialist_review_rejects_duplicate_or_out_of_order_stage_rows():
         language="en",
     )
     assert result["status"] == "BLOCKED"
-    assert result["uncertainties"] == ["MOTHER_SPECIALIST_STAGE_ORDER_INVALID"]
+    assert result["uncertainties"] == ["MOTHER_SPECIALIST_STAGES_INVALID"]
 
 
 def test_specialist_intent_is_classified_deterministically():
