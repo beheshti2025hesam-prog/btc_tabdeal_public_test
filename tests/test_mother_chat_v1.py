@@ -58,6 +58,8 @@ def test_persian_capability_question_returns_complete_bounded_answer():
     assert result["status"] == "CHAT_ONLY"
     assert "Gate.io" in result["answer"]
     assert "ژورنال" in result["answer"]
+    assert "محلیِ مجاز" in result["answer"]
+    assert "Notion" in result["answer"]
     assert "سفارش ثبت نمی‌کنم" in result["answer"]
     assert result["execution_enabled"] is False
     assert result["journal_write"] is False
