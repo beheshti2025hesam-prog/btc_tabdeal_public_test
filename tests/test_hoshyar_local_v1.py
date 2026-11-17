@@ -337,4 +337,14 @@ def test_specialist_followup_reuses_intent_without_model_rerouting(tmp_path):
     specialist_claims = [claim for claim in result["claims"] if claim["label"].startswith("Mother specialist ")]
     assert len(specialist_claims) == 1
     assert specialist_claims[0]["label"] == "Mother specialist risk"
+    second_followup = assistant.respond(
+        "چرا؟",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="fa",
+    )
+    assert second_followup["intent"] == "SPECIALIST_REVIEW"
+    second_claims = [claim for claim in second_followup["claims"] if claim["label"].startswith("Mother specialist ")]
+    assert len(second_claims) == 1
+    assert second_claims[0]["label"] == "Mother specialist risk"
+    assert second_followup["local_llm_used"] is False
     assert result["execution_enabled"] is False
