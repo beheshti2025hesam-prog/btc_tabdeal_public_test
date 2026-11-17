@@ -21,6 +21,7 @@ from core.market_intelligence.news_monitor import NewsMonitorV1
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard, StrategyV2DashboardError
 from web.mother_v2_dashboard_view import read_mother_v2_dashboard, MotherV2DashboardError
 from web.mother_chat_v1 import MotherChatError, MotherChatSecurityV1, build_chat_response, read_json_body
+from web.mother_chat_local_llm_v1 import render_grounded_answer
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 
@@ -757,12 +758,21 @@ class Handler(BaseHTTPRequestHandler):
             if not _MOTHER_CHAT_SECURITY.has_valid_session(self.headers):
                 raise MotherChatError("CHAT_SESSION_REQUIRED", 401)
             payload = read_json_body(self)
-            if set(payload) not in ({"message"}, {"message", "language"}):
+            if set(payload) not in ({"message"}, {"message", "language"}, {"message", "language", "history"}):
                 raise MotherChatError("CHAT_MESSAGE_PAYLOAD_INVALID", 400)
             language = payload.get("language", "auto")
             if not isinstance(language, str) or language not in {"auto", "fa", "en", "de", "fr"}:
                 raise MotherChatError("CHAT_LANGUAGE_INVALID", 400)
+            history = payload.get("history", [])
+            if not isinstance(history, list) or len(history) > 6:
+                raise MotherChatError("CHAT_HISTORY_INVALID", 400)
             result = build_chat_response(payload.get("message"), _mother_chat_readers(), language=language)
+            rendered = render_grounded_answer(payload.get("message"), result, history=history)
+            result["answer"] = rendered["answer"]
+            result["llm_used"] = rendered["llm_used"]
+            result["llm_provider"] = rendered["llm_provider"]
+            result["llm_reason"] = rendered["llm_reason"]
+            result["llm_evidence_claim_ids"] = rendered["llm_evidence_claim_ids"]
             body = json.dumps(result,separators=(",",":"),ensure_ascii=False).encode("utf-8")
             return self._send(200,body,"application/json")
         except MotherChatError as exc:
