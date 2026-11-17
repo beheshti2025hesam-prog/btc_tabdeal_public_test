@@ -212,3 +212,11 @@ Current implementation is a deterministic keyword/rule-based baseline, not a gen
 - Extended Playwright assertions to verify interpretation rows follow RTL when Persian is selected while the chart remains LTR.
 - At a 390px mobile viewport the interpretation rows collapse to one column; at a 1440px desktop viewport they use the intended two-column layout.
 - Exact tested code/test head: `cadef2ec71dffbe0118fe8dd3b6991adb3858931`. Exact-head CI **3/3 PASS** — full repository pytest **1,284 passed + 82 subtests**, browser smoke PASS including RTL/mobile/desktop assertions, dashboard native-path/API PASS.
+
+
+## Parent integration and mainline revalidation — 2026-11-17
+
+- Mother seven-specialist runtime PR #500 was merged into `main` at merge commit `0ebb27eddaaec4f18f8f67db5f2e837996281f75`.
+- This News interpretation PR is now based directly on `main`, not on the former feature branch. The code changes remain limited to the News/Mother interpretation, its deterministic chat integration, tests, and browser smoke coverage.
+- Exact prior candidate head `62013e84f3dad172ec1f9b78fa5e3b237e99335c` had full regression **1,493 passed + 84 subtests**, and all three then-required PR workflows passed. Because the base branch changed, current-main required checks are being re-evaluated; do not treat prior checks as a substitute for the new base's required checks.
+- No runtime deployment, paper authorization, execution enablement, or strategy-performance acceptance is implied by this source integration.
