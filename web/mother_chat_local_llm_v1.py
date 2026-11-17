@@ -26,6 +26,10 @@ MAX_RESPONSE_BYTES = 16_384
 class LocalLLMError(ValueError):
     """A local model is unavailable or returned an invalid response."""
 
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
 
 def _endpoint() -> str:
     endpoint = os.environ.get("HES_MOTHER_CHAT_OLLAMA_URL", DEFAULT_ENDPOINT).strip()
