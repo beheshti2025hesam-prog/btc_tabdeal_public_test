@@ -1,0 +1,39 @@
+{
+  "causality_and_edge_cases": [
+    "current extreme candle excluded from its own prior Donchian boundaries",
+    "flat market finite outputs and defined neutral values",
+    "price scale changes preserve dimensionless indicators and regime label",
+    "current candle excluded from its own relative-volume baseline",
+    "OBV change compares current OBV to OBV 20 bars earlier"
+  ],
+  "covered": [
+    "EMA 20/50/200",
+    "RSI 14",
+    "True Range/Wilder ATR 14",
+    "DMI +DI/-DI and ADX 14",
+    "Bollinger population standard deviation and %B",
+    "Donchian prior-window boundaries excluding current candle",
+    "ROC 10",
+    "Williams %R 14",
+    "CCI 20",
+    "Rolling quote/base VWAP 20",
+    "Relative Volume 20",
+    "CMF 20",
+    "scale-invariance across BTC_USDT and generic EUR_USD/forex_spot",
+    "Supertrend final-band recurrence and direction state",
+    "Choppiness Index 14",
+    "Aroon Up/Down 25",
+    "Stochastic %K/%D 14,3",
+    "Money Flow Index 14",
+    "On-Balance Volume and 20-bar OBV delta",
+    "Relative Volume 20 using the previous 20 completed bars (current bar excluded)"
+  ],
+  "limitations": [
+    "synthetic formula parity is not trading-performance evidence"
+  ],
+  "reference_implementation": "separately authored pure-Python formula references; no engine helper reuse",
+  "schema": "hes.universal_indicator_formula_parity_report.v1",
+  "status": "PASS",
+  "suite": "tests/test_universal_indicator_reference_parity_v1.py",
+  "tests": 7
+}

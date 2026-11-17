@@ -1,0 +1,15 @@
+
+## 7. Integration and additional validation addendum (2026-11-17)
+
+- Latest source-of-truth `main` was verified at `1f4a990e2f6a12392c46e8327b665b48b6a52df2` (PR #524). The indicator additions were merged three-way against the exact base commit `9b7701fffcd436ad1f72f4f3f23bf95c561e2c86`; dashboard changes are additive and preserve the newer deterministic Mother Chat, Hoshyar local assistant and project-memory implementation from latest `main`.
+- Integrated worktree: `/opt/hes-trade-agent/candidates/universal-indicator-mainline-20261117`, branch `feat/universal-adaptive-indicator-engine-v1-20261117`. It is based on latest `main`; no unrelated source checkout changes were touched.
+- Full latest-main integration regression: **1,471 passed, 82 subtests passed**, warnings treated as errors. Focused engine + independent parity suite: **27 passed**.
+- DOM/localization/fail-closed smoke rerun on integrated latest-main worktree: **PASS**, 39 indicator rows, 15m/4h/1m switching, Persian RTL, responsive CSS, no console errors; simulated API failure correctly becomes BLOCKED.
+- Added independent reference formulas for Supertrend recurrence, Choppiness, Aroon, Stochastic, MFI and OBV. Fixed two calculation-definition issues discovered during the independent review: Relative Volume now divides the current candle by the **previous 20 completed bars** (not a baseline containing itself); OBV change now compares current OBV with OBV **20 bars earlier** (21 observations). Focused parity now 7 tests and includes these definitions.
+- Live Gate.io Public Spot portability smoke: 5 symbols (BTC, ETH, SOL, XRP, DOGE) × 4 timeframes (1m, 15m, 1h, 4h) = **20/20 passed**; at least 220 closed candles each, zero timestamp gaps, finite indicator outputs, all safety flags false. This is runtime/formula portability evidence only, not predictive performance or cross-venue validation.
+- Local Playwright browser execution attempted; blocked because the VPS lacks Chromium OS libraries. This is an environment dependency, not a dashboard assertion failure. The GitHub Actions workflow installs Chromium plus OS dependencies on a clean Ubuntu runner and remains the final browser gate.
+- Production pointers and service remain unchanged. No merge to `main`, production deploy, restart, signal activation, strategy mutation, journal write or order was performed.
+
+## 8. Remaining evidence boundary
+
+The indicator engine and dashboard are research-only. Multi-symbol Gate.io smoke, synthetic parity, regime distribution diagnostics and DOM tests do **not** establish regime classification accuracy, profitable strategy expectancy, win rate, or readiness for Forex/equities/futures/commodities. Those require independently labelled market regimes, additional venue-specific adapters/volume semantics, chronological out-of-sample evaluation, feature ablation, realistic fees/slippage and a sufficiently long forward observation. The current dashboard live route intentionally remains BTC_USDT until each additional market has its own evidence gate.

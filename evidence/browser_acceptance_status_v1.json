@@ -1,0 +1,19 @@
+{
+  "coverage": [
+    "Chromium desktop 1440x1000",
+    "Chromium mobile 390x844",
+    "Persian RTL direction and text",
+    "timeframe switching",
+    "39 indicator rows",
+    "API fail-closed behavior",
+    "no browser console/page errors",
+    "screenshots as CI artifacts"
+  ],
+  "local_execution": "BLOCKED_BY_HOST_DEPENDENCIES",
+  "production_deployed": false,
+  "reason": "Playwright Chromium binary installed, but the VPS host lacks OS browser libraries; GitHub Actions workflow uses playwright install --with-deps chromium on a clean Ubuntu runner.",
+  "schema": "hes.universal_indicator_browser_acceptance_status.v1",
+  "status": "PENDING_CI_EXECUTION",
+  "test_script": "scripts/test_universal_indicator_dashboard_browser_v1.cjs",
+  "workflow": ".github/workflows/universal-indicator-engine-v1.yml"
+}

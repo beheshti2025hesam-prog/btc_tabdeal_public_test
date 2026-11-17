@@ -1,0 +1,363 @@
+{
+  "schema": "hes.universal_indicator_multisymbol_smoke.v1",
+  "created_at_utc": "2026-11-17T16:31:59.890608+00:00",
+  "source": "Gate.io Public Spot API; validation-only, not dashboard routing",
+  "symbols": [
+    "BTC_USDT",
+    "ETH_USDT",
+    "SOL_USDT",
+    "XRP_USDT",
+    "DOGE_USDT"
+  ],
+  "timeframes": [
+    "1m",
+    "15m",
+    "1h",
+    "4h"
+  ],
+  "cases": 20,
+  "passed": 20,
+  "results": [
+    {
+      "symbol": "BTC_USDT",
+      "timeframe": "1m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "TRANSITION",
+      "evidence_share": 0.50502,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "BTC_USDT",
+      "timeframe": "15m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "BEARISH",
+      "evidence_share": 0.685982,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "BTC_USDT",
+      "timeframe": "1h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.755181,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "BTC_USDT",
+      "timeframe": "4h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "BEARISH",
+      "evidence_share": 0.695652,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "ETH_USDT",
+      "timeframe": "1m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.731808,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "ETH_USDT",
+      "timeframe": "15m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "BEARISH",
+      "evidence_share": 0.663532,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "ETH_USDT",
+      "timeframe": "1h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.614652,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "ETH_USDT",
+      "timeframe": "4h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "BEARISH",
+      "evidence_share": 1.0,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "SOL_USDT",
+      "timeframe": "1m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.753153,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "SOL_USDT",
+      "timeframe": "15m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "TRANSITION",
+      "evidence_share": 0.578911,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "SOL_USDT",
+      "timeframe": "1h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.722222,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "SOL_USDT",
+      "timeframe": "4h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "TRANSITION",
+      "evidence_share": 0.540332,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "XRP_USDT",
+      "timeframe": "1m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.924271,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "XRP_USDT",
+      "timeframe": "15m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "TRANSITION",
+      "evidence_share": 0.566562,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "XRP_USDT",
+      "timeframe": "1h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.722222,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "XRP_USDT",
+      "timeframe": "4h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "TRANSITION",
+      "evidence_share": 0.551724,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "DOGE_USDT",
+      "timeframe": "1m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.748843,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "DOGE_USDT",
+      "timeframe": "15m",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "BEARISH",
+      "evidence_share": 0.672839,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "DOGE_USDT",
+      "timeframe": "1h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "RANGE",
+      "evidence_share": 0.750967,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "symbol": "DOGE_USDT",
+      "timeframe": "4h",
+      "closed_candles": 240,
+      "gaps": 0,
+      "regime": "BEARISH",
+      "evidence_share": 0.695652,
+      "unavailable_indicators": [],
+      "all_values_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    }
+  ],
+  "interpretation": "Descriptive formula/runtime portability smoke only; not labelled regime accuracy, predictive skill, win rate, strategy expectancy, or proof for other venues/markets."
+}

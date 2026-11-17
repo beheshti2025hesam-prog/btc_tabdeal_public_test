@@ -52,6 +52,58 @@ async function refreshJournal(){const status=$('journalStatus'),rows=$('journalR
 $('refresh').addEventListener('click',refresh);$('symbol').addEventListener('change',refresh);$('interval').addEventListener('change',refresh);$('journalRefresh').addEventListener('click',refreshJournal);$('showEma').addEventListener('change',applyChartIndicatorVisibility);$('showVwap').addEventListener('change',applyChartIndicatorVisibility);applyChartIndicatorVisibility();refresh();refreshJournal();setInterval(refresh,15000);setInterval(refreshJournal,30000);
 
 
+let lastTechnicalPayload=null;
+const TECH_GROUPS=[
+ ["Trend",["ema_20","ema_50","ema_200","ema_fast_slope_pct","adx_14","plus_di_14","minus_di_14","supertrend_direction","aroon_up_25","aroon_down_25"]],
+ ["Momentum",["rsi_14","macd_line","macd_signal","macd_histogram","stochastic_k","stochastic_d","williams_r_14","roc_10_pct","cci_20"]],
+ ["Volatility",["atr_14","atr_pct","bollinger_mid","bollinger_upper","bollinger_lower","bollinger_width_pct","bollinger_percent_b","keltner_mid","keltner_upper","keltner_lower","donchian_upper_prior","donchian_lower_prior"]],
+ ["Volume & Flow",["vwap_20","relative_volume_20","obv","obv_change_20","mfi_14","cmf_20"]],
+ ["Regime",["choppiness_14","efficiency_ratio_20"]]
+];
+function renderTechnicalDetails(){
+ const body=$("technicalIndicatorRows");body.replaceChildren();
+ const tf=$("technicalTimeframe").value;const payload=lastTechnicalPayload?.timeframes?.[tf];
+ if(!payload||payload.status!=="READ_ONLY_RESEARCH"){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=4;td.textContent="BLOCKED · no verified closed-candle indicator batch for "+tf;tr.appendChild(td);body.appendChild(tr);return;}
+ const ind=payload.indicators||{};
+ const profile=payload.regime_profile||{};$("technicalProfile").textContent="Regime-adaptive research profile · "+(profile.regime||"UNKNOWN")+" · primary: "+(profile.primary_indicators||[]).join(", ")+" · unavailable: "+(profile.unavailable_primary_indicators||[]).join(", ")+" · "+(profile.purpose||"");
+ for(const [family,keys] of TECH_GROUPS)for(const key of keys){
+  const v=ind[key];if(!v)continue;
+  const tr=document.createElement("tr");
+  for(const value of [family,key,v.value===null||v.value===undefined?"—":Number(v.value).toLocaleString(undefined,{maximumFractionDigits:6}),v.status+(v.reason?" · "+v.reason:"")]){
+   const td=document.createElement("td");td.textContent=String(value);tr.appendChild(td);
+  }
+  body.appendChild(tr);
+ }
+}
+async function refreshTechnicalIntelligence(){
+ const status=$("technicalStatus"),cards=$("technicalRegimeMetrics");
+ try{
+  const r=await fetchWithTimeout("/api/technical-intelligence?symbol=BTCUSDT",{cache:"no-store"}),j=await r.json();
+  if(!r.ok)throw Error(j.error||"Technical intelligence unavailable");
+  if(j.source!=="gateio_public_spot"||j.symbol!=="BTC_USDT"||j.controls?.execution_enabled!==false||j.controls?.orders_placed!==false||j.controls?.decision_authority!==false)throw Error("Read-only provenance or safety contract failed");
+  lastTechnicalPayload=j;status.textContent=j.status||"PARTIAL";$("technicalConsensus").textContent=j.regime_consensus||"UNKNOWN";$("technicalSafety").textContent="READ ONLY · NO ORDERS";
+  cards.replaceChildren();
+  for(const tf of ["4h","1h","15m","1m"]){
+   const p=j.timeframes?.[tf]||{},m=p.regime||{},card=document.createElement("div");card.className="metric";
+   const label=document.createElement("small");label.textContent=tf.toUpperCase()+(tf==="15m"?" · SETUP AUTHORITY":tf==="1m"?" · PRECISION ONLY":" · CONTEXT");
+   const value=document.createElement("strong");value.textContent=m.label||"BLOCKED";
+   const detail=document.createElement("p");detail.className="muted";
+   detail.textContent=p.status==="READ_ONLY_RESEARCH"?"Evidence share "+(m.evidence_confidence===null?"—":(Number(m.evidence_confidence)*100).toFixed(1)+"%")+" · "+p.candle_count+" closed bars":"No verified data · "+(p.reason||"blocked");
+   card.append(label,value,detail);cards.appendChild(card);
+  }
+  const p15=j.timeframes?.["15m"]||{};$("technicalProvenance").textContent="15m canonical setup evidence · "+String(p15.input_sha256||"").slice(0,16)+"… · 4H/1H context and 1M precision are descriptive only · "+(j.failure_codes||[]).join(" · ");
+  renderTechnicalDetails();
+ }catch(e){
+  lastTechnicalPayload=null;status.textContent="BLOCKED";$("technicalConsensus").textContent="UNKNOWN";$("technicalSafety").textContent="READ ONLY";
+  cards.replaceChildren();$("technicalProvenance").textContent="FAIL CLOSED · "+e.message;
+  renderTechnicalDetails();
+ }
+}
+$("technicalRefresh").addEventListener("click",refreshTechnicalIntelligence);
+$("technicalTimeframe").addEventListener("change",renderTechnicalDetails);
+refreshTechnicalIntelligence();setInterval(refreshTechnicalIntelligence,30000);
+
+
 async function refreshStrategyV2(){const status=$('v2Status');try{const r=await fetchWithTimeout('/api/strategy-v2',{cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.reason||'Canonical V2 report unavailable');$('v2Decision').textContent=j.decision||'NO_TRADE';status.textContent=j.status||'BLOCKED';$('v2Regime').textContent=j.market_regime||'UNKNOWN';$('v2Version').textContent=j.agent_version||'—';$('v2Outcomes').textContent=String(j.wins??0)+' W / '+String(j.losses??0)+' L / '+String(j.timeouts??0)+' T';$('v2Journal').textContent=String(j.journal?.decision_count??0)+' decisions';const reasons=[...(j.latest_gate_evidence?.confirmation?.reason_codes||[]),...(j.latest_gate_evidence?.risk?.reason_codes||[])];$('v2Reasons').textContent=reasons.join(' · ')||'No gate reason codes supplied';$('v2Evidence').textContent='Gate.io public Spot BTC_USDT · market evidence age '+Number(j.market_evidence_age_seconds||0).toFixed(0)+'s · report age '+Number(j.report_age_seconds||0).toFixed(0)+'s · SHA-256 '+String(j.report_sha256||'').slice(0,16)+'… · execution OFF';}catch(e){$('v2Decision').textContent='NO_TRADE';status.textContent='BLOCKED';$('v2Regime').textContent='UNKNOWN';$('v2Version').textContent='—';$('v2Outcomes').textContent='—';$('v2Journal').textContent='—';$('v2Reasons').textContent='FAIL CLOSED · '+e.message;$('v2Evidence').textContent='Canonical V2 evidence is unavailable or invalid. No stale values or alternate strategy are substituted; execution remains disabled.'}}
 $('refresh').addEventListener('click',refreshStrategyV2);refreshStrategyV2();setInterval(refreshStrategyV2,15000);
 
@@ -238,6 +290,51 @@ refreshPrecisionEntry();setInterval(refreshPrecisionEntry,15000);
  ['The chart reads the same validated persisted Gate.io candles through the canonical global-market reader used by the analysis input path; the dashboard does not make a second REST candle request. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io\'s documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.','نمودار همان کندل‌های بسته‌شده و اعتبارسنجی‌شدهٔ Gate.io را از طریق خوانشگر مرجع دادهٔ جهانی که در مسیر ورودی تحلیل استفاده می‌شود می‌خواند؛ داشبورد درخواست REST جداگانه‌ای برای کندل‌ها ارسال نمی‌کند. این فقط یک منبع عمومی از یک صرافی است، نه شاخص تجمیعی چندصرافی. داشبورد فقط‌خواندنی است؛ خروجی ویژگی‌ها صرفاً توصیفی است و مجوزی برای استراتژی یا اجرا صادر نمی‌کند. فقط کندل‌های کاملاً بسته‌شده، تازه و اعتبارسنجی‌شده نمایش داده می‌شوند. حجم پایه و مظنه مطابق ساختار مستند کندل Gate.io بدون تغییر نمایش داده می‌شود؛ تعداد معاملات و جریان خرید تیکر در دسترس نیست. اگر منبع در دسترس نباشد یا داده قدیمی باشد، نمودار با حالت ایمن متوقف می‌شود.','Das Diagramm liest dieselben validierten, gespeicherten Gate.io-Kerzen über den kanonischen globalen Marktdaten-Reader, der auch im Analyse-Eingabepfad verwendet wird; das Dashboard stellt keine zweite REST-Kerzenanfrage. Dies ist eine einzelne öffentliche Handelsplatzquelle und kein handelsplatzübergreifender konsolidierter Index. Die Ansicht ist schreibgeschützt; Feature-Ausgaben sind beschreibend und autorisieren weder Strategie noch Ausführung. Angezeigt werden nur vollständig geschlossene, aktuelle und validierte Kerzen. Basis- und Kursvolumen werden gemäß dem dokumentierten Gate.io-Kerzenschema unverändert angezeigt; Trade-Anzahl und Taker-Buy-Flow sind nicht verfügbar. Ist die Quelle nicht verfügbar oder veraltet, wird das Diagramm sicher gesperrt.','Le graphique lit les mêmes bougies Gate.io clôturées, enregistrées et validées via le lecteur canonique des données de marché globales utilisé par le chemin d’entrée de l’analyse ; le tableau de bord n’effectue pas de seconde requête REST pour les bougies. Il s’agit d’une seule source publique de plateforme, et non d’un indice consolidé multi-plateformes. L’interface est en lecture seule ; les résultats des indicateurs sont descriptifs et n’autorisent ni stratégie ni exécution. Seules les bougies entièrement clôturées, récentes et validées sont affichées. Les volumes de base et de cotation suivent sans modification le schéma documenté des chandeliers Gate.io ; le nombre de transactions et le flux d’achats taker ne sont pas disponibles. Si la source est indisponible ou périmée, le graphique se bloque par sécurité.'],
  ['Source: ','منبع: ','Quelle: ','Source : '],['latest age ','سن آخرین داده ','Alter der letzten Kerze ','ancienneté '],['volume unchanged','حجم بدون تغییر','Volumen unverändert','volume inchangé'],['decision events','رویداد تصمیم','Entscheidungsereignisse','événements de décision'],['total journal records','کل رکوردهای ژورنال','Journaldatensätze insgesamt','enregistrements du journal au total'],[' (showing newest 50)',' (نمایش ۵۰ مورد جدیدتر)',' (neueste 50 werden angezeigt)',' (50 plus récents affichés)'],['outcomes not inferred','نتایج حدس زده نمی‌شوند','Ergebnisse werden nicht abgeleitet','les résultats ne sont pas déduits'],['No explicit news flags; context only.','هیچ هشدار صریح خبری وجود ندارد؛ صرفاً زمینهٔ تحلیلی.','Keine expliziten Nachrichtenhinweise; nur Kontext.','Aucun signalement explicite dans les actualités ; contexte uniquement.'],['No headline','بدون تیتر','Keine Schlagzeile','Aucun titre'],['Unknown source','منبع نامشخص','Unbekannte Quelle','Source inconnue'],['Untitled','بدون عنوان','Ohne Titel','Sans titre'],['Publication time unverified','زمان انتشار تأیید نشده','Veröffentlichungszeit nicht verifiziert','Heure de publication non vérifiée'],['no publication timestamp','بدون زمان انتشار','Kein Veröffentlichungszeitpunkt','Aucun horodatage de publication'],['age unknown','سن نامشخص','Alter unbekannt','ancienneté inconnue'],['scope unknown','دامنه نامشخص','Bereich unbekannt','périmètre inconnu'],['transport ','انتقال ','Transport ','transport '],['freshness ','تازگی ','Aktualität ','fraîcheur '],['not available','در دسترس نیست','nicht verfügbar','indisponible'],['impact ','اثر ','Auswirkung ','impact '],['h old','ساعت قبل','Std. alt','h'],['Matched ','تطبیق‌شده ','Zugeordnet ','Correspondance '],['witness verified','شاهد تأیید شد','Zeuge verifiziert','témoin vérifié'],['witness not verified','شاهد تأیید نشد','Zeuge nicht verifiziert','témoin non vérifié'],['No stale values substituted.','مقادیر قدیمی جایگزین نشده‌اند.','Keine veralteten Werte eingesetzt.','Aucune valeur périmée substituée.'],['No stale values or alternate strategy are substituted; execution remains disabled.','هیچ مقدار قدیمی یا استراتژی جایگزینی استفاده نمی‌شود؛ اجرا غیرفعال باقی می‌ماند.','Es werden keine veralteten Werte oder Ersatzstrategien verwendet; die Ausführung bleibt deaktiviert.','Aucune valeur périmée ni stratégie de remplacement n’est utilisée ; l’exécution reste désactivée.'],['chart library did not load; check network/CDN policy','کتابخانهٔ نمودار بارگذاری نشد؛ اتصال شبکه یا سیاست CDN را بررسی کنید','Diagrammbibliothek konnte nicht geladen werden; Netzwerk- oder CDN-Richtlinie prüfen','La bibliothèque graphique n’a pas chargé ; vérifiez le réseau ou la politique CDN'],['No journal rows shown','هیچ ردیف ژورنالی نمایش داده نشد','Keine Journalzeilen angezeigt','Aucune ligne du journal affichée'],
   ['Checking…','در حال بررسی…','Wird geprüft…','Vérification…'],['Set ','تنظیم کنید ','Setzen Sie ','Définissez '],['No entries are invented.','هیچ ورودی‌ای ساخته یا جعل نمی‌شود.','Es werden keine Einträge erfunden.','Aucune entrée n’est inventée.'],['All observation stages completed; execution remains unauthorized.','تمام مراحل مشاهده تکمیل شده‌اند؛ اجرا همچنان مجاز نیست.','Alle Beobachtungsphasen sind abgeschlossen; die Ausführung bleibt nicht autorisiert.','Toutes les étapes d’observation sont terminées ; l’exécution reste non autorisée.'],['Mother evidence unavailable','شواهد Mother در دسترس نیست','Mother-Nachweise nicht verfügbar','Preuves Mother indisponibles'],['News monitor unavailable','پایشگر اخبار در دسترس نیست','News-Überwachung nicht verfügbar','Surveillance des actualités indisponible'],['Multi-timeframe evidence unavailable','شواهد چندبازه‌ای در دسترس نیست','Multi-Timeframe-Nachweise nicht verfügbar','Preuves multi-unités indisponibles'],['bars','کندل','Kerzen','bougies'],['decisions','تصمیم','Entscheidungen','décisions'],['Journal unavailable','ژورنال در دسترس نیست','Journal nicht verfügbar','Journal indisponible']
+  ['Indicators / اسیلاتورها','اندیکاتورها و اسیلاتورها','Indikatoren / Oszillatoren','Indicateurs / oscillateurs'],
+  ['Technical Intelligence · هوش اندیکاتوری تطبیقی','هوش فنی · هوش اندیکاتوری تطبیقی','Technische Intelligenz · adaptive Indikatoren','Intelligence technique · indicateurs adaptatifs'],
+  ['Read-only research · Gate.io Public Spot · 15m setup authority · 1m precision only · 1h/4h context. Regime evidence share is not a predictive probability.','پژوهش فقط‌خواندنی · بازار نقدی Gate.io · مرجع ستاپ 15 دقیقه · دقت ورود 1 دقیقه · زمینه 1 و 4 ساعت. سهم شواهد رژیم، احتمال پیش‌بینی نیست.','Nur-Lese-Forschung · Gate.io Public Spot · 15m-Setup maßgeblich · 1m nur Präzision · 1h/4h Kontext. Der Regime-Evidenzanteil ist keine Prognosewahrscheinlichkeit.','Recherche en lecture seule · Gate.io Spot · setup 15 min de référence · précision 1 min uniquement · contexte 1h/4h. La part de preuve du régime n’est pas une probabilité prédictive.'],
+  ['Engine status','وضعیت موتور','Engine-Status','État du moteur'],
+  ['Regime alignment','هم‌راستایی رژیم','Regime-Abgleich','Alignement du régime'],
+  ['Source','منبع','Quelle','Source'],
+  ['4H context','زمینه 4 ساعته','4H-Kontext','Contexte 4H'],
+  ['1H context','زمینه 1 ساعته','1H-Kontext','Contexte 1H'],
+  ['15M setup','ستاپ 15 دقیقه','15M-Setup','Setup 15 min'],
+  ['1M precision','دقت 1 دقیقه','1M-Präzision','Précision 1 min'],
+  ['Indicator detail timeframe','بازه زمانی جزئیات اندیکاتورها','Zeitrahmen für Indikatordetails','Unité de temps des détails des indicateurs'],
+  ['15m · setup authority','15 دقیقه · مرجع ستاپ','15m · Setup maßgeblich','15 min · setup de référence'],
+  ['4h · context','4 ساعت · زمینه','4h · Kontext','4h · contexte'],
+  ['1h · context','1 ساعت · زمینه','1h · Kontext','1h · contexte'],
+  ['1m · precision only','1 دقیقه · صرفاً دقت ورود','1m · nur Präzision','1 min · précision uniquement'],
+  ['Refresh indicators','به‌روزرسانی اندیکاتورها','Indikatoren aktualisieren','Actualiser les indicateurs'],
+  ['Waiting for provenance-bound indicator evidence…','در انتظار شواهد اندیکاتوری دارای منشأ معتبر…','Warte auf herkunftsgebundene Indikatornachweise…','En attente de preuves d’indicateurs liées à leur provenance…'],
+  ['Waiting for regime-adaptive indicator profile…','در انتظار نمایه اندیکاتوری تطبیقی رژیم…','Warte auf regimeadaptives Indikatorprofil…','En attente du profil d’indicateurs adaptatif au régime…'],
+  ['Family','خانواده','Familie','Famille'],
+  ['Indicator','اندیکاتور','Indikator','Indicateur'],
+  ['Value','مقدار','Wert','Valeur'],
+  ['Status / reason','وضعیت / دلیل','Status / Grund','Statut / motif'],
+  ['No indicator evidence loaded.','شواهد اندیکاتوری بارگذاری نشده است.','Keine Indikatornachweise geladen.','Aucune preuve d’indicateur chargée.'],
+  ['Research-only · no signal or policy authority','صرفاً پژوهشی · بدون اختیار سیگنال یا سیاست','Nur Forschung · keine Signal- oder Richtlinienautorität','Recherche uniquement · aucune autorité de signal ou de politique'],
+  ['Indicators are grouped to avoid double-counting correlated evidence. Missing volume semantics disables volume-derived indicators only. This panel cannot generate signals, alter strategy thresholds, bypass Risk Gate, write journals, or place orders.','اندیکاتورها برای جلوگیری از شمارش چندباره شواهد هم‌بسته گروه‌بندی شده‌اند. نبود تعریف معتبر حجم فقط اندیکاتورهای مبتنی بر حجم را غیرفعال می‌کند. این پنل نمی‌تواند سیگنال بسازد، آستانه‌های استراتژی را تغییر دهد، گیت ریسک را دور بزند، ژورنال بنویسد یا سفارش ثبت کند.','Indikatoren sind gruppiert, damit korrelierte Nachweise nicht mehrfach gezählt werden. Fehlende Volumensemantik deaktiviert nur volumenbasierte Indikatoren. Dieses Panel kann keine Signale erzeugen, Strategiegrenzen ändern, das Risk Gate umgehen, Journale schreiben oder Orders platzieren.','Les indicateurs sont regroupés pour éviter de compter plusieurs fois des preuves corrélées. Une sémantique de volume manquante désactive uniquement les indicateurs fondés sur le volume. Ce panneau ne peut générer de signaux, modifier les seuils de stratégie, contourner le Risk Gate, écrire dans les journaux ni passer d’ordres.'],
+  ['Trend','روند','Trend','Tendance'],
+  ['Momentum','شتاب','Momentum','Momentum'],
+  ['Volatility','نوسان‌پذیری','Volatilität','Volatilité'],
+  ['Volume & Flow','حجم و جریان','Volumen & Fluss','Volume et flux'],
+  ['Regime','رژیم','Regime','Régime'],
+  ['Regime-adaptive research profile','نمایه پژوهشی تطبیقی رژیم','Regimeadaptives Forschungsprofil','Profil de recherche adaptatif au régime'],
+  ['primary:','اصلی:','primär:','principal :'],
+  ['unavailable:','در دسترس نیست:','nicht verfügbar:','indisponible :'],
+  ['trend continuation and pullback context','زمینه ادامه روند و پولبک','Trendfortsetzung und Pullback-Kontext','contexte de poursuite de tendance et de repli'],
+  ['downtrend continuation and rally-fade context','زمینه ادامه روند نزولی و فروش در بازگشت','Fortsetzung des Abwärtstrends und Rally-Fade-Kontext','contexte de poursuite baissière et d’essoufflement du rebond'],
+  ['range boundaries and mean-reversion context','مرزهای رنج و زمینه بازگشت به میانگین','Rangegrenzen und Mean-Reversion-Kontext','bornes de range et contexte de retour à la moyenne'],
+  ['conflict and regime-transition diagnostics','تشخیص تعارض و گذار رژیم','Konflikt- und Regimewechsel-Diagnostik','diagnostic des conflits et transitions de régime'],
+  ['insufficient validated history; no active research profile','تاریخچه معتبر کافی نیست؛ نمایه پژوهشی فعال وجود ندارد','Unzureichende validierte Historie; kein aktives Forschungsprofil','historique validé insuffisant ; aucun profil de recherche actif'],
+  ['Evidence share','سهم شواهد','Evidenzanteil','Part de preuve'],
+  ['closed bars','کندل بسته','geschlossene Kerzen','bougies clôturées'],
+  ['No verified data','داده معتبر موجود نیست','Keine verifizierten Daten','Aucune donnée vérifiée'],
+  ['BLOCKED · no verified closed-candle indicator batch for','مسدود · بسته کندل بسته‌شده معتبر برای این بازه وجود ندارد:','BLOCKIERT · kein verifizierter Kerzendatensatz für','BLOQUÉ · aucun lot de bougies clôturées vérifié pour'],
+  ['READ ONLY · NO ORDERS','فقط‌خواندنی · بدون سفارش','NUR LESEN · KEINE ORDERS','LECTURE SEULE · AUCUN ORDRE'],
+  ['15m canonical setup evidence','شواهد مرجع ستاپ 15 دقیقه','Kanonische 15m-Setup-Nachweise','Preuves canoniques du setup 15 min'],
+  ['4H/1H context and 1M precision are descriptive only','زمینه 4 و 1 ساعت و دقت 1 دقیقه صرفاً توصیفی هستند','4H/1H-Kontext und 1M-Präzision sind nur beschreibend','Le contexte 4H/1H et la précision 1M sont uniquement descriptifs']
  ];
  const maps={};
  const CLEAN_COPY=COPY.filter(row=>Array.isArray(row)&&row.length===4);

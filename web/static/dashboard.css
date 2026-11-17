@@ -81,3 +81,7 @@ section[id]{scroll-margin-top:68px}
 #motherChatPanel details li{overflow-wrap:anywhere;margin:5px 0}
 #motherChatPanel [hidden]{display:none!important}
 @media(max-width:600px){.mother-chat-messages{max-height:300px}.mother-chat-message{max-width:100%}.mother-chat-actions button{flex:1}}
+
+#technicalIndicatorRows td:nth-child(2){font-family:ui-monospace,monospace}
+#technicalRegimeMetrics .metric{min-width:170px}
+#technicalIndicatorRows td{font-variant-numeric:tabular-nums}

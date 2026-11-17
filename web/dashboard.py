@@ -25,6 +25,7 @@ from web.hoshyar_local_v1 import HoshyarConversationMemoryV1, HoshyarLocalAssist
 from web.hoshyar_project_memory_v1 import HoshyarProjectMemoryReaderV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
+from forward.universal_indicator_engine_v1 import build_snapshot as build_universal_indicator_snapshot, dashboard_payload as build_indicator_dashboard_payload, INDICATOR_REGISTRY
 
 SUPPORTED_SYMBOLS = {"BTCUSDT"}
 CANONICAL_ANALYSIS_SYMBOL = "BTCUSDT"
@@ -218,7 +219,7 @@ def _current_chart_batch_provenance():
 
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>HES Trade Agent</title><link rel="icon" href="/static/hes-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/static/dashboard.css"><script src="/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js" integrity="sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl" crossorigin="anonymous"></script></head><body><a class="skip-link" href="#main-content">Skip to dashboard content</a><main id="main-content" tabindex="-1"><header><div class="brand-lockup"><img class="brand-mark" src="/static/hes-mark.svg" alt="" aria-hidden="true"><div><h1 class="brand">HES Trade Agent</h1><div class="sub">Global feed · persisted closed candles</div></div></div><div class="header-actions"><label class="language-control" for="languageSelect"><span>Language</span><select id="languageSelect" aria-label="Dashboard language"><option value="en">English</option><option value="fa">فارسی</option><option value="de">Deutsch</option><option value="fr">Français</option></select></label><span class="pill">HOLD / NO_TRADE_ONLY</span></div></header>
-<nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#precisionEntryPanel">Precision</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#motherChatPanel">HES Command Center</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
+<nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#precisionEntryPanel">Precision</a><a href="#technicalIntelligencePanel">Indicators / اسیلاتورها</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#motherChatPanel">HES Command Center</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
 <section class="panel" id="marketPanel" aria-labelledby="marketTitle"><h2 class="panel-title" id="marketTitle">Market overview · Gate.io</h2><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price" data-no-translate>—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" data-no-translate class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume" data-no-translate>—</strong></div><div class="metric"><small>Closed candles</small><strong id="count" data-no-translate>—</strong></div></div>
 <div class="panel chart-panel">
@@ -232,6 +233,21 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <div class="panel indicator-panel" aria-labelledby="indicatorTitle"><h3 class="panel-title" id="indicatorTitle">Native indicators · same Gate.io batch</h3><div class="metrics" id="indicatorMetrics" role="group" aria-label="Descriptive indicators"><div class="metric"><small>EMA (20)</small><strong id="indicatorEma" data-no-translate>—</strong></div><div class="metric"><small>VWAP (20)</small><strong id="indicatorVwap" data-no-translate>—</strong></div><div class="metric"><small>ATR</small><strong id="indicatorAtr" data-no-translate>—</strong></div><div class="metric"><small>Realized volatility</small><strong id="indicatorVolatility" data-no-translate>—</strong></div><div class="metric"><small>Volume ratio</small><strong id="indicatorVolumeRatio" data-no-translate>—</strong></div><div class="metric"><small>Market regime</small><strong id="indicatorRegime" data-no-translate>—</strong></div></div><p class="muted" id="indicatorStatus" data-no-translate role="status" aria-live="polite">Waiting for the same validated Gate.io candle batch…</p><p class="muted">Descriptive only · no independent signal or trade authorization.</p></div>
 <div id="message" role="status" aria-live="polite" aria-atomic="true">Loading validated closed candles…</div></section>
 <section class="panel" id="precisionEntryPanel" aria-labelledby="precisionEntryTitle"><h2 class="panel-title" id="precisionEntryTitle">Multi-Timeframe Alignment · Precision Entry</h2><div class="metrics"><div class="metric"><small>4H data</small><strong id="pe4h" data-no-translate>Checking…</strong></div><div class="metric"><small>1H data</small><strong id="pe1h" data-no-translate>Checking…</strong></div><div class="metric"><small>15M setup gate</small><strong id="pe15m" data-no-translate>Checking…</strong></div><div class="metric"><small>1M feed</small><strong id="pe1m" data-no-translate>Checking…</strong></div><div class="metric"><small>Precision Entry</small><strong id="peState" data-no-translate>BLOCKED</strong></div><div class="metric"><small>Risk Gate</small><strong id="peRisk" data-no-translate>UNVERIFIED</strong></div></div><p class="muted" id="peReasons" data-no-translate role="status" aria-live="polite">Waiting for validated multi-timeframe evidence…</p><div class="gate"><strong>Advisory only · execution disabled</strong><p class="muted">The 15M setup remains authoritative. The 1M layer cannot create a trade, change direction, bypass Risk Gate, or submit orders. Missing/stale candles, missing provenance-bound entry context, or unapproved setup means BLOCKED / NO_TRADE.</p></div></section>
+<section class="panel" id="technicalIntelligencePanel" aria-labelledby="technicalIntelligenceTitle">
+<h2 class="panel-title" id="technicalIntelligenceTitle">Technical Intelligence · هوش اندیکاتوری تطبیقی</h2>
+<p class="muted">Read-only research · Gate.io Public Spot · 15m setup authority · 1m precision only · 1h/4h context. Regime evidence share is not a predictive probability.</p>
+<div class="metrics">
+<div class="metric"><small>Engine status</small><strong id="technicalStatus" data-no-translate>Checking…</strong></div>
+<div class="metric"><small>Regime alignment</small><strong id="technicalConsensus" data-no-translate>UNKNOWN</strong></div>
+<div class="metric"><small>Source</small><strong id="technicalSource" data-no-translate>Gate.io</strong></div>
+<div class="metric"><small>Safety</small><strong id="technicalSafety" data-no-translate>READ ONLY</strong></div>
+</div>
+<div class="metrics" id="technicalRegimeMetrics" aria-live="polite"><div class="metric"><small>4H context</small><strong>—</strong></div><div class="metric"><small>1H context</small><strong>—</strong></div><div class="metric"><small>15M setup</small><strong>—</strong></div><div class="metric"><small>1M precision</small><strong>—</strong></div></div>
+<div class="toolbar"><label for="technicalTimeframe">Indicator detail timeframe</label><select id="technicalTimeframe"><option value="15m" selected>15m · setup authority</option><option value="4h">4h · context</option><option value="1h">1h · context</option><option value="1m">1m · precision only</option></select><button id="technicalRefresh" type="button">Refresh indicators</button></div>
+<p class="muted" id="technicalProvenance">Waiting for provenance-bound indicator evidence…</p><p class="muted" id="technicalProfile">Waiting for regime-adaptive indicator profile…</p>
+<div class="journal-scroll"><table class="journal-table"><caption class="sr-only">Read-only technical indicator values and availability</caption><thead><tr><th>Family</th><th>Indicator</th><th>Value</th><th>Status / reason</th></tr></thead><tbody id="technicalIndicatorRows"><tr><td colspan="4">No indicator evidence loaded.</td></tr></tbody></table></div>
+<div class="gate"><strong>Research-only · no signal or policy authority</strong><p class="muted">Indicators are grouped to avoid double-counting correlated evidence. Missing volume semantics disables volume-derived indicators only. This panel cannot generate signals, alter strategy thresholds, bypass Risk Gate, write journals, or place orders.</p></div>
+</section>
 <section class="panel" id="strategyV2Panel" aria-labelledby="strategyV2Title"><h2 class="panel-title" id="strategyV2Title">Canonical Strategy V2 · Paper evaluator</h2><div class="metrics"><div class="metric"><small>Canonical decision</small><strong id="v2Decision" data-no-translate>NO_TRADE</strong></div><div class="metric"><small>Evidence status</small><strong id="v2Status" data-no-translate role="status" aria-live="polite">Checking report…</strong></div><div class="metric"><small>Market regime</small><strong id="v2Regime" data-no-translate>UNKNOWN</strong></div><div class="metric"><small>Policy version</small><strong id="v2Version" data-no-translate>—</strong></div><div class="metric"><small>Paper outcomes</small><strong id="v2Outcomes" data-no-translate>—</strong></div><div class="metric"><small>Decision journal</small><strong id="v2Journal" data-no-translate>—</strong></div></div><p class="muted" id="v2Reasons" data-no-translate>Waiting for the canonical V2 evaluator report…</p><div class="gate"><strong>Gate.io data only · execution disabled</strong><p class="muted" id="v2Evidence" data-no-translate>This panel is a read-only projection of the existing Strategy Policy V2 evaluator and canonical journal. It does not calculate a second strategy or submit orders.</p></div></section>
 <section class="panel" id="motherPanel" aria-labelledby="motherTitle"><h2 class="panel-title" id="motherTitle">Mother Orchestrator · canonical V2 evidence chain</h2><div class="metrics"><div class="metric"><small>Orchestration</small><strong id="motherStatus" data-no-translate role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Independent witness</small><strong id="motherWitness" data-no-translate>NOT VERIFIED</strong></div><div class="metric"><small>Trace / audit</small><strong id="motherTrace" data-no-translate>—</strong></div></div><p class="muted" id="motherReasons" data-no-translate>Waiting for matched Strategy V2 report and journal evidence…</p><ul id="motherStages" data-no-translate><li class="muted">No verified orchestration stages.</li></ul><div class="gate"><strong>Observation only · execution disabled</strong><p class="muted" id="motherEvidence" data-no-translate>Mother coordinates the existing Strategy V2 specialist outputs. It does not recalculate market data, indicators, strategy or risk, and cannot authorize orders.</p></div></section>
 <section class="panel" id="motherChatPanel" aria-labelledby="motherChatTitle"><h2 class="panel-title" id="motherChatTitle">HES Trade AI · Private local AI</h2><p class="muted">Optional local open-weight model for intent routing and ordinary conversation. Mother evidence readers remain authoritative; project memory searches only approved local Markdown checkpoints and architecture notes. Session memory stays on this VPS and can be cleared. No paid API, external LLM, account access, execution tools, policy changes or journal writes.</p><div id="motherChatLogin"><form id="motherChatLoginForm"><label for="motherChatToken">Local access token</label><input id="motherChatToken" type="password" autocomplete="current-password" maxlength="256" required><button id="motherChatUnlock" type="submit">Unlock HES Command Center</button><p class="muted" id="motherChatLoginStatus" role="status" aria-live="polite">Access is disabled until the operator configures the local token file.</p></form></div><div id="motherChatWorkspace" hidden><p class="muted" id="motherChatMemoryStatus" role="status" aria-live="polite">Local model is disabled; deterministic Mother chat remains active.</p><div id="motherChatMessages" class="mother-chat-messages" role="log" aria-live="polite" aria-relevant="additions text"><p class="muted">Ask about status, a decision, the market, journal, news, diagnostics or earlier project checkpoints.</p></div><form id="motherChatForm"><label for="motherChatLanguage">Response language</label><select id="motherChatLanguage" name="language" aria-label="Response language" data-no-translate><option value="auto">Auto · match message</option><option value="fa">فارسی</option><option value="en">English</option><option value="de">Deutsch</option><option value="fr">Français</option></select><label for="motherChatInput">Message HES Trade AI</label><textarea id="motherChatInput" rows="2" maxlength="1000" required placeholder="مثلاً: چرا تصمیم مادر عدم ترید است؟"></textarea><div class="mother-chat-actions"><button id="motherChatSend" type="submit">Send</button><button id="motherChatClearMemory" type="button" class="secondary" disabled>Clear local memory</button><button id="motherChatLogout" type="button" class="secondary">Lock</button></div></form></div><div class="gate"><strong>Safety boundary</strong><p class="muted">Mother explains recorded evidence; it does not create a new signal. Gate.io Public Spot BTC_USDT remains the sole analysis source. Execution, account access and all write actions remain disabled.</p></div></section>
@@ -676,6 +692,62 @@ class Handler(BaseHTTPRequestHandler):
                     "status": "BLOCKED", "error": type(exc).__name__,
                     "fail_closed": True, "execution_enabled": False, "orders_placed": False,
                 }, separators=(",", ":")).encode(), "application/json")
+        if p.path == "/api/technical-intelligence":
+            q = parse_qs(p.query)
+            symbol = q.get("symbol", ["BTCUSDT"])[0]
+            if symbol != CANONICAL_ANALYSIS_SYMBOL:
+                return self._send(400, b'{"error":"unsupported_symbol","fail_closed":true,"execution_enabled":false,"orders_placed":false}', "application/json")
+            timeframes = {}
+            failures = []
+            for tf in ("4h", "1h", "15m", "1m"):
+                try:
+                    batch, _ = _get_batch(symbol, tf)
+                    rows = [{
+                        "timestamp": c.open_time_ms // 1000, "open": c.open, "high": c.high,
+                        "low": c.low, "close": c.close, "volume": c.volume,
+                        "quote_volume": c.quote_volume, "closed": c.closed,
+                    } for c in batch.candles]
+                    snapshot = build_universal_indicator_snapshot(
+                        rows, venue=batch.venue, market=batch.product,
+                        symbol=batch.symbol, timeframe=tf,
+                        volume_semantics_qualified=VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES,
+                    )
+                    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+                    age = max(0, int((now_ms - batch.candles[-1].close_time_ms) / 1000))
+                    timeframes[tf] = build_indicator_dashboard_payload(
+                        snapshot, source="gateio_public_spot",
+                        input_sha256=batch.response_sha256, freshness_seconds=age,
+                    )
+                except Exception as exc:
+                    failures.append(tf + ":" + type(exc).__name__)
+                    timeframes[tf] = {
+                        "status": "BLOCKED", "reason": type(exc).__name__,
+                        "market_identity": {"venue":"gateio","market":"spot","symbol":"BTC_USDT","timeframe":tf},
+                        "controls": {"decision_authority":False,"signal_generation_enabled":False,
+                                     "risk_gate_bypass":False,"execution_enabled":False,
+                                     "orders_placed":False,"journal_write":False,"policy_mutation":False},
+                    }
+            regimes = {tf: item.get("regime", {}).get("label", "UNKNOWN") for tf, item in timeframes.items()}
+            directional = {x for x in regimes.values() if x in ("BULLISH", "BEARISH")}
+            consensus = (next(iter(directional)) if len(directional) == 1 and all(x in directional for x in regimes.values())
+                         else "MIXED" if directional else "NO_DIRECTIONAL_CONSENSUS")
+            ready = not failures and all(item.get("status") == "READ_ONLY_RESEARCH" for item in timeframes.values())
+            payload = {
+                "schema":"hes.universal_indicator_dashboard_bundle.v1",
+                "status":"VERIFIED" if ready else "PARTIAL",
+                "source":"gateio_public_spot", "symbol":"BTC_USDT",
+                "setup_authority_timeframe":"15m", "precision_refinement_timeframe":"1m",
+                "context_timeframes":["1h","4h"], "regime_consensus":consensus,
+                "timeframes":timeframes, "indicator_registry":INDICATOR_REGISTRY,
+                "failure_codes":failures,
+                "controls":{"decision_authority":False,"signal_generation_enabled":False,
+                            "risk_gate_bypass":False,"execution_enabled":False,
+                            "orders_placed":False,"journal_write":False,"policy_mutation":False},
+                "disclaimer":"Research-only descriptive features. Regime evidence share is not a probability, trade signal, strategy approval, or execution instruction."
+            }
+            return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
+
+
         # Retired V1 signal endpoint: never invoke the old decision engine or journal writer.
         if p.path == "/api/signal":
             return self._send(410, json.dumps({
