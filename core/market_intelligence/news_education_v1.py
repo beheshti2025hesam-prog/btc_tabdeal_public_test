@@ -5,6 +5,7 @@ One canonical interpretation is shared by the dashboard and Mother Agent. Headli
 """
 from __future__ import annotations
 
+import re
 from typing import Mapping
 
 SCHEMA_VERSION = "hes.news_item_interpretation.v1"
@@ -88,6 +89,31 @@ _LABELS = {
 }
 
 
+def _title_has_term(title: str, term: str) -> bool:
+    if len(term) <= 4 and term.isascii() and term.replace("/", "").isalpha():
+        return re.search(r"(?<![a-z0-9])" + re.escape(term) + r"(?![a-z0-9])", title) is not None
+    return term in title
+
+
+def _primary_category(title: str, categories: tuple[str, ...] | list[str]) -> str:
+    valid = [name for name in categories if name in _CATEGORY]
+    if not valid:
+        return ""
+    text = title.casefold()
+    # Broad summaries can mention an ETF or regulator when the headline is
+    # about liquidations or flows. Prefer the headline event unless it names
+    # an explicit legal or regulatory action.
+    crypto_terms = ("bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
+                    "stablecoin", "liquidation", "fund flows", "on-chain")
+    regulatory_terms = ("sec", "regulator", "regulation", "law", "lawsuit", "ban",
+                        "approved", "approval", "legislation", "sanction", "act")
+    if (valid[0] == "regulation" and "crypto_market" in valid
+            and any(_title_has_term(text, term) for term in crypto_terms)
+            and not any(_title_has_term(text, term) for term in regulatory_terms)):
+        return "crypto_market"
+    return valid[0]
+
+
 def build_news_item_interpretation_v1(
     *, title: str, context: Mapping[str, str], categories: tuple[str, ...] | list[str],
     directional_bias: str, impact: float, confidence: float, freshness: str,
@@ -98,7 +124,7 @@ def build_news_item_interpretation_v1(
     market_display = _MARKET_LABELS.get(market.casefold(), _MARKET_LABELS["unknown"])
     symbol = str(context.get("symbol") or "")
     venue = str(context.get("venue") or "")
-    category = next((name for name in categories if name in _CATEGORY), "")
+    category = _primary_category(title, categories)
     profile = _CATEGORY.get(category)
     direct = "symbol_keyword_match" in reasons or "explicit_market_tag" in reasons
     if direct:

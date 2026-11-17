@@ -82,6 +82,42 @@ class NewsEducationV1Tests(unittest.TestCase):
         self.assertFalse(mother_payload["news_alone_can_authorize_trade"])
         self.assertFalse(finding.interpretation["mother_use"]["news_alone_can_authorize_trade"])
 
+    def test_primary_category_uses_headline_event_not_summary_keyword_order(self):
+        liquidation = build_news_item_interpretation_v1(
+            title="Bitcoin 2 Billion Liquidation Weekend Leaves Traders Watching 60000",
+            context={"market": "crypto", "symbol": "BTCUSDT", "venue": "gateio"},
+            categories=("regulation", "crypto_market"),
+            directional_bias="negative", impact=0.8, confidence=0.8,
+            freshness="recent", caveats=(), reasons=("market_relevant_category",),
+        )
+        self.assertEqual(liquidation["category"], "crypto_market")
+        self.assertEqual(liquidation["localized"]["en"]["transmission_channel"],
+                         "Crypto supply, demand and capital flows")
+        regulatory = build_news_item_interpretation_v1(
+            title="Bitcoin ETF approved after regulator review",
+            context={"market": "crypto", "symbol": "BTCUSDT", "venue": "gateio"},
+            categories=("regulation", "crypto_market"),
+            directional_bias="positive", impact=0.7, confidence=0.7,
+            freshness="recent", caveats=(), reasons=("market_relevant_category",),
+        )
+        self.assertEqual(regulatory["category"], "regulation")
+        legislative = build_news_item_interpretation_v1(
+            title="Clarity Act Defeat Leaves Crypto Industry Reeling",
+            context={"market": "crypto", "symbol": "BTCUSDT", "venue": "gateio"},
+            categories=("regulation", "crypto_market"),
+            directional_bias="negative", impact=0.7, confidence=0.7,
+            freshness="recent", caveats=(), reasons=("market_relevant_category",),
+        )
+        self.assertEqual(legislative["category"], "regulation")
+        security = build_news_item_interpretation_v1(
+            title="Hackers Redirected Bitcoin Miner Rewards via AI Attack",
+            context={"market": "crypto", "symbol": "BTCUSDT", "venue": "gateio"},
+            categories=("security", "crypto_market"),
+            directional_bias="negative", impact=0.8, confidence=0.8,
+            freshness="recent", caveats=(), reasons=("market_relevant_category",),
+        )
+        self.assertEqual(security["category"], "security")
+
     def test_unknown_direction_is_not_invented(self):
         interpretation = build_news_item_interpretation_v1(
             title="Central bank publishes routine meeting minutes",

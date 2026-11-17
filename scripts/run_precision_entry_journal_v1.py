@@ -16,6 +16,7 @@ from typing import Any, Mapping
 from forward.forward_journal_v1 import ForwardJournalV1
 from forward.global_market_data_reader_v1 import read_closed_candles
 from forward.precision_entry_engine_v1 import evaluate_precision_entry
+from forward.precision_entry_setup_link_v1 import resolve_precision_setup_context
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
@@ -273,10 +274,26 @@ def run_cycle(*, now: datetime | None = None) -> dict:
         )
         paper_setup = strategy.get("paper_setup") or {}
         latest_gate = strategy.get("latest_gate_evidence") or {}
+        setup_rows = _read_jsonl(DATA / "strategy_policy_v2_eval_candidates.jsonl")
+        immutable_context, setup_context_link_status = resolve_precision_setup_context(
+            setup_rows=setup_rows, strategy_view=strategy, now_s=now_s
+        )
+        if immutable_context is not None:
+            paper_setup = {
+                **paper_setup, "validated": True,
+                "direction": immutable_context["direction"],
+                "context": immutable_context, "reason_code": None,
+            }
+        else:
+            paper_setup = {
+                **paper_setup, "validated": False, "direction": "NONE",
+                "context": None, "reason_code": setup_context_link_status,
+            }
     except Exception as exc:
         strategy_error = type(exc).__name__ + ":" + str(exc)[:180]
         paper_setup = {}
         latest_gate = {}
+        setup_context_link_status = "STRATEGY_REPORT_UNAVAILABLE"
 
     engine = None
     appended_event = False
@@ -325,6 +342,7 @@ def run_cycle(*, now: datetime | None = None) -> dict:
         "status": "BLOCKED" if strategy_error else ("NO_TRADE" if paper_setup.get("validated") is not True else (engine or {}).get("state", "BLOCKED")),
         "paper_setup_validated": paper_setup.get("validated") is True,
         "paper_setup_reason": paper_setup.get("reason_code"),
+        "setup_context_link_status": setup_context_link_status,
         "strategy_run_provenance": ((paper_setup.get("context") or {}).get("strategy_run_provenance") if isinstance(paper_setup.get("context"),dict) else None),
         "strategy_report_error": strategy_error,
         "latest_engine_state": (engine or {}).get("state", "NOT_EVALUATED"),
