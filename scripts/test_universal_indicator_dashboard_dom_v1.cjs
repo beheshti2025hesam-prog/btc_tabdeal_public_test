@@ -56,6 +56,9 @@ async function waitFor(fn, ms=12000) {
   assert.ok(d.querySelector("#technicalIntelligenceTitle").textContent.includes("هوش فنی"));
   assert.ok(d.querySelector("#technicalProfile").textContent.includes("اصلی:"));
   assert.ok(d.querySelector("#technicalIndicatorRows").textContent.includes("روند"));
+  assert.ok(d.querySelector("#technicalIntelligencePanel").textContent.includes("پژوهش فقط‌خواندنی"));
+  assert.ok(d.body.textContent.includes("نمودار بازار و اندیکاتورها"));
+  assert.ok(d.querySelector("#technicalRegimeMetrics").textContent.includes("مرجع ستاپ"));
   const verifiedStatus=d.querySelector("#technicalStatus").textContent;
   const verifiedIndicatorRows=d.querySelectorAll("#technicalIndicatorRows tr").length;
   failTechnical=true;d.querySelector("#technicalRefresh").click();

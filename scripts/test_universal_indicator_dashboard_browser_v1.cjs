@@ -66,6 +66,8 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.documentElement.dir==="rtl");
   assert.ok((await page.locator("#technicalIntelligenceTitle").textContent()).includes("هوش فنی"));
   assert.ok((await page.locator("#technicalIndicatorRows").textContent()).includes("روند"));
+  assert.ok((await page.locator("#technicalIntelligencePanel").textContent()).includes("پژوهش فقط‌خواندنی"));
+  assert.ok((await page.locator("body").textContent()).includes("نمودار بازار و اندیکاتورها"));
   const rtl=await page.evaluate(()=>({dir:document.documentElement.dir,bodyDirection:getComputedStyle(document.body).direction,scrollWidth:document.documentElement.scrollWidth,innerWidth:innerWidth}));
   assert.equal(rtl.dir,"rtl");assert.equal(rtl.bodyDirection,"rtl");
   fs.mkdirSync(path.join(root,"artifacts"),{recursive:true});

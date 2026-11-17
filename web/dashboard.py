@@ -920,3 +920,26 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(exc.http_status,body,"application/json")
         except Exception:
             body = b'{"status":"BLOCKED","error":"CHAT_REQUEST_FAILED","execution_enabled":false,"orders_placed":false}'
+            return self._send(503,body,"application/json")
+    def log_message(self,fmt,*args):
+        if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
+
+def main():
+    # The legacy Binance stream is deliberately not started by the Gate.io chart path.
+    # Gate.io candles are REST-refreshed; a matching Gate.io stream needs its own
+    # source-identity/reconciliation tests before it can be enabled.
+    _STREAM_STATE.update(status="disabled", reason="gateio_stream_not_enabled")
+    host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
+    server=ThreadingHTTPServer((host,port),Handler)
+    stop = Event()
+    monitor_thread = Thread(target=_NEWS_MONITOR.run_forever, args=(stop,), name="hes-news-monitor", daemon=True)
+    monitor_thread.start()
+    print(f"HES read-only dashboard listening on http://{host}:{port}",flush=True)
+    try:
+        server.serve_forever()
+    finally:
+        stop.set()
+        monitor_thread.join(timeout=5)
+        server.server_close()
+
+if __name__=="__main__": main()

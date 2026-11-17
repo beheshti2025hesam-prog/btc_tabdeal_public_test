@@ -336,6 +336,12 @@ refreshPrecisionEntry();setInterval(refreshPrecisionEntry,15000);
   ['READ ONLY · NO ORDERS','فقط‌خواندنی · بدون سفارش','NUR LESEN · KEINE ORDERS','LECTURE SEULE · AUCUN ORDRE'],
   ['15m canonical setup evidence','شواهد مرجع ستاپ 15 دقیقه','Kanonische 15m-Setup-Nachweise','Preuves canoniques du setup 15 min'],
   ['4H/1H context and 1M precision are descriptive only','زمینه 4 و 1 ساعت و دقت 1 دقیقه صرفاً توصیفی هستند','4H/1H-Kontext und 1M-Präzision sind nur beschreibend','Le contexte 4H/1H et la précision 1M sont uniquement descriptifs']
+  ,['Read-only research · Gate.io Public Spot. The initial 15m/1m/1h/4h timeframe-role profile is validated for BTC only; ETH/SOL remain descriptive until their own timeframe profiles pass validation. Regime evidence share is not a predictive probability.','پژوهش فقط‌خواندنی · بازار نقدی Gate.io. نمایه اولیه نقش تایم‌فریم‌های ۱۵ دقیقه، ۱ دقیقه، ۱ ساعت و ۴ ساعت فقط برای BTC اعتبارسنجی شده است؛ ETH و SOL تا زمان اعتبارسنجی مستقل، صرفاً توصیفی هستند. سهم شواهد رژیم احتمال پیش‌بینی نیست.','Nur lesende Forschung · Gate.io Spot. Das anfängliche Rollenprofil für 15m/1m/1h/4h ist nur für BTC validiert; ETH/SOL bleiben beschreibend, bis ihre eigenen Zeitrahmenprofile validiert sind. Der Regime-Evidenzanteil ist keine Prognosewahrscheinlichkeit.','Recherche en lecture seule · Gate.io Spot. Le profil initial des rôles 15m/1m/1h/4h n’est validé que pour BTC ; ETH/SOL restent descriptifs jusqu’à la validation de leurs propres profils temporels. La part de preuve du régime n’est pas une probabilité prédictive.'],
+  ['Market chart and indicators follow this symbol; Strategy/Mother decision panels remain BTC-canonical.','نمودار بازار و اندیکاتورها از نماد انتخاب‌شده پیروی می‌کنند؛ پنل‌های تصمیم استراتژی و مادر همچنان بر مبنای BTC هستند.','Marktchart und Indikatoren folgen diesem Symbol; die Entscheidungsbereiche für Strategie/Mother bleiben auf BTC festgelegt.','Le graphique de marché et les indicateurs suivent ce symbole ; les panneaux de décision Strategy/Mother restent centrés sur BTC.'],
+  ['DESCRIPTIVE ONLY','صرفاً توصیفی','NUR BESCHREIBEND','DESCRIPTIF UNIQUEMENT'],
+  ['SETUP AUTHORITY','مرجع ستاپ','SETUP-AUTORITÄT','AUTORITÉ DE CONFIGURATION'],
+  ['PRECISION REFINEMENT','بهبود دقت','PRÄZISIONSVERFEINERUNG','AFFINAGE DE PRÉCISION'],
+  ['HIGHER TIMEFRAME CONTEXT','زمینه تایم‌فریم بالاتر','KONTEXT HÖHERER ZEITRAHMEN','CONTEXTE DE TEMPS SUPÉRIEUR']
  ];
  const maps={};
  const CLEAN_COPY=COPY.filter(row=>Array.isArray(row)&&row.length===4);
@@ -357,3 +363,4 @@ refreshPrecisionEntry();setInterval(refreshPrecisionEntry,15000);
  const observer=new MutationObserver(records=>{const locale=document.documentElement.lang||'en';for(const record of records){if(record.type==='characterData')translateNode(record.target,locale);for(const added of record.addedNodes){if(added.nodeType===Node.TEXT_NODE)translateNode(added,locale);else if(added.nodeType===Node.ELEMENT_NODE)translateTree(added,locale);}}});
  observer.observe(document.body,{subtree:true,childList:true,characterData:true});
  window.HESDashboardLocale={set:setLocale,get:()=>document.documentElement.lang||'en',supported:[...LOCALES]};
+})();

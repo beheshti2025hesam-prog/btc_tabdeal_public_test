@@ -9,7 +9,10 @@
     "no browser console/page errors",
     "screenshots as CI artifacts",
     "explicit BTCUSDT/ETHUSDT/SOLUSDT selector mapping",
-    "ETH/SOL timeframe roles remain descriptive-only"
+    "ETH/SOL timeframe roles remain descriptive-only",
+    "English LTR, Persian RTL and translated German/French scope copy",
+    "symbol switches BTCUSDT → ETHUSDT → SOLUSDT → BTCUSDT",
+    "timeframe-role labels are dynamic and non-BTC profiles stay descriptive-only"
   ],
   "local_execution": "BLOCKED_BY_HOST_DEPENDENCIES",
   "production_deployed": false,

@@ -20,5 +20,17 @@
     "4h",
     "1m"
   ],
-  "tool": "jsdom 26.1.0; DOM and behavior test, not a real layout engine"
+  "tool": "jsdom 26.1.0; DOM and behavior test, not a real layout engine",
+  "multilingual_scope_copy": {
+    "fa": true,
+    "de": true,
+    "fr": true
+  },
+  "timeframe_role_labels_translated": true,
+  "explicit_symbol_options": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT"
+  ],
+  "source_reader_identity_fail_closed": true
 }

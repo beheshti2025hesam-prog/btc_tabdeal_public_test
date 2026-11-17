@@ -22,10 +22,18 @@ The indicator engine and dashboard are research-only. Multi-symbol Gate.io smoke
 - BTC retains its existing initial timeframe-role profile (15m setup authority, 1m precision-only, 1h/4h context). ETH/SOL are explicitly marked `DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL`; no setup/precision authority or strategy decision is assigned to them. Strategy/Mother decision panels remain BTC-canonical and the UI states that clearly.
 - Dashboard native-adapter live smoke: **8/8 passed** (ETH/SOL × 1m/15m/1h/4h), 239 closed candles each, zero gaps, exact native-feature batch provenance, feature pipeline READY, 39 finite indicator outputs, safety flags false.
 - Cross-market formula test was tightened: generic Forex price calculations remain scale-invariant, but unqualified tick-volume inputs must keep VWAP/Relative Volume/OBV/MFI/CMF unavailable. No Forex volume features are enabled.
-- Added explicit fail-closed reader identity test and API contract tests for mapped ETH; full latest-main regression now **1,474 passed, 82 subtests passed** (warnings as errors). Focused dashboard + indicator tests: **65 passed, 16 subtests**. DOM smoke remains PASS (39 indicator rows, Persian RTL, fail-closed, no console errors).
+- Added explicit fail-closed reader identity test and API contract tests for mapped ETH; full latest-main regression now **1,475 passed, 82 subtests passed** (warnings as errors). Focused dashboard + indicator tests: **65 passed, 16 subtests**. DOM smoke remains PASS (39 indicator rows, Persian RTL, fail-closed, no console errors).
 - First exact-head GitHub CI completed: all existing HES regression workflows passed, including the full regression gate; the new indicator workflow passed Python full suite and DOM smoke, then failed only at Playwright install because `ubuntu-latest` had advanced to Ubuntu 26.04, unsupported by Playwright 1.56.1. The workflow is now pinned to `ubuntu-24.04`; a new exact-head CI run is required to close browser acceptance.
 - No production symlink, service, strategy, journal, Risk Gate, signal authority or order state was changed. PR remains draft and unmerged.
 
 ## 10. Supported scope boundary
 
 V1 dashboard live support is currently the three explicit Gate.io Spot mappings BTCUSDT, ETHUSDT and SOLUSDT. The engine's calculation layer is symbol/market-agnostic, but additional Gate.io pairs require explicit mapping and native adapter validation. Forex, equities, indices, futures, commodities and other venues remain research-library-compatible only; they are not live-enabled. Volume-derived indicators remain disabled wherever provider volume semantics are not qualified. This boundary is deliberate, not an incomplete or silently inferred symbol mapping.
+
+
+## 11. Final source packaging and multilingual scope checks (2026-11-17)
+
+- Added localization regression for all four dashboard locales covering the new symbol-scope note and dynamic timeframe-role labels. Persian RTL, German and French translations are present; machine identifiers remain unchanged.
+- Updated DOM evidence to record the three explicit symbol options, translated scope copy, translated timeframe roles and fail-closed source-reader identity. DOM smoke: **PASS**, 39 indicator rows, no console errors.
+- Full local regression after the localization addition: **1,475 passed, 82 subtests passed** (`-W error`).
+- GitHub CI on the second PR commit exposed a packaging defect in the connector-uploaded `web/dashboard.py` blob: the final `main()` lines had been omitted by a line-range truncation during transfer, although the local source was complete. The next commit re-uploads the entire file using verified 945-line chunks and the complete 366-line dashboard JS; this is a source-transfer correction, not an application runtime failure. Exact-head CI must be rerun after the corrected upload.

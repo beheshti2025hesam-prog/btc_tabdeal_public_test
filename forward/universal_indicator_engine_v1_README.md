@@ -61,7 +61,7 @@ This is a first BTC profile, not a universal timeframe rule for all markets. ETH
 
 ## Dashboard interface
 
-The candidate adds `GET /api/technical-intelligence?symbol=BTCUSDT` and a Technical Intelligence panel. It reuses the dashboard's existing `_get_batch` and persisted closed-candle input path, binds each timeframe to its input SHA-256, and returns per-timeframe regime, indicators, adaptive research profile, availability, and source provenance. It is an additive extension to the actual dashboard-current release: the pre-existing EMA/VWAP chart overlays, native indicator summary, chart provenance/quality gates, HES Trade AI local Command Center, and Hoshyar project-memory integration remain intact.
+The candidate adds `GET /api/technical-intelligence?symbol=BTCUSDT|ETHUSDT|SOLUSDT` and a Technical Intelligence panel. It reuses the dashboard's existing `_get_batch`: BTC uses the persisted closed-candle reader; ETH/SOL use the existing versioned `GateioSpotKlineSource` native adapter. Chart and indicator panel bind to the same selected batch and SHA-256 provenance. The endpoint returns per-timeframe regime, indicators, adaptive research profile, availability, and source provenance. The integration is three-way merged onto latest `main`, preserving the newer HES Trade AI local Command Center, Hoshyar assistant and project-memory integration.
 
 The endpoint returns `VERIFIED` only when all four timeframe batches pass the existing data boundary; otherwise it returns `PARTIAL` with explicit blocked timeframes. It does not silently substitute stale data.
 
@@ -75,8 +75,8 @@ The response hard-codes all of the following to false: decision authority, signa
 - Live Gate.io Public Spot portability smoke: BTC, ETH, SOL, XRP and DOGE across 1m/15m/1h/4h (20/20 batches, at least 220 closed candles each, zero timestamp gaps, finite outputs, all safety flags false). Dashboard adapter smoke: mapped ETH/SOL through the existing `GateioSpotKlineSource` and dashboard batch facade across 1m/15m/1h/4h (8/8; 239 closed candles each, zero gaps, exact feature-batch provenance, feature pipeline ready, finite values). This validates runtime/formula portability on Gate.io spot only; it does not establish predictive quality or support for other venues.
 - Insufficient-history, open-candle, timestamp-order, OHLC-envelope, parameter, volume-qualification, provenance, and safety tests.
 - Independent reference parity tests: 7 passed across EMA, RSI, DMI/ADX, ATR, Bollinger, Donchian, ROC, Williams %R, CCI, VWAP, relative volume and CMF; includes Supertrend, Choppiness, Aroon, Stochastic, MFI, OBV, prior-window Relative Volume, market/symbol price-scale invariance and current-bar exclusion safeguards.
-- Full actual-dashboard-current candidate regression suite: 1,444 passed and 82 subtests passed with warnings treated as errors.
-- DOM/localization smoke: PASS; 39 indicator rows; 15m/4h/1m timeframe switching; Persian RTL language and family labels; simulated API failure correctly changes the panel to BLOCKED; no JavaScript console errors.
+- Full latest-main integration regression: **1,475 passed and 82 subtests passed** with warnings treated as errors. Focused dashboard + indicator + parity suite: **65 passed and 16 subtests**.
+- DOM/localization smoke: PASS; 39 indicator rows; 15m/4h/1m timeframe switching; Persian RTL plus translated German/French scope and timeframe-role copy; simulated API failure correctly changes the panel to BLOCKED; no JavaScript console errors. Browser acceptance additionally covers BTC→ETH→SOL symbol switching and descriptive-only roles for ETH/SOL.
 - Chronological rolling regime diagnostic on Gate.io BTC_USDT: 1m 5,000 candles/4,781 windows; 15m 1,573/1,354; 1h 1,079/860; 4h 644/425; zero timestamp gaps. Last 30% is a temporal holdout. This measures regime-distribution/transition stability only, not forecast accuracy, win rate or PnL.
 - Python compile and JavaScript syntax checks passed.
 - Local HTTP smoke: technical-intelligence API returned VERIFIED for 4H/1H/15M/1M; 240 closed candles per timeframe; Gate.io source and SHA-256 provenance present; all safety flags false.
@@ -85,11 +85,10 @@ The response hard-codes all of the following to false: decision authority, signa
 
 ## Promotion gates still required
 
-1. Integrate the exact dashboard-current-based candidate into the source-of-truth branch without touching unrelated dirty work.
-2. Run the immutable-action-pinned GitHub Actions workflow at the exact candidate commit; retain browser screenshots and artifact hashes.
-3. Complete real-browser desktop/mobile and Persian RTL/English LTR acceptance.
-4. Extend independent formula parity to Supertrend, Choppiness, Aroon, Stochastic, MFI and OBV.
-5. Collect longer multi-regime data and run labelled regime-quality, market/symbol/timeframe walk-forward, feature ablation and cost-aware expectancy tests. Current rolling audit is descriptive only.
-6. Explicit release approval before changing the production `dashboard-current` symlink or restarting the dashboard service.
+1. Complete the exact-head Ubuntu 24.04 GitHub Actions browser acceptance (desktop/mobile, Persian RTL, English LTR, symbol switching); retain screenshots and artifact hashes.
+2. Keep the PR draft and unmerged until exact-head CI and review pass.
+3. Collect longer multi-regime data and run labelled regime-quality, market/symbol/timeframe walk-forward, feature ablation and cost-aware expectancy tests. Current rolling audit is descriptive only.
+4. Add further symbols only through explicit Gate.io adapter mapping and independent source/volume validation; no implicit pair-name inference.
+5. Explicit release approval before changing the production `dashboard-current` symlink or restarting the dashboard service.
 
-**No live deployment, no strategy activation, no trade, and no change to production symlinks were performed. The candidate was rebased onto the exact dashboard-current release rather than the unrelated current release.**
+**No live deployment, no strategy activation, no trade, and no change to production symlinks were performed. The candidate was integrated onto the latest `main` while preserving newer Mother Chat/Hoshyar changes; it remains a draft PR and is not deployed.**
