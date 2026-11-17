@@ -148,16 +148,29 @@ def test_model_cannot_turn_hes_followup_into_general_chat(tmp_path):
     assert llm.answer_calls == []
 
 
-def test_casual_greeting_uses_local_chat_not_news_reader(tmp_path):
-    llm = FakeLLM(intent="GENERAL_CHAT", answer="سلام، خوش آمدی.")
+def test_casual_greeting_is_instant_and_does_not_call_local_model_or_news_reader(tmp_path):
+    llm = FakeLLM(intent="GENERAL_CHAT", answer="سلام")
     assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
     readers = {"NEWS_CONTEXT": lambda: (_ for _ in ()).throw(AssertionError("news reader must not run"))}
-    result = assistant.respond("سلام رفیق، امروز چه خبر؟", readers, language="fa")
+    result = assistant.respond("سلام رفیق", readers, language="fa")
     assert result["intent"] == "GENERAL_CHAT"
-    assert result["answer"] == "سلام، خوش آمدی."
-    assert result["local_llm_used"] is True
-    assert len(llm.route_calls) == 1
-    assert len(llm.answer_calls) == 1
+    assert "خوش اومدی" in result["answer"]
+    assert result["local_llm_used"] is False
+    assert llm.route_calls == []
+    assert llm.answer_calls == []
+
+
+def test_capability_question_gets_complete_deterministic_product_answer(tmp_path):
+    llm = FakeLLM(intent="GENERAL_CHAT", answer="سلام")
+    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
+    result = assistant.respond("از تو چه کاری بر می آید؟", {}, language="fa")
+    assert result["intent"] == "GENERAL_CHAT"
+    assert "Gate.io" in result["answer"]
+    assert "ژورنال" in result["answer"]
+    assert "سفارش ثبت نمی‌کنم" in result["answer"]
+    assert result["local_llm_used"] is False
+    assert llm.route_calls == []
+    assert llm.answer_calls == []
 
 
 def test_casual_opening_cannot_bypass_market_evidence_reader(tmp_path):
@@ -206,9 +219,9 @@ def test_local_model_failure_falls_back_without_external_service(tmp_path):
 def test_general_answer_failure_uses_safe_local_fallback(tmp_path):
     llm = FakeLLM(intent="GENERAL_CHAT", answer_error=True)
     assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
-    result = assistant.respond("سلام", {}, language="fa")
+    result = assistant.respond("Tell me a short story about a curious fox.", {}, language="en")
     assert result["intent"] == "GENERAL_CHAT"
-    assert "در خدمتم" in result["answer"]
+    assert "How can I help" in result["answer"]
     assert result["external_llm_used"] is False
 
 
