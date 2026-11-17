@@ -44,7 +44,7 @@ class MotherChatError(ValueError):
 _INTENT_TERMS = {
     "PROJECT_MEMORY": ("حافظه پروژه", "حافظهٔ پروژه", "حافظه hes", "چک پوینت", "چک‌پوینت", "master checkpoint", "project memory", "project checkpoint", "roadmap", "نقشه راه", "نقشهٔ راه", "چه تصمیمی درباره", "قبلا چه تصمیمی", "قبلاً چه تصمیمی", "ما درباره چه تصمیمی", "چه چیزی ثبت کردیم", "تصمیم قبلی پروژه", "گزارش قبلی پروژه", "what did we decide", "what was recorded", "previous project decision", "project history", "was haben wir beschlossen", "frühere projektentscheidung", "mémoire du projet", "qu'avons-nous décidé", "décision précédente du projet"),
     "NEWS_CONTEXT": ("اخبار", "خبر", "رویداد خبری", "news", "headline", "nachrichten", "meldung", "actualités", "nouvelles"),
-    "SPECIALIST_REVIEW": ("بررسی تخصصی", "گزارش تخصصی", "وضعیت ایجنت", "وضعیت ایجنت‌ها", "تخصص‌های مادر", "ایجنت کیفیت داده", "ایجنت ساختار بازار", "ایجنت سیگنال", "ایجنت تأیید", "ایجنت تایید", "ایجنت ریسک", "ایجنت تصمیم", "ایجنت ارزیابی", "specialist review", "specialist status", "data quality specialist", "market structure specialist", "signal specialist", "confirmation specialist", "risk specialist", "decision specialist", "evaluation specialist", "agent stages", "specialist gates"),
+    "SPECIALIST_REVIEW": ("بررسی تخصصی", "گزارش تخصصی", "وضعیت ایجنت", "وضعیت ایجنت‌ها", "تخصص‌های مادر", "ایجنت کیفیت داده", "ایجنت ساختار بازار", "ایجنت سیگنال", "ایجنت تأیید", "ایجنت تایید", "ایجنت ریسک", "ایجنت تصمیم", "ایجنت ارزیابی", "specialist review", "specialist status", "data quality specialist", "market structure specialist", "signal specialist", "confirmation specialist", "risk specialist", "decision specialist", "evaluation specialist", "agent stages", "specialist gates", "spezialistenprüfung", "spezialistenstatus", "datenqualität", "marktstruktur", "signal-agent", "risiko-agent", "agentenstufen", "revue des spécialistes", "statut des spécialistes", "qualité des données", "structure de marché", "agent de risque", "agent de signal", "agent de confirmation", "agent de décision", "agent d’évaluation"),
     "JOURNAL_REVIEW": ("ژورنال", "نتایج معاملات", "نتیجه معاملات", "عملکرد ترید", "برد و باخت", "journal", "outcomes", "performance", "ergebnisse", "résultats"),
     "DIAGNOSE": ("عیب یابی", "عیب‌یابی", "خطا", "اشکال", "مشکل سیستم", "diagnose", "diagnostics", "error", "fault", "fehler", "erreur", "panne"),
     "ASK_STATUS": ("وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services", "gesundheit", "dienste", "statut", "santé", "services"),
@@ -315,13 +315,13 @@ _SPECIALIST_STAGE_ORDER = (
     "risk", "decision", "evaluation",
 )
 _SPECIALIST_ALIASES = {
-    "data_quality": ("کیفیت داده", "ایجنت داده", "data quality", "data_quality"),
-    "market_structure": ("ساختار بازار", "ایجنت ساختار", "market structure", "market_structure"),
-    "signal": ("ایجنت سیگنال", "signal agent", "signal"),
-    "confirmation": ("ایجنت تأیید", "ایجنت تایید", "confirmation agent", "confirmation"),
-    "risk": ("ایجنت ریسک", "risk agent", "risk"),
-    "decision": ("ایجنت تصمیم", "decision agent"),
-    "evaluation": ("ایجنت ارزیابی", "evaluation agent", "evaluation"),
+    "data_quality": ("کیفیت داده", "ایجنت داده", "data quality", "data_quality", "datenqualität", "qualité des données"),
+    "market_structure": ("ساختار بازار", "ایجنت ساختار", "market structure", "market_structure", "marktstruktur", "structure de marché"),
+    "signal": ("ایجنت سیگنال", "signal agent", "signal", "signal-agent", "agent de signal"),
+    "confirmation": ("ایجنت تأیید", "ایجنت تایید", "confirmation agent", "confirmation", "bestätigung", "agent de confirmation"),
+    "risk": ("ایجنت ریسک", "risk agent", "risk", "risiko-agent", "agent de risque"),
+    "decision": ("ایجنت تصمیم", "decision agent", "entscheidungs-agent", "agent de décision"),
+    "evaluation": ("ایجنت ارزیابی", "evaluation agent", "evaluation", "bewertungs-agent", "agent d’évaluation"),
 }
 
 
