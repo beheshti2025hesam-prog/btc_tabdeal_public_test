@@ -528,13 +528,19 @@ def build_chat_response(
         strategy = data.get("strategy", {})
         if not isinstance(mother, Mapping) or not isinstance(strategy, Mapping):
             return _response(intent, "BLOCKED", "Mother specialist evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
+        mother_status = mother.get("status")
         witness = mother.get("witness", {})
         witness_ok = isinstance(witness, Mapping) and witness.get("verified") is True
-        if mother.get("status") != "OBSERVATION_ONLY" or not witness_ok or strategy.get("status") != "VERIFIED":
+        allowed_mother_statuses = {
+            "OBSERVATION_ONLY", "BLOCKED_CONTEXT", "BLOCKED_CONFIGURATION",
+            "BLOCKED_AGENT_ERROR", "BLOCKED_INVALID_RESULT", "BLOCKED_GATE",
+            "BLOCKED_RISK_VETO", "BLOCKED_INVALID_DECISION", "BLOCKED_DIRECTION_CONFLICT",
+        }
+        if mother_status not in allowed_mother_statuses or not witness_ok or strategy.get("status") != "VERIFIED":
             return _response(
                 intent, "BLOCKED",
                 {
-                    "fa": "زنجیرهٔ تخصصی Mother یا شاهد مستقل/گزارش Strategy معتبر نیست؛ جزئیات تخصص‌ها ارائه نمی‌شود.",
+                    "fa": "زنجیرهٔ تخصصی Mother، شاهد مستقل یا گزارش Strategy معتبر نیست؛ جزئیات تخصص‌ها ارائه نمی‌شود.",
                     "de": "Die Mother-Spezialistenkette, der unabhängige Zeuge oder der Strategy-Bericht ist nicht verifiziert; Details werden nicht ausgegeben.",
                     "fr": "La chaîne des spécialistes Mother, le témoin indépendant ou le rapport Strategy n’est pas vérifié ; aucun détail n’est fourni.",
                     "en": "The Mother specialist chain, independent witness, or Strategy report is not verified; specialist details are withheld.",
@@ -544,33 +550,56 @@ def build_chat_response(
         stages = mother.get("stages")
         if not isinstance(stages, list) or len(stages) > len(_SPECIALIST_STAGE_ORDER):
             return _response(intent, "BLOCKED", "Mother specialist stage list is invalid.", [], ["MOTHER_SPECIALIST_STAGES_INVALID"], trace_id, now, language=language)
+        names = [stage.get("agent") if isinstance(stage, Mapping) else None for stage in stages]
+        if names != list(_SPECIALIST_STAGE_ORDER[:len(names)]):
+            return _response(intent, "BLOCKED", "Mother specialist stage order is invalid.", [], ["MOTHER_SPECIALIST_STAGE_ORDER_INVALID"], trace_id, now, language=language)
+        allowed_stage_states = {
+            "data_quality": {"PASS"},
+            "market_structure": {"PASS"},
+            "signal": {"PASS"},
+            "confirmation": {"CONFIRMED"},
+            "risk": {"APPROVED"},
+            "decision": {"DECIDED"},
+            "evaluation": {"OBSERVED"},
+        }
         by_agent = {}
-        for stage in stages:
-            if not isinstance(stage, Mapping):
-                return _response(intent, "BLOCKED", "Mother specialist stage is malformed.", [], ["MOTHER_SPECIALIST_STAGE_INVALID"], trace_id, now, language=language)
+        for index, stage in enumerate(stages):
             agent = stage.get("agent")
             state = stage.get("state")
             version = stage.get("agent_version")
             reasons = stage.get("reason_codes", [])
             refs = stage.get("evidence_refs", [])
             if (
-                agent not in _SPECIALIST_STAGE_ORDER or agent in by_agent
-                or not isinstance(state, str) or not state
-                or not isinstance(version, str) or not version
-                or not isinstance(reasons, list) or any(not isinstance(x, str) for x in reasons)
-                or not isinstance(refs, list) or any(not isinstance(x, str) for x in refs)
+                not isinstance(state, str) or not state
+                or not isinstance(version, str) or not version or len(version) > 256
+                or not isinstance(reasons, list) or any(not isinstance(x, str) or not x or len(x) > 256 for x in reasons)
+                or len(reasons) != len(set(reasons))
+                or not isinstance(refs, list) or any(not isinstance(x, str) or not x or len(x) > 512 for x in refs)
+                or len(refs) != len(set(refs)) or not refs
             ):
                 return _response(intent, "BLOCKED", "Mother specialist stage contract is invalid.", [], ["MOTHER_SPECIALIST_STAGE_CONTRACT_INVALID"], trace_id, now, language=language)
+            if state not in allowed_stage_states[agent]:
+                if index != len(stages) - 1 or mother_status not in {"BLOCKED_GATE", "BLOCKED_RISK_VETO"}:
+                    return _response(intent, "BLOCKED", "Mother specialist gate state conflicts with the verified orchestration status.", [], ["MOTHER_SPECIALIST_STAGE_STATE_CONFLICT"], trace_id, now, language=language)
+                if (agent == "risk") != (mother_status == "BLOCKED_RISK_VETO"):
+                    return _response(intent, "BLOCKED", "Mother specialist veto identity conflicts with the verified status.", [], ["MOTHER_SPECIALIST_VETO_IDENTITY_CONFLICT"], trace_id, now, language=language)
             by_agent[agent] = {
                 "state": state, "agent_version": version,
                 "reason_codes": reasons[:8], "evidence_refs": refs[:4],
             }
+        if mother_status == "OBSERVATION_ONLY" and len(stages) != len(_SPECIALIST_STAGE_ORDER):
+            return _response(intent, "BLOCKED", "Verified observation chain is incomplete.", [], ["MOTHER_SPECIALIST_OBSERVATION_CHAIN_INCOMPLETE"], trace_id, now, language=language)
+        if mother_status in {"BLOCKED_CONTEXT", "BLOCKED_CONFIGURATION"} and stages:
+            return _response(intent, "BLOCKED", "Mother blocked status conflicts with specialist stage history.", [], ["MOTHER_SPECIALIST_BLOCKED_HISTORY_CONFLICT"], trace_id, now, language=language)
+        if mother_status == "BLOCKED_GATE" and (not stages or stages[-1]["state"] in allowed_stage_states[stages[-1]["agent"]]):
+            return _response(intent, "BLOCKED", "Mother gate-blocked status has no failing terminal stage.", [], ["MOTHER_SPECIALIST_BLOCKED_STAGE_MISSING"], trace_id, now, language=language)
+        if mother_status == "BLOCKED_RISK_VETO" and (not stages or stages[-1]["agent"] != "risk" or stages[-1]["state"] in allowed_stage_states["risk"]):
+            return _response(intent, "BLOCKED", "Mother risk-veto status has no failing risk stage.", [], ["MOTHER_SPECIALIST_RISK_VETO_STAGE_MISSING"], trace_id, now, language=language)
+        if mother_status == "BLOCKED_DIRECTION_CONFLICT" and len(stages) != len(_SPECIALIST_STAGE_ORDER):
+            return _response(intent, "BLOCKED", "Direction-conflict status requires the complete specialist chain.", [], ["MOTHER_SPECIALIST_CONFLICT_CHAIN_INCOMPLETE"], trace_id, now, language=language)
+
         target = _specialist_target(message)
         selected = [target] if target else list(_SPECIALIST_STAGE_ORDER)
-        missing = [name for name in selected if name not in by_agent]
-        if missing:
-            status = "PARTIAL"
-            uncertainties.append("Missing canonical specialist stage(s): " + ", ".join(missing))
         gate = strategy.get("latest_gate_evidence", {})
         if not isinstance(gate, Mapping):
             gate = {}
@@ -586,10 +615,26 @@ def build_chat_response(
             "decision": "تصمیم / Decision",
             "evaluation": "ارزیابی مشاهده‌ای / Observation Evaluation",
         }
+        terminal = stages[-1] if stages else None
+        terminal_failed = bool(
+            terminal and terminal["state"] not in allowed_stage_states[terminal["agent"]]
+        )
+        stop_label = (
+            terminal["agent"] if terminal_failed
+            else (mother_status if mother_status != "OBSERVATION_ONLY" else "none")
+        )
+        audit_ref = str(mother.get("audit_sha256") or (witness.get("audit_sha256") if isinstance(witness, Mapping) else "") or "")
         rows = []
         for name in selected:
             item = by_agent.get(name)
             if item is None:
+                value = {
+                    "state": "NOT_REACHED",
+                    "reason_codes": ["UPSTREAM_STOP:" + stop_label],
+                    "evidence_refs": [audit_ref] if audit_ref else [],
+                }
+                claims.append(_claim("Mother specialist " + name, value, audit_ref or None))
+                rows.append(f"{labels[name]}: NOT_REACHED · upstream stop: {stop_label}")
                 continue
             detail = None
             detail_key = detail_keys.get(name)
@@ -601,7 +646,12 @@ def build_chat_response(
                 elif name == "market_structure":
                     detail = {"status": raw_detail.get("status"), "regime": raw_detail.get("regime")}
                 else:
-                    detail = {"state": raw_detail.get("state"), "reason_codes": raw_detail.get("reason_codes", [])}
+                    detail_reasons = raw_detail.get("reason_codes", [])
+                    if not isinstance(detail_reasons, list) or any(not isinstance(x, str) for x in detail_reasons):
+                        status = "PARTIAL"
+                        uncertainties.append("Detailed " + name + " reason codes are malformed.")
+                    else:
+                        detail = {"state": raw_detail.get("state"), "reason_codes": detail_reasons[:8]}
             value = {
                 "state": item["state"],
                 "agent_version": item["agent_version"],
@@ -610,21 +660,25 @@ def build_chat_response(
             }
             if detail is not None:
                 value["canonical_gate_detail"] = detail
-            claims.append(_claim("Mother specialist " + name, value, item["evidence_refs"][0] if item["evidence_refs"] else None))
+            claims.append(_claim("Mother specialist " + name, value, item["evidence_refs"][0]))
             reason_text = ", ".join(item["reason_codes"]) if item["reason_codes"] else "no reason code recorded"
             rows.append(f"{labels[name]}: {item['state']} · {reason_text}")
-        if target is None:
+        claims.append(_claim("Mother orchestration status", mother_status))
+        mother_reasons = mother.get("reason_codes", [])
+        if isinstance(mother_reasons, list):
+            claims.append(_claim("Mother orchestration reason codes", mother_reasons[:8]))
+        if "evaluation" in by_agent:
             if mother.get("outcomes_inferred") is not False:
                 status = "PARTIAL"
                 uncertainties.append("Realized outcomes are not explicitly marked as non-inferred.")
             else:
                 claims.append(_claim("Evaluation boundary", "OBSERVED means decision-observation validation only; outcomes_inferred=false."))
-            claims.append(_claim("Coverage boundary", "Seven canonical Mother stages only; the separate Learning Loop is not included."))
+        claims.append(_claim("Coverage boundary", "Seven canonical Mother stages only; the separate Learning Loop is not included."))
         answers = {
-            "fa": "گزارش خواندنی زنجیرهٔ هفت‌مرحله‌ای تخصص‌های Mother؛ بدون محاسبهٔ مجدد و بدون اختیار معاملاتی:\n" + "\n".join(rows) + "\nLearning Loop مسیر جداگانه‌ای است و در این گزارش پوشش داده نشده است.",
-            "de": "Lesender Bericht über die sieben kanonischen Mother-Stufen; keine Neuberechnung und keine Handelsbefugnis:\n" + "\n".join(rows) + "\nDer Learning Loop ist ein separater Pfad und hier nicht enthalten.",
-            "fr": "Rapport en lecture seule sur les sept étapes canoniques de Mother ; aucun recalcul ni pouvoir de trading :\n" + "\n".join(rows) + "\nLe Learning Loop est un processus distinct et n’est pas inclus ici.",
-            "en": "Read-only report of the seven canonical Mother stages; no recomputation and no trading authority:\n" + "\n".join(rows) + "\nThe Learning Loop is separate and is not covered by this report.",
+            "fa": "گزارش خواندنی زنجیرهٔ تخصصی Mother؛ وضعیت نهایی: " + str(mother_status) + "؛ بدون محاسبهٔ مجدد و بدون اختیار معاملاتی:\n" + "\n".join(rows) + "\nLearning Loop مسیر جداگانه‌ای است و در این گزارش پوشش داده نشده است.",
+            "de": "Lesender Bericht der Mother-Spezialistenkette; Endstatus: " + str(mother_status) + "; keine Neuberechnung und keine Handelsbefugnis:\n" + "\n".join(rows) + "\nDer Learning Loop ist ein separater Pfad und hier nicht enthalten.",
+            "fr": "Rapport en lecture seule de la chaîne des spécialistes Mother ; statut final : " + str(mother_status) + " ; aucun recalcul ni pouvoir de trading :\n" + "\n".join(rows) + "\nLe Learning Loop est un processus distinct et n’est pas inclus ici.",
+            "en": "Read-only report of the Mother specialist chain; final status: " + str(mother_status) + "; no recomputation and no trading authority:\n" + "\n".join(rows) + "\nThe Learning Loop is separate and is not covered by this report.",
         }
         answer = answers[language]
 
