@@ -1,0 +1,24 @@
+{
+  "coverage": [
+    "Chromium desktop 1440x1000",
+    "Chromium mobile 390x844",
+    "Persian RTL direction and text",
+    "timeframe switching",
+    "39 indicator rows",
+    "API fail-closed behavior",
+    "no browser console/page errors",
+    "screenshots as CI artifacts",
+    "explicit BTCUSDT/ETHUSDT/SOLUSDT selector mapping",
+    "ETH/SOL timeframe roles remain descriptive-only",
+    "English LTR, Persian RTL and translated German/French scope copy",
+    "symbol switches BTCUSDT → ETHUSDT → SOLUSDT → BTCUSDT",
+    "timeframe-role labels are dynamic and non-BTC profiles stay descriptive-only"
+  ],
+  "local_execution": "BLOCKED_BY_HOST_DEPENDENCIES",
+  "production_deployed": false,
+  "reason": "The latest browser CI reached Chromium successfully but the test fixture emitted console errors for expected 503 responses from unmocked dashboard APIs and external CDN resources. The browser fixture now intercepts external requests deterministically, serves the chart stub locally, and returns safe BLOCKED payloads for unrelated API routes. Exact-head CI rerun is pending.",
+  "schema": "hes.universal_indicator_browser_acceptance_status.v1",
+  "status": "PENDING_CI_EXECUTION",
+  "test_script": "scripts/test_universal_indicator_dashboard_browser_v1.cjs",
+  "workflow": ".github/workflows/universal-indicator-engine-v1.yml"
+}

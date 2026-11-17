@@ -1,0 +1,146 @@
+{
+  "schema": "hes.universal_indicator_engine_config.v1",
+  "engine_version": "hes-universal-adaptive-indicator-engine-v1.0.0",
+  "mode": "READ_ONLY_RESEARCH",
+  "symbol_policy": "UNIVERSAL_NO_SYMBOL_HARDCODING",
+  "regimes": ["BULLISH", "BEARISH", "RANGE", "TRANSITION", "UNKNOWN"],
+  "timeframe_roles": {
+    "15m": "SETUP_AUTHORITY_FOR_INITIAL_BTC_PROFILE",
+    "1m": "PRECISION_REFINEMENT_ONLY",
+    "1h": "HIGHER_TIMEFRAME_CONTEXT",
+    "4h": "HIGHER_TIMEFRAME_CONTEXT"
+  },
+  "default_parameters": {
+    "ema_fast": 20,
+    "ema_slow": 50,
+    "ema_anchor": 200,
+    "rsi": 14,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9,
+    "atr": 14,
+    "adx": 14,
+    "bollinger": 20,
+    "bollinger_deviations": 2.0,
+    "keltner": 20,
+    "keltner_atr_multiple": 1.5,
+    "donchian": 20,
+    "choppiness": 14,
+    "efficiency_ratio": 20,
+    "mfi": 14,
+    "cmf": 20,
+    "stochastic": 14,
+    "stochastic_smooth": 3,
+    "williams_r": 14,
+    "roc": 10,
+    "relative_volume": 20,
+    "cci": 20,
+    "aroon": 25,
+    "supertrend_atr_multiple": 3.0,
+    "vwap": 20,
+    "obv": 20
+  },
+  "regime_policy": {
+    "minimum_bars": 220,
+    "adx_trend_floor": 20.0,
+    "adx_range_ceiling": 18.0,
+    "er_trend_floor": 0.30,
+    "er_range_ceiling": 0.25,
+    "chop_range_floor": 61.8,
+    "directional_confidence_floor": 0.58,
+    "range_confidence_floor": 0.55,
+    "minimum_directional_margin": 0.12,
+    "confidence_semantics": "NORMALIZED_EVIDENCE_SHARE_NOT_PROBABILITY"
+  },
+  "family_weights": {
+    "trend": 0.20,
+    "market_structure": 0.25,
+    "momentum": 0.15,
+    "volume_flow": 0.15,
+    "entry_confirmation": 0.15,
+    "volatility_quality": 0.10,
+    "semantics": "PROVISIONAL_RESEARCH_PRIORS_NOT_USED_AS_SIGNAL_SCORE"
+  },
+  "market_profiles": {
+    "crypto": {
+      "price_indicators": "ENABLED",
+      "volume_indicators": "REQUIRE_VENUE_AND_PRODUCT_SPECIFIC_SEMANTICS_APPROVAL",
+      "vwap": "ROLLING_QUOTE_VOLUME_DIVIDED_BY_BASE_VOLUME; NOT_SESSION_VWAP",
+      "funding_open_interest": "SEPARATE_OPTIONAL_DERIVATIVE_ADAPTER_NOT_INCLUDED_IN_V1"
+    },
+    "forex_spot": {
+      "price_indicators": "ENABLED",
+      "tick_volume": "DISABLED_UNLESS_PROVIDER_SEMANTICS_VALIDATED",
+      "vwap": "DISABLED_UNLESS_VALID_SESSION_VOLUME_AVAILABLE"
+    },
+    "equities": {
+      "price_indicators": "ENABLED_AFTER_SPLIT_DIVIDEND_ADJUSTMENT_AND_SESSION_VALIDATION",
+      "volume_indicators": "REQUIRE_EXCHANGE_SESSION_VOLUME_VALIDATION",
+      "vwap": "SESSION_AWARE_ADAPTER_REQUIRED"
+    },
+    "indices": {
+      "price_indicators": "ENABLED",
+      "volume_indicators": "DISABLED_BY_DEFAULT_UNLESS_UNDERLYING_CONTRACT_VOLUME_IS_VALID"
+    },
+    "futures": {
+      "price_indicators": "ENABLED",
+      "volume_indicators": "REQUIRE_CONTRACT_AND_ROLL_SEMANTICS_VALIDATION",
+      "open_interest": "SEPARATE_ADAPTER_NOT_INCLUDED_IN_V1"
+    },
+    "commodities": {
+      "price_indicators": "ENABLED",
+      "volume_indicators": "REQUIRE_CONTRACT_SPECIFIC_SEMANTICS_VALIDATION"
+    },
+    "other": {
+      "price_indicators": "ENABLED_AFTER_OHLCV_DATA_QUALITY_GATE",
+      "volume_indicators": "DISABLED_UNTIL_SOURCE_SEMANTICS_APPROVED"
+    }
+  },
+  "regime_profiles": {
+    "BULLISH": {
+      "primary": ["ema_20", "ema_50", "ema_200", "ema_fast_slope_pct", "adx_14", "plus_di_14", "rsi_14", "macd_histogram", "supertrend_direction", "vwap_20", "relative_volume_20", "obv_change_20", "atr_pct", "donchian_upper_prior"],
+      "purpose": "trend continuation and pullback context"
+    },
+    "BEARISH": {
+      "primary": ["ema_20", "ema_50", "ema_200", "ema_fast_slope_pct", "adx_14", "minus_di_14", "rsi_14", "macd_histogram", "supertrend_direction", "vwap_20", "relative_volume_20", "obv_change_20", "atr_pct", "donchian_lower_prior"],
+      "purpose": "downtrend continuation and rally-fade context"
+    },
+    "RANGE": {
+      "primary": ["bollinger_upper", "bollinger_lower", "bollinger_percent_b", "rsi_14", "stochastic_k", "stochastic_d", "williams_r_14", "choppiness_14", "adx_14", "vwap_20", "mfi_14", "cmf_20", "atr_pct"],
+      "purpose": "range boundaries and mean-reversion context"
+    },
+    "TRANSITION": {
+      "primary": ["adx_14", "plus_di_14", "minus_di_14", "ema_fast_slope_pct", "efficiency_ratio_20", "choppiness_14", "atr_pct", "bollinger_width_pct", "donchian_upper_prior", "donchian_lower_prior"],
+      "purpose": "conflict and regime-transition diagnostics"
+    },
+    "UNKNOWN": {
+      "primary": [],
+      "purpose": "insufficient validated history; no active research profile"
+    }
+  },
+  "selection_policy": {
+    "mode": "REGIME_ADAPTIVE_DISPLAY_AND_RESEARCH_PRIORITIZATION",
+    "correlated_indicators_count_as_independent_votes": false,
+    "transition_regime": "DIAGNOSTICS_ONLY_NO_DIRECTIONAL_STRATEGY_SELECTION",
+    "unknown_regime": "NO_ACTIVE_PROFILE",
+    "parameter_optimization": "REQUIRES_WALK_FORWARD_AND_OUT_OF_SAMPLE_EVIDENCE"
+  },
+  "safety": {
+    "decision_authority": false,
+    "signal_generation_enabled": false,
+    "risk_gate_bypass": false,
+    "execution_enabled": false,
+    "orders_placed": false,
+    "journal_write": false,
+    "policy_mutation": false,
+    "risk_gate_remains_independent_veto": true
+  },
+  "known_v1_exclusions": [
+    "Volume Profile and market-by-price reconstruction",
+    "Session-anchored VWAP and exchange-specific session calendars",
+    "Funding rate, open interest, basis and liquidation maps",
+    "Order-book imbalance and full order-flow delta",
+    "Cross-venue consolidated volume",
+    "Market-specific corporate-action and futures-roll adapters"
+  ]
+}

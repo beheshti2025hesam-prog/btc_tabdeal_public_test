@@ -1,0 +1,36 @@
+{
+  "base_release": "9b7701fffcd436ad1f72f4f3f23bf95c561e2c86",
+  "expected_failure_status": "BLOCKED",
+  "fail_closed_on_api_failure": true,
+  "indicator_rows_verified": 39,
+  "javascript_console_errors": [],
+  "persian_rtl": {
+    "heading_translated": true,
+    "html_dir": "rtl",
+    "indicator_family_labels_translated": true,
+    "profile_labels_translated": true
+  },
+  "responsive_css_breakpoint_present": true,
+  "rtl_css_rules_present": true,
+  "schema": "hes.universal_indicator_dashboard_dom_smoke.v1",
+  "status": "PASS",
+  "technical_api_fixture_status": "VERIFIED",
+  "timeframe_switches": [
+    "15m",
+    "4h",
+    "1m"
+  ],
+  "tool": "jsdom 26.1.0; DOM and behavior test, not a real layout engine",
+  "multilingual_scope_copy": {
+    "fa": true,
+    "de": true,
+    "fr": true
+  },
+  "timeframe_role_labels_translated": true,
+  "explicit_symbol_options": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT"
+  ],
+  "source_reader_identity_fail_closed": true
+}

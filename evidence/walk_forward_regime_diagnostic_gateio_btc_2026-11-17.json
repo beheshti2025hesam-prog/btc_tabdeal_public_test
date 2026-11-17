@@ -1,0 +1,179 @@
+{
+  "method": "rolling trailing window, one step per closed candle; first 70% chronological windows are development, last 30% temporal holdout; no labels/trades/PnL used",
+  "schema": "hes.universal_indicator_walk_forward_diagnostic.v1",
+  "source": "gateio_public_spot",
+  "symbol": "BTC_USDT",
+  "timeframes": {
+    "15m": {
+      "candles": 1573,
+      "development": {
+        "regime_counts": {
+          "BEARISH": 311,
+          "BULLISH": 160,
+          "RANGE": 338,
+          "TRANSITION": 138
+        },
+        "regime_share": {
+          "BEARISH": 0.3284,
+          "BULLISH": 0.169,
+          "RANGE": 0.3569,
+          "TRANSITION": 0.1457
+        },
+        "transition_rate": 0.1512,
+        "windows": 947
+      },
+      "first_as_of": 1793709900,
+      "last_as_of": 1794927600,
+      "mean_evidence_share_development": 0.7634,
+      "mean_evidence_share_holdout": 0.7345,
+      "mean_ready_indicators": 39,
+      "no_predictive_or_winrate_claim": true,
+      "rolling_windows": 1354,
+      "temporal_holdout": {
+        "regime_counts": {
+          "BEARISH": 149,
+          "BULLISH": 52,
+          "RANGE": 118,
+          "TRANSITION": 88
+        },
+        "regime_share": {
+          "BEARISH": 0.3661,
+          "BULLISH": 0.1278,
+          "RANGE": 0.2899,
+          "TRANSITION": 0.2162
+        },
+        "transition_rate": 0.1946,
+        "windows": 407
+      },
+      "timestamp_gaps": 0
+    },
+    "1h": {
+      "candles": 1079,
+      "development": {
+        "regime_counts": {
+          "BEARISH": 231,
+          "BULLISH": 121,
+          "RANGE": 148,
+          "TRANSITION": 102
+        },
+        "regime_share": {
+          "BEARISH": 0.3837,
+          "BULLISH": 0.201,
+          "RANGE": 0.2458,
+          "TRANSITION": 0.1694
+        },
+        "transition_rate": 0.1714,
+        "windows": 602
+      },
+      "first_as_of": 1791831600,
+      "last_as_of": 1794924000,
+      "mean_evidence_share_development": 0.7535,
+      "mean_evidence_share_holdout": 0.7723,
+      "mean_ready_indicators": 39,
+      "no_predictive_or_winrate_claim": true,
+      "rolling_windows": 860,
+      "temporal_holdout": {
+        "regime_counts": {
+          "BEARISH": 143,
+          "RANGE": 90,
+          "TRANSITION": 25
+        },
+        "regime_share": {
+          "BEARISH": 0.5543,
+          "RANGE": 0.3488,
+          "TRANSITION": 0.0969
+        },
+        "transition_rate": 0.0973,
+        "windows": 258
+      },
+      "timestamp_gaps": 0
+    },
+    "1m": {
+      "candles": 5000,
+      "development": {
+        "regime_counts": {
+          "BEARISH": 891,
+          "BULLISH": 724,
+          "RANGE": 1184,
+          "TRANSITION": 547
+        },
+        "regime_share": {
+          "BEARISH": 0.2663,
+          "BULLISH": 0.2164,
+          "RANGE": 0.3539,
+          "TRANSITION": 0.1635
+        },
+        "transition_rate": 0.154,
+        "windows": 3346
+      },
+      "first_as_of": 1794642360,
+      "last_as_of": 1794929160,
+      "mean_evidence_share_development": 0.7748,
+      "mean_evidence_share_holdout": 0.7839,
+      "mean_ready_indicators": 39,
+      "no_predictive_or_winrate_claim": true,
+      "rolling_windows": 4781,
+      "temporal_holdout": {
+        "regime_counts": {
+          "BEARISH": 269,
+          "BULLISH": 402,
+          "RANGE": 553,
+          "TRANSITION": 211
+        },
+        "regime_share": {
+          "BEARISH": 0.1875,
+          "BULLISH": 0.2801,
+          "RANGE": 0.3854,
+          "TRANSITION": 0.147
+        },
+        "transition_rate": 0.1367,
+        "windows": 1435
+      },
+      "timestamp_gaps": 0
+    },
+    "4h": {
+      "candles": 644,
+      "development": {
+        "regime_counts": {
+          "BEARISH": 110,
+          "BULLISH": 79,
+          "RANGE": 60,
+          "TRANSITION": 48
+        },
+        "regime_share": {
+          "BEARISH": 0.3704,
+          "BULLISH": 0.266,
+          "RANGE": 0.202,
+          "TRANSITION": 0.1616
+        },
+        "transition_rate": 0.1791,
+        "windows": 297
+      },
+      "first_as_of": 1788796800,
+      "last_as_of": 1794902400,
+      "mean_evidence_share_development": 0.7412,
+      "mean_evidence_share_holdout": 0.7986,
+      "mean_ready_indicators": 39,
+      "no_predictive_or_winrate_claim": true,
+      "rolling_windows": 425,
+      "temporal_holdout": {
+        "regime_counts": {
+          "BEARISH": 101,
+          "BULLISH": 6,
+          "RANGE": 5,
+          "TRANSITION": 16
+        },
+        "regime_share": {
+          "BEARISH": 0.7891,
+          "BULLISH": 0.0469,
+          "RANGE": 0.0391,
+          "TRANSITION": 0.125
+        },
+        "transition_rate": 0.1732,
+        "windows": 128
+      },
+      "timestamp_gaps": 0
+    }
+  },
+  "window": 220
+}

@@ -82,6 +82,9 @@ section[id]{scroll-margin-top:68px}
 #motherChatPanel [hidden]{display:none!important}
 @media(max-width:600px){.mother-chat-messages{max-height:300px}.mother-chat-message{max-width:100%}.mother-chat-actions button{flex:1}}
 
+#technicalIndicatorRows td:nth-child(2){font-family:ui-monospace,monospace}
+#technicalRegimeMetrics .metric{min-width:170px}
+#technicalIndicatorRows td{font-variant-numeric:tabular-nums}
 
 /* Per-item multilingual news interpretation and economic education. */
 .news-interpretation{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:rgba(18,28,44,.55);overflow:hidden}

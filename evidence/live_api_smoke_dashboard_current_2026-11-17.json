@@ -1,0 +1,77 @@
+{
+  "api": {
+    "controls": {
+      "decision_authority": false,
+      "execution_enabled": false,
+      "journal_write": false,
+      "orders_placed": false,
+      "policy_mutation": false,
+      "risk_gate_bypass": false,
+      "signal_generation_enabled": false
+    },
+    "http_status": 200,
+    "regime_consensus": "MIXED",
+    "status": "VERIFIED",
+    "timeframes": {
+      "15m": {
+        "closed_candles": 240,
+        "evidence_share": 0.522362,
+        "input_sha256": "8f0d5e2083efe33d6b1634a319a6ce2fe9efaeed1cc8288b2fdbef8b77ec87c1",
+        "primary_profile_count": 10,
+        "regime": "TRANSITION",
+        "status": "READ_ONLY_RESEARCH"
+      },
+      "1h": {
+        "closed_candles": 240,
+        "evidence_share": 0.629981,
+        "input_sha256": "0e26ecd809523e0331b66cd8edeead0ae43e7c9474235952fe144f27c00877f7",
+        "primary_profile_count": 13,
+        "regime": "RANGE",
+        "status": "READ_ONLY_RESEARCH"
+      },
+      "1m": {
+        "closed_candles": 240,
+        "evidence_share": 1.0,
+        "input_sha256": "38ebb58d05e3064e472b7306a427e251bd41d9dc2d625a34d24956fa0e5ef868",
+        "primary_profile_count": 14,
+        "regime": "BEARISH",
+        "status": "READ_ONLY_RESEARCH"
+      },
+      "4h": {
+        "closed_candles": 240,
+        "evidence_share": 0.551724,
+        "input_sha256": "c516ce1b75024b94589158aaf0ffb993f466f835bb111353023732f20491d5cf",
+        "primary_profile_count": 10,
+        "regime": "TRANSITION",
+        "status": "READ_ONLY_RESEARCH"
+      }
+    }
+  },
+  "base_dashboard_release": "9b7701fffcd436ad1f72f4f3f23bf95c561e2c86",
+  "native_chart": {
+    "closed_candles": 240,
+    "http_status": 200,
+    "input_sha256": "8f0d5e2083efe33d6b1634a319a6ce2fe9efaeed1cc8288b2fdbef8b77ec87c1",
+    "native_indicator_status": "READY",
+    "status": "ok",
+    "technical_15m_hash_matches_native_chart": true
+  },
+  "observed_at_utc": "2026-11-17T15:46:39.302900+00:00",
+  "other_routes": {
+    "legacy_signal_http": 410,
+    "order_route_http": 405,
+    "unsupported_symbol_http": 400
+  },
+  "production_deployed": false,
+  "safety": {
+    "decision_authority": false,
+    "execution_enabled": false,
+    "journal_write": false,
+    "orders_placed": false,
+    "policy_mutation": false,
+    "risk_gate_bypass": false
+  },
+  "schema": "hes.universal_indicator_live_api_smoke.v1",
+  "source": "gateio_public_spot",
+  "symbol": "BTC_USDT"
+}

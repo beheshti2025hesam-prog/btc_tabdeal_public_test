@@ -50,6 +50,22 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertIn('[dir="rtl"] .journal-table', css)
         self.assertIn('[dir="rtl"] #chart{direction:ltr}', css)
 
+    def test_mapped_symbol_scope_and_timeframe_roles_are_translated_in_all_locales(self):
+        root = Path(dashboard.__file__).resolve().parents[1]
+        script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")
+        for symbol in ('BTCUSDT', 'ETHUSDT', 'SOLUSDT'):
+            self.assertIn(f'value="{symbol}"', dashboard.HTML)
+        for translated in (
+            'پژوهش فقط‌خواندنی', 'Nur lesende Forschung', 'Recherche en lecture seule',
+            'نمودار بازار و اندیکاتورها', 'Marktchart und Indikatoren',
+            'Le graphique de marché et les indicateurs',
+            'صرفاً توصیفی', 'NUR BESCHREIBEND', 'DESCRIPTIF UNIQUEMENT',
+        ):
+            self.assertIn(translated, script)
+        dashboard_source = (root / 'web' / 'dashboard.py').read_text(encoding='utf-8')
+        self.assertIn('DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL', dashboard_source)
+        self.assertIn('Strategy/Mother decision panels remain BTC-canonical', dashboard.HTML)
+
     def test_localization_does_not_rewrite_api_payloads_or_machine_values(self):
         root = Path(dashboard.__file__).resolve().parents[1]
         script = (root / "web" / "static" / "dashboard.js").read_text(encoding="utf-8")

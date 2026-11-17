@@ -125,8 +125,8 @@ class DashboardRouteTests(unittest.TestCase):
         with urlopen(self.base+"/static/dashboard.css") as response:
             self.assertEqual(response.headers.get_content_type(),"text/css")
             self.assertIn("#0b1220",response.read().decode())
-        self.assertIn("Canonical persisted global feed",page)
-        self.assertIn("same validated persisted Gate.io candles through the canonical global-market reader",page)
+        self.assertIn("Validated Gate.io Public Spot feed",page)
+        self.assertIn("BTC reads the validated persisted Gate.io candle feed",page)
         self.assertIn("Base and quote volume fields follow Gate.io's documented candlestick schema",page)
         self.assertNotIn("its semantics are unverified",page)
         self.assertNotIn("Binance Spot is venue-specific",page)
@@ -442,6 +442,50 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(indicators["reason"],"FEATURE_BATCH_PROVENANCE_MISMATCH")
         self.assertIsNone(indicators["ema"])
         self.assertFalse(indicators["execution_enabled"])
+
+    def test_unknown_market_reader_identity_fails_closed(self):
+        batch = sample_batch()
+        batch.endpoint_kind = "unrecognized_reader"
+        with self.assertRaisesRegex(ValueError, "unsupported_market_data_reader_identity"):
+            dashboard._source_reader_identity(batch)
+
+    def test_mapped_altcoin_uses_existing_native_gateio_adapter_not_btc_persisted_reader(self):
+        batch = sample_batch()
+        batch.symbol = "ETHUSDT"
+        batch.endpoint_kind = "spot_candlesticks"
+        source = dashboard.PersistedGlobalFeedSource()
+        with patch("web.dashboard._NATIVE_GATEIO_SOURCE.fetch", return_value=batch) as native_fetch, \
+             patch("web.dashboard.load_market_input") as persisted_reader:
+            actual = source.fetch(symbol="ETHUSDT", interval="15m", limit=240)
+        self.assertIs(actual, batch)
+        native_fetch.assert_called_once_with(
+            symbol="ETHUSDT", interval="15m", limit=240,
+            start_time_ms=None, end_time_ms=None, as_of_ms=None,
+        )
+        persisted_reader.assert_not_called()
+        self.assertEqual(dashboard._source_reader_identity(actual), "native_ohlcv_gateio_v1")
+
+    def test_technical_intelligence_api_supports_explicitly_mapped_eth_pair_read_only(self):
+        batch = sample_batch()
+        batch.symbol = "ETHUSDT"
+        batch.endpoint_kind = "spot_candlesticks"
+        batch.candles = (SimpleNamespace(**{**batch.candles[0].__dict__, "symbol": "ETHUSDT"}),)
+        snapshot = SimpleNamespace(regime=SimpleNamespace(label="RANGE", evidence_confidence=0.6))
+        payload = {"status": "READ_ONLY_RESEARCH", "regime": {"label": "RANGE", "evidence_confidence": 0.6}, "input_sha256": "a"*64}
+        with patch("web.dashboard._get_batch", return_value=(batch, SimpleNamespace())), \
+             patch("web.dashboard.build_universal_indicator_snapshot", return_value=snapshot), \
+             patch("web.dashboard.build_indicator_dashboard_payload", return_value=dict(payload)):
+            with urlopen(self.base+"/api/technical-intelligence?symbol=ETHUSDT") as response:
+                result=json.loads(response.read())
+        self.assertEqual(result["status"], "VERIFIED")
+        self.assertEqual(result["symbol"], "ETH_USDT")
+        self.assertEqual(result["canonical_symbol"], "ETHUSDT")
+        self.assertEqual(result["source_reader"], "native_ohlcv_gateio_v1")
+        self.assertEqual(result["timeframe_roles_status"], "DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL")
+        self.assertEqual(result["timeframe_roles"], {})
+        self.assertFalse(result["controls"]["decision_authority"])
+        self.assertFalse(result["controls"]["execution_enabled"])
+        self.assertFalse(result["controls"]["orders_placed"])
 
     def test_unsupported_symbol_or_interval_fails_before_source_call(self):
         with patch("web.dashboard._SOURCE.fetch") as fetch:
