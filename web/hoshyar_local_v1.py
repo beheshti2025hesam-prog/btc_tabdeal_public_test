@@ -94,24 +94,24 @@ def _deterministic_general_answer(message: str, language: str) -> str | None:
             "fa": (
                 "من دستیار HES Trade AI هستم. می‌توانم وضعیت و سلامت اجزای HES را از شواهد موجود بخوانم؛ "
                 "داده و رژیم بازار Gate.io، تصمیم‌های Mother و Strategy، ژورنال و اخبار را توضیح بدهم؛ "
-                "چک‌پوینت‌های پروژه را جست‌وجو کنم و برای عیب‌یابی یا توسعه، طرح و تست آماده کنم. "
+                "چک‌پوینت‌های محلیِ مجاز پروژه را جست‌وجو کنم؛ صفحه‌های صرفاً Notion را فعلاً مستقیم جست‌وجو نمی‌کنم و برای عیب‌یابی یا توسعه، طرح و تست آماده کنم. "
                 "به حساب صرافی دسترسی ندارم، سفارش ثبت نمی‌کنم و هیچ تغییر عملیاتی را بدون تأیید دقیق تو منتشر نمی‌کنم."
             ),
             "de": (
                 "Ich bin der HES-Trade-AI-Assistent. Ich kann verfügbare HES-Status- und Gesundheitsnachweise lesen, "
                 "Gate.io-Marktdaten, Mother-/Strategy-Entscheidungen, Journal und Nachrichten erklären, "
-                "Projekt-Checkpoints durchsuchen sowie Diagnose- und Entwicklungsvorschläge mit Tests vorbereiten. "
+                "freigegebene lokale Projekt-Checkpoints durchsuchen (nicht ausschließlich in Notion gespeicherte Seiten) sowie Diagnose- und Entwicklungsvorschläge mit Tests vorbereiten. "
                 "Ich habe keinen Börsenkontozugriff, platziere keine Orders und veröffentliche keine Änderung ohne deine ausdrückliche Freigabe."
             ),
             "fr": (
                 "Je suis l’assistant HES Trade AI. Je peux lire les preuves disponibles sur l’état de HES, "
                 "expliquer les données Gate.io, les décisions Mother/Strategy, le journal et les actualités, "
-                "rechercher les checkpoints du projet et préparer des diagnostics ou propositions avec tests. "
+                "rechercher les checkpoints locaux autorisés (pas les pages uniquement dans Notion) et préparer des diagnostics ou propositions avec tests. "
                 "Je n’accède pas aux comptes d’exchange, je ne passe aucun ordre et je ne publie aucun changement sans ton approbation explicite."
             ),
             "en": (
                 "I'm the HES Trade AI assistant. I can read available HES health/status evidence; explain Gate.io market data, "
-                "Mother and Strategy decisions, the journal and news; search project checkpoints; and prepare diagnostics, "
+                "Mother and Strategy decisions, the journal and news; search approved local project checkpoints (not Notion-only pages); and prepare diagnostics, "
                 "development proposals and tests. I have no exchange-account access, place no orders, and publish no operational change without your explicit approval."
             ),
         }[language]
