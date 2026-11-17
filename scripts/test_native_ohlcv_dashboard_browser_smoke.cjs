@@ -795,7 +795,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     await page.waitForFunction(() => document.querySelector("#motherChatWorkspace") && !document.querySelector("#motherChatWorkspace").hidden);
     assert.equal(await page.locator("#motherChatToken").inputValue(), "", "access token must be cleared from the form after login");
 
-    await page.locator("#motherChatInput").fill("hello");
+    await page.locator("#motherChatInput").fill("tell me a joke");
     const chatResponsePromise = page.waitForResponse(response => {
       try { return new URL(response.url()).pathname === "/api/mother-chat"; } catch (_) { return false; }
     });
