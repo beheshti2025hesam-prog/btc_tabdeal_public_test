@@ -38,8 +38,7 @@ ALLOWED_INTENTS = frozenset({
 ROUTE_SYSTEM_PROMPT = (
     "Classify the last user message using recent conversation history. Choose exactly one intent from: "
     "ASK_STATUS, EXPLAIN_DECISION, MARKET_REVIEW, SPECIALIST_REVIEW, JOURNAL_REVIEW, NEWS_CONTEXT, DIAGNOSE, "
-    DATA_QUALITY_POLICY, PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "
-    "DATA_QUALITY_POLICY explains fail-closed behavior for stale, incomplete, contradictory or gapped market data. "
+    "DATA_QUALITY_POLICY, PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "    "DATA_QUALITY_POLICY explains fail-closed behavior for stale, incomplete, contradictory or gapped market data. "
     "EXPLAIN_DECISION means why a recorded Mother/Strategy decision was made; "
     "EXPLAIN_CHANGE_CONTROL means the owner's approval process for a proposed change; "
     "SPECIALIST_REVIEW means summarize only the verified seven-stage Mother specialist evidence; missing downstream stages are not reached, never invented. "
@@ -229,7 +228,7 @@ def _resolve_contextual_followup_intent(
     previous_intent = classify_intent(previous_user)
     supported = {
         "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
-        "NEWS_CONTEXT", "DIAGNOSE", "DATA_QUALITY_POLICY", "PROJECT_MEMORY",
+        "NEWS_CONTEXT", "DIAGNOSE", "PROJECT_MEMORY",
     }
     if previous_intent not in supported:
         return None
