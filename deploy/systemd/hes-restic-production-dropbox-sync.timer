@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily HES full-scope Restic Dropbox synchronization schedule
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=5m
+Persistent=true
+Unit=hes-restic-production-dropbox-sync.service
+
+[Install]
+WantedBy=timers.target

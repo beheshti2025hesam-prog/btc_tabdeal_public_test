@@ -1,0 +1,17 @@
+{
+  "schema": "hes_restic_dedup_prototype_v1",
+  "date_utc": "2026-11-16",
+  "tool": "Restic 0.16.4-2ubuntu0.24.04.3",
+  "repository_format": 2,
+  "compression": "max",
+  "scope": "full /opt/hes-trade-agent and /srv/hes-evidence, excluding only Python bytecode and pytest/mypy/ruff caches",
+  "source_processed": "6.713 GiB",
+  "first_snapshot_repository_bytes": 804782531,
+  "raw_data_stats_latest": {"uncompressed": "1014.515 MiB", "stored": "766.449 MiB", "compression_ratio": "1.32x", "compression_space_saving_percent": 24.45},
+  "incremental_fixture": {"initial_repository_bytes": 276834711, "unchanged_second_snapshot_added_bytes": 0, "small_change_third_snapshot_added_bytes": 2642, "status": "PASS"},
+  "local_repository_integrity_check": "PASS_READ_DATA_NO_ERRORS",
+  "local_selective_restore_manifest_and_evidence": "PASS_HASH_MATCH",
+  "remote_repository_simulation": {"copy": "PASS_48_OF_48_PACKS", "repository_bytes": 818060463, "dropbox_free_bytes_at_baseline": 780861940, "excess_bytes": 37198523, "status": "EXCEEDS_AVAILABLE_DROPBOX_QUOTA", "integrity_and_restore_after_copy": "NOT_RUN", "remote_upload": "NOT_PERFORMED"},
+  "production_changes": {"backup_service_changed": false, "backup_timer_changed": false, "retention_changed": false, "Dropbox_objects_changed": false, "production_archives_deleted": false, "release_pointer_changed": false},
+  "important_limitations": ["Isolated prototype under /var/tmp, not a production backup.", "SentinelX removed the temporary test workspace after the job.", "Copied repository passed 48/48 pack-copy operation, but its post-copy read-data check and restore were not completed.", "Quota-safe offsite design is still required before real upload or migration."]
+}

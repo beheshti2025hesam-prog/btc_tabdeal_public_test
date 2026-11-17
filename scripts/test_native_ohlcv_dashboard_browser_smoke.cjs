@@ -213,6 +213,8 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.ok(strategyV2Payload, "canonical Strategy V2 response was not observed");
     assert.equal(candlePayload.schema, "hes.market_candles_view.v1");
     assert.equal(strategyV2Payload.schema, "hes.strategy_v2_dashboard_view.v1");
+    assert.equal(candlePayload.indicators?.status, "READY", "same-batch indicators were not READY");
+    assert.equal(candlePayload.indicators?.series_schema, "hes_native_ohlcv_indicator_series_v1");
     assert.equal(apiContractResponses["/api/journal"]?.schema, "hes.trade_journal_view.v1",
       "decision journal API schema must be versioned");
     const motherPayload = apiContractResponses["/api/mother"];
@@ -293,6 +295,9 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       })(),
       chartLibraryLoaded: typeof LightweightCharts !== "undefined",
       chartSeriesExists: typeof candleSeries !== "undefined" && !!candleSeries,
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null,
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || "",
       chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
       logo: (() => { const img = document.querySelector(".brand-mark"); return img ? { complete: img.complete, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: img.getAttribute("src") } : null; })(),
       bars: typeof bars !== "undefined" ? bars.map(b => ({
@@ -309,10 +314,12 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal((await motherTitle.textContent()).trim(), "Mother Orchestrator · canonical V2 evidence chain",
       "English canonical Mother heading was altered");
     assert.equal((await decisionHeader.textContent()).trim(), "Decision");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Chart overlays");
     await languageSelect.selectOption("de");
     await page.waitForFunction(() => document.documentElement.lang === "de" &&
       document.querySelector("#motherTitle")?.textContent.includes("kanonische V2-Nachweiskette"));
     assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Orchestrator");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Chart-Overlays");
     assert.equal((await decisionHeader.textContent()).trim(), "Entscheidung");
     assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.de.labels.title);
     assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.de.labels.what);
@@ -324,6 +331,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.fa.labels.title);
     assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.fa.labels.what);
     assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "تفسیر در دسترس نیست؛ شواهد کافی یا معتبر وجود ندارد.");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "اندیکاتورهای روی نمودار");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
     assert.equal(await page.locator("#newsItems .news-interpretation-row").first().evaluate(el => getComputedStyle(el).direction), "rtl",
@@ -334,6 +342,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(await page.locator("#newsItems .news-interpretation summary").first().textContent(), newsLocales.fr.labels.title);
     assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.fr.labels.what);
     assert.equal(await page.locator("#newsItems .news-interpretation").nth(1).locator("p").textContent(), "Interprétation indisponible ; les éléments sont insuffisants ou invalides.");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Superpositions du graphique");
     await languageSelect.selectOption("en");
     await page.waitForFunction(() => document.documentElement.lang === "en" &&
       document.querySelector("#motherTitle")?.textContent.trim() === "Mother Orchestrator · canonical V2 evidence chain");
@@ -351,6 +360,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
     assert.equal(desktopNewsColumns, 2, "news education rows must use the two-column desktop layout");
     assert.equal(await page.locator("#newsItems .news-interpretation-row").first().locator("strong").textContent(), newsLocales.en.labels.what);
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Chart overlays");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
@@ -358,6 +368,8 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       const canvases = [...document.querySelectorAll("#chart canvas")];
       let green = 0;
       let red = 0;
+      let ema = 0;
+      let vwap = 0;
       let sampled = 0;
       for (const canvas of canvases) {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -370,9 +382,11 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
           sampled++;
           if (Math.abs(r - 54) < 35 && Math.abs(g - 201) < 45 && Math.abs(b - 143) < 45) green++;
           if (Math.abs(r - 241) < 35 && Math.abs(g - 107) < 45 && Math.abs(b - 117) < 45) red++;
+          if (Math.abs(r - 242) < 30 && Math.abs(g - 191) < 30 && Math.abs(b - 88) < 30) ema++;
+          if (Math.abs(r - 86) < 30 && Math.abs(g - 199) < 30 && Math.abs(b - 215) < 30) vwap++;
         }
       }
-      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
+      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red, ema_overlay_color_pixels: ema, vwap_overlay_color_pixels: vwap };
     });
     assert.ok(candlePixels.canvas_count > 0, "no chart canvas was rendered");
     const visibleCandlePixelCount = candlePixels.green_candle_color_pixels + candlePixels.red_candle_color_pixels;
@@ -418,6 +432,8 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       execution_enabled: false
     };
     require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(diagnosticEvidence, null, 2) + "\n");
+    assert.ok(candlePixels.ema_overlay_color_pixels >= 3 && candlePixels.vwap_overlay_color_pixels >= 3,
+      "EMA/VWAP overlay lines are not visibly rendered: " + JSON.stringify(candlePixels));
     assert.ok(
       visibleCandlePixelCount >= 8,
       `candlestick series is not visibly rendered: ${JSON.stringify({ ...candlePixels, chartAssetResponse, chartLibraryLoaded: ui.chartLibraryLoaded, chartSeriesExists: ui.chartSeriesExists, consoleErrors, pageErrors })}`
@@ -425,6 +441,15 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
 
     assert.ok(ui.bars, "browser could not inspect the dashboard's candle batch");
     assert.equal(ui.bars.length, candlePayload.candles.length, "chart input batch length differs from API batch");
+    assert.equal(ui.chartIndicatorStatus.startsWith("READY"), true, "chart indicator overlays did not reach READY");
+    assert.deepEqual(ui.emaOverlayData, candlePayload.indicators.ema_series, "EMA overlay differs from the same-batch API series");
+    assert.deepEqual(ui.vwapOverlayData, candlePayload.indicators.vwap_series, "VWAP overlay differs from the same-batch API series");
+    assert.equal(ui.emaOverlayData.at(-1).time, Math.floor(candlePayload.candles.at(-1).open_time / 1000));
+    assert.equal(ui.vwapOverlayData.at(-1).time, Math.floor(candlePayload.candles.at(-1).open_time / 1000));
+    await page.locator("#showEma").uncheck();
+    assert.equal(await page.evaluate(() => emaLineSeries.options().visible), false, "EMA visibility control did not hide the line");
+    await page.locator("#showEma").check();
+    assert.equal(await page.evaluate(() => emaLineSeries.options().visible), true, "EMA visibility control did not restore the line");
     for (let i = 0; i < candlePayload.candles.length; i++) {
       const source = candlePayload.candles[i];
       const chart = ui.bars[i];
@@ -501,7 +526,10 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       bars: typeof bars !== "undefined" ? bars.map(b => ({
         open_time: b.open_time, open: Number(b.open), high: Number(b.high), low: Number(b.low),
         close: Number(b.close), volume: String(b.volume)
-      })) : null
+      })) : null,
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null,
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || ""
     }));
     const oneMinuteLast = oneMinutePayload.candles[oneMinutePayload.candles.length - 1];
     assert.equal(Number(oneMinuteUi.price.replaceAll(",", "")), Number(oneMinuteLast.close));
@@ -509,6 +537,9 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(oneMinuteUi.count, String(oneMinutePayload.candles.length));
     assert.ok(oneMinuteUi.canvas.width > 100 && oneMinuteUi.canvas.height > 100);
     assert.ok(oneMinuteUi.bars, "browser could not inspect the 1m chart batch");
+    assert.equal(oneMinuteUi.chartIndicatorStatus.startsWith("READY"), true, "1m indicator overlays did not reach READY");
+    assert.deepEqual(oneMinuteUi.emaOverlayData, oneMinutePayload.indicators.ema_series);
+    assert.deepEqual(oneMinuteUi.vwapOverlayData, oneMinutePayload.indicators.vwap_series);
     assert.equal(oneMinuteUi.bars.length, oneMinutePayload.candles.length);
     for (let i = 0; i < oneMinutePayload.candles.length; i++) {
       const source = oneMinutePayload.candles[i];
@@ -523,6 +554,8 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       const canvases = [...document.querySelectorAll("#chart canvas")];
       let green = 0;
       let red = 0;
+      let ema = 0;
+      let vwap = 0;
       let sampled = 0;
       for (const canvas of canvases) {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -534,13 +567,17 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
           sampled++;
           if (Math.abs(r - 54) < 35 && Math.abs(g - 201) < 45 && Math.abs(b - 143) < 45) green++;
           if (Math.abs(r - 241) < 35 && Math.abs(g - 107) < 45 && Math.abs(b - 117) < 45) red++;
+          if (Math.abs(r - 242) < 30 && Math.abs(g - 191) < 30 && Math.abs(b - 88) < 30) ema++;
+          if (Math.abs(r - 86) < 30 && Math.abs(g - 199) < 30 && Math.abs(b - 215) < 30) vwap++;
         }
       }
-      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
+      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red, ema_overlay_color_pixels: ema, vwap_overlay_color_pixels: vwap };
     });
     const oneMinuteVisiblePixels = oneMinutePixels.green_candle_color_pixels + oneMinutePixels.red_candle_color_pixels;
     assert.ok(oneMinutePixels.canvas_count > 0 && oneMinuteVisiblePixels >= 8,
       "1m candlesticks are not visibly rendered: " + JSON.stringify(oneMinutePixels));
+    assert.ok(oneMinutePixels.ema_overlay_color_pixels >= 3 && oneMinutePixels.vwap_overlay_color_pixels >= 3,
+      "1m EMA/VWAP overlays are not visibly rendered: " + JSON.stringify(oneMinutePixels));
     const expectedOneMinuteStamp = new Date(oneMinuteLast.close_time).toISOString().replace("T", " ").replace(".000Z", " UTC");
     assert.equal(oneMinuteUi.stamp, expectedOneMinuteStamp, "1m displayed UTC time differs from source batch");
     const oneMinuteResponsiveViewports = [];
@@ -660,10 +697,16 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       price: document.querySelector("#price")?.textContent || "",
       stamp: document.querySelector("#stamp")?.textContent || "",
       volume: document.querySelector("#volume")?.textContent || "",
-      count: document.querySelector("#count")?.textContent || ""
+      count: document.querySelector("#count")?.textContent || "",
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || "",
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null
     }));
     assert.ok(gapStateUi.message.includes("Persisted candle gaps detected"), "gapped API payload was not explicitly rejected");
     assert.deepEqual([gapStateUi.price, gapStateUi.stamp, gapStateUi.volume, gapStateUi.count], ["—", "—", "—", "—"]);
+    assert.equal(gapStateUi.emaOverlayData.length, 0);
+    assert.equal(gapStateUi.vwapOverlayData.length, 0);
+    assert.ok(gapStateUi.chartIndicatorStatus.startsWith("GATED"));
     await page.unroute(candleRouteMatcher);
 
     // Even a structurally valid HTTP 200 batch is rejected when its selected timeframe is stale.
@@ -711,9 +754,15 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       price: document.querySelector("#price")?.textContent || "",
       stamp: document.querySelector("#stamp")?.textContent || "",
       volume: document.querySelector("#volume")?.textContent || "",
-      count: document.querySelector("#count")?.textContent || ""
+      count: document.querySelector("#count")?.textContent || "",
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || "",
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null
     }));
     assert.deepEqual([staleTimeframeUi.price, staleTimeframeUi.stamp, staleTimeframeUi.volume, staleTimeframeUi.count], ["—", "—", "—", "—"]);
+    assert.equal(staleTimeframeUi.emaOverlayData.length, 0);
+    assert.equal(staleTimeframeUi.vwapOverlayData.length, 0);
+    assert.ok(staleTimeframeUi.chartIndicatorStatus.startsWith("GATED"));
     await page.unroute(staleRouteMatcher);
     evidence.stale_timeframe_fail_closed = true;
     evidence.stale_timeframe_ui = staleTimeframeUi;

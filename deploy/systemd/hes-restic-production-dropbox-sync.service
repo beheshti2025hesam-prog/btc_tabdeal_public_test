@@ -1,0 +1,36 @@
+[Unit]
+Description=HES full-scope encrypted Restic repository Dropbox synchronization
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+ExecStart=/usr/local/sbin/hes-restic-production-dropbox-sync
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/lock /run/hes-restic /root/.gnupg /root/.config/rclone /var/backups/hes-trade-agent/restic-production-v1/repo
+ReadOnlyPaths=/root/.config/hes-backup
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+ProtectProc=invisible
+ProcSubset=pid
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+RuntimeDirectory=hes-restic
+RuntimeDirectoryMode=0700

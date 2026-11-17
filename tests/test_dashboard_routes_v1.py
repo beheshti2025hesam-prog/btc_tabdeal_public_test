@@ -360,12 +360,16 @@ class DashboardRouteTests(unittest.TestCase):
             realized_volatility=0.0125, volume_ratio=1.4, regime="uptrend",
         )
         quality=SimpleNamespace(passed=True, violations=())
+        open_time = batch.candles[0].open_time_ms // 1000
         features=SimpleNamespace(
             decision_ready=True, reason="NATIVE_OHLCV_FEATURES_READY",
             snapshot=snapshot, quality=quality,
             source_response_sha256=batch.response_sha256,
+            ema_series=((open_time, 101.25),), vwap_series=((open_time, 100.75),),
         )
-        with patch("web.dashboard._SOURCE.fetch",return_value=batch), \
+        with patch.object(dashboard._FEATURES, "ema_period", 1), \
+             patch.object(dashboard._FEATURES, "vwap_period", 1), \
+             patch("web.dashboard._SOURCE.fetch",return_value=batch), \
              patch("web.dashboard._FEATURES.build",return_value=features):
             with urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m") as response:
                 payload=json.loads(response.read())
@@ -376,10 +380,42 @@ class DashboardRouteTests(unittest.TestCase):
         self.assertEqual(indicators["interval"],"15m")
         self.assertEqual(indicators["ema"],101.25)
         self.assertEqual(indicators["vwap"],100.75)
+        self.assertEqual(indicators["series_schema"], "hes_native_ohlcv_indicator_series_v1")
+        self.assertEqual(indicators["ema_series"], [{"time": open_time, "value": 101.25}])
+        self.assertEqual(indicators["vwap_series"], [{"time": open_time, "value": 100.75}])
         self.assertEqual(indicators["regime"],"uptrend")
         self.assertTrue(indicators["quality_passed"])
         self.assertFalse(indicators["execution_enabled"])
         self.assertFalse(indicators["orders_placed"])
+
+    def test_indicator_series_fails_closed_when_points_do_not_match_chart_candles(self):
+        batch=sample_batch()
+        snapshot=SimpleNamespace(
+            ema=101.25, vwap=100.75, average_true_range=2.5,
+            realized_volatility=0.0125, volume_ratio=1.4, regime="uptrend",
+        )
+        quality=SimpleNamespace(passed=True, violations=())
+        open_time = batch.candles[0].open_time_ms // 1000
+        features=SimpleNamespace(
+            decision_ready=True, reason="NATIVE_OHLCV_FEATURES_READY",
+            snapshot=snapshot, quality=quality,
+            source_response_sha256=batch.response_sha256,
+            ema_series=((open_time + 60, 101.25),), vwap_series=((open_time, 100.75),),
+        )
+        with patch.object(dashboard._FEATURES, "ema_period", 1), \
+             patch.object(dashboard._FEATURES, "vwap_period", 1), \
+             patch("web.dashboard._SOURCE.fetch",return_value=batch), \
+             patch("web.dashboard._FEATURES.build",return_value=features):
+            with urlopen(self.base+ "/api/candles?symbol=BTCUSDT&interval=15m") as response:
+                payload=json.loads(response.read())
+        indicators=payload["indicators"]
+        self.assertEqual(indicators["status"], "BLOCKED")
+        self.assertEqual(indicators["reason"], "INDICATOR_SERIES_INVALID")
+        self.assertEqual(indicators["ema_series"], [])
+        self.assertEqual(indicators["vwap_series"], [])
+        self.assertIsNone(indicators["ema"])
+        self.assertFalse(indicators["execution_enabled"])
+
 
     def test_indicator_snapshot_fails_closed_on_batch_provenance_mismatch(self):
         batch=sample_batch()
@@ -388,12 +424,16 @@ class DashboardRouteTests(unittest.TestCase):
             realized_volatility=0.0125, volume_ratio=1.4, regime="uptrend",
         )
         quality=SimpleNamespace(passed=True, violations=())
+        open_time = batch.candles[0].open_time_ms // 1000
         features=SimpleNamespace(
             decision_ready=True, reason="NATIVE_OHLCV_FEATURES_READY",
             snapshot=snapshot, quality=quality,
             source_response_sha256="b"*64,
+            ema_series=((open_time, 101.25),), vwap_series=((open_time, 100.75),),
         )
-        with patch("web.dashboard._SOURCE.fetch",return_value=batch), \
+        with patch.object(dashboard._FEATURES, "ema_period", 1), \
+             patch.object(dashboard._FEATURES, "vwap_period", 1), \
+             patch("web.dashboard._SOURCE.fetch",return_value=batch), \
              patch("web.dashboard._FEATURES.build",return_value=features):
             with urlopen(self.base+"/api/candles?symbol=BTCUSDT&interval=15m") as response:
                 payload=json.loads(response.read())

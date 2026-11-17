@@ -1,0 +1,55 @@
+{
+  "schema": "hes_restic_production_snapshot_v1",
+  "captured_utc": "2026-11-16T14:03:00Z",
+  "restic_version": "0.16.4",
+  "repository": "/var/backups/hes-trade-agent/restic-production-v1/repo",
+  "repository_bytes": 815136818,
+  "encryption": "Restic repository encryption; password file remains outside the repository and outside all backups",
+  "full_snapshot": {
+    "id": "26c6d6acad02bbc88b8408bf6a26f2633eeb9dd43e3227962e1ccfaa5a634a7b",
+    "short_id": "26c6d6ac",
+    "time": "2026-11-16T13:55:53.967169Z",
+    "hostname": "hes-vps-recovery-v1",
+    "tags": [
+      "hes-full-recovery-v1"
+    ],
+    "path_count": 40
+  },
+  "integrity": {
+    "restic_check_read_data": "PASS",
+    "snapshots_checked": 3,
+    "packs_checked": 50,
+    "errors": 0
+  },
+  "full_snapshot_stats": {
+    "total_uncompressed_mib": 999.176,
+    "total_stored_mib": 776.523,
+    "compression_ratio": 1.29,
+    "space_saving_percent": 22.28
+  },
+  "selective_restore": {
+    "status": "PASS",
+    "snapshot_id": "26c6d6ac",
+    "required_roots": 13,
+    "static_content_comparisons": 11,
+    "restored_bytes": 2485125,
+    "verification": "restic --verify plus byte-for-byte comparisons"
+  },
+  "snapshot_scope_observation": {
+    "total_snapshots": 3,
+    "full_scope_snapshots": 1,
+    "partial_scope_snapshots": 2,
+    "partial_snapshots_only_cover": [
+      "/srv/hes-evidence"
+    ],
+    "latest_full_snapshot_id": "26c6d6acad02bbc88b8408bf6a26f2633eeb9dd43e3227962e1ccfaa5a634a7b",
+    "latest_alias_is_unsafe_for_full_restore": true
+  },
+  "safety": {
+    "deletion_authorized": false,
+    "retention_applied": false,
+    "production_services_or_timers_changed": false,
+    "release_pointer_changed": false,
+    "trading_execution_changed": false
+  }
+}
