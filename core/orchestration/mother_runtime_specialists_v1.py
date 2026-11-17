@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from core.orchestration.mother_v1 import AgentResult
+from core.orchestration.mother_supervisor_v1 import SpecialistSupervisorV1
 from core.paper.strategy_v2_execution_gate import PaperExecutionGateV1, verify_gateio_1m_recovery_evidence
 from forward.global_market_data_reader_v1 import (
     MarketDataRejected,
@@ -647,8 +648,86 @@ class EvaluationSpecialistV1:
         return AgentResult(self.name, "OBSERVED", reasons, refs, payload, self.VERSION)
 
 
-def live_specialists_v1(market: LiveMarketContextV1) -> dict[str, Any]:
-    """Return the seven real runtime adapters in the canonical contract order."""
+def _evaluate_specialist_with_market_state(delegate: Any, context: Mapping[str, Any]) -> dict[str, Any]:
+    """Run one read-only specialist and return its updated memoized market state.
+
+    The child receives a private copy of the shared market context. Returning
+    the state lets the parent restore the exact memoized snapshot before the
+    next specialist, preserving the original one-snapshot/one-computation flow.
+    """
+    result = delegate.evaluate(context)
+    return {"agent_result": result, "market_state": dict(delegate.market.__dict__)}
+
+
+class SupervisedRuntimeSpecialistV1:
+    """Process-isolated adapter preserving the shared Mother market snapshot."""
+
+    VERSION = "hes-supervised-runtime-specialist-v1"
+
+    def __init__(self, delegate: Any, supervisor: SpecialistSupervisorV1, *, timeout_seconds: float = 2.0):
+        name = getattr(delegate, "name", None)
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("delegate specialist name is required")
+        SpecialistSupervisorV1._validate(name, "adapter-validation", timeout_seconds)
+        self.delegate = delegate
+        self.name = name
+        self.supervisor = supervisor
+        self.timeout_seconds = float(timeout_seconds)
+
+    def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
+        from copy import deepcopy
+        evidence_ref = context.get("evidence_sha256") if isinstance(context, Mapping) else None
+        request_id = context.get("request_id") if isinstance(context, Mapping) else None
+        if not isinstance(evidence_ref, str) or len(evidence_ref) != 64:
+            return AgentResult(self.name, "UNKNOWN", ("SUPERVISOR_EVIDENCE_HASH_MISSING",), (), {}, self.VERSION)
+        if not isinstance(request_id, str) or not request_id.strip():
+            return AgentResult(self.name, "UNKNOWN", ("SUPERVISOR_REQUEST_ID_MISSING",), (evidence_ref,), {}, self.VERSION)
+        request_key = sha256((request_id + ":" + evidence_ref).encode("utf-8")).hexdigest()
+        result = self.supervisor.execute(
+            self.name, request_key, _evaluate_specialist_with_market_state,
+            self.delegate, deepcopy(dict(context)), timeout_seconds=self.timeout_seconds,
+            retry_safe=False,
+        )
+        if result.status in {"SUCCEEDED", "DUPLICATE"} and isinstance(result.value, Mapping):
+            market_state = result.value.get("market_state")
+            agent_result = result.value.get("agent_result")
+            required_state = {"root", "observed_at", "now_s", "journal_path", "_loaded", "snapshot_sha256"}
+            if (isinstance(market_state, dict) and required_state.issubset(market_state)
+                    and isinstance(agent_result, AgentResult) and agent_result.agent == self.name):
+                self.delegate.market.__dict__.update(market_state)
+                return agent_result
+            reason = "SUPERVISOR_RESULT_OR_MARKET_STATE_INVALID"
+        else:
+            reason = result.reason_code or ("SPECIALIST_" + result.status)
+        return AgentResult(self.name, "UNKNOWN", (reason[:256],), (evidence_ref,), {}, self.VERSION)
+
+
+_RUNTIME_SUPERVISOR_V1 = SpecialistSupervisorV1(
+    failure_threshold=2, cache_size=64, kill_grace_seconds=0.25,
+    max_concurrent_per_agent=12,
+)
+
+
+def runtime_supervisor_v1() -> SpecialistSupervisorV1:
+    """Process-wide supervisor shared by concurrent dashboard requests."""
+    return _RUNTIME_SUPERVISOR_V1
+
+
+def bootstrap_market_context_v1(market: LiveMarketContextV1) -> dict[str, Any]:
+    """Load the canonical market snapshot in a killable child process."""
+    try:
+        market.load()
+    except Exception:
+        # Preserve the market context's explicit error state for Data Quality.
+        pass
+    return dict(market.__dict__)
+
+
+def live_specialists_v1(
+    market: LiveMarketContextV1, *, supervisor: SpecialistSupervisorV1 | None = None,
+    timeout_seconds: float = 2.0,
+) -> dict[str, Any]:
+    """Return seven canonical specialists, optionally process-supervised."""
     agents = {
         "data_quality": DataQualitySpecialistV1(market),
         "market_structure": MarketStructureSpecialistV1(market),
@@ -660,6 +739,9 @@ def live_specialists_v1(market: LiveMarketContextV1) -> dict[str, Any]:
     }
     if tuple(agents) != _REQUIRED:
         raise RuntimeError("MOTHER_RUNTIME_SPECIALIST_REGISTRY_INVALID")
+    if supervisor is not None:
+        agents = {name: SupervisedRuntimeSpecialistV1(agent, supervisor, timeout_seconds=timeout_seconds)
+                  for name, agent in agents.items()}
     return agents
 
 

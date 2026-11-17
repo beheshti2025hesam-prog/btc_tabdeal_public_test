@@ -288,7 +288,7 @@ if os.environ.get("HES_HOSHYAR_LOCAL_LLM_ENABLED", "0") == "1":
 def _mother_chat_core_evidence():
     # Mother computes from the current shared Gate.io candle ledger on every
     # request. The chat receives a live proposal summary, never a saved report.
-    mother = read_mother_runtime_dashboard(data_root=_market_data_root())
+    mother = read_mother_runtime_dashboard(data_root=_market_data_root(), supervised=True)
     proposal = mother.get("strategy_proposal") or {}
     strategy = {
         "status": "LIVE_RUNTIME" if mother.get("runtime_mode") == "LIVE_DATA_RUNTIME_SPECIALISTS" else "BLOCKED",
@@ -690,7 +690,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(503, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
         if p.path == "/api/mother":
             try:
-                payload = read_mother_runtime_dashboard(data_root=_market_data_root())
+                payload = read_mother_runtime_dashboard(data_root=_market_data_root(), supervised=True)
                 return self._send(200, json.dumps(payload, separators=(",", ":")).encode(), "application/json")
             except (MotherRuntimeDashboardError, ValueError) as exc:
                 payload = {
