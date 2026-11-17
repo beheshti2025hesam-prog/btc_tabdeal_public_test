@@ -167,9 +167,9 @@ def _resolve_contextual_followup_intent(
         return None
     why_patterns = (
         r"^(?:چرا|علتش|دلیلش|چرایش|پس چرا|بنابراین چرا)[؟?! .]*$",
-        r"\\b(?:why|the reason|why was that|and why)\\b",
-        r"\\b(?:warum|weshalb|der grund)\\b",
-        r"\\b(?:pourquoi|la raison)\\b",
+        r"\b(?:why|the reason|why was that|and why)\b",
+        r"\b(?:warum|weshalb|der grund)\b",
+        r"\b(?:pourquoi|la raison)\b",
     )
     is_why = any(re.search(pattern, str(message or "").casefold()) for pattern in why_patterns)
     if previous_intent == "ASK_STATUS" and is_why:
