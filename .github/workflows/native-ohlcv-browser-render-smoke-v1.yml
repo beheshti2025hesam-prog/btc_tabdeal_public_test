@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          nohup env PYTHONPATH=. HES_BINANCE_STREAM_ENABLED=0 python -m web.dashboard >/tmp/hes-dashboard-browser-smoke.log 2>&1 &
+          nohup env PYTHONPATH=. HES_BINANCE_STREAM_ENABLED=0 HES_NEWS_MONITOR_SNAPSHOT=/tmp/hes-news-monitor-browser-smoke.json python -m web.dashboard >/tmp/hes-dashboard-browser-smoke.log 2>&1 &
           echo $! >/tmp/hes-dashboard-browser-smoke.pid
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8765/healthz >/dev/null; then exit 0; fi
@@ -84,6 +84,7 @@ jobs:
           path: |
             artifacts/native-ohlcv-dashboard-browser-smoke.json
             artifacts/native-ohlcv-dashboard-browser-smoke.png
+            artifacts/mother-chat-command-center-browser-smoke.png
             artifacts/mother-chat-multilingual-browser-smoke.json
             /tmp/hes-dashboard-browser-smoke.log
           if-no-files-found: warn
