@@ -66,8 +66,15 @@ refreshMother();setInterval(refreshMother,15000);
  const messages=$('motherChatMessages'),loginStatus=$('motherChatLoginStatus');
  const languageSelect=$('motherChatLanguage');
  function selectedLanguage(){return languageSelect?.value||'auto';}
+ function inferUserLanguage(text){
+  const value=String(text||'').toLowerCase();
+  if(/[\\u0600-\\u06ff]/.test(value))return 'fa';
+  if(/\\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste)\\b/.test(value))return 'de';
+  if(/\\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement)\\b/.test(value))return 'fr';
+  return document.documentElement.lang||'en';
+ }
  function bubble(role,text,status,language){
-  const inferred=language&&language!=='auto'?language:(/[\\u0600-\\u06ff]/.test(String(text||''))?'fa':(document.documentElement.lang||'en'));
+  const inferred=role==='user'?inferUserLanguage(text):(language&&language!=='auto'?language:(/[\\u0600-\\u06ff]/.test(String(text||''))?'fa':(document.documentElement.lang||'en')));
   const article=document.createElement('article');article.className='mother-chat-message '+role;
   article.lang=inferred;article.dir=inferred==='fa'?'rtl':'ltr';
   const heading=document.createElement('strong');heading.textContent=role==='user'?'You':'Mother · '+(status||'EVIDENCE');
