@@ -378,9 +378,19 @@ class HoshyarConversationMemoryV1:
 class HoshyarLocalAssistantV1:
     """Conversation router: local model selects a fixed intent; existing readers retain authority."""
 
-    def __init__(self, llm: HoshyarLocalLLMV1, memory: HoshyarConversationMemoryV1):
+    def __init__(
+        self,
+        llm: HoshyarLocalLLMV1,
+        memory: HoshyarConversationMemoryV1,
+        *,
+        allow_freeform: bool | None = None,
+    ):
         self.llm = llm
         self.memory = memory
+        self.allow_freeform = (
+            os.environ.get("HES_HOSHYAR_LOCAL_LLM_GENERAL_CHAT_ENABLED", "0").strip() == "1"
+            if allow_freeform is None else bool(allow_freeform)
+        )
 
     @staticmethod
     def _safe_general_answer(answer: str, language: str) -> str:
@@ -429,7 +439,7 @@ class HoshyarLocalAssistantV1:
             deterministic_intent = _resolve_contextual_followup_intent(message, history) or deterministic_intent
         local_used = False
         intent = deterministic_intent
-        if deterministic_intent == "UNKNOWN":
+        if deterministic_intent == "UNKNOWN" and self.allow_freeform:
             messages = [
                 {"role": "system", "content": ROUTE_SYSTEM_PROMPT},
                 *history[-MAX_HISTORY_MESSAGES:],
