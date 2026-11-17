@@ -78,7 +78,7 @@ The existing project acceptance standard remains binding: no win-rate claim with
 - Historical replay: completed; report SHA-256 `fac1425e15911bcc5d9e3f85a114d3c92b48a6cdab627988b8404fcad79ad0d8`.
 - Learning report SHA-256 `f3ec1378e2df60d2b2f2e880cf4745d9502bd2b98b1975e36f5da4c160af45de`.
 - Family source SHA-256 `26c6896e1174e8be3f106b73e879b8d8120fbe64d5c640fb23f889813eaa61d9`.
-- Replay runner SHA-256 `953111bfd33974c29eb5293a0349e7e417436d729058dd0aa50d8739f74d9704`.
+- Historical replay runner SHA-256 `953111bfd33974c29eb5293a0349e7e417436d729058dd0aa50d8739f74d9704` (development-only research harness; not part of the forward observer service bundle).
 - Learning bridge SHA-256 `15de336ab8a85cdb3a4d16332ab64953d58cf7d860454ce249d6bee461bfad84`.
 - Learning-loop integration source SHA-256 `b2a996cd5811f5a85eeb81883d816f47d288f7b597c3776962487bc89ef6066a`.
 
