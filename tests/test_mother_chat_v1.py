@@ -9,6 +9,7 @@ import pytest
 
 from web.mother_chat_v1 import (
     COOKIE_NAME,
+    SESSION_MAX_AGE_SECONDS,
     MotherChatError,
     MotherChatSecurityV1,
     build_chat_response,
@@ -135,6 +136,7 @@ def test_token_file_permissions_and_session_lifecycle(tmp_path):
     assert not security.has_valid_session({"Cookie": cookie_value + "tampered"})
     assert "HttpOnly" in cookie_header
     assert "SameSite=Strict" in cookie_header
+    assert f"Max-Age={SESSION_MAX_AGE_SECONDS}" in cookie_header
     assert "Secure" not in cookie_header
 
 
@@ -303,7 +305,7 @@ def test_session_cookie_expiry_and_secure_transport_flag(tmp_path, monkeypatch):
     cookie_value = secure_cookie.split(";", 1)[0]
     import web.mother_chat_v1 as chat_module
     real_time = chat_module.time.time
-    monkeypatch.setattr(chat_module.time, "time", lambda: real_time() + 1801)
+    monkeypatch.setattr(chat_module.time, "time", lambda: real_time() + SESSION_MAX_AGE_SECONDS + 1)
     assert not security.has_valid_session({"Cookie": cookie_value})
 
 
@@ -332,6 +334,7 @@ def test_command_center_markup_is_present_and_safe():
     script = (Path(dashboard.__file__).resolve().parent / "static" / "dashboard.js").read_text()
     css = (Path(dashboard.__file__).resolve().parent / "static" / "dashboard.css").read_text()
     assert "fetchWithTimeout('/api/mother-chat/session'" in script
+    assert "Restore the signed, HttpOnly browser session automatically" in script
     assert "fetchWithTimeout('/api/mother-chat'" in script
     assert "textContent" in script
     assert "motherChatToken" not in script.split("localStorage", 1)[-1]

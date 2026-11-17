@@ -20,7 +20,7 @@ from core.market_intelligence.news_brain import MarketContext, NewsIntelligenceB
 from core.market_intelligence.news_monitor import NewsMonitorV1
 from web.strategy_v2_dashboard_view import read_strategy_v2_dashboard, StrategyV2DashboardError
 from web.mother_v2_dashboard_view import read_mother_v2_dashboard, MotherV2DashboardError
-from web.mother_chat_v1 import MotherChatError, MotherChatSecurityV1, build_chat_response, read_json_body
+from web.mother_chat_v1 import SESSION_MAX_AGE_SECONDS, MotherChatError, MotherChatSecurityV1, build_chat_response, read_json_body
 from web.hoshyar_local_v1 import HoshyarConversationMemoryV1, HoshyarLocalAssistantV1, HoshyarLocalError, HoshyarLocalLLMV1
 from web.hoshyar_project_memory_v1 import HoshyarProjectMemoryReaderV1
 from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_kline_event, assert_event_matches_batch
@@ -774,7 +774,7 @@ class Handler(BaseHTTPRequestHandler):
                 if set(payload) != {"token"}:
                     raise MotherChatError("CHAT_LOGIN_PAYLOAD_INVALID", 400)
                 cookie = _MOTHER_CHAT_SECURITY.create_session_cookie(payload.get("token"), secure=(scheme == "https"))
-                body = json.dumps({"status":"OK","session_expires_in":1800},separators=(",",":")).encode()
+                body = json.dumps({"status":"OK","session_expires_in":SESSION_MAX_AGE_SECONDS},separators=(",",":")).encode()
                 return self._send(200,body,"application/json",[("Set-Cookie",cookie)])
             if path == "/api/mother-chat/logout":
                 cookie = _MOTHER_CHAT_SECURITY.clear_session_cookie(secure=(scheme == "https"))

@@ -2,7 +2,7 @@
 
 This module intentionally makes no LLM/provider calls. It classifies a bounded
 set of intents and formats only evidence supplied by existing HES readers.
-Authentication is a short-lived, signed, HttpOnly cookie backed by a local
+Authentication uses a 30-day signed, HttpOnly browser session backed by a local
 operator-created token file. It has no market, strategy, journal-write or order
 authority.
 """
@@ -28,7 +28,7 @@ import time
 SCHEMA_VERSION = "hes.mother_chat.v1"
 ROUTER_VERSION = "hes-mother-chat-deterministic-router-v1"
 COOKIE_NAME = "hes_mother_session"
-SESSION_MAX_AGE_SECONDS = 1800
+SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
 MAX_MESSAGE_CHARS = 1000
 MAX_BODY_BYTES = 4096
 DEFAULT_TOKEN_FILE = "/var/lib/hes-news-monitor/mother-chat/token"
