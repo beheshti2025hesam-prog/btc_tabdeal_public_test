@@ -94,8 +94,9 @@ def test_explicit_response_language_overrides_prompt_detection_and_sets_directio
 
 
 def test_invalid_response_language_is_rejected():
-    with pytest.raises(MotherChatError, match="CHAT_LANGUAGE_INVALID"):
-        build_chat_response("status", {}, language="xx")
+    for invalid in ("xx", [], {}, 1):
+        with pytest.raises(MotherChatError, match="CHAT_LANGUAGE_INVALID"):
+            build_chat_response("status", {}, language=invalid)
 
 
 def test_market_review_marks_stale_evidence_partial():
