@@ -70,6 +70,11 @@ def classify_intent(message: str) -> str:
     text = " ".join(message.casefold().strip().split())
     if not text or len(text) > MAX_MESSAGE_CHARS:
         return "UNKNOWN"
+    # Greetings and capability questions are conversational intents.
+    if text in {"سلام", "درود", "hi", "hello", "hey", "hallo", "bonjour", "salut"}:
+        return "SOCIAL_CHAT"
+    if any(term in text for term in ("از دست تو چه کاری بر می آید", "از دستت چه کاری برمیاد", "چه کارهایی می توانی", "چه کمکی می توانی", "چه قابلیت هایی داری", "what can you do", "how can you help", "was kannst du", "que peux-tu faire")):
+        return "ABOUT_CAPABILITIES"
     matches = []
     for intent, terms in _INTENT_TERMS.items():
         for term in terms:
@@ -258,6 +263,22 @@ def build_chat_response(
     elif not isinstance(language, str) or language not in {"fa", "en", "de", "fr"}:
         raise MotherChatError("CHAT_LANGUAGE_INVALID", 400)
     is_fa = language == "fa"
+    if intent == "SOCIAL_CHAT":
+        greetings = {
+            "fa": "سلام رفیق! 😊 خوش اومدی. من Mother هستم؛ اینجام تا درباره وضعیت و شواهد HES با هم گفت‌وگو کنیم. هر طور راحتی بپرس.",
+            "en": "Hey! 😊 Good to see you. I’m Mother, here to help you explore HES status and evidence. Ask naturally—no command words needed.",
+            "de": "Hallo! 😊 Schön, dass du da bist. Ich bin Mother und helfe dir, den HES-Status und die vorhandenen Nachweise zu verstehen. Frag einfach ganz natürlich.",
+            "fr": "Salut ! 😊 Ravi de te retrouver. Je suis Mother ; je peux t’aider à comprendre l’état de HES et ses éléments vérifiés. Pose tes questions naturellement.",
+        }
+        return _response(intent, "OK", greetings[language], [], [], "", now, language=language)
+    if intent == "ABOUT_CAPABILITIES":
+        capabilities = {
+            "fa": "با کمال میل! 😊 می‌تونیم طبیعی و مرحله‌به‌مرحله درباره سلامت سرویس‌های HES، دلیل تصمیم‌های ثبت‌شده، داده‌های موجود Gate.io، گزارش ژورنال، پایش اخبار و عیب‌یابی صحبت کنیم. سؤال تکمیلی هم بپرس؛ لازم نیست از عبارت‌های دستوری مشخص استفاده کنی. دسترسی من فقط‌خواندنی است: سفارش نمی‌گذارم، سیاست را تغییر نمی‌دهم و ژورنال نمی‌نویسم. اگر شواهدی نداشته باشم، صریح می‌گم.",
+            "en": "Absolutely! 😊 We can talk naturally about HES service health, recorded decisions and evidence, available Gate.io data, journal reports, news monitoring, and diagnostics. Ask follow-up questions in your own words. My access is read-only: I cannot place orders, change policies, or write to the journal. If evidence is missing, I’ll say so.",
+            "de": "Gern! 😊 Wir können natürlich über den HES-Systemstatus, dokumentierte Entscheidungen und ihre Belege, verfügbare Gate.io-Daten, Journalberichte, Nachrichtenüberwachung und Diagnose sprechen. Rückfragen sind jederzeit möglich. Mein Zugriff ist nur lesend: keine Orders, Richtlinienänderungen oder Journaleinträge.",
+            "fr": "Avec plaisir ! 😊 Nous pouvons discuter naturellement de l’état des services HES, des décisions enregistrées et de leurs preuves, des données Gate.io disponibles, du journal, des actualités et du diagnostic. Tu peux poser des questions librement. Mon accès est en lecture seule : aucun ordre, changement de politique ou écriture dans le journal.",
+        }
+        return _response(intent, "OK", capabilities[language], [], [], "", now, language=language)
     if intent == "UNKNOWN":
         answers = {
             "fa": "درخواست را دقیق‌تر مشخص کن: وضعیت، توضیح تصمیم، بررسی بازار، ژورنال، اخبار یا عیب‌یابی.",
