@@ -31,16 +31,17 @@ MAX_HISTORY_MESSAGES = 8
 MAX_STORED_MESSAGES = 200
 MEMORY_RETENTION_SECONDS = 30 * 24 * 60 * 60
 ALLOWED_INTENTS = frozenset({
-    "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "JOURNAL_REVIEW",
+    "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
     "NEWS_CONTEXT", "DIAGNOSE", "PREPARE_CHANGE", "EXPLAIN_CHANGE_CONTROL", "PROJECT_MEMORY", "UNKNOWN", "GENERAL_CHAT",
 })
 
 ROUTE_SYSTEM_PROMPT = (
     "Classify the last user message using recent conversation history. Choose exactly one intent from: "
-    "ASK_STATUS, EXPLAIN_DECISION, MARKET_REVIEW, JOURNAL_REVIEW, NEWS_CONTEXT, DIAGNOSE, "
+    "ASK_STATUS, EXPLAIN_DECISION, MARKET_REVIEW, SPECIALIST_REVIEW, JOURNAL_REVIEW, NEWS_CONTEXT, DIAGNOSE, "
     "PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "
     "EXPLAIN_DECISION means why a recorded Mother/Strategy decision was made; "
     "EXPLAIN_CHANGE_CONTROL means the owner's approval process for a proposed change; "
+    "SPECIALIST_REVIEW means summarize only the verified seven-stage Mother specialist evidence; missing downstream stages are not reached, never invented. "
     "PROJECT_MEMORY means retrieve an earlier project decision/checkpoint. "
     "GENERAL_CHAT is only ordinary non-HES conversation. Resolve short follow-ups from history; if unclear choose UNKNOWN. "
     "Return JSON only with the single key intent. No explanation, no answer, no facts."
@@ -148,19 +149,28 @@ def _is_contextual_followup(message: str) -> bool:
     return any(pattern.search(str(message or "")) for pattern in _CONTEXTUAL_FOLLOWUP_PATTERNS)
 
 
+def _previous_non_contextual_user_message(history: list[dict[str, str]]) -> str | None:
+    for item in reversed(history):
+        if item.get("role") != "user":
+            continue
+        content = str(item.get("content") or "")
+        if content and not _is_contextual_followup(content):
+            return content
+    return None
+
+
 def _resolve_contextual_followup_intent(
     message: str, history: list[dict[str, str]]
 ) -> str | None:
-    """Resolve a short follow-up from the last user intent; never reuse old HES facts."""
+    """Resolve short follow-ups through the latest non-follow-up user request."""
     if not _is_contextual_followup(message):
         return None
-    previous_user = next(
-        (item.get("content", "") for item in reversed(history) if item.get("role") == "user"),
-        "",
-    )
+    previous_user = _previous_non_contextual_user_message(history)
+    if not previous_user:
+        return None
     previous_intent = classify_intent(previous_user)
     supported = {
-        "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "JOURNAL_REVIEW",
+        "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
         "NEWS_CONTEXT", "DIAGNOSE", "PROJECT_MEMORY",
     }
     if previous_intent not in supported:
@@ -435,8 +445,12 @@ class HoshyarLocalAssistantV1:
             "GENERAL_CHAT" if deterministic_general_answer is not None
             else ("UNKNOWN" if _is_casual_greeting(message) else classify_intent(message))
         )
-        if deterministic_intent == "UNKNOWN":
-            deterministic_intent = _resolve_contextual_followup_intent(message, history) or deterministic_intent
+        specialist_context_message = None
+        contextual_intent = _resolve_contextual_followup_intent(message, history)
+        if contextual_intent is not None:
+            deterministic_intent = contextual_intent
+            if contextual_intent == "SPECIALIST_REVIEW":
+                specialist_context_message = _previous_non_contextual_user_message(history)
         local_used = False
         intent = deterministic_intent
         if deterministic_intent == "UNKNOWN" and self.allow_freeform:
@@ -490,7 +504,10 @@ class HoshyarLocalAssistantV1:
                 }
         if intent != "GENERAL_CHAT":
             if intent in ALLOWED_INTENTS - {"UNKNOWN"}:
-                result = build_chat_response(message, readers, language=language, intent_override=intent)
+                result = build_chat_response(
+                    message, readers, language=language, intent_override=intent,
+                    specialist_context_message=specialist_context_message,
+                )
             else:
                 result = build_chat_response(message, readers, language=language)
             result["local_llm_used"] = local_used

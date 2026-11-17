@@ -302,6 +302,17 @@ def _mother_chat_readers(message: str = ""):
             ) if isinstance(x, str) and x],
         }
 
+    def specialist_reader():
+        strategy, mother = _mother_chat_core_evidence()
+        return {
+            "strategy": strategy, "mother": mother,
+            "trace_id": mother.get("trace_id"),
+            "evidence_refs": [x for x in (
+                mother.get("trace_id"), mother.get("audit_sha256"),
+                strategy.get("report_sha256"), mother.get("journal_event_sha256"),
+            ) if isinstance(x, str) and x],
+        }
+
     def market_reader():
         strategy, mother = _mother_chat_core_evidence()
         batch, _ = _get_batch("BTCUSDT", "15m")
@@ -384,6 +395,7 @@ def _mother_chat_readers(message: str = ""):
     return {
         "ASK_STATUS": status_reader,
         "EXPLAIN_DECISION": explain_reader,
+        "SPECIALIST_REVIEW": specialist_reader,
         "MARKET_REVIEW": market_reader,
         "JOURNAL_REVIEW": journal_reader,
         "NEWS_CONTEXT": news_reader,
