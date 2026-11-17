@@ -48,6 +48,26 @@ def test_ambiguous_or_unsupported_intents_need_clarification():
     assert classify_intent("why is it red today?") == "UNKNOWN"
 
 
+def test_greetings_and_capability_questions_are_conversational_in_all_languages():
+    assert classify_intent("سلام") == "SOCIAL_CHAT"
+    assert classify_intent("hello") == "SOCIAL_CHAT"
+    assert classify_intent("از دست تو چه کاری بر می آید") == "ABOUT_CAPABILITIES"
+    assert classify_intent("what can you do") == "ABOUT_CAPABILITIES"
+    assert classify_intent("was kannst du") == "ABOUT_CAPABILITIES"
+    assert classify_intent("que peux-tu faire") == "ABOUT_CAPABILITIES"
+    for language in ("fa", "en", "de", "fr"):
+        greeting = build_chat_response("سلام", {}, language=language)
+        assert greeting["status"] == "OK"
+        assert greeting["intent"] == "SOCIAL_CHAT"
+        assert "NEEDS_CLARIFICATION" not in greeting["status"]
+        answer = build_chat_response("از دست تو چه کاری بر می آید", {}, language=language)
+        assert answer["status"] == "OK"
+        assert answer["intent"] == "ABOUT_CAPABILITIES"
+        assert answer["execution_enabled"] is False
+        assert answer["orders_placed"] is False
+        assert answer["journal_write"] is False
+
+
 def test_explain_decision_uses_only_supplied_mother_evidence():
     payload = {
         "mother": {
