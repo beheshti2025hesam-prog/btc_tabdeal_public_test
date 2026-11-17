@@ -1,0 +1,7 @@
+# Install as /etc/systemd/system/hes-readonly-dashboard.service.d/20-hoshyar.conf
+# Enable only after the HOSHYAR model service is verified and the owner approves activation.
+[Service]
+Environment=HES_HOSHYAR_LOCAL_LLM_ENABLED=1
+Environment=HES_HOSHYAR_LOCAL_LLM_MODEL=hoshyar-qwen35-2b-q4
+Environment=HES_HOSHYAR_LOCAL_LLM_API_KEY_FILE=/var/lib/hes-news-monitor/hoshyar-llm-api-keys
+Environment=HES_HOSHYAR_MEMORY_DB=/var/lib/hes-news-monitor/hoshyar-memory.sqlite3

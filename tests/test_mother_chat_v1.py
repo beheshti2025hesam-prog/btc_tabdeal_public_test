@@ -219,7 +219,7 @@ def test_http_chat_routes_require_auth_and_preserve_read_only_boundary(tmp_path,
     }
     monkeypatch.setattr(
         dashboard, "_mother_chat_readers",
-        lambda: {"EXPLAIN_DECISION": lambda: evidence},
+        lambda message="": {"EXPLAIN_DECISION": lambda: evidence},
     )
     server = ThreadingHTTPServer(("127.0.0.1", 0), dashboard.Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
