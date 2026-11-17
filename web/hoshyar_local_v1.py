@@ -436,8 +436,14 @@ class HoshyarLocalAssistantV1:
             "GENERAL_CHAT" if deterministic_general_answer is not None
             else ("UNKNOWN" if _is_casual_greeting(message) else classify_intent(message))
         )
+        specialist_context_message = None
         if deterministic_intent == "UNKNOWN":
             deterministic_intent = _resolve_contextual_followup_intent(message, history) or deterministic_intent
+            if deterministic_intent == "SPECIALIST_REVIEW" and _is_contextual_followup(message):
+                specialist_context_message = next(
+                    (item.get("content", "") for item in reversed(history) if item.get("role") == "user"),
+                    None,
+                )
         local_used = False
         intent = deterministic_intent
         if deterministic_intent == "UNKNOWN" and self.allow_freeform:
@@ -491,7 +497,10 @@ class HoshyarLocalAssistantV1:
                 }
         if intent != "GENERAL_CHAT":
             if intent in ALLOWED_INTENTS - {"UNKNOWN"}:
-                result = build_chat_response(message, readers, language=language, intent_override=intent)
+                result = build_chat_response(
+                    message, readers, language=language, intent_override=intent,
+                    specialist_context_message=specialist_context_message,
+                )
             else:
                 result = build_chat_response(message, readers, language=language)
             result["local_llm_used"] = local_used
