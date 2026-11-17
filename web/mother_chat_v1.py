@@ -404,7 +404,7 @@ def build_chat_response(
             _claim("Reported losses", counts["losses"]),
             _claim("Reported timeouts", counts["timeouts"]),
             _claim("Resolved win rate", strategy.get("resolved_win_rate_pct")),
-            _claim("Structure state", structure.get("status", "UNKNOWN") + " · " + str(structure.get("regime", "UNKNOWN"))),
+            _claim("Structure state", str(structure.get("status") or "UNKNOWN") + " · " + str(structure.get("regime") or "UNKNOWN")),
             _claim("Confirmation state", confirmation.get("state", "UNKNOWN")),
             _claim("Confirmation reason codes", confirmation.get("reason_codes", [])),
             _claim("Risk state", risk.get("state", "UNKNOWN")),
