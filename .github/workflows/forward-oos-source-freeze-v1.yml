@@ -6,16 +6,17 @@ permissions:
 jobs:
   freeze:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout freeze code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
       - name: Validate immutable source object is available
         run: git cat-file -e f396de84cb7f4c6b16e81effc91b653e26049ab4:data/trades.csv
       - name: Freeze and validate source
         run: python scripts/forward_oos_source_freeze_v1.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: forward-oos-source-freeze-v1
           path: forward_oos_source_freeze_v1.json

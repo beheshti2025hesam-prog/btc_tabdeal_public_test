@@ -5,7 +5,7 @@ from datetime import datetime
 import math
 from typing import Dict, Iterable, List
 
-REQUIRED_COLUMNS = {"symbol", "price", "amount", "side", "updated", "sequence"}
+REQUIRED_COLUMNS = {"symbol", "price", "amount", "side", "updated"}
 VALID_SIDES = {"buy", "sell"}
 
 class RawDataValidator:
@@ -27,8 +27,9 @@ class RawDataValidator:
             errors.append("Invalid side")
         if not row.get("updated"):
             errors.append("Empty updated timestamp")
-        if not row.get("sequence"):
-            errors.append("Empty sequence")
+        sequence = row.get("sequence")
+        if sequence is not None and len(sequence) > 128:
+            errors.append("Sequence metadata too long")
         try:
             price = float(row["price"])
             if not math.isfinite(price) or price <= 0:
@@ -41,12 +42,6 @@ class RawDataValidator:
                 errors.append("Invalid amount")
         except (ValueError, TypeError):
             errors.append("Invalid amount")
-        try:
-            sequence = int(row["sequence"])
-            if sequence <= 0:
-                errors.append("Invalid sequence")
-        except (ValueError, TypeError):
-            errors.append("Invalid sequence")
         try:
             value = row["updated"]
             if value.endswith("Z"):

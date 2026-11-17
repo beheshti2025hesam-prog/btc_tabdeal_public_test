@@ -39,6 +39,48 @@ def test_event_id_is_stable_per_setup_and_closed_candle():
     assert len(a["evidence_sha256"])==64
     assert a["execution_enabled"] is False and a["orders_placed"] is False
 
+def test_precision_event_replay_ignores_poll_telemetry_but_preserves_evidence_conflicts(tmp_path):
+    from scripts.run_precision_entry_journal_v1 import append_immutable_event
+    journal = ForwardJournalV1(tmp_path / "precision-events.jsonl")
+    candle = {"open_time": 1800000000, "close_time": 1800000060, "close": "100.0"}
+    first_engine = {"state": "WAIT", "reason_codes": ["MICROSTRUCTURE_TRIGGER_NOT_CONFIRMED"],
+                    "evidence": {"close": 100.0, "age_seconds": 3}}
+    replay_engine = {"state": "WAIT", "reason_codes": ["MICROSTRUCTURE_TRIGGER_NOT_CONFIRMED"],
+                     "evidence": {"close": 100.0, "age_seconds": 18}}
+    first = build_precision_event(setup_context=CONTEXT, candle=candle,
+                                  engine_result=first_engine, observed_at=NOW)
+    replay = build_precision_event(setup_context=CONTEXT, candle=candle,
+                                   engine_result=replay_engine,
+                                   observed_at=NOW.replace(second=15))
+    assert first["evidence_sha256"] == replay["evidence_sha256"]
+    assert first["engine_evidence"] == replay["engine_evidence"]
+    assert append_immutable_event(journal, first) is True
+    assert append_immutable_event(journal, replay) is False
+
+    # A revised OHLCV bar under the same setup/candle ID is not a replay.
+    revised_candle = dict(candle, high="101.0")
+    revised_bar = build_precision_event(setup_context=CONTEXT, candle=revised_candle,
+                                        engine_result=replay_engine,
+                                        observed_at=NOW.replace(second=30))
+    with pytest.raises(ValueError, match="IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT"):
+        append_immutable_event(journal, revised_bar)
+
+    changed_engine = {"state": "READY", "reason_codes": [],
+                      "evidence": {"close": 100.0, "age_seconds": 18}}
+    changed = build_precision_event(setup_context=CONTEXT, candle=candle,
+                                    engine_result=changed_engine, observed_at=NOW)
+    with pytest.raises(ValueError, match="IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT"):
+        append_immutable_event(journal, changed)
+
+    # A pre-fix row has no raw candle payload; do not silently call it a replay.
+    legacy_journal = ForwardJournalV1(tmp_path / "legacy-precision-events.jsonl")
+    legacy_record = dict(first)
+    legacy_record.pop("candle_evidence")
+    legacy_journal.append_event(legacy_record)
+    with pytest.raises(ValueError, match="IMMUTABLE_JOURNAL_EVENT_ID_CONFLICT"):
+        append_immutable_event(legacy_journal, first)
+
+
 def test_paper_candidate_is_bound_to_setup_and_never_an_order():
     row=candidate()
     assert row["setup_id"]==CONTEXT["setup_id"]

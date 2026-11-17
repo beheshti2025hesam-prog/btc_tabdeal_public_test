@@ -39,7 +39,7 @@ class VWAPCalculator:
 
         results: List[VWAPSnapshot] = []
         for (symbol, bucket_epoch), group in groups.items():
-            ordered = sorted(group, key=lambda trade: (trade.timestamp, trade.sequence or -1))
+            ordered = sorted(group, key=lambda trade: trade.timestamp)
             total_volume = sum(t.quantity for t in ordered)
             weighted_value = sum(t.price * t.quantity for t in ordered)
             start = datetime.fromtimestamp(bucket_epoch, tz=timezone.utc)

@@ -1,8 +1,11 @@
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
 
+from forward import forward_tabdeal_ingestion_v1 as ingestion
 from forward.forward_tabdeal_ingestion_v1 import ingest_closed_candles, to_trade_observation
+from tests.sequence_registry_fixtures import verified_tabdeal_test_registry
 
 
 AS_OF = datetime(2026, 10, 7, 2, 0, tzinfo=timezone.utc)
@@ -21,19 +24,55 @@ def rec(ts="2026-10-07T01:01:00+00:00", seq=1, symbol="BTC_USDT"):
     }
 
 
-def test_valid_tabdeal_record_becomes_trade_observation():
+def test_unknown_tabdeal_sequence_capabilities_block_before_candle_or_trade_normalization():
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        to_trade_observation(rec(), as_of=AS_OF)
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        ingest_closed_candles([rec()], as_of=AS_OF)
+
+
+def test_ordered_but_non_unique_sequence_cannot_drive_candle_normalization():
+    capabilities = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
+    non_identity_capabilities = replace(capabilities, event_identity=False)
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        to_trade_observation(
+            rec(), as_of=AS_OF, capabilities=non_identity_capabilities
+        )
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        ingest_closed_candles(
+            [rec()], as_of=AS_OF, capabilities=non_identity_capabilities
+        )
+
+
+def test_ordered_but_non_unique_sequence_cannot_drive_candle_normalization():
+    capabilities = verified_tabdeal_test_registry().resolve_tabdeal_trade_sequence()
+    non_identity_capabilities = replace(capabilities, event_identity=False)
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        to_trade_observation(
+            rec(), as_of=AS_OF, capabilities=non_identity_capabilities
+        )
+    with pytest.raises(ValueError, match="SEQUENCE_CAPABILITIES_UNVERIFIED"):
+        ingest_closed_candles(
+            [rec()], as_of=AS_OF, capabilities=non_identity_capabilities
+        )
+
+
+def test_valid_tabdeal_record_becomes_trade_observation(monkeypatch):
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     trade = to_trade_observation(rec(), as_of=AS_OF)
     assert trade.symbol == "BTC_USDT"
     assert str(trade.price) == "100.25"
     assert trade.sequence == 1
 
 
-def test_future_record_is_rejected():
+def test_future_record_is_rejected(monkeypatch):
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     with pytest.raises(ValueError, match="future"):
         to_trade_observation(rec("2026-10-07T02:00:01+00:00"), as_of=AS_OF)
 
 
-def test_wrong_source_and_symbol_are_rejected():
+def test_wrong_source_and_symbol_are_rejected(monkeypatch):
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     bad = rec()
     bad["source"] = "historical"
     with pytest.raises(ValueError, match="source"):
@@ -43,7 +82,8 @@ def test_wrong_source_and_symbol_are_rejected():
         to_trade_observation(rec(symbol="ETH_USDT"), as_of=AS_OF)
 
 
-def test_ingestion_emits_only_closed_candles():
+def test_ingestion_emits_only_closed_candles(monkeypatch):
+    monkeypatch.setattr(ingestion, "_require_verified_tabdeal_sequence_capability", lambda *args, **kwargs: None)
     records = [rec("2026-10-07T01:01:00+00:00", 1),
                rec("2026-10-07T01:14:59+00:00", 2)]
     candles, gaps = ingest_closed_candles(records, as_of=AS_OF)

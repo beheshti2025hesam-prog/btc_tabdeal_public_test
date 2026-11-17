@@ -220,9 +220,14 @@ class OperationalRecoveryV1:
         recent = []
         for row in history:
             try:
-                stamp = datetime.fromisoformat(row['at'].replace('Z', '+00:00')).timestamp()
+                parsed = datetime.fromisoformat(row['at'].replace('Z', '+00:00'))
+                if parsed.tzinfo is None or parsed.utcoffset() is None:
+                    raise ValueError('timestamp_not_timezone_aware')
+                stamp = parsed.timestamp()
             except Exception as exc:
                 raise RecoveryError('REPAIR_AUDIT_TIMESTAMP_INVALID') from exc
+            if stamp > now + 60:
+                raise RecoveryError('REPAIR_AUDIT_CLOCK_SKEW')
             if 0 <= now - stamp < 3600:
                 recent.append((stamp, row))
         if len(recent) >= self.max_attempts_per_hour:
@@ -233,21 +238,63 @@ class OperationalRecoveryV1:
 
     def _preflight(self, inactive: set[str]) -> tuple[bool, list[dict[str, str]]]:
         report = self.health_provider()
+        if (
+            not isinstance(report, dict)
+            or report.get('schema') != 'hes_runtime_healthcheck_v1'
+            or report.get('overall') not in ('OK', 'WARN', 'CRITICAL')
+            or not isinstance(report.get('issues'), list)
+        ):
+            raise RecoveryError('HEALTH_REPORT_INVALID')
+        issues = report['issues']
+        for issue in issues:
+            if (
+                not isinstance(issue, dict)
+                or not isinstance(issue.get('check'), str)
+                or not issue['check']
+                or issue.get('state') not in ('WARN', 'CRITICAL')
+            ):
+                raise RecoveryError('HEALTH_ISSUE_INVALID')
+        expected_overall = (
+            'CRITICAL' if any(issue['state'] == 'CRITICAL' for issue in issues)
+            else ('WARN' if issues else 'OK')
+        )
+        if report.get('overall') != expected_overall:
+            raise RecoveryError('HEALTH_REPORT_INCONSISTENT')
         allowed = set()
         for unit in inactive:
             allowed.update(IGNORABLE_WHEN_INACTIVE[unit])
         unexpected = [
-            issue for issue in report.get('issues', [])
-            if issue.get('check') not in allowed
+            issue for issue in issues
+            if issue['check'] not in allowed
         ]
         return not unexpected, unexpected
 
-    def _wait_active(self, unit: str) -> bool:
-        deadline = self.clock() + self.startup_timeout_seconds
-        while self.clock() <= deadline:
+    def _wait_ready(self, unit: str, inactive_remaining: set[str]) -> bool:
+        """Require both systemd activity and a fresh, clean health snapshot.
+
+        Other workers that have not yet been recovered may retain only their
+        explicitly allowlisted inactive-service/freshness issues. Any unrelated
+        health issue, including one that appears after startup, blocks the chain.
+        The bounded poll count also prevents a frozen test/system clock from
+        turning readiness into an unbounded loop.
+        """
+        for attempt in range(max(1, self.startup_timeout_seconds + 1)):
             if self._active(unit):
-                return True
-            self.sleep(1)
+                try:
+                    # Recompute the remaining inactive set: a worker that became
+                    # active concurrently must no longer have its health issues
+                    # hidden by the original inactive snapshot.
+                    still_inactive = {
+                        candidate for candidate in inactive_remaining
+                        if not self._active(candidate)
+                    }
+                    healthy, _ = self._preflight(still_inactive)
+                except Exception:
+                    return False
+                if healthy:
+                    return True
+            if attempt < self.startup_timeout_seconds:
+                self.sleep(1)
         return False
 
     def run(self) -> dict[str, Any]:
@@ -279,6 +326,27 @@ class OperationalRecoveryV1:
             for unit in REPAIR_ORDER:
                 if unit not in inactive or self._active(unit):
                     continue
+                # Revalidate immediately before every start. Another worker may
+                # have changed state since the initial preflight or prior start.
+                still_inactive = {
+                    candidate for candidate in inactive
+                    if not self._active(candidate)
+                }
+                try:
+                    preflight_ok, unexpected = self._preflight(still_inactive)
+                except Exception as exc:
+                    actions.append({
+                        'service': unit, 'result': 'SKIPPED',
+                        'reason': f'HEALTH_PREFLIGHT_INVALID:{type(exc).__name__}',
+                    })
+                    break
+                if not preflight_ok:
+                    actions.append({
+                        'service': unit, 'result': 'SKIPPED',
+                        'reason': 'HEALTH_PRECONDITION_CHANGED',
+                        'issues': unexpected[:20],
+                    })
+                    break
                 deps = DEPENDENCIES[unit]
                 missing_deps = [dep for dep in deps if not self._active(dep)]
                 if missing_deps:
@@ -305,8 +373,12 @@ class OperationalRecoveryV1:
                 }
                 self._audit(event)
                 started = self.runner(['systemctl', 'start', unit])
-                recovered = started.returncode == 0 and self._wait_active(unit)
-                result = 'RECOVERED' if recovered else 'START_FAILED'
+                if started.returncode != 0:
+                    recovered = False
+                    result = 'START_FAILED'
+                else:
+                    recovered = self._wait_ready(unit, inactive - {unit})
+                    result = 'RECOVERED' if recovered else 'READINESS_FAILED'
                 self._audit({**event, 'action': 'START_RESULT', 'result': result, 'systemctl_returncode': started.returncode})
                 actions.append({'service': unit, 'result': result, 'systemctl_returncode': started.returncode})
                 if not recovered:

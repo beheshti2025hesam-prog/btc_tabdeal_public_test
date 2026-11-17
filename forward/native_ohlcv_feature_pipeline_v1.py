@@ -31,6 +31,8 @@ class NativeOHLCVFeatureResult:
     ema_points: int
     momentum_points: int
     structure_points: int
+    ema_series: tuple[tuple[int, float], ...]
+    vwap_series: tuple[tuple[int, float], ...]
     decision_ready: bool
     reason: str
 
@@ -83,6 +85,12 @@ class NativeOHLCVFeaturePipelineV1:
         )
 
         ema_points = self.ema.calculate(candles)
+        open_time_by_end = {c.end: int(c.start.timestamp()) for c in candles}
+        ema_series = tuple(
+            (open_time_by_end[point.timestamp], float(point.value))
+            for point in ema_points
+            if point.timestamp in open_time_by_end
+        )
         momentum_points = self.momentum.calculate(candles)
         structure_points = self.structure.calculate(candles)
         volume_points = self.volume.calculate(candles)
@@ -93,21 +101,31 @@ class NativeOHLCVFeaturePipelineV1:
         latest_close = candles[-1].close if candles else None
         timestamp = candles[-1].end if candles else None
 
-        vwap = None
-        buy_ratio = None
-        buy_sell_delta = None
-        if len(eligible_native) >= self.vwap_period:
-            window = eligible_native[-self.vwap_period:]
+        # Reuse the exact rolling quote-volume / base-volume VWAP definition already
+        # used by this pipeline. The emitted points are keyed by candle open time.
+        vwap_series_values = []
+        for end_index in range(self.vwap_period - 1, len(eligible_native)):
+            window = eligible_native[end_index - self.vwap_period + 1:end_index + 1]
             total_base = sum((c.volume for c in window), Decimal("0"))
             total_quote = sum((c.quote_volume for c in window), Decimal("0"))
+            if total_base > 0:
+                vwap_series_values.append((
+                    window[-1].open_time_ms // 1000,
+                    float(total_quote / total_base),
+                ))
+        vwap_series = tuple(vwap_series_values)
+        vwap = vwap_series[-1][1] if vwap_series else None
+        buy_ratio = None
+        buy_sell_delta = None
+        if len(eligible_native) >= self.vwap_period and vwap is not None:
+            window = eligible_native[-self.vwap_period:]
+            total_base = sum((c.volume for c in window), Decimal("0"))
             flow_available = all(c.taker_buy_volume is not None for c in window)
             total_taker_buy = (sum((c.taker_buy_volume for c in window), Decimal("0"))
                                if flow_available else None)
-            if total_base > 0:
-                vwap = float(total_quote / total_base)
-                if total_taker_buy is not None:
-                    buy_ratio = float(total_taker_buy / total_base)
-                    buy_sell_delta = float((Decimal("2") * total_taker_buy) - total_base)
+            if total_taker_buy is not None and total_base > 0:
+                buy_ratio = float(total_taker_buy / total_base)
+                buy_sell_delta = float((Decimal("2") * total_taker_buy) - total_base)
 
         volume_ratio = volume_points[-1].latest_vs_average if volume_points else None
         volume_spike = volume_points[-1].is_volume_spike if volume_points else None
@@ -157,6 +175,8 @@ class NativeOHLCVFeaturePipelineV1:
             ema_points=len(ema_points),
             momentum_points=len(momentum_points),
             structure_points=len(structure_points),
+            ema_series=ema_series if ready else (),
+            vwap_series=vwap_series if ready else (),
             decision_ready=ready,
             reason=reason,
         )

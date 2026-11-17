@@ -52,6 +52,25 @@ def test_vwap_is_time_windowed_and_deterministic():
     assert first.volume == 3 and first.trade_count == 2
 
 
+def test_candle_and_vwap_do_not_order_by_opaque_sequence():
+    opaque = make_trade("opaque-7", 1, 100, 1)
+    missing = RawDataNormalizer().normalize_row(
+        {
+            "symbol": "BTC_USDT",
+            "price": "110",
+            "amount": "1",
+            "side": "sell",
+            "updated": "2026-09-24T00:00:01Z",
+        }
+    )
+    candle = TradeCandleAggregator(60).aggregate([opaque, missing])[0]
+    snapshot = VWAPCalculator(60).calculate([opaque, missing])[0]
+    assert candle.trade_count == 2
+    assert (candle.open, candle.close) == (100, 110)
+    assert snapshot.trade_count == 2
+    assert snapshot.vwap == 105
+
+
 def test_vwap_rejects_naive_timestamp():
     trade = make_trade(1, 1, 100, 1)
     trade = trade.__class__(

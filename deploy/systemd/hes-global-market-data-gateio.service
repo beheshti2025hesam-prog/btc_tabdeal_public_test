@@ -18,7 +18,7 @@ TimeoutStopSec=20
 KillSignal=SIGTERM
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=full
+ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/hes-trade-agent/data/forward
 

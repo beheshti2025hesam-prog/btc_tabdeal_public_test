@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright");
+const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127.0.0.1:8765";
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -9,6 +10,7 @@ const { chromium } = require("playwright");
     const candlePayloads = {};
     let strategyV2Payload = null;
     let strategyV2StatusCode = null;
+    const apiContractResponses = {};
     let externalChartCdnRequested = false;
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
@@ -40,18 +42,26 @@ const { chromium } = require("playwright");
           logoAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
         }
         const url = new URL(response.url());
-        if (url.pathname === "/api/candles" && response.status() === 200) {
+        if (url.pathname.startsWith("/api/")) {
           const body = await response.json();
-          if (Array.isArray(body.candles) && body.candles.length) { candlePayload = body; candlePayloads[body.interval] = body; }
-        }
-        if (url.pathname === "/api/strategy-v2" && [200, 503].includes(response.status())) {
-          strategyV2StatusCode = response.status();
-          strategyV2Payload = await response.json();
+          apiContractResponses[url.pathname] = {
+            status: response.status(),
+            schema: body.schema || body.schema_version || null
+          };
+          if (url.pathname === "/api/candles" && response.status() === 200 &&
+              Array.isArray(body.candles) && body.candles.length) {
+            candlePayload = body;
+            candlePayloads[body.interval] = body;
+          }
+          if (url.pathname === "/api/strategy-v2" && [200, 503].includes(response.status())) {
+            strategyV2StatusCode = response.status();
+            strategyV2Payload = body;
+          }
         }
       } catch (_) {}
     });
 
-    await page.goto("http://127.0.0.1:8765/", { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.goto(dashboardBaseUrl + "/", { waitUntil: "domcontentloaded", timeout: 30000 });
     try {
       await page.waitForFunction(() => {
         const message = document.querySelector("#message")?.textContent || "";
@@ -93,12 +103,35 @@ const { chromium } = require("playwright");
       null,
       { timeout: 15000 }
     );
+    await page.waitForFunction(
+      () => {
+        const ids = ["journalStatus", "motherReasons", "newsSummary", "peReasons"];
+        return ids.every(id => {
+          const value = document.querySelector("#" + id)?.textContent || "";
+          return value && !/^(Loading|Verifying|Waiting)/.test(value);
+        });
+      },
+      null,
+      { timeout: 30000 }
+    );
     const fifteenMinutePayload = candlePayload;
     assert.ok(fifteenMinutePayload, "successful /api/candles payload was not observed");
     assert.equal(fifteenMinutePayload.interval, "15m", "15m must remain the default chart interval");
     assert.equal(await page.locator("#interval").inputValue(), "15m");
     assert.ok(candlePayloads["15m"], "15m API batch was not retained");
     assert.ok(strategyV2Payload, "canonical Strategy V2 response was not observed");
+    assert.equal(candlePayload.schema, "hes.market_candles_view.v1");
+    assert.equal(strategyV2Payload.schema, "hes.strategy_v2_dashboard_view.v1");
+    assert.equal(candlePayload.indicators?.status, "READY", "same-batch indicators were not READY");
+    assert.equal(candlePayload.indicators?.series_schema, "hes_native_ohlcv_indicator_series_v1");
+    assert.equal(apiContractResponses["/api/journal"]?.schema, "hes.trade_journal_view.v1",
+      "decision journal API schema must be versioned");
+    assert.equal(apiContractResponses["/api/mother"]?.schema, "hes.mother_v2_dashboard_view.v1",
+      "Mother API schema must be versioned even when blocked");
+    assert.equal(apiContractResponses["/api/precision-entry"]?.schema, "hes_precision_entry_status_v1",
+      "Precision Entry API schema must be versioned even when blocked");
+    assert.ok(["hes.news_monitor_snapshot.v1", "hes.api_error.v1"].includes(apiContractResponses["/api/news"]?.schema),
+      "News API must return a versioned success or error contract");
     assert.ok(candlePayload.candles.length > 0, "source returned no candles");
     assert.equal(strategyV2Payload.decision, "NO_TRADE", "paper-only V2 dashboard must remain NO_TRADE");
     assert.equal(strategyV2Payload.execution_enabled, false, "V2 dashboard must never enable execution");
@@ -142,6 +175,9 @@ const { chromium } = require("playwright");
       })(),
       chartLibraryLoaded: typeof LightweightCharts !== "undefined",
       chartSeriesExists: typeof candleSeries !== "undefined" && !!candleSeries,
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null,
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || "",
       chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
       logo: (() => { const img = document.querySelector(".brand-mark"); return img ? { complete: img.complete, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: img.getAttribute("src") } : null; })(),
       bars: typeof bars !== "undefined" ? bars.map(b => ({
@@ -158,22 +194,24 @@ const { chromium } = require("playwright");
     assert.equal((await motherTitle.textContent()).trim(), "Mother Orchestrator · canonical V2 evidence chain",
       "English canonical Mother heading was altered");
     assert.equal((await decisionHeader.textContent()).trim(), "Decision");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Chart overlays");
     await languageSelect.selectOption("de");
     await page.waitForFunction(() => document.documentElement.lang === "de" &&
       document.querySelector("#motherTitle")?.textContent.includes("kanonische V2-Nachweiskette"));
     assert.equal(await page.locator('.section-nav a[href="#motherPanel"]').textContent(), "Orchestrator");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Chart-Overlays");
     assert.equal((await decisionHeader.textContent()).trim(), "Entscheidung");
     assert.equal(await page.evaluate(() => localStorage.getItem("hes-dashboard-locale-v1")), "de");
     await languageSelect.selectOption("fa");
     await page.waitForFunction(() => document.documentElement.lang === "fa" && document.documentElement.dir === "rtl");
     assert.equal((await decisionHeader.textContent()).trim(), "تصمیم");
-    assert.equal((await page.locator("#motherChatTitle").textContent()).trim(), "مرکز فرمان Mother · رابط محلی رایگان",
-      "Mother Command Center heading must be translated in Persian RTL mode");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "اندیکاتورهای روی نمودار");
     assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector("#chart")).direction), "ltr",
       "chart canvas must remain LTR under Persian UI");
     await languageSelect.selectOption("fr");
     await page.waitForFunction(() => document.documentElement.lang === "fr" && document.documentElement.dir === "ltr");
     assert.equal((await decisionHeader.textContent()).trim(), "Décision");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Superpositions du graphique");
     await languageSelect.selectOption("en");
     await page.waitForFunction(() => document.documentElement.lang === "en" &&
       document.querySelector("#motherTitle")?.textContent.trim() === "Mother Orchestrator · canonical V2 evidence chain");
@@ -181,6 +219,7 @@ const { chromium } = require("playwright");
       "English Mother navigation label was not restored");
     assert.equal((await decisionHeader.textContent()).trim(), "Decision",
       "English Decision label was not restored after ambiguous translations");
+    assert.equal((await page.locator(".chart-overlays-label").textContent()).trim(), "Chart overlays");
     assert.equal(Number(ui.price.replaceAll(",", "")), Number(last.close), "displayed close differs from latest source candle");
     assert.equal(ui.volume, last.volume, "displayed volume differs from latest source candle");
     assert.equal(ui.count, String(candlePayload.candles.length), "displayed candle count differs from source batch");
@@ -188,6 +227,8 @@ const { chromium } = require("playwright");
       const canvases = [...document.querySelectorAll("#chart canvas")];
       let green = 0;
       let red = 0;
+      let ema = 0;
+      let vwap = 0;
       let sampled = 0;
       for (const canvas of canvases) {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -200,9 +241,11 @@ const { chromium } = require("playwright");
           sampled++;
           if (Math.abs(r - 54) < 35 && Math.abs(g - 201) < 45 && Math.abs(b - 143) < 45) green++;
           if (Math.abs(r - 241) < 35 && Math.abs(g - 107) < 45 && Math.abs(b - 117) < 45) red++;
+          if (Math.abs(r - 242) < 30 && Math.abs(g - 191) < 30 && Math.abs(b - 88) < 30) ema++;
+          if (Math.abs(r - 86) < 30 && Math.abs(g - 199) < 30 && Math.abs(b - 215) < 30) vwap++;
         }
       }
-      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
+      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red, ema_overlay_color_pixels: ema, vwap_overlay_color_pixels: vwap };
     });
     assert.ok(candlePixels.canvas_count > 0, "no chart canvas was rendered");
     const visibleCandlePixelCount = candlePixels.green_candle_color_pixels + candlePixels.red_candle_color_pixels;
@@ -231,6 +274,7 @@ const { chromium } = require("playwright");
       strategy_v2_source: strategyV2Payload.source || "gateio_public_spot",
       strategy_v2_symbol: strategyV2Payload.symbol || "BTC_USDT",
       strategy_v2_execution_enabled: strategyV2Payload.execution_enabled,
+      api_contract_responses: apiContractResponses,
       candle_count: candlePayload.candles.length,
       chart_canvas: ui.canvas,
       chart_library_loaded: ui.chartLibraryLoaded,
@@ -247,6 +291,8 @@ const { chromium } = require("playwright");
       execution_enabled: false
     };
     require("node:fs").writeFileSync("artifacts/native-ohlcv-dashboard-browser-smoke.json", JSON.stringify(diagnosticEvidence, null, 2) + "\n");
+    assert.ok(candlePixels.ema_overlay_color_pixels >= 3 && candlePixels.vwap_overlay_color_pixels >= 3,
+      "EMA/VWAP overlay lines are not visibly rendered: " + JSON.stringify(candlePixels));
     assert.ok(
       visibleCandlePixelCount >= 8,
       `candlestick series is not visibly rendered: ${JSON.stringify({ ...candlePixels, chartAssetResponse, chartLibraryLoaded: ui.chartLibraryLoaded, chartSeriesExists: ui.chartSeriesExists, consoleErrors, pageErrors })}`
@@ -254,6 +300,15 @@ const { chromium } = require("playwright");
 
     assert.ok(ui.bars, "browser could not inspect the dashboard's candle batch");
     assert.equal(ui.bars.length, candlePayload.candles.length, "chart input batch length differs from API batch");
+    assert.equal(ui.chartIndicatorStatus.startsWith("READY"), true, "chart indicator overlays did not reach READY");
+    assert.deepEqual(ui.emaOverlayData, candlePayload.indicators.ema_series, "EMA overlay differs from the same-batch API series");
+    assert.deepEqual(ui.vwapOverlayData, candlePayload.indicators.vwap_series, "VWAP overlay differs from the same-batch API series");
+    assert.equal(ui.emaOverlayData.at(-1).time, Math.floor(candlePayload.candles.at(-1).open_time / 1000));
+    assert.equal(ui.vwapOverlayData.at(-1).time, Math.floor(candlePayload.candles.at(-1).open_time / 1000));
+    await page.locator("#showEma").uncheck();
+    assert.equal(await page.evaluate(() => emaLineSeries.options().visible), false, "EMA visibility control did not hide the line");
+    await page.locator("#showEma").check();
+    assert.equal(await page.evaluate(() => emaLineSeries.options().visible), true, "EMA visibility control did not restore the line");
     for (let i = 0; i < candlePayload.candles.length; i++) {
       const source = candlePayload.candles[i];
       const chart = ui.bars[i];
@@ -330,7 +385,10 @@ const { chromium } = require("playwright");
       bars: typeof bars !== "undefined" ? bars.map(b => ({
         open_time: b.open_time, open: Number(b.open), high: Number(b.high), low: Number(b.low),
         close: Number(b.close), volume: String(b.volume)
-      })) : null
+      })) : null,
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null,
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || ""
     }));
     const oneMinuteLast = oneMinutePayload.candles[oneMinutePayload.candles.length - 1];
     assert.equal(Number(oneMinuteUi.price.replaceAll(",", "")), Number(oneMinuteLast.close));
@@ -338,6 +396,9 @@ const { chromium } = require("playwright");
     assert.equal(oneMinuteUi.count, String(oneMinutePayload.candles.length));
     assert.ok(oneMinuteUi.canvas.width > 100 && oneMinuteUi.canvas.height > 100);
     assert.ok(oneMinuteUi.bars, "browser could not inspect the 1m chart batch");
+    assert.equal(oneMinuteUi.chartIndicatorStatus.startsWith("READY"), true, "1m indicator overlays did not reach READY");
+    assert.deepEqual(oneMinuteUi.emaOverlayData, oneMinutePayload.indicators.ema_series);
+    assert.deepEqual(oneMinuteUi.vwapOverlayData, oneMinutePayload.indicators.vwap_series);
     assert.equal(oneMinuteUi.bars.length, oneMinutePayload.candles.length);
     for (let i = 0; i < oneMinutePayload.candles.length; i++) {
       const source = oneMinutePayload.candles[i];
@@ -352,6 +413,8 @@ const { chromium } = require("playwright");
       const canvases = [...document.querySelectorAll("#chart canvas")];
       let green = 0;
       let red = 0;
+      let ema = 0;
+      let vwap = 0;
       let sampled = 0;
       for (const canvas of canvases) {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -363,13 +426,17 @@ const { chromium } = require("playwright");
           sampled++;
           if (Math.abs(r - 54) < 35 && Math.abs(g - 201) < 45 && Math.abs(b - 143) < 45) green++;
           if (Math.abs(r - 241) < 35 && Math.abs(g - 107) < 45 && Math.abs(b - 117) < 45) red++;
+          if (Math.abs(r - 242) < 30 && Math.abs(g - 191) < 30 && Math.abs(b - 88) < 30) ema++;
+          if (Math.abs(r - 86) < 30 && Math.abs(g - 199) < 30 && Math.abs(b - 215) < 30) vwap++;
         }
       }
-      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red };
+      return { canvas_count: canvases.length, sampled_pixels: sampled, green_candle_color_pixels: green, red_candle_color_pixels: red, ema_overlay_color_pixels: ema, vwap_overlay_color_pixels: vwap };
     });
     const oneMinuteVisiblePixels = oneMinutePixels.green_candle_color_pixels + oneMinutePixels.red_candle_color_pixels;
     assert.ok(oneMinutePixels.canvas_count > 0 && oneMinuteVisiblePixels >= 8,
       "1m candlesticks are not visibly rendered: " + JSON.stringify(oneMinutePixels));
+    assert.ok(oneMinutePixels.ema_overlay_color_pixels >= 3 && oneMinutePixels.vwap_overlay_color_pixels >= 3,
+      "1m EMA/VWAP overlays are not visibly rendered: " + JSON.stringify(oneMinutePixels));
     const expectedOneMinuteStamp = new Date(oneMinuteLast.close_time).toISOString().replace("T", " ").replace(".000Z", " UTC");
     assert.equal(oneMinuteUi.stamp, expectedOneMinuteStamp, "1m displayed UTC time differs from source batch");
     const oneMinuteResponsiveViewports = [];
@@ -454,6 +521,7 @@ const { chromium } = require("playwright");
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          schema: "hes.market_candles_view.v1",
           status: "gaps_present",
           source: "gateio_public_spot",
           source_reader: "global_market_data_reader_v1",
@@ -488,10 +556,16 @@ const { chromium } = require("playwright");
       price: document.querySelector("#price")?.textContent || "",
       stamp: document.querySelector("#stamp")?.textContent || "",
       volume: document.querySelector("#volume")?.textContent || "",
-      count: document.querySelector("#count")?.textContent || ""
+      count: document.querySelector("#count")?.textContent || "",
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || "",
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null
     }));
     assert.ok(gapStateUi.message.includes("Persisted candle gaps detected"), "gapped API payload was not explicitly rejected");
     assert.deepEqual([gapStateUi.price, gapStateUi.stamp, gapStateUi.volume, gapStateUi.count], ["—", "—", "—", "—"]);
+    assert.equal(gapStateUi.emaOverlayData.length, 0);
+    assert.equal(gapStateUi.vwapOverlayData.length, 0);
+    assert.ok(gapStateUi.chartIndicatorStatus.startsWith("GATED"));
     await page.unroute(candleRouteMatcher);
 
     // Even a structurally valid HTTP 200 batch is rejected when its selected timeframe is stale.
@@ -503,6 +577,7 @@ const { chromium } = require("playwright");
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
+          schema: "hes.market_candles_view.v1",
           status: "ok",
           source: "gateio_public_spot",
           source_reader: "global_market_data_reader_v1",
@@ -538,66 +613,16 @@ const { chromium } = require("playwright");
       price: document.querySelector("#price")?.textContent || "",
       stamp: document.querySelector("#stamp")?.textContent || "",
       volume: document.querySelector("#volume")?.textContent || "",
-      count: document.querySelector("#count")?.textContent || ""
+      count: document.querySelector("#count")?.textContent || "",
+      chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || "",
+      emaOverlayData: typeof emaOverlayData !== "undefined" ? emaOverlayData : null,
+      vwapOverlayData: typeof vwapOverlayData !== "undefined" ? vwapOverlayData : null
     }));
     assert.deepEqual([staleTimeframeUi.price, staleTimeframeUi.stamp, staleTimeframeUi.volume, staleTimeframeUi.count], ["—", "—", "—", "—"]);
+    assert.equal(staleTimeframeUi.emaOverlayData.length, 0);
+    assert.equal(staleTimeframeUi.vwapOverlayData.length, 0);
+    assert.ok(staleTimeframeUi.chartIndicatorStatus.startsWith("GATED"));
     await page.unroute(staleRouteMatcher);
-    // Exercise the actual authenticated Mother Command Center in Chromium.
-    const chatToken = process.env.HES_MOTHER_CHAT_TOKEN;
-    assert.ok(typeof chatToken === "string" && chatToken.length >= 32, "ephemeral browser-test chat token is missing");
-    assert.equal(await page.locator("#motherChatPanel").count(), 1, "Mother Command Center panel is missing");
-    await page.locator("#motherChatToken").fill(chatToken);
-    const loginResponsePromise = page.waitForResponse(response => {
-      try { return new URL(response.url()).pathname === "/api/mother-chat/session"; } catch (_) { return false; }
-    });
-    await page.locator("#motherChatUnlock").click();
-    const loginResponse = await loginResponsePromise;
-    const loginPayload = await loginResponse.json();
-    assert.equal(loginResponse.status(), 200, "Mother Command Center login failed: " + JSON.stringify(loginPayload));
-    await page.waitForFunction(() => document.querySelector("#motherChatWorkspace") && !document.querySelector("#motherChatWorkspace").hidden);
-    assert.equal(await page.locator("#motherChatToken").inputValue(), "", "access token must be cleared from the form after login");
-
-    await page.locator("#motherChatInput").fill("hello");
-    const chatResponsePromise = page.waitForResponse(response => {
-      try { return new URL(response.url()).pathname === "/api/mother-chat"; } catch (_) { return false; }
-    });
-    await page.locator("#motherChatSend").click();
-    const chatResponse = await chatResponsePromise;
-    assert.equal(chatResponse.status(), 200, "Mother chat message endpoint did not respond");
-    const chatPayload = await chatResponse.json();
-    assert.equal(chatPayload.status, "NEEDS_CLARIFICATION", "unsupported input must request clarification");
-    assert.equal(chatPayload.external_llm_used, false, "free Command Center must not call an external LLM");
-    assert.equal(chatPayload.execution_enabled, false);
-    assert.equal(chatPayload.orders_placed, false);
-    await page.waitForFunction(() => [...document.querySelectorAll(".mother-chat-message")].some(
-      node => node.textContent.includes("Please specify one supported task")
-    ));
-    await page.locator("#motherChatLogout").click();
-    await page.waitForFunction(() => document.querySelector("#motherChatLogin") && !document.querySelector("#motherChatLogin").hidden);
-    evidence.mother_chat_ui = {
-      panel_present: true,
-      login_http_status: loginResponse.status(),
-      message_http_status: chatResponse.status(),
-      unsupported_intent_status: chatPayload.status,
-      external_llm_used: chatPayload.external_llm_used,
-      execution_enabled: chatPayload.execution_enabled,
-      orders_placed: chatPayload.orders_placed,
-      logout_locked_ui: true
-    };
-    await page.setViewportSize({ width: 390, height: 844 });
-    const chatMobileLayout = await page.evaluate(() => ({
-      viewport_width: window.innerWidth,
-      document_width: document.documentElement.scrollWidth,
-      panel_width: document.querySelector("#motherChatPanel")?.getBoundingClientRect().width || 0
-    }));
-    assert.ok(chatMobileLayout.panel_width > 300 && chatMobileLayout.panel_width <= 391,
-      "Mother Command Center panel is not responsive on mobile: " + JSON.stringify(chatMobileLayout));
-    assert.ok(chatMobileLayout.document_width <= chatMobileLayout.viewport_width + 1,
-      "Mother Command Center causes horizontal page overflow on mobile: " + JSON.stringify(chatMobileLayout));
-    await page.screenshot({ path: "artifacts/mother-chat-command-center-browser-smoke.png", fullPage: true });
-    evidence.mother_chat_ui.mobile_layout = chatMobileLayout;
-
-
     evidence.stale_timeframe_fail_closed = true;
     evidence.stale_timeframe_ui = staleTimeframeUi;
     require("node:fs").writeFileSync(

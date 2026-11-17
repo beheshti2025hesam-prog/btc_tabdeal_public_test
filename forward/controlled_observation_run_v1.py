@@ -11,11 +11,14 @@ from typing import Any, Iterable
 from .forward_tabdeal_ingestion_v1 import ingest_closed_candles
 from .forward_observation_writer_v1 import ForwardObservationWriterV1
 from .runtime_guard_v1 import RuntimeContext
+from .sequence_semantics_v1 import SequenceCapabilitiesV1
 
 
 class ControlledObservationRunV1:
-    def __init__(self, *, writer: ForwardObservationWriterV1):
+    def __init__(self, *, writer: ForwardObservationWriterV1,
+                 capabilities: SequenceCapabilitiesV1 | None = None):
         self.writer = writer
+        self.capabilities = capabilities
 
     def run(self, *, forward_run_id: str, observed_at: datetime,
             records: Iterable[dict[str, Any]]) -> tuple[str, ...]:
@@ -23,7 +26,9 @@ class ControlledObservationRunV1:
             raise ValueError("observed_at must be timezone-aware")
         observed_at = observed_at.astimezone(timezone.utc)
         materialized = tuple(records)
-        candles, gaps = ingest_closed_candles(materialized, as_of=observed_at)
+        candles, gaps = ingest_closed_candles(
+            materialized, as_of=observed_at, capabilities=self.capabilities
+        )
         context = RuntimeContext(
             source="tabdeal_ws_forward_v1",
             observed_at=observed_at.isoformat(),

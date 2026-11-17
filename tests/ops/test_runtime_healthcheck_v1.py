@@ -57,6 +57,8 @@ def test_runtime_healthcheck_validates_precision_paper_only_and_daily_cap(tmp_pa
     witness = tmp_path / 'witness.jsonl'
     _write_jsonl(witness, [{'observed_at': _iso(now), 'status': 'PASS', 'source': 'gateio_public_spot', 'symbol': 'BTC_USDT', 'timeframe': '1m', 'execution_enabled': False, 'orders_placed': False, 'latest_age_seconds': 20}])
     monkeypatch.setattr(health, 'WITNESS', witness)
+    # Keep the healthcheck unit test independent of the host running pytest.
+    monkeypatch.setattr(health.shutil, 'disk_usage', lambda _: health.shutil._ntuple_diskusage(100, 50, 50))
     runner = FakeRunner()
     report = health.collect_checks(root=tmp_path, now=now, runner=runner)
     assert report['overall'] == 'OK'
@@ -124,3 +126,12 @@ def test_runtime_healthcheck_blocks_more_than_three_candidates_per_utc_day(tmp_p
     report = health.collect_checks(root=tmp_path, now=now, runner=FakeRunner())
     assert report['overall'] == 'CRITICAL'
     assert any(issue['check'] == 'precision:daily_signal_cap' for issue in report['issues'])
+
+
+
+def test_runtime_healthcheck_warns_when_disk_free_is_below_fifteen_percent(tmp_path, monkeypatch):
+    monkeypatch.setattr(health.shutil, 'disk_usage', lambda _: health.shutil._ntuple_diskusage(100, 87, 13))
+    report = health.collect_checks(root=tmp_path, now=2_000_000_000, runner=FakeRunner())
+    disk_check = next(row for row in report['checks'] if row['check'] == 'disk-free')
+    assert disk_check['state'] == 'WARN'
+    assert disk_check['detail'] == '13.0%'

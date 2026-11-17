@@ -13,13 +13,14 @@ jobs:
       ${{ github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: Download locked prerequisite artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
           name: concentration-sensitivity-audit-v1
           path: ${{ runner.temp }}/concentration-artifact
@@ -42,7 +43,7 @@ jobs:
           assert d["final_verdict"]=="EVIDENCE_INSUFFICIENT_FOR_PROMOTION"
           print("EFFECTIVE_EVIDENCE_AUDIT_VALID")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: effective-evidence-audit-v1
           path: effective_evidence_audit_v1.json

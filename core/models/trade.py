@@ -4,7 +4,7 @@ Data Contract v1.0.
 """
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 @dataclass(frozen=True)
 class CanonicalTrade:
@@ -17,5 +17,6 @@ class CanonicalTrade:
     quantity: float
     side: str
     timestamp: datetime
-    sequence: Optional[int] = None
+    # Venue sequence is opaque metadata unless an exact adapter contract says otherwise.
+    sequence: Optional[Union[int, str]] = None
     ingested_at: Optional[datetime] = None

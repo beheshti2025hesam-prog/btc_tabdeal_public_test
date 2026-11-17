@@ -1,0 +1,20 @@
+{
+  "date_utc": "2026-11-16",
+  "dropbox_quota": {
+    "free_bytes": 780861940,
+    "total_bytes": 2147483648,
+    "used_bytes": 1366621708
+  },
+  "existing_dropbox_backup_modified": false,
+  "gate_status": "BLOCKED_INSUFFICIENT_FREE_QUOTA",
+  "next_gate": "Obtain additional quota headroom, then run transfer into a new versioned Restic repository and verify check --read-data plus restore before any retention migration.",
+  "post_copy_remote_integrity_and_restore": "NOT_RUN",
+  "remote_mutation_performed": false,
+  "repository_bytes": 818060463,
+  "required_bytes": 885169327,
+  "reserve_bytes": 67108864,
+  "schema": "hes_restic_offsite_capacity_gate_evidence_v1",
+  "shortfall_bytes": 104307387,
+  "source": "rclone about hesdropbox: --json plus isolated Restic copy-simulation repository size",
+  "transfer_authorized": false
+}

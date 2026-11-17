@@ -1,0 +1,11 @@
+{
+  "benchmark": "tar stream of /opt/hes-trade-agent/candidates/mother-chat-clean-clone",
+  "date_utc": "2026-11-15",
+  "source_bytes": 86883681,
+  "gzip1_bytes": 31656094,
+  "zstd3_bytes": 30324382,
+  "zstd9_bytes": 28132792,
+  "method": "tar stream piped directly to compressor and byte counter; no archive file created",
+  "sample_only": true,
+  "production_format_changed": false
+}

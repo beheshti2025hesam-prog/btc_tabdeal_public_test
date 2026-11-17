@@ -3,7 +3,6 @@ name: HES Trade Agent — Source Identity Reconciliation Lock v1
 on:
   push:
     branches:
-      - main
       - reconciliation/source-identity-lock-20261005
   pull_request:
     branches:
@@ -20,7 +19,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout exact reconciliation branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
@@ -80,7 +79,7 @@ jobs:
           PY
 
       - name: Upload immutable reconciliation artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: source-identity-reconciliation-v1
           path: |
