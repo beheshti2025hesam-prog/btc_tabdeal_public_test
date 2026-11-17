@@ -71,6 +71,26 @@ def test_persian_capability_question_returns_complete_bounded_answer():
         ("Que peux-tu faire ?", "fr", "comptes d’exchange"),
     ],
 )
+@pytest.mark.parametrize(
+    ("message", "expected_language"),
+    [
+        ("Was kannst du tun?", "de"),
+        ("Hallo!", "de"),
+        ("Que peux-tu faire ?", "fr"),
+        ("Bonjour!", "fr"),
+    ],
+)
+def test_auto_language_detection_handles_capability_questions_and_greetings(message, expected_language):
+    result = build_chat_response(message, {}, language="auto")
+    assert result["language"] == expected_language
+
+
+def test_capability_question_takes_precedence_over_greeting_prefix():
+    result = build_chat_response("سلام، از تو چه کاری بر می آید؟", {}, language="fa")
+    assert result["status"] == "CHAT_ONLY"
+    assert "Gate.io" in result["answer"]
+
+
 def test_capability_answers_support_all_ui_languages(message, language, expected):
     result = build_chat_response(message, {}, language=language)
     assert result["intent"] == "GENERAL_CHAT"
