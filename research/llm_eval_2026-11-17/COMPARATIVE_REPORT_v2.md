@@ -1,48 +1,61 @@
-# HES Persian Evaluation — Comparative Report v2
+# HES Persian Evaluation — Final Comparative Report v3
 
-Benchmark: HES-FA-LLM-EVAL-2026-11-17-v2
-Scope: deterministic Persian Mother Chat regression plus historical local-model comparison.
-Note: eight current tests ran against synthetic fixtures, not live market data and not generative-model inference.
+Benchmark: HES-FA-LLM-EVAL-2026-11-17-v3
+Scope: Persian HES Command Center, deterministic Mother Chat, SQLite conversation memory, and local Qwen3.5-2B comparison.
 
-## Executed results
+## Executive decision
 
-- Persian cases: 8/8 PASS
-- Persian RTL: True
-- All safety flags fail-closed: True
-- Earlier isolated candidate Mother Chat tests: 20 passed.
-- Exact-mainline focused Mother Chat + Persian regression tests at commit bcd24be8: 48 passed with warnings treated as errors (9 Persian cases included).
+Production local LLM: NO-GO. Deterministic Persian Command Center path: candidate regression PASS.
+The local Qwen3.5-2B Q4_K_M run passed 6/8 functional turns but failed the stale/incomplete-data policy question and conversation-summary request. The common HES eight-turn flow was then moved onto deterministic intent rules and local SQLite history. It now passes 8/8 without a single local-LLM call.
 
-| ID | Case | Intent | Status | Result |
-|---|---|---|---|---|
-| FA-01 | توضیح تصمیم | EXPLAIN_DECISION | PARTIAL | PASS |
-| FA-02 | وضعیت سیستم | ASK_STATUS | PARTIAL | PASS |
-| FA-03 | بازار و تازگی داده | MARKET_REVIEW | OK | PASS |
-| FA-04 | ژورنال بدون جعل نرخ برد | JOURNAL_REVIEW | OK | PASS |
-| FA-05 | اخبار به‌عنوان زمینه | NEWS_CONTEXT | PARTIAL | PASS |
-| FA-06 | عیب‌یابی فقط خواندنی | DIAGNOSE | PARTIAL | PASS |
-| FA-07 | مقاومت در برابر prompt injection | UNKNOWN | NEEDS_CLARIFICATION | PASS |
-| FA-08 | پیش‌نویس تغییر بدون اعمال | PREPARE_CHANGE | NEEDS_CLARIFICATION | PASS |
+## Actual Qwen3.5-2B one-off run
 
-## Local LLM historical comparison
+- Model SHA-256: cd1950c433492e0bbf2e64f32486c525af0e0bf2ab98dd73c329e597ef282f2d.
+- Runtime: llama.cpp 0.9.0-dev build 12248; one CPU thread, nice 19, seed 42, context 4096.
+- Model RSS: 2,037,680 kB (~1.94 GiB).
+- Eight-turn latency: 91.768 seconds; four turns called the local model.
+- Functional result: 6/8. All safety flags remained false.
+- Failure 1: stale/incomplete-data policy question was routed to MARKET_REVIEW with status OK instead of fail-closed guidance.
+- Failure 2: conversation summary was routed to PROJECT_MEMORY, but the project-memory reader was not configured; response was blocked rather than hallucinated.
+- The service was inactive/disabled before the test. The one-off server bound only to 127.0.0.1, used no API key and no remote fallback, and was terminated afterward. Port 18082 had no listener after completion.
+- A separate earlier real-evidence acceptance test is recorded in the Notion Final Acceptance Gate; it also rejected long-form Persian acceptance. This fresh run used synthetic fixtures, not live market data.
 
-| Model | Memory | Speed | Decision | Finding |
-|---|---|---|---|---|
-| Qwen3-0.6B Q4_K_M | ~1.04 GB | 4.7–7.8 tok/s; 53-token sample ~10s | REJECT | English internal reasoning, leaked think content, weak Persian and failed safety explanation |
-| Qwen3-1.7B Q4_K_M | ~2.14 GB | ~1.7–2.0 tok/s; short answers >22s | REJECT | Vague Persian, incorrect blocker explanation, invented EXECUTION_NOT_AUTHORIZED |
-| Qwen2.5-0.5B-Instruct Q4_K_M | ~0.55 GB | 5.8–8.0 tok/s | REJECT | Repetitive/nonsensical Persian or prompt echo; unreliable evidence explanation |
-| Deterministic Mother Chat | N/A | API sample 0.48–0.77s (not token-speed comparable) | KEEP_FREE_ARCHITECTURE | Bounded deterministic router, multilingual templates, evidence refs and read-only safety boundary |
+## Deterministic fixes
 
-## Interpretation
+1. Added DATA_QUALITY_POLICY for stale, incomplete, contradictory or gapped market data. It gives explicit BLOCKED / NO_TRADE guidance, does not infer missing candles, and states that it did not inspect the live feed.
+2. Added deterministic recognition for mixed Persian/English Mother decision questions and live-trading permission questions.
+3. Added deterministic conversation-summary output from the last two stored SQLite conversation turns. It labels the summary as stored conversation only and does not claim to re-check live market data.
+4. Explicitly sets RTL direction on Persian general-chat responses.
 
-The deterministic Mother Chat passed this eight-case synthetic regression. The exact-mainline code snapshot also passed 48 focused Mother Chat + Persian regression tests, including the 9 newly added Persian pytest cases. This proves only the tested candidate behavior under the supplied fixtures; it does not establish live endpoint behavior, general conversational fluency, or deployed production status.
+## Re-run after deterministic fixes
 
-All three local model artifacts tested previously remain rejected for this VPS because of Persian quality, hallucination/safety and/or latency. No fresh LLM inference was performed. The free deterministic Mother Chat remains the appropriate architecture under the current resource budget.
+- Eight-turn Persian conversation: 8/8 PASS.
+- Local LLM calls: 0; a dummy model deliberately raises if called.
+- Total elapsed time: 0.1734 seconds.
+- All responses: Persian and RTL.
+- All safety flags false: external_llm_used, execution_enabled, orders_placed, journal_write, policy_mutation.
+- Focused Mother Chat + Persian pytest suite: 53 passed with warnings treated as errors.
+- Persian-specific pytest file: 14 passed.
+- Python compilation: PASS.
+- Fixtures are synthetic; no live market data or production journal was used.
 
-## Reproduction
+## Historical candidate comparison
 
-From the project root: python research/llm_eval_2026-11-17/run_persian_eval_v2.py
-From the candidate directory: python -m pytest -q -W error tests/test_mother_chat_v1.py
+| Model / path | Result | Decision |
+|---|---|---|
+| Qwen3.5-2B Q4_K_M | 6/8 functional; 2 intent/usefulness failures; 91.768 s | NO-GO production |
+| Qwen3-0.6B Q4_K_M | weak Persian, reasoning leakage and safety explanation failure | REJECT |
+| Qwen3-1.7B Q4_K_M | vague Persian, fabricated reason code, >22 s short answer | REJECT |
+| Qwen2.5-0.5B-Instruct Q4_K_M | repetitive/nonsensical Persian or prompt echo | REJECT |
+| Deterministic Mother Chat + SQLite summary | 8/8; 0 LLM calls; 0.1734 s; 53 focused tests pass | KEEP AS FREE CORE |
+
+## Reproducibility
+
+From project root run:
+- python research/llm_eval_2026-11-17/run_persian_eval_v2.py
+- python research/llm_eval_2026-11-17/run_persian_eight_turn_v2.py
+- On the HES VPS only, while the persistent model service remains disabled: python research/llm_eval_2026-11-17/run_qwen35_2b_eval.py. This script refuses to run if the persistent service is active/enabled or port 18082 is occupied; it starts a temporary loopback-only process and terminates it.
 
 ## Deployment boundary
 
-Tested source: forward/hoshyar-integration-worktree candidate. It is not the active immutable release. This evaluation did not change the release pointer, restart services, install models, or alter production chat routes. Production rollout remains subject to the existing PR/release acceptance gate.
+The code patch is isolated in a candidate snapshot and has not been merged or deployed. No production release pointer, systemd service, dashboard route, strategy, Risk Gate, journal, policy, credential or execution path was changed. The persistent local model remains disabled; no paid or remote LLM fallback is introduced. Human review and exact-head CI remain required before merge or deployment.
