@@ -1,0 +1,186 @@
+{
+  "schema": "hes.dashboard_native_altcoin_adapter_smoke.v1",
+  "created_at_utc": "2026-11-17T16:47:20.470390+00:00",
+  "source": "existing GateioSpotKlineSource reused through PersistedGlobalFeedSource dashboard facade",
+  "cases": 8,
+  "passed": 8,
+  "results": [
+    {
+      "canonical_symbol": "ETHUSDT",
+      "source_symbol": "ETH_USDT",
+      "timeframe": "1m",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 5,
+      "batch_sha256": "dd814374064bd8e60a735f40675cb621dc91796f89bee152463c4ecf450d5077",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "RANGE",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "canonical_symbol": "ETHUSDT",
+      "source_symbol": "ETH_USDT",
+      "timeframe": "15m",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 127,
+      "batch_sha256": "7a461029d801bf7f248f0c17069eebd341700cda666080a3ffe0c3e3d676d48c",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "BEARISH",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "canonical_symbol": "ETHUSDT",
+      "source_symbol": "ETH_USDT",
+      "timeframe": "1h",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 2829,
+      "batch_sha256": "603725ccf1a89bc941d18175780a62f4393a60fe4c665925eb63f88680963565",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "RANGE",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "canonical_symbol": "ETHUSDT",
+      "source_symbol": "ETH_USDT",
+      "timeframe": "4h",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 2831,
+      "batch_sha256": "56caf0357384ffaed353e40f9a2bb4e1294a627ac7caad207bec92a55d63fde4",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "BEARISH",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "canonical_symbol": "SOLUSDT",
+      "source_symbol": "SOL_USDT",
+      "timeframe": "1m",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 14,
+      "batch_sha256": "1249c39d4a4d532660e14a5e5909fec8e3bd105b6a57776c594c1bc652741044",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "TRANSITION",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "canonical_symbol": "SOLUSDT",
+      "source_symbol": "SOL_USDT",
+      "timeframe": "15m",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 136,
+      "batch_sha256": "4072cac53f54e2bf4f350345bb2c9f101682d6c9ae2129225b0b97e98c9acbee",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "BEARISH",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "canonical_symbol": "SOLUSDT",
+      "source_symbol": "SOL_USDT",
+      "timeframe": "1h",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 2838,
+      "batch_sha256": "60365ec776938eb36163dda345fde7946bc7682ddccc35063e1b4934dcdd2220",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "RANGE",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    },
+    {
+      "canonical_symbol": "SOLUSDT",
+      "source_symbol": "SOL_USDT",
+      "timeframe": "4h",
+      "source_reader": "spot_candlesticks",
+      "candles": 239,
+      "gaps": 0,
+      "age_seconds": 2840,
+      "batch_sha256": "299cd8ebfd9faa173058370829587fb470a66b53369e773a5610cb1f00f4054a",
+      "feature_batch_matches": true,
+      "feature_ready": true,
+      "regime": "TRANSITION",
+      "indicator_count": 39,
+      "all_finite": true,
+      "safety": {
+        "decision_authority": false,
+        "signal_generation_enabled": false,
+        "risk_gate_bypass": false,
+        "execution_enabled": false,
+        "orders_placed": false
+      }
+    }
+  ],
+  "interpretation": "Proves current dashboard data path for explicit ETH/SOL Gate.io Spot mappings only. Does not authorize strategy/timeframe roles or execution; does not validate other pairs or venues."
+}

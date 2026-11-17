@@ -12,7 +12,7 @@ from forward.native_ohlcv_v1 import INTERVAL_MS, NativeCandle, NativeOHLCVBatch,
 from forward.global_market_data_reader_v1 import load_market_input, canonical_market_batch_sha256
 from forward.native_ohlcv_gateio_v1 import (
     VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES, VOLUME_SEMANTICS_CONTRACT_VERSION,
-    TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE,
+    TRADE_COUNT_AVAILABLE, TAKER_BUY_FLOW_AVAILABLE, GATEIO_SPOT_SYMBOL_MAP, GateioSpotKlineSource,
     gateio_spot_source_symbol, verify_gateio_spot_symbol_mapping)
 from forward.native_ohlcv_feature_pipeline_v1 import NativeOHLCVFeaturePipelineV1
 from forward.trade_journal_view_v1 import configured_decision_journal, JournalProjectionError
@@ -27,7 +27,7 @@ from forward.native_ohlcv_websocket_v1 import NativeKlineStreamError, parse_klin
 from forward.native_ohlcv_stream_transport_v1 import run_spot_kline_stream
 from forward.universal_indicator_engine_v1 import build_snapshot as build_universal_indicator_snapshot, dashboard_payload as build_indicator_dashboard_payload, INDICATOR_REGISTRY
 
-SUPPORTED_SYMBOLS = {"BTCUSDT"}
+SUPPORTED_SYMBOLS = set(GATEIO_SPOT_SYMBOL_MAP)
 CANONICAL_ANALYSIS_SYMBOL = "BTCUSDT"
 GATEIO_SOURCE_SYMBOL = gateio_spot_source_symbol(CANONICAL_ANALYSIS_SYMBOL)
 SUPPORTED_INTERVALS = {"1m", "15m", "1h", "4h"}
@@ -44,7 +44,7 @@ def _market_data_root() -> Path:
 CHART_ASSET_PATH = "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js"
 CHART_ASSET_FILE = Path(__file__).resolve().parent / "static" / "third_party" / "lightweight-charts" / "5.0.8" / "lightweight-charts.standalone.production.js"
 class PersistedGlobalFeedSource:
-    """Read the same validated persisted candles used by the analysis input boundary."""
+    """Reuse persisted BTC candles and the shared native Gate.io adapter for explicitly mapped altcoins."""
     venue = "gateio"
     product = "spot"
 
@@ -55,6 +55,11 @@ class PersistedGlobalFeedSource:
             raise ValueError("invalid persisted candle limit")
         if start_time_ms is not None or end_time_ms is not None or as_of_ms is not None:
             raise ValueError("persisted global feed does not support custom time windows")
+        if symbol != CANONICAL_ANALYSIS_SYMBOL:
+            return _NATIVE_GATEIO_SOURCE.fetch(
+                symbol=symbol, interval=interval, limit=limit,
+                start_time_ms=start_time_ms, end_time_ms=end_time_ms, as_of_ms=as_of_ms,
+            )
         market = load_market_input(root=_market_data_root())
         if interval == "1m":
             from forward.global_market_data_reader_v1 import read_closed_candles
@@ -92,6 +97,7 @@ class PersistedGlobalFeedSource:
         return batch
 
 
+_NATIVE_GATEIO_SOURCE = GateioSpotKlineSource()
 _SOURCE = PersistedGlobalFeedSource()
 _FEATURES = NativeOHLCVFeaturePipelineV1(volume_semantics_approved=VOLUME_SEMANTICS_APPROVED_FOR_BASE_QUOTE_FEATURES)
 _NEWS_BRAIN = NewsIntelligenceBrain()
@@ -168,6 +174,13 @@ def _get_batch(symbol, interval):
             return cached[0], cached[1]
     return _refresh_batch(symbol, interval)
 
+def _source_reader_identity(batch):
+    if batch.endpoint_kind == "global_market_data_reader_v1":
+        return "global_market_data_reader_v1"
+    if batch.endpoint_kind == "spot_candlesticks":
+        return "native_ohlcv_gateio_v1"
+    raise ValueError("unsupported_market_data_reader_identity")
+
 def _indicator_series_payload(points, batch, period):
     # Validate complete indicator points against the chart's exact candle times.
     if type(period) is not int or period <= 0 or not isinstance(points, (tuple, list)):
@@ -218,9 +231,9 @@ def _current_chart_batch_provenance():
     }
 
 HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HES Trade Agent</title><link rel="icon" href="/static/hes-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/static/dashboard.css"><script src="/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js" integrity="sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl" crossorigin="anonymous"></script></head><body><a class="skip-link" href="#main-content">Skip to dashboard content</a><main id="main-content" tabindex="-1"><header><div class="brand-lockup"><img class="brand-mark" src="/static/hes-mark.svg" alt="" aria-hidden="true"><div><h1 class="brand">HES Trade Agent</h1><div class="sub">Global feed · persisted closed candles</div></div></div><div class="header-actions"><label class="language-control" for="languageSelect"><span>Language</span><select id="languageSelect" aria-label="Dashboard language"><option value="en">English</option><option value="fa">فارسی</option><option value="de">Deutsch</option><option value="fr">Français</option></select></label><span class="pill">HOLD / NO_TRADE_ONLY</span></div></header>
+<title>HES Trade Agent</title><link rel="icon" href="/static/hes-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/static/dashboard.css"><script src="/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js" integrity="sha384-8J8e9bGIwf7e9BLO5rwf4zJwNRKcypGnvuGzORD/t4TrFA1gWbl3Hsi/RvyWwBKl" crossorigin="anonymous"></script></head><body><a class="skip-link" href="#main-content">Skip to dashboard content</a><main id="main-content" tabindex="-1"><header><div class="brand-lockup"><img class="brand-mark" src="/static/hes-mark.svg" alt="" aria-hidden="true"><div><h1 class="brand">HES Trade Agent</h1><div class="sub">Gate.io Public Spot · validated closed candles</div></div></div><div class="header-actions"><label class="language-control" for="languageSelect"><span>Language</span><select id="languageSelect" aria-label="Dashboard language"><option value="en">English</option><option value="fa">فارسی</option><option value="de">Deutsch</option><option value="fr">Français</option></select></label><span class="pill">HOLD / NO_TRADE_ONLY</span></div></header>
 <nav class="section-nav" aria-label="Dashboard sections"><a href="#marketPanel">Market</a><a href="#precisionEntryPanel">Precision</a><a href="#technicalIntelligencePanel">Indicators / اسیلاتورها</a><a href="#strategyV2Panel">Strategy</a><a href="#motherPanel">Mother</a><a href="#motherChatPanel">HES Command Center</a><a href="#newsRadarPanel">News</a><a href="#safetyPanel">Safety</a><a href="#journalPanel">Journal</a></nav>
-<section class="panel" id="marketPanel" aria-labelledby="marketTitle"><h2 class="panel-title" id="marketTitle">Market overview · Gate.io</h2><div class="toolbar"><label>Symbol <select id="symbol"><option>BTCUSDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Canonical persisted global feed</span></div>
+<section class="panel" id="marketPanel" aria-labelledby="marketTitle"><h2 class="panel-title" id="marketTitle">Market overview · Gate.io</h2><div class="toolbar"><label>Symbol <select id="symbol"><option value="BTCUSDT">BTC / USDT</option><option value="ETHUSDT">ETH / USDT</option><option value="SOLUSDT">SOL / USDT</option></select></label><label>Timeframe <select id="interval"><option>15m</option><option>1m</option><option>1h</option><option>4h</option></select></label><button id="refresh">Refresh data</button><span class="muted" id="source">Validated Gate.io Public Spot feed</span><span class="muted">Market chart and indicators follow this symbol; Strategy/Mother decision panels remain BTC-canonical.</span></div>
 <div class="metrics"><div class="metric"><small>Last closed close</small><strong id="price" data-no-translate>—</strong></div><div class="metric"><small>Last closed candle (UTC)</small><strong id="stamp" data-no-translate class="stamp">—</strong></div><div class="metric"><small>Source volume (unchanged)</small><strong id="volume" data-no-translate>—</strong></div><div class="metric"><small>Closed candles</small><strong id="count" data-no-translate>—</strong></div></div>
 <div class="panel chart-panel">
 <div class="chart-indicator-toolbar" role="group" aria-label="Chart overlays">
@@ -235,15 +248,15 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <section class="panel" id="precisionEntryPanel" aria-labelledby="precisionEntryTitle"><h2 class="panel-title" id="precisionEntryTitle">Multi-Timeframe Alignment · Precision Entry</h2><div class="metrics"><div class="metric"><small>4H data</small><strong id="pe4h" data-no-translate>Checking…</strong></div><div class="metric"><small>1H data</small><strong id="pe1h" data-no-translate>Checking…</strong></div><div class="metric"><small>15M setup gate</small><strong id="pe15m" data-no-translate>Checking…</strong></div><div class="metric"><small>1M feed</small><strong id="pe1m" data-no-translate>Checking…</strong></div><div class="metric"><small>Precision Entry</small><strong id="peState" data-no-translate>BLOCKED</strong></div><div class="metric"><small>Risk Gate</small><strong id="peRisk" data-no-translate>UNVERIFIED</strong></div></div><p class="muted" id="peReasons" data-no-translate role="status" aria-live="polite">Waiting for validated multi-timeframe evidence…</p><div class="gate"><strong>Advisory only · execution disabled</strong><p class="muted">The 15M setup remains authoritative. The 1M layer cannot create a trade, change direction, bypass Risk Gate, or submit orders. Missing/stale candles, missing provenance-bound entry context, or unapproved setup means BLOCKED / NO_TRADE.</p></div></section>
 <section class="panel" id="technicalIntelligencePanel" aria-labelledby="technicalIntelligenceTitle">
 <h2 class="panel-title" id="technicalIntelligenceTitle">Technical Intelligence · هوش اندیکاتوری تطبیقی</h2>
-<p class="muted">Read-only research · Gate.io Public Spot · 15m setup authority · 1m precision only · 1h/4h context. Regime evidence share is not a predictive probability.</p>
+<p class="muted">Read-only research · Gate.io Public Spot. The initial 15m/1m/1h/4h timeframe-role profile is validated for BTC only; ETH/SOL remain descriptive until their own timeframe profiles pass validation. Regime evidence share is not a predictive probability.</p>
 <div class="metrics">
 <div class="metric"><small>Engine status</small><strong id="technicalStatus" data-no-translate>Checking…</strong></div>
 <div class="metric"><small>Regime alignment</small><strong id="technicalConsensus" data-no-translate>UNKNOWN</strong></div>
 <div class="metric"><small>Source</small><strong id="technicalSource" data-no-translate>Gate.io</strong></div>
 <div class="metric"><small>Safety</small><strong id="technicalSafety" data-no-translate>READ ONLY</strong></div>
 </div>
-<div class="metrics" id="technicalRegimeMetrics" aria-live="polite"><div class="metric"><small>4H context</small><strong>—</strong></div><div class="metric"><small>1H context</small><strong>—</strong></div><div class="metric"><small>15M setup</small><strong>—</strong></div><div class="metric"><small>1M precision</small><strong>—</strong></div></div>
-<div class="toolbar"><label for="technicalTimeframe">Indicator detail timeframe</label><select id="technicalTimeframe"><option value="15m" selected>15m · setup authority</option><option value="4h">4h · context</option><option value="1h">1h · context</option><option value="1m">1m · precision only</option></select><button id="technicalRefresh" type="button">Refresh indicators</button></div>
+<div class="metrics" id="technicalRegimeMetrics" aria-live="polite"><div class="metric"><small>4H</small><strong>—</strong></div><div class="metric"><small>1H</small><strong>—</strong></div><div class="metric"><small>15M</small><strong>—</strong></div><div class="metric"><small>1M</small><strong>—</strong></div></div>
+<div class="toolbar"><label for="technicalTimeframe">Indicator detail timeframe</label><select id="technicalTimeframe"><option value="15m" selected>15m</option><option value="4h">4h</option><option value="1h">1h</option><option value="1m">1m</option></select><button id="technicalRefresh" type="button">Refresh indicators</button></div>
 <p class="muted" id="technicalProvenance">Waiting for provenance-bound indicator evidence…</p><p class="muted" id="technicalProfile">Waiting for regime-adaptive indicator profile…</p>
 <div class="journal-scroll"><table class="journal-table"><caption class="sr-only">Read-only technical indicator values and availability</caption><thead><tr><th>Family</th><th>Indicator</th><th>Value</th><th>Status / reason</th></tr></thead><tbody id="technicalIndicatorRows"><tr><td colspan="4">No indicator evidence loaded.</td></tr></tbody></table></div>
 <div class="gate"><strong>Research-only · no signal or policy authority</strong><p class="muted">Indicators are grouped to avoid double-counting correlated evidence. Missing volume semantics disables volume-derived indicators only. This panel cannot generate signals, alter strategy thresholds, bypass Risk Gate, write journals, or place orders.</p></div>
@@ -254,7 +267,7 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 <section class="panel" id="newsRadarPanel" aria-labelledby="newsTitle"><h2 class="panel-title" id="newsTitle">News Radar · read-only evidence</h2><div class="metrics"><div class="metric"><small>Monitor</small><strong id="newsStatus" data-no-translate role="status" aria-live="polite">BLOCKED</strong></div><div class="metric"><small>Qualified coverage</small><strong id="newsCoverage" data-no-translate>UNKNOWN</strong></div><div class="metric"><small>Sources OK / empty / failed</small><strong id="newsSources" data-no-translate>0 / 0 / 0</strong></div><div class="metric"><small>International / domestic / venue</small><strong id="newsScopes" data-no-translate>0 / 0 / 0</strong></div><div class="metric"><small>Fresh / aging / stale / future / empty / failed / unknown</small><strong id="newsFreshness" data-no-translate>0 / 0 / 0 / 0 / 0 / 0 / 0</strong></div><div class="metric"><small>Last poll (UTC)</small><strong id="newsLastPoll" data-no-translate>—</strong></div></div><p class="muted" id="newsSummary" data-no-translate>Waiting for verified news evidence…</p><p class="muted" id="newsFlags" data-no-translate>News does not originate trade direction or authorize execution.</p><ul id="newsItems" data-no-translate><li class="muted">No verified headlines loaded.</li></ul><h3>Per-source health and freshness</h3><ul id="newsSourceDetails" data-no-translate><li class="muted">No per-source health loaded.</li></ul><div class="gate"><strong>Context only · no trade authorization</strong><p class="muted">Gate.io remains the sole live market-data source. Gate.io announcements are venue-operational news only; candles, indicators and chart data never come from news feeds. News coverage is explicitly partial where shown.</p></div></section>
 <section class="panel" id="safetyPanel" aria-labelledby="safetyTitle"><h2 class="panel-title" id="safetyTitle">Decision and safety gates</h2><div class="gate"><strong>Execution: disabled</strong><p class="muted">This dashboard has no order-submit route. A global chart price is not an executable venue quote. Symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation must pass before a venue adapter can be enabled.</p></div><div class="metrics"><div class="metric"><small>Decision mode</small><strong>NO_TRADE_ONLY</strong></div><div class="metric"><small>Account access</small><strong>None</strong></div><div class="metric"><small>Order actions</small><strong>Disabled</strong></div></div></section>
 <section class="panel" id="journalPanel" aria-labelledby="journalTitle"><div class="toolbar"><div><h2 class="panel-title" id="journalTitle">Trade Journal · Decision & Learning Evidence</h2><div class="muted">Immutable forward decisions only. Executed trades and realized outcomes are not inferred from a signal.</div></div><button id="journalRefresh" type="button">Refresh journal</button></div><p class="muted" id="journalStatus" role="status" aria-live="polite" aria-atomic="true">Loading journal…</p><div class="journal-scroll"><table class="journal-table"><caption class="sr-only">Latest immutable forward decision events and their evidence references</caption><thead><tr><th scope="col">Time (UTC)</th><th scope="col">Market</th><th scope="col">Decision</th><th scope="col">Strategy family</th><th scope="col">Gate / reason</th><th scope="col">Outcome</th><th scope="col">Evidence</th></tr></thead><tbody id="journalRows" data-no-translate><tr><td colspan="7" class="muted">No journal entries loaded.</td></tr></tbody></table></div></section>
-<div class="footer"><span>Charts powered by</span> <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. <span>Copyright (c) 2025 TradingView, Inc.</span> <span>The chart reads the same validated persisted Gate.io candles through the canonical global-market reader used by the analysis input path; the dashboard does not make a second REST candle request. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io's documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.</span><span class="copyright" lang="en" dir="ltr" data-no-translate><span class="brand-footer-name">HES Trade Agent</span><span class="copyright-notice">Copyright © HES Trade Agent. All rights reserved.</span><span class="owner-name">SEYED HESAMEDDIN BEHESHTI SHIRAZI</span><span class="owner-role">Designer &amp; Owner</span></span></div></main>
+<div class="footer"><span>Charts powered by</span> <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a>. <span>Copyright (c) 2025 TradingView, Inc.</span> <span>BTC reads the validated persisted Gate.io candle feed; explicitly mapped ETH/SOL pairs reuse the shared native Gate.io Spot adapter. Chart and indicator calculations share the exact same batch and SHA-256 provenance. This is a single public venue source, not a cross-venue consolidated index. It is read-only; feature output is descriptive and does not authorize strategy or execution. Only fully closed, fresh, validated bars are displayed. Base and quote volume fields follow Gate.io's documented candlestick schema and are shown unchanged; trade count and taker-buy flow are unavailable. If the source is unavailable or stale, the chart fails closed.</span><span class="copyright" lang="en" dir="ltr" data-no-translate><span class="brand-footer-name">HES Trade Agent</span><span class="copyright-notice">Copyright © HES Trade Agent. All rights reserved.</span><span class="owner-name">SEYED HESAMEDDIN BEHESHTI SHIRAZI</span><span class="owner-role">Designer &amp; Owner</span></span></div></main>
 <script src="/static/dashboard.js" defer></script></body></html>'''
 
 
@@ -695,7 +708,7 @@ class Handler(BaseHTTPRequestHandler):
         if p.path == "/api/technical-intelligence":
             q = parse_qs(p.query)
             symbol = q.get("symbol", ["BTCUSDT"])[0]
-            if symbol != CANONICAL_ANALYSIS_SYMBOL:
+            if symbol not in SUPPORTED_SYMBOLS:
                 return self._send(400, b'{"error":"unsupported_symbol","fail_closed":true,"execution_enabled":false,"orders_placed":false}', "application/json")
             timeframes = {}
             failures = []
@@ -718,11 +731,12 @@ class Handler(BaseHTTPRequestHandler):
                         snapshot, source="gateio_public_spot",
                         input_sha256=batch.response_sha256, freshness_seconds=age,
                     )
+                    timeframes[tf]["source_reader"] = _source_reader_identity(batch)
                 except Exception as exc:
                     failures.append(tf + ":" + type(exc).__name__)
                     timeframes[tf] = {
                         "status": "BLOCKED", "reason": type(exc).__name__,
-                        "market_identity": {"venue":"gateio","market":"spot","symbol":"BTC_USDT","timeframe":tf},
+                        "market_identity": {"venue":"gateio","market":"spot","symbol":gateio_spot_source_symbol(symbol),"canonical_symbol":symbol,"timeframe":tf},
                         "controls": {"decision_authority":False,"signal_generation_enabled":False,
                                      "risk_gate_bypass":False,"execution_enabled":False,
                                      "orders_placed":False,"journal_write":False,"policy_mutation":False},
@@ -732,12 +746,20 @@ class Handler(BaseHTTPRequestHandler):
             consensus = (next(iter(directional)) if len(directional) == 1 and all(x in directional for x in regimes.values())
                          else "MIXED" if directional else "NO_DIRECTIONAL_CONSENSUS")
             ready = not failures and all(item.get("status") == "READ_ONLY_RESEARCH" for item in timeframes.values())
+            btc_roles = symbol == CANONICAL_ANALYSIS_SYMBOL
+            first_batch = next((x for x in timeframes.values() if x.get("status") == "READ_ONLY_RESEARCH"), None)
+            source_reader = first_batch.get("source_reader") if first_batch else ("global_market_data_reader_v1" if btc_roles else "native_ohlcv_gateio_v1")
             payload = {
                 "schema":"hes.universal_indicator_dashboard_bundle.v1",
                 "status":"VERIFIED" if ready else "PARTIAL",
-                "source":"gateio_public_spot", "symbol":"BTC_USDT",
-                "setup_authority_timeframe":"15m", "precision_refinement_timeframe":"1m",
-                "context_timeframes":["1h","4h"], "regime_consensus":consensus,
+                "source":"gateio_public_spot", "source_reader":source_reader,
+                "symbol":gateio_spot_source_symbol(symbol), "canonical_symbol":symbol,
+                "setup_authority_timeframe":"15m" if btc_roles else None,
+                "precision_refinement_timeframe":"1m" if btc_roles else None,
+                "context_timeframes":["1h","4h"] if btc_roles else [],
+                "timeframe_roles":({"4h":"HIGHER_TIMEFRAME_CONTEXT","1h":"HIGHER_TIMEFRAME_CONTEXT","15m":"SETUP_AUTHORITY","1m":"PRECISION_REFINEMENT"} if btc_roles else {}),
+                "timeframe_roles_status":"INITIAL_BTC_PROFILE" if btc_roles else "DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL",
+                "regime_consensus":consensus,
                 "timeframes":timeframes, "indicator_registry":INDICATOR_REGISTRY,
                 "failure_codes":failures,
                 "controls":{"decision_authority":False,"signal_generation_enabled":False,
@@ -795,7 +817,7 @@ class Handler(BaseHTTPRequestHandler):
                 "schema": "hes_native_ohlcv_indicator_snapshot_v1",
                 "status": "READY" if indicators_ready else "BLOCKED",
                 "source": "gateio_public_spot",
-                "source_reader": "global_market_data_reader_v1",
+                "source_reader": _source_reader_identity(batch),
                 "venue": batch.venue,
                 "product": batch.product,
                 "symbol": batch.symbol,
@@ -821,7 +843,7 @@ class Handler(BaseHTTPRequestHandler):
                 "orders_placed": False,
             }
             payload={"schema":"hes.market_candles_view.v1","status":"gaps_present" if batch.gaps else "ok",
-                "source":"gateio_public_spot","source_reader":"global_market_data_reader_v1",
+                "source":"gateio_public_spot","source_reader":_source_reader_identity(batch),
                 "venue":batch.venue,"product":batch.product,
                 "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
                 "trade_count_available":TRADE_COUNT_AVAILABLE,"taker_buy_flow_available":TAKER_BUY_FLOW_AVAILABLE,
@@ -832,7 +854,8 @@ class Handler(BaseHTTPRequestHandler):
                 "latest_age_seconds":age,"execution_enabled":False,"orders_placed":False,
                 "feature_ready":indicators_ready,"feature_reason":indicator_reason,
                 "indicators":indicators,
-                "stream_status":_STREAM_STATE["status"],"stream_reason":_STREAM_STATE["reason"],
+                "stream_status":_STREAM_STATE["status"] if symbol == CANONICAL_ANALYSIS_SYMBOL else "disabled",
+                "stream_reason":_STREAM_STATE["reason"] if symbol == CANONICAL_ANALYSIS_SYMBOL else "REST_ONLY_FOR_MAPPED_ALTCOIN",
                 "gaps":[{"expected_open_time_ms":g.expected_open_time_ms,
                     "next_observed_open_time_ms":g.next_observed_open_time_ms,
                     "missing_intervals":g.missing_intervals} for g in batch.gaps],
@@ -897,26 +920,3 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(exc.http_status,body,"application/json")
         except Exception:
             body = b'{"status":"BLOCKED","error":"CHAT_REQUEST_FAILED","execution_enabled":false,"orders_placed":false}'
-            return self._send(503,body,"application/json")
-    def log_message(self,fmt,*args):
-        if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
-
-def main():
-    # The legacy Binance stream is deliberately not started by the Gate.io chart path.
-    # Gate.io candles are REST-refreshed; a matching Gate.io stream needs its own
-    # source-identity/reconciliation tests before it can be enabled.
-    _STREAM_STATE.update(status="disabled", reason="gateio_stream_not_enabled")
-    host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
-    server=ThreadingHTTPServer((host,port),Handler)
-    stop = Event()
-    monitor_thread = Thread(target=_NEWS_MONITOR.run_forever, args=(stop,), name="hes-news-monitor", daemon=True)
-    monitor_thread.start()
-    print(f"HES read-only dashboard listening on http://{host}:{port}",flush=True)
-    try:
-        server.serve_forever()
-    finally:
-        stop.set()
-        monitor_thread.join(timeout=5)
-        server.server_close()
-
-if __name__=="__main__": main()

@@ -142,14 +142,16 @@ def test_market_and_symbol_agnostic_price_math_is_scale_invariant():
     scaled=[OHLCVBar(b.timestamp,b.open*10,b.high*10,b.low*10,b.close*10,
                      b.volume,b.quote_volume*10,True) for b in base]
     a=build_snapshot(base,venue="gateio",market="spot",symbol="BTC_USDT",timeframe="15m",volume_semantics_qualified=True)
-    b=build_snapshot(scaled,venue="generic_provider",market="forex_spot",symbol="EUR_USD",timeframe="1h",volume_semantics_qualified=True)
+    b=build_snapshot(scaled,venue="generic_provider",market="forex_spot",symbol="EUR_USD",timeframe="1h",volume_semantics_qualified=False)
     assert a.regime.label==b.regime.label
     for key in ("rsi_14","plus_di_14","minus_di_14","adx_14","atr_pct",
                 "bollinger_percent_b","bollinger_width_pct","efficiency_ratio_20",
-                "choppiness_14","relative_volume_20","mfi_14","cmf_20"):
+                "choppiness_14"):
         assert a.indicators[key].value==pytest.approx(b.indicators[key].value,rel=1e-10,abs=1e-10),key
     assert b.indicators["ema_20"].value==pytest.approx(a.indicators["ema_20"].value*10,rel=1e-12)
-    assert b.indicators["vwap_20"].value==pytest.approx(a.indicators["vwap_20"].value*10,rel=1e-12)
+    for key in ("relative_volume_20","mfi_14","cmf_20","vwap_20","obv","obv_change_20"):
+        assert b.indicators[key].status == "UNAVAILABLE"
+        assert b.indicators[key].reason == "VENUE_VOLUME_UNQUALIFIED"
 
 
 def test_extended_reference_parity_for_supertrend_choppiness_aroon_stochastic_mfi_obv():

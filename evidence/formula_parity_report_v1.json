@@ -4,7 +4,8 @@
     "flat market finite outputs and defined neutral values",
     "price scale changes preserve dimensionless indicators and regime label",
     "current candle excluded from its own relative-volume baseline",
-    "OBV change compares current OBV to OBV 20 bars earlier"
+    "OBV change compares current OBV to OBV 20 bars earlier",
+    "unqualified forex/tick-volume inputs keep VWAP, Relative Volume, OBV, MFI and CMF unavailable"
   ],
   "covered": [
     "EMA 20/50/200",
@@ -19,14 +20,14 @@
     "Rolling quote/base VWAP 20",
     "Relative Volume 20",
     "CMF 20",
-    "scale-invariance across BTC_USDT and generic EUR_USD/forex_spot",
     "Supertrend final-band recurrence and direction state",
     "Choppiness Index 14",
     "Aroon Up/Down 25",
     "Stochastic %K/%D 14,3",
     "Money Flow Index 14",
     "On-Balance Volume and 20-bar OBV delta",
-    "Relative Volume 20 using the previous 20 completed bars (current bar excluded)"
+    "Relative Volume 20 using the previous 20 completed bars (current bar excluded)",
+    "scale-invariant price math across BTC_USDT and generic EUR_USD/forex_spot with all volume-derived indicators fail-closed when provider volume semantics are unqualified"
   ],
   "limitations": [
     "synthetic formula parity is not trading-performance evidence"

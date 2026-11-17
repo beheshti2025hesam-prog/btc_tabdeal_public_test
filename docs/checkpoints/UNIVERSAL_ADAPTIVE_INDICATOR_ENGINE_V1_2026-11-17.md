@@ -13,3 +13,19 @@
 ## 8. Remaining evidence boundary
 
 The indicator engine and dashboard are research-only. Multi-symbol Gate.io smoke, synthetic parity, regime distribution diagnostics and DOM tests do **not** establish regime classification accuracy, profitable strategy expectancy, win rate, or readiness for Forex/equities/futures/commodities. Those require independently labelled market regimes, additional venue-specific adapters/volume semantics, chronological out-of-sample evaluation, feature ablation, realistic fees/slippage and a sufficiently long forward observation. The current dashboard live route intentionally remains BTC_USDT until each additional market has its own evidence gate.
+
+
+## 9. Explicit mapped-symbol dashboard integration (2026-11-17)
+
+- Extended the existing dashboard facade without creating a second candle parser or collector: BTCUSDT continues through the persisted `global_market_data_reader_v1`; explicitly mapped ETHUSDT and SOLUSDT reuse the existing versioned `GateioSpotKlineSource` native adapter. The chart and technical-intelligence API share the exact same returned batch and SHA-256 provenance.
+- Added the dashboard selector for BTC/USDT, ETH/USDT and SOL/USDT. The selector refreshes both the chart and technical panel. `source_reader` identity is explicit and fail-closed; unknown reader identities are rejected. ETH/SOL are REST-only and do not inherit BTC's 1m WebSocket status.
+- BTC retains its existing initial timeframe-role profile (15m setup authority, 1m precision-only, 1h/4h context). ETH/SOL are explicitly marked `DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL`; no setup/precision authority or strategy decision is assigned to them. Strategy/Mother decision panels remain BTC-canonical and the UI states that clearly.
+- Dashboard native-adapter live smoke: **8/8 passed** (ETH/SOL × 1m/15m/1h/4h), 239 closed candles each, zero gaps, exact native-feature batch provenance, feature pipeline READY, 39 finite indicator outputs, safety flags false.
+- Cross-market formula test was tightened: generic Forex price calculations remain scale-invariant, but unqualified tick-volume inputs must keep VWAP/Relative Volume/OBV/MFI/CMF unavailable. No Forex volume features are enabled.
+- Added explicit fail-closed reader identity test and API contract tests for mapped ETH; full latest-main regression now **1,474 passed, 82 subtests passed** (warnings as errors). Focused dashboard + indicator tests: **65 passed, 16 subtests**. DOM smoke remains PASS (39 indicator rows, Persian RTL, fail-closed, no console errors).
+- First exact-head GitHub CI completed: all existing HES regression workflows passed, including the full regression gate; the new indicator workflow passed Python full suite and DOM smoke, then failed only at Playwright install because `ubuntu-latest` had advanced to Ubuntu 26.04, unsupported by Playwright 1.56.1. The workflow is now pinned to `ubuntu-24.04`; a new exact-head CI run is required to close browser acceptance.
+- No production symlink, service, strategy, journal, Risk Gate, signal authority or order state was changed. PR remains draft and unmerged.
+
+## 10. Supported scope boundary
+
+V1 dashboard live support is currently the three explicit Gate.io Spot mappings BTCUSDT, ETHUSDT and SOLUSDT. The engine's calculation layer is symbol/market-agnostic, but additional Gate.io pairs require explicit mapping and native adapter validation. Forex, equities, indices, futures, commodities and other venues remain research-library-compatible only; they are not live-enabled. Volume-derived indicators remain disabled wherever provider volume semantics are not qualified. This boundary is deliberate, not an incomplete or silently inferred symbol mapping.

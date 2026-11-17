@@ -36,7 +36,7 @@ Rolling VWAP V1 is calculated as sum(quote volume)/sum(base volume) over the con
 
 Price-derived indicators are market-agnostic after OHLCV normalization. Volume-derived indicators require explicit `volume_semantics_qualified=True`; the default is false. The initial Gate.io Public Spot adapter passes this flag only because the existing Gate.io base/quote volume contract is approved. Forex tick volume, equity session volume, index volume, futures contract volume, and commodity volume remain disabled until their provider/product semantics are separately evidenced. Equities additionally require corporate-action-adjusted data and session-aware handling.
 
-No symbol, country, broker, exchange, or market is hard-coded into the calculation engine. The first dashboard adapter remains the existing BTC_USDT Gate.io feed because that is the only currently approved global source in HES.
+No symbol, country, broker, exchange, or market is hard-coded into the calculation engine. The dashboard reuses the existing persisted BTC_USDT Gate.io feed and the same versioned native Gate.io Spot adapter for its explicitly mapped BTCUSDT, ETHUSDT and SOLUSDT pairs. The other mapped pairs are direct read-only native-adapter batches, not persisted collector feeds. Other Gate.io pairs and all other venues remain unsupported until added to the explicit mapping and separately validated. Strategy/Mother decision panels remain BTC-canonical; ETH/SOL indicator and chart views are descriptive-only and do not inherit BTC timeframe roles.
 
 ## Regime classifier
 
@@ -57,7 +57,7 @@ The classifier is intentionally conservative: mixed/weak evidence maps to TRANSI
 - 15M: initial setup-authority timeframe
 - 1M: precision/refinement context only; cannot create or reverse a setup
 
-This is a first BTC profile, not a universal timeframe rule for all markets. Each market/symbol/timeframe profile needs its own walk-forward evidence.
+This is a first BTC profile, not a universal timeframe rule for all markets. ETH/SOL indicator views are descriptive only; no setup/precision authority is assigned until their own timeframe roles pass walk-forward validation. Each market/symbol/timeframe profile needs its own walk-forward evidence.
 
 ## Dashboard interface
 
@@ -72,7 +72,7 @@ The response hard-codes all of the following to false: decision authority, signa
 ## Validation performed
 
 - Synthetic uptrend, downtrend, and range fixtures.
-- Live Gate.io Public Spot portability smoke: BTC, ETH, SOL, XRP and DOGE across 1m/15m/1h/4h (20/20 batches, at least 220 closed candles each, zero timestamp gaps, finite outputs, all safety flags false). This validates runtime/formula portability on Gate.io spot only; it does not establish predictive quality or support for other venues.
+- Live Gate.io Public Spot portability smoke: BTC, ETH, SOL, XRP and DOGE across 1m/15m/1h/4h (20/20 batches, at least 220 closed candles each, zero timestamp gaps, finite outputs, all safety flags false). Dashboard adapter smoke: mapped ETH/SOL through the existing `GateioSpotKlineSource` and dashboard batch facade across 1m/15m/1h/4h (8/8; 239 closed candles each, zero gaps, exact feature-batch provenance, feature pipeline ready, finite values). This validates runtime/formula portability on Gate.io spot only; it does not establish predictive quality or support for other venues.
 - Insufficient-history, open-candle, timestamp-order, OHLC-envelope, parameter, volume-qualification, provenance, and safety tests.
 - Independent reference parity tests: 7 passed across EMA, RSI, DMI/ADX, ATR, Bollinger, Donchian, ROC, Williams %R, CCI, VWAP, relative volume and CMF; includes Supertrend, Choppiness, Aroon, Stochastic, MFI, OBV, prior-window Relative Volume, market/symbol price-scale invariance and current-bar exclusion safeguards.
 - Full actual-dashboard-current candidate regression suite: 1,444 passed and 82 subtests passed with warnings treated as errors.
@@ -81,7 +81,7 @@ The response hard-codes all of the following to false: decision authority, signa
 - Python compile and JavaScript syntax checks passed.
 - Local HTTP smoke: technical-intelligence API returned VERIFIED for 4H/1H/15M/1M; 240 closed candles per timeframe; Gate.io source and SHA-256 provenance present; all safety flags false.
 - Existing legacy signal route remained HTTP 410; arbitrary order route remained HTTP 405.
-- A Playwright desktop/mobile/Persian RTL browser-acceptance test and immutable-action-pinned GitHub Actions workflow were added. The workflow is not yet run; local Chromium execution is blocked by missing OS browser libraries on the VPS, while the workflow installs Chromium with system dependencies on GitHub-hosted Ubuntu. Local Chrome 157 could not be used inside the SentinelX host runner due Chromium network-service FD ownership failures; real-browser screenshots remain a CI gate.
+- A Playwright desktop/mobile/Persian RTL browser-acceptance test and immutable-action-pinned GitHub Actions workflow were added. The workflow run on the first PR head exposed that `ubuntu-latest` had moved to Ubuntu 26.04, unsupported by Playwright 1.56.1. The workflow is now pinned to `ubuntu-24.04`; local Chromium execution is blocked by missing OS browser libraries on the VPS, so the new exact-head CI run is the final browser gate. Local Chrome 157 could not be used inside the SentinelX host runner due Chromium network-service FD ownership failures; real-browser screenshots remain a CI gate.
 
 ## Promotion gates still required
 

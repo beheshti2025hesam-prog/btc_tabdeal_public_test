@@ -18,7 +18,7 @@ for (const [tf,label] of Object.entries(labels)) timeframes[tf] = {
  input_sha256:"a".repeat(64),indicators:Object.fromEntries(indicatorKeys.map(k=>[k,{value:1.234,status:"READY",reason:null}])),
  regime_profile:{regime:label,primary_indicators:label==="RANGE"?["rsi_14","bollinger_upper"]:["ema_20","adx_14"],unavailable_primary_indicators:[],purpose:purpose[label]}
 };
-const technicalPayload={status:"VERIFIED",source:"gateio_public_spot",symbol:"BTC_USDT",regime_consensus:"MIXED",
+const technicalPayload={status:"VERIFIED",source:"gateio_public_spot",source_reader:"global_market_data_reader_v1",symbol:"BTC_USDT",canonical_symbol:"BTCUSDT",timeframe_roles:{"4h":"HIGHER_TIMEFRAME_CONTEXT","1h":"HIGHER_TIMEFRAME_CONTEXT","15m":"SETUP_AUTHORITY","1m":"PRECISION_REFINEMENT"},timeframe_roles_status:"INITIAL_BTC_PROFILE",regime_consensus:"MIXED",
  controls:{execution_enabled:false,orders_placed:false,decision_authority:false},timeframes,failure_codes:[]};
 let failTechnical=false;
 window.fetch = async (url, options) => String(url).startsWith("/api/technical-intelligence")

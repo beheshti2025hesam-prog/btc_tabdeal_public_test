@@ -7,11 +7,13 @@
     "39 indicator rows",
     "API fail-closed behavior",
     "no browser console/page errors",
-    "screenshots as CI artifacts"
+    "screenshots as CI artifacts",
+    "explicit BTCUSDT/ETHUSDT/SOLUSDT selector mapping",
+    "ETH/SOL timeframe roles remain descriptive-only"
   ],
   "local_execution": "BLOCKED_BY_HOST_DEPENDENCIES",
   "production_deployed": false,
-  "reason": "Playwright Chromium binary installed, but the VPS host lacks OS browser libraries; GitHub Actions workflow uses playwright install --with-deps chromium on a clean Ubuntu runner.",
+  "reason": "Local VPS browser launch lacks Chromium OS libraries. GitHub Actions runner is pinned to ubuntu-24.04 because Playwright 1.56.1 does not support the ubuntu-26.04 image currently selected by ubuntu-latest.",
   "schema": "hes.universal_indicator_browser_acceptance_status.v1",
   "status": "PENDING_CI_EXECUTION",
   "test_script": "scripts/test_universal_indicator_dashboard_browser_v1.cjs",
