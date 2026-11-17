@@ -44,6 +44,7 @@ class MotherChatError(ValueError):
 _INTENT_TERMS = {
     "PROJECT_MEMORY": ("حافظه پروژه", "حافظهٔ پروژه", "حافظه hes", "چک پوینت", "چک‌پوینت", "master checkpoint", "project memory", "project checkpoint", "roadmap", "نقشه راه", "نقشهٔ راه", "چه تصمیمی درباره", "قبلا چه تصمیمی", "قبلاً چه تصمیمی", "ما درباره چه تصمیمی", "چه چیزی ثبت کردیم", "تصمیم قبلی پروژه", "گزارش قبلی پروژه", "what did we decide", "what was recorded", "previous project decision", "project history", "was haben wir beschlossen", "frühere projektentscheidung", "mémoire du projet", "qu'avons-nous décidé", "décision précédente du projet"),
     "NEWS_CONTEXT": ("اخبار", "خبر", "رویداد خبری", "news", "headline", "nachrichten", "meldung", "actualités", "nouvelles"),
+    "SPECIALIST_REVIEW": ("بررسی تخصصی", "گزارش تخصصی", "وضعیت ایجنت", "وضعیت ایجنت‌ها", "تخصص‌های مادر", "ایجنت کیفیت داده", "ایجنت ساختار بازار", "ایجنت سیگنال", "ایجنت تأیید", "ایجنت تایید", "ایجنت ریسک", "ایجنت تصمیم", "ایجنت ارزیابی", "specialist review", "specialist status", "data quality specialist", "market structure specialist", "signal specialist", "confirmation specialist", "risk specialist", "decision specialist", "evaluation specialist", "agent stages", "specialist gates"),
     "JOURNAL_REVIEW": ("ژورنال", "نتایج معاملات", "نتیجه معاملات", "عملکرد ترید", "برد و باخت", "journal", "outcomes", "performance", "ergebnisse", "résultats"),
     "DIAGNOSE": ("عیب یابی", "عیب‌یابی", "خطا", "اشکال", "مشکل سیستم", "diagnose", "diagnostics", "error", "fault", "fehler", "erreur", "panne"),
     "ASK_STATUS": ("وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services", "gesundheit", "dienste", "statut", "santé", "services"),
@@ -308,6 +309,42 @@ def _claim(label: str, value: Any, ref: str | None = None) -> dict[str, Any]:
     return row
 
 
+
+_SPECIALIST_STAGE_ORDER = (
+    "data_quality", "market_structure", "signal", "confirmation",
+    "risk", "decision", "evaluation",
+)
+_SPECIALIST_ALIASES = {
+    "data_quality": ("کیفیت داده", "ایجنت داده", "data quality", "data_quality"),
+    "market_structure": ("ساختار بازار", "ایجنت ساختار", "market structure", "market_structure"),
+    "signal": ("ایجنت سیگنال", "signal agent", "signal"),
+    "confirmation": ("ایجنت تأیید", "ایجنت تایید", "confirmation agent", "confirmation"),
+    "risk": ("ایجنت ریسک", "risk agent", "risk"),
+    "decision": ("ایجنت تصمیم", "decision agent"),
+    "evaluation": ("ایجنت ارزیابی", "evaluation agent", "evaluation"),
+}
+
+
+def _specialist_target(message: str) -> str | None:
+    normalized = " ".join(
+        str(message or "").casefold().replace("ي", "ی").replace("ك", "ک").split()
+    )
+    matches = []
+    for stage, aliases in _SPECIALIST_ALIASES.items():
+        for alias in aliases:
+            if any("\\u0600" <= ch <= "\\u06ff" for ch in alias):
+                found = alias in normalized
+            else:
+                found = re.search(
+                    r"(?<![a-z0-9_])" + re.escape(alias) + r"(?![a-z0-9_])",
+                    normalized,
+                ) is not None
+            if found:
+                matches.append(stage)
+                break
+    return matches[0] if len(matches) == 1 else None
+
+
 def build_chat_response(
     message: str,
     readers: Mapping[str, Callable[[], Mapping[str, Any]]],
@@ -485,6 +522,111 @@ def build_chat_response(
                 "en": f"Mother: {m_status}; decision: {decision}; Strategy V2: {s_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
             }
             answer = answers[language]
+
+    elif intent == "SPECIALIST_REVIEW":
+        mother = data.get("mother", {})
+        strategy = data.get("strategy", {})
+        if not isinstance(mother, Mapping) or not isinstance(strategy, Mapping):
+            return _response(intent, "BLOCKED", "Mother specialist evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
+        witness = mother.get("witness", {})
+        witness_ok = isinstance(witness, Mapping) and witness.get("verified") is True
+        if mother.get("status") != "OBSERVATION_ONLY" or not witness_ok or strategy.get("status") != "VERIFIED":
+            return _response(
+                intent, "BLOCKED",
+                {
+                    "fa": "زنجیرهٔ تخصصی Mother یا شاهد مستقل/گزارش Strategy معتبر نیست؛ جزئیات تخصص‌ها ارائه نمی‌شود.",
+                    "de": "Die Mother-Spezialistenkette, der unabhängige Zeuge oder der Strategy-Bericht ist nicht verifiziert; Details werden nicht ausgegeben.",
+                    "fr": "La chaîne des spécialistes Mother, le témoin indépendant ou le rapport Strategy n’est pas vérifié ; aucun détail n’est fourni.",
+                    "en": "The Mother specialist chain, independent witness, or Strategy report is not verified; specialist details are withheld.",
+                }[language],
+                [], ["MOTHER_SPECIALIST_CHAIN_NOT_VERIFIED"], trace_id, now, _refs(*evidence), language=language,
+            )
+        stages = mother.get("stages")
+        if not isinstance(stages, list) or len(stages) > len(_SPECIALIST_STAGE_ORDER):
+            return _response(intent, "BLOCKED", "Mother specialist stage list is invalid.", [], ["MOTHER_SPECIALIST_STAGES_INVALID"], trace_id, now, language=language)
+        by_agent = {}
+        for stage in stages:
+            if not isinstance(stage, Mapping):
+                return _response(intent, "BLOCKED", "Mother specialist stage is malformed.", [], ["MOTHER_SPECIALIST_STAGE_INVALID"], trace_id, now, language=language)
+            agent = stage.get("agent")
+            state = stage.get("state")
+            version = stage.get("agent_version")
+            reasons = stage.get("reason_codes", [])
+            refs = stage.get("evidence_refs", [])
+            if (
+                agent not in _SPECIALIST_STAGE_ORDER or agent in by_agent
+                or not isinstance(state, str) or not state
+                or not isinstance(version, str) or not version
+                or not isinstance(reasons, list) or any(not isinstance(x, str) for x in reasons)
+                or not isinstance(refs, list) or any(not isinstance(x, str) for x in refs)
+            ):
+                return _response(intent, "BLOCKED", "Mother specialist stage contract is invalid.", [], ["MOTHER_SPECIALIST_STAGE_CONTRACT_INVALID"], trace_id, now, language=language)
+            by_agent[agent] = {
+                "state": state, "agent_version": version,
+                "reason_codes": reasons[:8], "evidence_refs": refs[:4],
+            }
+        target = _specialist_target(message)
+        selected = [target] if target else list(_SPECIALIST_STAGE_ORDER)
+        missing = [name for name in selected if name not in by_agent]
+        if missing:
+            status = "PARTIAL"
+            uncertainties.append("Missing canonical specialist stage(s): " + ", ".join(missing))
+        gate = strategy.get("latest_gate_evidence", {})
+        if not isinstance(gate, Mapping):
+            gate = {}
+            status = "PARTIAL"
+            uncertainties.append("Detailed Strategy V2 gate evidence is unavailable.")
+        detail_keys = {"market_structure": "structure", "confirmation": "confirmation", "risk": "risk"}
+        labels = {
+            "data_quality": "کیفیت داده / Data Quality",
+            "market_structure": "ساختار بازار / Market Structure",
+            "signal": "سیگنال / Signal",
+            "confirmation": "تأیید / Confirmation",
+            "risk": "ریسک / Risk",
+            "decision": "تصمیم / Decision",
+            "evaluation": "ارزیابی مشاهده‌ای / Observation Evaluation",
+        }
+        rows = []
+        for name in selected:
+            item = by_agent.get(name)
+            if item is None:
+                continue
+            detail = None
+            detail_key = detail_keys.get(name)
+            if detail_key:
+                raw_detail = gate.get(detail_key)
+                if not isinstance(raw_detail, Mapping):
+                    status = "PARTIAL"
+                    uncertainties.append("Detailed " + name + " gate evidence is unavailable.")
+                elif name == "market_structure":
+                    detail = {"status": raw_detail.get("status"), "regime": raw_detail.get("regime")}
+                else:
+                    detail = {"state": raw_detail.get("state"), "reason_codes": raw_detail.get("reason_codes", [])}
+            value = {
+                "state": item["state"],
+                "agent_version": item["agent_version"],
+                "reason_codes": item["reason_codes"],
+                "evidence_refs": item["evidence_refs"],
+            }
+            if detail is not None:
+                value["canonical_gate_detail"] = detail
+            claims.append(_claim("Mother specialist " + name, value, item["evidence_refs"][0] if item["evidence_refs"] else None))
+            reason_text = ", ".join(item["reason_codes"]) if item["reason_codes"] else "no reason code recorded"
+            rows.append(f"{labels[name]}: {item['state']} · {reason_text}")
+        if target is None:
+            if mother.get("outcomes_inferred") is not False:
+                status = "PARTIAL"
+                uncertainties.append("Realized outcomes are not explicitly marked as non-inferred.")
+            else:
+                claims.append(_claim("Evaluation boundary", "OBSERVED means decision-observation validation only; outcomes_inferred=false."))
+            claims.append(_claim("Coverage boundary", "Seven canonical Mother stages only; the separate Learning Loop is not included."))
+        answers = {
+            "fa": "گزارش خواندنی زنجیرهٔ هفت‌مرحله‌ای تخصص‌های Mother؛ بدون محاسبهٔ مجدد و بدون اختیار معاملاتی:\\n" + "\\n".join(rows) + "\\nLearning Loop مسیر جداگانه‌ای است و در این گزارش پوشش داده نشده است.",
+            "de": "Lesender Bericht über die sieben kanonischen Mother-Stufen; keine Neuberechnung und keine Handelsbefugnis:\\n" + "\\n".join(rows) + "\\nDer Learning Loop ist ein separater Pfad und hier nicht enthalten.",
+            "fr": "Rapport en lecture seule sur les sept étapes canoniques de Mother ; aucun recalcul ni pouvoir de trading :\\n" + "\\n".join(rows) + "\\nLe Learning Loop est un processus distinct et n’est pas inclus ici.",
+            "en": "Read-only report of the seven canonical Mother stages; no recomputation and no trading authority:\\n" + "\\n".join(rows) + "\\nThe Learning Loop is separate and is not covered by this report.",
+        }
+        answer = answers[language]
 
     elif intent == "MARKET_REVIEW":
         strategy = data.get("strategy", {})
