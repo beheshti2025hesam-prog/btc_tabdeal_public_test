@@ -42,13 +42,17 @@ class MotherChatError(ValueError):
 
 
 _INTENT_TERMS = {
+    "DATA_QUALITY_POLICY": ("داده بازار قدیمی", "داده بازار ناقص", "داده قدیمی", "دادهٔ قدیمی", "داده ناقص", "دادهٔ ناقص", "اطلاعات بازار قدیمی", "اطلاعات ناقص", "قدیمی یا ناقص", "داده دارای گپ", "دادهٔ دارای گپ", "stale data", "stale market data", "incomplete market data", "missing candles", "data gap", "freshness policy"),
+    "PROJECT_MEMORY": ("حافظه پروژه", "حافظهٔ پروژه", "حافظه hes", "چک پوینت", "چک‌پوینت", "master checkpoint", "project memory", "project checkpoint", "roadmap", "نقشه راه", "نقشهٔ راه", "چه تصمیمی درباره", "قبلا چه تصمیمی", "قبلاً چه تصمیمی", "ما درباره چه تصمیمی", "چه چیزی ثبت کردیم", "تصمیم قبلی پروژه", "گزارش قبلی پروژه", "what did we decide", "what was recorded", "previous project decision", "project history", "was haben wir beschlossen", "frühere projektentscheidung", "mémoire du projet", "qu'avons-nous décidé", "décision précédente du projet"),
     "NEWS_CONTEXT": ("اخبار", "خبر", "رویداد خبری", "news", "headline", "nachrichten", "meldung", "actualités", "nouvelles"),
+    "SPECIALIST_REVIEW": ("بررسی تخصصی", "گزارش تخصصی", "وضعیت ایجنت", "وضعیت ایجنت‌ها", "تخصص‌های مادر", "ایجنت کیفیت داده", "ایجنت ساختار بازار", "ایجنت سیگنال", "ایجنت تأیید", "ایجنت تایید", "ایجنت ریسک", "ایجنت تصمیم", "ایجنت ارزیابی", "specialist review", "specialist status", "data quality specialist", "market structure specialist", "signal specialist", "confirmation specialist", "risk specialist", "decision specialist", "evaluation specialist", "agent stages", "specialist gates", "spezialistenprüfung", "spezialistenstatus", "datenqualität", "marktstruktur", "signal-agent", "risiko-agent", "agentenstufen", "revue des spécialistes", "statut des spécialistes", "qualité des données", "structure de marché", "agent de risque", "agent de signal", "agent de confirmation", "agent de décision", "agent d’évaluation"),
     "JOURNAL_REVIEW": ("ژورنال", "نتایج معاملات", "نتیجه معاملات", "عملکرد ترید", "برد و باخت", "journal", "outcomes", "performance", "ergebnisse", "résultats"),
     "DIAGNOSE": ("عیب یابی", "عیب‌یابی", "خطا", "اشکال", "مشکل سیستم", "diagnose", "diagnostics", "error", "fault", "fehler", "erreur", "panne"),
-    "ASK_STATUS": ("وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services", "gesundheit", "dienste", "statut", "santé", "services"),
-    "EXPLAIN_DECISION": ("چرا تصمیم", "دلیل تصمیم", "علت تصمیم", "چرا مادر", "چرا عدم ترید", "چرا no_trade", "تصمیم مادر", "تصمیم ایجنت", "explain", "why decision", "why no trade", "decision", "mother decision", "warum entscheidung", "warum no trade", "grund", "entscheidung", "pourquoi décision", "pourquoi no trade", "décision", "raison"),
+    "ASK_STATUS": ("اجازه معامله", "مجوز معامله", "اجازه ترید", "معامله واقعی", "مجوز ترید", "live trading permission", "trade authorization", "are you authorized to trade", "can you place trades", "وضعیت", "سلامت", "سرویس ها", "سرویس‌ها", "الان چطوره", "status", "health", "services", "gesundheit", "dienste", "statut", "santé", "services"),
+    "EXPLAIN_DECISION": ("چرا mother", "mother تصمیم", "چرا تصمیم mother", "why mother", "why did mother", "چرا تصمیم", "دلیل تصمیم", "علت تصمیم", "چرا مادر", "چرا عدم ترید", "چرا no_trade", "تصمیم مادر", "تصمیم ایجنت", "explain", "why decision", "why no trade", "decision", "mother decision", "warum entscheidung", "warum no trade", "grund", "entscheidung", "pourquoi décision", "pourquoi no trade", "décision", "raison"),
     "MARKET_REVIEW": ("تحلیل بازار", "وضعیت بازار", "بازار", "قیمت", "کندل", "روند", "market", "candles", "price", "regime", "markt", "kerzen", "kurs", "trend", "marché", "bougie", "prix", "tendance"),
     "PREPARE_CHANGE": ("پیشنهاد تغییر", "پیشنویس تغییر", "پیش‌نویس تغییر", "طراحی تغییر", "prepare change", "draft change", "änderung vorbereiten", "proposition de changement", "préparer une modification"),
+    "EXPLAIN_CHANGE_CONTROL": ("چه زمانی می‌تواند اعمال", "چه وقت می‌تواند اعمال", "اجازه تغییر", "تأیید تغییر", "تایید تغییر", "اعمال تغییر", "تغییر عملیاتی", "انتشار تغییر", "تغییر نسخه عملیاتی", "when can you apply", "change approval", "approval required", "production change", "deploy approval", "exact diff", "wann darfst du ändern", "produktionsänderung", "änderungsfreigabe", "quand peux-tu appliquer", "approbation modification", "validation changement", "changement en production"),
 }
 
 
@@ -56,11 +60,75 @@ def _language(message: str) -> str:
     text = message.casefold()
     if any("\u0600" <= ch <= "\u06ff" for ch in message):
         return "fa"
-    if re.search(r"\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste)\b", text):
+    if re.search(r"\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste|was kannst du|wobei kannst du|guten tag|hallo|fähigkeiten)\b", text):
         return "de"
-    if re.search(r"\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement)\b", text):
+    if re.search(r"\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement|que peux-tu|comment peux-tu|bonjour|salut|capacités)\b", text):
         return "fr"
     return "en"
+
+
+
+_GREETING_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"^(?:سلام(?:\s+رفیق)?|درود|hi|hello|hey|hallo|guten tag|bonjour|salut)(?:[\s،,!.؟?]|$)",
+))
+_CAPABILITY_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"(?:از تو|از شما).{0,35}(?:چه کار|چه کاری|چه کمکی).{0,35}(?:بر\s*می\s*آی|برمیاد|می.?توانی|می.?تونی)",
+    r"(?:چه کارهایی|چه کاری|چه کمکی).{0,35}(?:می.?توانی|می.?تونی|از دستت برمی.?آید)",
+    r"\b(?:what can you do|how can you help|your capabilities|what are you capable of)\b",
+    r"\b(?:was kannst du tun|wobei kannst du helfen|was sind deine fähigkeiten)\b",
+    r"\b(?:que peux-tu faire|comment peux-tu aider|quelles sont tes capacités)\b",
+))
+
+
+def _is_casual_greeting(message: str) -> bool:
+    normalized = " ".join(str(message or "").casefold().split())
+    return any(pattern.search(normalized) for pattern in _GREETING_PATTERNS)
+
+
+def _is_capability_question(message: str) -> bool:
+    normalized = " ".join(
+        str(message or "").casefold().replace("ي", "ی").replace("ك", "ک").split()
+    )
+    return any(pattern.search(normalized) for pattern in _CAPABILITY_PATTERNS)
+
+
+def _general_chat_response(message: str, language: str, now: float | None) -> dict[str, Any] | None:
+    if _is_casual_greeting(message) and not _is_capability_question(message):
+        answers = {
+            "fa": "سلام رفیق! خوش اومدی 😊 من آماده‌ام؛ می‌تونیم وضعیت HES رو بررسی کنیم، تصمیم‌های مادر رو بفهمیم یا روی توسعهٔ ایجنت کار کنیم. تو بگو از کجا شروع کنیم.",
+            "de": "Hallo! Schön, dass du da bist. Ich kann dir bei HES-Status, Entscheidungen oder der Weiterentwicklung helfen. Womit sollen wir anfangen?",
+            "fr": "Salut ! Ravi de te retrouver. Je peux t’aider avec l’état de HES, ses décisions ou son développement. Par quoi commence-t-on ?",
+            "en": "Hello! Good to have you here. I can help with HES status, recorded decisions, or development. What would you like to tackle first?",
+        }
+        return _response("GENERAL_CHAT", "CHAT_ONLY", answers[language], [], [], "", now, language=language)
+    if _is_capability_question(message):
+        answers = {
+            "fa": (
+                "من دستیار HES Trade AI هستم. می‌توانم وضعیت و سلامت اجزای HES را از شواهد موجود بخوانم؛ "
+                "داده و رژیم بازار Gate.io، تصمیم‌های Mother و Strategy، ژورنال و اخبار را توضیح بدهم؛ "
+                "چک‌پوینت‌های محلیِ مجاز پروژه را جست‌وجو کنم؛ صفحه‌های صرفاً Notion را فعلاً مستقیم جست‌وجو نمی‌کنم و برای عیب‌یابی یا توسعه، طرح و تست آماده کنم. "
+                "به حساب صرافی دسترسی ندارم، سفارش ثبت نمی‌کنم و هیچ تغییر عملیاتی را بدون تأیید دقیق تو منتشر نمی‌کنم."
+            ),
+            "de": (
+                "Ich bin der HES-Trade-AI-Assistent. Ich kann verfügbare HES-Status- und Gesundheitsnachweise lesen, "
+                "Gate.io-Marktdaten, Mother-/Strategy-Entscheidungen, Journal und Nachrichten erklären, "
+                "freigegebene lokale Projekt-Checkpoints durchsuchen (nicht ausschließlich in Notion gespeicherte Seiten) sowie Diagnose- und Entwicklungsvorschläge mit Tests vorbereiten. "
+                "Ich habe keinen Börsenkontozugriff, platziere keine Orders und veröffentliche keine Änderung ohne deine ausdrückliche Freigabe."
+            ),
+            "fr": (
+                "Je suis l’assistant HES Trade AI. Je peux lire les preuves disponibles sur l’état de HES, "
+                "expliquer les données Gate.io, les décisions Mother/Strategy, le journal et les actualités, "
+                "rechercher les checkpoints locaux autorisés (pas les pages uniquement dans Notion) et préparer des diagnostics ou propositions avec tests. "
+                "Je n’accède pas aux comptes d’exchange, je ne passe aucun ordre et je ne publie aucun changement sans ton approbation explicite."
+            ),
+            "en": (
+                "I'm the HES Trade AI assistant. I can read available HES health/status evidence; explain Gate.io market data, "
+                "Mother and Strategy decisions, the journal and news; search approved local project checkpoints (not Notion-only pages); and prepare diagnostics, "
+                "development proposals and tests. I have no exchange-account access, place no orders, and publish no operational change without your explicit approval."
+            ),
+        }
+        return _response("GENERAL_CHAT", "CHAT_ONLY", answers[language], [], [], "", now, language=language)
+    return None
 
 
 def classify_intent(message: str) -> str:
@@ -242,22 +310,66 @@ def _claim(label: str, value: Any, ref: str | None = None) -> dict[str, Any]:
     return row
 
 
+
+_SPECIALIST_STAGE_ORDER = (
+    "data_quality", "market_structure", "signal", "confirmation",
+    "risk", "decision", "evaluation",
+)
+_SPECIALIST_ALIASES = {
+    "data_quality": ("کیفیت داده", "ایجنت داده", "data quality", "data_quality", "datenqualität", "qualité des données"),
+    "market_structure": ("ساختار بازار", "ایجنت ساختار", "market structure", "market_structure", "marktstruktur", "structure de marché"),
+    "signal": ("ایجنت سیگنال", "signal agent", "signal", "signal-agent", "agent de signal"),
+    "confirmation": ("ایجنت تأیید", "ایجنت تایید", "confirmation agent", "confirmation", "bestätigung", "agent de confirmation"),
+    "risk": ("ایجنت ریسک", "risk agent", "risk", "risiko-agent", "agent de risque"),
+    "decision": ("ایجنت تصمیم", "decision agent", "entscheidungs-agent", "agent de décision"),
+    "evaluation": ("ایجنت ارزیابی", "evaluation agent", "evaluation", "bewertungs-agent", "agent d’évaluation"),
+}
+
+
+def _specialist_target(message: str) -> str | None:
+    normalized = " ".join(
+        str(message or "").casefold().replace("ي", "ی").replace("ك", "ک").split()
+    )
+    matches = []
+    for stage, aliases in _SPECIALIST_ALIASES.items():
+        for alias in aliases:
+            if any(0x0600 <= ord(ch) <= 0x06ff for ch in alias):
+                found = alias in normalized
+            else:
+                found = re.search(
+                    r"(?<![a-z0-9_])" + re.escape(alias) + r"(?![a-z0-9_])",
+                    normalized,
+                ) is not None
+            if found:
+                matches.append(stage)
+                break
+    return matches[0] if len(matches) == 1 else None
+
+
 def build_chat_response(
     message: str,
     readers: Mapping[str, Callable[[], Mapping[str, Any]]],
     *,
     language: str | None = None,
     now: float | None = None,
+    intent_override: str | None = None,
+    specialist_context_message: str | None = None,
 ) -> dict[str, Any]:
-    """Return a bounded, evidence-only response; never invokes a model or mutates state."""
+    """Return a bounded, evidence-only response; an optional intent must be allowlisted."""
     if not isinstance(message, str) or not message.strip() or len(message) > MAX_MESSAGE_CHARS:
         raise MotherChatError("CHAT_MESSAGE_INVALID", 400)
-    intent = classify_intent(message)
+    if intent_override is not None and intent_override not in _INTENT_TERMS:
+        raise MotherChatError("CHAT_INTENT_OVERRIDE_REJECTED", 400)
+    intent = intent_override or classify_intent(message)
     if language is None or language == "auto":
         language = _language(message)
     elif not isinstance(language, str) or language not in {"fa", "en", "de", "fr"}:
         raise MotherChatError("CHAT_LANGUAGE_INVALID", 400)
     is_fa = language == "fa"
+    if intent == "UNKNOWN":
+        general = _general_chat_response(message, language, now)
+        if general is not None:
+            return general
     if intent == "UNKNOWN":
         answers = {
             "fa": "درخواست را دقیق‌تر مشخص کن: وضعیت، توضیح تصمیم، بررسی بازار، ژورنال، اخبار یا عیب‌یابی.",
@@ -267,6 +379,23 @@ def build_chat_response(
         }
         answer = answers[language]
         return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now, language=language)
+    if intent == "EXPLAIN_CHANGE_CONTROL":
+        answers = {
+            "fa": "فقط پس از تأیید صریح و مشخص تو برای همان تغییر، همان فایل/نسخه و همان هدف؛ آن هم بعد از آزمایش جداگانه، تست موفق، بازبینی و آماده‌بودن برنامه بازگشت. اجازه کلی یا مبهم کافی نیست و هوشیار خودش تصمیم به انتشار نمی‌گیرد.",
+            "de": "Nur nach deiner ausdrücklichen Freigabe genau dieser Änderung, der betroffenen Datei/Version und des Ziels – und erst nach isoliertem Test, erfolgreichen Prüfungen, Review und vorbereitetem Rollback. Eine pauschale Zustimmung reicht nicht; HOSHYAR entscheidet nicht selbst über die Veröffentlichung.",
+            "fr": "Uniquement après ton approbation explicite de cette modification précise, du fichier/de la version et de la cible, puis après expérimentation isolée, tests réussis, revue et plan de retour arrière. Une autorisation générale ne suffit pas ; HOSHYAR ne décide jamais seul de la mise en production.",
+            "en": "Only after you explicitly approve the exact change, affected file/version and target—and only after isolated testing, passing checks, review and a ready rollback plan. General approval is not enough; HOSHYAR never decides on its own to publish a change.",
+        }
+        answer = answers[language]
+        return _response(intent, "OK", answer, [], [], "", now, language=language)
+    if intent == "DATA_QUALITY_POLICY":
+        answers = {
+            "fa": "اگر دادهٔ بازار قدیمی، ناقص، متناقض یا دارای شکاف باشد، مسیر باید BLOCKED / NO_TRADE بماند؛ هیچ کندل مفقود یا مقدار ناموجودی حدس زده یا پر نمی‌شود و سیگنال یا ورود صادر نمی‌شود. فقط پس از دریافت دادهٔ بسته‌شده و تأیید تازگی، پیوستگی و تطبیق منبع، ارزیابی دوباره انجام می‌شود. این پاسخ توضیح سیاست است و سلامت زندهٔ Feed را بررسی نمی‌کند.",
+            "de": "Bei veralteten, unvollständigen, widersprüchlichen oder lückenhaften Marktdaten bleibt der Pfad BLOCKED / NO_TRADE. Fehlende Kerzen oder Werte werden nicht erfunden oder ergänzt; es wird kein Signal und kein Einstieg freigegeben. Erst nach Prüfung geschlossener Daten auf Aktualität, Kontinuität und Quellenabgleich wird neu bewertet. Dies ist eine Richtlinienerklärung, keine Live-Feed-Prüfung.",
+            "fr": "Si les données de marché sont périmées, incomplètes, contradictoires ou comportent des lacunes, le système reste BLOCKED / NO_TRADE. Aucune bougie ni valeur manquante n'est devinée ou complétée; aucun signal ni entrée n'est autorisé. Une nouvelle évaluation n'a lieu qu'après vérification de données clôturées, récentes, continues et réconciliées avec la source. Ceci explique la politique et ne vérifie pas le flux en direct.",
+            "en": "If market data is stale, incomplete, contradictory, or gapped, the path remains BLOCKED / NO_TRADE. Missing candles or values are never guessed or filled, and no signal or entry is authorized. Re-evaluation happens only after closed data passes freshness, continuity, and source-reconciliation checks. This explains the policy; it does not check the live feed.",
+        }
+        return _response(intent, "CHAT_ONLY", answers[language], [], ["LIVE_DATA_NOT_READ"], "", now, language=language)
     if intent == "PREPARE_CHANGE":
         answers = {
             "fa": "برای تهیهٔ پیش‌نویس، نام بخش و تغییر موردنظر را مشخص کن. این رابط فقط پیش‌نویس می‌سازد و هیچ تغییری را اعمال نمی‌کند.",
@@ -276,6 +405,54 @@ def build_chat_response(
         }
         answer = answers[language]
         return _response(intent, "NEEDS_CLARIFICATION", answer, [], [], "", now, language=language)
+    if intent == "PROJECT_MEMORY":
+        reader = readers.get(intent)
+        if not callable(reader):
+            return _response(intent, "BLOCKED", "Project memory reader is not configured.", [], ["PROJECT_MEMORY_READER_NOT_CONFIGURED"], "", now, language=language)
+        try:
+            data = reader()
+        except Exception:
+            return _response(intent, "BLOCKED", {"fa": "حافظهٔ محلی پروژه در دسترس نیست؛ هیچ نتیجه‌ای حدس زده نشد.", "de": "Der lokale Projektspeicher ist nicht verfügbar; es wurde nichts geraten.", "fr": "La mémoire locale du projet est indisponible ; aucune réponse n'a été devinée.", "en": "Local project memory is unavailable; no result was guessed."}[language], [], ["PROJECT_MEMORY_UNAVAILABLE"], "", now, language=language)
+        if not isinstance(data, Mapping):
+            return _response(intent, "BLOCKED", "Project memory payload is invalid.", [], ["PROJECT_MEMORY_INVALID"], "", now, language=language)
+        matches = data.get("matches", [])
+        refs = data.get("evidence_refs", [])
+        trace_id = str(data.get("trace_id") or "")
+        uncertainties = data.get("uncertainties", [])
+        if not isinstance(matches, list):
+            matches = []
+        if not isinstance(refs, list):
+            refs = []
+        if not isinstance(uncertainties, list):
+            uncertainties = []
+        claims: list[dict[str, Any]] = []
+        rows: list[str] = []
+        for item in matches[:4]:
+            if not isinstance(item, Mapping):
+                continue
+            title = str(item.get("title") or "Untitled")[:180]
+            path = str(item.get("path") or "unknown")[:240]
+            excerpt = " ".join(str(item.get("excerpt") or "").split())[:500]
+            digest = str(item.get("sha256") or "")
+            source_ref = "sha256:" + digest if re.fullmatch(r"[0-9a-f]{64}", digest) else None
+            claims.append(_claim("Local project record", {"title": title, "path": path, "excerpt": excerpt, "modified_at": item.get("modified_at")}, source_ref))
+            rows.append(f"{title} — {excerpt} [source: {path}; sha256: {digest[:12]}]")
+        if not rows:
+            answers = {
+                "fa": "در پوشه‌های محلیِ مجاز، سند مرتبطی پیدا نشد. این جست‌وجو صفحه‌های صرفاً Notion یا منابع متصل دیگر را پوشش نمی‌دهد.",
+                "de": "In den freigegebenen lokalen Ordnern wurde kein passender Eintrag gefunden. Nur-Notion-Seiten und andere verbundene Quellen sind nicht enthalten.",
+                "fr": "Aucun document correspondant n'a été trouvé dans les dossiers locaux autorisés. Les pages uniquement dans Notion et les autres sources connectées ne sont pas incluses.",
+                "en": "No matching record was found in the approved local folders. Notion-only pages and other connected sources are not included.",
+            }
+            return _response(intent, "EMPTY", answers[language], [], [str(x) for x in uncertainties[:10]], trace_id, now, _refs(*refs), language=language)
+        prefixes = {
+            "fa": "در اسناد محلیِ مجاز پروژه این موارد مرتبط پیدا شد:",
+            "de": "In den freigegebenen lokalen Projektunterlagen wurden diese Einträge gefunden:",
+            "fr": "Ces éléments pertinents ont été trouvés dans les documents locaux autorisés du projet :",
+            "en": "These relevant records were found in the approved local project documents:",
+        }
+        answer = prefixes[language] + "\n\n" + "\n\n".join(f"{index}. {row}" for index, row in enumerate(rows, 1))
+        return _response(intent, "PARTIAL", answer, claims, [str(x) for x in uncertainties[:10]], trace_id, now, _refs(*refs), language=language)
     reader = readers.get(intent)
     if not callable(reader):
         return _response(intent, "BLOCKED", "Evidence reader is not configured.", [], ["CHAT_READER_NOT_CONFIGURED"], "", now, language=language)
@@ -337,11 +514,17 @@ def build_chat_response(
                             str(stage.get("state") or "UNKNOWN")
                             + ((" · " + ", ".join(stage.get("reason_codes", []))) if isinstance(stage.get("reason_codes"), list) else ""),
                         ))
+            reason_text = ", ".join(str(item)[:120] for item in reasons[:8] if isinstance(item, str)) if isinstance(reasons, list) else ""
+            stage_reason_text = "; ".join(
+                str(stage.get("agent") or "unknown") + ": " + ", ".join(str(code)[:120] for code in stage.get("reason_codes", [])[:5] if isinstance(code, str))
+                for stage in stages if isinstance(stage, Mapping) and isinstance(stage.get("reason_codes", []), list) and stage.get("reason_codes")
+            ) if isinstance(stages, list) else ""
+            reason_detail = " | ".join(part for part in (reason_text, stage_reason_text) if part) or "not recorded"
             answers = {
-                "fa": f"تصمیم زندهٔ Mother: {decision}. وضعیت: {m_status}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. دروازهٔ شبیه‌سازی کاغذی: {paper_status}. اجرای واقعی و ثبت سفارش غیرفعال است.",
-                "de": f"Live-Mother-Entscheidung: {decision}. Status: {m_status}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Paper-Simulationsgate: {paper_status}. Live-Ausführung und Orderübermittlung bleiben deaktiviert.",
-                "fr": f"Décision Mother en direct : {decision}. Statut : {m_status}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. Porte de simulation papier : {paper_status}. L’exécution réelle et l’envoi d’ordres restent désactivés.",
-                "en": f"Live Mother decision: {decision}. Status: {m_status}. Independent witness: {'verified' if witness_ok else 'not verified'}. Paper simulation gate: {paper_status}. Live execution and order submission remain disabled.",
+                "fa": f"تصمیم ثبت‌شدهٔ Mother: {decision}. وضعیت: {m_status}. دلایل: {reason_detail}. شاهد مستقل: {'تأیید' if witness_ok else 'تأییدنشده'}. دروازهٔ شبیه‌سازی کاغذی: {paper_status}. اجرای واقعی و ثبت سفارش غیرفعال است.",
+                "de": f"Live-Mother-Entscheidung / aufgezeichnete Mother-Entscheidung: {decision}. Status: {m_status}. Gründe: {reason_detail}. Unabhängiger Zeuge: {'verifiziert' if witness_ok else 'nicht verifiziert'}. Paper-Simulationsgate: {paper_status}. Live-Ausführung und Orderübermittlung bleiben deaktiviert.",
+                "fr": f"Décision Mother en direct / enregistrée : {decision}. Statut : {m_status}. Motifs : {reason_detail}. Témoin indépendant : {'vérifié' if witness_ok else 'non vérifié'}. Porte de simulation papier : {paper_status}. L’exécution réelle et l’envoi d’ordres restent désactivés.",
+                "en": f"Recorded Mother decision: {decision}. Status: {m_status}. Reasons: {reason_detail}. Independent witness: {'verified' if witness_ok else 'not verified'}. Paper simulation gate: {paper_status}. Live execution and order submission remain disabled.",
             }
             answer = answers[language]
         else:
@@ -356,6 +539,165 @@ def build_chat_response(
                 "en": f"Mother: {m_status}; decision: {decision}; Strategy runtime: {s_status}; Paper simulation gate: {paper_status}; News monitor: {news_status}. Gate.io Public Spot BTC_USDT remains the sole analysis source; execution is off.",
             }
             answer = answers[language]
+
+    elif intent == "SPECIALIST_REVIEW":
+        mother = data.get("mother", {})
+        strategy = data.get("strategy", {})
+        if not isinstance(mother, Mapping) or not isinstance(strategy, Mapping):
+            return _response(intent, "BLOCKED", "Mother specialist evidence is malformed.", [], ["CHAT_EVIDENCE_INVALID"], trace_id, now, language=language)
+        mother_status = mother.get("status")
+        witness = mother.get("witness", {})
+        witness_ok = isinstance(witness, Mapping) and witness.get("verified") is True
+        allowed_mother_statuses = {
+            "OBSERVATION_ONLY", "BLOCKED_CONTEXT", "BLOCKED_CONFIGURATION",
+            "BLOCKED_AGENT_ERROR", "BLOCKED_INVALID_RESULT", "BLOCKED_GATE",
+            "BLOCKED_RISK_VETO", "BLOCKED_INVALID_DECISION", "BLOCKED_DIRECTION_CONFLICT",
+        }
+        if mother_status not in allowed_mother_statuses or not witness_ok or strategy.get("status") != "VERIFIED":
+            return _response(
+                intent, "BLOCKED",
+                {
+                    "fa": "زنجیرهٔ تخصصی Mother، شاهد مستقل یا گزارش Strategy معتبر نیست؛ جزئیات تخصص‌ها ارائه نمی‌شود.",
+                    "de": "Die Mother-Spezialistenkette, der unabhängige Zeuge oder der Strategy-Bericht ist nicht verifiziert; Details werden nicht ausgegeben.",
+                    "fr": "La chaîne des spécialistes Mother, le témoin indépendant ou le rapport Strategy n’est pas vérifié ; aucun détail n’est fourni.",
+                    "en": "The Mother specialist chain, independent witness, or Strategy report is not verified; specialist details are withheld.",
+                }[language],
+                [], ["MOTHER_SPECIALIST_CHAIN_NOT_VERIFIED"], trace_id, now, _refs(*evidence), language=language,
+            )
+        stages = mother.get("stages")
+        if not isinstance(stages, list) or len(stages) > len(_SPECIALIST_STAGE_ORDER):
+            return _response(intent, "BLOCKED", "Mother specialist stage list is invalid.", [], ["MOTHER_SPECIALIST_STAGES_INVALID"], trace_id, now, language=language)
+        names = [stage.get("agent") if isinstance(stage, Mapping) else None for stage in stages]
+        if names != list(_SPECIALIST_STAGE_ORDER[:len(names)]):
+            return _response(intent, "BLOCKED", "Mother specialist stage order is invalid.", [], ["MOTHER_SPECIALIST_STAGE_ORDER_INVALID"], trace_id, now, language=language)
+        allowed_stage_states = {
+            "data_quality": {"PASS"},
+            "market_structure": {"PASS"},
+            "signal": {"PASS"},
+            "confirmation": {"CONFIRMED"},
+            "risk": {"APPROVED"},
+            "decision": {"DECIDED"},
+            "evaluation": {"OBSERVED"},
+        }
+        by_agent = {}
+        for index, stage in enumerate(stages):
+            agent = stage.get("agent")
+            state = stage.get("state")
+            version = stage.get("agent_version")
+            reasons = stage.get("reason_codes", [])
+            refs = stage.get("evidence_refs", [])
+            if (
+                not isinstance(state, str) or not state
+                or not isinstance(version, str) or not version or len(version) > 256
+                or not isinstance(reasons, list) or any(not isinstance(x, str) or not x or len(x) > 256 for x in reasons)
+                or len(reasons) != len(set(reasons))
+                or not isinstance(refs, list) or any(not isinstance(x, str) or not x or len(x) > 512 for x in refs)
+                or len(refs) != len(set(refs)) or not refs
+            ):
+                return _response(intent, "BLOCKED", "Mother specialist stage contract is invalid.", [], ["MOTHER_SPECIALIST_STAGE_CONTRACT_INVALID"], trace_id, now, language=language)
+            if state not in allowed_stage_states[agent]:
+                if index != len(stages) - 1 or mother_status not in {"BLOCKED_GATE", "BLOCKED_RISK_VETO"}:
+                    return _response(intent, "BLOCKED", "Mother specialist gate state conflicts with the verified orchestration status.", [], ["MOTHER_SPECIALIST_STAGE_STATE_CONFLICT"], trace_id, now, language=language)
+                if (agent == "risk") != (mother_status == "BLOCKED_RISK_VETO"):
+                    return _response(intent, "BLOCKED", "Mother specialist veto identity conflicts with the verified status.", [], ["MOTHER_SPECIALIST_VETO_IDENTITY_CONFLICT"], trace_id, now, language=language)
+            by_agent[agent] = {
+                "state": state, "agent_version": version,
+                "reason_codes": reasons[:8], "evidence_refs": refs[:4],
+            }
+        if mother_status == "OBSERVATION_ONLY" and len(stages) != len(_SPECIALIST_STAGE_ORDER):
+            return _response(intent, "BLOCKED", "Verified observation chain is incomplete.", [], ["MOTHER_SPECIALIST_OBSERVATION_CHAIN_INCOMPLETE"], trace_id, now, language=language)
+        if mother_status in {"BLOCKED_CONTEXT", "BLOCKED_CONFIGURATION"} and stages:
+            return _response(intent, "BLOCKED", "Mother blocked status conflicts with specialist stage history.", [], ["MOTHER_SPECIALIST_BLOCKED_HISTORY_CONFLICT"], trace_id, now, language=language)
+        if mother_status == "BLOCKED_GATE" and (not stages or stages[-1]["state"] in allowed_stage_states[stages[-1]["agent"]]):
+            return _response(intent, "BLOCKED", "Mother gate-blocked status has no failing terminal stage.", [], ["MOTHER_SPECIALIST_BLOCKED_STAGE_MISSING"], trace_id, now, language=language)
+        if mother_status == "BLOCKED_RISK_VETO" and (not stages or stages[-1]["agent"] != "risk" or stages[-1]["state"] in allowed_stage_states["risk"]):
+            return _response(intent, "BLOCKED", "Mother risk-veto status has no failing risk stage.", [], ["MOTHER_SPECIALIST_RISK_VETO_STAGE_MISSING"], trace_id, now, language=language)
+        if mother_status == "BLOCKED_DIRECTION_CONFLICT" and len(stages) != len(_SPECIALIST_STAGE_ORDER):
+            return _response(intent, "BLOCKED", "Direction-conflict status requires the complete specialist chain.", [], ["MOTHER_SPECIALIST_CONFLICT_CHAIN_INCOMPLETE"], trace_id, now, language=language)
+
+        target = _specialist_target(specialist_context_message or message)
+        selected = [target] if target else list(_SPECIALIST_STAGE_ORDER)
+        gate = strategy.get("latest_gate_evidence", {})
+        if not isinstance(gate, Mapping):
+            gate = {}
+            status = "PARTIAL"
+            uncertainties.append("Detailed Strategy V2 gate evidence is unavailable.")
+        detail_keys = {"market_structure": "structure", "confirmation": "confirmation", "risk": "risk"}
+        labels = {
+            "data_quality": "کیفیت داده / Data Quality",
+            "market_structure": "ساختار بازار / Market Structure",
+            "signal": "سیگنال / Signal",
+            "confirmation": "تأیید / Confirmation",
+            "risk": "ریسک / Risk",
+            "decision": "تصمیم / Decision",
+            "evaluation": "ارزیابی مشاهده‌ای / Observation Evaluation",
+        }
+        terminal = stages[-1] if stages else None
+        terminal_failed = bool(
+            terminal and terminal["state"] not in allowed_stage_states[terminal["agent"]]
+        )
+        stop_label = (
+            terminal["agent"] if terminal_failed
+            else (mother_status if mother_status != "OBSERVATION_ONLY" else "none")
+        )
+        audit_ref = str(mother.get("audit_sha256") or (witness.get("audit_sha256") if isinstance(witness, Mapping) else "") or "")
+        rows = []
+        for name in selected:
+            item = by_agent.get(name)
+            if item is None:
+                value = {
+                    "state": "NOT_REACHED",
+                    "reason_codes": ["UPSTREAM_STOP:" + stop_label],
+                    "evidence_refs": [audit_ref] if audit_ref else [],
+                }
+                claims.append(_claim("Mother specialist " + name, value, audit_ref or None))
+                rows.append(f"{labels[name]}: NOT_REACHED · upstream stop: {stop_label}")
+                continue
+            detail = None
+            detail_key = detail_keys.get(name)
+            if detail_key:
+                raw_detail = gate.get(detail_key)
+                if not isinstance(raw_detail, Mapping):
+                    status = "PARTIAL"
+                    uncertainties.append("Detailed " + name + " gate evidence is unavailable.")
+                elif name == "market_structure":
+                    detail = {"status": raw_detail.get("status"), "regime": raw_detail.get("regime")}
+                else:
+                    detail_reasons = raw_detail.get("reason_codes", [])
+                    if not isinstance(detail_reasons, list) or any(not isinstance(x, str) for x in detail_reasons):
+                        status = "PARTIAL"
+                        uncertainties.append("Detailed " + name + " reason codes are malformed.")
+                    else:
+                        detail = {"state": raw_detail.get("state"), "reason_codes": detail_reasons[:8]}
+            value = {
+                "state": item["state"],
+                "agent_version": item["agent_version"],
+                "reason_codes": item["reason_codes"],
+                "evidence_refs": item["evidence_refs"],
+            }
+            if detail is not None:
+                value["canonical_gate_detail"] = detail
+            claims.append(_claim("Mother specialist " + name, value, item["evidence_refs"][0]))
+            reason_text = ", ".join(item["reason_codes"]) if item["reason_codes"] else "no reason code recorded"
+            rows.append(f"{labels[name]}: {item['state']} · {reason_text}")
+        claims.append(_claim("Mother orchestration status", mother_status))
+        mother_reasons = mother.get("reason_codes", [])
+        if isinstance(mother_reasons, list):
+            claims.append(_claim("Mother orchestration reason codes", mother_reasons[:8]))
+        if "evaluation" in by_agent:
+            if mother.get("outcomes_inferred") is not False:
+                status = "PARTIAL"
+                uncertainties.append("Realized outcomes are not explicitly marked as non-inferred.")
+            else:
+                claims.append(_claim("Evaluation boundary", "OBSERVED means decision-observation validation only; outcomes_inferred=false."))
+        claims.append(_claim("Coverage boundary", "Seven canonical Mother stages only; the separate Learning Loop is not included."))
+        answers = {
+            "fa": "گزارش خواندنی زنجیرهٔ تخصصی Mother؛ وضعیت نهایی: " + str(mother_status) + "؛ بدون محاسبهٔ مجدد و بدون اختیار معاملاتی:\n" + "\n".join(rows) + "\nLearning Loop مسیر جداگانه‌ای است و در این گزارش پوشش داده نشده است.",
+            "de": "Lesender Bericht der Mother-Spezialistenkette; Endstatus: " + str(mother_status) + "; keine Neuberechnung und keine Handelsbefugnis:\n" + "\n".join(rows) + "\nDer Learning Loop ist ein separater Pfad und hier nicht enthalten.",
+            "fr": "Rapport en lecture seule de la chaîne des spécialistes Mother ; statut final : " + str(mother_status) + " ; aucun recalcul ni pouvoir de trading :\n" + "\n".join(rows) + "\nLe Learning Loop est un processus distinct et n’est pas inclus ici.",
+            "en": "Read-only report of the Mother specialist chain; final status: " + str(mother_status) + "; no recomputation and no trading authority:\n" + "\n".join(rows) + "\nThe Learning Loop is separate and is not covered by this report.",
+        }
+        answer = answers[language]
 
     elif intent == "MARKET_REVIEW":
         strategy = data.get("strategy", {})

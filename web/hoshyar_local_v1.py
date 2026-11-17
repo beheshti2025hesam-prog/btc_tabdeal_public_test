@@ -1,0 +1,593 @@
+"""Local-only HOSHYAR conversation layer for the existing Mother evidence boundary.
+
+The model may classify a natural-language follow-up or answer general chat. It has
+no tools, no order access and no production-write authority. HES facts continue to
+come exclusively from the existing deterministic evidence readers.
+"""
+from __future__ import annotations
+
+import json
+import os
+from contextlib import closing
+import re
+import sqlite3
+import stat
+import time
+from pathlib import Path
+from typing import Any, Callable, Mapping
+from urllib.error import URLError
+from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
+
+from web.mother_chat_v1 import build_chat_response, classify_intent, _language
+
+
+SCHEMA_VERSION = "hes.hoshyar.local.v1"
+DEFAULT_ENDPOINT = "http://127.0.0.1:18082/v1/chat/completions"
+DEFAULT_MODEL = "hoshyar-qwen35-2b-q4"
+DEFAULT_MEMORY_DB = "/var/lib/hes-news-monitor/hoshyar-memory.sqlite3"
+DEFAULT_API_KEY_FILE = "/var/lib/hes-news-monitor/hoshyar-llm-api-keys"
+MAX_HISTORY_MESSAGES = 8
+MAX_STORED_MESSAGES = 200
+MEMORY_RETENTION_SECONDS = 30 * 24 * 60 * 60
+ALLOWED_INTENTS = frozenset({
+    "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
+    "NEWS_CONTEXT", "DIAGNOSE", "DATA_QUALITY_POLICY", "PREPARE_CHANGE", "EXPLAIN_CHANGE_CONTROL", "PROJECT_MEMORY", "UNKNOWN", "GENERAL_CHAT",
+})
+
+ROUTE_SYSTEM_PROMPT = (
+    "Classify the last user message using recent conversation history. Choose exactly one intent from: "
+    "ASK_STATUS, EXPLAIN_DECISION, MARKET_REVIEW, SPECIALIST_REVIEW, JOURNAL_REVIEW, NEWS_CONTEXT, DIAGNOSE, "
+    "DATA_QUALITY_POLICY, PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "    "DATA_QUALITY_POLICY explains fail-closed behavior for stale, incomplete, contradictory or gapped market data. "
+    "EXPLAIN_DECISION means why a recorded Mother/Strategy decision was made; "
+    "EXPLAIN_CHANGE_CONTROL means the owner's approval process for a proposed change; "
+    "SPECIALIST_REVIEW means summarize only the verified seven-stage Mother specialist evidence; missing downstream stages are not reached, never invented. "
+    "PROJECT_MEMORY means retrieve an earlier project decision/checkpoint. "
+    "GENERAL_CHAT is only ordinary non-HES conversation. Resolve short follow-ups from history; if unclear choose UNKNOWN. "
+    "Return JSON only with the single key intent. No explanation, no answer, no facts."
+)
+GENERAL_CHAT_SYSTEM_PROMPT = (
+    "You are HES Trade AI, a private local assistant. Reply in the user's selected language with one concise, natural sentence. "
+    "Do not state current HES facts or claim actions. HES facts are answered by the evidence readers, not by you. "
+    "Return JSON only with the single key answer."
+)
+
+_ACTION_CLAIM_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"\b(?:i|we)\s+(?:have\s+)?(?:placed|submitted|executed|opened|closed)\s+(?:the\s+)?(?:order|trade)",
+    r"\b(?:i|we)\s+(?:have\s+)?(?:changed|updated|edited|merged|deployed|published)\s+(?:the\s+)?(?:production|risk|strategy|code|system)",
+    r"\b(?:order|trade)\s+(?:has been|was)\s+(?:placed|submitted|executed)",
+    r"(?:سفارش|معامله).{0,24}(?:ثبت شد|اجرا شد|ارسال شد)",
+    r"(?:تغییر|ریسک|استراتژی|کد|نسخه عملیاتی).{0,30}(?:اعمال شد|منتشر شد|استقرار یافت)",
+    r"(?:auftrag|handel).{0,30}(?:ausgeführt|platziert|abgeschickt)",
+    r"(?:ordre|transaction).{0,30}(?:exécuté|passé|envoyé)",
+))
+_CASUAL_GREETING_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"(?:^|[\s،,])(?:سلام(?:\s+رفیق)?|چه\s+خبری?|خوبی|چطوری|حالت\s+چطوره)(?:$|[\s؟?!.,])",
+    r"\b(?:hi|hello|hey|how are you|what's up|how's it going)\b",
+    r"\b(?:hallo|guten tag|wie geht'?s|was gibt'?s neues)\b",
+    r"\b(?:salut|bonjour|ça va|quoi de neuf)\b",
+))
+_EXPLICIT_NEWS_TERMS = ("اخبار", "خبرهای", "news", "headlines", "nachrichten", "actualités", "nouvelles")
+
+
+def _is_casual_greeting(message: str) -> bool:
+    text = message.casefold().strip()
+    if any(term in text for term in _EXPLICIT_NEWS_TERMS):
+        return False
+    return any(pattern.search(text) for pattern in _CASUAL_GREETING_PATTERNS)
+
+_CAPABILITY_QUESTION_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"(?:از تو|از شما).{0,35}(?:چه کار|چه کاری|چه کمکی).{0,35}(?:بر\s*می\s*آی|برمیاد|می.?توانی|می.?تونی)",
+    r"(?:چه کارهایی|چه کاری|چه کمکی).{0,35}(?:می.?توانی|می.?تونی|از دستت برمی.?آید)",
+    r"\b(?:what can you do|how can you help|your capabilities|what are you capable of)\b",
+    r"\b(?:was kannst du tun|wobei kannst du helfen|was sind deine fähigkeiten)\b",
+    r"\b(?:que peux-tu faire|comment peux-tu aider|quelles sont tes capacités)\b",
+))
+
+
+def _deterministic_general_answer(message: str, language: str) -> str | None:
+    """Answer common onboarding turns without spending CPU on a weak local model."""
+    normalized = " ".join(
+        str(message or "").casefold().replace("ي", "ی").replace("ك", "ک").split()
+    )
+    if any(pattern.search(normalized) for pattern in _CAPABILITY_QUESTION_PATTERNS):
+        return {
+            "fa": (
+                "من دستیار HES Trade AI هستم. می‌توانم وضعیت و سلامت اجزای HES را از شواهد موجود بخوانم؛ "
+                "داده و رژیم بازار Gate.io، تصمیم‌های Mother و Strategy، ژورنال و اخبار را توضیح بدهم؛ "
+                "چک‌پوینت‌های محلیِ مجاز پروژه را جست‌وجو کنم؛ صفحه‌های صرفاً Notion را فعلاً مستقیم جست‌وجو نمی‌کنم و برای عیب‌یابی یا توسعه، طرح و تست آماده کنم. "
+                "به حساب صرافی دسترسی ندارم، سفارش ثبت نمی‌کنم و هیچ تغییر عملیاتی را بدون تأیید دقیق تو منتشر نمی‌کنم."
+            ),
+            "de": (
+                "Ich bin der HES-Trade-AI-Assistent. Ich kann verfügbare HES-Status- und Gesundheitsnachweise lesen, "
+                "Gate.io-Marktdaten, Mother-/Strategy-Entscheidungen, Journal und Nachrichten erklären, "
+                "freigegebene lokale Projekt-Checkpoints durchsuchen (nicht ausschließlich in Notion gespeicherte Seiten) sowie Diagnose- und Entwicklungsvorschläge mit Tests vorbereiten. "
+                "Ich habe keinen Börsenkontozugriff, platziere keine Orders und veröffentliche keine Änderung ohne deine ausdrückliche Freigabe."
+            ),
+            "fr": (
+                "Je suis l’assistant HES Trade AI. Je peux lire les preuves disponibles sur l’état de HES, "
+                "expliquer les données Gate.io, les décisions Mother/Strategy, le journal et les actualités, "
+                "rechercher les checkpoints locaux autorisés (pas les pages uniquement dans Notion) et préparer des diagnostics ou propositions avec tests. "
+                "Je n’accède pas aux comptes d’exchange, je ne passe aucun ordre et je ne publie aucun changement sans ton approbation explicite."
+            ),
+            "en": (
+                "I'm the HES Trade AI assistant. I can read available HES health/status evidence; explain Gate.io market data, "
+                "Mother and Strategy decisions, the journal and news; search approved local project checkpoints (not Notion-only pages); and prepare diagnostics, "
+                "development proposals and tests. I have no exchange-account access, place no orders, and publish no operational change without your explicit approval."
+            ),
+        }[language]
+    if _is_casual_greeting(normalized):
+        return {
+            "fa": "سلام رفیق! خوش اومدی 😊 من آماده‌ام؛ می‌تونیم وضعیت HES رو بررسی کنیم، تصمیم‌های مادر رو بفهمیم یا روی توسعهٔ ایجنت کار کنیم. تو بگو از کجا شروع کنیم.",
+            "de": "Hallo! Schön, dass du da bist. Ich kann dir bei HES-Status, Entscheidungen oder der Weiterentwicklung helfen. Womit sollen wir anfangen?",
+            "fr": "Salut ! Ravi de te retrouver. Je peux t’aider avec l’état de HES, ses décisions ou son développement. Par quoi commence-t-on ?",
+            "en": "Hello! Good to have you here. I can help with HES status, recorded decisions, or development. What would you like to tackle first?",
+        }[language]
+    return None
+
+
+_CONVERSATION_SUMMARY_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pattern in (
+    r"خلاصه.{0,18}(?:مکالمه|گفت.?وگو|صحبت.?های قبلی)",
+    r"(?:مکالمه|گفت.?وگو).{0,18}(?:خلاصه|جمع.?بندی)",
+    r"\b(?:summari[sz]e (?:the )?(?:previous )?conversation|conversation summary|summari[sz]e our chat)\b",
+    r"\b(?:gespräch zusammenfassen|zusammenfassung des gesprächs)\b",
+    r"\b(?:résume(?:r)? la conversation|résumé de la conversation)\b",
+))
+
+
+def _deterministic_conversation_summary(
+    message: str, history: list[dict[str, str]], language: str, memory_available: bool
+) -> str | None:
+    if not any(pattern.search(str(message or "")) for pattern in _CONVERSATION_SUMMARY_PATTERNS):
+        return None
+    if not memory_available:
+        return {
+            "fa": "حافظهٔ محاوره‌ای در دسترس نیست؛ خلاصه‌ای ساخته نشد.",
+            "de": "Der Gesprächsspeicher ist nicht verfügbar; es wurde keine Zusammenfassung erstellt.",
+            "fr": "La mémoire de conversation est indisponible; aucun résumé n'a été créé.",
+            "en": "Conversation memory is unavailable; no summary was created.",
+        }[language]
+    pairs = []
+    for index in range(len(history) - 1):
+        user_item = history[index]
+        assistant_item = history[index + 1]
+        if user_item.get("role") == "user" and assistant_item.get("role") == "assistant":
+            user_text = " ".join(str(user_item.get("content") or "").split())
+            assistant_text = " ".join(str(assistant_item.get("content") or "").split())
+            if user_text and assistant_text:
+                pairs.append((user_text[:100], assistant_text[:100]))
+    if not pairs:
+        return {
+            "fa": "هنوز گفت‌وگوی قبلی در حافظهٔ محلی ثبت نشده است؛ چیزی برای خلاصه‌سازی وجود ندارد.",
+            "de": "Es sind noch keine früheren Gesprächsrunden im lokalen Speicher vorhanden.",
+            "fr": "Aucun échange précédent n'est encore enregistré dans la mémoire locale.",
+            "en": "No earlier conversation turns are recorded in local memory yet.",
+        }[language]
+    labels = {
+        "fa": ("خلاصهٔ گفت‌وگوی ثبت‌شده، بر پایهٔ دو نوبت اخیر:", "پرسش", "پاسخ ثبت‌شده"),
+        "de": ("Zusammenfassung der letzten zwei gespeicherten Gesprächsrunden:", "Frage", "Gespeicherte Antwort"),
+        "fr": ("Résumé des deux derniers échanges enregistrés :", "Question", "Réponse enregistrée"),
+        "en": ("Summary of the last two stored conversation turns:", "Question", "Recorded answer"),
+    }
+    heading, question_label, answer_label = labels[language]
+    rows = []
+    for user_text, assistant_text in pairs[-2:]:
+        rows.append(f"- {question_label}: {user_text}")
+        rows.append(f"  - {answer_label}: {assistant_text}")
+    footer = {
+        "fa": "این خلاصه فقط از پیام‌های ذخیره‌شده ساخته شده و وضعیت زندهٔ بازار را دوباره بررسی نمی‌کند.",
+        "de": "Diese Zusammenfassung nutzt nur gespeicherte Nachrichten und prüft keine Live-Marktdaten erneut.",
+        "fr": "Ce résumé utilise uniquement les messages enregistrés et ne vérifie pas à nouveau le marché en direct.",
+        "en": "This summary uses stored messages only and does not re-check live market data.",
+    }[language]
+    return heading + "\n" + "\n".join(rows) + "\n" + footer
+
+
+_HES_CONTEXT_TERMS = (
+    "hes", "mother", "gate.io", "btc", "bitcoin", "no_trade", "strategy v2", "journal", "risk gate",
+    "signal", "trade", "market", "decision", "ترید", "معامله", "مادر", "ایجنت", "تصمیم", "بازار",
+    "ژورنال", "ریسک", "سیگنال", "گیت.آی‌او", "گیت ای او", "کندل", "استراتژی", "اخبار بازار",
+)
+_CONTEXTUAL_FOLLOWUP_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"(?:پس|بنابراین).{0,18}(?:علت|دلیل|چرا)|(?:علتش|دلیلش|چرایش|همون|در موردش|راجع بهش)",
+    r"^(?:چرا|چطور|بیشتر(?: توضیح بده)?|توضیح بده|ادامه بده)[؟?! .]*$",
+    r"\b(?:why|why was that|what about that|and why|the reason|why did it|tell me more|explain that|go on)\b",
+    r"\b(?:warum|warum das|weshalb das|und warum|der grund dazu|mehr dazu|erklär das)\b",
+    r"\b(?:pourquoi|pourquoi cela|et pourquoi|la raison|pourquoi alors|plus de détails|explique cela)\b",
+))
+
+
+def _has_hes_context(message: str) -> bool:
+    text = str(message or "").casefold()
+    return any(term in text for term in _HES_CONTEXT_TERMS)
+
+
+def _is_contextual_followup(message: str) -> bool:
+    return any(pattern.search(str(message or "")) for pattern in _CONTEXTUAL_FOLLOWUP_PATTERNS)
+
+
+def _previous_non_contextual_user_message(history: list[dict[str, str]]) -> str | None:
+    for item in reversed(history):
+        if item.get("role") != "user":
+            continue
+        content = str(item.get("content") or "")
+        if content and not _is_contextual_followup(content):
+            return content
+    return None
+
+
+def _resolve_contextual_followup_intent(
+    message: str, history: list[dict[str, str]]
+) -> str | None:
+    """Resolve short follow-ups through the latest non-follow-up user request."""
+    if not _is_contextual_followup(message):
+        return None
+    previous_user = _previous_non_contextual_user_message(history)
+    if not previous_user:
+        return None
+    previous_intent = classify_intent(previous_user)
+    supported = {
+        "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
+        "NEWS_CONTEXT", "DIAGNOSE", "PROJECT_MEMORY",
+    }
+    if previous_intent not in supported:
+        return None
+    why_patterns = (
+        r"^(?:چرا|علتش|دلیلش|چرایش|پس چرا|بنابراین چرا)[؟?! .]*$",
+        r"\b(?:why|the reason|why was that|and why)\b",
+        r"\b(?:warum|weshalb|der grund)\b",
+        r"\b(?:pourquoi|la raison)\b",
+    )
+    is_why = any(re.search(pattern, str(message or "").casefold()) for pattern in why_patterns)
+    if previous_intent == "ASK_STATUS" and is_why:
+        return "EXPLAIN_DECISION"
+    return previous_intent
+
+
+class HoshyarLocalError(RuntimeError):
+    pass
+
+
+class HoshyarLocalLLMV1:
+    """Minimal OpenAI-compatible client restricted to the local loopback endpoint."""
+
+    def __init__(self, *, endpoint: str | None = None, model: str | None = None, timeout: float = 75.0, api_key_file: str | os.PathLike[str] | None = None):
+        self.endpoint = endpoint or os.environ.get("HES_HOSHYAR_LOCAL_LLM_URL", DEFAULT_ENDPOINT)
+        self.model = model or os.environ.get("HES_HOSHYAR_LOCAL_LLM_MODEL", DEFAULT_MODEL)
+        self.timeout = max(5.0, min(float(timeout), 120.0))
+        key_path = api_key_file if api_key_file is not None else os.environ.get("HES_HOSHYAR_LOCAL_LLM_API_KEY_FILE", DEFAULT_API_KEY_FILE)
+        self.api_key_file = Path(key_path)
+        self.api_key = None
+        if self.api_key_file.exists():
+            descriptor = None
+            try:
+                descriptor = os.open(self.api_key_file, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                info = os.fstat(descriptor)
+                if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077 or info.st_size > 4096:
+                    raise HoshyarLocalError("HOSHYAR_API_KEY_PERMISSIONS_INVALID")
+                raw_key = os.read(descriptor, 4097)
+                if len(raw_key) > 4096:
+                    raise HoshyarLocalError("HOSHYAR_API_KEY_FILE_TOO_LARGE")
+                key_text = raw_key.decode("utf-8")
+                self.api_key = next((line.strip() for line in key_text.splitlines() if line.strip() and not line.lstrip().startswith("#")), None)
+            except HoshyarLocalError:
+                raise
+            except (OSError, UnicodeDecodeError) as exc:
+                raise HoshyarLocalError("HOSHYAR_API_KEY_FILE_UNAVAILABLE") from exc
+            finally:
+                if descriptor is not None:
+                    os.close(descriptor)
+            if not self.api_key:
+                raise HoshyarLocalError("HOSHYAR_API_KEY_EMPTY")
+        parsed = urlsplit(self.endpoint)
+        if (
+            parsed.scheme != "http" or parsed.hostname != "127.0.0.1"
+            or parsed.port != 18082 or parsed.path != "/v1/chat/completions"
+            or parsed.username or parsed.password or parsed.query or parsed.fragment
+        ):
+            raise HoshyarLocalError("HOSHYAR_LOCAL_ENDPOINT_REJECTED")
+        if not self.model or len(self.model) > 100:
+            raise HoshyarLocalError("HOSHYAR_MODEL_ID_INVALID")
+
+    def _post(self, messages: list[dict[str, str]], *, max_tokens: int, response_format: dict[str, Any], temperature: float = 0.1) -> str:
+        if not isinstance(messages, list) or not 1 <= len(messages) <= 12:
+            raise HoshyarLocalError("HOSHYAR_MESSAGES_INVALID")
+        for message in messages:
+            if (
+                not isinstance(message, dict)
+                or message.get("role") not in {"system", "user", "assistant"}
+                or not isinstance(message.get("content"), str)
+                or len(message["content"]) > 5000
+            ):
+                raise HoshyarLocalError("HOSHYAR_MESSAGES_INVALID")
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": max(0.0, min(float(temperature), 0.7)),
+            "max_tokens": max(16, min(int(max_tokens), 100)),
+            "stream": False,
+            "response_format": response_format,
+        }
+        request = Request(
+            self.endpoint,
+            data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json", "Accept": "application/json",
+                **({"Authorization": "Bearer " + self.api_key} if self.api_key else {}),
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                raw = response.read(32_769)
+        except (OSError, URLError, TimeoutError) as exc:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_MODEL_UNAVAILABLE") from exc
+        if len(raw) > 32_768:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_RESPONSE_TOO_LARGE")
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+            content = payload["choices"][0]["message"]["content"]
+        except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_RESPONSE_INVALID") from exc
+        if not isinstance(content, str) or not content.strip() or len(content) > 8_000:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_CONTENT_INVALID")
+        return content.strip()
+
+    def route_intent(self, messages: list[dict[str, str]]) -> str:
+        schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "hoshyar_intent",
+                "schema": {
+                    "type": "object",
+                    "properties": {"intent": {"type": "string", "enum": sorted(ALLOWED_INTENTS)}},
+                    "required": ["intent"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+        content = self._post(messages, max_tokens=24, response_format=schema, temperature=0.1)
+        try:
+            payload = json.loads(content)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_INTENT_INVALID") from exc
+        if not isinstance(payload, Mapping) or set(payload) != {"intent"} or payload.get("intent") not in ALLOWED_INTENTS:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_INTENT_INVALID")
+        return str(payload["intent"])
+
+    def general_answer(self, messages: list[dict[str, str]]) -> str:
+        schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "hoshyar_answer",
+                "schema": {
+                    "type": "object",
+                    "properties": {"answer": {"type": "string", "maxLength": 500}},
+                    "required": ["answer"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+        content = self._post(messages, max_tokens=64, response_format=schema, temperature=0.2)
+        try:
+            payload = json.loads(content)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_ANSWER_INVALID") from exc
+        answer = payload.get("answer") if isinstance(payload, Mapping) and set(payload) == {"answer"} else None
+        if not isinstance(answer, str) or len(answer) > 500:
+            raise HoshyarLocalError("HOSHYAR_LOCAL_ANSWER_INVALID")
+        return answer.strip()
+
+class HoshyarConversationMemoryV1:
+    """Single-owner local SQLite conversation memory with bounded retention."""
+
+    def __init__(self, path: str | os.PathLike[str] | None = None):
+        self.path = Path(path or os.environ.get("HES_HOSHYAR_MEMORY_DB", DEFAULT_MEMORY_DB))
+
+    def _connect(self) -> sqlite3.Connection:
+        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        connection = sqlite3.connect(str(self.path), timeout=3.0)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout=3000")
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS messages ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL CHECK(role IN ('user','assistant')), "
+            "content TEXT NOT NULL, created_at INTEGER NOT NULL)"
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_hoshyar_messages_created ON messages(id)")
+        connection.commit()
+        try:
+            os.chmod(self.path, 0o600)
+        except OSError:
+            connection.close()
+            raise HoshyarLocalError("HOSHYAR_MEMORY_PERMISSIONS_INVALID")
+        return connection
+
+    def history(self, limit: int = MAX_HISTORY_MESSAGES) -> list[dict[str, str]]:
+        limit = max(0, min(int(limit), MAX_STORED_MESSAGES))
+        if not limit:
+            return []
+        try:
+            with closing(self._connect()) as db:
+                rows = db.execute(
+                    "SELECT role, content FROM messages ORDER BY id DESC LIMIT ?", (limit,)
+                ).fetchall()
+            return [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
+        except (OSError, sqlite3.Error) as exc:
+            raise HoshyarLocalError("HOSHYAR_MEMORY_UNAVAILABLE") from exc
+
+    def append_turn(self, user_message: str, assistant_message: str) -> None:
+        now = int(time.time())
+        try:
+            with closing(self._connect()) as db:
+                db.executemany(
+                    "INSERT INTO messages(role, content, created_at) VALUES(?,?,?)",
+                    [("user", user_message[:1000], now), ("assistant", assistant_message[:4000], now)],
+                )
+                db.execute("DELETE FROM messages WHERE created_at < ?", (now - MEMORY_RETENTION_SECONDS,))
+                db.execute(
+                    "DELETE FROM messages WHERE id NOT IN (SELECT id FROM messages ORDER BY id DESC LIMIT ?)",
+                    (MAX_STORED_MESSAGES,),
+                )
+                db.commit()
+        except (OSError, sqlite3.Error) as exc:
+            raise HoshyarLocalError("HOSHYAR_MEMORY_WRITE_FAILED") from exc
+
+    def clear(self) -> None:
+        try:
+            with closing(self._connect()) as db:
+                db.execute("DELETE FROM messages")
+                db.commit()
+        except (OSError, sqlite3.Error) as exc:
+            raise HoshyarLocalError("HOSHYAR_MEMORY_CLEAR_FAILED") from exc
+
+
+class HoshyarLocalAssistantV1:
+    """Conversation router: local model selects a fixed intent; existing readers retain authority."""
+
+    def __init__(
+        self,
+        llm: HoshyarLocalLLMV1,
+        memory: HoshyarConversationMemoryV1,
+        *,
+        allow_freeform: bool | None = None,
+    ):
+        self.llm = llm
+        self.memory = memory
+        self.allow_freeform = (
+            os.environ.get("HES_HOSHYAR_LOCAL_LLM_GENERAL_CHAT_ENABLED", "0").strip() == "1"
+            if allow_freeform is None else bool(allow_freeform)
+        )
+
+    @staticmethod
+    def _safe_general_answer(answer: str, language: str) -> str:
+        if not answer:
+            return {
+                "fa": "سلام، در خدمتم. چه کمکی از دستم برمی‌آید؟",
+                "de": "Hallo, ich bin da. Wie kann ich helfen?",
+                "fr": "Bonjour, je suis là. Comment puis-je aider ?",
+                "en": "Hello, I'm here. How can I help?",
+            }.get(language, "Hello, I'm here. How can I help?")
+        if any(pattern.search(answer) for pattern in _ACTION_CLAIM_PATTERNS):
+            return {
+                "fa": "می‌توانم توضیح بدهم و پیشنهاد آماده کنم؛ اما هیچ اقدام عملیاتی انجام نمی‌دهم. هر تغییر عملیاتی به تأیید صریح همان تغییر از طرف صاحب پروژه نیاز دارد.",
+                "de": "Ich kann erklären und Vorschläge vorbereiten, aber keine operativen Änderungen ausführen. Jede Änderung benötigt die ausdrückliche Freigabe genau dieser Änderung durch den Eigentümer.",
+                "fr": "Je peux expliquer et préparer des propositions, mais je n'effectue aucune action opérationnelle. Toute modification exige l'approbation explicite de cette modification précise par le propriétaire.",
+                "en": "I can explain and prepare proposals, but I cannot perform operational actions. Any change requires the owner's explicit approval of that exact change.",
+            }.get(language, "I can explain and prepare proposals, but I cannot perform operational actions.")
+        return answer
+
+    def respond(
+        self,
+        message: str,
+        readers: Mapping[str, Callable[[], Mapping[str, Any]]],
+        *,
+        language: str | None = None,
+    ) -> dict[str, Any]:
+        if not isinstance(message, str) or not message.strip() or len(message) > 1000:
+            raise ValueError("CHAT_MESSAGE_INVALID")
+        if language not in {None, "auto", "fa", "en", "de", "fr"}:
+            raise ValueError("CHAT_LANGUAGE_INVALID")
+        effective_language = language if language in {"fa", "en", "de", "fr"} else _language(message)
+        history: list[dict[str, str]] = []
+        memory_ok = False
+        try:
+            history = self.memory.history()
+            memory_ok = True
+        except HoshyarLocalError:
+            history = []
+
+        deterministic_general_answer = _deterministic_conversation_summary(message, history, effective_language, memory_ok)
+        if deterministic_general_answer is None:
+            deterministic_general_answer = _deterministic_general_answer(message, effective_language)
+        deterministic_intent = (
+            "GENERAL_CHAT" if deterministic_general_answer is not None
+            else ("UNKNOWN" if _is_casual_greeting(message) else classify_intent(message))
+        )
+        specialist_context_message = None
+        contextual_intent = _resolve_contextual_followup_intent(message, history)
+        if contextual_intent is not None:
+            deterministic_intent = contextual_intent
+            if contextual_intent == "SPECIALIST_REVIEW":
+                specialist_context_message = _previous_non_contextual_user_message(history)
+        local_used = False
+        intent = deterministic_intent
+        if deterministic_intent == "UNKNOWN" and self.allow_freeform:
+            messages = [
+                {"role": "system", "content": ROUTE_SYSTEM_PROMPT},
+                *history[-MAX_HISTORY_MESSAGES:],
+                {"role": "user", "content": message},
+            ]
+            try:
+                intent = self.llm.route_intent(messages)
+                local_used = True
+            except HoshyarLocalError:
+                intent = "UNKNOWN"
+
+        if intent not in ALLOWED_INTENTS:
+            intent = "UNKNOWN"
+        if intent == "GENERAL_CHAT":
+            has_recent_hes_context = any(_has_hes_context(item.get("content", "")) for item in history[-4:])
+            if _has_hes_context(message) or (
+                deterministic_general_answer is None
+                and not _is_casual_greeting(message)
+                and _is_contextual_followup(message)
+                and has_recent_hes_context
+            ):
+                intent = "UNKNOWN"
+            else:
+                if deterministic_general_answer is not None:
+                    answer = deterministic_general_answer
+                else:
+                    system_prompt = GENERAL_CHAT_SYSTEM_PROMPT + f" Selected response language: {effective_language}."
+                    messages = [
+                        {"role": "system", "content": system_prompt},
+                        *history[-MAX_HISTORY_MESSAGES:],
+                        {"role": "user", "content": message},
+                    ]
+                    try:
+                        answer = self.llm.general_answer(messages)
+                        local_used = True
+                    except HoshyarLocalError:
+                        answer = ""
+                    answer = self._safe_general_answer(answer, effective_language)
+                result = {
+                    "schema_version": "hes.mother_chat.v1",
+                    "router_version": "hes-hoshyar-local-llm-v2",
+                    "intent": "GENERAL_CHAT", "status": "CHAT_ONLY", "answer": answer, "language": effective_language,
+                    "direction": "rtl" if effective_language == "fa" else "ltr",
+                    "claims": [], "uncertainties": [], "evidence_refs": [], "trace_id": "",
+                    "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "external_llm_used": False, "execution_enabled": False,
+                    "orders_placed": False, "journal_write": False, "policy_mutation": False,
+                    "local_llm_used": local_used, "conversation_memory_used": memory_ok,
+                }
+        if intent != "GENERAL_CHAT":
+            if intent in ALLOWED_INTENTS - {"UNKNOWN"}:
+                result = build_chat_response(
+                    message, readers, language=language, intent_override=intent,
+                    specialist_context_message=specialist_context_message,
+                )
+            else:
+                result = build_chat_response(message, readers, language=language)
+            result["local_llm_used"] = local_used
+            result["conversation_memory_used"] = memory_ok
+
+        if memory_ok:
+            try:
+                self.memory.append_turn(message, str(result.get("answer") or ""))
+            except HoshyarLocalError:
+                result["conversation_memory_used"] = False
+                result.setdefault("uncertainties", []).append("Local conversation memory could not be saved.")
+        result["external_llm_used"] = False
+        result["execution_enabled"] = False
+        result["orders_placed"] = False
+        result["journal_write"] = False
+        result["policy_mutation"] = False
+        return result
+
+    def clear_memory(self) -> None:
+        self.memory.clear()
+
+    def read_history(self) -> list[dict[str, str]]:
+        return self.memory.history(limit=MAX_STORED_MESSAGES)

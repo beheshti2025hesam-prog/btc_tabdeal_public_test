@@ -1,0 +1,22 @@
+{
+  "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+  "main_commit": "bcd24be8af0f6fc9fc5909c4641489f9edd44865",
+  "source_files_sha": {
+    "web/mother_chat_v1.py": "39d2380d2edf7543a86cd3b3204616af850e70c0",
+    "web/dashboard.py": "85009ada0174bf6876fa9a81e5397f8ef5e90b50",
+    "web/static/dashboard.js": "2aa173f8848909f017edda8dfc427a23a4d79697",
+    "web/static/dashboard.css": "8588f4dcc36e19e436a24c237cbd0d90c977fc72",
+    "web/hoshyar_local_v1.py": "b7ce1b4f69034c197287345fb2333d8cc505383c",
+    "web/hoshyar_project_memory_v1.py": "08b7df8a7eed6dc95952a22271b9add0090503bf",
+    "tests/test_mother_chat_v1.py": "9ff01077f079ff7adecc3e1e264241084584d02c",
+    "tests/test_mother_chat_persian_eval_v1.py": "95113dbda61f5c4643834f1b4b1bc468b825cd42"
+  },
+  "command": "python -m pytest -q -W error tests/test_mother_chat_v1.py tests/test_mother_chat_persian_eval_v1.py",
+  "focused_test_result": "48 passed",
+  "persian_regression_file_result": "9 passed (included in the 48)",
+  "synthetic_fixtures_only": true,
+  "live_market_data_used": false,
+  "local_llm_inference_rerun": false,
+  "production_deployed": false,
+  "verified_at_utc": "2026-11-17T14:57:12.527142+00:00"
+}
