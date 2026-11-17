@@ -1,16 +1,17 @@
 {
   "benchmark_id": "HES-FA-LLM-EVAL-2026-11-17-v2",
-  "deterministic_cases": "8/8 PASS",
-  "candidate_unit_tests": "20 passed",
+  "deterministic_synthetic_cases": "8/8 PASS on exact mainline module",
+  "exact_mainline_focused_tests": "48 passed",
   "local_llm_inference_rerun": false,
   "production_deployed": false,
   "artifacts": {
-    "HES_Persian_Mother_Chat_Evaluation_v2.ipynb": "3f46e372bbae6d70bfffd80df812de6dc9b4ed8827032ce8cc0a951e161b3de4",
+    "HES_Persian_Mother_Chat_Evaluation_v2.ipynb": "1ce191ce666f7ba82988360aebe36cfa485d2aeb2294267c7c4af0fd681f9bc4",
     "persian_test_suite_v2.json": "6dff2f18a30d3ca4a908972b148586f9c8eb34b6193e8e03979d8ab157483d76",
-    "DETERMINISTIC_MOTHER_CHAT_RESULTS_v2.json": "3b1d88dc7421c85a171a8268b0c383fe274d52b3f4ed7b25b18d5ea9c4aa661e",
+    "DETERMINISTIC_MOTHER_CHAT_RESULTS_v2.json": "df6b458d92e07cc7c170f9cfa2287d3b94d7ae8d6b1f769c7962c525dee1ac85",
     "LOCAL_MODEL_COMPARISON_HISTORY.json": "e5d3f3fc6eac78a0158f30bff23ed45bf83618f45c2ad03494650d189fcf9b81",
-    "COMPARATIVE_REPORT_v2.md": "72c72dedb9d0168499acbcd3de33e73ef90f793c6559d3dbfc195369cd4aaba7",
-    "run_persian_eval_v2.py": "3ace20a9c1d32e66c00a8676d105bbdc95e9f13d78d5ff5995c790578d683ca2"
+    "COMPARATIVE_REPORT_v2.md": "928ee7cef71e4f2f79ab56d9e8a07ba10eefb9e8eb10b7fd26d777d87f92860b",
+    "run_persian_eval_v2.py": "3ace20a9c1d32e66c00a8676d105bbdc95e9f13d78d5ff5995c790578d683ca2",
+    "MAINLINE_EXACT_HEAD_VALIDATION.json": "f6ef9be20c96e3dc5fbb7811e2cbbc9d34b91aa8ba66a3a79739f7d2eb38bc2e"
   },
-  "created_at_utc": "2026-11-17T14:54:03.481708+00:00"
+  "created_at_utc": "2026-11-17T14:57:26.737108+00:00"
 }
