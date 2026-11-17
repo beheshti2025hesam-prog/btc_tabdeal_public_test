@@ -56,11 +56,11 @@ _INTENT_TERMS = {
 
 def _language(message: str) -> str:
     text = message.casefold()
-    if any("\\u0600" <= ch <= "\\u06ff" for ch in message):
+    if any("\u0600" <= ch <= "\u06ff" for ch in message):
         return "fa"
-    if re.search(r"\\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste|was kannst du|wobei kannst du|guten tag|hallo|fähigkeiten)\\b", text):
+    if re.search(r"\b(warum|weshalb|markt|kerzen|kurs|entscheidung|nachrichten|fehler|gesundheit|ergebnisse|änderung|dienste|was kannst du|wobei kannst du|guten tag|hallo|fähigkeiten)\b", text):
         return "de"
-    if re.search(r"\\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement|que peux-tu|comment peux-tu|bonjour|salut|capacités)\\b", text):
+    if re.search(r"\b(pourquoi|marché|bougie|prix|décision|actualités|erreur|statut|santé|résultats|proposition|changement|que peux-tu|comment peux-tu|bonjour|salut|capacités)\b", text):
         return "fr"
     return "en"
 
