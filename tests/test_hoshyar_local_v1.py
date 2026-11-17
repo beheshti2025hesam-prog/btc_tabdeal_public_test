@@ -124,6 +124,7 @@ def test_general_chat_is_local_and_action_claims_are_sanitized(tmp_path):
     assistant = HoshyarLocalAssistantV1(
         FakeLLM(intent="GENERAL_CHAT", answer="I changed the risk limit and placed the trade."),
         HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"),
+        allow_freeform=True,
     )
     result = assistant.respond("Tell me something interesting about astronomy.", {}, language="en")
     assert result["intent"] == "GENERAL_CHAT"
@@ -216,16 +217,29 @@ def test_explicit_news_question_stays_deterministic(tmp_path):
 
 def test_invalid_model_intent_falls_back_to_deterministic_unknown(tmp_path):
     llm = FakeLLM(intent="PLACE_ORDER")
-    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
+    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"), allow_freeform=True)
     result = assistant.respond("A completely unrelated request", {}, language="en")
     assert result["intent"] == "UNKNOWN"
     assert result["status"] == "NEEDS_CLARIFICATION"
     assert result["orders_placed"] is False
 
 
+def test_freeform_model_routing_is_disabled_by_default(tmp_path):
+    llm = FakeLLM(intent="GENERAL_CHAT", answer="A generated answer.")
+    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
+    result = assistant.respond("Tell me a story about a fox.", {}, language="en")
+    assert result["intent"] == "UNKNOWN"
+    assert result["status"] == "NEEDS_CLARIFICATION"
+    assert result["local_llm_used"] is False
+    assert llm.route_calls == []
+    assert llm.answer_calls == []
+    assert result["external_llm_used"] is False
+    assert result["execution_enabled"] is False
+
+
 def test_local_model_failure_falls_back_without_external_service(tmp_path):
     llm = FakeLLM(route_error=True)
-    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
+    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"), allow_freeform=True)
     result = assistant.respond("A question not covered by the router", {}, language="en")
     assert result["intent"] == "UNKNOWN"
     assert result["external_llm_used"] is False
@@ -234,7 +248,7 @@ def test_local_model_failure_falls_back_without_external_service(tmp_path):
 
 def test_general_answer_failure_uses_safe_local_fallback(tmp_path):
     llm = FakeLLM(intent="GENERAL_CHAT", answer_error=True)
-    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"))
+    assistant = HoshyarLocalAssistantV1(llm, HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3"), allow_freeform=True)
     result = assistant.respond("Tell me a short story about a curious fox.", {}, language="en")
     assert result["intent"] == "GENERAL_CHAT"
     assert "How can I help" in result["answer"]
