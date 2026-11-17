@@ -28,12 +28,12 @@ const server=http.createServer((req,res)=>{
  if(u.pathname==="/static/dashboard.js"){return send(200,fs.readFileSync(path.join(root,"web/static/dashboard.js")),"application/javascript");}
  if(u.pathname==="/static/hes-mark.svg"){return send(200,fs.readFileSync(path.join(root,"web/static/hes-mark.svg")),"image/svg+xml");}
  if(u.pathname.includes("lightweight-charts.standalone.production.js")){return send(200,chartStub,"application/javascript");}
- if(u.pathname==="/api/technical-intelligence"){const symbol=u.searchParams.get("symbol")||"BTCUSDT",sourceMap={BTCUSDT:"BTC_USDT",ETHUSDT:"ETH_USDT",SOLUSDT:"SOL_USDT"};if(!sourceMap[symbol])return send(400,JSON.stringify({error:"unsupported_symbol"}));const btc=symbol==="BTCUSDT";return send(failTechnical?503:200,JSON.stringify({...technical,symbol:sourceMap[symbol],canonical_symbol:symbol,source_reader:btc?"global_market_data_reader_v1":"native_ohlcv_gateio_v1",timeframe_roles:btc?technical.timeframe_roles:{},timeframe_roles_status:btc?"INITIAL_BTC_PROFILE":"DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL"}));}
+ if(u.pathname==="/api/technical-intelligence"){const symbol=u.searchParams.get("symbol")||"BTCUSDT",sourceMap={BTCUSDT:"BTC_USDT",ETHUSDT:"ETH_USDT",SOLUSDT:"SOL_USDT"};if(!sourceMap[symbol])return send(400,JSON.stringify({error:"unsupported_symbol"}));if(failTechnical)return send(200,JSON.stringify({status:"BLOCKED",source:"unavailable",source_reader:"unavailable",symbol:sourceMap[symbol],canonical_symbol:symbol,controls:{decision_authority:false,execution_enabled:false,orders_placed:false}}));const btc=symbol==="BTCUSDT";return send(200,JSON.stringify({...technical,symbol:sourceMap[symbol],canonical_symbol:symbol,source_reader:btc?"global_market_data_reader_v1":"native_ohlcv_gateio_v1",timeframe_roles:btc?technical.timeframe_roles:{},timeframe_roles_status:btc?"INITIAL_BTC_PROFILE":"DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL"}));}
  if(u.pathname==="/api/candles"){
   const interval=u.searchParams.get("interval")||"15m",symbol=u.searchParams.get("symbol")||"BTCUSDT",sourceMap={BTCUSDT:"BTC_USDT",ETHUSDT:"ETH_USDT",SOLUSDT:"SOL_USDT"};
   return send(200,JSON.stringify({status:"ok",source:"gateio_public_spot",source_reader:symbol==="BTCUSDT"?"global_market_data_reader_v1":"native_ohlcv_gateio_v1",venue:"gateio",product:"spot",symbol,source_symbol:sourceMap[symbol],symbol_mapping_verified:!!sourceMap[symbol],execution_instrument_mapping_verified:false,volume_semantics_contract:"gateio_spot_candlestick_volume_v1",trade_count_available:false,taker_buy_flow_available:false,execution_enabled:false,orders_placed:false,interval,gaps:[],latest_age_seconds:8,feature_ready:true,stream_status:"disabled",stream_reason:null,input_batch_sha256:"b".repeat(64),candles:[{open_time:1794927000,close_time:1794927900000,open:"90000",high:"90100",low:"89900",close:"90050",volume:"12"}]}));
  }
- if(u.pathname.startsWith("/api/"))return send(503,JSON.stringify({status:"BLOCKED",error:"fixture_not_configured"}));
+ if(u.pathname.startsWith("/api/"))return send(200,JSON.stringify({status:"BLOCKED",error:"fixture_not_configured",decision:"NO_TRADE",market_regime:"UNKNOWN",execution_enabled:false,orders_placed:false,events:[],items:[],sources:[],stages:[],reason_codes:[]}));
  return send(404,"not found","text/plain");
 });
 (async()=>{
@@ -43,6 +43,11 @@ const server=http.createServer((req,res)=>{
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
   const port=server.address().port;
   page=await browser.newPage({viewport:{width:1440,height:1000},locale:"en-US"});
+  await page.route("https://**/*",async route=>{
+   const url=route.request().url();
+   if(url.includes("lightweight-charts.standalone.production.js"))return route.fulfill({status:200,contentType:"application/javascript",body:chartStub});
+   return route.fulfill({status:204,body:""});
+  });
   page.on("pageerror",e=>errors.push(String(e)));
   page.on("console",m=>{if(m.type()==="error")errors.push(m.text())});
   await page.goto("http://127.0.0.1:"+port+"/",{waitUntil:"domcontentloaded"});

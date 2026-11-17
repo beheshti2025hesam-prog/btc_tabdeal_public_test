@@ -37,3 +37,10 @@ V1 dashboard live support is currently the three explicit Gate.io Spot mappings 
 - Updated DOM evidence to record the three explicit symbol options, translated scope copy, translated timeframe roles and fail-closed source-reader identity. DOM smoke: **PASS**, 39 indicator rows, no console errors.
 - Full local regression after the localization addition: **1,475 passed, 82 subtests passed** (`-W error`).
 - GitHub CI on the second PR commit exposed a packaging defect in the connector-uploaded `web/dashboard.py` blob: the final `main()` lines had been omitted by a line-range truncation during transfer, although the local source was complete. The next commit re-uploads the entire file using verified 945-line chunks and the complete 366-line dashboard JS; this is a source-transfer correction, not an application runtime failure. Exact-head CI must be rerun after the corrected upload.
+
+
+## 12. Browser fixture hardening (2026-11-17)
+
+- Exact-head CI on `eabbf02651a8c684347e0be37e7b78e89532634b` passed Python regression and DOM checks; HES Full Regression Gate and dashboard full-repository regression also passed. Playwright launched successfully on Ubuntu 24.04 and produced desktop/mobile artifacts, but browser assertion correctly detected console errors caused by the test fixture's unmocked API routes and external CDN requests returning HTTP 503.
+- Hardened the browser fixture: all external HTTPS requests are intercepted; the Lightweight Charts script is served from a deterministic local test stub, unrelated external resources return 204, and non-target dashboard APIs return safe BLOCKED JSON rather than HTTP 503. The technical-intelligence failure scenario now returns a safe BLOCKED payload so the browser validates fail-closed rendering without treating expected HTTP failures as console regressions. The separate DOM test still exercises the actual HTTP 503 fail-closed path.
+- This is test-fixture isolation, not a production code change. The exact-head browser workflow must be rerun; no browser acceptance claim is made until it passes.
