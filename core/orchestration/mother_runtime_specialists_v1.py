@@ -30,7 +30,7 @@ from forward.strategy_gate_pipeline_v1 import (
 )
 from forward.strategy_policy_v2 import POLICY_VERSION, evaluate as evaluate_strategy
 from forward.strategy_policy_gate_v1 import GATE_VERSION, enforce_final_gates
-from forward.trade_journal_view_v1 import read_decision_journal
+from forward.trade_journal_view_v1 import JournalProjectionError, read_decision_journal
 from scripts.analyze_gateio_snapshot_v1 import snapshot
 
 SOURCE = "gateio_public_spot"
@@ -447,10 +447,50 @@ class ConfirmationSpecialistV1:
         bundle = self.market.ensure_confirmation()
         confirmation = bundle["confirmation"]
         upstream = str(confirmation.state or "UNCONFIRMED")
-        state = "CONFIRMED" if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") else "UNCONFIRMED"
-        reasons = tuple(confirmation.reason_codes or (() if state == "CONFIRMED" else ("CONFIRMATION_NOT_VALID",)))
+        news = context.get("news_context", {})
+        news = news if isinstance(news, Mapping) else {}
+        news_status = str(news.get("status") or "BLOCKED")
+        news_veto_flags = news.get("veto_flags", [])
+        news_veto_flags = tuple(sorted(set(
+            flag for flag in news_veto_flags
+            if isinstance(flag, str) and flag in {
+                "HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION",
+                "NEWS_TIMESTAMP_SUSPECT", "NEWS_TIMESTAMP_INVALID",
+                "NEWS_TIMESTAMP_UNVERIFIED", "NEWS_SOURCE_UNVERIFIED",
+                "NEWS_SOURCE_COVERAGE_INCOMPLETE", "NEWS_CONTEXT_NOT_READY",
+            }
+        ))) if isinstance(news_veto_flags, (list, tuple)) else ()
+        # A missing, stale, malformed or legacy-schema snapshot must never be
+        # interpreted as "no news". Only a fully validated READY context may
+        # leave the upstream confirmation unchanged.
+        if news_status != "READY":
+            news_veto_flags = tuple(sorted(set((*news_veto_flags, "NEWS_CONTEXT_NOT_READY"))))
+        state = "CONFIRMED" if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") and not news_veto_flags else "UNCONFIRMED"
+        base_reasons = tuple(confirmation.reason_codes or (() if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") else ("CONFIRMATION_NOT_VALID",)))
+        reasons = tuple(dict.fromkeys((*base_reasons, *news_veto_flags)))
+        news_item_refs = tuple(
+            ref
+            for item in news.get("findings", [])
+            if isinstance(item, Mapping)
+            for ref in (
+                "news_item_id:" + str(item.get("item_id"))
+                if isinstance(item.get("item_id"), str) and item.get("item_id") else None,
+                "news_event_cluster_id:" + str(item.get("event_cluster_id"))
+                if isinstance(item.get("event_cluster_id"), str) and item.get("event_cluster_id") else None,
+            )
+            if ref
+        ) if isinstance(news.get("findings"), list) else ()
+        news_refs = tuple(
+            value for value in (
+                "news_context_sha256:" + str(news.get("context_sha256")) if news.get("context_sha256") else None,
+                "news_snapshot_sha256:" + str(news.get("snapshot_sha256")) if news.get("snapshot_sha256") else None,
+                "news_brief_sha256:" + str(news.get("brief_sha256")) if news.get("brief_sha256") else None,
+                *news_item_refs,
+            ) if value
+        )
         refs = _unique((
             *self.market.batch_refs(),
+            *news_refs,
             "confirmation_sha256:" + _canonical_hash({
                 "state": confirmation.state,
                 "passed_count": confirmation.passed_count,
@@ -465,7 +505,23 @@ class ConfirmationSpecialistV1:
         ))
         payload = {
             "upstream_state": upstream,
-            "direction": upstream.removeprefix("CONFIRMED_") if upstream.startswith("CONFIRMED_") else "NONE",
+            "direction": upstream.removeprefix("CONFIRMED_") if upstream.startswith("CONFIRMED_") and state == "CONFIRMED" else "NONE",
+            "news_context_status": news_status,
+            "news_veto_flags": list(news_veto_flags),
+            "news_coverage_status": str(news.get("coverage_status") or "UNKNOWN"),
+            "news_items": [
+                {
+                    "item_id": item.get("item_id"),
+                    "event_cluster_id": item.get("event_cluster_id"),
+                    "corroboration_item_count": item.get("corroboration_item_count"),
+                    "corroboration_source_count": item.get("corroboration_source_count"),
+                    "interpretation": item.get("interpretation"),
+                    "freshness": item.get("freshness"),
+                }
+                for item in news.get("findings", [])[:5]
+                if isinstance(item, Mapping) and isinstance(item.get("interpretation"), Mapping)
+            ] if isinstance(news.get("findings"), list) else [],
+            "news_alone_can_authorize_trade": False,
         }
         return AgentResult(self.name, state, reasons, refs, payload, self.VERSION)
 
@@ -523,13 +579,53 @@ class EvaluationSpecialistV1:
         self.market = market
 
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
-        journal = self.market.ensure_journal()
+        try:
+            journal = self.market.ensure_journal()
+        except JournalProjectionError as exc:
+            payload = {
+                "journal_status": "UNVERIFIED",
+                "journal_error_code": str(exc)[:128],
+                "outcomes_inferred": False,
+                "evaluation_scope": "DECISION_OBSERVATION_ONLY",
+            }
+            digest = _canonical_hash(payload)
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_NOT_VERIFIED",),
+                (f"decision_journal_status_sha256:{digest}",), payload, self.VERSION,
+            )
+        if not isinstance(journal, Mapping):
+            payload = {"journal_status": "INVALID", "outcomes_inferred": False,
+                       "evaluation_scope": "DECISION_OBSERVATION_ONLY"}
+            digest = _canonical_hash(payload)
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_NOT_VERIFIED",),
+                (f"decision_journal_status_sha256:{digest}",), payload, self.VERSION,
+            )
         status = journal.get("status")
         if status not in ("VERIFIED", "EMPTY"):
-            raise ValueError("DECISION_JOURNAL_NOT_VERIFIED")
+            events = journal.get("events", [])
+            payload = {
+                "journal_status": status or "UNKNOWN",
+                "decision_count": journal.get("decision_count", 0),
+                "event_count": len(events) if isinstance(events, list) else None,
+                "outcomes_inferred": False,
+                "evaluation_scope": "DECISION_OBSERVATION_ONLY",
+            }
+            digest = _canonical_hash(payload)
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_NOT_VERIFIED",),
+                (f"decision_journal_status_sha256:{digest}",), payload, self.VERSION,
+            )
         events = journal.get("events", [])
-        if not isinstance(events, list):
-            raise ValueError("DECISION_JOURNAL_EVENTS_INVALID")
+        if not isinstance(events, list) or any(not isinstance(event, Mapping) for event in events):
+            payload = {"journal_status": status, "event_count": None,
+                       "outcomes_inferred": False,
+                       "evaluation_scope": "DECISION_OBSERVATION_ONLY"}
+            digest = _canonical_hash(payload)
+            return AgentResult(
+                self.name, "BLOCKED", ("DECISION_JOURNAL_EVENTS_INVALID",),
+                (f"decision_journal_status_sha256:{digest}",), payload, self.VERSION,
+            )
         digest = _canonical_hash({
             "record_count": journal.get("count", 0),
             "decision_count": journal.get("decision_count", 0),

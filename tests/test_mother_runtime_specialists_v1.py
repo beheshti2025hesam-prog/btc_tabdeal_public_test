@@ -11,6 +11,7 @@ from unittest.mock import patch
 from forward.global_market_data_reader_v1 import MarketDataRejected
 from forward.strategy_policy_v2 import PolicyDecision, POLICY_VERSION
 from web.mother_runtime_dashboard_view import read_mother_runtime_dashboard
+import web.mother_runtime_dashboard_view as mother_view
 import core.orchestration.mother_runtime_specialists_v1 as runtime
 
 
@@ -59,7 +60,7 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.one_minute = _rows("1m", 60, self.now)
 
     def _run(self, *, confirmation_state="CONFIRMED_LONG", risk_state="RISK_APPROVED",
-             one_minute_ready=True):
+             one_minute_ready=True, journal_status="VERIFIED"):
         proposal = PolicyDecision(
             POLICY_VERSION, "LONG", "LONG", 95, 100.0, 98.0, 106.0, 3.0,
             ("TEST_DIRECTIONAL_PROPOSAL",), {"policy": "PASS"},
@@ -98,7 +99,7 @@ class MotherRuntimeSpecialistsTests(TestCase):
         })
         journal = {
             "schema": "hes.trade_journal_view.v1",
-            "status": "VERIFIED",
+            "status": journal_status,
             "count": 1,
             "decision_count": 1,
             "events": [{
@@ -130,12 +131,52 @@ class MotherRuntimeSpecialistsTests(TestCase):
             ))
             stack.enter_context(patch.object(runtime, "enforce_final_gates", return_value=final_gate))
             stack.enter_context(patch.object(runtime, "read_decision_journal", return_value=journal))
+            stack.enter_context(patch.object(mother_view, "_load_news_context", return_value={
+                "status": "READY", "coverage_status": "qualified_primary_scope",
+                "context_sha256": "a" * 64, "snapshot_sha256": "b" * 64,
+                "brief_sha256": "c" * 64, "veto_flags": [], "findings": [],
+                "news_alone_can_authorize_trade": False,
+            }))
             result = read_mother_runtime_dashboard(
                 data_root=self.temp.name,
                 now=self.now,
                 journal_path=Path(self.temp.name) / "journal.jsonl",
             )
         return result, confirm_mock, risk_mock
+
+    def test_evaluation_blocks_unverified_journal_without_agent_exception(self):
+        market = SimpleNamespace(ensure_journal=lambda: {
+            "status": "MISSING", "count": 0, "decision_count": 0, "events": [],
+        })
+        result = runtime.EvaluationSpecialistV1(market).evaluate({})
+        self.assertEqual(result.state, "BLOCKED")
+        self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_NOT_VERIFIED",))
+        self.assertEqual(result.payload["journal_status"], "MISSING")
+        self.assertTrue(result.evidence_refs[0].startswith("decision_journal_status_sha256:"))
+        self.assertFalse(result.payload["outcomes_inferred"])
+
+    def test_evaluation_blocks_journal_projection_error_without_agent_exception(self):
+        def missing_journal():
+            raise runtime.JournalProjectionError("journal_not_a_regular_file")
+        result = runtime.EvaluationSpecialistV1(
+            SimpleNamespace(ensure_journal=missing_journal)
+        ).evaluate({})
+        self.assertEqual(result.state, "BLOCKED")
+        self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_NOT_VERIFIED",))
+        self.assertEqual(result.payload["journal_status"], "UNVERIFIED")
+        self.assertEqual(result.payload["journal_error_code"], "journal_not_a_regular_file")
+        self.assertTrue(result.evidence_refs[0].startswith("decision_journal_status_sha256:"))
+        self.assertFalse(result.payload["outcomes_inferred"])
+
+    def test_evaluation_blocks_malformed_journal_events_without_agent_exception(self):
+        market = SimpleNamespace(ensure_journal=lambda: {
+            "status": "VERIFIED", "count": 1, "decision_count": 1, "events": "invalid",
+        })
+        result = runtime.EvaluationSpecialistV1(market).evaluate({})
+        self.assertEqual(result.state, "BLOCKED")
+        self.assertEqual(result.reason_codes, ("DECISION_JOURNAL_EVENTS_INVALID",))
+        self.assertTrue(result.evidence_refs[0].startswith("decision_journal_status_sha256:"))
+        self.assertFalse(result.payload["outcomes_inferred"])
 
     def test_all_seven_runtime_specialists_execute_independently(self):
         result, confirm_mock, risk_mock = self._run()
@@ -166,6 +207,17 @@ class MotherRuntimeSpecialistsTests(TestCase):
         self.assertEqual(result["paper_execution_gate"]["status"], "BLOCKED")
         self.assertIn("POLICY_NOT_ACTIVE", result["paper_execution_gate"]["reason_codes"])
         self.assertIn("INTEGRATION_GATE_BLOCKED:RECOVERY_UNSAFE", result["paper_execution_gate"]["reason_codes"])
+
+    def test_missing_journal_is_structured_gate_block_not_agent_exception(self):
+        result, _, _ = self._run(journal_status="MISSING")
+        self.assertEqual(result["status"], "BLOCKED_GATE")
+        self.assertEqual(result["executed_count"], 7)
+        evaluation = next(stage for stage in result["stages"] if stage["agent"] == "evaluation")
+        self.assertEqual(evaluation["state"], "BLOCKED")
+        self.assertIn("DECISION_JOURNAL_NOT_VERIFIED", evaluation["reason_codes"])
+        self.assertTrue(result["witness"]["verified"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
 
     def test_confirmation_veto_does_not_suppress_risk_decision_or_evaluation(self):
         result, confirm_mock, risk_mock = self._run(confirmation_state="UNCONFIRMED")
