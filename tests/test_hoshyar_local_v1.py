@@ -103,18 +103,18 @@ def test_local_llm_route_and_answer_use_separate_bounded_json_schemas(monkeypatc
 
 def test_model_routes_followup_using_recent_history_and_mother_evidence(tmp_path):
     memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
-    memory.append_turn("چرا تصمیم Mother برابر NO_TRADE بود؟", "Mother decision: NO_TRADE.")
-    llm = FakeLLM(intent="EXPLAIN_DECISION")
+    memory.append_turn("وضعیت Mother چطور است؟", "Mother status was BLOCKED_GATE.")
+    llm = FakeLLM(intent="GENERAL_CHAT", answer="سلام")
     assistant = HoshyarLocalAssistantV1(llm, memory)
-    result = assistant.respond("پس علتش چه بود؟", evidence_readers(), language="fa")
+    result = assistant.respond("چرا؟", evidence_readers(), language="fa")
     assert result["intent"] == "EXPLAIN_DECISION"
     assert result["status"] == "PARTIAL"
     assert any("REQUIRED_CHECK_FAILED" in str(claim) for claim in result["claims"])
     assert result["evidence_refs"][0] == "sha256:mother-test"
     assert "trace-test" in result["evidence_refs"]
-    assert llm.route_calls[0][-2] == {"role": "assistant", "content": "Mother decision: NO_TRADE."}
+    assert llm.route_calls == []
     assert llm.answer_calls == []
-    assert result["local_llm_used"] is True
+    assert result["local_llm_used"] is False
     assert result["external_llm_used"] is False
     assert result["execution_enabled"] is False
     assert result["orders_placed"] is False
@@ -143,9 +143,11 @@ def test_model_cannot_turn_hes_followup_into_general_chat(tmp_path):
     llm = FakeLLM(intent="GENERAL_CHAT", answer="It happened because of market volatility.")
     assistant = HoshyarLocalAssistantV1(llm, memory)
     result = assistant.respond("پس علتش چی بود؟", evidence_readers(), language="fa")
-    assert result["intent"] == "UNKNOWN"
-    assert result["status"] == "NEEDS_CLARIFICATION"
+    assert result["intent"] == "EXPLAIN_DECISION"
+    assert result["status"] == "PARTIAL"
+    assert llm.route_calls == []
     assert llm.answer_calls == []
+    assert result["local_llm_used"] is False
 
 
 def test_casual_greeting_is_instant_and_does_not_call_local_model_or_news_reader(tmp_path):
