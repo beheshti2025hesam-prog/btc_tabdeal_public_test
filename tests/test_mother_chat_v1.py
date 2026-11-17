@@ -338,7 +338,7 @@ def test_command_center_markup_is_present_and_safe():
     assert "@media(max-width:600px)" in css
     assert 'maxlength="1000"' in dashboard.HTML
     assert 'value="auto"' in dashboard.HTML
-    assert "JSON.stringify({message,language})" in script
+    assert "JSON.stringify({message,language,history})" in script
     assert 'aria-live="polite"' in dashboard.HTML
 
 
