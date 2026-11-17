@@ -31,13 +31,13 @@ MAX_HISTORY_MESSAGES = 8
 MAX_STORED_MESSAGES = 200
 MEMORY_RETENTION_SECONDS = 30 * 24 * 60 * 60
 ALLOWED_INTENTS = frozenset({
-    "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "JOURNAL_REVIEW",
+    "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
     "NEWS_CONTEXT", "DIAGNOSE", "PREPARE_CHANGE", "EXPLAIN_CHANGE_CONTROL", "PROJECT_MEMORY", "UNKNOWN", "GENERAL_CHAT",
 })
 
 ROUTE_SYSTEM_PROMPT = (
     "Classify the last user message using recent conversation history. Choose exactly one intent from: "
-    "ASK_STATUS, EXPLAIN_DECISION, MARKET_REVIEW, JOURNAL_REVIEW, NEWS_CONTEXT, DIAGNOSE, "
+    "ASK_STATUS, EXPLAIN_DECISION, MARKET_REVIEW, SPECIALIST_REVIEW, JOURNAL_REVIEW, NEWS_CONTEXT, DIAGNOSE, "
     "PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "
     "EXPLAIN_DECISION means why a recorded Mother/Strategy decision was made; "
     "EXPLAIN_CHANGE_CONTROL means the owner's approval process for a proposed change; "
@@ -160,7 +160,7 @@ def _resolve_contextual_followup_intent(
     )
     previous_intent = classify_intent(previous_user)
     supported = {
-        "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "JOURNAL_REVIEW",
+        "ASK_STATUS", "EXPLAIN_DECISION", "MARKET_REVIEW", "SPECIALIST_REVIEW", "JOURNAL_REVIEW",
         "NEWS_CONTEXT", "DIAGNOSE", "PROJECT_MEMORY",
     }
     if previous_intent not in supported:
