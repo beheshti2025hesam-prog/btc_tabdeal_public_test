@@ -64,14 +64,6 @@ def test_persian_capability_question_returns_complete_bounded_answer():
 
 
 @pytest.mark.parametrize(
-    ("message", "language", "expected"),
-    [
-        ("What can you do?", "en", "exchange-account access"),
-        ("Was kannst du tun?", "de", "Börsenkontozugriff"),
-        ("Que peux-tu faire ?", "fr", "comptes d’exchange"),
-    ],
-)
-@pytest.mark.parametrize(
     ("message", "expected_language"),
     [
         ("Was kannst du tun?", "de"),
@@ -91,6 +83,14 @@ def test_capability_question_takes_precedence_over_greeting_prefix():
     assert "Gate.io" in result["answer"]
 
 
+@pytest.mark.parametrize(
+    ("message", "language", "expected"),
+    [
+        ("What can you do?", "en", "exchange-account access"),
+        ("Was kannst du tun?", "de", "Börsenkontozugriff"),
+        ("Que peux-tu faire ?", "fr", "comptes d’exchange"),
+    ],
+)
 def test_capability_answers_support_all_ui_languages(message, language, expected):
     result = build_chat_response(message, {}, language=language)
     assert result["intent"] == "GENERAL_CHAT"
