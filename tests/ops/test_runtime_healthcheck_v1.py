@@ -34,6 +34,7 @@ def test_runtime_healthcheck_includes_precision_journal_service():
     report = health.collect_checks(root=Path('/tmp/not-used'), now=1_800_000_000, runner=runner)
     names = {row['check'] for row in report['checks']}
     assert 'service:hes-precision-entry-journal.service' in names
+    assert 'service:hes-indicator-strategy-forward-paper.service' in names
     assert all(args[1] != 'start' and args[1] != 'restart' for args in runner.commands)
 
 
@@ -47,6 +48,33 @@ def test_runtime_healthcheck_validates_precision_paper_only_and_daily_cap(tmp_pa
             _write_jsonl(path, [{'observed_at': _iso(now), 'event_id': filename, 'execution_enabled': False, 'orders_placed': False}])
         else:
             path.write_text(json.dumps({'updated_at': _iso(now), 'execution_enabled': False, 'orders_placed': False, 'source': 'gateio_public_spot', 'symbol': 'BTC_USDT'}), encoding='utf-8')
+    observer_report = {
+        'schema': 'hes_indicator_strategy_forward_paper_report_v1',
+        'updated_at': _iso(now),
+        'source': 'gateio_public_spot',
+        'symbol': 'BTC_USDT',
+        'decision_records': 0,
+        'outcome_records': 0,
+        'safety': {
+            'research_only': True,
+            'performance_eligible': False,
+            'training_label_eligible': False,
+            'decision_authority': False,
+            'candidate_generation_authorized': False,
+            'risk_gate_bypass': False,
+            'execution_enabled': False,
+            'orders_placed': False,
+        },
+    }
+    (data / 'indicator_strategy_forward_paper_report_v1.json').write_text(json.dumps(observer_report), encoding='utf-8')
+    (data / 'indicator_strategy_forward_paper_state_v1.json').write_text(json.dumps({
+        'schema': 'hes_indicator_strategy_forward_paper_state_v2',
+        'bootstrap_mode': 'NO_RETROACTIVE_TRADES',
+        'last_processed_1m_open_time': now - 60,
+        'last_processed_signal_close_time': now - 900,
+        'processed_1m_bars': 0,
+        'active': {},
+    }), encoding='utf-8')
     (data / 'precision_entry_journal_report_v1.json').write_text(json.dumps({
         'updated_at': _iso(now), 'execution_enabled': False, 'orders_placed': False,
         'event_count': 0, 'candidate_count': 0, 'outcome_count': 0,
