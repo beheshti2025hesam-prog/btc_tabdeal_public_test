@@ -42,6 +42,64 @@ def test_classifies_supported_persian_and_english_intents():
     assert classify_intent("why is the market ranging?") == "MARKET_REVIEW"
 
 
+def test_persian_greeting_returns_friendly_chat_only_response_without_readers():
+    result = build_chat_response("سلام رفیق", {}, language="fa")
+    assert result["intent"] == "GENERAL_CHAT"
+    assert result["status"] == "CHAT_ONLY"
+    assert "خوش اومدی" in result["answer"]
+    assert result["claims"] == []
+    assert result["execution_enabled"] is False
+    assert result["orders_placed"] is False
+
+
+def test_persian_capability_question_returns_complete_bounded_answer():
+    result = build_chat_response("از تو چه کاری بر می آید؟", {}, language="fa")
+    assert result["intent"] == "GENERAL_CHAT"
+    assert result["status"] == "CHAT_ONLY"
+    assert "Gate.io" in result["answer"]
+    assert "ژورنال" in result["answer"]
+    assert "محلیِ مجاز" in result["answer"]
+    assert "Notion" in result["answer"]
+    assert "سفارش ثبت نمی‌کنم" in result["answer"]
+    assert result["execution_enabled"] is False
+    assert result["journal_write"] is False
+
+
+@pytest.mark.parametrize(
+    ("message", "expected_language"),
+    [
+        ("Was kannst du tun?", "de"),
+        ("Hallo!", "de"),
+        ("Que peux-tu faire ?", "fr"),
+        ("Bonjour!", "fr"),
+    ],
+)
+def test_auto_language_detection_handles_capability_questions_and_greetings(message, expected_language):
+    result = build_chat_response(message, {}, language="auto")
+    assert result["language"] == expected_language
+
+
+def test_capability_question_takes_precedence_over_greeting_prefix():
+    result = build_chat_response("سلام، از تو چه کاری بر می آید؟", {}, language="fa")
+    assert result["status"] == "CHAT_ONLY"
+    assert "Gate.io" in result["answer"]
+
+
+@pytest.mark.parametrize(
+    ("message", "language", "expected"),
+    [
+        ("What can you do?", "en", "exchange-account access"),
+        ("Was kannst du tun?", "de", "Börsenkontozugriff"),
+        ("Que peux-tu faire ?", "fr", "comptes d’exchange"),
+    ],
+)
+def test_capability_answers_support_all_ui_languages(message, language, expected):
+    result = build_chat_response(message, {}, language=language)
+    assert result["intent"] == "GENERAL_CHAT"
+    assert result["status"] == "CHAT_ONLY"
+    assert expected in result["answer"]
+
+
 def test_ambiguous_or_unsupported_intents_need_clarification():
     assert classify_intent("اخبار و ژورنال را بررسی کن") == "UNKNOWN"
     assert classify_intent("سلام، حالت چطوره؟") == "UNKNOWN"
@@ -120,7 +178,7 @@ def test_reader_failure_fails_closed_without_exposing_exception():
 
 def test_unsupported_message_does_not_call_any_reader():
     called = []
-    result = build_chat_response("سلام", {"ASK_STATUS": lambda: called.append(True) or {}})
+    result = build_chat_response("unrecognized request xyz", {"ASK_STATUS": lambda: called.append(True) or {}})
     assert result["status"] == "NEEDS_CLARIFICATION"
     assert called == []
 
