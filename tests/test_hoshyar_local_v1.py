@@ -137,6 +137,20 @@ def test_general_chat_is_local_and_action_claims_are_sanitized(tmp_path):
     assert result["policy_mutation"] is False
 
 
+def test_english_why_followup_uses_previous_hes_intent_without_model_call(tmp_path):
+    memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
+    memory.append_turn("What is the HES status?", "Mother status was BLOCKED_GATE.")
+    llm = FakeLLM(intent="GENERAL_CHAT", answer="The market is volatile.")
+    assistant = HoshyarLocalAssistantV1(llm, memory)
+    result = assistant.respond("Why?", evidence_readers(), language="en")
+    assert result["intent"] == "EXPLAIN_DECISION"
+    assert result["status"] == "PARTIAL"
+    assert llm.route_calls == []
+    assert llm.answer_calls == []
+    assert result["local_llm_used"] is False
+    assert "REQUIRED_CHECK_FAILED" in result["answer"]
+
+
 def test_model_cannot_turn_hes_followup_into_general_chat(tmp_path):
     memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
     memory.append_turn("Mother decision NO_TRADE", "The Mother decision is NO_TRADE.")
