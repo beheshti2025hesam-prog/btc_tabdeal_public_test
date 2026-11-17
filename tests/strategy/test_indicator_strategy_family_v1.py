@@ -38,3 +38,13 @@ def test_short_geometry_and_safety_are_research_only():
     g=geometry(c,100)
     assert g and g["stop_loss"]==115 and g["take_profit"]==55
     assert c.execution_enabled is False and c.orders_placed is False
+
+
+def test_range_mean_reversion_fails_closed_on_unknown_or_transition_higher_timeframe():
+    vals={"atr_14":10,"bollinger_percent_b":.02,"rsi_14":25}
+    assert evaluate_indicator_family(
+        snap("15m","RANGE",vals),snap("1h","UNKNOWN",vals),snap("4h","RANGE",vals),close=100
+    ) == []
+    assert evaluate_indicator_family(
+        snap("15m","RANGE",vals),snap("1h","RANGE",vals),snap("4h","TRANSITION",vals),close=100
+    ) == []
