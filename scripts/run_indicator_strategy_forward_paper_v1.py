@@ -7,7 +7,7 @@ from pathlib import Path
 
 CODE_ROOT=Path(__file__).resolve().parents[1]
 if str(CODE_ROOT) not in sys.path: sys.path.insert(0,str(CODE_ROOT))
-DATA_ROOT=Path(os.environ.get("HES_DATA_ROOT",str(CODE_ROOT))).expanduser().resolve()
+DATA_ROOT=Path(os.environ.get("HES_DATA_ROOT","/opt/hes-trade-agent")).expanduser().resolve()
 from forward.global_market_data_reader_v1 import load_market_input, SOURCE, SYMBOL
 from forward.universal_indicator_engine_v1 import OHLCVBar, build_snapshot
 from forward.indicator_strategy_family_v1 import evaluate_indicator_family, geometry, VARIANTS
