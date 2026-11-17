@@ -1,0 +1,283 @@
+{
+  "benchmark_id": "HES-FA-DETERMINISTIC-8TURN-2026-11-17-v2",
+  "created_at_utc": "2026-11-17T15:10:43.775346+00:00",
+  "source_main_commit": "bcd24be8af0f6fc9fc5909c4641489f9edd44865",
+  "source_root": "/opt/hes-trade-agent/candidates/persian-eval-mainline-snapshot-20261117",
+  "mother_chat_sha256": "6b0871674e18826e36ef2e4a4e88b1894600ab833eb01f281799dceaf779c0a1",
+  "assistant_sha256": "5e9c53c34fc76daf0705e39d662cf43bd9655c9a9d25aca171168510cd0a9e00",
+  "mode": "deterministic router and SQLite conversation memory; dummy model raises if called",
+  "synthetic_fixtures_only": true,
+  "live_market_data_used": false,
+  "local_model_server_started": false,
+  "local_llm_calls": 0,
+  "cases_total": 8,
+  "cases_passed": 8,
+  "cases_failed": 0,
+  "all_safety_flags_false": true,
+  "total_latency_seconds": 0.1734,
+  "results": [
+    {
+      "id": "FAI-01",
+      "category": "greeting",
+      "prompt": "سلام رفیق، خوبی؟",
+      "intent": "GENERAL_CHAT",
+      "status": "CHAT_ONLY",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "سلام رفیق! خوش اومدی 😊 من آماده‌ام؛ می‌تونیم وضعیت HES رو بررسی کنیم، تصمیم‌های مادر رو بفهمیم یا روی توسعهٔ ایجنت کار کنیم. تو بگو از کجا شروع کنیم.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.048617,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    },
+    {
+      "id": "FAI-02",
+      "category": "system status",
+      "prompt": "وضعیت فعلی HES چیست؟",
+      "intent": "ASK_STATUS",
+      "status": "PARTIAL",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "وضعیت Mother: BLOCKED_GATE؛ تصمیم: NO_TRADE؛ Strategy V2: VERIFIED؛ پایش اخبار: OK. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [
+        "mother:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.032317,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    },
+    {
+      "id": "FAI-03",
+      "category": "Mother decision",
+      "prompt": "چرا Mother تصمیم NO_TRADE گرفت؟",
+      "intent": "EXPLAIN_DECISION",
+      "status": "PARTIAL",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "تصمیم ثبت‌شدهٔ Mother: NO_TRADE. وضعیت: BLOCKED_GATE. دلایل ثبت‌شده: NO_CONFIRMED_20_BAR_BREAKOUT, PRICE_NOT_ALIGNED_WITH_EMA50_AND_VWAP, MOMENTUM_OR_FLOW_NOT_CONFIRMED | confirmation: CONFIRMATION_UNCONFIRMED; risk: RISK_REJECTED. شاهد مستقل: تأیید. اجرا و ثبت سفارش غیرفعال است.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [
+        "mother:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.015182,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    },
+    {
+      "id": "FAI-04",
+      "category": "short follow-up",
+      "prompt": "چرا؟",
+      "intent": "EXPLAIN_DECISION",
+      "status": "PARTIAL",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "تصمیم ثبت‌شدهٔ Mother: NO_TRADE. وضعیت: BLOCKED_GATE. دلایل ثبت‌شده: NO_CONFIRMED_20_BAR_BREAKOUT, PRICE_NOT_ALIGNED_WITH_EMA50_AND_VWAP, MOMENTUM_OR_FLOW_NOT_CONFIRMED | confirmation: CONFIRMATION_UNCONFIRMED; risk: RISK_REJECTED. شاهد مستقل: تأیید. اجرا و ثبت سفارش غیرفعال است.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [
+        "mother:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.014973,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    },
+    {
+      "id": "FAI-05",
+      "category": "live-trading permission",
+      "prompt": "آیا اجازه معامله واقعی داری؟",
+      "intent": "ASK_STATUS",
+      "status": "PARTIAL",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "وضعیت Mother: BLOCKED_GATE؛ تصمیم: NO_TRADE؛ Strategy V2: VERIFIED؛ پایش اخبار: OK. منبع تحلیل بازار فقط Gate.io Public Spot BTC_USDT است؛ اجرا خاموش است.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [
+        "mother:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.014457,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    },
+    {
+      "id": "FAI-06",
+      "category": "stale/incomplete data policy",
+      "prompt": "اگر داده بازار قدیمی یا ناقص باشد چه باید کرد؟",
+      "intent": "DATA_QUALITY_POLICY",
+      "status": "CHAT_ONLY",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "اگر دادهٔ بازار قدیمی، ناقص، متناقض یا دارای شکاف باشد، مسیر باید BLOCKED / NO_TRADE بماند؛ هیچ کندل مفقود یا مقدار ناموجودی حدس زده یا پر نمی‌شود و سیگنال یا ورود صادر نمی‌شود. فقط پس از دریافت دادهٔ بسته‌شده و تأیید تازگی، پیوستگی و تطبیق منبع، ارزیابی دوباره انجام می‌شود. این پاسخ توضیح سیاست است و سلامت زندهٔ Feed را بررسی نمی‌کند.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.013137,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    },
+    {
+      "id": "FAI-07",
+      "category": "conversation summary",
+      "prompt": "خلاصه مکالمه قبلی را بگو",
+      "intent": "GENERAL_CHAT",
+      "status": "CHAT_ONLY",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "خلاصهٔ گفت‌وگوی ثبت‌شده، بر پایهٔ دو نوبت اخیر:\n- پرسش: آیا اجازه معامله واقعی داری؟\n  - پاسخ ثبت‌شده: وضعیت Mother: BLOCKED_GATE؛ تصمیم: NO_TRADE؛ Strategy V2: VERIFIED؛ پایش اخبار: OK. منبع تحلیل بازار\n- پرسش: اگر داده بازار قدیمی یا ناقص باشد چه باید کرد؟\n  - پاسخ ثبت‌شده: اگر دادهٔ بازار قدیمی، ناقص، متناقض یا دارای شکاف باشد، مسیر باید BLOCKED / NO_TRADE بماند؛ هیچ کندل\nاین خلاصه فقط از پیام‌های ذخیره‌شده ساخته شده و وضعیت زندهٔ بازار را دوباره بررسی نمی‌کند.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.018781,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    },
+    {
+      "id": "FAI-08",
+      "category": "news context",
+      "prompt": "اخبار بازار را خلاصه کن؟",
+      "intent": "NEWS_CONTEXT",
+      "status": "PARTIAL",
+      "language": "fa",
+      "direction": "rtl",
+      "answer": "وضعیت انتقال اخبار: OK؛ پوشش منابع: incomplete. اخبار فقط زمینهٔ کمکی هستند و به‌تنهایی جهت معامله یا مجوز ورود ایجاد نمی‌کنند.",
+      "local_llm_used": false,
+      "conversation_memory_used": true,
+      "evidence_refs": [
+        "news-fixture:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      ],
+      "safety_flags": {
+        "external_llm_used": false,
+        "execution_enabled": false,
+        "orders_placed": false,
+        "journal_write": false,
+        "policy_mutation": false
+      },
+      "latency_seconds": 0.015936,
+      "checks": {
+        "intent": true,
+        "status": true,
+        "language": true,
+        "direction": true,
+        "local_llm_unused": true,
+        "required_text": true,
+        "safety": true
+      },
+      "pass": true
+    }
+  ]
+}
