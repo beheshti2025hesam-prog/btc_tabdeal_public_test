@@ -156,7 +156,7 @@ def test_reader_failure_fails_closed_without_exposing_exception():
 
 def test_unsupported_message_does_not_call_any_reader():
     called = []
-    result = build_chat_response("سلام", {"ASK_STATUS": lambda: called.append(True) or {}})
+    result = build_chat_response("unrecognized request xyz", {"ASK_STATUS": lambda: called.append(True) or {}})
     assert result["status"] == "NEEDS_CLARIFICATION"
     assert called == []
 
