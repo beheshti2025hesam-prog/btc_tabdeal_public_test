@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Forward-only, closed-candle indicator-family paper observer. No orders or production authority."""
+"""Forward-only indicator-family paper observer with 1m precision entry. No orders."""
 from __future__ import annotations
-import argparse, bisect, hashlib, json, os, sys, time
+import argparse, hashlib, json, os, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 
 CODE_ROOT=Path(__file__).resolve().parents[1]
 if str(CODE_ROOT) not in sys.path: sys.path.insert(0,str(CODE_ROOT))
 DATA_ROOT=Path(os.environ.get("HES_DATA_ROOT","/opt/hes-trade-agent")).expanduser().resolve()
-from forward.global_market_data_reader_v1 import load_market_input, SOURCE, SYMBOL
+from forward.global_market_data_reader_v1 import load_market_input, read_closed_candles, SOURCE, SYMBOL
 from forward.universal_indicator_engine_v1 import OHLCVBar, build_snapshot
 from forward.indicator_strategy_family_v1 import evaluate_indicator_family, geometry, VARIANTS
 from forward.forward_journal_v1 import ForwardJournalV1
@@ -19,8 +19,8 @@ DECISIONS=BASE/"indicator_strategy_forward_paper_journal_v1.jsonl"
 OUTCOMES=BASE/"indicator_strategy_forward_paper_outcomes_v1.jsonl"
 REPORT=BASE/"indicator_strategy_forward_paper_report_v1.json"
 COST_BPS=20
-MAX_HOLD_BARS=96
-POLL_SECONDS=30
+MAX_HOLD_MINUTES=1440
+POLL_SECONDS=20
 
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
@@ -30,7 +30,7 @@ def sha256_obj(value):
     return hashlib.sha256(raw).hexdigest()
 
 def to_bar(row, timeframe):
-    seconds={"15m":900,"1h":3600,"4h":14400}[timeframe]
+    seconds={"1m":60,"15m":900,"1h":3600,"4h":14400}[timeframe]
     if row.get("closed") is not True or int(row["close_time"]) != int(row["open_time"])+seconds:
         raise ValueError("CLOSED_CANDLE_CONTRACT_INVALID")
     return OHLCVBar(timestamp=int(row["close_time"]),open=float(row["open"]),high=float(row["high"]),
@@ -50,9 +50,7 @@ def _load_state():
     if not STATE.exists(): return None
     if STATE.is_symlink(): raise ValueError("STATE_PATH_SYMLINK_REJECTED")
     value=json.loads(STATE.read_text())
-    if value.get("schema")!="hes_indicator_strategy_forward_paper_state_v1": raise ValueError("STATE_SCHEMA_INVALID")
-    if not isinstance(value.get("last_processed_entry_open_time"),int): raise ValueError("STATE_CURSOR_INVALID")
-    if not isinstance(value.get("active"),dict): raise ValueError("STATE_ACTIVE_INVALID")
+    if not isinstance(value,dict): raise ValueError("STATE_SCHEMA_INVALID")
     return value
 
 def _save_state(state):
@@ -62,6 +60,12 @@ def _save_state(state):
     with tmp.open("w",encoding="utf-8") as f:
         json.dump(state,f,indent=2,sort_keys=True);f.write("\n");f.flush();os.fsync(f.fileno())
     os.replace(tmp,STATE)
+
+def _append_decision(journal, row):
+    try:
+        journal.append_decision(row)
+    except ValueError as exc:
+        if str(exc)!="duplicate event_id": raise
 
 def _decision_record(candidate, *, signal_bar, entry_bar, hashes, status, reasons, variant_id=None, regime=None):
     variant_id=candidate.variant_id if candidate else variant_id
@@ -73,21 +77,20 @@ def _decision_record(candidate, *, signal_bar, entry_bar, hashes, status, reason
         "observed_at":utc_now(),"symbol":SYMBOL,"timeframe":"15m","decision":direction,
         "evidence_source":SOURCE,"signal_candle_close_time":int(signal_bar["close_time"]),
         "entry_candle_open_time":int(entry_bar["open_time"]),"entry":float(entry_bar["open"]) if candidate else None,
+        "entry_timeframe":"1m","entry_model":"FIRST_1M_OPEN_AFTER_15M_SIGNAL_CLOSE",
         "strategy_family_id":"indicator_strategy","strategy_family_version":"hes-indicator-strategy-family-v1.0.0",
-        "strategy_variant_id":candidate.variant_id if candidate else variant_id,
+        "strategy_variant_id":variant_id,
         "direction":candidate.direction if candidate else None,
         "market_regime":candidate.regime if candidate else (regime or "UNKNOWN"),
         "reason_codes":list(candidate.reason_codes) if candidate else list(reasons),
         "feature_snapshot":dict(candidate.feature_snapshot) if candidate else {},
         "stop_loss":None,"take_profit":None,"rr":None,
-        "status":status,"status_reasons":list(reasons),
-        "input_sha256_by_timeframe":hashes,
-        "entry_model":"NEXT_15M_OPEN_AFTER_SIGNAL_CANDLE_CLOSE",
+        "status":status,"status_reasons":list(reasons),"input_sha256_by_timeframe":hashes,
         "cost_assumption_round_trip_bps":COST_BPS,
-        "research_only":True,"performance_eligible":False,
-        "training_label_eligible":False,"decision_authority":False,
-        "candidate_generation_authorized":False,"risk_gate_bypass":False,
-        "execution_enabled":False,"orders_placed":False,"outcome":None,"closed_at":None
+        "research_only":True,"performance_eligible":False,"training_label_eligible":False,
+        "decision_authority":False,"candidate_generation_authorized":False,
+        "risk_gate_bypass":False,"execution_enabled":False,"orders_placed":False,
+        "outcome":None,"closed_at":None
     }
 
 def _exit_for_bar(position, bar):
@@ -115,129 +118,144 @@ def _outcome(position, bar, exit_price, reason):
     return {
         "schema":"hes_indicator_strategy_forward_outcome_v1",
         "event_id":"outcome-"+position["candidate_event_id"],
-        "candidate_event_id":position["candidate_event_id"],
-        "observed_at":utc_now(),"symbol":SYMBOL,"timeframe":"15m",
+        "candidate_event_id":position["candidate_event_id"],"observed_at":utc_now(),
+        "symbol":SYMBOL,"timeframe":"15m","entry_timeframe":"1m","exit_timeframe":"1m",
         "strategy_family_id":"indicator_strategy","strategy_family_version":position["strategy_family_version"],
         "strategy_variant_id":position["strategy_variant_id"],"direction":direction,
         "market_regime":position["market_regime"],"entry":entry,"stop_loss":position["stop_loss"],
         "take_profit":position["take_profit"],"exit_price":float(exit_price),
-        "exit_candle_close_time":int(bar["close_time"]),"hold_bars":int(position["hold_bars"]),
+        "exit_candle_close_time":int(bar["close_time"]),"hold_minutes":int(position["hold_minutes"]),
         "outcome":reason,"gross_return_pct":round(gross_pct,8),
-        "net_return_pct_assumption_20bps":round(net_pct,8),
-        "cost_assumption_round_trip_bps":COST_BPS,
+        "net_return_pct_assumption_20bps":round(net_pct,8),"cost_assumption_round_trip_bps":COST_BPS,
         "economics_status":"NOT_ECONOMICALLY_VALIDATED_FROM_SPOT" if short else "ASSUMPTION_BASED_SPOT_REFERENCE",
-        "research_only":True,"performance_eligible":False,
-        "research_label_eligible":True,"training_label_eligible":False,
-        "decision_authority":False,"execution_enabled":False,"orders_placed":False
+        "research_only":True,"performance_eligible":False,"research_label_eligible":True,
+        "training_label_eligible":False,"decision_authority":False,"execution_enabled":False,"orders_placed":False
     }
 
-def process_new_closed_bar(frames, state, decision_journal, outcome_journal):
-    bars15=frames["15m"]
-    by_open={int(r["open_time"]):i for i,r in enumerate(bars15)}
+def process_new_closed_minutes(frames, state, decision_journal, outcome_journal, save_state=None):
+    mins=frames["1m"]; opens=[int(r["open_time"]) for r in mins]
+    cursor=state["last_processed_1m_open_time"]
+    start=opens.index(cursor) if cursor in set(opens) else None
+    if start is None: raise ValueError("FORWARD_1M_CURSOR_OUTSIDE_AVAILABLE_WINDOW_FAIL_CLOSED")
+    signal_by_close={int(r["close_time"]):r for r in frames["15m"]}
+    new_minutes=mins[start+1:]
+    # Validate every 15m boundary before writing anything; do not silently skip late/missing 15m context.
+    last_signal=int(state["last_processed_signal_close_time"])
+    for minute in new_minutes:
+        mt=int(minute["open_time"])
+        if mt%900==0 and mt>last_signal and mt not in signal_by_close:
+            raise ValueError("15M_SIGNAL_NOT_AVAILABLE_AT_FIRST_1M_ENTRY_BAR")
     processed=0
-    cursor=state["last_processed_entry_open_time"]
-    start=by_open.get(cursor)
-    if start is None:
-        raise ValueError("FORWARD_CURSOR_OUTSIDE_AVAILABLE_CANDLE_WINDOW_FAIL_CLOSED")
-    for entry_i in range(start+1,len(bars15)):
-        entry_bar=bars15[entry_i]
-        signal_bar=bars15[entry_i-1]
-        signal_close=int(signal_bar["close_time"])
-        if int(entry_bar["open_time"])!=signal_close:
-            raise ValueError("FORWARD_15M_CANDLE_GAP")
-        s15,h15=snapshot_asof(bars15[:entry_i], "15m", signal_close)
-        s1,h1=snapshot_asof(frames["1h"], "1h", signal_close)
-        s4,h4=snapshot_asof(frames["4h"], "4h", signal_close)
-        hashes={"15m":h15,"1h":h1,"4h":h4}
-        found=evaluate_indicator_family(s15,s1,s4,close=float(signal_bar["close"]))
-        by_variant={c.variant_id:c for c in found}
-        # First resolve positions that were already open before this entry candle.
+    for minute in new_minutes:
+        minute_open=int(minute["open_time"])
+        # Resolve existing positions first using only the newly closed 1m bar.
         for variant,position in list(state["active"].items()):
-            if int(position["entry_candle_open_time"])>=int(entry_bar["open_time"]): continue
-            position["hold_bars"]+=1
-            px,reason=_exit_for_bar(position,entry_bar)
-            if px is None and position["hold_bars"]>=MAX_HOLD_BARS:
-                px=float(entry_bar["close"]);reason="MAX_HOLD_TIMEOUT"
+            if int(position["entry_candle_open_time"])>=minute_open: continue
+            position["hold_minutes"]+=1
+            px,reason=_exit_for_bar(position,minute)
+            if px is None and position["hold_minutes"]>=MAX_HOLD_MINUTES:
+                px=float(minute["close"]);reason="MAX_HOLD_TIMEOUT"
             if px is not None:
-                outcome_journal.append_event(_outcome(position,entry_bar,px,reason))
+                outcome_journal.append_event(_outcome(position,minute,px,reason))
                 del state["active"][variant]
-        # Evaluate each frozen family variant, including explicit NO_TRADE observations.
-        for variant in VARIANTS:
-            candidate=by_variant.get(variant)
-            if candidate is None:
-                row=_decision_record(None,signal_bar=signal_bar,entry_bar=entry_bar,hashes=hashes,
-                    status="NO_QUALIFIED_SETUP",reasons=["NO_QUALIFIED_SETUP"],variant_id=variant,regime=s15.regime.label)
-                row["strategy_family_version"]="hes-indicator-strategy-family-v1.0.0"
-                decision_journal.append_decision(row)
-                continue
-            if variant in state["active"]:
-                row=_decision_record(candidate,signal_bar=signal_bar,entry_bar=entry_bar,hashes=hashes,
-                    status="BLOCKED_OVERLAPPING_POSITION",reasons=["ONE_POSITION_PER_VARIANT"])
-                decision_journal.append_decision(row)
-                continue
-            geo=geometry(candidate,float(entry_bar["open"]))
-            if geo is None:
-                row=_decision_record(candidate,signal_bar=signal_bar,entry_bar=entry_bar,hashes=hashes,
-                    status="BLOCKED_INVALID_GEOMETRY",reasons=["INVALID_STOP_TARGET_GEOMETRY"])
-                decision_journal.append_decision(row)
-                continue
-            row=_decision_record(candidate,signal_bar=signal_bar,entry_bar=entry_bar,hashes=hashes,
-                status="OPENED",reasons=[])
-            row.update({"stop_loss":geo["stop_loss"],"take_profit":geo["take_profit"],"rr":geo["rr"]})
-            candidate_id=row["event_id"]
-            decision_journal.append_decision(row)
-            state["active"][variant]={
-                "candidate_event_id":candidate_id,"strategy_family_version":candidate.family_version,
-                "strategy_variant_id":variant,"direction":candidate.direction,"market_regime":candidate.regime,
-                "entry":geo["entry"],"stop_loss":geo["stop_loss"],"take_profit":geo["take_profit"],
-                "entry_candle_open_time":int(entry_bar["open_time"]),"hold_bars":0
-            }
-            # Same-candle stop/target handling is conservative and deterministic.
-            px,reason=_exit_for_bar(state["active"][variant],entry_bar)
-            if px is not None:
-                outcome_journal.append_event(_outcome(state["active"][variant],entry_bar,px,reason))
-                del state["active"][variant]
-        state["last_processed_entry_open_time"]=int(entry_bar["open_time"])
-        state["last_processed_entry_close_time"]=int(entry_bar["close_time"])
-        state["processed_bars"]+=1;processed+=1
+        # 15m setup can only be evaluated at its exact close; first 1m bar is the precision entry.
+        if minute_open%900==0 and minute_open>int(state["last_processed_signal_close_time"]):
+            signal_bar=signal_by_close[minute_open]
+            s15,h15=snapshot_asof(frames["15m"],"15m",minute_open)
+            s1,h1=snapshot_asof(frames["1h"],"1h",minute_open)
+            s4,h4=snapshot_asof(frames["4h"],"4h",minute_open)
+            hashes={"15m":h15,"1h":h1,"4h":h4}
+            found=evaluate_indicator_family(s15,s1,s4,close=float(signal_bar["close"]))
+            by_variant={c.variant_id:c for c in found}
+            for variant in VARIANTS:
+                candidate=by_variant.get(variant)
+                if candidate is None:
+                    row=_decision_record(None,signal_bar=signal_bar,entry_bar=minute,hashes=hashes,
+                        status="NO_QUALIFIED_SETUP",reasons=["NO_QUALIFIED_SETUP"],variant_id=variant,regime=s15.regime.label)
+                    _append_decision(decision_journal,row);continue
+                if variant in state["active"]:
+                    row=_decision_record(candidate,signal_bar=signal_bar,entry_bar=minute,hashes=hashes,
+                        status="BLOCKED_OVERLAPPING_POSITION",reasons=["ONE_POSITION_PER_VARIANT"])
+                    _append_decision(decision_journal,row);continue
+                geo=geometry(candidate,float(minute["open"]))
+                if geo is None:
+                    row=_decision_record(candidate,signal_bar=signal_bar,entry_bar=minute,hashes=hashes,
+                        status="BLOCKED_INVALID_GEOMETRY",reasons=["INVALID_STOP_TARGET_GEOMETRY"])
+                    _append_decision(decision_journal,row);continue
+                row=_decision_record(candidate,signal_bar=signal_bar,entry_bar=minute,hashes=hashes,
+                    status="OPENED",reasons=[])
+                row.update({"stop_loss":geo["stop_loss"],"take_profit":geo["take_profit"],"rr":geo["rr"]})
+                candidate_id=row["event_id"]
+                _append_decision(decision_journal,row)
+                state["active"][variant]={
+                    "candidate_event_id":candidate_id,"strategy_family_version":candidate.family_version,
+                    "strategy_variant_id":variant,"direction":candidate.direction,"market_regime":candidate.regime,
+                    "entry":geo["entry"],"stop_loss":geo["stop_loss"],"take_profit":geo["take_profit"],
+                    "entry_candle_open_time":minute_open,"hold_minutes":0
+                }
+                px,reason=_exit_for_bar(state["active"][variant],minute)
+                if px is not None:
+                    outcome_journal.append_event(_outcome(state["active"][variant],minute,px,reason))
+                    del state["active"][variant]
+            state["last_processed_signal_close_time"]=minute_open
+        state["last_processed_1m_open_time"]=minute_open
+        state["processed_1m_bars"]+=1;processed+=1
+        if save_state is not None: save_state(state)
     return processed
+
+def _new_state(frames, *, migration_from=None):
+    latest_1m=frames["1m"][-1];latest_15m=frames["15m"][-1]
+    return {"schema":"hes_indicator_strategy_forward_paper_state_v2",
+        "initialized_at":utc_now(),"bootstrap_mode":"NO_RETROACTIVE_TRADES",
+        "migration_from_schema":migration_from,
+        "last_processed_1m_open_time":int(latest_1m["open_time"]),
+        "last_processed_signal_close_time":int(latest_15m["close_time"]),
+        "processed_1m_bars":0,"active":{}}
 
 def run_once():
     src=load_market_input(root=DATA_ROOT,min_bars=220)
     frames=src["timeframes"]
-    if any(len(frames[t])<220 for t in ("15m","1h","4h")): raise ValueError("INSUFFICIENT_HISTORY")
-    if STATE.exists():
-        state=_load_state()
-        if state is None: raise ValueError("STATE_READ_FAILED")
-        decisions=ForwardJournalV1(DECISIONS);outcomes=ForwardJournalV1(OUTCOMES)
-        count=process_new_closed_bar(frames,state,decisions,outcomes)
-    else:
-        latest=frames["15m"][-1]
-        state={"schema":"hes_indicator_strategy_forward_paper_state_v1",
-            "initialized_at":utc_now(),"bootstrap_mode":"NO_RETROACTIVE_TRADES",
-            "last_processed_entry_open_time":int(latest["open_time"]),
-            "last_processed_entry_close_time":int(latest["close_time"]),
-            "processed_bars":0,"active":{}}
+    frames["1m"]=read_closed_candles("1m",root=DATA_ROOT,min_bars=220)
+    old=_load_state()
+    if old is None:
+        state=_new_state(frames)
         count=0
+    elif old.get("schema")=="hes_indicator_strategy_forward_paper_state_v2":
+        state=old
+        decisions=ForwardJournalV1(DECISIONS);outcomes=ForwardJournalV1(OUTCOMES)
+        count=process_new_closed_minutes(frames,state,decisions,outcomes,_save_state)
+    elif old.get("schema")=="hes_indicator_strategy_forward_paper_state_v1":
+        # Prior bootstrap-only state had no decision/outcome records; migrate cursor without backfill.
+        dcount=sum(1 for _ in DECISIONS.open()) if DECISIONS.exists() else 0
+        ocount=sum(1 for _ in OUTCOMES.open()) if OUTCOMES.exists() else 0
+        if dcount or ocount: raise ValueError("LEGACY_STATE_HAS_LEDGER_DATA_REQUIRES_MANUAL_RECONCILIATION")
+        state=_new_state(frames,migration_from=old.get("schema"))
+        count=0
+    else:
+        raise ValueError("STATE_SCHEMA_INVALID")
     _save_state(state)
     decisions_count=sum(1 for _ in DECISIONS.open()) if DECISIONS.exists() else 0
     outcomes_count=sum(1 for _ in OUTCOMES.open()) if OUTCOMES.exists() else 0
     report={"schema":"hes_indicator_strategy_forward_paper_report_v1","updated_at":utc_now(),
-        "status":"FORWARD_PAPER_OBSERVATION_ACTIVE" if state["processed_bars"] else "BOOTSTRAPPED_WAITING_FOR_NEXT_CLOSED_CANDLE",
+        "status":"FORWARD_PAPER_OBSERVATION_ACTIVE" if state["processed_1m_bars"] else "BOOTSTRAPPED_WAITING_FOR_NEXT_15M_SIGNAL",
         "source":SOURCE,"symbol":SYMBOL,"latest_closed_15m_time":int(frames["15m"][-1]["close_time"]),
-        "new_bars_processed":count,"processed_bars_total":state["processed_bars"],
+        "latest_closed_1m_time":int(frames["1m"][-1]["close_time"]),
+        "new_1m_bars_processed":count,"processed_1m_bars_total":state["processed_1m_bars"],
         "decision_records":decisions_count,"outcome_records":outcomes_count,
-        "active_positions_by_variant":{k:{"direction":v["direction"],"regime":v["market_regime"],"entry":v["entry"],"hold_bars":v["hold_bars"]} for k,v in state["active"].items()},
+        "active_positions_by_variant":{k:{"direction":v["direction"],"regime":v["market_regime"],"entry":v["entry"],"hold_minutes":v["hold_minutes"]} for k,v in state["active"].items()},
         "method":{"setup_timeframe":"15m","context_timeframes":["1h","4h"],
-            "signal_only_uses_closed_candles":True,"higher_timeframes_asof_signal_close":True,
-            "entry":"next 15m candle open","stop":"1.5 x setup ATR(14)","target":"3R",
-            "max_hold_bars":MAX_HOLD_BARS,"same_candle_stop_target":"STOP_FIRST",
+            "precision_entry_timeframe":"1m","signal_only_uses_closed_candles":True,
+            "higher_timeframes_asof_signal_close":True,
+            "entry":"first 1m candle open at the 15m signal close",
+            "stop":"1.5 x setup ATR(14)","target":"3R",
+            "max_hold_minutes":MAX_HOLD_MINUTES,"same_candle_stop_target":"STOP_FIRST",
             "overlap":"one open position per variant","round_trip_cost_bps_assumption":COST_BPS},
         "limitations":["Paper-only hypothetical fills; no order routing.",
+            "1m bar-open fills are simulated and recorded only after the 1m candle closes.",
             "20 bps is an unverified cost assumption, not actual fees/slippage.",
             "SHORT results are not economically validated by Spot data.",
             "No model training, threshold tuning, strategy promotion or performance acceptance.",
-            "Only bars arriving after the initial cursor are included; no historical backfill."],
+            "Only data after the bootstrap cursor is included; no historical backfill."],
         "safety":{"research_only":True,"performance_eligible":False,"training_label_eligible":False,
             "decision_authority":False,"candidate_generation_authorized":False,"risk_gate_bypass":False,
             "execution_enabled":False,"orders_placed":False}}
