@@ -79,7 +79,7 @@ def evaluate_indicator_family(snapshot_15m, snapshot_1h, snapshot_4h, *, close: 
                 ("HTF_ALIGNMENT","PRIOR_DONCHIAN_BREAK","ADX_CONFIRMATION","MOMENTUM_CONFIRMATION")))
     # Variant 3: range mean reversion. Require a confirmed RANGE regime on 15m and no
     # strongly directional HTF context; entries are evaluated at the next executable open.
-    if regime=="RANGE" and snapshot_1h.regime.label not in ("BULLISH","BEARISH") and snapshot_4h.regime.label not in ("BULLISH","BEARISH"):
+    if regime=="RANGE" and snapshot_1h.regime.label=="RANGE" and snapshot_4h.regime.label=="RANGE":
         pctb,rsi = _v(snapshot_15m,"bollinger_percent_b"),_v(snapshot_15m,"rsi_14")
         if pctb is not None and rsi is not None:
             if pctb<=0.05 and rsi<=32:
