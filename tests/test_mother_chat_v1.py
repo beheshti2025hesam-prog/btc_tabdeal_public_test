@@ -410,3 +410,159 @@ def test_prompt_injection_cannot_expand_the_fixed_intent_router():
     assert result["execution_enabled"] is False
     assert result["orders_placed"] is False
     assert called == []
+
+
+def _verified_specialist_payload():
+    agents = (
+        "data_quality", "market_structure", "signal", "confirmation",
+        "risk", "decision", "evaluation",
+    )
+    states = {
+        "data_quality": "PASS", "market_structure": "PASS", "signal": "PASS",
+        "confirmation": "CONFIRMED", "risk": "APPROVED",
+        "decision": "DECIDED", "evaluation": "OBSERVED",
+    }
+    stages = [
+        {
+            "agent": name,
+            "agent_version": "fixture-" + name + "-v1",
+            "state": states[name],
+            "reason_codes": [],
+            "evidence_refs": ["sha256:" + (str(index + 1) * 64)],
+        }
+        for index, name in enumerate(agents)
+    ]
+    return {
+        "mother": {
+            "status": "OBSERVATION_ONLY",
+            "decision": "NO_TRADE",
+            "reason_codes": ["EXECUTION_NOT_AUTHORIZED"],
+            "trace_id": "a" * 64,
+            "audit_sha256": "b" * 64,
+            "stages": stages,
+            "witness": {"verified": True, "audit_sha256": "b" * 64},
+            "outcomes_inferred": False,
+        },
+        "strategy": {
+            "status": "VERIFIED",
+            "report_sha256": "c" * 64,
+            "latest_gate_evidence": {
+                "structure": {"status": "OBSERVED", "regime": "RANGE"},
+                "confirmation": {"state": "CONFIRMED_LONG", "reason_codes": []},
+                "risk": {"state": "RISK_APPROVED", "reason_codes": []},
+            },
+        },
+        "trace_id": "a" * 64,
+        "evidence_refs": ["sha256:" + "d" * 64],
+    }
+
+
+def test_specialist_review_lists_seven_canonical_stages_and_is_read_only():
+    payload = _verified_specialist_payload()
+    result = build_chat_response(
+        "بررسی تخصصی ایجنت‌ها",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="fa",
+    )
+    assert result["intent"] == "SPECIALIST_REVIEW"
+    assert result["status"] == "OK"
+    assert len([claim for claim in result["claims"] if claim["label"].startswith("Mother specialist ")]) == 7
+    assert any(claim["label"] == "Evaluation boundary" for claim in result["claims"])
+    assert any(claim["label"] == "Coverage boundary" for claim in result["claims"])
+    assert "Learning Loop" in result["answer"]
+    assert result["execution_enabled"] is False
+    assert result["orders_placed"] is False
+    assert result["journal_write"] is False
+    assert result["policy_mutation"] is False
+
+
+def test_specialist_review_can_focus_on_one_named_specialist():
+    payload = _verified_specialist_payload()
+    result = build_chat_response(
+        "بررسی ایجنت ریسک",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="fa",
+    )
+    specialist_claims = [claim for claim in result["claims"] if claim["label"].startswith("Mother specialist ")]
+    assert result["status"] == "OK"
+    assert len(specialist_claims) == 1
+    assert specialist_claims[0]["label"] == "Mother specialist risk"
+    assert specialist_claims[0]["value"]["canonical_gate_detail"]["state"] == "RISK_APPROVED"
+
+
+def test_specialist_review_blocks_unverified_mother_witness():
+    payload = _verified_specialist_payload()
+    payload["mother"]["witness"]["verified"] = False
+    result = build_chat_response(
+        "specialist review",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="en",
+    )
+    assert result["status"] == "BLOCKED"
+    assert result["uncertainties"] == ["MOTHER_SPECIALIST_CHAIN_NOT_VERIFIED"]
+    assert result["claims"] == []
+    assert result["execution_enabled"] is False
+
+
+def test_specialist_review_shows_downstream_stages_not_reached_after_risk_veto():
+    payload = _verified_specialist_payload()
+    stages = payload["mother"]["stages"][:5]
+    stages[-1] = stages[-1] | {
+        "state": "NOT_APPROVED",
+        "reason_codes": ["RISK_NOT_APPROVED"],
+    }
+    payload["mother"]["stages"] = stages
+    payload["mother"]["status"] = "BLOCKED_RISK_VETO"
+    payload["mother"]["decision"] = "NO_TRADE"
+    payload["mother"]["reason_codes"] = ["RISK_NOT_APPROVED"]
+    payload["strategy"]["latest_gate_evidence"]["risk"] = {
+        "state": "RISK_NOT_APPROVED", "reason_codes": ["RISK_NOT_APPROVED"]
+    }
+    result = build_chat_response(
+        "بررسی تخصصی ایجنت‌ها",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="fa",
+    )
+    assert result["status"] == "OK"
+    decision_claim = next(c for c in result["claims"] if c["label"] == "Mother specialist decision")
+    evaluation_claim = next(c for c in result["claims"] if c["label"] == "Mother specialist evaluation")
+    assert decision_claim["value"]["state"] == "NOT_REACHED"
+    assert evaluation_claim["value"]["state"] == "NOT_REACHED"
+    assert "upstream stop: risk" in result["answer"]
+
+
+def test_specialist_review_rejects_duplicate_or_out_of_order_stage_rows():
+    payload = _verified_specialist_payload()
+    payload["mother"]["stages"].append(dict(payload["mother"]["stages"][0]))
+    result = build_chat_response(
+        "specialist review",
+        {"SPECIALIST_REVIEW": lambda: payload},
+        language="en",
+    )
+    assert result["status"] == "BLOCKED"
+    assert result["uncertainties"] == ["MOTHER_SPECIALIST_STAGE_ORDER_INVALID"]
+
+
+def test_specialist_intent_is_classified_deterministically():
+    assert classify_intent("بررسی ایجنت ریسک") == "SPECIALIST_REVIEW"
+    assert classify_intent("review the signal specialist") == "SPECIALIST_REVIEW"
+    assert classify_intent("specialist status") == "SPECIALIST_REVIEW"
+
+
+def test_dashboard_specialist_reader_reuses_canonical_mother_and_strategy_outputs(monkeypatch):
+    from web import dashboard
+
+    strategy = {"status": "VERIFIED", "report_sha256": "c" * 64}
+    mother = {
+        "status": "OBSERVATION_ONLY",
+        "trace_id": "a" * 64,
+        "audit_sha256": "b" * 64,
+        "journal_event_sha256": "d" * 64,
+    }
+    monkeypatch.setattr(dashboard, "_mother_chat_core_evidence", lambda: (strategy, mother))
+    readers = dashboard._mother_chat_readers("بررسی تخصصی")
+    result = readers["SPECIALIST_REVIEW"]()
+    assert result["strategy"] is strategy
+    assert result["mother"] is mother
+    assert result["trace_id"] == mother["trace_id"]
+    assert "sha256" not in result["evidence_refs"][0]
