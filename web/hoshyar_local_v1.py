@@ -41,6 +41,7 @@ ROUTE_SYSTEM_PROMPT = (
     "PREPARE_CHANGE, EXPLAIN_CHANGE_CONTROL, PROJECT_MEMORY, UNKNOWN, GENERAL_CHAT. "
     "EXPLAIN_DECISION means why a recorded Mother/Strategy decision was made; "
     "EXPLAIN_CHANGE_CONTROL means the owner's approval process for a proposed change; "
+    "SPECIALIST_REVIEW means summarize only the verified seven-stage Mother specialist evidence; missing downstream stages are not reached, never invented. "
     "PROJECT_MEMORY means retrieve an earlier project decision/checkpoint. "
     "GENERAL_CHAT is only ordinary non-HES conversation. Resolve short follow-ups from history; if unclear choose UNKNOWN. "
     "Return JSON only with the single key intent. No explanation, no answer, no facts."
