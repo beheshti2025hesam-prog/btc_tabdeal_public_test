@@ -210,3 +210,112 @@ def test_missing_confirmation_does_not_become_final_policy_attribution(tmp_path)
     path = tmp_path / "trade_journal_v2.jsonl"
     _write_v2_decision(path, proposal_decision="LONG", confirmation_state="UNKNOWN", risk_state="RISK_APPROVED")
     assert read_decision_journal(path)["events"][0]["rejected_at"] == "CONFIRMATION"
+
+
+def test_projects_independent_family_candidate_confirmation_and_evidence(tmp_path):
+    path = tmp_path / "trade_journal_v2.jsonl"
+    _write_v2_decision(path)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    family_candidate = {
+        "family_id": "range_mean_reversion",
+        "family_version": "hes-range-mean-reversion-research-v1.0.0",
+        "state": "CANDIDATE_LONG", "direction": "LONG",
+        "evidence_sha256": "d" * 64, "execution_enabled": False, "orders_placed": False,
+    }
+    family_confirmation = {
+        "family_id": "range_mean_reversion",
+        "family_version": family_candidate["family_version"],
+        "state": "RESEARCH_CONFIRMED_LONG", "passed_count": 8, "required_count": 8,
+        "reason_codes": ["RANGE_RESEARCH_CONFIRMATION_PASSED_RISK_GATE_STILL_REQUIRED"],
+        "checks": [
+            {"name": "range_persistence", "state": "PASS"},
+            {"name": "cost_adjusted_geometry", "state": "PASS"},
+        ],
+        "confirmation_authority": False, "risk_gate_required": True,
+        "candidate_generation_authorized": False, "execution_enabled": False, "orders_placed": False,
+    }
+    family_evidence = {
+        "status": "READY", "evidence_sha256": "d" * 64,
+        "cost_model_status": "ASSUMPTION_BASED",
+        "candidate": family_candidate,
+    }
+    record["strategy_family_candidate"] = family_candidate
+    record["strategy_family_confirmation"] = family_confirmation
+    record["strategy_family_evidence"] = family_evidence
+    record["gate_evidence"]["strategy_family_candidate"] = family_candidate
+    record["gate_evidence"]["strategy_family_confirmation"] = family_confirmation
+    record["gate_evidence"]["strategy_family_evidence"] = family_evidence
+    record["strategy_family_route"] = {
+        "family_id": "range_mean_reversion",
+        "family_version": family_candidate["family_version"],
+        "activation_state": "RESEARCH_ONLY_NOT_ACTIVE",
+    }
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    event = read_decision_journal(path)["events"][0]
+    assert event["strategy_family_confirmation_state"] == "RESEARCH_CONFIRMED_LONG"
+    assert event["strategy_family_candidate_state"] == "CANDIDATE_LONG"
+    assert event["strategy_family_candidate_direction"] == "LONG"
+    assert event["strategy_family_evidence_status"] == "READY"
+    assert event["strategy_family_evidence_sha256"] == "d" * 64
+    assert event["gate_summary"]["strategy_family_confirmation"]["state"] == "RESEARCH_CONFIRMED_LONG"
+    assert event["gate_summary"]["strategy_family_confirmation"]["failed_checks"] == []
+
+
+def test_family_projection_rejects_cross_family_candidate_or_digest_mismatch(tmp_path):
+    from forward.trade_journal_view_v1 import JournalProjectionError
+
+    path = tmp_path / "trade_journal_v2.jsonl"
+    _write_v2_decision(path)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["strategy_family_route"] = {"family_id": "range_mean_reversion"}
+    record["strategy_family_candidate"] = {
+        "family_id": "trend_breakout", "state": "CANDIDATE_LONG",
+        "direction": "LONG", "evidence_sha256": "a" * 64,
+    }
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    with pytest.raises(JournalProjectionError, match="strategy_family_identity_mismatch"):
+        read_decision_journal(path)
+
+
+def test_family_projection_rejects_mismatched_candidate_and_evidence_hashes(tmp_path):
+    from forward.trade_journal_view_v1 import JournalProjectionError
+
+    path = tmp_path / "trade_journal_v2.jsonl"
+    _write_v2_decision(path)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["strategy_family_route"] = {"family_id": "range_mean_reversion"}
+    record["strategy_family_candidate"] = {
+        "family_id": "range_mean_reversion", "state": "CANDIDATE_LONG",
+        "direction": "LONG", "evidence_sha256": "a" * 64,
+    }
+    record["strategy_family_evidence"] = {"family_id": "range_mean_reversion", "status": "READY", "evidence_sha256": "b" * 64}
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    with pytest.raises(JournalProjectionError, match="strategy_family_evidence_digest_mismatch"):
+        read_decision_journal(path)
+
+
+def test_family_projection_rejects_candidate_not_matching_evidence_bundle(tmp_path):
+    from forward.trade_journal_view_v1 import JournalProjectionError
+
+    path = tmp_path / "trade_journal_v2.jsonl"
+    _write_v2_decision(path)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["strategy_family_route"] = {"family_id": "range_mean_reversion"}
+    record["strategy_family_candidate"] = {
+        "family_id": "range_mean_reversion", "family_version": "v1",
+        "state": "CANDIDATE_LONG", "direction": "LONG",
+        "evidence_sha256": "a" * 64, "source": "gateio_public_spot",
+        "symbol": "BTC_USDT", "timeframe": "15m",
+    }
+    record["strategy_family_evidence"] = {
+        "family_id": "range_mean_reversion", "candidate": {
+            "family_id": "range_mean_reversion", "family_version": "v1",
+            "state": "CANDIDATE_SHORT", "direction": "SHORT",
+            "evidence_sha256": "a" * 64, "source": "gateio_public_spot",
+            "symbol": "BTC_USDT", "timeframe": "15m",
+        },
+    }
+    path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    with pytest.raises(JournalProjectionError, match="strategy_family_evidence_candidate_mismatch"):
+        read_decision_journal(path)

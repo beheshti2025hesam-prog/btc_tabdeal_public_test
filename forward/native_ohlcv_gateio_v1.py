@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib, json, time
 from types import MappingProxyType
 from decimal import Decimal, InvalidOperation
+from datetime import datetime
 from typing import Callable
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -44,6 +45,130 @@ def verify_gateio_spot_symbol_mapping(canonical_symbol: str, source_symbol: str)
     """Verify source identity against the authoritative adapter mapping; never infer it."""
     return (type(canonical_symbol) is str and type(source_symbol) is str
             and GATEIO_SPOT_SYMBOL_MAP.get(canonical_symbol) == source_symbol)
+
+
+def from_persisted_global_rows(rows, *, timeframe: str, now_ms: int) -> NativeOHLCVBatch:
+    """Normalize the existing persisted Gate.io reader rows; perform no network I/O.
+
+    The persisted reader stores candle close_time as the exclusive interval boundary
+    in seconds. NativeOHLCVBatch stores the final inclusive millisecond, so this
+    adapter subtracts one millisecond after validating the exact source contract.
+    Its response_sha256 is explicitly the hash of the persisted row set, not a
+    fabricated raw HTTP response hash.
+    """
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("persisted Gate.io rows must be a non-empty list")
+    if timeframe not in SUPPORTED_INTERVALS or timeframe not in INTERVAL_MS:
+        raise ValueError("unsupported persisted Gate.io timeframe")
+    if type(now_ms) is not int or now_ms < 0:
+        raise ValueError("now_ms must be a non-negative integer")
+
+    interval_ms = INTERVAL_MS[timeframe]
+    interval_seconds = interval_ms // 1000
+    candles = []
+    gaps = []
+    previous_open_ms = None
+    observed_times = []
+
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise ValueError(f"persisted Gate.io row {index} must be an object")
+        if row.get("schema") != "hes_global_candle_v1":
+            raise ValueError("persisted Gate.io candle schema mismatch")
+        if row.get("source") != "gateio_public_spot":
+            raise ValueError("persisted Gate.io source identity mismatch")
+        if row.get("symbol") != "BTC_USDT":
+            raise ValueError("persisted Gate.io symbol identity mismatch")
+        if row.get("timeframe") != timeframe:
+            raise ValueError("persisted Gate.io timeframe identity mismatch")
+        if row.get("closed") is not True:
+            raise ValueError("persisted Gate.io open candle rejected")
+        if any(row.get(field) is not None for field in (
+            "trade_count", "taker_buy_volume", "taker_buy_quote_volume"
+        )):
+            raise ValueError("Gate.io trade-flow fields must remain unavailable")
+
+        open_seconds = row.get("open_time")
+        close_boundary_seconds = row.get("close_time")
+        if type(open_seconds) is not int or type(close_boundary_seconds) is not int:
+            raise ValueError("persisted Gate.io candle times must be integer seconds")
+        open_ms = open_seconds * 1000
+        if open_seconds < 0 or open_ms % interval_ms:
+            raise ValueError("persisted Gate.io candle open time is misaligned")
+        if close_boundary_seconds != open_seconds + interval_seconds:
+            raise ValueError("persisted Gate.io candle close boundary is invalid")
+        close_ms = close_boundary_seconds * 1000 - 1
+        if close_boundary_seconds * 1000 > now_ms:
+            raise ValueError("persisted Gate.io candle close is in the future")
+
+        observed_at = row.get("observed_at")
+        if not isinstance(observed_at, str) or not observed_at.strip():
+            raise ValueError("persisted Gate.io observation timestamp missing")
+        try:
+            observed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("persisted Gate.io observation timestamp invalid") from exc
+        if observed.tzinfo is None or observed.utcoffset() is None:
+            raise ValueError("persisted Gate.io observation timestamp must be timezone-aware")
+        observed_ms = int(observed.timestamp() * 1000)
+        if observed_ms > now_ms + 60_000:
+            raise ValueError("persisted Gate.io observation time is ahead of current UTC")
+        observed_times.append(observed_ms)
+
+        open_price = _wire_decimal(row.get("open"), "open")
+        high = _wire_decimal(row.get("high"), "high")
+        low = _wire_decimal(row.get("low"), "low")
+        close = _wire_decimal(row.get("close"), "close")
+        volume = _wire_decimal(row.get("volume"), "volume")
+        quote_volume = _wire_decimal(row.get("quote_volume"), "quote_volume")
+        if min(open_price, high, low, close) <= 0 or min(volume, quote_volume) < 0:
+            raise ValueError("persisted Gate.io OHLCV values are outside valid bounds")
+        if high < max(open_price, low, close) or low > min(open_price, high, close):
+            raise ValueError("persisted Gate.io OHLC geometry is invalid")
+
+        if previous_open_ms is not None:
+            distance = open_ms - previous_open_ms
+            if distance <= 0:
+                raise ValueError("persisted Gate.io candles are duplicate or unordered")
+            if distance > interval_ms:
+                gaps.append(CandleGap(
+                    expected_open_time_ms=previous_open_ms + interval_ms,
+                    next_observed_open_time_ms=open_ms,
+                    missing_intervals=(distance // interval_ms) - 1,
+                ))
+        candles.append(NativeCandle(
+            venue="gateio", product="spot", symbol="BTCUSDT", interval=timeframe,
+            open_time_ms=open_ms, close_time_ms=close_ms,
+            open=open_price, high=high, low=low, close=close,
+            volume=volume, quote_volume=quote_volume,
+            trade_count=None, taker_buy_volume=None, taker_buy_quote_volume=None,
+            closed=True,
+        ))
+        previous_open_ms = open_ms
+
+    if observed_times and max(observed_times) > now_ms + 60_000:
+        raise ValueError("persisted Gate.io observation time is ahead of current UTC")
+    latest_close_boundary_ms = rows[-1]["close_time"] * 1000
+    if now_ms - latest_close_boundary_ms > 2 * interval_ms:
+        raise ValueError("persisted Gate.io candle feed is stale")
+    # fetched_at_ms is when this adapter read the persisted feed, not when the
+    # exchange originally emitted each candle. Per-row observed_at stays bound
+    # inside the persisted-row digest above.
+    fetched_at_ms = now_ms
+    try:
+        canonical_rows = json.dumps(
+            rows, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("persisted Gate.io rows are not canonical JSON") from exc
+    batch = NativeOHLCVBatch(
+        venue="gateio", product="spot", symbol="BTCUSDT", interval=timeframe,
+        endpoint_kind="global_market_data_reader_v1", fetched_at_ms=fetched_at_ms,
+        response_sha256=hashlib.sha256(canonical_rows).hexdigest(),
+        candles=tuple(candles), gaps=tuple(gaps), open_candles_excluded=0,
+    )
+    validate_native_batch(batch)
+    return batch
 SUPPORTED_INTERVALS = frozenset({"1m", "5m", "15m", "1h", "4h", "1d"})
 _TIMEOUT = 10
 

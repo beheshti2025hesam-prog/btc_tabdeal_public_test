@@ -126,3 +126,132 @@ def test_unlinked_timeout_without_candidate_geometry_stays_unscorable():
     assert metrics['losses'] == 0
     assert metrics['resolved'] == 0
     assert metrics['unscorable'] == 1
+
+
+def _family_cohort_report(updated_at=None):
+    from datetime import datetime, timezone
+    profiles = mod.FAMILY_PROFILES
+    summaries = {}
+    details = {}
+    for family_id, profile in profiles.items():
+        summaries[family_id] = {
+            'family_id': family_id,
+            'family_version': profile.version,
+            'candidate_count': 0,
+            'resolved_outcome_count': 0,
+            'pending_candidate_count': 0,
+            'acceptance_eligible_candidate_count': 0,
+            'acceptance_eligible_metrics': {},
+            'research_shadow_metrics': {},
+            'acceptance_status': 'NOT_MET',
+            'acceptance_blockers': ['MINIMUM_100_RESOLVED_TRADES_NOT_MET'],
+            'execution_enabled': False,
+            'orders_placed': False,
+        }
+        detail = {
+            'schema': 'hes_strategy_family_evaluation_report_v1',
+            'status': 'NOT_MET',
+            'family_id': family_id,
+            'family_version': profile.version,
+            'cohort_family_ids': [family_id],
+            'execution_enabled': False,
+            'orders_placed': False,
+            'report_sha256': '',
+        }
+        detail['report_sha256'] = mod._canonical_report_sha(detail)
+        detail['source_hashes'] = {'decision_journal_sha256':None,'candidate_ledger_sha256':None,'outcome_ledger_sha256':None,'paper_cost_context_sha256':None,'market_data_rows_sha256':'d'*64}
+        detail['report_sha256'] = mod._canonical_report_sha(detail)
+        details[family_id] = detail
+    report = {
+        'schema': 'hes_strategy_family_paper_reconciliation_v1',
+        'version': 'hes-strategy-family-paper-cohort-v1.0.0',
+        'updated_at': updated_at or datetime.now(timezone.utc).isoformat(),
+        'status': 'NO_FAMILY_CANDIDATES_YET',
+        'candidate_records': 0,
+        'outcome_records': 0,
+        'families': summaries,
+        'family_reports': details,
+        'family_acceptance': {
+            'schema': 'hes_strategy_family_acceptance_result_v1',
+            'status': 'NOT_MET',
+            'activation_authorized': False,
+            'execution_enabled': False,
+            'orders_placed': False,
+        },
+        'acceptance_is_independent_per_family': True,
+        'timestamp_fallback_matching': False,
+        'execution_enabled': False,
+        'orders_placed': False,
+        'risk_gate_modified': False,
+        'live_trading_authorized': False,
+        'source_hashes': {'decision_journal_sha256':None,'candidate_ledger_sha256':None,'outcome_ledger_sha256':None,'paper_cost_context_sha256':None,'market_data_rows_sha256':'d'*64},
+        'report_sha256': '',
+    }
+    report['report_sha256'] = mod._canonical_report_sha(report)
+    return report
+
+
+def test_family_paper_reconciliation_report_requires_valid_outer_and_per_family_hashes(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, 'DATA', tmp_path)
+    monkeypatch.setattr(mod, 'ROOT', tmp_path)
+    report = _family_cohort_report()
+    (tmp_path / 'strategy_family_paper_reconciliation_v1.json').write_text(json.dumps(report))
+    result = mod.read_family_paper_reconciliation()
+    assert result['status'] == 'VERIFIED'
+    assert result['fresh'] is True
+    assert set(result['families']) == {'trend_breakout', 'range_mean_reversion'}
+    assert result['family_acceptance_status'] == 'NOT_MET'
+
+
+def test_family_paper_reconciliation_rejects_tampered_report_hash(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, 'DATA', tmp_path)
+    monkeypatch.setattr(mod, 'ROOT', tmp_path)
+    monkeypatch.setattr(mod, 'ROOT', tmp_path)
+    report = _family_cohort_report()
+    report['candidate_records'] = 1
+    (tmp_path / 'strategy_family_paper_reconciliation_v1.json').write_text(json.dumps(report))
+    result = mod.read_family_paper_reconciliation()
+    assert result['status'] == 'INVALID'
+    assert result['reason'] == 'REPORT_HASH_MISMATCH'
+
+
+def test_family_paper_reconciliation_marks_stale_report_and_does_not_create_family_claims(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    monkeypatch.setattr(mod, 'DATA', tmp_path)
+    monkeypatch.setattr(mod, 'ROOT', tmp_path)
+    monkeypatch.setattr(mod, 'ROOT', tmp_path)
+    report = _family_cohort_report((datetime.now(timezone.utc) - timedelta(hours=2)).isoformat())
+    (tmp_path / 'strategy_family_paper_reconciliation_v1.json').write_text(json.dumps(report))
+    result = mod.read_family_paper_reconciliation()
+    assert result['status'] == 'STALE'
+    assert result['fresh'] is False
+    hypotheses = mod.family_cohort_hypotheses(result)
+    assert len(hypotheses) == 1
+    assert hypotheses[0]['status'] == 'HYPOTHESIS_ONLY'
+    assert hypotheses[0]['type'] == 'FAMILY_COHORT_PIPELINE_DIAGNOSTIC'
+
+
+def test_family_cohort_hypotheses_keep_trend_and_range_separate():
+    snapshot = {
+        'status': 'VERIFIED',
+        'fresh': True,
+        'families': {
+            'trend_breakout': {'acceptance_status':'NOT_MET','candidate_count':12,'resolved_outcome_count':4,'acceptance_blockers':['MINIMUM_100_RESOLVED_TRADES_NOT_MET']},
+            'range_mean_reversion': {'acceptance_status':'NOT_MET','candidate_count':3,'resolved_outcome_count':1,'acceptance_blockers':['VERIFIED_FEE_SLIPPAGE_MODEL_MISSING']},
+        },
+    }
+    hypotheses = mod.family_cohort_hypotheses(snapshot)
+    assert {row['family_id'] for row in hypotheses} == {'trend_breakout','range_mean_reversion'}
+    assert len({row['hypothesis_id'] for row in hypotheses}) == 2
+    assert all(row['status'] == 'HYPOTHESIS_ONLY' for row in hypotheses)
+
+
+def test_family_paper_reconciliation_rejects_source_file_changed_after_report(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, 'DATA', tmp_path)
+    monkeypatch.setattr(mod, 'ROOT', tmp_path)
+    report = _family_cohort_report()
+    (tmp_path / 'trade_journal_v2.jsonl').write_text('{"event_id":"new"}\\n')
+    (tmp_path / 'strategy_family_paper_reconciliation_v1.json').write_text(json.dumps(report))
+    result = mod.read_family_paper_reconciliation()
+    assert result['status'] == 'INVALID'
+    assert result['reason'] == 'SOURCE_HASH_MISMATCH'

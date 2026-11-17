@@ -16,6 +16,8 @@ from forward.forward_journal_v1 import ForwardJournalV1
 from forward.strategy_v2_run_provenance_v1 import create_run_manifest, append_run_manifest
 from forward.signal_quality_acceptance_v1 import evaluate_acceptance
 from forward.strategy_family_journal_v1 import sync_strategy_family_result_journals
+from forward.strategy_family_paper_cohort_v1 import reconcile_family_paper_cohorts
+from forward.paper_outcome_resolver_v1 import resolve_paper_outcome
 from forward.strategy_entry_context_v1 import build_entry_context
 BASE=ROOT/'data/forward'; STATE=BASE/'strategy_policy_v2_eval_state.json'
 CAND=BASE/'strategy_policy_v2_eval_candidates.jsonl'; OUT=BASE/'strategy_policy_v2_eval_outcomes.jsonl'; REPORT=BASE/'strategy_policy_v2_eval_report.json'
@@ -210,49 +212,42 @@ def main():
  try: st=json.loads(STATE.read_text())
  except Exception: st={'last_seen':None,'active':[],'wins':0,'losses':0,'timeouts':0,'ambiguous_losses':0}
  initialize_run_provenance()
- sync_strategy_family_result_journals(candidates_path=CAND,outcomes_path=OUT,output_dir=BASE,report_path=BASE/'strategy_family_results_report_v1.json')
+ family_results=sync_strategy_family_result_journals(candidates_path=CAND,outcomes_path=OUT,output_dir=BASE,report_path=BASE/'strategy_family_results_report_v1.json')
+ family_paper_reconciliation=None
  print('EVALUATOR_STARTED '+POLICY_VERSION,flush=True)
  while True:
   try:
    src=load_market_input(root=ROOT);frames=src['timeframes'];bars=frames['15m'];now=int(bars[-1]['close_time'])
+   new_candle = now != st.get('last_seen')
+   if not new_candle and family_paper_reconciliation is not None:
+    time.sleep(30)
+    continue
    sync_outcomes_to_journal()
    pending=[]
    for t in st['active']:
-    done=False
-    for b in bars:
-     ct=int(b['close_time'])
-     if ct<=t['candidate_time']:continue
-     hi=float(b['high']);lo=float(b['low']);islong=t['direction']=='LONG'
-     sl=lo<=t['stop_loss'] if islong else hi>=t['stop_loss']
-     tp=hi>=t['take_profit'] if islong else lo<=t['take_profit']
-     if sl or tp:
-      outcome='losses' if sl else 'wins'; reason='STOP_AND_TARGET_SAME_CANDLE_CONSERVATIVE_LOSS' if sl and tp else 'STOP_LOSS' if sl else 'TAKE_PROFIT'
-      st[outcome]+=1
-      if sl and tp:st['ambiguous_losses']+=1
-      closed_at=datetime.now(timezone.utc).isoformat()
-      candidate_event_id=t.get('candidate_event_id') or f"hes-v2-candidate-{src['symbol'] if 'src' in locals() else 'BTC_USDT'}-15m-{t['candidate_time']}"
-      exit_price=float(t['stop_loss']) if sl else float(t['take_profit'])
-      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-outcome-{src['symbol'] if 'src' in locals() else 'BTC_USDT'}-15m-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_close_time':ct,'exit_close':float(b['close']),'exit_price':exit_price,'reason':reason,'resolved_at':closed_at,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
-      append(OUT,outcome_record)
-      append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_time':ct,'exit_close':float(b['close']),'outcome_reason':reason,'policy_version':POLICY_VERSION,'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False})
-      done=True;break
-     if ct-t['candidate_time']>=MAX_SECONDS:
-      st['timeouts']+=1
-      closed_at=datetime.now(timezone.utc).isoformat()
-      candidate_event_id=t.get('candidate_event_id') or f"hes-v2-candidate-{src['symbol']}-15m-{t['candidate_time']}"
-      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-timeout-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'outcome':'timeouts','exit_close_time':ct,'exit_close':float(b['close']),'exit_price':float(b['close']),'reason':'MAX_HOLD_24H','resolved_at':closed_at,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
-      append(OUT,outcome_record)
-      append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':'timeouts','exit_time':ct,'exit_price':float(b['close']),'exit_close':float(b['close']),'outcome_reason':'MAX_HOLD_24H','policy_version':POLICY_VERSION,'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False})
-      done=True;break
-    if not done:pending.append(t)
+    resolved=resolve_paper_outcome(t,bars,max_hold_seconds=MAX_SECONDS)
+    if resolved is None:
+     pending.append(t)
+     continue
+    outcome=resolved['outcome']; reason=resolved['reason']; ct=resolved['exit_close_time']
+    exit_close=resolved['exit_close']; exit_price=resolved['exit_price']
+    if outcome=='timeouts': st['timeouts']+=1
+    else: st[outcome]+=1
+    if resolved['ambiguous_same_candle']: st['ambiguous_losses']+=1
+    closed_at=datetime.now(timezone.utc).isoformat()
+    candidate_event_id=t.get('candidate_event_id') or f"hes-v2-candidate-{src['symbol']}-15m-{t['candidate_time']}"
+    outcome_event_id=(f"hes-v2-timeout-{t['candidate_time']}" if resolved['timeout']
+                      else f"hes-v2-outcome-{src['symbol']}-15m-{t['candidate_time']}")
+    outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':outcome_event_id,'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_close_time':ct,'exit_close':exit_close,'exit_price':exit_price,'reason':reason,'resolved_at':closed_at,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
+    append(OUT,outcome_record)
+    append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_time':ct,'exit_close':exit_close,'exit_price':exit_price,'outcome_reason':reason,'policy_version':POLICY_VERSION,'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False})
    st['active']=pending
    gate_evidence=None
    if REPORT.exists():
     try: gate_evidence=json.loads(REPORT.read_text()).get('latest_gate_evidence')
     except Exception: gate_evidence=None
-   new_candle = now != st.get('last_seen')
    feats={tf:snapshot(tf,rows) for tf,rows in frames.items()};proposal=evaluate(feats)
-   gate_evidence=evaluate_gate_evidence(proposal=proposal,rows_15m=frames['15m'],frames=frames,source=src['source'],symbol=src['symbol'],observed_at=now)
+   gate_evidence=evaluate_gate_evidence(proposal=proposal,rows_15m=frames['15m'],frames=frames,source=src['source'],symbol=src['symbol'],observed_at=now,now_ms=int(time.time()*1000))
    market_data_provenance=build_market_data_batch_provenance(src)
    gate_evidence['market_data_provenance']=market_data_provenance
    gate_evidence['strategy_run_provenance']=provenance_fields()
@@ -272,6 +267,7 @@ def main():
     # A proposal is not an approved trade: operational gate decision is what is journaled.
     record={
      'event_id':f"hes-v2-{src['symbol']}-15m-{now}",
+     'candidate_time':now,
      'observed_at':datetime.now(timezone.utc).isoformat(),
      'symbol':src['symbol'],'timeframe':'15m','market_regime':gate_evidence['structure']['regime'],
      'direction':d.decision if d.decision in ('LONG','SHORT') else 'NONE',
@@ -289,6 +285,9 @@ def main():
      'strategy_family_activation_state':(gate_evidence.get('strategy_family_route') or {}).get('activation_state'),
      'strategy_family_context':gate_evidence.get('strategy_family_context'),
      'strategy_family_context_status':gate_evidence.get('strategy_family_context_status'),
+     'strategy_family_candidate':gate_evidence.get('strategy_family_candidate'),
+     'strategy_family_confirmation':gate_evidence.get('strategy_family_confirmation'),
+     'strategy_family_evidence':gate_evidence.get('strategy_family_evidence'),
      'proposal_decision':proposal.decision,
      'proposal_direction':proposal.direction,'proposal_entry':proposal.entry,
      'proposal_stop_loss':proposal.stop_loss,'proposal_take_profit':proposal.take_profit,
@@ -307,16 +306,20 @@ def main():
      st['active'].append(t);append(CAND,{'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_event_id,'event_id':candidate_event_id,'evaluation_mode':'PREAPPROVAL_PAPER_ONLY','preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'entry_context':entry_context,'gate_evidence':gate_evidence,'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),**t,'policy_version':POLICY_VERSION,'observed_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],**provenance_fields(),'execution_enabled':False,'orders_placed':False})
      append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_candidate_v1','event_id':candidate_event_id,'candidate_event_id':candidate_event_id,'observed_at':datetime.now(timezone.utc).isoformat(),'candle_close_time':now,'symbol':src['symbol'],'timeframe':'15m','direction':proposal.direction,'decision':'PAPER_CANDIDATE','entry':proposal.entry,'stop_loss':proposal.stop_loss,'take_profit':proposal.take_profit,'rr':proposal.rr,'quality_score':proposal.quality_score,'proposal_reasons':list(proposal.reasons),'final_gate_decision':d.decision,'final_gate_reasons':list(d.reasons),'preapproval_paper_eligible':preapproval['eligible'],'preapproval_paper_status':preapproval['status'],'preapproval_paper_reasons':preapproval['reasons'],'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'entry_context':entry_context,'gate_evidence':gate_evidence,'outcome':None,'closed_at':None,**provenance_fields(),'execution_enabled':False,'orders_placed':False})
     st['last_seen']=now
+   if new_candle or family_paper_reconciliation is None:
+    try:
+     family_paper_reconciliation=reconcile_family_paper_cohorts(root=DATA_ROOT,rows_15m=frames['15m'],write=True)
+    except Exception as cohort_error:
+     family_paper_reconciliation={'schema':'hes_strategy_family_paper_reconciliation_v1','status':'BLOCKED','reason_code':type(cohort_error).__name__+':'+str(cohort_error)[:160],'execution_enabled':False,'orders_placed':False,'risk_gate_modified':False}
+    family_results=sync_strategy_family_result_journals(candidates_path=CAND,outcomes_path=OUT,output_dir=BASE,report_path=BASE/'strategy_family_results_report_v1.json')
    resolved=st['wins']+st['losses'];wr=round(100*st['wins']/resolved,2) if resolved else None
    pm=performance_metrics()
    # Official performance is derived only from the append-only 1m precision ledger.
    # The 15m preapproval journal remains a separate diagnostic cohort.
    acceptance=evaluate_acceptance(root=CODE_ROOT,data_root=DATA_ROOT,metrics=pm,candidates=[],independent_oos=None)
-   family_results=sync_strategy_family_result_journals(candidates_path=CAND,outcomes_path=OUT,output_dir=BASE,report_path=BASE/'strategy_family_results_report_v1.json')
-   report={'schema':'hes_strategy_policy_v2_forward_evaluation','policy_version':POLICY_VERSION,**provenance_fields(),'updated_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'closed_15m_candle_time':now,'active_candidates':len(st['active']),'wins':pm['eligible_wins'],'losses':pm['eligible_losses'],'timeouts':pm['eligible_timeouts'],'ambiguous_losses':st['ambiguous_losses'],'resolved_win_rate_pct':pm['eligible_win_rate_pct'],'performance_metrics':pm,'strategy_family_results':family_results,'research_only_raw_wins':st['wins'],'research_only_raw_losses':st['losses'],'final_gate_version':'hes-strategy-policy-final-gate-v1.0.0','gate_pipeline_version':'hes-strategy-gate-pipeline-v1.0.1','market_data_provenance':market_data_provenance,'latest_gate_evidence':gate_evidence,'directional_candidates_blocked_until_gates_approved':True,'target_win_rate_pct':acceptance['target_win_rate_pct'],'target_met':acceptance['status']=='PASS','precision_entry_paper_target_met':acceptance['status']=='PASS','minimum_resolved_trades_for_target_claim':acceptance['minimum_resolved_closed_trades'],'target_policy_status':acceptance['status'],'paper_performance_scope':acceptance['performance_cohort'],'signal_quality_acceptance':acceptance,'execution_enabled':False,'orders_placed':False,'caveat':'Acceptance contract is enforced fail-closed. Official paper acceptance uses only the append-only 1m precision-entry READY ledger: strictly >90% over at least 100 resolved closed trades, <=3 actionable entries per UTC day (cap, never quota), clean event/candidate/outcome linkage, verified fees/slippage, and independent out-of-sample evidence. 15m preapproval and research-only cohorts are baseline diagnostics only. Official final-gate approval remains separate; no live trading.'}
+   report={'schema':'hes_strategy_policy_v2_forward_evaluation','policy_version':POLICY_VERSION,**provenance_fields(),'updated_at':datetime.now(timezone.utc).isoformat(),'source':src['source'],'symbol':src['symbol'],'closed_15m_candle_time':now,'active_candidates':len(st['active']),'wins':pm['eligible_wins'],'losses':pm['eligible_losses'],'timeouts':pm['eligible_timeouts'],'ambiguous_losses':st['ambiguous_losses'],'resolved_win_rate_pct':pm['eligible_win_rate_pct'],'performance_metrics':pm,'strategy_family_results':family_results,'family_paper_reconciliation':family_paper_reconciliation,'research_only_raw_wins':st['wins'],'research_only_raw_losses':st['losses'],'final_gate_version':'hes-strategy-policy-final-gate-v1.0.0','gate_pipeline_version':gate_evidence.get('pipeline_version','UNKNOWN'),'market_data_provenance':market_data_provenance,'latest_gate_evidence':gate_evidence,'directional_candidates_blocked_until_gates_approved':True,'target_win_rate_pct':acceptance['target_win_rate_pct'],'target_met':acceptance['status']=='PASS','precision_entry_paper_target_met':acceptance['status']=='PASS','minimum_resolved_trades_for_target_claim':acceptance['minimum_resolved_closed_trades'],'target_policy_status':acceptance['status'],'paper_performance_scope':acceptance['performance_cohort'],'signal_quality_acceptance':acceptance,'execution_enabled':False,'orders_placed':False,'caveat':'Acceptance contract is enforced fail-closed. Official paper acceptance uses only the append-only 1m precision-entry READY ledger: strictly >90% over at least 100 resolved closed trades, <=3 actionable entries per UTC day (cap, never quota), clean event/candidate/outcome linkage, verified fees/slippage, and independent out-of-sample evidence. 15m preapproval and research-only cohorts are baseline diagnostics only. Official final-gate approval remains separate; no live trading.'}
    STATE.write_text(json.dumps(st,indent=2)+'\n');REPORT.write_text(json.dumps(report,indent=2)+'\n')
    print(json.dumps({'candle':now,'active':len(st['active']),'wins':st['wins'],'losses':st['losses'],'timeouts':st['timeouts'],'win_rate_pct':wr,'decision':d.decision if new_candle else 'TRACKING','gate_version':d.gate_version} if new_candle else {'candle':now,'active':len(st['active']),'wins':st['wins'],'losses':st['losses'],'timeouts':st['timeouts'],'win_rate_pct':wr,'decision':'TRACKING'}),flush=True)
   except Exception as e:print(json.dumps({'error':type(e).__name__+':'+str(e)[:180],'decision':'NO_TRADE','execution_enabled':False}),flush=True)
   time.sleep(30)
 if __name__=='__main__':main()
-

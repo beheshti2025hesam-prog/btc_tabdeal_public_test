@@ -51,6 +51,78 @@ def _market_batch_hashes(record: dict[str, Any]) -> dict[str, str]:
     return result
 
 
+def _family_attribution(record: dict[str, Any]) -> dict[str, Any]:
+    evidence = record.get("gate_evidence")
+    if evidence is not None and not isinstance(evidence, dict):
+        raise JournalProjectionError("invalid_gate_evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+
+    def selected(key: str):
+        top_level = record.get(key)
+        nested = evidence.get(key)
+        if top_level is not None and nested is not None and top_level != nested:
+            raise JournalProjectionError("strategy_family_journal_field_mismatch:" + key)
+        value = top_level if top_level is not None else nested
+        if value is not None and not isinstance(value, dict):
+            raise JournalProjectionError("invalid_strategy_family_payload:" + key)
+        return value
+
+    candidate = selected("strategy_family_candidate") or {}
+    confirmation = selected("strategy_family_confirmation") or {}
+    family_evidence = selected("strategy_family_evidence") or {}
+    nested_candidate = family_evidence.get("candidate")
+    if nested_candidate is not None and not isinstance(nested_candidate, dict):
+        raise JournalProjectionError("invalid_strategy_family_payload:strategy_family_evidence.candidate")
+    if not candidate and isinstance(nested_candidate, dict):
+        candidate = nested_candidate
+    elif candidate and isinstance(nested_candidate, dict):
+        for field in ("family_id", "family_version", "state", "direction", "evidence_sha256", "source", "symbol", "timeframe"):
+            if candidate.get(field) != nested_candidate.get(field):
+                raise JournalProjectionError("strategy_family_evidence_candidate_mismatch")
+    route = record.get("strategy_family_route") or evidence.get("strategy_family_route") or {}
+    if not isinstance(route, dict):
+        raise JournalProjectionError("invalid_strategy_family_route")
+    route_family_id = route.get("family_id")
+    for payload in (candidate, confirmation, family_evidence):
+        payload_family_id = payload.get("family_id")
+        if payload_family_id is not None and payload_family_id != route_family_id:
+            raise JournalProjectionError("strategy_family_identity_mismatch")
+
+    candidate_state = candidate.get("state")
+    candidate_direction = candidate.get("direction")
+    if candidate_state is not None and candidate_state not in ("CANDIDATE_LONG", "CANDIDATE_SHORT"):
+        raise JournalProjectionError("invalid_strategy_family_candidate_state")
+    expected_direction = {"CANDIDATE_LONG": "LONG", "CANDIDATE_SHORT": "SHORT"}.get(candidate_state)
+    if candidate_direction is not None and expected_direction is not None and candidate_direction != expected_direction:
+        raise JournalProjectionError("strategy_family_candidate_direction_mismatch")
+
+    confirmation_state = confirmation.get("state")
+    if confirmation_state is not None and not isinstance(confirmation_state, str):
+        raise JournalProjectionError("invalid_strategy_family_confirmation_state")
+    evidence_status = family_evidence.get("status")
+    if evidence_status is not None and evidence_status not in ("READY", "NO_CANDIDATE", "BLOCKED"):
+        raise JournalProjectionError("invalid_strategy_family_evidence_status")
+
+    candidate_digest = candidate.get("evidence_sha256")
+    evidence_digest = family_evidence.get("evidence_sha256")
+    for digest in (candidate_digest, evidence_digest):
+        if digest is not None and (
+            not isinstance(digest, str) or len(digest) != 64
+            or any(ch not in "0123456789abcdef" for ch in digest.lower())
+        ):
+            raise JournalProjectionError("invalid_strategy_family_evidence_sha256")
+    if candidate_digest is not None and evidence_digest is not None and candidate_digest != evidence_digest:
+        raise JournalProjectionError("strategy_family_evidence_digest_mismatch")
+
+    return {
+        "confirmation_state": confirmation_state,
+        "candidate_state": candidate_state,
+        "candidate_direction": candidate_direction,
+        "evidence_status": evidence_status,
+        "evidence_sha256": evidence_digest or candidate_digest,
+    }
+
+
 def _rejection_stage(record: dict[str, Any]) -> str:
     """Return only a gate stage supported by the immutable decision evidence."""
     explicit = record.get("rejected_at")
@@ -103,7 +175,7 @@ def _gate_summary(record: dict[str, Any]) -> dict[str, Any]:
         "strategy_state": record.get("proposal_decision") or record.get("signal_state") or "UNKNOWN",
         "strategy_reason_codes": _reason_list(record.get("proposal_reasons")),
     }
-    for name in ("confirmation", "risk"):
+    for name in ("confirmation", "strategy_family_confirmation", "risk"):
         stage = evidence.get(name)
         stage = stage if isinstance(stage, dict) else {}
         checks = stage.get("checks")
@@ -235,6 +307,7 @@ def read_decision_journal(
                 evidence_source = record.get("evidence_source")
                 if not isinstance(evidence_source, (str, list, tuple)):
                     raise JournalProjectionError(f"missing_evidence_source:{line_no}")
+                family = _family_attribution(record)
                 events.append({
                     "event_id": event_id,
                     "observed_at": parsed.astimezone(timezone.utc).isoformat(),
@@ -268,6 +341,11 @@ def read_decision_journal(
                         if isinstance(record.get("strategy_family_route"), dict) else None
                     ),
                     "strategy_family_context_status": record.get("strategy_family_context_status"),
+                    "strategy_family_confirmation_state": family["confirmation_state"],
+                    "strategy_family_candidate_state": family["candidate_state"],
+                    "strategy_family_candidate_direction": family["candidate_direction"],
+                    "strategy_family_evidence_status": family["evidence_status"],
+                    "strategy_family_evidence_sha256": family["evidence_sha256"],
                     "gate_summary": _gate_summary(record),
                     "market_data_batch_sha256_by_timeframe": _market_batch_hashes(record),
                     "code_release_id": record.get("code_release_id") or (
