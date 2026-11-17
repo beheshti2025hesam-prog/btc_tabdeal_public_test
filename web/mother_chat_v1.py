@@ -352,6 +352,7 @@ def build_chat_response(
     language: str | None = None,
     now: float | None = None,
     intent_override: str | None = None,
+    specialist_context_message: str | None = None,
 ) -> dict[str, Any]:
     """Return a bounded, evidence-only response; an optional intent must be allowlisted."""
     if not isinstance(message, str) or not message.strip() or len(message) > MAX_MESSAGE_CHARS:
@@ -598,7 +599,7 @@ def build_chat_response(
         if mother_status == "BLOCKED_DIRECTION_CONFLICT" and len(stages) != len(_SPECIALIST_STAGE_ORDER):
             return _response(intent, "BLOCKED", "Direction-conflict status requires the complete specialist chain.", [], ["MOTHER_SPECIALIST_CONFLICT_CHAIN_INCOMPLETE"], trace_id, now, language=language)
 
-        target = _specialist_target(message)
+        target = _specialist_target(specialist_context_message or message)
         selected = [target] if target else list(_SPECIALIST_STAGE_ORDER)
         gate = strategy.get("latest_gate_evidence", {})
         if not isinstance(gate, Mapping):
