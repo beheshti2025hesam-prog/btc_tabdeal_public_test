@@ -11,7 +11,8 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
-from .blackbox_experience_memory_v1 import collect_canonical_experiences, discover_canonical_shadow_hypotheses
+from .blackbox_experience_memory_v1 import (collect_canonical_experiences,
+    discover_canonical_shadow_hypotheses, build_strategy_family_competition_readiness)
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,8 @@ def assess_blackbox_readiness(
 
     experience_events, experience_sources = collect_canonical_experiences(root)
     discovered_hypotheses = discover_canonical_shadow_hypotheses(root)
+    family_competition = build_strategy_family_competition_readiness(root,
+        blackbox_hypothesis_count=len(discovered_hypotheses))
     experience_memory = {
         "schema": "hes_blackbox_experience_memory_preview_v1",
         "events_indexed": len(experience_events),
@@ -135,6 +138,7 @@ def assess_blackbox_readiness(
             for name, item in artifacts.items()
         },
         "experiential_memory": experience_memory,
+        "family_competition": family_competition,
         "training_evidence": {
             "regime_model_samples": regime_run.get("feature_rows"),
             "movement_model_samples": movement_run.get("dataset", {}).get("samples"),
