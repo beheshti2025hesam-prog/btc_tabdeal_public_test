@@ -69,7 +69,7 @@ Therefore the runtime correctly reports `WAITING_FOR_VERIFIED_FAMILY_EVIDENCE` a
 - Family audit verified both journal SHA-256 hashes and exact candidate/outcome counts (Trend Breakout 15/15; Range Mean Reversion 14/14). Verified eligible outcomes: **0** for both.
 - The current family records are rejected for missing gate approval, verified fee/slippage provenance, net-R and matched baseline, TRAIN/OOS split, preregistration, and (for SHORT) independent short economics. The runner reports waiting states instead of ranking or accepting.
 - One-shot integration against a temporary copy of live evidence completed successfully; no production journal or service was written.
-- Focused Blackbox tests: **15 passed**. Combined existing strategy suite plus Blackbox tests: **225 passed, 7 subtests passed**. Python compilation passed.
+- Focused Blackbox tests: **16 passed**. Combined existing strategy suite plus Blackbox tests: **226 passed, 7 subtests passed**. Python compilation passed.
 
 ## 6. Release boundary
 
