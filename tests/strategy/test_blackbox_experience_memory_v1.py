@@ -584,4 +584,3 @@ def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float =
             "safety": {"execution_enabled": False, "orders_placed": False,
                        "policy_mutation_enabled": False, "production_approved": False,
                        "risk_gate_bypass": False}}
-
