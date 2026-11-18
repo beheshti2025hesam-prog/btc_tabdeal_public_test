@@ -24,10 +24,91 @@
     },
     "strategy_learning": {
       "path": "/opt/hes-trade-agent/data/forward/strategy_learning_v1_report.json",
-      "sha256": "397117a6918f0c2d9e1b5817d0820a8c9f2a5bb11031b72329e040b16196125f"
+      "sha256": "177a7dcce976822dbab563b407123313c5f3992e2c0af7a715ad90632bd22046"
     }
   },
-  "generated_at": "2026-11-18T14:58:08.427902+00:00",
+  "experiential_memory": {
+    "append_only_persistence_enabled": false,
+    "discovered_hypothesis_candidates": 35,
+    "events_indexed": 9133,
+    "experience_type_counts": {
+      "FAMILY_RESEARCH": 44,
+      "MARKET_CONTEXT": 2514,
+      "NO_TRADE_COUNTERFACTUAL": 6464,
+      "REJECTED_PROPOSAL": 82,
+      "TRADE_OUTCOME": 29
+    },
+    "four_state_counts": {
+      "BEARISH": 686,
+      "BULLISH": 640,
+      "NO_TRADE": 6739,
+      "RANGE": 1068
+    },
+    "hypothesis_candidates_are_research_only": true,
+    "hypothesis_candidates_used_for_training": false,
+    "schema": "hes_blackbox_experience_memory_preview_v1",
+    "source_counts": {
+      "indicator_strategy_forward_paper_journal_v1.jsonl": 237,
+      "indicator_strategy_shadow_outcomes_v1.jsonl": 44,
+      "neutral_decision_outcomes_v1.jsonl": 6464,
+      "strategy_policy_v2_eval_outcomes.jsonl": 29,
+      "trade_journal_v2.jsonl": 2359
+    },
+    "training_eligible_events": 0
+  },
+  "family_competition": {
+    "blackbox_discovered_hypotheses": 35,
+    "blackbox_hypotheses_competition_state": "DISCOVERY_ONLY_NOT_YET_COMPARABLE",
+    "blockers": [
+      "INSUFFICIENT_GATE_APPROVED_FAMILY_OUTCOMES:range_mean_reversion",
+      "INSUFFICIENT_VERIFIED_PAIRED_NET_R_EVIDENCE:range_mean_reversion",
+      "INSUFFICIENT_GATE_APPROVED_FAMILY_OUTCOMES:trend_breakout",
+      "INSUFFICIENT_VERIFIED_PAIRED_NET_R_EVIDENCE:trend_breakout"
+    ],
+    "comparison_ready": false,
+    "execution_enabled": false,
+    "families": {
+      "range_mean_reversion": {
+        "activation_state": "RESEARCH_ONLY_NOT_ACTIVE",
+        "candidate_count": 14,
+        "family_version": "hes-range-mean-reversion-research-v1.1",
+        "journal_performance_eligible_outcomes": 0,
+        "journal_sha256_verified": true,
+        "outcome_count": 14,
+        "performance_eligible_resolved": 0,
+        "preapproval_paper_eligible_outcomes": 0,
+        "raw_outcome_counts": {
+          "losses": 8,
+          "wins": 6
+        },
+        "tournament_eligible": false,
+        "verified_paired_net_r_evidence_count": 0
+      },
+      "trend_breakout": {
+        "activation_state": "CANDIDATE_LOCKED_NOT_ACTIVE",
+        "candidate_count": 15,
+        "family_version": "hes-btcusdt-mtf-confirmed-breakout-v2.0.0",
+        "journal_performance_eligible_outcomes": 0,
+        "journal_sha256_verified": true,
+        "outcome_count": 15,
+        "performance_eligible_resolved": 0,
+        "preapproval_paper_eligible_outcomes": 4,
+        "raw_outcome_counts": {
+          "losses": 10,
+          "wins": 5
+        },
+        "tournament_eligible": false,
+        "verified_paired_net_r_evidence_count": 0
+      }
+    },
+    "family_count": 2,
+    "orders_placed": false,
+    "policy_mutation_enabled": false,
+    "schema": "hes_blackbox_family_competition_readiness_v1",
+    "source_report_sha256": "56b9563d01ace2fc3dc31ce11b88b724baeca54a5f309182bd1d427bc9cf1c90",
+    "status": "WAITING_FOR_VERIFIED_FAMILY_EVIDENCE"
+  },
+  "generated_at": "2026-11-18T15:45:06.925474+00:00",
   "mode": "READ_ONLY_RESEARCH_ONLY",
   "reused_existing_components": [
     "Gate.io canonical 1m/15m/1h/4h market data",
