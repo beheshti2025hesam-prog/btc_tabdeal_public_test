@@ -111,6 +111,13 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
                         raise ValueError("FAMILY_CANDIDATE_ID_COLLISION")
                     candidates[key] = candidate_row
         outcomes = [r for r in rows if r.get("event_type") == "PAPER_OUTCOME"]
+        report_count_blockers = []
+        if len(rows) != int(family.get("journal_event_count", len(rows)) or 0):
+            report_count_blockers.append("JOURNAL_EVENT_COUNT_MISMATCH")
+        if len(candidate_rows) != int(family.get("candidate_count", len(candidate_rows)) or 0):
+            report_count_blockers.append("CANDIDATE_COUNT_MISMATCH")
+        if len(outcomes) != int(family.get("outcome_count", len(outcomes)) or 0):
+            report_count_blockers.append("OUTCOME_COUNT_MISMATCH")
         eligible = []
         reason_counts: dict[str, int] = {}
         for outcome in outcomes:
@@ -123,6 +130,14 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
                 reasons.append("CANDIDATE_LINK_MISSING")
             elif candidate.get("final_gate_decision") not in ("LONG", "SHORT"):
                 reasons.append("CANDIDATE_NOT_GATE_APPROVED")
+            elif not _valid_sha(candidate.get("source_record_sha256")) or outcome.get("candidate_source_sha256") != candidate.get("source_record_sha256"):
+                reasons.append("CANDIDATE_SOURCE_HASH_LINK_INVALID")
+            if not _valid_sha(outcome.get("source_record_sha256")):
+                reasons.append("OUTCOME_SOURCE_RECORD_HASH_INVALID")
+            if outcome.get("family_version") != family.get("family_version"):
+                reasons.append("FAMILY_VERSION_MISMATCH")
+            if candidate is not None and outcome.get("run_id") != candidate.get("run_id"):
+                reasons.append("CANDIDATE_OUTCOME_RUN_MISMATCH")
             if outcome.get("performance_eligible") is not True:
                 reasons.append("PERFORMANCE_NOT_GATE_APPROVED")
             if outcome.get("costs_verified") is not True:
@@ -155,7 +170,7 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
             if not reasons:
                 eligible.append(outcome)
         total_eligible += len(eligible)
-        family_blockers = []
+        family_blockers = list(report_count_blockers)
         if not sha_ok:
             family_blockers.append("FAMILY_JOURNAL_HASH_MISMATCH")
         if len(eligible) < 200:
