@@ -189,6 +189,90 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
     return events, counts
 
 
+
+def discover_hypotheses_from_feature_snapshots(rows: list[dict[str, Any]], *,
+                                               source_hashes: dict[str, str],
+                                               minimum_support: int = 20) -> list[dict[str, Any]]:
+    """Discover descriptive regime-conditioned feature motifs; never infer an edge or train.
+
+    Quartile boundaries are frozen from the supplied discovery window. Generated motifs
+    are hypotheses only and require a separate preregistered independent OOS tournament.
+    """
+    if minimum_support < 2: raise ValueError("MINIMUM_DISCOVERY_SUPPORT_TOO_SMALL")
+    if not source_hashes or any(not _is_sha256(v) for v in source_hashes.values()):
+        raise ValueError("DISCOVERY_SOURCE_HASHES_INVALID")
+    usable = []
+    for row in rows:
+        snap = row.get("feature_snapshot")
+        observed = row.get("observed_at")
+        if not isinstance(snap, dict) or not isinstance(observed, str): continue
+        try: observed_utc = _utc(observed)
+        except (TypeError, ValueError): continue
+        raw_regime = row.get("market_regime") or row.get("regime")
+        regime = {"UPTREND":"BULLISH", "DOWNTREND":"BEARISH"}.get(raw_regime, raw_regime)
+        if regime not in ALLOWED_REGIMES: regime = "NO_TRADE"
+        numeric = {}
+        for key, value in snap.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                continue
+            numeric[str(key)] = float(value)
+        if numeric: usable.append({"observed_at": observed_utc, "regime": regime, "features": numeric})
+    if len(usable) < minimum_support: return []
+    feature_names = sorted({name for row in usable for name in row["features"]})
+    schema_sha = canonical_sha256(feature_names)
+    hashes = {**source_hashes, "feature_schema": schema_sha}
+    start = min(row["observed_at"] for row in usable); end = max(row["observed_at"] for row in usable)
+    discovered = []
+    for name in feature_names:
+        values = sorted(row["features"][name] for row in usable if name in row["features"])
+        if len(values) < minimum_support: continue
+        cutoffs = [values[int((len(values)-1)*q)] for q in (.25, .50, .75)]
+        for regime in sorted(ALLOWED_REGIMES):
+            for bucket in ("Q1", "Q2", "Q3", "Q4"):
+                members = []
+                for row in usable:
+                    if row["regime"] != regime or name not in row["features"]: continue
+                    value = row["features"][name]
+                    assigned = "Q1" if value <= cutoffs[0] else "Q2" if value <= cutoffs[1] else "Q3" if value <= cutoffs[2] else "Q4"
+                    if assigned == bucket: members.append(row)
+                if len(members) < minimum_support: continue
+                feature_definition = {"regime": regime, "feature": name, "bucket": bucket,
+                    "quantile_cutoffs_frozen_on_discovery_window": cutoffs,
+                    "bucket_assignment": "Q1 <= q25; Q2 <= q50; Q3 <= q75; Q4 > q75",
+                    "discovery_only": True, "minimum_support": minimum_support}
+                hid = "HES-BBX-MOTIF-" + canonical_sha256({"feature_definition":feature_definition,
+                    "source_hashes":hashes})[:16]
+                event = build_hypothesis_event(hypothesis_id=hid, family_id="blackbox_feature_motif",
+                    statement=f"Within {regime}, test whether {name} in {bucket} adds net expectancy beyond the preregistered family baseline.",
+                    discovery_window={"start":start,"end":end}, source_hashes=hashes,
+                    feature_definition=feature_definition,
+                    null_hypothesis="The motif does not improve net expectancy over the preregistered baseline.",
+                    alternative_hypothesis="The motif improves net expectancy on independent chronological OOS data.",
+                    primary_metric="oos_mean_net_r_minus_baseline",
+                    falsification_rule="Reject only on statistically significant OOS underperformance after Holm correction; otherwise inconclusive.",
+                    multiple_testing_family="blackbox-feature-motif-v1")
+                event["discovery_metadata"] = {"support_count":len(members),"research_only":True,
+                    "outcomes_used_for_discovery":False,"training_eligible":False,
+                    "regime":regime,"feature":name,"bucket":bucket}
+                discovered.append(event)
+    return sorted(discovered, key=lambda item: item["hypothesis_id"])
+
+
+def discover_canonical_shadow_hypotheses(data_root: str | Path, *, minimum_support: int = 20) -> list[dict[str, Any]]:
+    """Read the existing historical indicator shadow journal as discovery-only input."""
+    path = Path(data_root).resolve() / "data" / "forward" / "indicator_strategy_shadow_journal_v1.jsonl"
+    if not path.exists(): return []
+    rows = []
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip(): continue
+        row = json.loads(line)
+        if not isinstance(row, dict): raise ValueError(f"SHADOW_DISCOVERY_ROW_INVALID:{line_no}")
+        rows.append(row)
+    source_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    return discover_hypotheses_from_feature_snapshots(rows,
+        source_hashes={"indicator_shadow_journal":source_sha}, minimum_support=minimum_support)
+
+
 def build_hypothesis_event(*, hypothesis_id: str, family_id: str, statement: str,
                            discovery_window: dict[str, str], source_hashes: dict[str, str],
                            feature_definition: dict[str, Any], null_hypothesis: str,
@@ -325,34 +409,51 @@ def holm_adjust(p_values: dict[str, float]) -> dict[str, float]:
 
 def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float = 0.05,
                                    minimum_train_n: int = 100, minimum_oos_n: int = 100) -> dict[str, Any]:
-    """Evaluate preregistered hypotheses; exact two-sided binomial + Holm per family."""
+    """Evaluate preregistered hypotheses with paired net-R sign tests + Holm per family."""
     if not 0 < alpha < 1: raise ValueError("ALPHA_INVALID")
     raw_p: dict[str, float] = {}; prelim: dict[str, dict[str, Any]] = {}; families: dict[str, dict[str, float]] = {}
     for row in rows:
         hid = str(row.get("hypothesis_id", ""))
         if not hid or hid in prelim: raise ValueError("HYPOTHESIS_ID_MISSING_OR_DUPLICATE")
-        required = ("train_n", "train_wins", "oos_n", "oos_wins", "baseline_oos_win_rate",
-                    "train_mean_net_r", "oos_mean_net_r", "baseline_oos_mean_net_r",
-                    "oos_regime_count", "costs_verified", "independent_oos",
-                    "chronological_purged", "unmatched", "unscorable", "provenance_complete",
-                    "preregistered", "hypothesis_status", "preregistration_sha256",
-                    "source_manifest_sha256", "multiple_testing_family")
+        required = ("train_n", "train_wins", "oos_n", "oos_wins", "train_mean_net_r",
+                    "oos_mean_net_r", "baseline_oos_mean_net_r", "train_net_r_values",
+                    "oos_net_r_values", "baseline_oos_net_r_values", "oos_regime_count",
+                    "costs_verified", "independent_oos", "chronological_purged", "unmatched",
+                    "unscorable", "provenance_complete", "preregistered", "hypothesis_status",
+                    "preregistration_sha256", "source_manifest_sha256", "multiple_testing_family")
         if any(k not in row for k in required): raise ValueError("HYPOTHESIS_EVIDENCE_FIELD_MISSING")
-        valid_counts = (int(row["train_n"]) >= 0 and int(row["oos_n"]) >= 0
-                        and 0 <= int(row["train_wins"]) <= int(row["train_n"])
-                        and 0 <= int(row["oos_wins"]) <= int(row["oos_n"]))
-        if not valid_counts: raise ValueError("HYPOTHESIS_SAMPLE_COUNTS_INVALID")
+        train_values = row["train_net_r_values"]; oos_values = row["oos_net_r_values"]
+        baseline_values = row["baseline_oos_net_r_values"]
+        if not all(isinstance(v, list) for v in (train_values, oos_values, baseline_values)):
+            raise ValueError("NET_R_EVIDENCE_MUST_BE_ARRAYS")
+        if len(train_values) != int(row["train_n"]) or len(oos_values) != int(row["oos_n"]) or len(baseline_values) != int(row["oos_n"]):
+            raise ValueError("NET_R_SAMPLE_COUNT_MISMATCH")
+        if any(not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(float(v))
+               for values in (train_values, oos_values, baseline_values) for v in values):
+            raise ValueError("NET_R_EVIDENCE_NON_FINITE")
+        if int(row["train_n"]) < 0 or int(row["oos_n"]) < 0 or not 0 <= int(row["train_wins"]) <= int(row["train_n"]) or not 0 <= int(row["oos_wins"]) <= int(row["oos_n"]):
+            raise ValueError("HYPOTHESIS_SAMPLE_COUNTS_INVALID")
+        train_mean = sum(map(float, train_values)) / len(train_values) if train_values else 0.0
+        oos_mean = sum(map(float, oos_values)) / len(oos_values) if oos_values else 0.0
+        baseline_mean = sum(map(float, baseline_values)) / len(baseline_values) if baseline_values else 0.0
+        if not math.isclose(train_mean, float(row["train_mean_net_r"]), rel_tol=1e-6, abs_tol=1e-9):
+            raise ValueError("TRAIN_NET_R_MEAN_MISMATCH")
+        if not math.isclose(oos_mean, float(row["oos_mean_net_r"]), rel_tol=1e-6, abs_tol=1e-9):
+            raise ValueError("OOS_NET_R_MEAN_MISMATCH")
+        if not math.isclose(baseline_mean, float(row["baseline_oos_mean_net_r"]), rel_tol=1e-6, abs_tol=1e-9):
+            raise ValueError("BASELINE_NET_R_MEAN_MISMATCH")
+        differences = [float(a)-float(b) for a,b in zip(oos_values, baseline_values)]
+        positive = sum(x > 0 for x in differences); negative = sum(x < 0 for x in differences)
+        ties = sum(x == 0 for x in differences); non_ties = positive + negative
+        mean_lift = (sum(differences) / len(differences)) if differences else 0.0
         eligible_for_test = (row["preregistered"] is True and row["hypothesis_status"] == "TESTING"
                              and _is_sha256(row["preregistration_sha256"])
                              and _is_sha256(row["source_manifest_sha256"])
                              and bool(str(row["multiple_testing_family"]).strip())
-                             and row["oos_n"] >= minimum_oos_n and row["independent_oos"] is True
-                             and row["chronological_purged"] is True and row["provenance_complete"] is True
-                             and int(row["unmatched"]) == 0 and int(row["unscorable"]) == 0
-                             and 0 < float(row["baseline_oos_win_rate"]) < 1)
+                             and non_ties >= minimum_oos_n)
         if eligible_for_test:
-            upper = binomial_upper_tail(int(row["oos_wins"]), int(row["oos_n"]), float(row["baseline_oos_win_rate"]))
-            lower = binomial_lower_tail(int(row["oos_wins"]), int(row["oos_n"]), float(row["baseline_oos_win_rate"]))
+            upper = binomial_upper_tail(positive, non_ties, .5)
+            lower = binomial_lower_tail(positive, non_ties, .5)
             p = min(1.0, 2.0 * min(upper, lower))
         else:
             p = 1.0
@@ -364,7 +465,7 @@ def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float =
         if not _is_sha256(row["preregistration_sha256"]) or not _is_sha256(row["source_manifest_sha256"]): blockers.append("PREREGISTRATION_OR_SOURCE_HASH_INVALID")
         if not str(row["multiple_testing_family"]).strip(): blockers.append("MULTIPLE_TESTING_FAMILY_MISSING")
         if int(row["train_n"]) < minimum_train_n: blockers.append("INSUFFICIENT_TRAIN_SAMPLE")
-        if int(row["oos_n"]) < minimum_oos_n: blockers.append("INSUFFICIENT_INDEPENDENT_OOS_SAMPLE")
+        if int(row["oos_n"]) < minimum_oos_n or non_ties < minimum_oos_n: blockers.append("INSUFFICIENT_INDEPENDENT_OOS_SAMPLE")
         if row["independent_oos"] is not True: blockers.append("OOS_NOT_INDEPENDENT")
         if row["chronological_purged"] is not True: blockers.append("PURGED_CHRONOLOGY_NOT_PROVEN")
         if row["provenance_complete"] is not True: blockers.append("PROVENANCE_INCOMPLETE")
@@ -372,18 +473,18 @@ def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float =
         if row["costs_verified"] is not True: blockers.append("EXECUTION_COSTS_UNVERIFIED")
         if int(row["oos_regime_count"]) < 2: blockers.append("INSUFFICIENT_REGIME_DIVERSITY")
         if row.get("direction") == "SHORT" and row.get("short_economics_validated") is not True: blockers.append("SHORT_ECONOMICS_NOT_VALIDATED")
-        prelim[hid] = {"blockers": blockers, "eligible_for_statistical_test": eligible_for_test, "family": family}
+        prelim[hid] = {"blockers": blockers, "eligible_for_statistical_test": eligible_for_test,
+                       "family": family, "positive_pairs":positive, "negative_pairs":negative,
+                       "ties":ties, "mean_net_r_lift":mean_lift}
     adjusted = {}
     for family, values in families.items(): adjusted.update(holm_adjust(values))
     results = []
     for row in rows:
-        hid = row["hypothesis_id"]; blockers = list(prelim[hid]["blockers"])
+        hid = row["hypothesis_id"]; item = prelim[hid]; blockers = list(item["blockers"])
         significant = adjusted[hid] <= alpha
-        below_baseline = (float(row["oos_mean_net_r"]) < float(row["baseline_oos_mean_net_r"])
-                          and int(row["oos_wins"]) / max(1, int(row["oos_n"])) < float(row["baseline_oos_win_rate"]))
-        above_baseline = (float(row["oos_mean_net_r"]) > 0
-                          and float(row["oos_mean_net_r"]) > float(row["baseline_oos_mean_net_r"])
-                          and float(row["train_mean_net_r"]) > 0)
+        above_baseline = (float(row["oos_mean_net_r"]) > 0 and item["mean_net_r_lift"] > 0
+                          and float(row["train_mean_net_r"]) > 0 and item["positive_pairs"] > item["negative_pairs"])
+        below_baseline = (item["mean_net_r_lift"] < 0 and item["negative_pairs"] > item["positive_pairs"])
         if blockers:
             status = "INCONCLUSIVE"
         elif significant and below_baseline:
@@ -393,14 +494,17 @@ def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float =
         else:
             status = "INCONCLUSIVE"
             if float(row["oos_mean_net_r"]) <= 0: blockers.append("NON_POSITIVE_OOS_NET_EXPECTANCY")
-            if float(row["oos_mean_net_r"]) <= float(row["baseline_oos_mean_net_r"]): blockers.append("NO_OOS_EXPECTANCY_LIFT_OVER_BASELINE")
+            if item["mean_net_r_lift"] <= 0: blockers.append("NO_OOS_EXPECTANCY_LIFT_OVER_BASELINE")
             if float(row["train_mean_net_r"]) <= 0: blockers.append("NON_POSITIVE_TRAIN_NET_EXPECTANCY")
             if not significant: blockers.append("MULTIPLE_TEST_ADJUSTED_SIGNIFICANCE_NOT_MET")
-        results.append({"hypothesis_id": hid, "status": status, "multiple_testing_family": prelim[hid]["family"],
+        results.append({"hypothesis_id": hid, "status": status, "multiple_testing_family": item["family"],
                         "raw_two_sided_p_value": raw_p[hid], "holm_adjusted_p_value": adjusted[hid], "alpha": alpha,
+                        "positive_oos_net_r_pairs": item["positive_pairs"],
+                        "negative_oos_net_r_pairs": item["negative_pairs"], "tied_oos_net_r_pairs": item["ties"],
+                        "mean_oos_net_r_lift_vs_baseline": item["mean_net_r_lift"],
                         "blockers": blockers, "evidence_sha256": canonical_sha256(row),
                         "policy_mutation_enabled": False, "production_approved": False})
-    return {"schema": "hes_blackbox_hypothesis_tournament_v1", "method": "TWO_SIDED_EXACT_BINOMIAL_VS_PREREGISTERED_BASELINE_PLUS_HOLM_PER_FAMILY",
+    return {"schema": "hes_blackbox_hypothesis_tournament_v1", "method": "PAIRED_EXACT_SIGN_TEST_ON_OOS_NET_R_VS_BASELINE_PLUS_HOLM_PER_FAMILY",
             "multiple_testing_family_sizes": {k: len(v) for k, v in families.items()}, "results": results,
             "safety": {"execution_enabled": False, "orders_placed": False,
                        "policy_mutation_enabled": False, "production_approved": False,
