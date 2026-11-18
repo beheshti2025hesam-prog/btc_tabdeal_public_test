@@ -98,8 +98,9 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
         if not sha_ok:
             blockers.append("FAMILY_JOURNAL_HASH_MISMATCH")
         rows = _read_jsonl(journal) if sha_ok else []
+        candidate_rows = [r for r in rows if r.get("event_type") == "PAPER_CANDIDATE"]
         candidates = {}
-        for candidate_row in rows:
+        for candidate_row in candidate_rows:
             if candidate_row.get("event_type") != "PAPER_CANDIDATE":
                 continue
             for candidate_key in (candidate_row.get("event_id"), candidate_row.get("candidate_event_id"),
@@ -173,7 +174,7 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
             })[:24],
             "family_id": family_id, "family_version": family.get("family_version"),
             "report_sha256": report_sha, "journal_sha256": journal_sha,
-            "journal_sha256_verified": sha_ok, "candidate_count": len(candidates),
+            "journal_sha256_verified": sha_ok, "candidate_count": len(candidate_rows),
             "outcome_count": len(outcomes), "verified_eligible_outcome_count": len(eligible),
             "verified_train_count": sum(r.get("sample_role") == "TRAIN" for r in eligible),
             "verified_oos_count": sum(r.get("sample_role") == "OOS" for r in eligible),
