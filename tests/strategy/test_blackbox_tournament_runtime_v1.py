@@ -91,7 +91,9 @@ def test_paired_oos_tournament_accepts_only_preregistered_verified_evidence(tmp_
                                "source_record_sha256": "c" * 64})
             row = {
                 "event_type": "PAPER_OUTCOME", "event_id": f"{role.lower()}-o{i}",
-                "family_id": "trend_breakout", "candidate_event_id": cid,
+                "family_id": "trend_breakout", "family_version": "family-v1", "run_id": "run-1",
+                "candidate_event_id": cid, "candidate_source_sha256": "c" * 64,
+                "source_record_sha256": "d" * 64,
                 "performance_eligible": True, "costs_verified": True,
                 "net_R": 1.0 if role == "TRAIN" else 1.2,
                 "baseline_net_R": 0.2 if role == "OOS" else None,
