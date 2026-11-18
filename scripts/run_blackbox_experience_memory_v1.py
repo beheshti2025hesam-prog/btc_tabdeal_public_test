@@ -5,7 +5,8 @@ from pathlib import Path
 CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT)) if str(CODE_ROOT) not in sys.path else None
 from forward.blackbox_experience_memory_v1 import (collect_canonical_experiences, append_experience_events,
-    discover_canonical_shadow_hypotheses, append_hypothesis_events)
+    discover_canonical_shadow_hypotheses, append_hypothesis_events,
+    build_strategy_family_competition_readiness)
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--data-root", type=Path, default=Path(os.environ.get("HES_DATA_ROOT", "/opt/hes-trade-agent")))
@@ -16,7 +17,9 @@ args = ap.parse_args()
 events, source_counts = collect_canonical_experiences(args.data_root)
 eligible = sum(e["training_eligible"] for e in events)
 hypotheses = discover_canonical_shadow_hypotheses(args.data_root)
-report = {"schema":"hes_blackbox_experience_memory_build_v1", "source_counts":source_counts,
+family_competition = build_strategy_family_competition_readiness(args.data_root,
+    blackbox_hypothesis_count=len(hypotheses))
+report = {"family_competition":family_competition,"schema":"hes_blackbox_experience_memory_build_v1", "source_counts":source_counts,
           "discovered_hypothesis_count":len(hypotheses),
           "discovered_hypothesis_examples":[{"hypothesis_id":h["hypothesis_id"],"feature":h["discovery_metadata"]["feature"],
              "regime":h["discovery_metadata"]["regime"],"bucket":h["discovery_metadata"]["bucket"],
