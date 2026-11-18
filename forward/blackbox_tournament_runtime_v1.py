@@ -118,6 +118,8 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
             report_count_blockers.append("CANDIDATE_COUNT_MISMATCH")
         if len(outcomes) != int(family.get("outcome_count", len(outcomes)) or 0):
             report_count_blockers.append("OUTCOME_COUNT_MISMATCH")
+        if sum(r.get("performance_eligible") is True for r in outcomes) != int(family.get("performance_eligible_resolved", 0) or 0):
+            report_count_blockers.append("PERFORMANCE_ELIGIBLE_COUNT_MISMATCH")
         eligible = []
         reason_counts: dict[str, int] = {}
         for outcome in outcomes:
