@@ -86,7 +86,9 @@ def test_paired_oos_tournament_accepts_only_preregistered_verified_evidence(tmp_
         for i in range(count):
             cid = f"{role.lower()}-c{i}"
             candidates.append({"event_type": "PAPER_CANDIDATE", "event_id": cid,
-                               "family_id": "trend_breakout", "final_gate_decision": "LONG"})
+                               "family_id": "trend_breakout", "family_version": "family-v1",
+                               "final_gate_decision": "LONG", "run_id": "run-1",
+                               "source_record_sha256": "c" * 64})
             row = {
                 "event_type": "PAPER_OUTCOME", "event_id": f"{role.lower()}-o{i}",
                 "family_id": "trend_breakout", "candidate_event_id": cid,
