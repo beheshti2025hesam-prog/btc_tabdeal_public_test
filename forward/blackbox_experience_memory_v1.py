@@ -258,6 +258,85 @@ def discover_hypotheses_from_feature_snapshots(rows: list[dict[str, Any]], *,
     return sorted(discovered, key=lambda item: item["hypothesis_id"])
 
 
+
+def build_strategy_family_competition_readiness(data_root: str | Path, *,
+                                                blackbox_hypothesis_count: int = 0) -> dict[str, Any]:
+    """Audit existing family journals for a fair paired OOS tournament; never rank weak cohorts."""
+    root = Path(data_root).resolve(); base = root / "data" / "forward"
+    report_path = base / "strategy_family_results_report_v1.json"
+    if not report_path.exists():
+        return {"schema":"hes_blackbox_family_competition_readiness_v1","status":"BLOCKED_MISSING_FAMILY_REPORT",
+                "families":{},"blockers":["CANONICAL_FAMILY_REPORT_MISSING"],"comparison_ready":False,
+                "blackbox_discovered_hypotheses":blackbox_hypothesis_count,
+                "execution_enabled":False,"orders_placed":False}
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    if report.get("schema") != "hes_strategy_family_results_report_v1":
+        raise ValueError("CANONICAL_FAMILY_REPORT_SCHEMA_MISMATCH")
+    blockers = []
+    if report.get("execution_enabled") is True or report.get("orders_placed") is True:
+        blockers.append("FAMILY_REPORT_CONTAINS_UNSAFE_EXECUTION_FLAGS")
+    family_results = {}
+    for family_id, family in sorted(report.get("families", {}).items()):
+        filename = family.get("journal_file")
+        if not filename or Path(filename).name != filename:
+            raise ValueError("FAMILY_JOURNAL_PATH_INVALID")
+        journal = base / filename
+        actual_sha = hashlib.sha256(journal.read_bytes()).hexdigest() if journal.exists() else None
+        sha_valid = bool(actual_sha and actual_sha == family.get("journal_sha256"))
+        if not sha_valid: blockers.append(f"FAMILY_JOURNAL_HASH_MISMATCH:{family_id}")
+        outcomes = []; paired = 0; candidate_events = 0; journal_events = 0; actual_eligible = 0
+        if journal.exists():
+            for line_no, line in enumerate(journal.read_text(encoding="utf-8").splitlines(), 1):
+                if not line.strip(): continue
+                event = json.loads(line); journal_events += 1
+                if event.get("family_id") != family_id: raise ValueError(f"FAMILY_JOURNAL_IDENTITY_MISMATCH:{family_id}:{line_no}")
+                if event.get("execution_enabled") is True or event.get("orders_placed") is True:
+                    blockers.append(f"UNSAFE_FAMILY_EVENT_FLAGS:{family_id}")
+                if event.get("event_type") == "PAPER_CANDIDATE": candidate_events += 1
+                if event.get("event_type") == "PAPER_OUTCOME":
+                    outcomes.append(event)
+                    if event.get("performance_eligible") is True: actual_eligible += 1
+                    if (event.get("performance_eligible") is True and event.get("costs_verified") is True
+                        and isinstance(event.get("net_R"), (int,float))
+                        and isinstance(event.get("baseline_net_R"), (int,float))):
+                        paired += 1
+        eligible = int(family.get("performance_eligible_resolved", 0) or 0)
+        if family.get("execution_enabled") is True or family.get("orders_placed") is True:
+            blockers.append(f"UNSAFE_FAMILY_REPORT_FLAGS:{family_id}")
+        if journal_events != int(family.get("journal_event_count", journal_events) or 0):
+            blockers.append(f"FAMILY_JOURNAL_EVENT_COUNT_MISMATCH:{family_id}")
+        if candidate_events != int(family.get("candidate_count", candidate_events) or 0):
+            blockers.append(f"FAMILY_CANDIDATE_COUNT_MISMATCH:{family_id}")
+        if len(outcomes) != int(family.get("outcome_count", len(outcomes)) or 0):
+            blockers.append(f"FAMILY_OUTCOME_COUNT_MISMATCH:{family_id}")
+        if actual_eligible != eligible:
+            blockers.append(f"FAMILY_ELIGIBLE_OUTCOME_COUNT_MISMATCH:{family_id}")
+        if eligible < 100: blockers.append(f"INSUFFICIENT_GATE_APPROVED_FAMILY_OUTCOMES:{family_id}")
+        if paired < 100: blockers.append(f"INSUFFICIENT_VERIFIED_PAIRED_NET_R_EVIDENCE:{family_id}")
+        family_results[family_id] = {
+            "family_version":family.get("family_version"), "activation_state":family.get("activation_state"),
+            "candidate_count":candidate_events,
+            "outcome_count":len(outcomes),
+            "performance_eligible_resolved":eligible,
+            "journal_performance_eligible_outcomes":actual_eligible,
+            "preapproval_paper_eligible_outcomes":int(family.get("preapproval_paper_eligible_outcomes",0) or 0),
+            "raw_outcome_counts":family.get("raw_outcome_counts",{}),
+            "journal_sha256_verified":sha_valid,
+            "verified_paired_net_r_evidence_count":paired,
+            "tournament_eligible":bool(sha_valid and eligible >= 100 and paired >= 100),
+        }
+    ready = bool(len(family_results) >= 2 and not blockers and all(x["tournament_eligible"] for x in family_results.values()))
+    if not ready and not blockers: blockers.append("AT_LEAST_TWO_VERSIONED_FAMILIES_REQUIRED")
+    return {"schema":"hes_blackbox_family_competition_readiness_v1",
+        "status":"READY_FOR_PAIRED_OOS_TOURNAMENT" if ready else "WAITING_FOR_VERIFIED_FAMILY_EVIDENCE",
+        "families":family_results,"family_count":len(family_results),
+        "blackbox_discovered_hypotheses":blackbox_hypothesis_count,
+        "blackbox_hypotheses_competition_state":"DISCOVERY_ONLY_NOT_YET_COMPARABLE",
+        "comparison_ready":ready,"blockers":blockers,
+        "source_report_sha256":hashlib.sha256(report_path.read_bytes()).hexdigest(),
+        "execution_enabled":False,"orders_placed":False,"policy_mutation_enabled":False}
+
+
 def discover_canonical_shadow_hypotheses(data_root: str | Path, *, minimum_support: int = 20) -> list[dict[str, Any]]:
     """Read the existing historical indicator shadow journal as discovery-only input."""
     path = Path(data_root).resolve() / "data" / "forward" / "indicator_strategy_shadow_journal_v1.jsonl"
