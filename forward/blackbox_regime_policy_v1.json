@@ -1,0 +1,28 @@
+{
+  "schema": "hes_blackbox_four_state_regime_policy_v1",
+  "brain": "HES-BLACKBOX-STRATEGY-BRAIN",
+  "states": ["BULLISH", "BEARISH", "RANGE", "NO_TRADE"],
+  "context_timeframes": ["15m", "1h", "4h"],
+  "minimum_regime_confidence": 0.70,
+  "consensus": "all_three_timeframes_must_agree",
+  "mapping": {
+    "UPTREND": "BULLISH",
+    "DOWNTREND": "BEARISH",
+    "RANGE": "RANGE",
+    "TRANSITION": "NO_TRADE",
+    "TRANSITION_UNCERTAIN": "NO_TRADE",
+    "UNKNOWN": "NO_TRADE"
+  },
+  "range_policy": {
+    "first_class_regime": true,
+    "research_family": "range_mean_reversion",
+    "entry_requires_separate_candidate_and_confirmation": true,
+    "breakout_or_range_exit": "reclassify_before_directional_candidate"
+  },
+  "safety": {
+    "risk_gate_external_and_mandatory": true,
+    "execution_enabled": false,
+    "policy_mutation_enabled": false,
+    "production_approved": false
+  }
+}
