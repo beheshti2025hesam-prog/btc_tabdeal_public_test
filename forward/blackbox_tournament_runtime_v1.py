@@ -118,9 +118,9 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
                 reasons.append("EXECUTION_COSTS_UNVERIFIED")
             if not _finite_number(outcome.get("net_R")):
                 reasons.append("NET_R_MISSING_OR_INVALID")
-            if not _finite_number(outcome.get("baseline_net_R")):
+            if outcome.get("sample_role") == "OOS" and not _finite_number(outcome.get("baseline_net_R")):
                 reasons.append("MATCHED_BASELINE_NET_R_MISSING")
-            if outcome.get("independent_oos") is not True:
+            if outcome.get("sample_role") == "OOS" and outcome.get("independent_oos") is not True:
                 reasons.append("OOS_NOT_INDEPENDENT")
             if outcome.get("chronological_purged") is not True:
                 reasons.append("PURGED_CHRONOLOGY_NOT_PROVEN")
@@ -193,11 +193,13 @@ def _aggregate_hypothesis_evidence(data_root: Path) -> tuple[list[dict[str, Any]
             if row.get("event_type") != "PAPER_OUTCOME":
                 continue
             counts["outcomes_seen"] += 1
-            required_true = ("performance_eligible", "costs_verified", "independent_oos",
+            required_true = ("performance_eligible", "costs_verified",
                              "chronological_purged", "provenance_complete", "preregistered")
             ok = all(row.get(k) is True for k in required_true)
             ok = ok and row.get("hypothesis_status") == "TESTING"
             ok = ok and row.get("sample_role") in ("TRAIN", "OOS")
+            if row.get("sample_role") == "OOS":
+                ok = ok and row.get("independent_oos") is True
             ok = ok and _valid_sha(row.get("preregistration_sha256")) and _valid_sha(row.get("source_manifest_sha256"))
             ok = ok and _finite_number(row.get("net_R"))
             if row.get("sample_role") == "OOS":
