@@ -25,7 +25,10 @@ report = {"schema":"hes_blackbox_experience_memory_build_v1", "source_counts":so
           "four_state_counts":{s:sum(e["regime"]==s for e in events) for s in ("BULLISH","BEARISH","RANGE","NO_TRADE")},
           "experience_type_counts":{t:sum(e["experience_type"]==t for e in events) for t in
               ("TRADE_OUTCOME","NO_TRADE_COUNTERFACTUAL","REJECTED_PROPOSAL","MARKET_CONTEXT","FAMILY_RESEARCH")},
-          "mode":"APPEND_ONLY_REFERENCE_INDEX" if args.append else "READ_ONLY_PREVIEW",
+          "mode": ("APPEND_ONLY_REFERENCE_AND_HYPOTHESIS_EVENTS" if args.append and args.append_hypotheses
+                   else "APPEND_ONLY_REFERENCE_INDEX" if args.append
+                   else "APPEND_ONLY_HYPOTHESIS_EVENTS" if args.append_hypotheses
+                   else "READ_ONLY_PREVIEW"),
           "execution_enabled":False,"orders_placed":False,"policy_mutation_enabled":False,
           "production_approved":False,"risk_gate_bypass":False}
 if args.append:
