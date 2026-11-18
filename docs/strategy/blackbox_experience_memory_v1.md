@@ -28,7 +28,7 @@ Status changes are separate append-only events. Discovery records require a time
 
 ## Statistical tournament V1
 
-- Exact one-sided binomial test against the preregistered baseline win rate.
+- Paired exact sign test on per-event OOS net-R differences against a matched preregistered baseline.
 - Holm-Bonferroni correction across the full tested hypothesis family (family-wise alpha 0.05).
 - Minimum 100 training outcomes and 100 independent chronological purged OOS outcomes.
 - Require clean linkage/scoring, complete provenance, verified execution costs, at least two OOS regimes, positive net expectancy in train and OOS, and OOS expectancy above the preregistered baseline.
@@ -65,3 +65,8 @@ A deterministic descriptive motif miner now reads only the existing historical i
 First read-only run produced **35 candidate motifs** from six feature dimensions: EMA20, EMA50, EMA200, ADX14, MACD histogram and RSI14. Coverage in this historical source was BEARISH 20 and BULLISH 15; it contained no RANGE or NO_TRADE motif candidates. Support ranged from 27 to 101 observations. This does not contradict the four-state memory coverage: the wider experience memory includes RANGE and NO_TRADE from the other canonical ledgers, while this particular historical indicator-family source is directional-only.
 
 No hypothesis events were appended to the live VPS. The CLI defaults to preview; appending memory or hypothesis events requires separate explicit flags.
+
+
+## Latest source refresh (2026-11-18)
+
+A later read-only refresh observed 9,133 reference events across the same five ledgers (BULLISH 640, BEARISH 686, RANGE 1,068, NO_TRADE 6,739) and 35 discovery-only motifs. The underlying journals continued appending during the day; these are point-in-time counts, not fixed totals. Eligible training labels remained zero.
