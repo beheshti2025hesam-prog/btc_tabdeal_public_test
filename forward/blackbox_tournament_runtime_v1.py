@@ -98,7 +98,17 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
         if not sha_ok:
             blockers.append("FAMILY_JOURNAL_HASH_MISMATCH")
         rows = _read_jsonl(journal) if sha_ok else []
-        candidates = {str(r.get("event_id")): r for r in rows if r.get("event_type") == "PAPER_CANDIDATE"}
+        candidates = {}
+        for candidate_row in rows:
+            if candidate_row.get("event_type") != "PAPER_CANDIDATE":
+                continue
+            for candidate_key in (candidate_row.get("event_id"), candidate_row.get("candidate_event_id"),
+                                  candidate_row.get("source_event_id")):
+                if candidate_key:
+                    key = str(candidate_key)
+                    if key in candidates and canonical_sha256(candidates[key]) != canonical_sha256(candidate_row):
+                        raise ValueError("FAMILY_CANDIDATE_ID_COLLISION")
+                    candidates[key] = candidate_row
         outcomes = [r for r in rows if r.get("event_type") == "PAPER_OUTCOME"]
         eligible = []
         reason_counts: dict[str, int] = {}
