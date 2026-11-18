@@ -64,13 +64,13 @@ Blackbox's top-level market state is explicitly four-way: **BULLISH, BEARISH, RA
 A separate isolated implementation now provides:
 - Reference-only experience indexing over the canonical decision journal, NO_TRADE outcome ledger, strategy-policy outcome ledger, indicator-family research outcomes and forward-paper journal. Source payloads remain in their original ledgers; no second full trade journal is created.
 - Four explicit regimes: BULLISH, BEARISH, RANGE, NO_TRADE.
-- Strict training-label eligibility: only matured, gate-approved, provenance-complete trade outcomes with verified costs and a valid directional result may be eligible. Current source snapshot yields 9,126 indexable experience references and zero eligible training labels.
+- Strict training-label eligibility: only matured, gate-approved, provenance-complete trade outcomes with verified costs and a valid directional result may be eligible. The first source preview yielded 9,126 references; the latest refresh yielded 9,133, with zero eligible training labels.
 - Append-only, lock-protected, idempotent experience persistence. Exact replays are ignored; changed content under the same event identity fails closed.
 - Append-only hypothesis discovery and lifecycle events: DISCOVERED -> PREREGISTERED -> TESTING -> ACCEPTED / REJECTED / INCONCLUSIVE -> RETIRED. Illegal transitions and final states without evidence hashes/rationale are rejected.
 - Statistical tournament with paired exact sign testing on OOS net-R differences against a matched baseline, Holm-Bonferroni family-wise correction, >=100 train and >=100 independent purged OOS outcomes, verified costs, clean linkage, complete provenance, at least two OOS regimes, positive net expectancy and baseline superiority. SHORT additionally requires validated short-side economics.
 - Statistically significant underperformance can reject a hypothesis; weak/insufficient evidence remains INCONCLUSIVE. Rejected hypotheses are retained, not deleted.
 
-The readiness evaluator now reports a read-only preview of experiential-memory coverage. The append runner defaults to preview; persistent append requires an explicit `--append` flag. This implementation remains in an isolated candidate branch; it is not wired into a daemon, not deployed, and does not authorize model training, signal generation, strategy routing, policy mutation or execution. The current production source checkout and live services were not modified.
+The readiness evaluator now reports a read-only preview of experiential-memory coverage. The append runner defaults to preview; persistent experience append requires `--append`; hypothesis discovery-event append separately requires `--append-hypotheses`. This implementation remains in an isolated candidate branch; it is not wired into a daemon, not deployed, and does not authorize model training, signal generation, strategy routing, policy mutation or execution. The current production source checkout and live services were not modified.
 
 
 ## Pattern discovery and statistical falsification update — 2026-11-18
