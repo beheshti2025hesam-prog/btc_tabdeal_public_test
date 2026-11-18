@@ -180,3 +180,18 @@ def test_returned_snapshot_commission_mismatch_is_reported_not_hidden():
     )
     assert report.returned_snapshot_commission_reconciliation == "NOT_MATCHED_OR_COUNTERPART_MISSING"
     assert report.commission_reconciliation_by_asset[0][-1] == "MISMATCH"
+
+
+@pytest.mark.parametrize("field,value,error", [
+    ("incomeType", [], "INCOME_TYPE_INVALID"),
+    ("incomeType", {"unknown": "type"}, "INCOME_TYPE_INVALID"),
+    ("symbol", [], "SYMBOL_INVALID"),
+])
+def test_income_row_unhashable_or_wrong_type_fields_fail_closed(field, value, error):
+    rows = income()[:1]
+    rows[0][field] = value
+    with pytest.raises(FeeObservationError, match=error):
+        build_historical_fee_observation(
+            trades(), rows, expected_symbol="BTCUSDT",
+            base_asset="BTC", quote_asset="USDT",
+        )

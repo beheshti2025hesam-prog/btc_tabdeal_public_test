@@ -231,7 +231,7 @@ def build_historical_fee_observation(
         if symbol and symbol != expected_symbol:
             raise FeeObservationError(f"{prefix}_SYMBOL_MISMATCH")
         income_type = row.get("incomeType")
-        if income_type not in INCOME_TYPES:
+        if not isinstance(income_type, str) or income_type not in INCOME_TYPES:
             raise FeeObservationError(f"{prefix}_INCOME_TYPE_INVALID")
         if income_type in {"TakerCommission", "MakerCommission"} and symbol != expected_symbol:
             raise FeeObservationError(f"{prefix}_COMMISSION_SYMBOL_REQUIRED")
