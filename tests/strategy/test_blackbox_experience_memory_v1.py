@@ -606,7 +606,7 @@ def test_canonical_experience_index_includes_family_paper_outcomes_without_upgra
         "execution_enabled": False,
         "orders_placed": False,
     }
-    (base / "strategy_family_trend_breakout_results_v1.jsonl").write_text(json.dumps(row) + "\\n")
+    (base / "strategy_family_trend_breakout_results_v1.jsonl").write_text(json.dumps(row) + "\n")
     events, counts = collect_canonical_experiences(tmp_path)
     family_events = [x for x in events if x["source_event_id"] == "family-outcome-001"]
     assert counts["strategy_family_trend_breakout_results_v1.jsonl"] == 1
