@@ -70,3 +70,15 @@ No hypothesis events were appended to the live VPS. The CLI defaults to preview;
 ## Latest source refresh (2026-11-18)
 
 A later read-only refresh observed 9,133 reference events across the same five ledgers (BULLISH 640, BEARISH 686, RANGE 1,068, NO_TRADE 6,739) and 35 discovery-only motifs. The underlying journals continued appending during the day; these are point-in-time counts, not fixed totals. Eligible training labels remained zero.
+
+
+## Existing strategy-family competition readiness (2026-11-18)
+
+Blackbox now reads the canonical `strategy_family_results_report_v1.json` and verifies each family journal SHA before assessing tournament eligibility. The current two families are:
+
+| Family | Candidates | Outcomes | Gate-approved resolved | Preapproval paper outcomes | Raw wins/losses |
+|---|---:|---:|---:|---:|---:|
+| Trend Breakout | 15 | 15 | 0 | 4 | 5 / 10 |
+| Range Mean Reversion | 14 | 14 | 0 | 0 | 6 / 8 |
+
+Both family journal hashes verify, but neither family has 100 gate-approved resolved outcomes or verified paired net-R versus a matched baseline. Their raw outcomes are diagnostics only and are not used to rank, promote or train. The Blackbox motifs remain discovery-only and are not yet comparable to a strategy family. The tournament adapter is therefore `WAITING_FOR_VERIFIED_FAMILY_EVIDENCE`, not a failed strategy contest.
