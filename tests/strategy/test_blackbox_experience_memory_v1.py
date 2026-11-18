@@ -4,6 +4,7 @@ from forward.blackbox_experience_memory_v1 import (
     append_experience_events, append_hypothesis_events, build_experience_event,
     build_hypothesis_event, build_hypothesis_transition_event, collect_canonical_experiences,
     evaluate_hypothesis_tournament, holm_adjust, validate_hypothesis_transition,
+    discover_hypotheses_from_feature_snapshots,
 )
 
 SHA = "a" * 64
@@ -19,9 +20,14 @@ def experience(**overrides):
     return build_experience_event(**args)
 
 def evidence(**overrides):
+    train_values=[.18]*120
+    baseline_values=[.01]*120
+    oos_values=[.21]*90+[-.08]*30
     row = dict(hypothesis_id="HYP-1", train_n=120, train_wins=78, oos_n=120, oos_wins=90,
-        baseline_oos_win_rate=.5, train_mean_net_r=.18, oos_mean_net_r=.12,
-        baseline_oos_mean_net_r=.01, oos_regime_count=3, costs_verified=True,
+        baseline_oos_win_rate=.5, train_mean_net_r=.18, oos_mean_net_r=sum(oos_values)/120,
+        baseline_oos_mean_net_r=sum(baseline_values)/120, train_net_r_values=train_values,
+        oos_net_r_values=oos_values, baseline_oos_net_r_values=baseline_values,
+        oos_regime_count=3, costs_verified=True,
         independent_oos=True, chronological_purged=True, unmatched=0, unscorable=0,
         provenance_complete=True, direction="LONG", preregistered=True,
         hypothesis_status="TESTING", preregistration_sha256=SHA,
@@ -86,13 +92,18 @@ def test_tournament_is_inconclusive_when_any_integrity_or_economic_gate_fails():
         (evidence(oos_regime_count=1), "INSUFFICIENT_REGIME_DIVERSITY"),
         (evidence(independent_oos=False), "OOS_NOT_INDEPENDENT"),
         (evidence(unmatched=1), "OUTCOME_LINKAGE_OR_SCORING_NOT_CLEAN"),
-        (evidence(oos_mean_net_r=-.01), "NON_POSITIVE_OOS_NET_EXPECTANCY"),
+        (evidence(oos_net_r_values=[-.01]*120, oos_mean_net_r=-.01), "NON_POSITIVE_OOS_NET_EXPECTANCY"),
         (evidence(direction="SHORT", short_economics_validated=False), "SHORT_ECONOMICS_NOT_VALIDATED"),
-        (evidence(oos_wins=65), "MULTIPLE_TEST_ADJUSTED_SIGNIFICANCE_NOT_MET"),
+        (evidence(oos_net_r_values=[.02]*65+[-.01]*55,
+                  oos_mean_net_r=(65*.02-55*.01)/120), "MULTIPLE_TEST_ADJUSTED_SIGNIFICANCE_NOT_MET"),
     ]:
         result=evaluate_hypothesis_tournament([row])
-        assert result["results"][0]["status"] == "INCONCLUSIVE"
-        assert blocker in result["results"][0]["blockers"]
+        if blocker == "NON_POSITIVE_OOS_NET_EXPECTANCY":
+            assert result["results"][0]["status"] == "REJECTED"
+            assert result["results"][0]["holm_adjusted_p_value"] < .05
+        else:
+            assert result["results"][0]["status"] == "INCONCLUSIVE"
+            assert blocker in result["results"][0]["blockers"]
 
 def test_holm_controls_family_wide_error_and_is_monotone():
     got=holm_adjust({"a":.001,"b":.01,"c":.04})
@@ -101,7 +112,9 @@ def test_holm_controls_family_wide_error_and_is_monotone():
     assert got["c"] == pytest.approx(.04)
 
 def test_small_sample_never_accepts_even_if_observed_rate_is_perfect():
-    row=evidence(train_n=10,train_wins=10,oos_n=20,oos_wins=20)
+    row=evidence(train_n=10,train_wins=10,oos_n=20,oos_wins=20,
+        train_net_r_values=[.18]*10, oos_net_r_values=[.21]*20,
+        baseline_oos_net_r_values=[.01]*20, oos_mean_net_r=.21)
     result=evaluate_hypothesis_tournament([row])
     assert result["results"][0]["status"] == "INCONCLUSIVE"
     assert "INSUFFICIENT_TRAIN_SAMPLE" in result["results"][0]["blockers"]
@@ -127,8 +140,13 @@ def test_canonical_indexer_references_sources_without_copying_payloads(tmp_path)
 
 
 def test_tournament_rejects_a_preregistered_hypothesis_with_significant_oos_underperformance():
-    row=evidence(oos_wins=30, baseline_oos_win_rate=.5, oos_mean_net_r=-.15,
-                 baseline_oos_mean_net_r=.02, train_mean_net_r=-.03)
+    baseline=[.02]*120
+    oos=[-.13]*90+[.03]*30
+    train=[-.03]*120
+    row=evidence(oos_wins=30, oos_mean_net_r=sum(oos)/120,
+                 baseline_oos_mean_net_r=.02, train_mean_net_r=-.03,
+                 oos_net_r_values=oos, baseline_oos_net_r_values=baseline,
+                 train_net_r_values=train)
     result=evaluate_hypothesis_tournament([row])
     assert result["results"][0]["status"] == "REJECTED"
     assert result["results"][0]["holm_adjusted_p_value"] < .05
@@ -149,7 +167,26 @@ def test_unregistered_hypothesis_cannot_enter_statistical_tournament():
     assert "HYPOTHESIS_NOT_PREREGISTERED_FOR_TESTING" in result["results"][0]["blockers"]
 
 def test_holm_adjustment_is_applied_within_the_declared_hypothesis_family():
-    rows=[evidence(hypothesis_id="A",oos_wins=60), evidence(hypothesis_id="B",oos_wins=60)]
+    neutral=[.02]*60+[-.01]*60
+    mean=sum(neutral)/120
+    rows=[evidence(hypothesis_id="A",oos_net_r_values=neutral,oos_mean_net_r=mean),
+          evidence(hypothesis_id="B",oos_net_r_values=neutral,oos_mean_net_r=mean)]
     result=evaluate_hypothesis_tournament(rows)
     assert result["multiple_testing_family_sizes"] == {"test-family-v1": 2}
     assert all(r["holm_adjusted_p_value"] >= r["raw_two_sided_p_value"] for r in result["results"])
+
+
+def test_pattern_discovery_generates_frozen_research_only_hypotheses():
+    rows=[]
+    for i in range(160):
+        regime=("BULLISH","BEARISH","RANGE","NO_TRADE")[i%4]
+        rows.append({"observed_at":f"2026-11-01T00:{i%60:02d}:00+00:00", "market_regime":regime,
+                     "feature_snapshot":{"rsi_14":float(i%100),"atr_pct":float((i*7)%50)}})
+    found=discover_hypotheses_from_feature_snapshots(rows,source_hashes={"source":SHA},minimum_support=5)
+    assert found
+    assert {x["discovery_metadata"]["regime"] for x in found} == {"BULLISH", "BEARISH", "RANGE", "NO_TRADE"}
+    assert all(x["status"]=="DISCOVERED" for x in found)
+    assert all(x["discovery_metadata"]["research_only"] is True for x in found)
+    assert all(x["discovery_metadata"]["outcomes_used_for_discovery"] is False for x in found)
+    assert all(x["discovery_metadata"]["training_eligible"] is False for x in found)
+    assert all(x["feature_definition"]["quantile_cutoffs_frozen_on_discovery_window"] for x in found)
