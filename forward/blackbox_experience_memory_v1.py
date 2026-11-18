@@ -122,6 +122,8 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
         "strategy_policy_v2_eval_outcomes.jsonl": "strategy_outcome",
         "indicator_strategy_shadow_outcomes_v1.jsonl": "family",
         "indicator_strategy_forward_paper_journal_v1.jsonl": "forward_paper",
+        "strategy_family_trend_breakout_results_v1.jsonl": "family",
+        "strategy_family_range_mean_reversion_results_v1.jsonl": "family",
     }
     events: list[dict[str, Any]] = []; counts: dict[str, int] = {}
     regime_map = {"UPTREND": "BULLISH", "BULLISH": "BULLISH", "DOWNTREND": "BEARISH",
