@@ -190,3 +190,17 @@ def test_pattern_discovery_generates_frozen_research_only_hypotheses():
     assert all(x["discovery_metadata"]["outcomes_used_for_discovery"] is False for x in found)
     assert all(x["discovery_metadata"]["training_eligible"] is False for x in found)
     assert all(x["feature_definition"]["quantile_cutoffs_frozen_on_discovery_window"] for x in found)
+
+
+def test_discovered_motif_events_append_once_and_replay_idempotently(tmp_path):
+    rows=[]
+    for i in range(160):
+        regime=("BULLISH","BEARISH","RANGE","NO_TRADE")[i%4]
+        rows.append({"observed_at":f"2026-11-01T00:{i%60:02d}:00+00:00","market_regime":regime,
+                     "feature_snapshot":{"rsi_14":float(i%100)}})
+    motifs=discover_hypotheses_from_feature_snapshots(rows,source_hashes={"source":SHA},minimum_support=5)
+    path=tmp_path/"blackbox-hypotheses.jsonl"
+    first=append_hypothesis_events(path,motifs)
+    second=append_hypothesis_events(path,motifs)
+    assert first["appended"] == len(motifs)
+    assert second["exact_replays"] == len(motifs)
