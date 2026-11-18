@@ -11,7 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
-from .blackbox_experience_memory_v1 import collect_canonical_experiences
+from .blackbox_experience_memory_v1 import collect_canonical_experiences, discover_canonical_shadow_hypotheses
 
 
 @dataclass(frozen=True)
@@ -98,6 +98,7 @@ def assess_blackbox_readiness(
         reasons.append("MOVEMENT_MODEL_WALK_FORWARD_EDGE_NOT_ESTABLISHED")
 
     experience_events, experience_sources = collect_canonical_experiences(root)
+    discovered_hypotheses = discover_canonical_shadow_hypotheses(root)
     experience_memory = {
         "schema": "hes_blackbox_experience_memory_preview_v1",
         "events_indexed": len(experience_events),
@@ -108,6 +109,9 @@ def assess_blackbox_readiness(
                                    for kind in ("TRADE_OUTCOME", "NO_TRADE_COUNTERFACTUAL", "REJECTED_PROPOSAL", "MARKET_CONTEXT", "FAMILY_RESEARCH")},
         "source_counts": experience_sources,
         "append_only_persistence_enabled": False,
+        "discovered_hypothesis_candidates": len(discovered_hypotheses),
+        "hypothesis_candidates_are_research_only": True,
+        "hypothesis_candidates_used_for_training": False,
     }
     created = generated_at or datetime.now(timezone.utc).isoformat()
     return {
