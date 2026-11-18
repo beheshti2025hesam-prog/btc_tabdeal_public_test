@@ -56,3 +56,12 @@ Read-only preview against the live VPS canonical ledgers:
 | **Total** | **9,126** |
 
 Four-state classification: BULLISH 640; BEARISH 682; RANGE 1,068; NO_TRADE 6,736. Experience classes: NO_TRADE counterfactual 6,461; market context 2,510; rejected proposals 82; family research 44; trade-outcome references 29. Eligible training labels: **0**. This is a read-only preview; no memory ledger was appended to the live VPS and no production data or service was changed.
+
+
+## Pattern-discovery engine — first exploratory run (2026-11-18)
+
+A deterministic descriptive motif miner now reads only the existing historical indicator shadow decision ledger. It freezes feature quartile boundaries within the discovery window and creates regime-conditioned feature-motif hypotheses when support is at least 20 observations. It does not read outcomes to choose patterns, optimize thresholds, infer profitability, or produce training labels. Every result is `DISCOVERED`, `research_only=true`, `training_eligible=false`, and requires independent preregistered OOS testing.
+
+First read-only run produced **35 candidate motifs** from six feature dimensions: EMA20, EMA50, EMA200, ADX14, MACD histogram and RSI14. Coverage in this historical source was BEARISH 20 and BULLISH 15; it contained no RANGE or NO_TRADE motif candidates. Support ranged from 27 to 101 observations. This does not contradict the four-state memory coverage: the wider experience memory includes RANGE and NO_TRADE from the other canonical ledgers, while this particular historical indicator-family source is directional-only.
+
+No hypothesis events were appended to the live VPS. The CLI defaults to preview; appending memory or hypothesis events requires separate explicit flags.
