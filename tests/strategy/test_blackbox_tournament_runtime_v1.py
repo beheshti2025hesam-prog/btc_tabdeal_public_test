@@ -48,6 +48,7 @@ def test_continuous_cycle_collects_unverified_family_rows_but_never_promotes(tmp
     assert first["status"] == "WAITING_FOR_PREREGISTERED_INDEPENDENT_OOS_EVIDENCE"
     assert first["hypotheses_tested"] == 0
     assert first["family_evidence_audit"]["eligible_outcomes"] == 0
+    assert first["family_evidence_audit"]["families"]["trend_breakout"]["candidate_count"] == 1
     assert "trend_breakout:INSUFFICIENT_VERIFIED_TRAIN_AND_OOS_OUTCOMES" in first["family_evidence_audit"]["blockers"]
     assert second["family_evidence_audit"]["append_result"]["exact_replays"] == 1
     assert first["safety"]["execution_enabled"] is False
@@ -106,6 +107,7 @@ def test_paired_oos_tournament_accepts_only_preregistered_verified_evidence(tmp_
     report = run_competition_cycle(tmp_path)
     assert report["status"] == "TOURNAMENT_EVALUATED"
     assert report["hypotheses_tested"] == 1
+    assert report["family_evidence_audit"]["families"]["trend_breakout"]["candidate_count"] == 200
     result = report["tournament"]["results"][0]
     assert result["status"] == "ACCEPTED"
     assert result["holm_adjusted_p_value"] <= 0.05
