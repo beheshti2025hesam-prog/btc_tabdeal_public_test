@@ -1,0 +1,61 @@
+{
+  "blocking_reasons": [
+    "INSUFFICIENT_GATE_APPROVED_MATURED_TRADE_OUTCOMES",
+    "NO_GATE_APPROVED_STRATEGY_CANDIDATES"
+  ],
+  "brain_id": "HES-BLACKBOX-STRATEGY-BRAIN",
+  "decision": "NO_TRADE",
+  "evidence": {
+    "movement_model": {
+      "path": "/opt/hes-trade-agent/data/training/hes_supervised_market_movement_model_v1.json",
+      "sha256": "4d67c5f4ec96daccde7c2ec25bc8ae449d4002af9a6647c38ab38b283fe30b1a"
+    },
+    "movement_run": {
+      "path": "/opt/hes-trade-agent/data/training/hes_supervised_market_movement_run_v1.json",
+      "sha256": "0a1fb68354f98b69a1b16a9358d141ff05dd733edf1d1754f61dfde125448fcd"
+    },
+    "regime_model": {
+      "path": "/opt/hes-trade-agent/data/training/hes_market_regime_model_v2.json",
+      "sha256": "76ea430229da610fafd616aec2cecd5d50a31e3f6a68764eb294ae192202044c"
+    },
+    "regime_run": {
+      "path": "/opt/hes-trade-agent/data/training/hes_market_regime_training_run_v2.json",
+      "sha256": "8b177bae2c6681c5cb0c9b82fd61ee7ee2522bad8179c918580e884b7f428a99"
+    },
+    "strategy_learning": {
+      "path": "/opt/hes-trade-agent/data/forward/strategy_learning_v1_report.json",
+      "sha256": "397117a6918f0c2d9e1b5817d0820a8c9f2a5bb11031b72329e040b16196125f"
+    }
+  },
+  "generated_at": "2026-11-18T14:58:08.427902+00:00",
+  "mode": "READ_ONLY_RESEARCH_ONLY",
+  "reused_existing_components": [
+    "Gate.io canonical 1m/15m/1h/4h market data",
+    "existing unsupervised market-regime model V2",
+    "existing supervised market-movement model V1 (diagnostic only)",
+    "canonical strategy-learning loop and gate-approved outcome ledger",
+    "Adaptive Hybrid, structure and Order Block evidence providers"
+  ],
+  "safety": {
+    "execution_enabled": false,
+    "orders_placed": false,
+    "policy_mutation_enabled": false,
+    "production_approved": false,
+    "risk_gate_bypass": false,
+    "risk_gate_is_external_and_mandatory": true,
+    "trading_signal_output": false
+  },
+  "schema": "hes_blackbox_strategy_brain_readiness_v1",
+  "signal_candidates": [],
+  "status": "RESEARCH_FOUNDATION_READY_BRAIN_TRAINING_BLOCKED",
+  "training_evidence": {
+    "ambiguous_outcomes": 0,
+    "gate_approved_candidates": 0,
+    "matured_gate_approved_resolved_outcomes": 0,
+    "movement_model_samples": 12860,
+    "movement_walk_forward_accuracy_lift": 0.011827079934747131,
+    "regime_model_samples": 12858,
+    "unmatched_outcomes": 0
+  },
+  "version": "0.1.0"
+}
