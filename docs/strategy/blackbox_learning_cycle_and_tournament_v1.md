@@ -60,6 +60,17 @@ The active Gate.io strategy evaluator is producing paper outcomes, but the curre
 
 Therefore the runtime correctly reports `WAITING_FOR_VERIFIED_FAMILY_EVIDENCE` and `WAITING_FOR_PREREGISTERED_INDEPENDENT_OOS_EVIDENCE`. It does not promote, rank, train, tune thresholds, issue signals, or execute orders.
 
-## 5. Release boundary
+## 5. Validation
+
+- Live-source read-only dry-run indexed **9,205** canonical experience references, including 30 Trend Breakout journal events and 28 Range Mean Reversion journal events.
+- The memory ledger appended all 9,205 references once; replay appended zero and recognized 9,205 exact replays.
+- Discovery produced 35 motifs; hypothesis-ledger replay appended zero duplicates and recognized all 35 exact replays.
+- Training-eligible labels: **0**.
+- Family audit verified both journal SHA-256 hashes and exact candidate/outcome counts (Trend Breakout 15/15; Range Mean Reversion 14/14). Verified eligible outcomes: **0** for both.
+- The current family records are rejected for missing gate approval, verified fee/slippage provenance, net-R and matched baseline, TRAIN/OOS split, preregistration, and (for SHORT) independent short economics. The runner reports waiting states instead of ranking or accepting.
+- One-shot integration against a temporary copy of live evidence completed successfully; no production journal or service was written.
+- Focused Blackbox tests: **15 passed**. Combined existing strategy suite plus Blackbox tests: **225 passed, 7 subtests passed**. Python compilation passed.
+
+## 6. Release boundary
 
 This branch adds code and tests only. The production `/opt/hes-trade-agent` checkout is dirty and is not modified. The active immutable release and running services remain untouched. Deployment into the five-minute learning loop requires the normal release approval and exact-head CI/review gate. Until then, the current forward-paper observers continue collecting their existing research records; no claims of verified performance are made.
