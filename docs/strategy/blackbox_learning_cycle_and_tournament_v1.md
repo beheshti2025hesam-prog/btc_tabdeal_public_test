@@ -22,7 +22,8 @@ The continuous family audit snapshots the canonical family report and each journ
 An outcome can enter the paired tournament only when all relevant evidence is present:
 
 - Gate-approved candidate and resolved outcome linkage
-- Verified, finite net-R and a matched baseline net-R for OOS
+- Verified, finite net-R and a matched baseline net-R for OOS, with a baseline source hash
+- Explicit verified cost-model status plus separate fee-schedule and slippage-evidence hashes
 - Explicitly verified costs (not a fixed fee/slippage assumption)
 - Complete source and run provenance
 - Frozen preregistration and source-manifest hashes
