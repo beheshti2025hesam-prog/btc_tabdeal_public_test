@@ -372,7 +372,7 @@ def build_hypothesis_event(*, hypothesis_id: str, family_id: str, statement: str
     return {"schema": HYPOTHESIS_SCHEMA, "event_type": "DISCOVERY", "event_id": "HES-HYP-" + canonical_sha256({
         "hypothesis_id": hypothesis_id, "statement": statement,
         "source_hashes": source_hashes, "feature_definition": feature_definition})[:24],
-        "created_at": datetime.now(timezone.utc).isoformat(), "hypothesis_id": hypothesis_id,
+        "created_at": _utc(discovery_window["end"]), "hypothesis_id": hypothesis_id,
         "family_id": family_id, "statement": statement, "discovery_window": discovery_window,
         "source_hashes": source_hashes, "feature_definition": feature_definition,
         "null_hypothesis": null_hypothesis, "alternative_hypothesis": alternative_hypothesis,
@@ -403,6 +403,11 @@ def build_hypothesis_transition_event(*, hypothesis_id: str, previous_status: st
             "created_at": datetime.now(timezone.utc).isoformat(), "event_type": "STATUS_TRANSITION"}
 
 
+def _hypothesis_event_digest(event: dict[str, Any]) -> str:
+    """Exclude wall-clock creation time so deterministic event IDs remain replay-idempotent."""
+    return canonical_sha256({k: v for k, v in event.items() if k != "created_at"})
+
+
 def append_hypothesis_events(path: str | Path, events: Iterable[dict[str, Any]]) -> dict[str, int]:
     """Append immutable hypothesis discovery/status events and enforce the lifecycle."""
     target = Path(path); target.parent.mkdir(parents=True, exist_ok=True)
@@ -415,7 +420,7 @@ def append_hypothesis_events(path: str | Path, events: Iterable[dict[str, Any]])
             row = json.loads(line)
             if row.get("schema") != HYPOTHESIS_SCHEMA or not row.get("event_id"):
                 raise ValueError(f"HYPOTHESIS_LEDGER_CORRUPT:{line_no}")
-            digest = canonical_sha256(row); prior = existing.setdefault(row["event_id"], digest)
+            digest = _hypothesis_event_digest(row); prior = existing.setdefault(row["event_id"], digest)
             if prior != digest: raise ValueError("HYPOTHESIS_LEDGER_EVENT_COLLISION")
             hid = row.get("hypothesis_id")
             if row.get("event_type") == "DISCOVERY":
@@ -430,7 +435,7 @@ def append_hypothesis_events(path: str | Path, events: Iterable[dict[str, Any]])
         for event in events:
             if event.get("schema") != HYPOTHESIS_SCHEMA or not event.get("event_id"):
                 raise ValueError("HYPOTHESIS_EVENT_SCHEMA_INVALID")
-            digest = canonical_sha256(event); prior = existing.get(event["event_id"])
+            digest = _hypothesis_event_digest(event); prior = existing.get(event["event_id"])
             if prior is not None:
                 if prior != digest: raise ValueError("HYPOTHESIS_EVENT_CONTENT_CONFLICT")
                 counts["exact_replays"] += 1; continue
@@ -583,7 +588,7 @@ def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float =
                         "positive_oos_net_r_pairs": item["positive_pairs"],
                         "negative_oos_net_r_pairs": item["negative_pairs"], "tied_oos_net_r_pairs": item["ties"],
                         "mean_oos_net_r_lift_vs_baseline": item["mean_net_r_lift"],
-                        "blockers": blockers, "evidence_sha256": canonical_sha256(row),
+                        "blockers": blockers, "evidence_sha256": _hypothesis_event_digest(row),
                         "policy_mutation_enabled": False, "production_approved": False})
     return {"schema": "hes_blackbox_hypothesis_tournament_v1", "method": "PAIRED_EXACT_SIGN_TEST_ON_OOS_NET_R_VS_BASELINE_PLUS_HOLM_PER_FAMILY",
             "multiple_testing_family_sizes": {k: len(v) for k, v in families.items()}, "results": results,
