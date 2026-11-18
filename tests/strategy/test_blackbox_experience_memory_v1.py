@@ -584,3 +584,35 @@ def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float =
             "safety": {"execution_enabled": False, "orders_placed": False,
                        "policy_mutation_enabled": False, "production_approved": False,
                        "risk_gate_bypass": False}}
+
+
+def test_canonical_experience_index_includes_family_paper_outcomes_without_upgrading_them(tmp_path):
+    from forward.blackbox_experience_memory_v1 import collect_canonical_experiences
+    base = tmp_path / "data" / "forward"
+    base.mkdir(parents=True)
+    row = {
+        "schema": "hes_strategy_family_result_event_v1",
+        "event_type": "PAPER_OUTCOME",
+        "event_id": "family-outcome-001",
+        "family_id": "trend_breakout",
+        "observed_at": "2026-11-18T12:00:00+00:00",
+        "symbol": "BTC_USDT",
+        "timeframe": "15m",
+        "regime": "DOWNTREND",
+        "direction": "SHORT",
+        "outcome": "wins",
+        "performance_eligible": False,
+        "costs_verified": False,
+        "execution_enabled": False,
+        "orders_placed": False,
+    }
+    (base / "strategy_family_trend_breakout_results_v1.jsonl").write_text(json.dumps(row) + "\\n")
+    events, counts = collect_canonical_experiences(tmp_path)
+    family_events = [x for x in events if x["source_event_id"] == "family-outcome-001"]
+    assert counts["strategy_family_trend_breakout_results_v1.jsonl"] == 1
+    assert len(family_events) == 1
+    assert family_events[0]["experience_type"] == "FAMILY_RESEARCH"
+    assert family_events[0]["regime"] == "BEARISH"
+    assert family_events[0]["matured"] is True
+    assert family_events[0]["costs_verified"] is False
+    assert family_events[0]["training_eligible"] is False
