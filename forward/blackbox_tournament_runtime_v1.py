@@ -144,10 +144,18 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
                 reasons.append("PERFORMANCE_NOT_GATE_APPROVED")
             if outcome.get("costs_verified") is not True:
                 reasons.append("EXECUTION_COSTS_UNVERIFIED")
+            if outcome.get("cost_model_status") != "VERIFIED":
+                reasons.append("COST_MODEL_NOT_VERIFIED")
+            if not _valid_sha(outcome.get("fee_schedule_sha256")):
+                reasons.append("FEE_SCHEDULE_PROVENANCE_INVALID")
+            if not _valid_sha(outcome.get("slippage_evidence_sha256")):
+                reasons.append("SLIPPAGE_PROVENANCE_INVALID")
             if not _finite_number(outcome.get("net_R")):
                 reasons.append("NET_R_MISSING_OR_INVALID")
             if outcome.get("sample_role") == "OOS" and not _finite_number(outcome.get("baseline_net_R")):
                 reasons.append("MATCHED_BASELINE_NET_R_MISSING")
+            if outcome.get("sample_role") == "OOS" and not _valid_sha(outcome.get("baseline_source_sha256")):
+                reasons.append("BASELINE_SOURCE_PROVENANCE_INVALID")
             if outcome.get("sample_role") == "OOS" and outcome.get("independent_oos") is not True:
                 reasons.append("OOS_NOT_INDEPENDENT")
             if outcome.get("chronological_purged") is not True:
@@ -232,6 +240,7 @@ def _aggregate_hypothesis_evidence(data_root: Path) -> tuple[list[dict[str, Any]
             ok = ok and _finite_number(row.get("net_R"))
             if row.get("sample_role") == "OOS":
                 ok = ok and _finite_number(row.get("baseline_net_R"))
+                ok = ok and _valid_sha(row.get("baseline_source_sha256"))
             ok = ok and isinstance(row.get("hypothesis_id"), str) and bool(row.get("hypothesis_id"))
             if row.get("direction") == "SHORT":
                 ok = ok and row.get("short_economics_validated") is True
@@ -247,6 +256,10 @@ def _aggregate_hypothesis_evidence(data_root: Path) -> tuple[list[dict[str, Any]
         if not train or not oos:
             continue
         directions = {r.get("direction") for r in rows}
+        if any(r.get("regime") not in ("BULLISH", "BEARISH", "RANGE") for r in oos):
+            continue
+        if len({r.get("event_id") for r in rows}) != len(rows):
+            continue
         families = {r.get("multiple_testing_family") for r in rows}
         prereg_hashes = {r.get("preregistration_sha256") for r in rows}
         manifest_hashes = {r.get("source_manifest_sha256") for r in rows}
