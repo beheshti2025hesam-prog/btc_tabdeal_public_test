@@ -616,3 +616,31 @@ def test_canonical_experience_index_includes_family_paper_outcomes_without_upgra
     assert family_events[0]["matured"] is True
     assert family_events[0]["costs_verified"] is False
     assert family_events[0]["training_eligible"] is False
+
+
+def test_hypothesis_events_replay_idempotently_across_wall_clock_retries(tmp_path):
+    from forward.blackbox_experience_memory_v1 import (
+        build_hypothesis_event, build_hypothesis_transition_event, append_hypothesis_events,
+    )
+    path = tmp_path / "hypotheses.jsonl"
+    discovery_args = dict(
+        hypothesis_id="HES-BBX-IDEMPOTENT-1", family_id="test-family",
+        statement="A frozen test hypothesis.",
+        discovery_window={"start": "2026-01-01T00:00:00+00:00", "end": "2026-02-01T00:00:00+00:00"},
+        source_hashes={"source": "a" * 64}, feature_definition={"feature": "x", "bucket": "Q1"},
+        null_hypothesis="No improvement.", alternative_hypothesis="Positive improvement.",
+        primary_metric="net_r_lift", falsification_rule="Reject on significant underperformance.",
+        multiple_testing_family="test-family-v1",
+    )
+    discovery = build_hypothesis_event(**discovery_args)
+    replayed_discovery = build_hypothesis_event(**discovery_args)
+    assert discovery["created_at"] == replayed_discovery["created_at"]
+    assert append_hypothesis_events(path, [discovery])["appended"] == 1
+    assert append_hypothesis_events(path, [replayed_discovery])["exact_replays"] == 1
+    transition = build_hypothesis_transition_event(
+        hypothesis_id="HES-BBX-IDEMPOTENT-1", previous_status="DISCOVERED",
+        next_status="PREREGISTERED",
+    )
+    assert append_hypothesis_events(path, [transition])["appended"] == 1
+    retry = dict(transition, created_at="2099-01-01T00:00:00+00:00")
+    assert append_hypothesis_events(path, [retry])["exact_replays"] == 1
