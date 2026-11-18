@@ -92,7 +92,7 @@ def test_paired_oos_tournament_accepts_only_preregistered_verified_evidence(tmp_
                 "performance_eligible": True, "costs_verified": True,
                 "net_R": 1.0 if role == "TRAIN" else 1.2,
                 "baseline_net_R": 0.2 if role == "OOS" else None,
-                "independent_oos": role == "OOS", "chronological_purged": role == "OOS",
+                "independent_oos": role == "OOS", "chronological_purged": True,
                 "provenance_complete": True, "sample_role": role,
                 "preregistered": True, "hypothesis_status": "TESTING",
                 "preregistration_sha256": sha, "source_manifest_sha256": manifest_sha,
