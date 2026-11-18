@@ -1,0 +1,408 @@
+"""Append-only, evidence-linked experiential memory and hypothesis gate for HES Blackbox.
+
+This module indexes existing canonical evidence; it never copies/relabels NO_TRADE
+counterfactuals as trade outcomes and never mutates strategy policy or executes.
+"""
+from __future__ import annotations
+import fcntl, hashlib, json, math
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Iterable
+
+SCHEMA = "hes_blackbox_experience_event_v1"
+HYPOTHESIS_SCHEMA = "hes_blackbox_hypothesis_event_v1"
+ALLOWED_REGIMES = {"BULLISH", "BEARISH", "RANGE", "NO_TRADE"}
+EXPERIENCE_TYPES = {"TRADE_OUTCOME", "NO_TRADE_COUNTERFACTUAL", "REJECTED_PROPOSAL", "MARKET_CONTEXT", "FAMILY_RESEARCH"}
+STATUSES = {"DISCOVERED", "PREREGISTERED", "TESTING", "ACCEPTED", "REJECTED", "INCONCLUSIVE", "RETIRED"}
+TRANSITIONS = {
+    "DISCOVERED": {"PREREGISTERED", "RETIRED"},
+    "PREREGISTERED": {"TESTING", "RETIRED"},
+    "TESTING": {"ACCEPTED", "REJECTED", "INCONCLUSIVE", "RETIRED"},
+    "INCONCLUSIVE": {"TESTING", "RETIRED"},
+    "ACCEPTED": {"RETIRED"}, "REJECTED": {"RETIRED"}, "RETIRED": set(),
+}
+
+
+def canonical_sha256(value: Any) -> str:
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _is_sha256(value: Any) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value.lower())
+
+
+def _utc(value: str) -> str:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("TIMESTAMP_MUST_BE_TIMEZONE_AWARE")
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+def build_experience_event(*, source_ref: str, source_sha256: str, source_event_id: str,
+                           experience_type: str, observed_at: str, venue: str,
+                           market: str, symbol: str, timeframe: str, regime: str,
+                           family_id: str | None = None, direction: str | None = None,
+                           gate_decision: str | None = None, outcome_class: str | None = None,
+                           matured: bool = False, provenance_complete: bool = False,
+                           costs_verified: bool = False, net_r: float | None = None,
+                           counterfactual: bool = False) -> dict[str, Any]:
+    """Create a compact reference to a canonical record, not a duplicate source journal row."""
+    if experience_type not in EXPERIENCE_TYPES:
+        raise ValueError("UNKNOWN_EXPERIENCE_TYPE")
+    if not source_ref or source_ref.startswith("/") or ".." in Path(source_ref).parts:
+        raise ValueError("SOURCE_REF_MUST_BE_SAFE_RELATIVE_PATH")
+    if len(source_sha256) != 64 or any(c not in "0123456789abcdef" for c in source_sha256.lower()):
+        raise ValueError("SOURCE_SHA256_INVALID")
+    if not source_event_id or not venue or not market or not symbol or not timeframe:
+        raise ValueError("EXPERIENCE_IDENTITY_INCOMPLETE")
+    if regime not in ALLOWED_REGIMES:
+        raise ValueError("REGIME_NOT_IN_FOUR_STATE_CONTRACT")
+    if direction not in (None, "LONG", "SHORT"):
+        raise ValueError("DIRECTION_INVALID")
+    if net_r is not None and not math.isfinite(float(net_r)):
+        raise ValueError("NET_R_MUST_BE_FINITE")
+    if counterfactual and experience_type != "NO_TRADE_COUNTERFACTUAL":
+        raise ValueError("COUNTERFACTUAL_TYPE_MISMATCH")
+    eligible = bool(experience_type == "TRADE_OUTCOME" and matured and provenance_complete
+                    and costs_verified and gate_decision in ("LONG", "SHORT")
+                    and direction in ("LONG", "SHORT") and outcome_class in ("WIN", "LOSS", "FLAT")
+                    and net_r is not None and not counterfactual)
+    identity = {"source_ref": source_ref, "source_event_id": source_event_id,
+                "source_sha256": source_sha256, "experience_type": experience_type}
+    return {
+        "schema": SCHEMA, "event_id": "HES-EXP-" + canonical_sha256(identity)[:24],
+        "created_at": _utc(observed_at), "observed_at": _utc(observed_at),
+        **identity, "venue": venue, "market": market, "symbol": symbol,
+        "timeframe": timeframe, "regime": regime, "family_id": family_id,
+        "direction": direction, "gate_decision": gate_decision,
+        "outcome_class": outcome_class, "matured": bool(matured),
+        "provenance_complete": bool(provenance_complete), "costs_verified": bool(costs_verified),
+        "net_r": float(net_r) if net_r is not None else None,
+        "counterfactual": bool(counterfactual), "training_eligible": eligible,
+        "eligibility_reason": "ALL_TRADE_LABEL_GATES_PASSED" if eligible else "RESEARCH_OR_INCOMPLETE_EVIDENCE",
+    }
+
+
+def append_experience_events(path: str | Path, events: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """Append idempotently; exact replays skip, same event ID with changed content fails closed."""
+    target = Path(path); target.parent.mkdir(parents=True, exist_ok=True)
+    counts = {"appended": 0, "exact_replays": 0}
+    with target.open("a+", encoding="utf-8") as stream:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        stream.seek(0); existing: dict[str, str] = {}
+        for line_no, line in enumerate(stream, 1):
+            if not line.strip(): continue
+            row = json.loads(line)
+            if row.get("schema") != SCHEMA or not row.get("event_id"):
+                raise ValueError(f"EXPERIENCE_LEDGER_CORRUPT:{line_no}")
+            digest = canonical_sha256(row)
+            prior = existing.setdefault(row["event_id"], digest)
+            if prior != digest: raise ValueError("EXPERIENCE_EVENT_ID_COLLISION_IN_LEDGER")
+        for event in events:
+            if event.get("schema") != SCHEMA or not event.get("event_id"):
+                raise ValueError("EXPERIENCE_EVENT_SCHEMA_INVALID")
+            digest = canonical_sha256(event); prior = existing.get(event["event_id"])
+            if prior is not None:
+                if prior != digest: raise ValueError("EXPERIENCE_EVENT_ID_CONTENT_CONFLICT")
+                counts["exact_replays"] += 1; continue
+            stream.seek(0, 2); stream.write(json.dumps(event, sort_keys=True, ensure_ascii=False) + "\n")
+            existing[event["event_id"]] = digest; counts["appended"] += 1
+        stream.flush()
+    return counts
+
+
+
+def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Build reference-only memory events from existing HES ledgers; never mutates source data."""
+    root = Path(data_root).resolve(); base = root / "data" / "forward"
+    sources = {
+        "trade_journal_v2.jsonl": "decision",
+        "neutral_decision_outcomes_v1.jsonl": "neutral",
+        "strategy_policy_v2_eval_outcomes.jsonl": "strategy_outcome",
+        "indicator_strategy_shadow_outcomes_v1.jsonl": "family",
+        "indicator_strategy_forward_paper_journal_v1.jsonl": "forward_paper",
+    }
+    events: list[dict[str, Any]] = []; counts: dict[str, int] = {}
+    regime_map = {"UPTREND": "BULLISH", "BULLISH": "BULLISH", "DOWNTREND": "BEARISH",
+                  "BEARISH": "BEARISH", "RANGE": "RANGE"}
+    for filename, kind in sources.items():
+        path = base / filename; count = 0
+        if not path.exists(): counts[filename] = 0; continue
+        for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip(): continue
+            row = json.loads(line)
+            if not isinstance(row, dict): raise ValueError(f"SOURCE_ROW_NOT_OBJECT:{filename}:{line_no}")
+            if kind == "decision":
+                decision = row.get("decision"); proposal = row.get("proposal_direction")
+                if decision in ("LONG", "SHORT") and row.get("outcome") is not None:
+                    etype = "TRADE_OUTCOME"
+                elif proposal in ("LONG", "SHORT") and decision not in ("LONG", "SHORT"):
+                    etype = "REJECTED_PROPOSAL"
+                else:
+                    etype = "MARKET_CONTEXT"
+                event_id = row.get("event_id"); observed = row.get("observed_at")
+                gate = decision; outcome = row.get("outcome"); direction = row.get("direction")
+                matured = False; verified = False; family = row.get("policy_version")
+            elif kind == "neutral":
+                etype = "NO_TRADE_COUNTERFACTUAL"; event_id = row.get("outcome_id") or row.get("decision_event_id")
+                observed = row.get("observed_at"); gate = "NO_TRADE"; outcome = row.get("outcome_class")
+                direction = None; matured = row.get("horizon_complete") is True; verified = False; family = row.get("policy_version")
+            elif kind == "strategy_outcome":
+                etype = "TRADE_OUTCOME" if row.get("outcome") in ("wins", "losses", "flats") else "FAMILY_RESEARCH"
+                event_id = row.get("event_id") or row.get("candidate_event_id"); observed = row.get("resolved_at")
+                gate = row.get("final_gate_decision"); outcome = {"wins":"WIN", "losses":"LOSS", "flats":"FLAT"}.get(row.get("outcome"), row.get("outcome"))
+                direction = row.get("direction"); matured = row.get("outcome") in ("wins", "losses", "flats")
+                verified = row.get("costs_verified") is True; family = row.get("policy_version")
+            elif kind == "family":
+                etype = "FAMILY_RESEARCH"; event_id = row.get("event_id"); observed = row.get("exit_time") or row.get("observed_at")
+                if isinstance(observed, (int, float)): observed = datetime.fromtimestamp(observed, timezone.utc).isoformat()
+                gate = None; outcome = row.get("outcome"); direction = row.get("direction")
+                matured = row.get("outcome") not in (None, "SHORT_NOT_TESTABLE_FROM_SPOT")
+                verified = row.get("costs_verified") is True; family = row.get("strategy_family_id")
+            else:
+                etype = "FAMILY_RESEARCH" if row.get("direction") in ("LONG", "SHORT") else "MARKET_CONTEXT"
+                event_id = row.get("event_id"); observed = row.get("observed_at"); gate = row.get("decision")
+                outcome = row.get("outcome"); direction = row.get("direction"); matured = False
+                verified = False; family = row.get("strategy_family_id")
+            if not event_id or not observed: continue
+            if isinstance(observed, (int, float)): observed = datetime.fromtimestamp(observed, timezone.utc).isoformat()
+            raw_regime = row.get("market_regime") or row.get("regime")
+            regime = regime_map.get(raw_regime, "NO_TRADE")
+            source_hashes = row.get("source_hashes") if isinstance(row.get("source_hashes"), dict) else {}
+            provenance_ok = bool(kind == "strategy_outcome" and len(source_hashes) >= 5
+                and all(isinstance(v, str) and len(v) == 64 for v in source_hashes.values())
+                and isinstance(row.get("run_manifest_sha256"), str) and len(row["run_manifest_sha256"]) == 64)
+            events.append(build_experience_event(source_ref=f"data/forward/{filename}",
+                source_sha256=canonical_sha256(row), source_event_id=str(event_id),
+                experience_type=etype, observed_at=str(observed), venue="gateio", market="spot",
+                symbol=str(row.get("symbol") or "UNKNOWN"), timeframe=str(row.get("timeframe") or "UNKNOWN"),
+                regime=regime, family_id=str(family) if family else None,
+                direction=direction if direction in ("LONG", "SHORT") else None,
+                gate_decision=gate if gate in ("LONG", "SHORT", "NO_TRADE") else None,
+                outcome_class=outcome if isinstance(outcome, str) else None, matured=matured,
+                provenance_complete=provenance_ok, costs_verified=verified,
+                net_r=row.get("net_R", row.get("net_r")),
+                counterfactual=(kind == "neutral")))
+            count += 1
+        counts[filename] = count
+    return events, counts
+
+
+def build_hypothesis_event(*, hypothesis_id: str, family_id: str, statement: str,
+                           discovery_window: dict[str, str], source_hashes: dict[str, str],
+                           feature_definition: dict[str, Any], null_hypothesis: str,
+                           alternative_hypothesis: str, primary_metric: str,
+                           falsification_rule: str, multiple_testing_family: str,
+                           status: str = "DISCOVERED") -> dict[str, Any]:
+    if status not in STATUSES or status != "DISCOVERED":
+        raise ValueError("NEW_HYPOTHESIS_MUST_START_DISCOVERED")
+    if not all((hypothesis_id, family_id, statement, null_hypothesis, alternative_hypothesis,
+                primary_metric, falsification_rule, multiple_testing_family)):
+        raise ValueError("HYPOTHESIS_PREREGISTRATION_FIELDS_REQUIRED")
+    if not discovery_window.get("start") or not discovery_window.get("end"):
+        raise ValueError("DISCOVERY_WINDOW_REQUIRED")
+    if not source_hashes or any(not _is_sha256(v) for v in source_hashes.values()):
+        raise ValueError("SOURCE_HASHES_REQUIRED")
+    return {"schema": HYPOTHESIS_SCHEMA, "event_type": "DISCOVERY", "event_id": "HES-HYP-" + canonical_sha256({
+        "hypothesis_id": hypothesis_id, "statement": statement,
+        "source_hashes": source_hashes, "feature_definition": feature_definition})[:24],
+        "created_at": datetime.now(timezone.utc).isoformat(), "hypothesis_id": hypothesis_id,
+        "family_id": family_id, "statement": statement, "discovery_window": discovery_window,
+        "source_hashes": source_hashes, "feature_definition": feature_definition,
+        "null_hypothesis": null_hypothesis, "alternative_hypothesis": alternative_hypothesis,
+        "primary_metric": primary_metric, "falsification_rule": falsification_rule,
+        "multiple_testing_family": multiple_testing_family, "status": "DISCOVERED"}
+
+
+def validate_hypothesis_transition(previous: str, next_status: str, *, evidence_sha256: str | None = None) -> None:
+    if previous not in STATUSES or next_status not in TRANSITIONS[previous]:
+        raise ValueError("HYPOTHESIS_STATUS_TRANSITION_INVALID")
+    if next_status in ("ACCEPTED", "REJECTED", "INCONCLUSIVE"):
+        if not _is_sha256(evidence_sha256):
+            raise ValueError("FINAL_HYPOTHESIS_TRANSITION_REQUIRES_EVIDENCE_HASH")
+
+
+
+def build_hypothesis_transition_event(*, hypothesis_id: str, previous_status: str,
+                                     next_status: str, evidence_sha256: str | None = None,
+                                     rationale: str = "") -> dict[str, Any]:
+    validate_hypothesis_transition(previous_status, next_status, evidence_sha256=evidence_sha256)
+    if not hypothesis_id: raise ValueError("HYPOTHESIS_ID_REQUIRED")
+    if next_status in ("ACCEPTED", "REJECTED", "INCONCLUSIVE") and not rationale:
+        raise ValueError("FINAL_HYPOTHESIS_TRANSITION_REQUIRES_RATIONALE")
+    payload = {"schema": HYPOTHESIS_SCHEMA, "hypothesis_id": hypothesis_id,
+               "previous_status": previous_status, "status": next_status,
+               "evidence_sha256": evidence_sha256, "rationale": rationale}
+    return {**payload, "event_id": "HES-HYSTATE-" + canonical_sha256(payload)[:24],
+            "created_at": datetime.now(timezone.utc).isoformat(), "event_type": "STATUS_TRANSITION"}
+
+
+def append_hypothesis_events(path: str | Path, events: Iterable[dict[str, Any]]) -> dict[str, int]:
+    """Append immutable hypothesis discovery/status events and enforce the lifecycle."""
+    target = Path(path); target.parent.mkdir(parents=True, exist_ok=True)
+    counts = {"appended": 0, "exact_replays": 0}
+    with target.open("a+", encoding="utf-8") as stream:
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
+        stream.seek(0); existing = {}; latest: dict[str, str] = {}
+        for line_no, line in enumerate(stream, 1):
+            if not line.strip(): continue
+            row = json.loads(line)
+            if row.get("schema") != HYPOTHESIS_SCHEMA or not row.get("event_id"):
+                raise ValueError(f"HYPOTHESIS_LEDGER_CORRUPT:{line_no}")
+            digest = canonical_sha256(row); prior = existing.setdefault(row["event_id"], digest)
+            if prior != digest: raise ValueError("HYPOTHESIS_LEDGER_EVENT_COLLISION")
+            hid = row.get("hypothesis_id")
+            if row.get("event_type") == "DISCOVERY":
+                latest[hid] = "DISCOVERED"
+            elif row.get("event_type") == "STATUS_TRANSITION":
+                if latest.get(hid) != row.get("previous_status"):
+                    raise ValueError("HYPOTHESIS_LEDGER_LIFECYCLE_CORRUPT")
+                validate_hypothesis_transition(row["previous_status"], row["status"], evidence_sha256=row.get("evidence_sha256"))
+                latest[hid] = row["status"]
+            else:
+                raise ValueError("HYPOTHESIS_LEDGER_EVENT_TYPE_INVALID")
+        for event in events:
+            if event.get("schema") != HYPOTHESIS_SCHEMA or not event.get("event_id"):
+                raise ValueError("HYPOTHESIS_EVENT_SCHEMA_INVALID")
+            digest = canonical_sha256(event); prior = existing.get(event["event_id"])
+            if prior is not None:
+                if prior != digest: raise ValueError("HYPOTHESIS_EVENT_CONTENT_CONFLICT")
+                counts["exact_replays"] += 1; continue
+            hid = event.get("hypothesis_id")
+            if event.get("event_type") == "DISCOVERY":
+                if hid in latest: raise ValueError("HYPOTHESIS_ALREADY_DISCOVERED")
+                latest[hid] = "DISCOVERED"
+            elif event.get("event_type") == "STATUS_TRANSITION":
+                previous = latest.get(hid)
+                if previous != event.get("previous_status"):
+                    raise ValueError("HYPOTHESIS_TRANSITION_PREVIOUS_STATE_MISMATCH")
+                validate_hypothesis_transition(previous, event.get("status"), evidence_sha256=event.get("evidence_sha256"))
+                latest[hid] = event["status"]
+            else:
+                raise ValueError("HYPOTHESIS_LEDGER_EVENT_TYPE_INVALID")
+            stream.seek(0, 2); stream.write(json.dumps(event, sort_keys=True, ensure_ascii=False) + "\n")
+            existing[event["event_id"]] = digest; counts["appended"] += 1
+        stream.flush()
+    return counts
+
+
+def binomial_upper_tail(successes: int, trials: int, null_rate: float) -> float:
+    """Exact one-sided binomial tail P[X >= successes] under the preregistered null."""
+    if trials < 1 or not 0 <= successes <= trials or not 0 < null_rate < 1:
+        raise ValueError("BINOMIAL_INPUT_INVALID")
+    # Stable recurrence starts at P(X=0), then accumulates through successes..n.
+    p = (1.0 - null_rate) ** trials
+    total = 0.0
+    for k in range(trials + 1):
+        if k >= successes: total += p
+        if k < trials:
+            p *= ((trials - k) / (k + 1)) * (null_rate / (1.0 - null_rate))
+    return min(1.0, total)
+
+
+def binomial_lower_tail(successes: int, trials: int, null_rate: float) -> float:
+    """Exact one-sided binomial tail P[X <= successes] under the null."""
+    if trials < 1 or not 0 <= successes <= trials or not 0 < null_rate < 1:
+        raise ValueError("BINOMIAL_INPUT_INVALID")
+    p = (1.0 - null_rate) ** trials
+    total = p if successes >= 0 else 0.0
+    for k in range(trials):
+        p *= ((trials - k) / (k + 1)) * (null_rate / (1.0 - null_rate))
+        if k + 1 <= successes: total += p
+    return min(1.0, total)
+
+
+def holm_adjust(p_values: dict[str, float]) -> dict[str, float]:
+    """Holm-Bonferroni family-wise error adjustment, monotone in sorted p-values."""
+    ordered = sorted(p_values.items(), key=lambda item: (item[1], item[0]))
+    m = len(ordered); adjusted: dict[str, float] = {}; running = 0.0
+    for rank, (key, value) in enumerate(ordered):
+        running = max(running, min(1.0, (m - rank) * float(value)))
+        adjusted[key] = running
+    return adjusted
+
+
+def evaluate_hypothesis_tournament(rows: list[dict[str, Any]], *, alpha: float = 0.05,
+                                   minimum_train_n: int = 100, minimum_oos_n: int = 100) -> dict[str, Any]:
+    """Evaluate preregistered hypotheses; exact two-sided binomial + Holm per family."""
+    if not 0 < alpha < 1: raise ValueError("ALPHA_INVALID")
+    raw_p: dict[str, float] = {}; prelim: dict[str, dict[str, Any]] = {}; families: dict[str, dict[str, float]] = {}
+    for row in rows:
+        hid = str(row.get("hypothesis_id", ""))
+        if not hid or hid in prelim: raise ValueError("HYPOTHESIS_ID_MISSING_OR_DUPLICATE")
+        required = ("train_n", "train_wins", "oos_n", "oos_wins", "baseline_oos_win_rate",
+                    "train_mean_net_r", "oos_mean_net_r", "baseline_oos_mean_net_r",
+                    "oos_regime_count", "costs_verified", "independent_oos",
+                    "chronological_purged", "unmatched", "unscorable", "provenance_complete",
+                    "preregistered", "hypothesis_status", "preregistration_sha256",
+                    "source_manifest_sha256", "multiple_testing_family")
+        if any(k not in row for k in required): raise ValueError("HYPOTHESIS_EVIDENCE_FIELD_MISSING")
+        valid_counts = (int(row["train_n"]) >= 0 and int(row["oos_n"]) >= 0
+                        and 0 <= int(row["train_wins"]) <= int(row["train_n"])
+                        and 0 <= int(row["oos_wins"]) <= int(row["oos_n"]))
+        if not valid_counts: raise ValueError("HYPOTHESIS_SAMPLE_COUNTS_INVALID")
+        eligible_for_test = (row["preregistered"] is True and row["hypothesis_status"] == "TESTING"
+                             and _is_sha256(row["preregistration_sha256"])
+                             and _is_sha256(row["source_manifest_sha256"])
+                             and bool(str(row["multiple_testing_family"]).strip())
+                             and row["oos_n"] >= minimum_oos_n and row["independent_oos"] is True
+                             and row["chronological_purged"] is True and row["provenance_complete"] is True
+                             and int(row["unmatched"]) == 0 and int(row["unscorable"]) == 0
+                             and 0 < float(row["baseline_oos_win_rate"]) < 1)
+        if eligible_for_test:
+            upper = binomial_upper_tail(int(row["oos_wins"]), int(row["oos_n"]), float(row["baseline_oos_win_rate"]))
+            lower = binomial_lower_tail(int(row["oos_wins"]), int(row["oos_n"]), float(row["baseline_oos_win_rate"]))
+            p = min(1.0, 2.0 * min(upper, lower))
+        else:
+            p = 1.0
+        raw_p[hid] = p
+        family = str(row["multiple_testing_family"])
+        families.setdefault(family, {})[hid] = p
+        blockers = []
+        if row["preregistered"] is not True or row["hypothesis_status"] != "TESTING": blockers.append("HYPOTHESIS_NOT_PREREGISTERED_FOR_TESTING")
+        if not _is_sha256(row["preregistration_sha256"]) or not _is_sha256(row["source_manifest_sha256"]): blockers.append("PREREGISTRATION_OR_SOURCE_HASH_INVALID")
+        if not str(row["multiple_testing_family"]).strip(): blockers.append("MULTIPLE_TESTING_FAMILY_MISSING")
+        if int(row["train_n"]) < minimum_train_n: blockers.append("INSUFFICIENT_TRAIN_SAMPLE")
+        if int(row["oos_n"]) < minimum_oos_n: blockers.append("INSUFFICIENT_INDEPENDENT_OOS_SAMPLE")
+        if row["independent_oos"] is not True: blockers.append("OOS_NOT_INDEPENDENT")
+        if row["chronological_purged"] is not True: blockers.append("PURGED_CHRONOLOGY_NOT_PROVEN")
+        if row["provenance_complete"] is not True: blockers.append("PROVENANCE_INCOMPLETE")
+        if int(row["unmatched"]) or int(row["unscorable"]): blockers.append("OUTCOME_LINKAGE_OR_SCORING_NOT_CLEAN")
+        if row["costs_verified"] is not True: blockers.append("EXECUTION_COSTS_UNVERIFIED")
+        if int(row["oos_regime_count"]) < 2: blockers.append("INSUFFICIENT_REGIME_DIVERSITY")
+        if row.get("direction") == "SHORT" and row.get("short_economics_validated") is not True: blockers.append("SHORT_ECONOMICS_NOT_VALIDATED")
+        prelim[hid] = {"blockers": blockers, "eligible_for_statistical_test": eligible_for_test, "family": family}
+    adjusted = {}
+    for family, values in families.items(): adjusted.update(holm_adjust(values))
+    results = []
+    for row in rows:
+        hid = row["hypothesis_id"]; blockers = list(prelim[hid]["blockers"])
+        significant = adjusted[hid] <= alpha
+        below_baseline = (float(row["oos_mean_net_r"]) < float(row["baseline_oos_mean_net_r"])
+                          and int(row["oos_wins"]) / max(1, int(row["oos_n"])) < float(row["baseline_oos_win_rate"]))
+        above_baseline = (float(row["oos_mean_net_r"]) > 0
+                          and float(row["oos_mean_net_r"]) > float(row["baseline_oos_mean_net_r"])
+                          and float(row["train_mean_net_r"]) > 0)
+        if blockers:
+            status = "INCONCLUSIVE"
+        elif significant and below_baseline:
+            status = "REJECTED"
+        elif significant and above_baseline:
+            status = "ACCEPTED"
+        else:
+            status = "INCONCLUSIVE"
+            if float(row["oos_mean_net_r"]) <= 0: blockers.append("NON_POSITIVE_OOS_NET_EXPECTANCY")
+            if float(row["oos_mean_net_r"]) <= float(row["baseline_oos_mean_net_r"]): blockers.append("NO_OOS_EXPECTANCY_LIFT_OVER_BASELINE")
+            if float(row["train_mean_net_r"]) <= 0: blockers.append("NON_POSITIVE_TRAIN_NET_EXPECTANCY")
+            if not significant: blockers.append("MULTIPLE_TEST_ADJUSTED_SIGNIFICANCE_NOT_MET")
+        results.append({"hypothesis_id": hid, "status": status, "multiple_testing_family": prelim[hid]["family"],
+                        "raw_two_sided_p_value": raw_p[hid], "holm_adjusted_p_value": adjusted[hid], "alpha": alpha,
+                        "blockers": blockers, "evidence_sha256": canonical_sha256(row),
+                        "policy_mutation_enabled": False, "production_approved": False})
+    return {"schema": "hes_blackbox_hypothesis_tournament_v1", "method": "TWO_SIDED_EXACT_BINOMIAL_VS_PREREGISTERED_BASELINE_PLUS_HOLM_PER_FAMILY",
+            "multiple_testing_family_sizes": {k: len(v) for k, v in families.items()}, "results": results,
+            "safety": {"execution_enabled": False, "orders_placed": False,
+                       "policy_mutation_enabled": False, "production_approved": False,
+                       "risk_gate_bypass": False}}
+
