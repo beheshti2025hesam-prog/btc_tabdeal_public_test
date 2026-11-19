@@ -24,16 +24,17 @@ Reduce visual noise and make the existing HES Trade Agent dashboard easier to sc
 - Six secondary panels (technical detail, Mother diagnostics, news, safety, documentation, journal) are collapsed by default and remain available on demand.
 - Disclosure control labels are localized in Persian, English, German and French.
 - No new runtime dependency; no market-data, decision, strategy, risk, journal data contract, or execution logic changed.
-- Working branch: `feat/dashboard-minimal-ux-mainline-20261119`.
-- Pull request: #539 (draft).
+- Working branch: `feat/dashboard-minimal-ux-verified-20261119`.
+- Pull request: #544 (draft).
 
-## Validation status at checkpoint
-- Dashboard native-path workflow: PASS.
-- Browser-render smoke: PASS on the CSS-only commit; full rerun is required after progressive disclosure changes.
-- Dashboard native-path and full regression workflows passed on the CSS-only commit; full rerun is required after progressive disclosure changes.
-- Browser screenshot review confirmed the overview hierarchy and collapsed secondary panels; disclosure controls are anchored to their own panels.
-- Final visual acceptance and complete latest-head regression remain pending.
+## Final validation — 2026-11-19
+- All 66 GitHub Actions checks passed on code commit `8d8bf4d5e53ffd6513f764985fdd0753e4f4dd50`.
+- Passed checks include full repository pytest, HES full regression, dashboard native-path, browser render, Universal Indicator DOM/browser acceptance, desktop, Persian RTL, mobile and fail-closed behavior.
+- Browser screenshot reviewed: market chart, key market metrics, precision-entry and strategy summaries remain prominent; six secondary sections are collapsed by default and accessible on demand.
+- The final follow-up to this checkpoint is documentation-only; no application code changed after the passing code commit.
+- Production remains on release `d2049427716037d74d5ad106df83b26201a789b2`; dashboard service is active, `NO_TRADE_ONLY`, execution disabled, and no orders are placed.
 - No merge, production deployment, service restart, or live-execution change performed.
+
 
 ## Release rule
 Keep the PR in draft and production unchanged until browser rendering, mobile/RTL visual review, and relevant regression checks pass. Deploy only through the established immutable dashboard-release and rollback process.
