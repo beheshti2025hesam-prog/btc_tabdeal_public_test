@@ -64,6 +64,9 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator("#technicalConsensus").textContent(),"MIXED");
   assert.equal(await page.locator("#technicalSafety").textContent(),"READ ONLY · NO ORDERS");
   assert.equal(await page.locator("#technicalIndicatorRows tr").count(),39);
+  assert.equal(await page.locator("#technicalIntelligencePanel .panel-disclosure").evaluate(el=>el.open),false);
+  await page.locator("#technicalIntelligencePanel .panel-disclosure-summary").click();
+  await page.waitForFunction(()=>document.querySelector("#technicalIntelligencePanel .panel-disclosure")?.open===true);
   await page.selectOption("#technicalTimeframe","4h");
   await page.waitForFunction(()=>document.querySelector("#technicalProfile").textContent.includes("TRANSITION"));
   await page.selectOption("#technicalTimeframe","1m");
