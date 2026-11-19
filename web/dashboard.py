@@ -840,3 +840,175 @@ class Handler(BaseHTTPRequestHandler):
 
 
         # Retired V1 signal endpoint: never invoke the old decision engine or journal writer.
+        if p.path == "/api/signal":
+            return self._send(410, json.dumps({
+                "error": "legacy_signal_route_retired", "status": "DEPRECATED",
+                "decision": "NO_TRADE", "fail_closed": True,
+                "execution_enabled": False, "orders_placed": False,
+            }, separators=(",", ":")).encode(), "application/json")
+        if p.path!="/api/candles": return self._send(404,b'{"error":"not_found"}',"application/json")
+        q=parse_qs(p.query); symbol=q.get("symbol",["BTCUSDT"])[0]; interval=q.get("interval",["15m"])[0]
+        if symbol not in SUPPORTED_SYMBOLS or interval not in SUPPORTED_INTERVALS or interval not in INTERVAL_MS:
+            return self._send(400,b'{"error":"unsupported_symbol_or_interval"}',"application/json")
+        try:
+            # The exact same validated batch feeds the chart projection and feature pipeline.
+            batch,feature_result=_get_batch(symbol,interval)
+            now=datetime.now(timezone.utc); now_ms=int(now.timestamp()*1000); last=batch.candles[-1]
+            age=(now_ms-last.close_time_ms)/1000
+            indicator_snapshot = getattr(feature_result, "snapshot", None)
+            feature_quality = getattr(feature_result, "quality", None)
+            feature_batch_sha256 = getattr(feature_result, "source_response_sha256", None)
+            indicator_provenance_ok = feature_batch_sha256 == batch.response_sha256
+            indicator_quality_ok = getattr(feature_quality, "passed", False) is True
+            ema_series_payload = _indicator_series_payload(
+                getattr(feature_result, "ema_series", ()), batch, _FEATURES.ema_period
+            )
+            vwap_series_payload = _indicator_series_payload(
+                getattr(feature_result, "vwap_series", ()), batch, _FEATURES.vwap_period
+            )
+            indicator_series_ok = ema_series_payload is not None and vwap_series_payload is not None
+            feature_ready = getattr(feature_result, "decision_ready", False) is True
+            indicators_ready = (
+                feature_ready
+                and indicator_snapshot is not None
+                and indicator_provenance_ok
+                and indicator_quality_ok
+                and indicator_series_ok
+            )
+            indicator_reason = (
+                None if indicators_ready else
+                "FEATURE_BATCH_PROVENANCE_MISMATCH" if not indicator_provenance_ok else
+                getattr(feature_result, "reason", "INDICATOR_SNAPSHOT_UNAVAILABLE")
+                if not (feature_ready and indicator_snapshot is not None and indicator_quality_ok) else
+                "INDICATOR_SERIES_INVALID"
+            )
+            indicators = {
+                "schema": "hes_native_ohlcv_indicator_snapshot_v1",
+                "status": "READY" if indicators_ready else "BLOCKED",
+                "source": "gateio_public_spot",
+                "source_reader": _source_reader_identity(batch),
+                "venue": batch.venue,
+                "product": batch.product,
+                "symbol": batch.symbol,
+                "interval": batch.interval,
+                "input_batch_sha256": batch.response_sha256,
+                "feature_batch_sha256": feature_batch_sha256,
+                "series_schema": "hes_native_ohlcv_indicator_series_v1",
+                "ema_period": _FEATURES.ema_period,
+                "vwap_period": _FEATURES.vwap_period,
+                "ema_series": ema_series_payload if indicators_ready else [],
+                "vwap_series": vwap_series_payload if indicators_ready else [],
+                "ema": indicator_snapshot.ema if indicators_ready else None,
+                "vwap": indicator_snapshot.vwap if indicators_ready else None,
+                "average_true_range": indicator_snapshot.average_true_range if indicators_ready else None,
+                "realized_volatility": indicator_snapshot.realized_volatility if indicators_ready else None,
+                "volume_ratio": indicator_snapshot.volume_ratio if indicators_ready else None,
+                "regime": indicator_snapshot.regime if indicators_ready else None,
+                "quality_passed": indicator_quality_ok,
+                "quality_violations": list(getattr(feature_quality, "violations", ()) or ()),
+                "decision_ready": indicators_ready,
+                "reason": indicator_reason,
+                "execution_enabled": False,
+                "orders_placed": False,
+            }
+            payload={"schema":"hes.market_candles_view.v1","status":"gaps_present" if batch.gaps else "ok",
+                "source":"gateio_public_spot","source_reader":_source_reader_identity(batch),
+                "venue":batch.venue,"product":batch.product,
+                "volume_semantics_contract":VOLUME_SEMANTICS_CONTRACT_VERSION,
+                "trade_count_available":TRADE_COUNT_AVAILABLE,"taker_buy_flow_available":TAKER_BUY_FLOW_AVAILABLE,
+                "symbol":batch.symbol,"source_symbol":gateio_spot_source_symbol(batch.symbol),"symbol_mapping_verified":verify_gateio_spot_symbol_mapping(batch.symbol,gateio_spot_source_symbol(batch.symbol)),
+                "execution_instrument_mapping_verified":False,
+                "interval":batch.interval,"endpoint_kind":batch.endpoint_kind,
+                "fetched_at_ms":batch.fetched_at_ms,"input_batch_sha256":batch.response_sha256,
+                "latest_age_seconds":age,"execution_enabled":False,"orders_placed":False,
+                "feature_ready":indicators_ready,"feature_reason":indicator_reason,
+                "indicators":indicators,
+                "stream_status":_STREAM_STATE["status"] if symbol == CANONICAL_ANALYSIS_SYMBOL else "disabled",
+                "stream_reason":_STREAM_STATE["reason"] if symbol == CANONICAL_ANALYSIS_SYMBOL else "REST_ONLY_FOR_MAPPED_ALTCOIN",
+                "gaps":[{"expected_open_time_ms":g.expected_open_time_ms,
+                    "next_observed_open_time_ms":g.next_observed_open_time_ms,
+                    "missing_intervals":g.missing_intervals} for g in batch.gaps],
+                "candles":[{"open_time":c.open_time_ms,"close_time":datetime.fromtimestamp(c.close_time_ms/1000,timezone.utc).isoformat(),
+                    "open":str(c.open),"high":str(c.high),"low":str(c.low),"close":str(c.close),
+                    "volume":str(c.volume),"quote_volume":str(c.quote_volume)} for c in batch.candles]}
+            return self._send(200,json.dumps(payload,separators=(",",":")).encode(),"application/json")
+        except Exception as exc:
+            reason_code = str(exc) if str(exc) in {"latest_closed_candle_stale", "persisted_candle_gaps_present"} else type(exc).__name__
+            return self._send(503,json.dumps({"schema":"hes.market_candles_view.v1","error":"market_data_unavailable",
+                "reason":type(exc).__name__,"reason_code":reason_code,"fail_closed":True,"execution_enabled":False,"orders_placed":False}).encode(),"application/json")
+    def do_POST(self):
+        path = urlparse(self.path).path
+        allowed = {"/api/mother-chat/session", "/api/mother-chat", "/api/mother-chat/logout", "/api/mother-chat/clear"}
+        if path not in allowed:
+            return self._send(405,b'{"error":"method_not_allowed","execution_enabled":false,"orders_placed":false}',"application/json")
+        try:
+            scheme = _MOTHER_CHAT_SECURITY.check_origin(self.headers)
+            client = self.client_address[0] if self.client_address else "unknown"
+            if path == "/api/mother-chat/session":
+                _MOTHER_CHAT_SECURITY.check_rate_limit(client, "login", limit=5, window_seconds=600)
+                payload = read_json_body(self)
+                if set(payload) != {"token"}:
+                    raise MotherChatError("CHAT_LOGIN_PAYLOAD_INVALID", 400)
+                cookie = _MOTHER_CHAT_SECURITY.create_session_cookie(payload.get("token"), secure=(scheme == "https"))
+                body = json.dumps({"status":"OK","session_expires_in":1800},separators=(",",":")).encode()
+                return self._send(200,body,"application/json",[("Set-Cookie",cookie)])
+            if path == "/api/mother-chat/logout":
+                cookie = _MOTHER_CHAT_SECURITY.clear_session_cookie(secure=(scheme == "https"))
+                body = b'{"status":"OK","execution_enabled":false,"orders_placed":false}'
+                return self._send(200,body,"application/json",[("Set-Cookie",cookie)])
+            _MOTHER_CHAT_SECURITY.check_rate_limit(client, "chat", limit=30, window_seconds=60)
+            if not _MOTHER_CHAT_SECURITY.has_valid_session(self.headers):
+                raise MotherChatError("CHAT_SESSION_REQUIRED", 401)
+            if path == "/api/mother-chat/clear":
+                payload = read_json_body(self)
+                if payload:
+                    raise MotherChatError("CHAT_CLEAR_PAYLOAD_INVALID", 400)
+                if _HOSHYAR_LOCAL_ASSISTANT is None:
+                    raise MotherChatError("HOSHYAR_MEMORY_DISABLED", 409)
+                _HOSHYAR_LOCAL_ASSISTANT.clear_memory()
+                return self._send(200, b'{"status":"CLEARED","memory_cleared":true,"execution_enabled":false,"orders_placed":false}', "application/json")
+            payload = read_json_body(self)
+            if set(payload) not in ({"message"}, {"message", "language"}):
+                raise MotherChatError("CHAT_MESSAGE_PAYLOAD_INVALID", 400)
+            language = payload.get("language", "auto")
+            if not isinstance(language, str) or language not in {"auto", "fa", "en", "de", "fr"}:
+                raise MotherChatError("CHAT_LANGUAGE_INVALID", 400)
+            message = payload.get("message")
+            readers = _mother_chat_readers(message if isinstance(message, str) else "")
+            if _HOSHYAR_LOCAL_ASSISTANT is not None:
+                result = _HOSHYAR_LOCAL_ASSISTANT.respond(message, readers, language=language)
+            else:
+                result = build_chat_response(message, readers, language=language)
+            body = json.dumps(result,separators=(",",":"),ensure_ascii=False).encode("utf-8")
+            return self._send(200,body,"application/json")
+        except MotherChatError as exc:
+            body = json.dumps({
+                "status":"BLOCKED","error":exc.code,
+                "execution_enabled":False,"orders_placed":False,
+            },separators=(",",":")).encode()
+            return self._send(exc.http_status,body,"application/json")
+        except Exception:
+            body = b'{"status":"BLOCKED","error":"CHAT_REQUEST_FAILED","execution_enabled":false,"orders_placed":false}'
+            return self._send(503,body,"application/json")
+    def log_message(self,fmt,*args):
+        if os.environ.get("HES_DASHBOARD_ACCESS_LOG")=="1": super().log_message(fmt,*args)
+
+def main():
+    # The legacy Binance stream is deliberately not started by the Gate.io chart path.
+    # Gate.io candles are REST-refreshed; a matching Gate.io stream needs its own
+    # source-identity/reconciliation tests before it can be enabled.
+    _STREAM_STATE.update(status="disabled", reason="gateio_stream_not_enabled")
+    host=os.environ.get("HES_DASHBOARD_HOST","127.0.0.1"); port=int(os.environ.get("HES_DASHBOARD_PORT","8765"))
+    server=ThreadingHTTPServer((host,port),Handler)
+    stop = Event()
+    monitor_thread = Thread(target=_NEWS_MONITOR.run_forever, args=(stop,), name="hes-news-monitor", daemon=True)
+    monitor_thread.start()
+    print(f"HES read-only dashboard listening on http://{host}:{port}",flush=True)
+    try:
+        server.serve_forever()
+    finally:
+        stop.set()
+        monitor_thread.join(timeout=5)
+        server.server_close()
+
+if __name__=="__main__": main()
