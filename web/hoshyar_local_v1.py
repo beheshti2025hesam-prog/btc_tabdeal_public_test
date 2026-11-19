@@ -468,17 +468,27 @@ class HoshyarLocalAssistantV1:
 
     def __init__(
         self,
-        llm: HoshyarLocalLLMV1,
+        llm: HoshyarLocalLLMV1 | None,
         memory: HoshyarConversationMemoryV1,
         *,
         allow_freeform: bool | None = None,
     ):
         self.llm = llm
         self.memory = memory
-        self.allow_freeform = (
+        configured_freeform = (
             os.environ.get("HES_HOSHYAR_LOCAL_LLM_GENERAL_CHAT_ENABLED", "0").strip() == "1"
             if allow_freeform is None else bool(allow_freeform)
         )
+        # A deterministic assistant can operate with no model client at all.
+        self.allow_freeform = configured_freeform and self.llm is not None
+
+    @property
+    def local_llm_enabled(self) -> bool:
+        return self.llm is not None
+
+    @property
+    def conversation_memory_enabled(self) -> bool:
+        return self.memory is not None
 
     @staticmethod
     def _safe_general_answer(answer: str, language: str) -> str:
@@ -569,8 +579,8 @@ class HoshyarLocalAssistantV1:
                         {"role": "user", "content": message},
                     ]
                     try:
-                        answer = self.llm.general_answer(messages)
-                        local_used = True
+                        answer = self.llm.general_answer(messages) if self.llm is not None else ""
+                        local_used = self.llm is not None
                     except HoshyarLocalError:
                         answer = ""
                     answer = self._safe_general_answer(answer, effective_language)
