@@ -28,7 +28,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" /opt/hes-trade-agent/.venv/bin/pytho
   tests/test_mother_chat_persian_eval_v1.py
 ```
 
-Result after the candidate patch: **95 focused tests passed**. The new cases verify all eight stored turns are represented in a 16-message dialogue, longer histories are bounded transparently, and the dashboard retains deterministic memory while the local model is disabled or unavailable. All response safety flags remain false.
+Result after the candidate patch: **96 focused tests passed**. The new cases verify all eight stored turns are represented in a 16-message dialogue, longer histories are bounded transparently, and the dashboard retains deterministic memory while the local model is disabled or unavailable, including an end-to-end 16-message HTTP chat/history round trip. All response safety flags remain false.
 
 ## Explicitly not done
 
@@ -39,7 +39,7 @@ Result after the candidate patch: **95 focused tests passed**. The new cases ver
 
 ## Expanded dashboard integration verification — 2026-11-19
 
-- Full repository suite on the updated mainline-based candidate: **1,603 passed, 84 subtests passed**.
+- Full repository suite on the updated mainline-based candidate: **1,604 passed, 84 subtests passed**.
 - Focused HES AI/Mother/dashboard suite: **95 passed**.
 - Python compilation, dashboard JavaScript syntax and Git whitespace checks: PASS.
 - GitHub PR #534 was updated with the deterministic memory wiring; exact-head CI must complete again before the candidate is considered review-ready.
