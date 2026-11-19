@@ -85,11 +85,11 @@ This snapshot is copied from the canonical Notion DNA page into the VPS reposito
 
 ### Implementation evidence — 2026-11-19
 
-- GitHub PR #532, branch feat/documentation-library-v1, candidate commit fe93174adeea9f50642567657fe9705f44e8c44e.
-- Catalog v1.0.4 at the implementation checkpoint contains 13 aligned topics in Persian, English, German and French; search, category filtering, RTL/LTR and responsive UI are implemented.
-- Local documentation tests: 7/7 passed. Static editorial audit checked 185 content fields per locale and 15 UI keys; no blank fields, exact English-copy leakage or placeholders were found.
-- Exact-head CI: 34/34 check-runs passed, including full repository regression, candidate-validation, browser-render and dashboard-native-path. Browser acceptance passed all four locales, desktop/mobile, fail-closed behavior, zero browser console errors and no horizontal overflow.
-- PR #532 is Ready for Review, open and mergeable. No merge or production deployment occurred; operational dashboard, release pointer and services were unchanged.
+- GitHub PR #532, branch feat/documentation-library-v1, candidate commit 2fc4ae3a90ad9eafb4418ffaa2711be1053321fa.
+- Catalog v1.0.6 at the final pre-merge review contains 13 aligned topics in Persian, English, German and French; search, category filtering, RTL/LTR and responsive UI are implemented.
+- Local documentation tests: 7/7 passed. Static editorial audit checked 207 content fields per locale and 15 UI keys; no blank fields, exact English-copy leakage or placeholders were found.
+- Exact-head CI: 34/34 GitHub workflow runs and 34/34 check-runs passed, including full repository regression, candidate-validation, browser-render and dashboard-native-path. Browser acceptance passed all four locales, desktop/mobile, fail-closed behavior, zero browser console errors and no horizontal overflow.
+- At the pre-merge checkpoint, PR #532 was Ready for Review, open and mergeable. No production deployment occurred; operational dashboard, release pointer and services were unchanged.
 - Independent native-speaker review remains pending; no certification is claimed.
 
 
