@@ -64,6 +64,8 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator("#technicalConsensus").textContent(),"MIXED");
   assert.equal(await page.locator("#technicalSafety").textContent(),"READ ONLY · NO ORDERS");
   assert.equal(await page.locator("#technicalIndicatorRows tr").count(),39);
+  await page.locator("#technicalIntelligencePanel .panel-disclosure-summary").click();
+  await page.waitForFunction(()=>document.querySelector("#technicalIntelligencePanel .panel-disclosure")?.open===true);
   await page.selectOption("#technicalTimeframe","4h");
   await page.waitForFunction(()=>document.querySelector("#technicalProfile").textContent.includes("TRANSITION"));
   await page.selectOption("#technicalTimeframe","1m");
@@ -77,9 +79,12 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector("#technicalProvenance").textContent.includes("BTC_USDT"));
   await page.selectOption("#languageSelect","fa");
   await page.waitForFunction(()=>document.documentElement.dir==="rtl");
-  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.querySelectorAll("#documentationIndex button").length===13&&document.querySelector("#documentationStatus")?.textContent.includes("1.0.6"));
+  const expectedDocumentationVersion = JSON.parse(fs.readFileSync(path.join(root,"docs/documentation/catalog.v1.json"),"utf8")).version;
+  await page.waitForFunction(version=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.querySelectorAll("#documentationIndex button").length===13&&document.querySelector("#documentationStatus")?.textContent.includes(version),expectedDocumentationVersion);
   assert.ok((await page.locator("#documentationArticle").textContent()).includes("DNA"));
   assert.equal(await page.locator("#documentationSafety").textContent(),"فقط‌خواندنی");
+  await page.locator("#documentationPanel .panel-disclosure-summary").click();
+  await page.waitForFunction(()=>document.querySelector("#documentationPanel .panel-disclosure")?.open===true);
   await page.locator("#documentationIndex button[data-doc-id=\"strategy\"]").click();
   await page.waitForFunction(()=>document.querySelector("#documentationArticle")?.textContent.includes("NO_TRADE")&&document.querySelector("#documentationArticle")?.textContent.includes("Range"));
   await page.selectOption("#languageSelect","de");
