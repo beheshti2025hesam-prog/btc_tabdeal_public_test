@@ -43,6 +43,6 @@ The current copy has been authored and consistency-reviewed in all four language
 
 `read_only=true`, `execution_enabled=false`, `orders_placed=false`, `policy_mutation=false`. The documentation API is GET-only. Documentation pages explain the product; they cannot authorize trades, alter risk policy, mutate journals or change deployment state.
 
-## Candidate status
+## Merge and production boundary
 
-This directory is being prepared on the isolated feature branch `feat/documentation-library-v1`, based on the repository main commit current at 2026-11-19. It has not been merged or deployed to the production dashboard. Production release requires the normal repository review, CI, release manifest, controlled deployment and rollback gates.
+The v1.0.6 catalog is delivered through PR #532 from `feat/documentation-library-v1`. Repository merge makes the documentation implementation part of the source tree only; it does not publish or activate the production dashboard. Production release remains a separate gate requiring the approved release manifest, exact-release validation, controlled deployment, health verification and rollback readiness. No documentation change authorizes trading, service restarts or order execution.
