@@ -379,3 +379,6 @@ a{color:#91bbff}
 @media(prefers-reduced-motion:reduce){
   .panel-disclosure[open] .panel-disclosure-body{animation:none}
 }
+
+/* Anchor each disclosure affordance to its own panel. */
+.panel{position:relative}
