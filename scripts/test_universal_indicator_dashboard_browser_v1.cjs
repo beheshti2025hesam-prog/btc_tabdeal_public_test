@@ -80,6 +80,14 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.querySelectorAll("#documentationIndex button").length===13&&document.querySelector("#documentationStatus")?.textContent.includes("1.0.4"));
   assert.ok((await page.locator("#documentationArticle").textContent()).includes("DNA"));
   assert.equal(await page.locator("#documentationSafety").textContent(),"فقط‌خواندنی");
+  await page.selectOption("#languageSelect","de");
+  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="Dokumentation"&&document.querySelector("#documentationArticle .documentation-article-title")?.textContent==="Projekt-DNA und Produktidentität");
+  assert.equal(await page.evaluate(()=>document.documentElement.dir),"ltr");
+  await page.selectOption("#languageSelect","fr");
+  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="Documentation"&&document.querySelector("#documentationArticle .documentation-article-title")?.textContent==="ADN du projet et identité du produit");
+  assert.equal(await page.evaluate(()=>document.documentElement.dir),"ltr");
+  await page.selectOption("#languageSelect","fa");
+  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.documentElement.dir==="rtl");
   assert.ok((await page.locator("#technicalIntelligenceTitle").textContent()).includes("هوش فنی"));
   assert.ok((await page.locator("#technicalIndicatorRows").textContent()).includes("روند"));
   assert.ok((await page.locator("#technicalIntelligencePanel").textContent()).includes("پژوهش فقط‌خواندنی"));
