@@ -28,3 +28,13 @@ Do not plan routine project execution around an assumed third team member. The o
 ## Communication
 
 Report in plain language, briefly and accurately. State what changed, the exact evidence, remaining uncertainty, and the next concrete action. Never overstate tool access or claim a GitHub change succeeded until its result is confirmed.
+
+
+## Documentation as a first-class HES capability
+
+- The Documentation library is a versioned, searchable capability inside the existing HES Command Center, not a separate application or a source of trading/runtime truth.
+- It supports Persian (RTL), English, German and French (LTR), and covers project DNA/roadmap, product identity, architecture, market data and protocol contracts, strategies/indicators, risk/execution boundaries, training/evaluation, news/journals, operations/security/backup/recovery, glossary, troubleshooting and change history.
+- The library reuses the existing dashboard, locale selector and static-asset/API delivery. Its endpoint is GET-only, locale/schema validated and fail-closed. It cannot read secrets, access exchange accounts, mutate journals or policies, deploy code, invoke execution or place orders.
+- Every new capability and architecture decision must update the project DNA/roadmap and all four dashboard locales together, with source provenance, catalog version/changelog and exact-commit tests.
+- Editorial validation must check complete locale parity, stable technical terms, safety meaning, blank/untranslated/placeholder content, RTL/LTR direction and responsive browser behavior. Independent native-speaker review must be identified separately and never implied if it has not occurred.
+- Documentation tests and green CI do not authorize production deployment or trading. Merge, production release and rollback remain separate approval gates.

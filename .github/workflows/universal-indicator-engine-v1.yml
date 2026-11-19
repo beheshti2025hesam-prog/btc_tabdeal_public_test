@@ -56,7 +56,9 @@ jobs:
       - name: DOM, localization and fail-closed smoke
         run: node scripts/test_universal_indicator_dashboard_dom_v1.cjs
       - name: Install Chromium for browser acceptance
-        run: validation-tools/node_modules/.bin/playwright install --with-deps chromium
+        timeout-minutes: 4
+        # Ubuntu 24.04 GitHub runners already include Chromium system libraries; install only the pinned browser binary.
+        run: validation-tools/node_modules/.bin/playwright install chromium
       - name: Desktop, Persian RTL, mobile and fail-closed browser acceptance
         run: node scripts/test_universal_indicator_dashboard_browser_v1.cjs
       - name: JavaScript syntax
