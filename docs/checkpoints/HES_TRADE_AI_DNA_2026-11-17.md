@@ -2,7 +2,7 @@
 
 - Source: Notion page **HES Trade AI — Local Private AI Environment — DNA & Roadmap — 2026-11-17**
 - Source URL: https://app.notion.com/p/41b0a937939181bcae32e628746b1324
-- Source last edited: 2026-11-17T11:43:01Z
+- Source last edited: 2026-11-19T07:16:29.906Z
 - Source verification metadata: `unverified`
 - Related Master Checkpoint: https://app.notion.com/p/3f80a937939181619f0fce6b19b968d0
 - Snapshot purpose: bounded, read-only local retrieval; refresh when the canonical Notion page changes. This is not a live Notion connection.
@@ -54,3 +54,40 @@
 ## Local retrieval boundary
 
 This snapshot is copied from the canonical Notion DNA page into the VPS repository for local read-only retrieval. The current reader searches only approved local Markdown roots (`docs/checkpoints`, `docs/architecture`, `releases/deployment-records`) and returns excerpts with SHA-256 references. It does not access Notion-only pages, connected accounts, private files or secrets. Refresh this snapshot from Notion when the canonical page changes; do not imply that the VPS has live Notion access.
+
+
+## Documentation library — first-class HES Command Center capability (DNA addition — 2026-11-19)
+
+**Decision:** Documentation is a first-class, versioned capability inside the existing HES Command Center dashboard. It is not a separate application and it is not a source of trading or runtime truth.
+
+### Product requirements
+
+- Provide four complete user-facing locales: Persian (RTL), English, German and French (LTR).
+- Include the project DNA and roadmap, product naming, architecture and Mother responsibilities, market-data and exchange adapters, protocol/sequence semantics, strategies/timeframes/indicators, risk and execution boundaries, training/evaluation, News Radar, decision journal, operations/security/backup/recovery, glossary, troubleshooting and version history.
+- Provide search and category filtering, responsive desktop/mobile presentation, and language switching through the existing dashboard locale selector.
+- Keep content curated, source-linked and versioned. Preserve stable technical identifiers, protocol field names, machine enums and product names across translations.
+- Verify completeness, matching structure and safety meaning in all four locales; test for blank content, untranslated copy, placeholders and layout direction. Do not claim independent native-speaker certification unless such review actually occurs.
+
+### Security and source-of-truth boundaries
+
+- Documentation API is GET-only, locale/schema validated and fail-closed. It exposes only the curated catalog; it must not traverse arbitrary paths, read secrets, expose private journals or invoke Mother, market-data, execution or write APIs.
+- Read-only contract is mandatory: no account access, order submission, journal mutation, strategy/risk policy mutation, or deployment control.
+- Current code, schemas, tests and immutable runtime evidence remain the technical source of truth. Approved project DNA/checkpoints define intent and priorities; exchange primary documentation and recorded official replies define protocol guarantees. The dashboard catalog is a reader-friendly summary and must be corrected when a higher-authority source changes.
+- A local DNA snapshot with unverified source metadata must be labeled as a snapshot and must never be described as a live Notion connection.
+
+### Documentation roadmap and release gate
+
+1. Establish the versioned catalog, source register, four locale sets and responsive read-only UI.
+2. Add all new capabilities and architecture decisions to all four locales in the same change, with source provenance and a catalog version/changelog entry.
+3. Run schema, API safety, locale parity, translation completeness, JavaScript, desktop/mobile and RTL/LTR browser tests on the exact candidate commit.
+4. Preserve an explicit editorial-review status; independent native-speaker review is recorded as pending until actually completed.
+5. Merge and production deployment remain separate gates. Production publication requires exact-head CI, review, release/rollback evidence and normal explicit approval; documentation work never activates trading or services by itself.
+
+### Implementation evidence — 2026-11-19
+
+- GitHub PR #532, branch feat/documentation-library-v1, candidate commit fe93174adeea9f50642567657fe9705f44e8c44e.
+- Catalog v1.0.4 at the implementation checkpoint contains 13 aligned topics in Persian, English, German and French; search, category filtering, RTL/LTR and responsive UI are implemented.
+- Local documentation tests: 7/7 passed. Static editorial audit checked 185 content fields per locale and 15 UI keys; no blank fields, exact English-copy leakage or placeholders were found.
+- Exact-head CI: 34/34 check-runs passed, including full repository regression, candidate-validation, browser-render and dashboard-native-path. Browser acceptance passed all four locales, desktop/mobile, fail-closed behavior, zero browser console errors and no horizontal overflow.
+- PR #532 is Ready for Review, open and mergeable. No merge or production deployment occurred; operational dashboard, release pointer and services were unchanged.
+- Independent native-speaker review remains pending; no certification is claimed.
