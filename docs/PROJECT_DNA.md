@@ -38,3 +38,13 @@ Report in plain language, briefly and accurately. State what changed, the exact 
 - Every new capability and architecture decision must update the project DNA/roadmap and all four dashboard locales together, with source provenance, catalog version/changelog and exact-commit tests.
 - Editorial validation must check complete locale parity, stable technical terms, safety meaning, blank/untranslated/placeholder content, RTL/LTR direction and responsive browser behavior. Independent native-speaker review must be identified separately and never implied if it has not occurred.
 - Documentation tests and green CI do not authorize production deployment or trading. Merge, production release and rollback remain separate approval gates.
+
+
+## NO_TRADE decision-quality evaluation — 2026-11-19
+
+- Every matured NO_TRADE decision is re-evaluated with forward-only closed Gate.io Public Spot BTC_USDT candles at 1h/4h/24h. A separate 1m structure-only shadow replay uses frozen decision-time evidence and fixed 3R geometry.
+- The evaluation distinguishes valid directional counterfactuals, rejected proposals, structure-only candidates, directionless market context, incomplete coverage and invalid stop geometry. Gaps are never interpolated; ambiguous same-candle stop/target cases resolve conservatively as stop.
+- Structure-only target hits are review candidates, not actual missed profits, realized PnL, win-rate evidence or causal proof. Spot-derived SHORT paths do not establish executable short economics.
+- Production Learning Loop remains read-only. No automatic gate tuning, policy mutation, strategy activation, execution or orders.
+- 2026-11-19 production snapshot: 94 matured decisions; 93 complete gap-free 24h horizons; zero tracker-boundary mismatches; 34 independent candidates; 30 evaluated shadow geometries; 4 invalid stop geometries; two LONG 24h target-hit review clusters. The actual-missed-profit claim remains false.
+- Source checkpoint: `docs/checkpoints/NO_TRADE_COUNTERFACTUAL_MATURITY_V2_2026-11-19.md`. The operational report is evidence, not a trading authorization.

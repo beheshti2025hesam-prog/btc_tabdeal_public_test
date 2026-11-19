@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Current catalog release: **1.0.6** (2026-11-19). It contains 13 aligned pages in each of the four supported languages.
+Current catalog release: **1.0.7** (2026-11-19). It contains 13 aligned pages in each of the four supported languages.
 
 This package adds a read-only, searchable Documentation section to the existing HES Command Center. It reuses the existing dashboard, locale selector, HTTP handler and static-asset delivery. It does not create a second application or a second source of trading truth.
 
@@ -10,7 +10,7 @@ This package adds a read-only, searchable Documentation section to the existing 
 
 - `catalog.v1.json` is the versioned presentation catalog for Persian, English, German and French.
 - Each language contains the same 13 stable document IDs, section counts and safety meaning.
-- The curated pages summarize project DNA, product naming, roadmap, Mother architecture, market-data boundary, exchange sequence semantics, timeframe/indicator roles, Risk Gate, training/evaluation, News Radar, journal, operations, troubleshooting and version history.
+- The curated pages summarize project DNA, product naming, roadmap, Mother architecture, market-data boundary, exchange sequence semantics, timeframe/indicator roles, NO_TRADE decision-quality evaluation, Risk Gate, training/evaluation, News Radar, journal, operations, troubleshooting and version history.
 - `source_register` lists the repository documents used to prepare the summaries.
 - `EXCHANGE_SEQUENCE_SEMANTICS_RESEARCH_DIGEST_2026-10-10.md` preserves the key technical conclusions of the user-supplied sequence-semantics report. It is explicitly a digest, not primary exchange evidence.
 
@@ -45,4 +45,12 @@ The current copy has been authored and consistency-reviewed in all four language
 
 ## Merge and production boundary
 
-The v1.0.6 catalog is delivered through PR #532 from `feat/documentation-library-v1`. Repository merge makes the documentation implementation part of the source tree only; it does not publish or activate the production dashboard. Production release remains a separate gate requiring the approved release manifest, exact-release validation, controlled deployment, health verification and rollback readiness. No documentation change authorizes trading, service restarts or order execution.
+The v1.0.7 catalog is delivered through PR #532 from `feat/documentation-library-v1`. Repository merge makes the documentation implementation part of the source tree only; it does not publish or activate the production dashboard. Production release remains a separate gate requiring the approved release manifest, exact-release validation, controlled deployment, health verification and rollback readiness. No documentation change authorizes trading, service restarts or order execution.
+
+
+## Version 1.0.7 update — 2026-11-19
+
+- Added the NO_TRADE decision-quality and 1m structure-only shadow-evaluation section to the existing Strategy page in all four locales.
+- Added the matured NO_TRADE checkpoint, validator and structure-only shadow evaluator to the source register.
+- Preserved the read-only boundary: the catalog reports review evidence only and cannot authorize a trade, alter policy or place orders.
+- Snapshot counts are time-bound operational evidence and must be refreshed from the canonical report; they are not a strategy performance claim.
