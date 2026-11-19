@@ -1,6 +1,6 @@
 {
   "schema": "hes_documentation_catalog_v1",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "product": "HES Trade Agent",
   "languages": [
     "fa",
@@ -117,6 +117,17 @@
               "Keep the source register, verification/freshness status, catalog version and change history accurate; explicitly label snapshots that are not live connections.",
               "Run locale completeness, read-only API, responsive desktop/mobile and RTL/LTR browser checks on the exact candidate commit.",
               "A green documentation test does not authorize production deployment or trading; merge, release and rollback remain separate approval gates."
+            ]
+          },
+          {
+            "heading": "NO_TRADE decision-quality release gate",
+            "body": "The deployed NO_TRADE evaluator is a read-only evidence loop that measures whether abstention was prudent or whether a valid candidate may have been over-filtered. It does not authorize strategy activation or execution.",
+            "bullets": [
+              "Evaluate matured decisions at 1h/4h/24h with closed Gate.io Public Spot candles and an independent 1m structure-only shadow replay.",
+              "Separate fully qualified directional counterfactuals, rejected proposals, structure-only candidates, directionless context, invalid geometry and incomplete data; never call a structure-only target hit an actual missed trade.",
+              "Keep data gaps fail-closed and same-candle stop/target ambiguity stop-first; preserve frozen decision-time geometry and source hashes.",
+              "Release acceptance requires exact-head tests, immutable manifest verification, service and rollback rehearsal, import provenance, and canonical journal continuity.",
+              "No automatic gate tuning, policy mutation, strategy promotion, execution or orders; thresholds change only after separately preregistered independent out-of-sample evidence."
             ]
           }
         ]
@@ -450,7 +461,8 @@
               "1.0.4 — Refined German and French category labels and strengthened automated checks for complete localized copy and browser asset loading.",
               "1.0.5 — Synchronized the local DNA snapshot with the 2026-11-19 Notion update and added documentation as a cross-cutting DNA/roadmap gate.",
               "1.0.6 — Added the 2026-11-19 Range research-only status and clarified the local DNA file as a curated extract rather than a full Notion mirror.",
-              "1.0.7 — Added NO_TRADE decision-quality evaluation and a 1m structure-only shadow replay, with explicit counterfactual and execution-safety boundaries."
+              "1.0.7 — Added NO_TRADE decision-quality evaluation and a 1m structure-only shadow replay, with explicit counterfactual and execution-safety boundaries.",
+              "1.0.8 — Added the NO_TRADE decision-quality release gate to the Roadmap page in all four locales."
             ]
           },
           {
@@ -545,6 +557,17 @@
               "فهرست منابع، وضعیت اعتبارسنجی و تازگی، نسخه کاتالوگ و تاریخچه تغییرات را دقیق نگه دارید؛ snapshotهایی را که اتصال زنده نیستند صریحاً برچسب بزنید.",
               "آزمون کامل‌بودن زبان‌ها، API فقط‌خواندنی، نمایش واکنش‌گرا در دسکتاپ/موبایل و مرورگر RTL/LTR را روی commit دقیق نامزد اجرا کنید.",
               "سبزشدن آزمون مستندات مجوز انتشار تولید یا معامله نیست؛ ادغام، انتشار و بازگشت نسخه همچنان دروازه‌های تأیید جداگانه‌اند."
+            ]
+          },
+          {
+            "heading": "دروازه انتشار ارزیابی کیفیت تصمیم NO_TRADE",
+            "body": "ارزیاب NO_TRADE منتشرشده یک حلقه شواهدِ فقط‌خواندنی است که می‌سنجد عدم ورود تصمیم درستی بوده یا احتمالاً یک کاندیدای معتبر بیش‌ازحد فیلتر شده است. این بخش مجوز فعال‌سازی استراتژی یا اجرا صادر نمی‌کند.",
+            "bullets": [
+              "تصمیم‌های بالغ‌شده را در افق‌های ۱، ۴ و ۲۴ ساعت با کندل‌های بسته Gate.io Public Spot و بازپخش سایه‌ای مستقل ساختاری در تایم‌فریم ۱دقیقه ارزیابی کنید.",
+              "ضدواقعیت‌های جهت‌دارِ کاملاً واجد شرایط، پیشنهادهای ردشده، کاندیداهای صرفاً ساختاری، زمینه بدون جهت، هندسه نامعتبر و داده ناقص را جدا نگه دارید؛ رسیدن کاندیدای صرفاً ساختاری به هدف را معامله ازدست‌رفته واقعی ننامید.",
+              "در برابر گپ داده fail-closed بمانید و برخورد حدضرر/هدف در یک کندل را محافظه‌کارانه حدضرر حساب کنید؛ هندسه ثبت‌شده در زمان تصمیم و هش منابع را حفظ کنید.",
+              "پذیرش انتشار نیازمند آزمون‌های exact-head، تأیید manifest تغییرناپذیر، تمرین سرویس و بازگشت، اثبات منشأ کد و تداوم ژورنال مرجع است.",
+              "تنظیم خودکار گیت، تغییر سیاست، ارتقای استراتژی، اجرا یا سفارش ممنوع است؛ آستانه‌ها فقط پس از شواهد مستقل خارج از نمونه و فرضیه‌ای که جداگانه پیش‌ثبت شده باشد تغییر می‌کنند."
             ]
           }
         ]
@@ -878,7 +901,8 @@
               "۱.۰.۴ — اصلاح برچسب دسته‌بندی آلمانی و فرانسوی و تقویت آزمون‌های خودکار برای کامل‌بودن ترجمه‌ها و بارگذاری دارایی‌های مرورگر.",
               "۱.۰.۵ — snapshot محلی DNA با به‌روزرسانی Notion در ۲۰۲۶-۱۱-۱۹ همگام شد و مستندات به‌عنوان دروازه‌ای سراسری به DNA و نقشه راه افزوده شد.",
               "۱.۰.۶ — وضعیت پژوهشی و غیرفعال موتور رنج در ۲۰۲۶-۱۱-۱۹ افزوده شد و فایل محلی DNA به‌عنوان گزیده‌ای گزینش‌شده، نه نسخه کامل Notion، مشخص شد.",
-              "۱.۰.۷ — ارزیابی کیفیت تصمیم NO_TRADE و بازپخش سایه‌ای ساختاری ۱دقیقه‌ای افزوده شد؛ مرزهای ضدواقعیت و ایمنی اجرا نیز صریح شدند."
+              "۱.۰.۷ — ارزیابی کیفیت تصمیم NO_TRADE و بازپخش سایه‌ای ساختاری ۱دقیقه‌ای افزوده شد؛ مرزهای ضدواقعیت و ایمنی اجرا نیز صریح شدند.",
+              "۱.۰.۸ — دروازه انتشار ارزیابی کیفیت تصمیم NO_TRADE به صفحه نقشه راه در هر چهار زبان افزوده شد."
             ]
           },
           {
@@ -973,6 +997,17 @@
               "Quellenverzeichnis, Verifizierungs-/Aktualitätsstatus, Katalogversion und Änderungshistorie müssen korrekt bleiben; Momentaufnahmen ohne Live-Verbindung sind ausdrücklich zu kennzeichnen.",
               "Vollständigkeit der Sprachen, schreibgeschützte API, responsives Desktop-/Mobil-Layout und RTL-/LTR-Browserverhalten am exakten Kandidaten-Commit testen.",
               "Grüne Dokumentationstests genehmigen weder Produktionsbereitstellung noch Handel; Merge, Release und Rollback bleiben getrennte Freigabegates."
+            ]
+          },
+          {
+            "heading": "NO_TRADE-Entscheidungsqualität als Release-Gate",
+            "body": "Der bereitgestellte NO_TRADE-Evaluator ist eine schreibgeschützte Evidenzschleife. Sie bewertet, ob der Verzicht auf einen Trade sinnvoll war oder ob ein gültiger Kandidat möglicherweise zu stark gefiltert wurde. Sie autorisiert weder die Aktivierung einer Strategie noch deren Ausführung.",
+            "bullets": [
+              "Ausgereifte Entscheidungen über 1h/4h/24h anhand geschlossener Gate.io-Public-Spot-Kerzen und eines unabhängigen 1m-Structure-only-Shadow-Replays bewerten.",
+              "Vollständig qualifizierte gerichtete Gegenfaktuale, abgelehnte Vorschläge, reine Strukturkandidaten, richtungslosen Kontext, ungültige Geometrie und unvollständige Daten getrennt halten; ein Structure-only-Zieltreffer ist niemals automatisch ein tatsächlich verpasster Trade.",
+              "Bei Datenlücken fail-closed bleiben und Stop/Ziel im selben Kerzenintervall konservativ als Stop werten; eingefrorene Entscheidungszeit-Geometrie und Quell-Hashes bewahren.",
+              "Die Release-Abnahme verlangt Exact-Head-Tests, Prüfung des unveränderlichen Manifests, Service- und Rollback-Rehearsal, Import-Provenienz und Kontinuität des kanonischen Journals.",
+              "Keine automatische Gate-Anpassung, Policy-Mutation, Strategiepromotion, Ausführung oder Order; Schwellenwerte nur nach separat vorregistrierter unabhängiger Out-of-Sample-Evidenz ändern."
             ]
           }
         ]
@@ -1306,7 +1341,8 @@
               "1.0.4 — Deutsche und französische Kategorienamen präzisiert und automatische Prüfungen für vollständige Übersetzungen sowie das Laden der Browser-Ressourcen erweitert.",
               "1.0.5 — Den lokalen DNA-Snapshot mit der Notion-Aktualisierung vom 19.11.2026 synchronisiert und Dokumentation als übergreifendes DNA-/Roadmap-Gate ergänzt.",
               "1.0.6 — Forschungsstatus der Range-Engine vom 19.11.2026 ergänzt und die lokale DNA-Datei als kuratierter Auszug statt als vollständiger Notion-Spiegel gekennzeichnet.",
-              "1.0.7 — NO_TRADE-Entscheidungsqualitätsprüfung und 1m-Structure-only-Shadow-Replay ergänzt, einschließlich klarer Gegenfaktual- und Ausführungssicherheitsgrenzen."
+              "1.0.7 — NO_TRADE-Entscheidungsqualitätsprüfung und 1m-Structure-only-Shadow-Replay ergänzt, einschließlich klarer Gegenfaktual- und Ausführungssicherheitsgrenzen.",
+              "1.0.8 — Das NO_TRADE-Entscheidungsqualitäts-Release-Gate wurde in allen vier Sprachen in die Roadmap aufgenommen."
             ]
           },
           {
@@ -1401,6 +1437,17 @@
               "Maintenir exacts le registre des sources, l’état de vérification/fraîcheur, la version du catalogue et l’historique des changements ; signaler explicitement les instantanés qui ne sont pas des connexions en direct.",
               "Exécuter sur le commit candidat exact les contrôles de complétude linguistique, d’API en lecture seule, de mise en page adaptative ordinateur/mobile et de rendu navigateur RTL/LTR.",
               "Des tests documentaires réussis n’autorisent ni le déploiement en production ni le trading ; fusion, livraison et retour arrière restent des jalons d’approbation distincts."
+            ]
+          },
+          {
+            "heading": "NO_TRADE comme jalon de qualité décisionnelle avant release",
+            "body": "L’évaluateur NO_TRADE déployé est une boucle de preuves en lecture seule qui mesure si l’abstention était prudente ou si un candidat valide a pu être filtré à tort. Il n’autorise ni l’activation d’une stratégie ni son exécution.",
+            "bullets": [
+              "Évaluer les décisions arrivées à maturité sur 1h/4h/24h avec des bougies Gate.io Public Spot clôturées et un rejeu Shadow structure-only indépendant en 1m.",
+              "Séparer les contrefactuels directionnels pleinement qualifiés, les propositions rejetées, les candidats structurels, le contexte sans direction, les géométries invalides et les données incomplètes ; une cible atteinte en mode structure-only n’est jamais automatiquement un trade réellement manqué.",
+              "Rester en échec fermé en cas de lacune de données et traiter prudemment un stop et un objectif touchés dans la même bougie comme un stop ; préserver la géométrie figée au moment de la décision et les empreintes des sources.",
+              "L’acceptation d’une release exige les tests exact-head, la vérification du manifeste immuable, une répétition du service et du rollback, la provenance des imports et la continuité du journal canonique.",
+              "Aucun réglage automatique des gates, aucune mutation de politique, aucune promotion de stratégie, aucune exécution ni aucun ordre ; les seuils ne changent qu’après des preuves indépendantes hors échantillon et une hypothèse préenregistrée séparément."
             ]
           }
         ]
@@ -1734,7 +1781,8 @@
               "1.0.4 — Précision des libellés de catégories en allemand et en français, et renforcement des contrôles automatisés des traductions et du chargement des ressources du navigateur.",
               "1.0.5 — Instantané DNA local synchronisé avec la mise à jour Notion du 19/11/2026 et documentation ajoutée comme jalon transversal de l’ADN et de la feuille de route.",
               "1.0.6 — Ajout de l’état de recherche Range du 19/11/2026 et clarification du fichier DNA local comme extrait éditorialisé, non comme miroir complet de Notion.",
-              "1.0.7 — Ajout de l’évaluation de la qualité des décisions NO_TRADE et du rejeu Shadow structure-only en 1m, avec des limites explicites pour les contrefactuels et la sécurité d’exécution."
+              "1.0.7 — Ajout de l’évaluation de la qualité des décisions NO_TRADE et du rejeu Shadow structure-only en 1m, avec des limites explicites pour les contrefactuels et la sécurité d’exécution.",
+              "1.0.8 — Ajout du jalon de release sur la qualité décisionnelle NO_TRADE à la feuille de route dans les quatre langues."
             ]
           },
           {
