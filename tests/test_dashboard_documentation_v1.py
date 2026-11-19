@@ -128,7 +128,9 @@ class DocumentationRouteTests(unittest.TestCase):
             self.assertEqual(set(localized), set(english))
             self.assertEqual(len(localized["dna"]["sections"]), 4)
             self.assertEqual(len(localized["roadmap"]["sections"]), 3)
-            self.assertEqual(len(localized["strategy"]["sections"]), 3)
+            self.assertEqual(len(localized["strategy"]["sections"]), 4)
+            expected_heading = {"fa": "ارزیابی کیفیت تصمیم NO_TRADE", "de": "Bewertung der NO_TRADE-Entscheidungsqualität", "fr": "Évaluation de la qualité des décisions NO_TRADE"}[language]
+            self.assertEqual(localized["strategy"]["sections"][-1]["heading"], expected_heading)
             self.assertEqual(set(payloads[language]["ui"]), ui_keys)
             self.assertTrue(all(value.strip() for value in payloads[language]["ui"].values()))
             for page_id, page in localized.items():
