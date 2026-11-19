@@ -1,0 +1,1360 @@
+{
+  "schema": "hes_documentation_catalog_v1",
+  "version": "1.0.1",
+  "product": "HES Trade Agent",
+  "languages": [
+    "fa",
+    "en",
+    "de",
+    "fr"
+  ],
+  "default_language": "en",
+  "updated_at": "2026-11-19",
+  "status": "CANDIDATE_EDITORIAL_REVIEW",
+  "safety": {
+    "read_only": true,
+    "execution_enabled": false,
+    "orders_placed": false,
+    "policy_mutation": false
+  },
+  "source_register": [
+    "docs/PROJECT_DNA.md",
+    "docs/checkpoints/HES_TRADE_AI_DNA_2026-11-17.md",
+    "docs/architecture/HES_PRODUCT_NAMING_V1.md",
+    "docs/checkpoints/MOTHER_V2_ORCHESTRATION_2026-11-01.md",
+    "docs/checkpoints/MOTHER_CHAT_COMMAND_CENTER_CONTRACT_2026-11-06.md",
+    "docs/protocol/sequence_semantics_registry_v1.json",
+    "docs/protocol/tabdeal_broadcast_clarification_2026-11-04.md",
+    "docs/news_monitor_contract_v1.md",
+    "docs/news_intelligence_contract_v1.md",
+    "docs/execution/1M_PRECISION_JOURNAL_ACCEPTANCE_V1.md",
+    "docs/operations/GATEIO_HISTORICAL_CANDLE_RECONCILIATION_V1.md",
+    "docs/release/HES_DASHBOARD_SECURITY_RELEASE_ROLLBACK_RUNBOOK.md",
+    "docs/checkpoints/INDICATOR_STRATEGY_FAMILY_V1_2026-11-17.md",
+    "docs/checkpoints/SEQUENCE_CAPABILITY_STALENESS_2026-11-16.md",
+    "docs/documentation/EXCHANGE_SEQUENCE_SEMANTICS_RESEARCH_DIGEST_2026-10-10.md (digest of the user-supplied research artifact; not primary exchange evidence)"
+  ],
+  "locales": {
+    "en": [
+      {
+        "id": "dna",
+        "category": "Foundation",
+        "title": "Project DNA and product identity",
+        "summary": "What HES is, how its product layers differ, and which principles cannot be bypassed.",
+        "sections": [
+          {
+            "heading": "Product identity",
+            "body": "HES Trade Agent is the complete trading-agent product. HES Trade AI is its intelligent brain and conversational assistant, working with the Mother Orchestrator and specialist agents. HES Command Center is the user-facing workspace for communication, observation, commands and control. These names describe different layers and are not interchangeable.",
+            "bullets": [
+              "HOSHYAR is retired as a user-facing product name; legacy technical identifiers remain unchanged until a separately reviewed migration.",
+              "The project is designed to be market-, venue-, symbol-, timeframe- and strategy-transferable; each new adapter or profile still needs its own evidence and validation."
+            ]
+          },
+          {
+            "heading": "Non-negotiable principles",
+            "body": "Prefer sustainable decision quality over trade frequency. Every capability must have a measurable metric, a reproducible test and traceable evidence. Unknown or missing evidence must not be presented as a verified fact.",
+            "bullets": [
+              "Free-first: no paid or metered hosted LLM API and no remote-model fallback for the Command Center.",
+              "Mother evidence readers are authoritative for project facts; the local model may assist with bounded language tasks but is not a trading authority.",
+              "Human approval, least privilege, capital protection and fail-closed behavior take precedence over convenience."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "roadmap",
+        "category": "Planning",
+        "title": "Roadmap and delivery gates",
+        "summary": "The documented staged path from inventory through local intelligence and approved engineering.",
+        "sections": [
+          {
+            "heading": "Implementation phases",
+            "body": "The canonical HES Trade AI roadmap is staged so each phase can be measured before the next is enabled.",
+            "bullets": [
+              "Phase 0 — Inventory and feasibility: inspect the existing VPS, services, Mother/chat, dependencies, security boundaries and dirty checkout. Do not reset or clean the checkout or restart unrelated services.",
+              "Phase 1 — Local model benchmark: measure CPU/RAM, latency, context, multilingual quality and concurrent-load impact. If resources or quality are insufficient, report the constraint; do not fall back to paid inference.",
+              "Phase 2 — Conversation and memory: extend the existing Mother chat with multilingual multi-turn context, session isolation, controlled durable memory, retrieval provenance and user control.",
+              "Phase 3 — Diagnostics and strategy intelligence: provide read-only, evidence-linked explanations over operational and trading records.",
+              "Phase 4 — Hypothesis lab: reproducible isolated experiments, baselines, metrics, out-of-sample validation and cost/slippage checks.",
+              "Phase 5 — Engineering copilot under approval: minimal patch proposal, tests, review, explicit approval, controlled deployment and rollback."
+            ]
+          },
+          {
+            "heading": "Release discipline",
+            "body": "A roadmap item is not complete because code exists. Completion requires the acceptance criteria, tests, provenance and operational boundaries for that item. Staging and production are separate states.",
+            "bullets": [
+              "Do not infer production activation from a staging pass.",
+              "Record blockers and unverified dependencies explicitly.",
+              "Keep trading execution disabled unless a separate, explicit release gate authorizes it."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "architecture",
+        "category": "Architecture",
+        "title": "Architecture and agent responsibilities",
+        "summary": "The existing Mother-centered design and the boundaries between specialists, interface and authority.",
+        "sections": [
+          {
+            "heading": "Control flow",
+            "body": "The Mother Orchestrator coordinates specialist evaluation over a shared, validated evidence snapshot. HES Command Center presents status and accepts questions; it is not a second strategy engine or an independent trading authority.",
+            "bullets": [
+              "Data Quality validates source, freshness, gaps and provenance.",
+              "Market Structure/Regime describes market context; Signal and Confirmation assess candidate setup evidence.",
+              "Risk Gate can veto a candidate and enforce NO_TRADE. Decision and Evaluation record the resulting decision and its evidence.",
+              "Execution is a separately gated capability; the current dashboard is read-only and exposes no order-submit route.",
+              "Learning Loop evaluates forward decisions, rejected candidates and resolved outcomes without hindsight leakage or metric manipulation."
+            ]
+          },
+          {
+            "heading": "Authority boundaries",
+            "body": "The local conversational model is optional and subordinate. It can route bounded intents and explain verified evidence; it cannot replace Mother specialists, change strategy policy, write journals, access exchange accounts or submit orders.",
+            "bullets": [
+              "Reuse existing adapters, readers, APIs, authentication, journal and dashboard; do not create parallel infrastructure without evidence.",
+              "A chart or indicator is descriptive unless its specific decision role has been validated and authorized."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "market-data",
+        "category": "Data",
+        "title": "Market data and exchange adapters",
+        "summary": "Separate authoritative analysis data from venue-specific execution connectivity.",
+        "sections": [
+          {
+            "heading": "Current analysis source",
+            "body": "The dashboard contract identifies Gate.io Public Spot as the canonical live market-data source. The canonical BTC market is BTC_USDT. Explicitly mapped ETH_USDT and SOL_USDT pairs may be displayed through the shared native adapter, but their strategy/timeframe roles remain descriptive until independently validated.",
+            "bullets": [
+              "Chart and indicator calculations must use the same validated closed-candle batch and its SHA-256 provenance.",
+              "Only fresh, fully closed, gap-checked candles are eligible for display or downstream evidence.",
+              "This is one public venue source, not a cross-venue consolidated index. News feeds are never a source of candles or indicators."
+            ]
+          },
+          {
+            "heading": "Analysis versus execution",
+            "body": "A global chart price is not an executable quote on a trading venue. Data adapters and execution adapters have different contracts and must not be conflated.",
+            "bullets": [
+              "Before any venue adapter can be enabled, validate symbol mapping, venue filters, spread/slippage, risk approval, idempotency and fill reconciliation.",
+              "Do not assume that a symbol name or a public market-data connection proves account access or order capability.",
+              "Reuse the existing Gate.io reader and native OHLCV path; avoid rebuilding the same data infrastructure."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sequence",
+        "category": "Protocol safety",
+        "title": "Exchange sequence semantics and event ordering",
+        "summary": "Sequence-like fields are opaque until their exact venue and message contract proves otherwise.",
+        "sections": [
+          {
+            "heading": "Core rule",
+            "body": "A field named sequence, seq, id, tradeId, u or updateId has no universal meaning. Semantics depend on the exact venue, product, endpoint, channel, message type, field path and protocol version. Numeric shape alone proves neither uniqueness nor ordering, contiguity, gap detection or comparability across reconnects.",
+            "bullets": [
+              "Unknown is a first-class state and is not equivalent to false; unknown never grants a capability.",
+              "Trade identity is not ordering. Ordering is not contiguity. Contiguity is not cross-reconnect comparability.",
+              "Only documented order-book ranges or links may drive gap detection, and only inside their documented scope.",
+              "Exact raw-payload replay can be treated idempotently when the adapter supports it; a repeated opaque number is not automatically a duplicate or conflict."
+            ]
+          },
+          {
+            "heading": "Tabdeal and cross-venue examples",
+            "body": "The supplied research report and the project registry classify Tabdeal FAPI/Margin trade.sequence conservatively. The official material reviewed does not define it as a trade ID, stream sequence, gap counter or deduplication key. The official reply recorded by the project owner says not to assume uniqueness, ordering, consecutiveness, replay, gap detection or deduplication; depth sequence is separate and REST reconciliation is approximate.",
+            "bullets": [
+              "Tabdeal broadcast inner trade fields are not fully defined in the reviewed public page; preserve full raw payloads with market, receive time and venue event time.",
+              "Binance Spot depth uses documented U/u update ranges and a REST snapshot synchronization procedure; trade IDs are a different contract.",
+              "OKX documents prevSeqId/seqId for particular book channels and a maintenance reset; Bybit documents channel-specific u/seq behavior. Coinbase and Kraken have their own channel-specific guarantees.",
+              "Do not copy one exchange's sequence rules to another product or channel. Reconnect creates a new session epoch unless the exact contract explicitly allows cross-session comparison."
+            ]
+          },
+          {
+            "heading": "Required recovery and tests",
+            "body": "On reconnect, resubscribe and obtain a fresh snapshot when the channel requires it. Keep venue event time separate from local receive time. Schema drift, stale data, checksum failure, corrupt checkpoints or broken documented book linkage must block dependent processing.",
+            "bullets": [
+              "Test exact replay, repeated opaque IDs, documented conflicting identities, missing fields, numeric gaps, backward IDs, timestamp units, reconnect epochs and snapshot resets.",
+              "For unknown/non-contiguous fields, random numeric jumps must never produce a missing-event conclusion solely through arithmetic.",
+              "Affected stateful strategies remain NO_TRADE_ONLY until a valid resynchronization is proven."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "strategy",
+        "category": "Trading intelligence",
+        "title": "Strategy, timeframes and indicators",
+        "summary": "How research features support, but do not independently authorize, a trade decision.",
+        "sections": [
+          {
+            "heading": "Timeframe roles",
+            "body": "The documented BTC profile assigns 4H and 1H to higher-timeframe context, 15M as setup authority, and 1M as precision refinement. The 1M layer cannot create a setup, change direction or bypass the 15M gate.",
+            "bullets": [
+              "ETH and SOL remain descriptive until their own timeframe-role profiles pass validation.",
+              "A timeframe alignment display is evidence, not a prediction or trade authorization.",
+              "Strategy panels are read-only projections of canonical evaluators and journals; they must not calculate a competing strategy."
+            ]
+          },
+          {
+            "heading": "Indicator interpretation",
+            "body": "Indicators are descriptive features grouped by evidence family to avoid double-counting correlated signals. Regime evidence share is not a predictive probability.",
+            "bullets": [
+              "Trend: EMA relationships/slopes, ADX/DI, Supertrend and Aroon.",
+              "Momentum: RSI, MACD, stochastic, Williams %R, ROC and CCI.",
+              "Volatility: ATR, Bollinger, Keltner and Donchian measures.",
+              "Volume/flow: VWAP, relative volume, OBV, MFI and CMF, only when source volume semantics are valid.",
+              "Regime: choppiness and efficiency ratio. Missing volume semantics disables volume-derived indicators only."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "risk",
+        "category": "Safety",
+        "title": "Risk gates and execution boundary",
+        "summary": "Why HOLD and NO_TRADE are valid outcomes and why the dashboard cannot place orders.",
+        "sections": [
+          {
+            "heading": "Fail-closed decision policy",
+            "body": "Missing, stale, contradictory or unverified evidence must block the affected decision path. NO_TRADE is an intentional safety outcome, not a system failure or an invitation to lower thresholds.",
+            "bullets": [
+              "Data Quality, Confirmation and Risk Gate cannot be bypassed by the interface, local model, indicators or news.",
+              "The Risk Gate may veto a candidate; the system must preserve the reason and evidence reference.",
+              "Do not infer a fill, realized outcome or executed trade from a signal or decision record."
+            ]
+          },
+          {
+            "heading": "Current interface boundary",
+            "body": "The dashboard contract is read-only: no account access, no order-submit route and no policy or journal mutation. A market-data quote does not prove executable venue pricing.",
+            "bullets": [
+              "Execution remains disabled unless a separately reviewed adapter, risk, approval, idempotency and reconciliation gate is passed.",
+              "Never put credentials, tokens, private keys or account identifiers in documentation.",
+              "Any future write-capable tool must use least privilege and explicit human approval."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "learning",
+        "category": "Learning",
+        "title": "Training, evaluation and learning loop",
+        "summary": "Reproducible model research and honest measurement without hindsight or metric manipulation.",
+        "sections": [
+          {
+            "heading": "Model and experiment records",
+            "body": "A training record should identify the run, data source, time range, sample count, feature schema, label method, chronological split, model artifact hash, parameters, metrics and limitations. A model artifact or successful training run is not proof of a profitable strategy.",
+            "bullets": [
+              "Keep training data and model artifacts separate from source code when appropriate; record immutable hashes and provenance.",
+              "Use chronological train/validation/test splits and out-of-sample checks; avoid leakage from future candles or outcomes.",
+              "Benchmark resource use and concurrent VPS impact before enabling a local model in production."
+            ]
+          },
+          {
+            "heading": "Forward evaluation",
+            "body": "The Learning Loop should evaluate accepted and rejected decisions, missed opportunities, costs and resolved outcomes using canonical forward journals. Preserve the decision as it was made; do not rewrite history.",
+            "bullets": [
+              "Attribute outcomes to the gates and evidence available at decision time.",
+              "Do not optimize thresholds retrospectively to fit a historical winner set.",
+              "A hypothesis needs preregistered criteria, reproducible isolated tests, baseline comparison and cost/slippage analysis."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "news-journal",
+        "category": "Evidence",
+        "title": "News Radar and decision journal",
+        "summary": "News supplies context; the journal preserves immutable forward evidence.",
+        "sections": [
+          {
+            "heading": "News intelligence",
+            "body": "News Radar is contextual evidence, not a signal generator. It must distinguish international, domestic and venue-operational sources and expose coverage, source health and freshness limitations.",
+            "bullets": [
+              "A stale, future-dated, empty or failed source must not be presented as fresh verified coverage.",
+              "Gate.io announcements are venue-operational news only; they do not replace the market-data feed.",
+              "News cannot originate trade direction, override Confirmation or Risk Gate, or authorize execution."
+            ]
+          },
+          {
+            "heading": "Decision journal",
+            "body": "The journal stores forward decisions and their evidence references. It must not infer executed trades or realized outcomes when those facts were not supplied by an authoritative execution record.",
+            "bullets": [
+              "Preserve timestamps, market, timeframe, decision, strategy family, gate/reason, outcome status and evidence hashes as defined by the journal contract.",
+              "Distinguish no-trade, rejected candidate, accepted paper decision, executed order and realized outcome.",
+              "Use the journal to assess prevented losses and missed opportunities without changing historical decisions."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "operations",
+        "category": "Operations",
+        "title": "Operations, privacy, backup and recovery",
+        "summary": "Operational safety rules for the VPS, documentation updates and future maintenance.",
+        "sections": [
+          {
+            "heading": "Runtime and deployment",
+            "body": "The HES core, orchestration, memory and retrieval run on the VPS; browser/mobile clients remain thin. Production changes must be isolated, tested, reviewed and deployed through a controlled release with rollback evidence.",
+            "bullets": [
+              "Do not reset, clean or overwrite a dirty checkout; preserve untracked work and existing release pointers.",
+              "Do not restart unrelated services or enable an optional model as a side effect of documentation work.",
+              "Staging success and production activation are separate and must be recorded separately."
+            ]
+          },
+          {
+            "heading": "Privacy and recovery",
+            "body": "Documentation must never contain secrets or private user data. Backup and recovery instructions must identify scope, encryption, retention, integrity checks and restore verification.",
+            "bullets": [
+              "Use only approved evidence roots and least-privilege readers; never expose credential files through documentation APIs.",
+              "Record backup hashes and restore-test evidence; a successful backup command alone does not prove recoverability.",
+              "After a reconnect or corrupted state, rebuild from validated snapshots rather than guessing missing sequence or checkpoint values."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "glossary",
+        "category": "Reference",
+        "title": "Glossary",
+        "summary": "Consistent terminology used across HES documentation and the dashboard.",
+        "sections": [
+          {
+            "heading": "Market-data and protocol terms",
+            "body": "Use these meanings consistently in code, reports and translations.",
+            "bullets": [
+              "Event identity: a documented key that identifies an event within a declared scope.",
+              "Ordering: a documented relationship that establishes which event precedes another.",
+              "Contiguity: a documented rule that allows missing events to be inferred from a broken range or link.",
+              "Scope: the venue/product/endpoint/channel/message/field/protocol tuple to which a guarantee applies.",
+              "Sequence epoch: a session or synchronization period; values from different epochs are not comparable unless documented.",
+              "Provenance: source, retrieval context, timestamps, schema and cryptographic hashes that explain where evidence came from."
+            ]
+          },
+          {
+            "heading": "Decision and safety terms",
+            "body": "Safety labels must not be softened by translation.",
+            "bullets": [
+              "NO_TRADE: no trade is authorized for the evaluated evidence and policy state.",
+              "HOLD: a release or decision gate remains unresolved.",
+              "Fail closed: block the affected operation when required evidence or validation is missing.",
+              "Read-only: data may be inspected and explained, but not changed or acted upon.",
+              "Descriptive-only: a feature provides context but has no independent signal or policy authority."
+            ]
+          }
+        ]
+      }
+    ],
+    "fa": [
+      {
+        "id": "dna",
+        "category": "مبانی",
+
+        "title": "DNA پروژه و هویت محصول",
+        "summary": "HES چیست، لایه‌های محصول چه تفاوتی دارند و کدام اصول قابل دور زدن نیستند.",
+        "sections": [
+          {
+            "heading": "هویت محصول",
+            "body": "HES Trade Agent محصول کامل ایجنت معاملاتی است. HES Trade AI مغز هوشمند و دستیار گفت‌وگویی آن است که با هماهنگ‌کننده مادر و ایجنت‌های تخصصی کار می‌کند. HES Command Center محیط کاربر برای ارتباط، مشاهده، فرمان و کنترل است. این نام‌ها به لایه‌های متفاوت اشاره دارند و نباید به‌جای یکدیگر استفاده شوند.",
+            "bullets": [
+              "نام HOSHYAR از هویت نمایشی محصول کنار گذاشته شده است؛ شناسه‌های فنی قدیمی تا زمان بررسی و مهاجرت جداگانه تغییر نمی‌کنند.",
+              "پروژه برای انتقال‌پذیری میان بازارها، صرافی‌ها، نمادها، تایم‌فریم‌ها و استراتژی‌ها طراحی شده است؛ هر آداپتور یا پروفایل جدید همچنان به شواهد و اعتبارسنجی مستقل نیاز دارد."
+            ]
+          },
+          {
+            "heading": "اصول تغییرناپذیر",
+            "body": "کیفیت پایدار تصمیم بر تعداد معاملات اولویت دارد. هر قابلیت باید معیار قابل‌اندازه‌گیری، آزمون تکرارپذیر و شواهد قابل‌ردیابی داشته باشد. شواهد ناموجود یا نامشخص نباید به‌عنوان واقعیت تأییدشده نمایش داده شوند.",
+            "bullets": [
+              "اصل رایگان‌محور: برای Command Center از API پولی یا مبتنی بر مصرف مدل میزبانی‌شده و مسیر جایگزین مدل راه دور استفاده نمی‌شود.",
+              "خوانشگرهای شواهد Mother مرجع اطلاعات پروژه هستند؛ مدل محلی می‌تواند در کارهای زبانی محدود کمک کند، اما مرجع تصمیم معاملاتی نیست.",
+              "تأیید انسانی، حداقل سطح دسترسی، حفاظت از سرمایه و رفتار امن در نبود شواهد بر سهولت کار مقدم‌اند."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "roadmap",
+        "category": "برنامه‌ریزی",
+        "title": "نقشه راه و دروازه‌های تحویل",
+        "summary": "مسیر مرحله‌ای مستند از شناخت وضعیت تا هوش محلی و مهندسی با تأیید انسانی.",
+        "sections": [
+          {
+            "heading": "فازهای پیاده‌سازی",
+            "body": "نقشه راه مرجع HES Trade AI مرحله‌بندی شده است تا پیش از فعال‌سازی هر مرحله، امکان سنجش آن وجود داشته باشد.",
+            "bullets": [
+              "فاز صفر — موجودی‌برداری و امکان‌سنجی: بررسی VPS موجود، سرویس‌ها، Mother/Chat، وابستگی‌ها، مرزهای امنیتی و تغییرات ثبت‌نشده مخزن. Checkout را پاک‌سازی یا بازنشانی نکنید و سرویس نامرتبط را راه‌اندازی مجدد نکنید.",
+              "فاز یک — ارزیابی مدل محلی: سنجش CPU/RAM، تأخیر، ظرفیت متن، کیفیت چندزبانه و اثر بار هم‌زمان. در صورت ناکافی بودن منابع یا کیفیت، محدودیت را گزارش کنید؛ به استنتاج پولی بازنگردید.",
+              "فاز دو — گفت‌وگو و حافظه: توسعه چت موجود Mother با زمینه چندنوبتی چندزبانه، جداسازی نشست، حافظه پایدار کنترل‌شده، منشأ بازیابی و کنترل کاربر.",
+              "فاز سه — عیب‌یابی و هوش استراتژی: توضیح‌های فقط‌خواندنی و متصل به شواهد درباره سوابق عملیاتی و معاملاتی.",
+              "فاز چهار — آزمایشگاه فرضیه: آزمایش‌های ایزوله و تکرارپذیر، خط مبنا، معیارها، اعتبارسنجی خارج از نمونه و بررسی هزینه/لغزش.",
+              "فاز پنج — دستیار مهندسی با تأیید: پیشنهاد تغییر حداقلی، آزمون، بازبینی، تأیید صریح، انتشار کنترل‌شده و بازگشت نسخه."
+            ]
+          },
+          {
+            "heading": "انضباط انتشار",
+            "body": "وجود کد به‌تنهایی به معنی تکمیل یک قابلیت نیست. تکمیل مستلزم معیار پذیرش، آزمون، منشأ شواهد و رعایت مرزهای عملیاتی همان قابلیت است. وضعیت محیط آزمایشی با وضعیت تولید متفاوت است.",
+            "bullets": [
+              "موفقیت در محیط آزمایشی را معادل فعال‌سازی تولید ندانید.",
+              "مانع‌ها و وابستگی‌های تأییدنشده را صریح ثبت کنید.",
+              "اجرای معاملات را تا زمان عبور از دروازه انتشار مستقل و صریح غیرفعال نگه دارید."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "architecture",
+        "category": "معماری",
+        "title": "معماری و مسئولیت ایجنت‌ها",
+        "summary": "طراحی مبتنی بر Mother و مرز مسئولیت متخصص‌ها، رابط کاربری و مرجع اختیار.",
+        "sections": [
+          {
+            "heading": "جریان کنترل",
+            "body": "هماهنگ‌کننده Mother ارزیابی ایجنت‌های تخصصی را روی یک تصویر مشترک و اعتبارسنجی‌شده از شواهد هماهنگ می‌کند. HES Command Center وضعیت را نمایش می‌دهد و پرسش می‌پذیرد؛ این رابط موتور استراتژی دوم یا مرجع مستقل معامله نیست.",
+            "bullets": [
+              "کیفیت داده، منبع، تازگی، شکاف‌ها و منشأ داده را اعتبارسنجی می‌کند.",
+              "ساختار/رژیم بازار زمینه را توصیف می‌کند؛ Signal و Confirmation شواهد ستاپ پیشنهادی را می‌سنجند.",
+              "Risk Gate می‌تواند ستاپ را وتو کند و NO_TRADE را اعمال کند. Decision و Evaluation تصمیم نهایی و شواهد آن را ثبت می‌کنند.",
+              "Execution قابلیتی جداگانه و مشروط به دروازه‌های مستقل است؛ داشبورد فعلی فقط‌خواندنی است و مسیر ثبت سفارش ندارد.",
+              "Learning Loop تصمیم‌های آینده‌نگر، گزینه‌های ردشده و نتایج تعیین‌تکلیف‌شده را بدون نشت اطلاعات آینده یا دستکاری معیارها ارزیابی می‌کند."
+            ]
+          },
+          {
+            "heading": "مرزهای اختیار",
+            "body": "مدل گفت‌وگویی محلی اختیاری و تابع این معماری است. می‌تواند قصدهای محدود را مسیریابی و شواهد تأییدشده را توضیح دهد؛ اما جایگزین متخصص‌های Mother نمی‌شود، سیاست استراتژی را تغییر نمی‌دهد، ژورنال نمی‌نویسد، به حساب صرافی دسترسی ندارد و سفارش ثبت نمی‌کند.",
+            "bullets": [
+              "از آداپتورها، خوانشگرها، APIها، احراز هویت، ژورنال و داشبورد موجود استفاده مجدد کنید؛ زیرساخت موازی فقط با شواهد ضرورت ساخته شود.",
+              "نمودار یا اندیکاتور تا وقتی نقش تصمیم‌گیری مشخص آن اعتبارسنجی و مجاز نشده، صرفاً توصیفی است."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "market-data",
+        "category": "داده",
+        "title": "داده بازار و آداپتورهای صرافی",
+        "summary": "تفکیک منبع مرجع تحلیل از اتصال اختصاصی اجرای سفارش در صرافی.",
+        "sections": [
+          {
+            "heading": "منبع فعلی تحلیل",
+            "body": "قرارداد داشبورد، Gate.io Public Spot را منبع مرجع داده زنده بازار معرفی می‌کند. بازار مرجع BTC برابر BTC_USDT است. جفت‌های صریحاً نگاشت‌شده ETH_USDT و SOL_USDT نیز از آداپتور بومی مشترک قابل نمایش‌اند، اما نقش استراتژی و تایم‌فریم آن‌ها تا اعتبارسنجی مستقل صرفاً توصیفی است.",
+            "bullets": [
+              "محاسبه نمودار و اندیکاتورها باید از همان بسته کندل بسته‌شده و اعتبارسنجی‌شده و منشأ SHA-256 آن استفاده کند.",
+              "فقط کندل‌های کاملاً بسته، تازه و بررسی‌شده از نظر شکاف برای نمایش یا شواهد پایین‌دستی مناسب‌اند.",
+              "این منبع، یک صرافی عمومی است و شاخص تجمیعی چندصرافی محسوب نمی‌شود. فید اخبار هرگز منبع کندل یا اندیکاتور نیست."
+            ]
+          },
+          {
+            "heading": "تفکیک تحلیل از اجرا",
+            "body": "قیمت نمودار جهانی، مظنه قابل‌اجرای یک صرافی معاملاتی نیست. آداپتور داده و آداپتور اجرا قراردادهای متفاوتی دارند و نباید با هم اشتباه گرفته شوند.",
+            "bullets": [
+              "پیش از فعال‌سازی هر آداپتور صرافی، نگاشت نماد، فیلترهای صرافی، اسپرد/لغزش، تأیید ریسک، جلوگیری از اجرای تکراری و تطبیق اجرای سفارش باید اعتبارسنجی شوند.",
+              "نام نماد یا اتصال عمومی داده بازار، به‌تنهایی دسترسی حساب یا امکان ثبت سفارش را ثابت نمی‌کند.",
+              "از خوانشگر موجود Gate.io و مسیر بومی OHLCV استفاده کنید؛ زیرساخت دریافت داده تکراری نسازید."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sequence",
+        "category": "ایمنی پروتکل",
+        "title": "معنای Sequence و ترتیب رویدادها در صرافی‌ها",
+        "summary": "فیلدهای شبیه sequence تا زمانی که قرارداد دقیق صرافی و پیام معنای آن‌ها را ثابت نکند، مبهم‌اند.",
+        "sections": [
+          {
+            "heading": "قاعده اصلی",
+            "body": "فیلدی با نام sequence، seq، id، tradeId، u یا updateId معنای عمومی و یکسانی ندارد. معنا به صرافی، محصول، endpoint، کانال، نوع پیام، مسیر فیلد و نسخه پروتکل دقیق وابسته است. شکل عددی به‌تنهایی نه یکتایی را ثابت می‌کند، نه ترتیب، پیوستگی، تشخیص شکاف یا قابلیت مقایسه پس از اتصال مجدد را.",
+            "bullets": [
+              "Unknown یک وضعیت مستقل است و با false یکسان نیست؛ وضعیت نامشخص هیچ قابلیتی را مجاز نمی‌کند.",
+              "هویت معامله با ترتیب رویداد یکی نیست؛ ترتیب با پیوستگی یکی نیست؛ پیوستگی نیز به معنی قابلیت مقایسه میان اتصال‌ها نیست.",
+              "فقط بازه‌ها یا پیوندهای مستند دفتر سفارش، آن هم در محدوده مستند خود، مجاز به تشخیص شکاف هستند.",
+              "تکرار دقیق payload خام، در صورت پشتیبانی آداپتور، می‌تواند مستقل از شناسه عددی مبهم به‌صورت idempotent مدیریت شود؛ عدد تکراری به‌تنهایی تکرار یا تعارض نیست."
+            ]
+          },
+          {
+            "heading": "Tabdeal و نمونه‌های چندصرافی",
+            "body": "گزارش پژوهشی پیوست و رجیستری پروژه، trade.sequence در Tabdeal FAPI/Margin را محافظه‌کارانه طبقه‌بندی می‌کنند. مستندات رسمی بررسی‌شده آن را به‌عنوان شناسه معامله، توالی جریان، شمارنده شکاف یا کلید حذف تکرار تعریف نمی‌کنند. پاسخ رسمی ثبت‌شده توسط مالک پروژه می‌گوید نباید یکتایی، ترتیب، پیوستگی، بازپخش، تشخیص شکاف یا حذف تکرار را فرض کرد؛ sequence عمق دفتر سفارش جداست و تطبیق REST تقریبی است.",
+            "bullets": [
+              "فیلدهای داخلی پیام معامله در Broadcast صرافی Tabdeal در صفحه عمومی بررسی‌شده کامل تعریف نشده‌اند؛ payload کامل را همراه بازار، زمان دریافت و زمان رویداد صرافی نگه دارید.",
+              "عمق بازار Binance Spot از بازه‌های مستند U/u و فرایند همگام‌سازی snapshot از REST استفاده می‌کند؛ شناسه معاملات قرارداد دیگری است.",
+              "OKX برای بعضی کانال‌های دفتر سفارش prevSeqId/seqId و بازنشانی هنگام نگهداری را مستند می‌کند؛ Bybit نیز رفتارهای وابسته به کانال برای u/seq دارد. Coinbase و Kraken قراردادهای مختص کانال خود را دارند.",
+              "قواعد sequence یک صرافی را به محصول یا کانال صرافی دیگر تعمیم ندهید. اتصال مجدد یک دوره نشست جدید ایجاد می‌کند، مگر آنکه قرارداد دقیق مقایسه بین نشست‌ها را صریحاً مجاز بداند."
+            ]
+          },
+          {
+            "heading": "بازیابی و آزمون‌های لازم",
+            "body": "پس از اتصال مجدد، اشتراک را دوباره برقرار کنید و هرجا کانال نیاز دارد snapshot تازه بگیرید. زمان رویداد صرافی را از زمان دریافت محلی جدا نگه دارید. تغییر ساختار پیام، داده کهنه، خطای checksum، checkpoint خراب یا شکست پیوند مستند دفتر سفارش باید پردازش وابسته را متوقف کند.",
+            "bullets": [
+              "تکرار دقیق، شناسه مبهم تکراری، هویت مستند متعارض، فیلد مفقود، شکاف عددی، شناسه عقب‌گرد، واحد زمان، دوره نشست پس از reconnect و بازنشانی snapshot را آزمایش کنید.",
+              "برای فیلدهای نامشخص یا غیرپیوسته، پرش‌های عددی تصادفی نباید صرفاً با محاسبه ریاضی به نتیجه ازدست‌رفتن رویداد منجر شوند.",
+              "استراتژی وابسته به وضعیت دفتر سفارش تا زمان اثبات همگام‌سازی مجدد معتبر باید در حالت NO_TRADE_ONLY بماند."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "strategy",
+        "category": "هوش معاملاتی",
+        "title": "استراتژی، تایم‌فریم‌ها و اندیکاتورها",
+        "summary": "نقش ویژگی‌های پژوهشی در پشتیبانی از تصمیم، بدون اختیار مستقل برای مجوز معامله.",
+        "sections": [
+          {
+            "heading": "نقش تایم‌فریم‌ها",
+            "body": "پروفایل مستند BTC، تایم‌فریم‌های 4H و 1H را برای زمینه بالادستی، 15M را مرجع ستاپ و 1M را برای دقیق‌سازی ورود تعیین می‌کند. لایه 1M نمی‌تواند ستاپ بسازد، جهت را تغییر دهد یا گیت 15M را دور بزند.",
+            "bullets": [
+              "ETH و SOL تا زمان عبور پروفایل نقش تایم‌فریم مستقل از اعتبارسنجی، صرفاً توصیفی باقی می‌مانند.",
+              "نمایش هم‌راستایی تایم‌فریم‌ها شواهد است، نه پیش‌بینی یا مجوز معامله.",
+              "پنل‌های استراتژی فقط‌خواندنی و بازتاب ارزیاب‌ها و ژورنال مرجع هستند؛ نباید استراتژی رقیب محاسبه کنند."
+            ]
+          },
+          {
+            "heading": "تفسیر اندیکاتورها",
+            "body": "اندیکاتورها ویژگی‌های توصیفی هستند و برای جلوگیری از شمارش چندباره شواهد هم‌بسته، بر اساس خانواده شواهد گروه‌بندی می‌شوند. سهم شواهد رژیم، احتمال پیش‌بینی نیست.",
+            "bullets": [
+              "روند: روابط و شیب EMA، شاخص ADX/DI، سوپرترند و آرون.",
+              "شتاب: RSI، MACD، استوکاستیک، Williams %R، ROC و CCI.",
+              "نوسان: ATR، باندهای بولینگر، کلتنر و سنجه‌های دونچیان.",
+              "حجم و جریان: VWAP، حجم نسبی، OBV، MFI و CMF؛ فقط وقتی معنای حجم منبع معتبر باشد.",
+              "رژیم: چپینس و نسبت کارایی. نبود معنای معتبر حجم فقط اندیکاتورهای مبتنی بر حجم را غیرفعال می‌کند."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "risk",
+        "category": "ایمنی",
+        "title": "گیت‌های ریسک و مرز اجرای سفارش",
+        "summary": "چرا HOLD و NO_TRADE نتایج معتبرند و چرا داشبورد قادر به ثبت سفارش نیست.",
+        "sections": [
+          {
+            "heading": "سیاست توقف امن",
+            "body": "شواهد مفقود، کهنه، متناقض یا تأییدنشده باید مسیر تصمیم مربوط را مسدود کند. NO_TRADE یک نتیجه ایمنی عمدی است، نه خطای سیستم و نه مجوزی برای پایین آوردن آستانه‌ها.",
+            "bullets": [
+              "رابط کاربری، مدل محلی، اندیکاتورها یا اخبار نمی‌توانند Data Quality، Confirmation یا Risk Gate را دور بزنند.",
+              "Risk Gate می‌تواند گزینه معامله را وتو کند؛ دلیل و ارجاع شواهد باید حفظ شود.",
+              "از روی سیگنال یا رکورد تصمیم، اجرای سفارش، نتیجه تحقق‌یافته یا معامله انجام‌شده را حدس نزنید."
+            ]
+          },
+          {
+            "heading": "مرز فعلی رابط",
+            "body": "قرارداد داشبورد فقط‌خواندنی است: دسترسی به حساب، مسیر ثبت سفارش و امکان تغییر سیاست یا ژورنال ندارد. مظنه داده بازار، قیمت قابل‌اجرای صرافی را ثابت نمی‌کند.",
+            "bullets": [
+              "اجرا تا زمان عبور آداپتور مستقل، ریسک، تأیید، idempotency و تطبیق از دروازه‌های بازبینی‌شده غیرفعال می‌ماند.",
+              "اعتبارنامه، توکن، کلید خصوصی یا شناسه حساب را در مستندات قرار ندهید.",
+              "هر ابزار آینده دارای قابلیت نوشتن باید حداقل سطح دسترسی و تأیید صریح انسانی داشته باشد."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "learning",
+        "category": "یادگیری",
+        "title": "آموزش مدل، ارزیابی و چرخه یادگیری",
+        "summary": "پژوهش تکرارپذیر مدل و اندازه‌گیری صادقانه، بدون نشت آینده یا دستکاری معیارها.",
+        "sections": [
+          {
+            "heading": "سوابق مدل و آزمایش",
+            "body": "رکورد آموزش باید شناسه اجرا، منبع داده، بازه زمانی، تعداد نمونه، طرح ویژگی‌ها، روش برچسب‌گذاری، تفکیک زمانی، هش مدل، پارامترها، معیارها و محدودیت‌ها را ثبت کند. فایل مدل یا موفقیت یک اجرای آموزش، اثبات سودآوری استراتژی نیست.",
+            "bullets": [
+              "داده آموزش و فایل مدل را در صورت لزوم از کد منبع جدا نگه دارید و هش تغییرناپذیر و منشأ آن‌ها را ثبت کنید.",
+              "از تفکیک زمانی آموزش/اعتبارسنجی/آزمون و بررسی خارج از نمونه استفاده کنید؛ از کندل یا نتیجه آینده نشت اطلاعات ایجاد نکنید.",
+              "پیش از فعال‌سازی مدل محلی در تولید، مصرف منابع و اثر بار هم‌زمان روی VPS را بسنجید."
+            ]
+          },
+          {
+            "heading": "ارزیابی آینده‌نگر",
+            "body": "Learning Loop باید تصمیم‌های پذیرفته و ردشده، فرصت‌های ازدست‌رفته، هزینه‌ها و نتایج تعیین‌تکلیف‌شده را با ژورنال‌های مرجع آینده‌نگر ارزیابی کند. تصمیم را همان‌طور که در زمان خود گرفته شده حفظ کنید و تاریخچه را بازنویسی نکنید.",
+            "bullets": [
+              "نتیجه را به گیت‌ها و شواهد موجود در زمان تصمیم نسبت دهید.",
+              "آستانه‌ها را به‌صورت پس‌نگر برای تطبیق با مجموعه‌ای از برندگان تاریخی بهینه نکنید.",
+              "فرضیه به معیارهای ازپیش‌ثبت‌شده، آزمون ایزوله تکرارپذیر، مقایسه با خط مبنا و تحلیل هزینه/لغزش نیاز دارد."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "news-journal",
+        "category": "شواهد",
+        "title": "رادار اخبار و ژورنال تصمیم",
+        "summary": "اخبار زمینه فراهم می‌کند؛ ژورنال شواهد آینده‌نگر تغییرناپذیر را حفظ می‌کند.",
+        "sections": [
+          {
+            "heading": "هوش اخبار",
+            "body": "News Radar شواهد زمینه‌ای است، نه مولد سیگنال. باید منابع بین‌المللی، داخلی و اطلاعیه‌های عملیاتی صرافی را تفکیک کند و محدودیت پوشش، سلامت منبع و تازگی را نمایش دهد.",
+            "bullets": [
+              "منبع کهنه، دارای زمان آینده، خالی یا ناموفق نباید به‌عنوان پوشش تازه و تأییدشده معرفی شود.",
+              "اطلاعیه‌های Gate.io فقط اخبار عملیاتی صرافی هستند و جایگزین فید داده بازار نمی‌شوند.",
+              "اخبار نمی‌تواند جهت معامله ایجاد کند، Confirmation یا Risk Gate را نادیده بگیرد یا مجوز اجرا صادر کند."
+            ]
+          },
+          {
+            "heading": "ژورنال تصمیم",
+            "body": "ژورنال تصمیم‌های آینده‌نگر و ارجاع شواهد آن‌ها را ذخیره می‌کند. اگر واقعیت اجرا یا نتیجه تحقق‌یافته از رکورد معتبر اجرا ارائه نشده باشد، نباید از روی تصمیم آن را حدس زد.",
+            "bullets": [
+              "زمان، بازار، تایم‌فریم، تصمیم، خانواده استراتژی، گیت/دلیل، وضعیت نتیجه و هش شواهد را مطابق قرارداد ژورنال حفظ کنید.",
+              "عدم معامله، گزینه ردشده، تصمیم پذیرفته‌شده در شبیه‌سازی، سفارش اجراشده و نتیجه تحقق‌یافته را از هم تفکیک کنید.",
+              "از ژورنال برای سنجش زیان‌های پیشگیری‌شده و فرصت‌های ازدست‌رفته استفاده کنید، بدون تغییر تصمیم‌های تاریخی."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "operations",
+        "category": "عملیات",
+        "title": "عملیات، حریم خصوصی، پشتیبان‌گیری و بازیابی",
+        "summary": "قواعد ایمنی عملیاتی VPS، به‌روزرسانی مستندات و نگهداری آینده.",
+        "sections": [
+          {
+            "heading": "اجرا و انتشار",
+            "body": "هسته HES، هماهنگ‌سازی، حافظه و بازیابی روی VPS اجرا می‌شوند؛ کلاینت مرورگر/موبایل سبک باقی می‌ماند. تغییرات تولید باید ایزوله، آزمون‌شده، بازبینی‌شده و از طریق انتشار کنترل‌شده همراه با شواهد بازگشت نسخه اعمال شوند.",
+            "bullets": [
+              "Checkout دارای تغییرات ثبت‌نشده را بازنشانی، پاک‌سازی یا بازنویسی نکنید؛ کارهای ثبت‌نشده و اشاره‌گرهای انتشار را حفظ کنید.",
+              "در نتیجه کار مستندات، سرویس نامرتبط را راه‌اندازی مجدد یا مدل اختیاری را فعال نکنید.",
+              "موفقیت staging و فعال‌سازی production دو وضعیت مستقل‌اند و باید جداگانه ثبت شوند."
+            ]
+          },
+          {
+            "heading": "حریم خصوصی و بازیابی",
+            "body": "مستندات نباید حاوی رازها یا داده خصوصی کاربر باشند. دستورالعمل پشتیبان‌گیری و بازیابی باید محدوده، رمزنگاری، نگهداری، بررسی صحت و تأیید بازیابی را مشخص کند.",
+            "bullets": [
+              "فقط از ریشه‌های شواهد مجاز و خوانشگرهای حداقل‌دسترسی استفاده کنید؛ فایل اعتبارنامه را از طریق API مستندات افشا نکنید.",
+              "هش نسخه پشتیبان و شواهد آزمون بازیابی را ثبت کنید؛ اجرای موفق فرمان پشتیبان‌گیری به‌تنهایی بازیابی‌پذیری را ثابت نمی‌کند.",
+              "پس از اتصال مجدد یا خرابی وضعیت، از snapshot اعتبارسنجی‌شده دوباره همگام شوید؛ مقدار sequence یا checkpoint مفقود را حدس نزنید."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "glossary",
+        "category": "مرجع",
+        "title": "واژه‌نامه",
+        "summary": "اصطلاحات یکپارچه در مستندات HES و داشبورد.",
+        "sections": [
+          {
+            "heading": "اصطلاحات داده بازار و پروتکل",
+            "body": "این معناها را در کد، گزارش و ترجمه‌ها به‌صورت یکسان به کار ببرید.",
+            "bullets": [
+              "هویت رویداد: کلید مستندی که یک رویداد را در محدوده تعریف‌شده مشخص می‌کند.",
+              "ترتیب: رابطه مستندی که تقدم یک رویداد بر رویداد دیگر را نشان می‌دهد.",
+              "پیوستگی: قاعده مستندی که اجازه می‌دهد رویدادهای مفقود از شکست یک بازه یا پیوند استنباط شوند.",
+              "محدوده: ترکیب صرافی/محصول/endpoint/کانال/پیام/فیلد/نسخه پروتکل که یک تضمین به آن محدود است.",
+              "دوره sequence: دوره نشست یا همگام‌سازی؛ مقادیر دوره‌های مختلف قابل مقایسه نیستند مگر آنکه مستند شده باشد.",
+              "منشأ شواهد: منبع، زمینه بازیابی، زمان‌ها، طرح داده و هش‌های رمزنگاری که منشأ اطلاعات را روشن می‌کنند."
+            ]
+          },
+          {
+            "heading": "اصطلاحات تصمیم و ایمنی",
+            "body": "معنای برچسب‌های ایمنی نباید در ترجمه تضعیف شود.",
+            "bullets": [
+              "NO_TRADE: برای شواهد و وضعیت سیاست ارزیابی‌شده، هیچ معامله‌ای مجاز نیست.",
+              "HOLD: یک دروازه انتشار یا تصمیم هنوز تعیین‌تکلیف نشده است.",
+              "Fail closed: وقتی شواهد یا اعتبارسنجی لازم وجود ندارد، عملیات مربوط مسدود می‌شود.",
+              "فقط‌خواندنی: داده قابل مشاهده و توضیح است، اما قابل تغییر یا اقدام نیست.",
+              "صرفاً توصیفی: ویژگی فقط زمینه فراهم می‌کند و اختیار مستقل سیگنال یا سیاست ندارد."
+            ]
+          }
+        ]
+      }
+    ],
+    "de": [
+      {
+        "id": "dna",
+        "category": "Grundlagen",
+        "title": "Projekt-DNA und Produktidentität",
+        "summary": "Was HES ist, wie sich die Produktebenen unterscheiden und welche Grundsätze unverhandelbar sind.",
+        "sections": [
+          {
+            "heading": "Produktidentität",
+            "body": "HES Trade Agent ist das vollständige Trading-Agent-Produkt. HES Trade AI ist dessen intelligenter Kern und dialogbasierter Assistent, der mit dem Mother Orchestrator und spezialisierten Agenten zusammenarbeitet. HES Command Center ist der Benutzerarbeitsbereich für Kommunikation, Beobachtung, Befehle und Kontrolle. Diese Namen bezeichnen unterschiedliche Ebenen und sind nicht austauschbar.",
+            "bullets": [
+              "HOSHYAR wird nicht mehr als sichtbarer Produktname verwendet; bestehende technische Bezeichner bleiben bis zu einer gesondert geprüften Migration unverändert.",
+              "Das Projekt ist auf Übertragbarkeit zwischen Märkten, Handelsplätzen, Symbolen, Zeitrahmen und Strategien ausgelegt. Jeder neue Adapter und jedes neue Profil benötigt dennoch eigene Nachweise und Validierung."
+            ]
+          },
+          {
+            "heading": "Unverhandelbare Grundsätze",
+            "body": "Nachhaltige Entscheidungsqualität hat Vorrang vor der Handelsfrequenz. Jede Funktion benötigt eine messbare Kennzahl, einen reproduzierbaren Test und nachvollziehbare Belege. Fehlende oder unbekannte Belege dürfen nicht als bestätigte Tatsachen dargestellt werden.",
+            "bullets": [
+              "Free-first: Für das Command Center gibt es keine kostenpflichtige oder nutzungsabhängig abgerechnete gehostete LLM-API und keinen Remote-Modell-Fallback.",
+              "Die Evidence-Reader von Mother sind maßgeblich für HES-Projektfakten. Das lokale Modell darf begrenzte Sprachaufgaben unterstützen, ist aber keine Handelsinstanz.",
+              "Menschliche Freigabe, minimale Berechtigungen, Kapitalschutz und Fail-closed-Verhalten haben Vorrang vor Komfort."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "roadmap",
+        "category": "Planung",
+        "title": "Roadmap und Auslieferungsgates",
+        "summary": "Der dokumentierte Stufenplan von der Bestandsaufnahme bis zu lokaler Intelligenz und freigegebener Entwicklung.",
+        "sections": [
+          {
+            "heading": "Implementierungsphasen",
+            "body": "Die verbindliche HES-Trade-AI-Roadmap ist so gestaffelt, dass jede Phase messbar sein muss, bevor die nächste aktiviert wird.",
+            "bullets": [
+              "Phase 0 — Bestandsaufnahme und Machbarkeit: vorhandenen VPS, Dienste, Mother/Chat, Abhängigkeiten, Sicherheitsgrenzen und den veränderten Checkout prüfen. Checkout nicht zurücksetzen oder bereinigen und keine unbeteiligten Dienste neu starten.",
+              "Phase 1 — Benchmark des lokalen Modells: CPU/RAM, Latenz, Kontext, mehrsprachige Qualität und Auswirkungen gleichzeitiger Last messen. Bei unzureichenden Ressourcen oder Qualität die Einschränkung melden; keine kostenpflichtige Inferenz als Ersatz verwenden.",
+              "Phase 2 — Dialog und Gedächtnis: den vorhandenen Mother-Chat um mehrsprachigen Mehrfachdialog, Sitzungstrennung, kontrolliertes dauerhaftes Gedächtnis, Herkunftsnachweise und Benutzerkontrolle erweitern.",
+              "Phase 3 — Diagnose und Strategieintelligenz: schreibgeschützte, beleggestützte Erklärungen zu Betriebs- und Handelsdaten bereitstellen.",
+              "Phase 4 — Hypothesenlabor: reproduzierbare isolierte Experimente, Baselines, Kennzahlen, Out-of-Sample-Validierung und Kosten-/Slippage-Prüfungen.",
+              "Phase 5 — Engineering-Copilot mit Freigabe: minimale Änderungsvorschläge, Tests, Review, ausdrückliche Freigabe, kontrollierte Bereitstellung und Rollback."
+            ]
+          },
+          {
+
+            "heading": "Release-Disziplin",
+            "body": "Vorhandener Code allein bedeutet nicht, dass eine Funktion abgeschlossen ist. Erforderlich sind Abnahmekriterien, Tests, Herkunftsnachweise und die Einhaltung der jeweiligen Betriebsgrenzen. Staging und Produktion sind getrennte Zustände.",
+            "bullets": [
+              "Ein erfolgreicher Staging-Lauf bedeutet nicht, dass die Funktion in Produktion aktiviert ist.",
+              "Blocker und unbestätigte Abhängigkeiten ausdrücklich dokumentieren.",
+              "Handelsausführung deaktiviert lassen, bis ein separates, ausdrückliches Release-Gate sie freigibt."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "architecture",
+        "category": "Architektur",
+        "title": "Architektur und Aufgaben der Agenten",
+        "summary": "Das Mother-zentrierte Design und die Grenzen zwischen Spezialisten, Oberfläche und Entscheidungsbefugnis.",
+        "sections": [
+          {
+            "heading": "Kontrollfluss",
+            "body": "Der Mother Orchestrator koordiniert die Bewertung durch spezialisierte Agenten anhand eines gemeinsamen, validierten Evidenz-Snapshots. Das HES Command Center zeigt den Status an und nimmt Fragen entgegen; es ist weder eine zweite Strategie-Engine noch eine unabhängige Handelsinstanz.",
+            "bullets": [
+              "Data Quality prüft Quelle, Aktualität, Lücken und Herkunftsnachweise.",
+              "Market Structure/Regime beschreibt den Marktkontext; Signal und Confirmation bewerten die Belege eines möglichen Setups.",
+              "Das Risk Gate kann einen Kandidaten ablehnen und NO_TRADE erzwingen. Decision und Evaluation dokumentieren die Entscheidung und ihre Belege.",
+              "Execution ist eine separat freizugebende Funktion; das aktuelle Dashboard ist schreibgeschützt und besitzt keinen Order-Submit-Endpunkt.",
+              "Der Learning Loop bewertet zukünftige Entscheidungen, abgelehnte Kandidaten und geklärte Ergebnisse ohne Zukunftsdaten-Leakage oder Kennzahlenmanipulation."
+            ]
+          },
+          {
+            "heading": "Befugnisgrenzen",
+            "body": "Das lokale Dialogmodell ist optional und nachgeordnet. Es darf begrenzte Absichten routen und verifizierte Belege erklären, aber weder Mother-Spezialisten ersetzen noch Strategierichtlinien ändern, Journale schreiben, auf Börsenkonten zugreifen oder Orders senden.",
+            "bullets": [
+              "Vorhandene Adapter, Reader, APIs, Authentifizierung, Journal und Dashboard wiederverwenden; parallele Infrastruktur nur bei nachgewiesener Notwendigkeit schaffen.",
+              "Ein Chart oder Indikator bleibt beschreibend, solange seine konkrete Entscheidungsrolle nicht validiert und freigegeben ist."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "market-data",
+        "category": "Daten",
+        "title": "Marktdaten und Handelsplatzadapter",
+        "summary": "Trennung der maßgeblichen Analysedaten von der handelsplatzspezifischen Orderausführung.",
+        "sections": [
+          {
+            "heading": "Aktuelle Analysequelle",
+            "body": "Der Dashboard-Vertrag legt Gate.io Public Spot als maßgebliche Quelle für Live-Marktdaten fest. Der kanonische BTC-Markt ist BTC_USDT. Explizit zugeordnete ETH_USDT- und SOL_USDT-Paare können über denselben nativen Adapter angezeigt werden; ihre Strategie- und Zeitrahmenrollen bleiben bis zur unabhängigen Validierung jedoch rein beschreibend.",
+            "bullets": [
+              "Chart- und Indikatorberechnungen müssen denselben validierten, abgeschlossenen Kerzen-Datenbatch und dessen SHA-256-Herkunftsnachweis verwenden.",
+              "Nur aktuelle, vollständig geschlossene und auf Datenlücken geprüfte Kerzen dürfen angezeigt oder als nachgelagerte Evidenz verwendet werden.",
+              "Dies ist eine einzelne öffentliche Handelsplatzquelle und kein handelsplatzübergreifender konsolidierter Index. News-Feeds liefern niemals Kerzen oder Indikatoren."
+            ]
+          },
+          {
+            "heading": "Analyse und Ausführung trennen",
+            "body": "Ein globaler Chartpreis ist kein ausführbarer Kurs auf einem Handelsplatz. Datenadapter und Ausführungsadapter haben unterschiedliche Verträge und dürfen nicht gleichgesetzt werden.",
+            "bullets": [
+              "Vor Aktivierung eines Handelsplatzadapters müssen Symbolzuordnung, Handelsplatzfilter, Spread/Slippage, Risikofreigabe, Idempotenz und Fill-Abgleich validiert sein.",
+              "Ein Symbolname oder eine öffentliche Marktdatenverbindung beweist weder Kontozugriff noch Orderfähigkeit.",
+              "Den vorhandenen Gate.io-Reader und den nativen OHLCV-Pfad wiederverwenden; keine doppelte Dateninfrastruktur aufbauen."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sequence",
+        "category": "Protokollsicherheit",
+        "title": "Sequence-Semantik und Ereignisreihenfolge",
+        "summary": "Sequence-ähnliche Felder bleiben undurchsichtig, bis der genaue Handelsplatz- und Nachrichtenvertrag ihre Bedeutung belegt.",
+        "sections": [
+          {
+            "heading": "Grundregel",
+            "body": "Ein Feld namens sequence, seq, id, tradeId, u oder updateId hat keine universelle Bedeutung. Die Semantik hängt exakt von Handelsplatz, Produkt, Endpunkt, Kanal, Nachrichtentyp, Feldpfad und Protokollversion ab. Ein numerischer Wert beweist weder Eindeutigkeit noch Reihenfolge, Kontiguität, Lückenerkennung oder Vergleichbarkeit über Reconnects hinweg.",
+            "bullets": [
+              "Unknown ist ein eigener Zustand und nicht gleichbedeutend mit false; unbekannt gewährt niemals eine Fähigkeit.",
+              "Trade-Identität ist nicht Reihenfolge. Reihenfolge ist nicht Kontiguität. Kontiguität bedeutet nicht Vergleichbarkeit über Verbindungsabbrüche hinweg.",
+              "Nur dokumentierte Orderbuchbereiche oder Verknüpfungen dürfen Lücken erkennen, und nur innerhalb ihres dokumentierten Geltungsbereichs.",
+              "Ein identisches Roh-Payload kann bei entsprechender Adapterunterstützung idempotent behandelt werden; eine wiederholte undurchsichtige Zahl ist nicht automatisch ein Duplikat oder Konflikt."
+            ]
+          },
+          {
+            "heading": "Tabdeal und handelsplatzübergreifende Beispiele",
+            "body": "Der beigefügte Forschungsbericht und das Projektregister stufen Tabdeal FAPI/Margin trade.sequence vorsichtig ein. Die geprüften offiziellen Unterlagen definieren das Feld nicht als Trade-ID, Stream-Sequenz, Lückenzähler oder Deduplizierungsschlüssel. Die vom Projekteigentümer dokumentierte offizielle Antwort warnt davor, Eindeutigkeit, Reihenfolge, Kontiguität, Replay, Lückenerkennung oder Deduplizierung anzunehmen; die Depth-Sequenz ist getrennt und REST-Abgleich nur näherungsweise.",
+            "bullets": [
+              "Die inneren Trade-Felder des Tabdeal-Broadcasts sind auf der geprüften öffentlichen Seite nicht vollständig definiert. Vollständige Roh-Payloads zusammen mit Markt, Empfangszeit und Börsenereigniszeit speichern.",
+              "Binance Spot Depth verwendet dokumentierte U/u-Updatebereiche und ein REST-Snapshot-Synchronisierungsverfahren; Trade-IDs folgen einem anderen Vertrag.",
+              "OKX dokumentiert prevSeqId/seqId für bestimmte Orderbuchkanäle und einen Wartungsreset; Bybit dokumentiert kanalabhängiges Verhalten von u/seq. Coinbase und Kraken haben eigene kanalbezogene Garantien.",
+              "Sequence-Regeln einer Börse dürfen nicht auf ein anderes Produkt oder einen anderen Kanal übertragen werden. Ein Reconnect beginnt eine neue Sitzungs-Epoche, sofern der genaue Vertrag keinen sitzungsübergreifenden Vergleich ausdrücklich erlaubt."
+            ]
+          },
+          {
+            "heading": "Wiederherstellung und Tests",
+            "body": "Nach einem Reconnect erneut abonnieren und einen frischen Snapshot abrufen, sofern der Kanal dies verlangt. Börsenereigniszeit und lokale Empfangszeit getrennt halten. Schemaänderungen, veraltete Daten, Prüfsummenfehler, beschädigte Checkpoints oder fehlerhafte dokumentierte Orderbuchverknüpfungen müssen die abhängige Verarbeitung blockieren.",
+            "bullets": [
+              "Exaktes Replay, wiederholte undurchsichtige IDs, widersprüchliche dokumentierte Identitäten, fehlende Felder, numerische Lücken, rückwärts laufende IDs, Zeitstempel-Einheiten, Reconnect-Epochen und Snapshot-Resets testen.",
+              "Bei unbekannten oder nicht-kontiguierlichen Feldern dürfen zufällige Zahlensprünge allein durch Arithmetik niemals als fehlende Ereignisse gelten.",
+              "Abhängige zustandsbehaftete Strategien bleiben NO_TRADE_ONLY, bis eine gültige Resynchronisierung nachgewiesen ist."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "strategy",
+        "category": "Handelsintelligenz",
+        "title": "Strategie, Zeitrahmen und Indikatoren",
+        "summary": "Wie Forschungsmerkmale Entscheidungen unterstützen, ohne selbstständig Trades freizugeben.",
+        "sections": [
+          {
+            "heading": "Rollen der Zeitrahmen",
+            "body": "Das dokumentierte BTC-Profil weist 4H und 1H dem übergeordneten Kontext, 15M der Setup-Autorität und 1M der Präzisierung des Einstiegs zu. Die 1M-Ebene darf kein Setup erzeugen, die Richtung ändern oder das 15M-Gate umgehen.",
+            "bullets": [
+              "ETH und SOL bleiben beschreibend, bis ihre eigenen Zeitrahmenprofile unabhängig validiert sind.",
+              "Eine Anzeige der Zeitrahmen-Ausrichtung ist Evidenz, keine Prognose und keine Handelsfreigabe.",
+              "Strategie-Panels sind schreibgeschützte Projektionen der kanonischen Evaluatoren und Journale; sie dürfen keine konkurrierende Strategie berechnen."
+            ]
+          },
+          {
+            "heading": "Indikatoren interpretieren",
+            "body": "Indikatoren sind beschreibende Merkmale und werden nach Evidenzfamilien gruppiert, damit korrelierte Belege nicht mehrfach gezählt werden. Der Regime-Evidenzanteil ist keine Prognosewahrscheinlichkeit.",
+            "bullets": [
+              "Trend: EMA-Beziehungen und -Steigungen, ADX/DI, Supertrend und Aroon.",
+              "Momentum: RSI, MACD, Stochastic, Williams %R, ROC und CCI.",
+              "Volatilität: ATR, Bollinger-, Keltner- und Donchian-Kennzahlen.",
+              "Volumen/Flow: VWAP, relatives Volumen, OBV, MFI und CMF – nur bei gültiger Volumensemantik der Quelle.",
+              "Regime: Choppiness und Efficiency Ratio. Fehlende Volumensemantik deaktiviert nur volumenbasierte Indikatoren."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "risk",
+        "category": "Sicherheit",
+        "title": "Risikogates und Ausführungsgrenze",
+        "summary": "Warum HOLD und NO_TRADE gültige Ergebnisse sind und das Dashboard keine Orders senden kann.",
+        "sections": [
+          {
+            "heading": "Fail-closed-Entscheidungsrichtlinie",
+            "body": "Fehlende, veraltete, widersprüchliche oder nicht verifizierte Belege müssen den betroffenen Entscheidungspfad blockieren. NO_TRADE ist ein beabsichtigtes Sicherheitsergebnis, kein Systemfehler und keine Aufforderung, Schwellenwerte zu senken.",
+            "bullets": [
+              "Data Quality, Confirmation und Risk Gate dürfen nicht durch Oberfläche, lokales Modell, Indikatoren oder Nachrichten umgangen werden.",
+              "Das Risk Gate kann einen Kandidaten ablehnen; Grund und Evidenzreferenz müssen erhalten bleiben.",
+              "Aus einem Signal oder Entscheidungseintrag dürfen weder Fill noch realisiertes Ergebnis oder ausgeführter Trade abgeleitet werden."
+            ]
+          },
+          {
+            "heading": "Aktuelle Oberflächengrenze",
+            "body": "Der Dashboard-Vertrag ist schreibgeschützt: kein Kontozugriff, kein Order-Submit-Endpunkt und keine Änderung von Richtlinien oder Journal. Eine Marktdaten-Notierung beweist keinen ausführbaren Handelsplatzkurs.",
+            "bullets": [
+              "Ausführung bleibt deaktiviert, bis ein separat geprüfter Adapter sowie Risiko-, Freigabe-, Idempotenz- und Abgleichsgates bestanden sind.",
+              "Keine Zugangsdaten, Tokens, privaten Schlüssel oder Kontokennungen in Dokumentation aufnehmen.",
+              "Jedes künftige schreibfähige Werkzeug benötigt minimale Berechtigungen und ausdrückliche menschliche Freigabe."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "learning",
+        "category": "Lernen",
+        "title": "Modelltraining, Evaluation und Lernschleife",
+        "summary": "Reproduzierbare Modellforschung und ehrliche Messung ohne Zukunftsdaten-Leakage oder Kennzahlenmanipulation.",
+        "sections": [
+          {
+            "heading": "Modell- und Experimentprotokolle",
+            "body": "Ein Trainingsprotokoll sollte Run-ID, Datenquelle, Zeitraum, Stichprobenzahl, Feature-Schema, Labelmethode, chronologische Aufteilung, Modell-Hash, Parameter, Kennzahlen und Einschränkungen festhalten. Ein Modellartefakt oder erfolgreicher Trainingslauf beweist keine profitable Strategie.",
+            "bullets": [
+              "Trainingsdaten und Modellartefakte bei Bedarf vom Quellcode trennen und unveränderliche Hashes sowie Herkunft dokumentieren.",
+              "Chronologische Train/Validation/Test-Aufteilungen und Out-of-Sample-Prüfungen verwenden; keine zukünftigen Kerzen oder Ergebnisse einfließen lassen.",
+              "Ressourcenverbrauch und Auswirkungen gleichzeitiger VPS-Last messen, bevor ein lokales Modell in Produktion aktiviert wird."
+            ]
+          },
+          {
+            "heading": "Forward-Evaluation",
+            "body": "Der Learning Loop bewertet angenommene und abgelehnte Entscheidungen, verpasste Chancen, Kosten und geklärte Ergebnisse anhand kanonischer Forward-Journale. Die Entscheidung bleibt so erhalten, wie sie zum damaligen Zeitpunkt getroffen wurde.",
+            "bullets": [
+              "Ergebnisse den Gates und Belegen zuordnen, die zum Entscheidungszeitpunkt verfügbar waren.",
+              "Schwellenwerte nicht nachträglich an eine historische Gewinnergruppe anpassen.",
+              "Eine Hypothese benötigt vorab festgelegte Kriterien, reproduzierbare isolierte Tests, Baseline-Vergleich und Kosten-/Slippage-Analyse."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "news-journal",
+        "category": "Nachweise",
+        "title": "News Radar und Entscheidungsjournal",
+        "summary": "Nachrichten liefern Kontext; das Journal bewahrt unveränderliche Forward-Nachweise.",
+        "sections": [
+          {
+            "heading": "Nachrichtenintelligenz",
+            "body": "News Radar ist ein Kontextbeleg und kein Signalgeber. Internationale, inländische und handelsplatzbezogene operative Quellen müssen getrennt werden; Abdeckung, Quellenstatus und Aktualitätsgrenzen sind offenzulegen.",
+            "bullets": [
+              "Veraltete, zukünftige, leere oder fehlgeschlagene Quellen dürfen nicht als aktuelle verifizierte Abdeckung erscheinen.",
+              "Gate.io-Ankündigungen sind ausschließlich betriebliche Handelsplatzmeldungen und ersetzen nicht den Marktdatenfeed.",
+              "Nachrichten dürfen keine Handelsrichtung erzeugen, Confirmation oder Risk Gate übersteuern oder Ausführung freigeben."
+            ]
+          },
+          {
+            "heading": "Entscheidungsjournal",
+            "body": "Das Journal speichert Forward-Entscheidungen und deren Evidenzreferenzen. Aus einer Entscheidung dürfen keine ausgeführten Trades oder realisierten Ergebnisse abgeleitet werden, wenn kein maßgeblicher Ausführungsnachweis vorliegt.",
+            "bullets": [
+              "Zeitstempel, Markt, Zeitrahmen, Entscheidung, Strategiefamilie, Gate/Grund, Ergebnisstatus und Evidenz-Hashes gemäß Journalvertrag erhalten.",
+              "No-Trade, abgelehnter Kandidat, angenommene Paper-Entscheidung, ausgeführte Order und realisiertes Ergebnis unterscheiden.",
+              "Das Journal zur Bewertung verhinderter Verluste und verpasster Chancen nutzen, ohne historische Entscheidungen zu verändern."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "operations",
+        "category": "Betrieb",
+        "title": "Betrieb, Datenschutz, Backup und Wiederherstellung",
+        "summary": "Betriebssicherheitsregeln für VPS, Dokumentationspflege und künftige Wartung.",
+        "sections": [
+          {
+            "heading": "Laufzeit und Bereitstellung",
+            "body": "HES-Kern, Orchestrierung, Gedächtnis und Retrieval laufen auf dem VPS; Browser- und Mobilclients bleiben schlank. Produktionsänderungen müssen isoliert, getestet und geprüft sowie über ein kontrolliertes Release mit Rollback-Nachweisen bereitgestellt werden.",
+            "bullets": [
+              "Einen Checkout mit lokalen Änderungen weder zurücksetzen noch bereinigen oder überschreiben; nicht eingecheckte Arbeit und Release-Zeiger erhalten.",
+              "Keine unbeteiligten Dienste neu starten und kein optionales Modell als Nebenwirkung der Dokumentationsarbeit aktivieren.",
+              "Staging-Erfolg und Produktionsaktivierung sind getrennte Zustände und müssen getrennt dokumentiert werden."
+            ]
+          },
+          {
+            "heading": "Datenschutz und Wiederherstellung",
+            "body": "Die Dokumentation darf keine Geheimnisse oder privaten Benutzerdaten enthalten. Backup- und Wiederherstellungsanleitungen müssen Umfang, Verschlüsselung, Aufbewahrung, Integritätsprüfungen und Wiederherstellungsnachweis beschreiben.",
+            "bullets": [
+              "Nur freigegebene Evidenzpfade und Reader mit minimalen Rechten verwenden; Zugangsdaten niemals über Dokumentations-APIs offenlegen.",
+              "Backup-Hashes und Nachweise von Restore-Tests festhalten; ein erfolgreicher Backup-Befehl allein beweist keine Wiederherstellbarkeit.",
+              "Nach Reconnect oder beschädigtem Zustand aus validierten Snapshots neu synchronisieren, statt fehlende Sequence- oder Checkpoint-Werte zu erraten."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "glossary",
+        "category": "Referenz",
+        "title": "Glossar",
+        "summary": "Einheitliche Terminologie in HES-Dokumentation und Dashboard.",
+        "sections": [
+          {
+            "heading": "Marktdaten- und Protokollbegriffe",
+            "body": "Diese Bedeutungen sind in Code, Berichten und Übersetzungen einheitlich zu verwenden.",
+            "bullets": [
+              "Ereignisidentität: ein dokumentierter Schlüssel, der ein Ereignis innerhalb eines festgelegten Geltungsbereichs identifiziert.",
+              "Reihenfolge: eine dokumentierte Beziehung, die festlegt, welches Ereignis vor einem anderen liegt.",
+              "Kontiguität: eine dokumentierte Regel, mit der fehlende Ereignisse aus einer unterbrochenen Range oder Verknüpfung abgeleitet werden dürfen.",
+              "Geltungsbereich: die Kombination aus Handelsplatz/Produkt/Endpunkt/Kanal/Nachricht/Feld/Protokollversion, für die eine Garantie gilt.",
+              "Sequence-Epoche: eine Sitzungs- oder Synchronisierungsperiode; Werte verschiedener Epochen sind ohne ausdrückliche Dokumentation nicht vergleichbar.",
+              "Herkunftsnachweis: Quelle, Abrufkontext, Zeitstempel, Schema und kryptografische Hashes, die die Herkunft der Evidenz erklären."
+            ]
+          },
+          {
+            "heading": "Entscheidungs- und Sicherheitsbegriffe",
+            "body": "Die Bedeutung von Sicherheitskennzeichnungen darf durch Übersetzung nicht abgeschwächt werden.",
+            "bullets": [
+              "NO_TRADE: Für die bewertete Evidenz- und Richtlinienlage ist kein Trade freigegeben.",
+              "HOLD: Ein Release- oder Entscheidungsgate ist noch nicht geklärt.",
+              "Fail closed: Den betroffenen Vorgang blockieren, wenn erforderliche Belege oder Validierung fehlen.",
+              "Schreibgeschützt: Daten dürfen eingesehen und erklärt, aber nicht geändert oder als Aktion ausgeführt werden.",
+              "Nur beschreibend: Ein Merkmal liefert Kontext, besitzt jedoch keine eigene Signal- oder Richtlinienbefugnis."
+            ]
+          }
+        ]
+      }
+    ],
+    "fr": [
+      {
+        "id": "dna",
+        "category": "Fondements",
+        "title": "ADN du projet et identité du produit",
+        "summary": "Ce qu’est HES, la distinction entre ses différentes couches et les principes qui ne peuvent être contournés.",
+        "sections": [
+          {
+            "heading": "Identité du produit",
+            "body": "HES Trade Agent désigne le produit complet d’agent de trading. HES Trade AI est son cerveau intelligent et son assistant conversationnel, qui travaille avec l’orchestrateur Mother et les agents spécialisés. HES Command Center est l’espace utilisateur dédié à la communication, à l’observation, aux commandes et au contrôle. Ces noms désignent des couches différentes et ne sont pas interchangeables.",
+            "bullets": [
+              "HOSHYAR n’est plus utilisé comme nom visible du produit ; les identifiants techniques historiques restent inchangés jusqu’à une migration examinée séparément.",
+              "Le projet vise la transférabilité entre marchés, plateformes, symboles, unités de temps et stratégies ; chaque nouvel adaptateur ou profil nécessite néanmoins ses propres preuves et validations."
+            ]
+          },
+          {
+            "heading": "Principes non négociables",
+            "body": "La qualité durable des décisions prime sur la fréquence des transactions. Chaque fonctionnalité doit disposer d’une mesure quantifiable, d’un test reproductible et de preuves traçables. Les preuves absentes ou inconnues ne doivent pas être présentées comme des faits vérifiés.",
+            "bullets": [
+              "Priorité au gratuit : aucune API LLM hébergée payante ou facturée à l’usage, ni aucun recours à un modèle distant pour le Command Center.",
+              "Les lecteurs de preuves Mother font autorité pour les faits du projet HES ; le modèle local peut aider sur des tâches linguistiques limitées, mais ne décide pas des transactions.",
+              "L’approbation humaine, le moindre privilège, la protection du capital et le comportement en échec fermé priment sur la commodité."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "roadmap",
+        "category": "Planification",
+        "title": "Feuille de route et jalons de livraison",
+        "summary": "Le parcours documenté, de l’inventaire initial à l’intelligence locale et à l’ingénierie soumise à approbation.",
+        "sections": [
+          {
+            "heading": "Phases de mise en œuvre",
+            "body": "La feuille de route de référence HES Trade AI est organisée par étapes afin que chacune puisse être mesurée avant l’activation de la suivante.",
+            "bullets": [
+              "Phase 0 — Inventaire et faisabilité : examiner le VPS existant, les services, Mother/Chat, les dépendances, les limites de sécurité et le checkout modifié. Ne pas réinitialiser ni nettoyer le checkout et ne pas redémarrer des services sans rapport.",
+              "Phase 1 — Évaluation du modèle local : mesurer CPU/RAM, latence, contexte, qualité multilingue et impact de la charge concurrente. Si les ressources ou la qualité sont insuffisantes, signaler la limite ; ne pas recourir à une inférence payante.",
+              "Phase 2 — Conversation et mémoire : étendre le chat Mother existant avec un contexte multilingue à plusieurs tours, l’isolation des sessions, une mémoire durable contrôlée, la provenance des recherches et le contrôle utilisateur.",
+              "Phase 3 — Diagnostic et intelligence stratégique : fournir des explications en lecture seule, liées aux preuves opérationnelles et de trading.",
+              "Phase 4 — Laboratoire d’hypothèses : expériences isolées reproductibles, références de base, mesures, validation hors échantillon et vérification des coûts/glissements.",
+              "Phase 5 — Copilote d’ingénierie soumis à approbation : proposition de modification minimale, tests, revue, approbation explicite, déploiement contrôlé et retour arrière."
+            ]
+          },
+          {
+            "heading": "Discipline de livraison",
+            "body": "La présence de code ne suffit pas à déclarer une fonctionnalité terminée. Il faut satisfaire ses critères d’acceptation, ses tests, la traçabilité des preuves et ses limites opérationnelles. Le staging et la production sont deux états distincts.",
+            "bullets": [
+              "Ne pas assimiler une réussite en staging à une activation en production.",
+              "Consigner explicitement les blocages et les dépendances non vérifiées.",
+              "Maintenir l’exécution des transactions désactivée jusqu’à l’approbation explicite d’un jalon de livraison distinct."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "architecture",
+        "category": "Architecture",
+        "title": "Architecture et responsabilités des agents",
+        "summary": "La conception centrée sur Mother et les limites entre spécialistes, interface et autorité décisionnelle.",
+        "sections": [
+          {
+            "heading": "Flux de contrôle",
+            "body": "L’orchestrateur Mother coordonne l’évaluation des agents spécialisés à partir d’un instantané de preuves commun et validé. HES Command Center affiche l’état et reçoit les questions ; ce n’est ni un second moteur de stratégie ni une autorité de trading indépendante.",
+            "bullets": [
+              "Data Quality valide la source, la fraîcheur, les lacunes et la provenance.",
+              "Market Structure/Regime décrit le contexte du marché ; Signal et Confirmation évaluent les preuves d’un setup potentiel.",
+              "Risk Gate peut opposer son veto à un candidat et imposer NO_TRADE. Decision et Evaluation consignent la décision et ses preuves.",
+              "Execution est une capacité soumise à des contrôles distincts ; le tableau de bord actuel est en lecture seule et ne possède aucune route d’envoi d’ordres.",
+              "Learning Loop évalue les décisions prospectives, les candidats rejetés et les résultats résolus sans fuite d’informations futures ni manipulation des mesures."
+            ]
+          },
+          {
+            "heading": "Limites d’autorité",
+            "body": "Le modèle conversationnel local est facultatif et subordonné. Il peut router des intentions limitées et expliquer des preuves vérifiées ; il ne peut remplacer les spécialistes Mother, modifier la politique stratégique, écrire dans les journaux, accéder aux comptes d’exchange ni envoyer d’ordres.",
+            "bullets": [
+              "Réutiliser les adaptateurs, lecteurs, API, mécanismes d’authentification, journal et tableau de bord existants ; ne créer une infrastructure parallèle qu’en cas de nécessité démontrée.",
+              "Un graphique ou un indicateur reste descriptif tant que son rôle décisionnel précis n’a pas été validé et autorisé."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "market-data",
+        "category": "Données",
+        "title": "Données de marché et adaptateurs de plateforme",
+
+        "summary": "Séparer la source d’analyse faisant autorité de la connexion d’exécution propre à chaque plateforme.",
+        "sections": [
+          {
+            "heading": "Source d’analyse actuelle",
+            "body": "Le contrat du tableau de bord désigne Gate.io Public Spot comme source de référence des données de marché en direct. Le marché BTC canonique est BTC_USDT. Les paires ETH_USDT et SOL_USDT explicitement mappées peuvent aussi être affichées via l’adaptateur natif partagé, mais leurs rôles stratégiques et temporels restent descriptifs jusqu’à leur validation indépendante.",
+            "bullets": [
+              "Les calculs du graphique et des indicateurs doivent utiliser le même lot validé de bougies clôturées et sa provenance SHA-256.",
+              "Seules les bougies entièrement clôturées, récentes et vérifiées quant aux lacunes peuvent être affichées ou utilisées comme preuves en aval.",
+              "Il s’agit d’une seule source publique de plateforme, et non d’un indice consolidé multi-plateformes. Les flux d’actualités ne fournissent jamais les bougies ni les indicateurs."
+            ]
+          },
+          {
+            "heading": "Séparer analyse et exécution",
+            "body": "Le prix d’un graphique global n’est pas une cotation exécutable sur une plateforme de trading. Les adaptateurs de données et d’exécution répondent à des contrats différents et ne doivent pas être confondus.",
+            "bullets": [
+              "Avant d’activer un adaptateur de plateforme, valider le mappage des symboles, les filtres de la plateforme, le spread/glissement, l’approbation du risque, l’idempotence et le rapprochement des exécutions.",
+              "Un nom de symbole ou une connexion publique aux données de marché ne prouve ni l’accès à un compte ni la capacité d’envoyer des ordres.",
+              "Réutiliser le lecteur Gate.io et le chemin OHLCV natif existants ; éviter de reconstruire une infrastructure de données déjà présente."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sequence",
+        "category": "Sécurité des protocoles",
+        "title": "Sémantique des séquences et ordre des événements",
+        "summary": "Les champs ressemblant à une séquence restent opaques tant que le contrat exact de la plateforme et du message n’en prouve pas le sens.",
+        "sections": [
+          {
+            "heading": "Règle fondamentale",
+            "body": "Un champ nommé sequence, seq, id, tradeId, u ou updateId n’a pas de signification universelle. Sa sémantique dépend précisément de la plateforme, du produit, du point de terminaison, du canal, du type de message, du chemin du champ et de la version du protocole. Une valeur numérique ne prouve ni l’unicité, ni l’ordre, ni la continuité, ni la détection des lacunes, ni la comparabilité après reconnexion.",
+            "bullets": [
+              "Unknown est un état à part entière, distinct de false ; un état inconnu n’accorde jamais une capacité.",
+              "L’identité d’une transaction n’est pas son ordre. L’ordre n’est pas la continuité. La continuité n’implique pas la comparabilité entre reconnexions.",
+              "Seules des plages ou relations de liaison documentées du carnet d’ordres peuvent détecter des lacunes, et uniquement dans leur périmètre documenté.",
+              "Une répétition exacte du payload brut peut être traitée de façon idempotente si l’adaptateur le permet ; un nombre opaque répété n’est pas automatiquement un doublon ou un conflit."
+            ]
+          },
+          {
+            "heading": "Tabdeal et exemples multi-plateformes",
+            "body": "Le rapport de recherche fourni et le registre du projet classent prudemment Tabdeal FAPI/Margin trade.sequence. Les documents officiels examinés ne le définissent pas comme identifiant de transaction, séquence de flux, compteur de lacunes ou clé de déduplication. La réponse officielle consignée par le propriétaire du projet indique qu’il ne faut supposer ni unicité, ni ordre, ni consécutivité, ni rejeu, ni détection des lacunes, ni déduplication ; la séquence du carnet d’ordres est distincte et le rapprochement REST est approximatif.",
+            "bullets": [
+              "Les champs internes du message de transaction Broadcast de Tabdeal ne sont pas entièrement définis dans la page publique examinée ; conserver le payload brut complet avec le marché, l’heure de réception et l’heure de l’événement de la plateforme.",
+              "La profondeur Binance Spot utilise les plages de mise à jour documentées U/u et une procédure de synchronisation avec snapshot REST ; les identifiants de transactions relèvent d’un autre contrat.",
+              "OKX documente prevSeqId/seqId pour certains canaux de carnet d’ordres et une réinitialisation de maintenance ; Bybit documente un comportement de u/seq propre à chaque canal. Coinbase et Kraken ont leurs propres garanties par canal.",
+              "Ne pas transposer les règles de séquence d’une plateforme à un autre produit ou canal. Une reconnexion crée une nouvelle époque de session, sauf si le contrat exact autorise explicitement la comparaison entre sessions."
+            ]
+          },
+          {
+            "heading": "Récupération et tests requis",
+            "body": "Après une reconnexion, se réabonner et obtenir un nouveau snapshot lorsque le canal l’exige. Conserver séparément l’heure de l’événement de la plateforme et l’heure de réception locale. Une dérive de schéma, des données périmées, un échec de checksum, un checkpoint corrompu ou une rupture de liaison documentée du carnet doivent bloquer le traitement dépendant.",
+            "bullets": [
+              "Tester le rejeu exact, les identifiants opaques répétés, les identités documentées contradictoires, les champs manquants, les lacunes numériques, les identifiants décroissants, les unités temporelles, les époques après reconnexion et les réinitialisations de snapshot.",
+              "Pour les champs inconnus ou non continus, des sauts numériques aléatoires ne doivent jamais suffire à conclure à une perte d’événement par simple calcul arithmétique.",
+              "Les stratégies dépendantes d’un état restent en NO_TRADE_ONLY jusqu’à ce qu’une resynchronisation valide soit démontrée."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "strategy",
+        "category": "Intelligence de trading",
+        "title": "Stratégie, unités de temps et indicateurs",
+        "summary": "Comment les caractéristiques de recherche soutiennent la décision sans autoriser seules une transaction.",
+        "sections": [
+          {
+            "heading": "Rôle des unités de temps",
+            "body": "Le profil BTC documenté attribue aux unités 4H et 1H le contexte supérieur, à 15M l’autorité du setup et à 1M l’affinage de l’entrée. La couche 1M ne peut pas créer un setup, changer la direction ni contourner le contrôle 15M.",
+            "bullets": [
+              "ETH et SOL restent descriptifs jusqu’à la validation indépendante de leurs propres profils temporels.",
+              "L’affichage de l’alignement des unités de temps constitue une preuve, pas une prévision ni une autorisation de trading.",
+              "Les panneaux de stratégie sont des projections en lecture seule des évaluateurs et journaux canoniques ; ils ne doivent pas calculer une stratégie concurrente."
+            ]
+          },
+          {
+            "heading": "Interprétation des indicateurs",
+            "body": "Les indicateurs sont des caractéristiques descriptives regroupées par famille de preuves afin d’éviter de compter plusieurs fois des éléments corrélés. La part de preuve du régime n’est pas une probabilité prédictive.",
+            "bullets": [
+              "Tendance : relations et pentes EMA, ADX/DI, Supertrend et Aroon.",
+              "Momentum : RSI, MACD, stochastique, Williams %R, ROC et CCI.",
+              "Volatilité : ATR, mesures de Bollinger, Keltner et Donchian.",
+              "Volume et flux : VWAP, volume relatif, OBV, MFI et CMF, uniquement si la sémantique du volume source est valide.",
+              "Régime : choppiness et ratio d’efficacité. Une sémantique de volume absente désactive uniquement les indicateurs fondés sur le volume."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "risk",
+        "category": "Sécurité",
+        "title": "Filtres de risque et limites d’exécution",
+        "summary": "Pourquoi HOLD et NO_TRADE sont des résultats valides et pourquoi le tableau de bord ne peut pas envoyer d’ordres.",
+        "sections": [
+          {
+            "heading": "Politique de décision en échec fermé",
+            "body": "Des preuves manquantes, périmées, contradictoires ou non vérifiées doivent bloquer le chemin de décision concerné. NO_TRADE est un résultat de sécurité intentionnel, pas une panne système ni une invitation à abaisser les seuils.",
+            "bullets": [
+              "L’interface, le modèle local, les indicateurs et les actualités ne peuvent contourner Data Quality, Confirmation ou Risk Gate.",
+              "Risk Gate peut opposer son veto à un candidat ; le motif et la référence de preuve doivent être conservés.",
+              "Ne pas déduire une exécution, un résultat réalisé ou une transaction effectuée à partir d’un signal ou d’un enregistrement de décision."
+            ]
+          },
+          {
+            "heading": "Limite actuelle de l’interface",
+            "body": "Le contrat du tableau de bord est en lecture seule : aucun accès au compte, aucune route d’envoi d’ordres et aucune modification de politique ou de journal. Une cotation de données de marché ne prouve pas qu’un prix est exécutable sur une plateforme.",
+            "bullets": [
+              "L’exécution reste désactivée tant qu’un adaptateur examiné séparément et les contrôles de risque, d’approbation, d’idempotence et de rapprochement ne sont pas validés.",
+              "Ne jamais placer d’identifiants, de jetons, de clés privées ou d’identifiants de compte dans la documentation.",
+              "Tout futur outil autorisant l’écriture doit appliquer le moindre privilège et exiger une approbation humaine explicite."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "learning",
+        "category": "Apprentissage",
+        "title": "Entraînement, évaluation et boucle d’apprentissage",
+        "summary": "Recherche de modèles reproductible et mesures honnêtes, sans fuite du futur ni manipulation des métriques.",
+        "sections": [
+          {
+            "heading": "Registres de modèles et d’expériences",
+            "body": "Un registre d’entraînement doit indiquer l’identifiant d’exécution, la source des données, la période, le nombre d’échantillons, le schéma des caractéristiques, la méthode d’étiquetage, la séparation chronologique, le hash de l’artefact, les paramètres, les métriques et les limites. Un artefact de modèle ou un entraînement réussi ne prouve pas qu’une stratégie est rentable.",
+            "bullets": [
+              "Séparer si nécessaire les données d’entraînement et les artefacts du code source ; enregistrer leurs hashes immuables et leur provenance.",
+              "Utiliser des séparations chronologiques entraînement/validation/test et des contrôles hors échantillon ; éviter toute fuite provenant de bougies ou résultats futurs.",
+              "Mesurer les ressources consommées et l’impact de la charge concurrente sur le VPS avant d’activer un modèle local en production."
+            ]
+          },
+          {
+            "heading": "Évaluation prospective",
+            "body": "Learning Loop doit évaluer les décisions acceptées et rejetées, les occasions manquées, les coûts et les résultats résolus à partir des journaux prospectifs canoniques. Conserver chaque décision telle qu’elle a été prise à l’époque, sans réécrire l’historique.",
+            "bullets": [
+              "Attribuer les résultats aux filtres et aux preuves disponibles au moment de la décision.",
+              "Ne pas optimiser rétrospectivement les seuils pour correspondre à un ensemble historique de gagnants.",
+              "Une hypothèse exige des critères préenregistrés, des tests isolés reproductibles, une comparaison à une référence et une analyse des coûts/glissements."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "news-journal",
+        "category": "Preuves",
+        "title": "News Radar et journal des décisions",
+        "summary": "Les actualités apportent du contexte ; le journal conserve des preuves prospectives immuables.",
+        "sections": [
+          {
+            "heading": "Intelligence des actualités",
+            "body": "News Radar fournit des éléments de contexte et ne génère pas de signaux. Il doit distinguer les sources internationales, nationales et les annonces opérationnelles des plateformes, tout en exposant les limites de couverture, l’état des sources et leur fraîcheur.",
+            "bullets": [
+              "Une source périmée, datée dans le futur, vide ou en échec ne doit pas être présentée comme une couverture récente et vérifiée.",
+              "Les annonces Gate.io sont uniquement des informations opérationnelles de la plateforme ; elles ne remplacent pas le flux de données de marché.",
+              "Les actualités ne peuvent pas créer une direction de trading, contourner Confirmation ou Risk Gate, ni autoriser l’exécution."
+            ]
+          },
+          {
+            "heading": "Journal des décisions",
+            "body": "Le journal conserve les décisions prospectives et leurs références de preuve. Il ne doit pas déduire des transactions exécutées ni des résultats réalisés lorsqu’aucun enregistrement d’exécution faisant autorité ne les fournit.",
+            "bullets": [
+              "Conserver horodatage, marché, unité de temps, décision, famille de stratégie, filtre/motif, état du résultat et hashes de preuve selon le contrat du journal.",
+              "Distinguer absence de transaction, candidat rejeté, décision acceptée en simulation, ordre exécuté et résultat réalisé.",
+              "Utiliser le journal pour évaluer les pertes évitées et les occasions manquées sans modifier les décisions historiques."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "operations",
+        "category": "Opérations",
+        "title": "Opérations, confidentialité, sauvegarde et reprise",
+        "summary": "Règles de sécurité opérationnelle du VPS, de mise à jour de la documentation et de maintenance future.",
+        "sections": [
+          {
+            "heading": "Exécution et déploiement",
+            "body": "Le cœur HES, l’orchestration, la mémoire et la récupération fonctionnent sur le VPS ; les clients navigateur et mobile restent légers. Les changements de production doivent être isolés, testés, examinés et déployés via une livraison contrôlée avec preuves de retour arrière.",
+            "bullets": [
+              "Ne pas réinitialiser, nettoyer ni écraser un checkout modifié ; préserver le travail non validé et les pointeurs de version.",
+              "Ne pas redémarrer de services sans rapport et ne pas activer un modèle facultatif comme effet secondaire du travail documentaire.",
+              "La réussite en staging et l’activation en production sont deux états distincts à consigner séparément."
+            ]
+          },
+          {
+            "heading": "Confidentialité et reprise",
+            "body": "La documentation ne doit contenir aucun secret ni aucune donnée privée de l’utilisateur. Les procédures de sauvegarde et de restauration doivent préciser le périmètre, le chiffrement, la rétention, les contrôles d’intégrité et la vérification de restauration.",
+            "bullets": [
+              "N’utiliser que les racines de preuves autorisées et les lecteurs à privilèges minimaux ; ne jamais exposer les fichiers d’identifiants via les API de documentation.",
+              "Enregistrer les hashes de sauvegarde et les preuves des tests de restauration ; une commande de sauvegarde réussie ne prouve pas à elle seule la capacité de restauration.",
+              "Après une reconnexion ou un état corrompu, se resynchroniser depuis des snapshots validés au lieu de deviner des valeurs de séquence ou de checkpoint manquantes."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "glossary",
+        "category": "Référence",
+        "title": "Glossaire",
+        "summary": "Terminologie cohérente utilisée dans la documentation HES et le tableau de bord.",
+        "sections": [
+          {
+            "heading": "Termes relatifs aux données de marché et aux protocoles",
+            "body": "Utiliser ces définitions de manière cohérente dans le code, les rapports et les traductions.",
+            "bullets": [
+              "Identité d’événement : clé documentée qui identifie un événement dans un périmètre défini.",
+              "Ordre : relation documentée qui établit qu’un événement précède un autre.",
+              "Continuité : règle documentée permettant d’inférer des événements manquants à partir d’une plage ou d’un lien rompu.",
+              "Périmètre : tuple plateforme/produit/point de terminaison/canal/message/champ/version de protocole auquel s’applique une garantie.",
+              "Époque de séquence : période de session ou de synchronisation ; les valeurs de différentes époques ne sont pas comparables sans documentation explicite.",
+              "Provenance : source, contexte de récupération, horodatages, schéma et hashes cryptographiques qui expliquent l’origine des preuves."
+            ]
+          },
+          {
+            "heading": "Termes de décision et de sécurité",
+            "body": "La traduction ne doit pas atténuer le sens des étiquettes de sécurité.",
+            "bullets": [
+              "NO_TRADE : aucune transaction n’est autorisée pour les preuves et l’état de politique évalués.",
+              "HOLD : un filtre de livraison ou de décision n’est pas encore résolu.",
+              "Fail closed : bloquer l’opération concernée lorsque les preuves ou validations requises sont absentes.",
+              "Lecture seule : les données peuvent être consultées et expliquées, mais ni modifiées ni utilisées pour agir.",
+              "Descriptif uniquement : une caractéristique fournit du contexte, sans autorité indépendante de signal ou de politique."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "ui": {
+    "en": {
+      "intro": "Project DNA, architecture, roadmap and operational knowledge in four languages.",
+      "search_label": "Search documentation",
+      "search_placeholder": "Search titles and content",
+      "category_label": "Category",
+      "all_categories": "All categories",
+      "loading": "Loading documentation…",
+      "empty": "No documents match this search.",
+      "read_only": "READ ONLY",
+      "sources": "Source register",
+      "disclaimer": "Reference material only. This section cannot change strategy, risk policy, journals or orders.",
+      "updated": "Updated",
+      "version": "Version",
+      "no_content": "Select a document to read.",
+      "title": "Documentation",
+      "editorial_note": "Editorially reviewed; independent native-speaker review is pending."
+    },
+    "fa": {
+      "intro": "DNA پروژه، معماری، نقشه راه و دانش عملیاتی به چهار زبان.",
+      "search_label": "جست‌وجو در مستندات",
+      "search_placeholder": "جست‌وجوی عنوان و محتوا",
+      "category_label": "دسته‌بندی",
+      "all_categories": "همه دسته‌ها",
+      "loading": "در حال بارگذاری مستندات…",
+      "empty": "سندی با این جست‌وجو پیدا نشد.",
+      "read_only": "فقط‌خواندنی",
+      "sources": "فهرست منابع",
+      "disclaimer": "صرفاً مرجع اطلاعاتی است. این بخش امکان تغییر استراتژی، سیاست ریسک، ژورنال یا سفارش‌ها را ندارد.",
+      "updated": "به‌روزرسانی",
+      "version": "نسخه",
+      "no_content": "برای مطالعه، یک سند انتخاب کنید.",
+      "title": "مستندات",
+      "editorial_note": "بازبینی ویرایشی انجام شده است؛ بازبینی مستقل گویشور بومی هنوز انجام نشده است."
+    },
+    "de": {
+      "intro": "Projekt-DNA, Architektur, Roadmap und Betriebswissen in vier Sprachen.",
+      "search_label": "Dokumentation durchsuchen",
+      "search_placeholder": "Titel und Inhalte durchsuchen",
+      "category_label": "Kategorie",
+      "all_categories": "Alle Kategorien",
+      "loading": "Dokumentation wird geladen…",
+      "empty": "Keine Dokumente für diese Suche gefunden.",
+      "read_only": "NUR LESEN",
+      "sources": "Quellenverzeichnis",
+      "disclaimer": "Nur Referenzmaterial. Dieser Bereich kann weder Strategie noch Risikorichtlinien, Journale oder Orders ändern.",
+      "updated": "Aktualisiert",
+      "version": "Version",
+      "no_content": "Zum Lesen ein Dokument auswählen.",
+      "title": "Dokumentation",
+      "editorial_note": "Redaktionell geprüft; eine unabhängige Prüfung durch Muttersprachler steht noch aus."
+    },
+    "fr": {
+      "intro": "ADN du projet, architecture, feuille de route et connaissances opérationnelles en quatre langues.",
+      "search_label": "Rechercher dans la documentation",
+      "search_placeholder": "Rechercher dans les titres et le contenu",
+      "category_label": "Catégorie",
+      "all_categories": "Toutes les catégories",
+      "loading": "Chargement de la documentation…",
+      "empty": "Aucun document ne correspond à cette recherche.",
+      "read_only": "LECTURE SEULE",
+      "sources": "Registre des sources",
+      "disclaimer": "Contenu de référence uniquement. Cette section ne peut modifier ni la stratégie, ni la politique de risque, ni les journaux, ni les ordres.",
+      "updated": "Mis à jour",
+      "version": "Version",
+      "no_content": "Sélectionnez un document pour le lire.",
+      "title": "Documentation",
+      "editorial_note": "Révision éditoriale effectuée ; la vérification indépendante par un locuteur natif reste à faire."
+    }
+  },
+  "editorial_review": {
+    "method": "AI-authored translation with cross-locale structure, terminology and safety-consistency review",
+    "languages": {
+      "fa": "reviewed",
+      "en": "reviewed",
+      "de": "reviewed",
+      "fr": "reviewed"
+    },
+    "native_speaker_review": "pending",
+    "policy": "Do not claim independent native-speaker certification. Any native edit must preserve technical meaning and safety semantics."
+  }
+}
+

@@ -1,0 +1,25 @@
+.documentation-controls{display:grid;grid-template-columns:auto minmax(180px,1fr) auto minmax(150px,.6fr);gap:8px 12px;align-items:center;margin:14px 0;color:var(--muted);font-size:13px}
+.documentation-controls input,.documentation-controls select{width:100%;min-width:0;background:#101b2b;color:var(--text);border:1px solid #40536c;border-radius:8px;padding:10px;font:inherit}
+.documentation-layout{display:grid;grid-template-columns:minmax(220px,.72fr) minmax(0,1.8fr);gap:14px;align-items:start}
+.documentation-index{display:grid;gap:8px;max-height:640px;overflow:auto;overscroll-behavior:contain;padding-inline-end:3px}
+.documentation-index-item{display:grid;gap:5px;text-align:start;white-space:normal;background:#0d1624;border:1px solid var(--line);padding:11px 12px;line-height:1.45}
+.documentation-index-item[aria-current=page]{border-color:var(--amber);background:#18263a}
+.documentation-index-item small{color:var(--muted);font-size:11px}
+.documentation-index-item span{color:#b8c8da;font-size:12px;font-weight:400}
+.documentation-article{min-width:0;min-height:260px;border:1px solid var(--line);border-radius:10px;padding:16px;background:#0d1624;line-height:1.75;overflow-wrap:anywhere}
+.documentation-article-title{margin:0 0 7px;font-size:20px;line-height:1.4}
+.documentation-summary{color:#b8c8da;margin:0 0 16px}
+.documentation-section{padding-top:12px;margin-top:12px;border-top:1px solid var(--line)}
+.documentation-section h4{margin:0 0 6px;font-size:15px}
+.documentation-section p{margin:5px 0 8px}
+.documentation-bullets{padding-inline-start:22px;margin:7px 0}
+.documentation-bullets li{margin:7px 0;padding-inline-start:3px}
+.documentation-sources{margin-top:16px;border-top:1px solid var(--line);padding-top:10px}
+.documentation-sources h3{font-size:14px}
+.documentation-sources ul{display:grid;gap:6px;padding-inline-start:20px;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.documentation-disclaimer{margin-top:14px}
+[dir=rtl] .documentation-controls{direction:rtl}
+[dir=rtl] .documentation-index-item{text-align:right}
+[dir=rtl] .documentation-article{text-align:right}
+@media(max-width:720px){.documentation-controls{grid-template-columns:1fr 1fr}.documentation-layout{grid-template-columns:1fr}.documentation-index{max-height:260px}.documentation-index-item{padding:9px 10px}}
+@media(max-width:420px){.documentation-controls{grid-template-columns:1fr}.documentation-heading{align-items:flex-start}}
