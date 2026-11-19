@@ -32,10 +32,10 @@
     "docs/release/HES_DASHBOARD_SECURITY_RELEASE_ROLLBACK_RUNBOOK.md",
     "docs/checkpoints/INDICATOR_STRATEGY_FAMILY_V1_2026-11-17.md",
     "docs/checkpoints/SEQUENCE_CAPABILITY_STALENESS_2026-11-16.md",
-    "docs/documentation/EXCHANGE_SEQUENCE_SEMANTICS_RESEARCH_DIGEST_2026-10-10.md (digest of the user-supplied research artifact; not primary exchange evidence)",
     "docs/checkpoints/NO_TRADE_COUNTERFACTUAL_MATURITY_V2_2026-11-19.md (post-merge operational evidence and release checkpoint)",
     "scripts/run_matured_no_trade_validation_v1.py",
-    "forward/structure_only_no_trade_shadow_v1.py"
+    "forward/structure_only_no_trade_shadow_v1.py",
+    "docs/documentation/EXCHANGE_SEQUENCE_SEMANTICS_RESEARCH_DIGEST_2026-10-10.md (digest of the user-supplied research artifact; not primary exchange evidence)"
   ],
   "locales": {
     "en": [
