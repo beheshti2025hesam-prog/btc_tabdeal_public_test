@@ -1,6 +1,6 @@
 {
   "schema": "hes_documentation_catalog_v1",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "product": "HES Trade Agent",
   "languages": [
     "fa",
@@ -19,7 +19,7 @@
   },
   "source_register": [
     "docs/PROJECT_DNA.md",
-    "docs/checkpoints/HES_TRADE_AI_DNA_2026-11-17.md",
+    "docs/checkpoints/HES_TRADE_AI_DNA_2026-11-17.md (local snapshot; source verification metadata is unverified; not a live Notion connection)",
     "docs/architecture/HES_PRODUCT_NAMING_V1.md",
     "docs/checkpoints/MOTHER_V2_ORCHESTRATION_2026-11-01.md",
     "docs/checkpoints/MOTHER_CHAT_COMMAND_CENTER_CONTRACT_2026-11-06.md",
@@ -57,6 +57,14 @@
               "Free-first: no paid or metered hosted LLM API and no remote-model fallback for the Command Center.",
               "Mother evidence readers are authoritative for project facts; the local model may assist with bounded language tasks but is not a trading authority.",
               "Human approval, least privilege, capital protection and fail-closed behavior take precedence over convenience."
+            ]
+          },
+          {
+            "heading": "Source freshness and authority",
+            "body": "The 2026-11-17 DNA snapshot records its source verification metadata as unverified and states that it is not a live Notion connection. Treat it as a local snapshot of product intent, not proof that the upstream page is unchanged. Refresh and verify it when the canonical source changes.",
+            "bullets": [
+              "Current code, schemas, tests and runtime evidence remain the technical source of truth.",
+              "If a source conflicts with live code or an approved checkpoint, record the conflict instead of silently choosing one."
             ]
           }
         ]
@@ -340,6 +348,7 @@
               "Read-only: data may be inspected and explained, but not changed or acted upon.",
               "Descriptive-only: a feature provides context but has no independent signal or policy authority."
             ]
+
           }
         ]
       }
@@ -348,7 +357,6 @@
       {
         "id": "dna",
         "category": "مبانی",
-
         "title": "DNA پروژه و هویت محصول",
         "summary": "HES چیست، لایه‌های محصول چه تفاوتی دارند و کدام اصول قابل دور زدن نیستند.",
         "sections": [
@@ -367,6 +375,14 @@
               "اصل رایگان‌محور: برای Command Center از API پولی یا مبتنی بر مصرف مدل میزبانی‌شده و مسیر جایگزین مدل راه دور استفاده نمی‌شود.",
               "خوانشگرهای شواهد Mother مرجع اطلاعات پروژه هستند؛ مدل محلی می‌تواند در کارهای زبانی محدود کمک کند، اما مرجع تصمیم معاملاتی نیست.",
               "تأیید انسانی، حداقل سطح دسترسی، حفاظت از سرمایه و رفتار امن در نبود شواهد بر سهولت کار مقدم‌اند."
+            ]
+          },
+          {
+            "heading": "تازگی و اعتبار منبع",
+            "body": "در فرادادهٔ snapshot مربوط به DNA مورخ ۲۰۲۶-۱۱-۱۷، وضعیت تأیید منبع «تأییدنشده» ثبت شده و تصریح شده است که این نسخه اتصال زنده به Notion نیست. آن را تصویری محلی از قصد و هویت محصول بدانید، نه اثباتِ بدون‌تغییرماندن صفحهٔ بالادستی. با تغییر منبع مرجع، snapshot را به‌روزرسانی و دوباره اعتبارسنجی کنید.",
+            "bullets": [
+              "کد فعلی، schemaها، آزمون‌ها و شواهد زمان اجرا همچنان مرجع حقیقت فنی هستند.",
+              "اگر منبعی با کد زنده یا چک‌پوینت تأییدشده تعارض داشت، تعارض را ثبت کنید و بی‌سروصدا یکی را انتخاب نکنید."
             ]
           }
         ]
@@ -677,6 +693,15 @@
               "Die Evidence-Reader von Mother sind maßgeblich für HES-Projektfakten. Das lokale Modell darf begrenzte Sprachaufgaben unterstützen, ist aber keine Handelsinstanz.",
               "Menschliche Freigabe, minimale Berechtigungen, Kapitalschutz und Fail-closed-Verhalten haben Vorrang vor Komfort."
             ]
+          },
+          {
+            "heading": "Aktualität und Verbindlichkeit der Quelle",
+            "body": "Die DNA-Momentaufnahme vom 17.11.2026 kennzeichnet ihre Quellenverifizierung ausdrücklich als nicht verifiziert und stellt klar, dass keine Live-Verbindung zu Notion besteht. Sie ist als lokale Momentaufnahme der Produktabsicht zu behandeln, nicht als Beleg dafür, dass die übergeordnete Seite unverändert ist. Bei Änderungen der kanonischen Quelle muss sie aktualisiert und erneut geprüft werden.",
+            "bullets": [
+              "Aktueller Code, Schemas, Tests und Laufzeitnachweise bleiben die technische Wahrheit.",
+
+              "Widerspricht eine Quelle dem Live-Code oder einem freigegebenen Checkpoint, ist der Konflikt zu dokumentieren, statt stillschweigend eine Seite zu bevorzugen."
+            ]
           }
         ]
       },
@@ -699,7 +724,6 @@
             ]
           },
           {
-
             "heading": "Release-Disziplin",
             "body": "Vorhandener Code allein bedeutet nicht, dass eine Funktion abgeschlossen ist. Erforderlich sind Abnahmekriterien, Tests, Herkunftsnachweise und die Einhaltung der jeweiligen Betriebsgrenzen. Staging und Produktion sind getrennte Zustände.",
             "bullets": [
@@ -987,6 +1011,14 @@
               "Les lecteurs de preuves Mother font autorité pour les faits du projet HES ; le modèle local peut aider sur des tâches linguistiques limitées, mais ne décide pas des transactions.",
               "L’approbation humaine, le moindre privilège, la protection du capital et le comportement en échec fermé priment sur la commodité."
             ]
+          },
+          {
+            "heading": "Fraîcheur et autorité de la source",
+            "body": "L’instantané de l’ADN daté du 17/11/2026 indique que les métadonnées de vérification de sa source sont « non vérifiées » et précise qu’il ne s’agit pas d’une connexion Notion en direct. Il doit être considéré comme un instantané local de l’intention du produit, et non comme la preuve que la page amont est restée inchangée. Il faut le mettre à jour et le vérifier à nouveau lorsque la source canonique évolue.",
+            "bullets": [
+              "Le code actuel, les schémas, les tests et les preuves d’exécution restent la source de vérité technique.",
+              "Si une source contredit le code en production ou un checkpoint approuvé, consigner le conflit au lieu de choisir silencieusement une version."
+            ]
           }
         ]
       },
@@ -1018,6 +1050,7 @@
             ]
           }
         ]
+
       },
       {
         "id": "architecture",
@@ -1050,7 +1083,6 @@
         "id": "market-data",
         "category": "Données",
         "title": "Données de marché et adaptateurs de plateforme",
-
         "summary": "Séparer la source d’analyse faisant autorité de la connexion d’exécution propre à chaque plateforme.",
         "sections": [
           {

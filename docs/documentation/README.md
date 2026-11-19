@@ -15,7 +15,7 @@ This package adds a read-only, searchable Documentation section to the existing 
 ## Source-of-truth hierarchy
 
 1. Current code, schemas, tests and immutable runtime evidence are the technical truth.
-2. Approved project DNA and Master Checkpoint documents define product intent and priorities.
+2. Project DNA snapshots and Master Checkpoint documents describe product intent and priorities. The 2026-11-17 DNA snapshot explicitly marks its source verification metadata as unverified and is not a live Notion connection; treat it as a local snapshot and refresh it when the canonical page changes.
 3. Exchange primary documentation and recorded official replies define protocol guarantees.
 4. This multilingual catalog is a reader-friendly, versioned summary. If it conflicts with a higher-level source, the higher-level source wins and the catalog must be corrected.
 
