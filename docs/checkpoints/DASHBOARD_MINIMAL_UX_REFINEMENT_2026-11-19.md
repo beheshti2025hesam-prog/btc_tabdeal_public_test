@@ -21,17 +21,20 @@ Reduce visual noise and make the existing HES Trade Agent dashboard easier to sc
 
 ## Implementation
 - Visual refinement in `web/static/dashboard.css` plus accessible progressive disclosure in the existing dashboard HTML.
-- Six secondary panels (technical detail, Mother diagnostics, news, safety, documentation, journal) are collapsed by default and remain available on demand.
+- Six secondary panels (indicators, Mother diagnostics, news, safety, documentation, journal) are collapsed by default and remain available on demand.
+- Further copy reduction: four-item primary navigation, concise section headings, compact market controls/metric labels, removed repeated feed/strategy explanations, and shortened safety guidance.
+- Restored the intended HES logo asset at `web/static/hes-mark.svg`, preserving the original interwoven monogram and adding green/red candlesticks; the existing header and favicon references now resolve to this asset.
 - Disclosure control labels are localized in Persian, English, German and French.
 - No new runtime dependency; no market-data, decision, strategy, risk, journal data contract, or execution logic changed.
 - Working branch: `feat/dashboard-minimal-ux-verified-20261119`.
 - Pull request: #544 (draft).
 
 ## Final validation — 2026-11-19
-- All 66 GitHub Actions checks passed on code commit `8d8bf4d5e53ffd6513f764985fdd0753e4f4dd50`.
+- Previous UI baseline passed all 66 GitHub Actions checks on code commit `8d8bf4d5e53ffd6513f764985fdd0753e4f4dd50`.
+- The latest logo and copy-reduction revision is awaiting a fresh complete CI and browser screenshot review; do not treat the earlier 66-check result as validation of these latest changes.
 - Passed checks include full repository pytest, HES full regression, dashboard native-path, browser render, Universal Indicator DOM/browser acceptance, desktop, Persian RTL, mobile and fail-closed behavior.
 - Browser screenshot reviewed: market chart, key market metrics, precision-entry and strategy summaries remain prominent; six secondary sections are collapsed by default and accessible on demand.
-- The final follow-up to this checkpoint is documentation-only; no application code changed after the passing code commit.
+- Latest follow-up changes application HTML, localized labels, and the SVG logo; validation is pending.
 - Production remains on release `d2049427716037d74d5ad106df83b26201a789b2`; dashboard service is active, `NO_TRADE_ONLY`, execution disabled, and no orders are placed.
 - No merge, production deployment, service restart, or live-execution change performed.
 
