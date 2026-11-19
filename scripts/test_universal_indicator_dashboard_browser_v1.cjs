@@ -77,7 +77,7 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector("#technicalProvenance").textContent.includes("BTC_USDT"));
   await page.selectOption("#languageSelect","fa");
   await page.waitForFunction(()=>document.documentElement.dir==="rtl");
-  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.querySelectorAll("#documentationIndex button").length===13&&document.querySelector("#documentationStatus")?.textContent.includes("1.0.3"));
+  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.querySelectorAll("#documentationIndex button").length===13&&document.querySelector("#documentationStatus")?.textContent.includes("1.0.4"));
   assert.ok((await page.locator("#documentationArticle").textContent()).includes("DNA"));
   assert.equal(await page.locator("#documentationSafety").textContent(),"فقط‌خواندنی");
   assert.ok((await page.locator("#technicalIntelligenceTitle").textContent()).includes("هوش فنی"));

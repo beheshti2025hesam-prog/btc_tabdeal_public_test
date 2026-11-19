@@ -115,6 +115,36 @@ class DocumentationRouteTests(unittest.TestCase):
             localized = {page["id"]: page["title"] for page in payloads[language]["pages"]}
             self.assertTrue(all(localized[key] != english[key] for key in english), language)
 
+    def test_all_locale_copy_is_complete_and_not_left_in_english(self):
+        payloads = {}
+        for language in ("en", "fa", "de", "fr"):
+            with urlopen(f"{self.base}/api/documentation?lang={language}") as response:
+                payloads[language] = json.loads(response.read())
+
+        english = {page["id"]: page for page in payloads["en"]["pages"]}
+        ui_keys = set(payloads["en"]["ui"])
+        for language in ("fa", "de", "fr"):
+            localized = {page["id"]: page for page in payloads[language]["pages"]}
+            self.assertEqual(set(localized), set(english))
+            self.assertEqual(set(payloads[language]["ui"]), ui_keys)
+            self.assertTrue(all(value.strip() for value in payloads[language]["ui"].values()))
+            for page_id, page in localized.items():
+                reference = english[page_id]
+                self.assertNotEqual(page["title"], reference["title"], (language, page_id, "title"))
+                self.assertNotEqual(page["summary"], reference["summary"], (language, page_id, "summary"))
+                self.assertNotEqual(page["category"], reference["category"], (language, page_id, "category"))
+                self.assertEqual(len(page["sections"]), len(reference["sections"]))
+                for index, section in enumerate(page["sections"]):
+                    source = reference["sections"][index]
+                    for field in ("heading", "body"):
+                        self.assertTrue(section[field].strip(), (language, page_id, index, field))
+                        self.assertNotEqual(section[field], source[field], (language, page_id, index, field))
+                    self.assertEqual(len(section["bullets"]), len(source["bullets"]))
+                    for bullet_index, bullet in enumerate(section["bullets"]):
+                        self.assertTrue(bullet.strip(), (language, page_id, index, bullet_index))
+                        self.assertNotEqual(bullet, source["bullets"][bullet_index], (language, page_id, index, bullet_index))
+                        self.assertEqual(bullet, bullet.strip())
+                        self.assertNotIn("  ", bullet)
 
 if __name__ == "__main__":
     unittest.main()
