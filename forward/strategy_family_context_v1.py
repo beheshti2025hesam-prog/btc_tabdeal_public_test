@@ -14,7 +14,7 @@ from typing import Any, Mapping
 from .strategy_family_router_v1 import (
     CANONICAL_SOURCE,
     CANONICAL_SYMBOL,
-    RANGE_MEAN_REVERSION_RESEARCH_V1,
+    RANGE_MEAN_REVERSION_RESEARCH_V2,
     ROUTER_VERSION,
     SETUP_TIMEFRAME,
     TREND_BREAKOUT_V2,
@@ -22,7 +22,7 @@ from .strategy_family_router_v1 import (
 )
 
 SCHEMA = "hes_strategy_family_candidate_context_v1"
-CONTEXT_VERSION = "hes-strategy-family-context-v1.0.0"
+CONTEXT_VERSION = "hes-strategy-family-context-v1.1.0"
 _ALLOWED_DIRECTIONS = {"LONG", "SHORT"}
 
 
@@ -104,7 +104,7 @@ def build_strategy_family_context(
     route = route_strategy_family(source=source, symbol=symbol, timeframe=timeframe, regime=regime)
     if route.family_id is None:
         raise ValueError("FAMILY_CONTEXT_NO_ROUTABLE_FAMILY")
-    profile = TREND_BREAKOUT_V2 if route.family_id == TREND_BREAKOUT_V2.family_id else RANGE_MEAN_REVERSION_RESEARCH_V1
+    profile = TREND_BREAKOUT_V2 if route.family_id == TREND_BREAKOUT_V2.family_id else RANGE_MEAN_REVERSION_RESEARCH_V2
     if profile.activation_state != route.activation_state:
         raise ValueError("FAMILY_CONTEXT_PROFILE_VERSION_MISMATCH")
     if (regime == "UPTREND" and direction != "LONG") or (regime == "DOWNTREND" and direction != "SHORT"):
@@ -186,7 +186,7 @@ def verify_strategy_family_context(
         return False, "FAMILY_CONTEXT_ROUTE_MISMATCH"
     if route.activation_state != context.get("family_activation_state"):
         return False, "FAMILY_CONTEXT_ACTIVATION_STATE_MISMATCH"
-    profile = TREND_BREAKOUT_V2 if route.family_id == TREND_BREAKOUT_V2.family_id else RANGE_MEAN_REVERSION_RESEARCH_V1
+    profile = TREND_BREAKOUT_V2 if route.family_id == TREND_BREAKOUT_V2.family_id else RANGE_MEAN_REVERSION_RESEARCH_V2
     if context.get("precision_timeframe") != profile.precision_timeframe:
         return False, "FAMILY_CONTEXT_PRECISION_TIMEFRAME_MISMATCH"
     if context.get("direction") not in _ALLOWED_DIRECTIONS:

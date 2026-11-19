@@ -20,7 +20,7 @@ from .forward_journal_v1 import ForwardJournalV1
 from .strategy_family_router_v1 import (
     CANONICAL_SOURCE,
     CANONICAL_SYMBOL,
-    RANGE_MEAN_REVERSION_RESEARCH_V1,
+    RANGE_MEAN_REVERSION_RESEARCH_V2,
     SETUP_TIMEFRAME,
     TREND_BREAKOUT_V2,
 )
@@ -31,7 +31,7 @@ PROJECTION_VERSION = "hes-strategy-family-journal-v1.0.0"
 
 FAMILY_PROFILES = {
     TREND_BREAKOUT_V2.family_id: TREND_BREAKOUT_V2,
-    RANGE_MEAN_REVERSION_RESEARCH_V1.family_id: RANGE_MEAN_REVERSION_RESEARCH_V1,
+    RANGE_MEAN_REVERSION_RESEARCH_V2.family_id: RANGE_MEAN_REVERSION_RESEARCH_V2,
 }
 FAMILY_FILES = {
     "trend_breakout": "strategy_family_trend_breakout_results_v1.jsonl",

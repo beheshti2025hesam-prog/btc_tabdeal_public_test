@@ -1,0 +1,84 @@
+{
+  "backtest": {
+    "cost_scenarios_round_trip_bps": [
+      5,
+      10,
+      15,
+      30
+    ],
+    "maximum_holding_bars": 64,
+    "non_overlapping_trades": true,
+    "stop_first_if_stop_and_target_touch_same_candle": true
+  },
+  "boundaries": {
+    "lookback_bars": 64,
+    "lower_low_quantile": 0.1,
+    "minimum_touch_separation_bars": 12,
+    "minimum_touches_each_side": 2,
+    "signal_candle_excluded": true,
+    "touch_tolerance_atr": 0.35,
+    "upper_high_quantile": 0.9
+  },
+  "context_version": "hes-strategy-family-context-v1.1.0",
+  "controls": {
+    "candidate_generation_authorized": false,
+    "confirmation_approved": false,
+    "daily_signal_quota": false,
+    "execution_enabled": false,
+    "historical_tuning_allowed": false,
+    "live_activation_allowed": false,
+    "orders_placed": false,
+    "research_only": true,
+    "risk_approved": false
+  },
+  "data_quality": {
+    "forbid_future_or_unclosed_bars": true,
+    "minimum_closed_bars": {
+      "15m": 220,
+      "1h": 220,
+      "4h": 220
+    },
+    "require_contiguous": true,
+    "require_timezone_aware_observation": true,
+    "require_volume_and_quote_volume": true
+  },
+  "entry": {
+    "close_within_boundary_fraction": 0.3,
+    "long_rsi": "<45 and rising",
+    "mfi_directional_reversal_required": true,
+    "short_rsi": ">55 and falling",
+    "type": "CLOSED_15M_BOUNDARY_SWEEP_RECLAIM",
+    "wick_to_body_min": 1.25
+  },
+  "family_id": "range_mean_reversion",
+  "family_version": "hes-range-mean-reversion-v2.0.0-research",
+  "geometry": {
+    "cost_model_required": true,
+    "entry_reference": "NEXT_CONTIGUOUS_15M_OPEN_FOR_BACKTEST",
+    "minimum_net_rr_research": 1.2,
+    "stop_buffer_atr": 0.15,
+    "target": "RANGE_MIDPOINT"
+  },
+  "policy_id": "HES_RANGE_BOUNDARY_SWEEP_RECLAIM_V2",
+  "policy_version": "2.0.0-research",
+  "regime": {
+    "adx_14_15m_max_exclusive": 23,
+    "adx_14_1h_max_exclusive": 28,
+    "adx_14_4h_max_exclusive": 28,
+    "choppiness_14_min": 58,
+    "efficiency_ratio_20_max": 0.25,
+    "ema50_slope_atr_1h_max": 0.6,
+    "ema50_slope_atr_4h_max": 0.6,
+    "minimum_close_persistence": 0.8,
+    "range_width_atr_max": 14,
+    "range_width_atr_min": 3
+  },
+  "router_version": "hes-strategy-family-router-v1.1.0",
+  "scope": {
+    "entry_refinement_timeframe": "1m",
+    "setup_timeframe": "15m",
+    "source": "gateio_public_spot",
+    "symbol": "BTC_USDT"
+  },
+  "status": "RESEARCH_ONLY_NOT_ACTIVE"
+}

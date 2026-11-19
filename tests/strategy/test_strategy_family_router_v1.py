@@ -3,7 +3,7 @@ import dataclasses
 import pytest
 
 from forward.strategy_family_router_v1 import (
-    RANGE_MEAN_REVERSION_RESEARCH_V1,
+    RANGE_MEAN_REVERSION_RESEARCH_V2,
     ROUTER_VERSION,
     TREND_BREAKOUT_V2,
     route_strategy_family,
@@ -29,7 +29,7 @@ def test_directional_regimes_route_to_frozen_trend_family_without_authority(regi
 def test_range_routes_to_research_only_family_not_an_active_signal_path():
     result = route(regime="RANGE")
     assert result.family_id == "range_mean_reversion"
-    assert result.family_version == RANGE_MEAN_REVERSION_RESEARCH_V1.version
+    assert result.family_version == RANGE_MEAN_REVERSION_RESEARCH_V2.version
     assert result.activation_state == "RESEARCH_ONLY_NOT_ACTIVE"
     assert result.candidate_generation_authorized is False
     assert result.execution_enabled is False
@@ -64,7 +64,7 @@ def test_unknown_and_unclassified_regimes_do_not_fall_back_to_trend():
 
 
 def test_family_profiles_are_immutable_and_never_enable_signals_or_execution():
-    for profile in (TREND_BREAKOUT_V2, RANGE_MEAN_REVERSION_RESEARCH_V1):
+    for profile in (TREND_BREAKOUT_V2, RANGE_MEAN_REVERSION_RESEARCH_V2):
         assert profile.signal_generation_enabled is False
         assert profile.execution_enabled is False
         assert profile.orders_placed is False
@@ -80,9 +80,9 @@ def test_trend_profile_keeps_existing_three_r_floor_and_gate_contract():
 
 
 def test_range_profile_does_not_claim_an_approved_rr_or_edge():
-    assert RANGE_MEAN_REVERSION_RESEARCH_V1.minimum_rr is None
-    assert RANGE_MEAN_REVERSION_RESEARCH_V1.activation_state == "RESEARCH_ONLY_NOT_ACTIVE"
-    assert "INDEPENDENT_OUT_OF_SAMPLE_ACCEPTANCE" in RANGE_MEAN_REVERSION_RESEARCH_V1.required_gates
+    assert RANGE_MEAN_REVERSION_RESEARCH_V2.minimum_rr is None
+    assert RANGE_MEAN_REVERSION_RESEARCH_V2.activation_state == "RESEARCH_ONLY_NOT_ACTIVE"
+    assert "INDEPENDENT_OUT_OF_SAMPLE_ACCEPTANCE" in RANGE_MEAN_REVERSION_RESEARCH_V2.required_gates
 
 
 def test_serialized_route_carries_explicit_safety_boundary():

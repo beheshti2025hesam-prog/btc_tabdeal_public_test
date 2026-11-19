@@ -51,7 +51,7 @@ class StrategyFamilyRoute:
         return result
 
 
-ROUTER_VERSION = "hes-strategy-family-router-v1.0.0"
+ROUTER_VERSION = "hes-strategy-family-router-v1.1.0"
 CANONICAL_SOURCE = "gateio_public_spot"
 CANONICAL_SYMBOL = "BTC_USDT"
 SETUP_TIMEFRAME = "15m"
@@ -77,9 +77,9 @@ TREND_BREAKOUT_V2 = StrategyFamilyProfile(
     ),
 )
 
-RANGE_MEAN_REVERSION_RESEARCH_V1 = StrategyFamilyProfile(
+RANGE_MEAN_REVERSION_RESEARCH_V2 = StrategyFamilyProfile(
     family_id="range_mean_reversion",
-    version="hes-range-mean-reversion-research-v1.1",
+    version="hes-range-mean-reversion-v2.0.0-research",
     regimes=("RANGE",),
     setup_timeframe=SETUP_TIMEFRAME,
     precision_timeframe=PRECISION_TIMEFRAME,
@@ -98,7 +98,7 @@ RANGE_MEAN_REVERSION_RESEARCH_V1 = StrategyFamilyProfile(
     ),
 )
 
-_PROFILES = (TREND_BREAKOUT_V2, RANGE_MEAN_REVERSION_RESEARCH_V1)
+_PROFILES = (TREND_BREAKOUT_V2, RANGE_MEAN_REVERSION_RESEARCH_V2)
 
 
 def route_strategy_family(
@@ -110,7 +110,7 @@ def route_strategy_family(
 ) -> StrategyFamilyRoute:
     """Identify a family without authorizing candidate generation or trading.
 
-    Only the canonical Gate.io BTC_USDT 15m setup context is routed in v1.
+    Only the canonical Gate.io BTC_USDT 15m setup context is routed in this contract version.
     The 1m timeframe remains a downstream precision-entry layer.
     """
     normalized_regime = regime if isinstance(regime, str) else "UNKNOWN"

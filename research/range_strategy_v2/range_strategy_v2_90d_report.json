@@ -1,0 +1,143 @@
+{
+  "base_commit": "09f660d625df3f8964ba8ddd20c9a9cf8a400f19",
+  "boundary_sweep_prefilter_bars": 646,
+  "candidate_rejection_reason_counts": {
+    "BOUNDARY_TOUCHES_NOT_PERSISTENT": 223,
+    "NO_UNAMBIGUOUS_SWEEP_RECLAIM_REVERSAL": 16,
+    "RANGE_CLASSIFIER_NOT_CONFIRMED": 322,
+    "RANGE_WIDTH_OUT_OF_BOUNDS": 41,
+    "TREND_STRENGTH_TOO_HIGH": 44
+  },
+  "entry_method": "next contiguous 15m open; no 1m refinement in this historical study",
+  "execution_enabled": false,
+  "first_evaluated_setup_utc": "2026-09-12T13:15:00+00:00",
+  "holdout_start_index": 5759,
+  "htf_method": "causal aggregation of contiguous closed source 15m candles; not independent feed",
+  "intrabar_policy": "stop-first if stop and target both touch; stop gap filled at open; target gap filled at target",
+  "limitations": [
+    "15m-only 90-day source; HTF series are resampled from same 15m data.",
+    "No 1m precision-entry replay or derivatives execution model.",
+    "Final-third slice is chronological holdout diagnostic, not independent external OOS.",
+    "Cost levels are assumptions, not verified fills or fee schedule."
+  ],
+  "max_holding_bars": 64,
+  "non_overlapping": true,
+  "orders_placed": false,
+  "policy_version": "2.0.0-research",
+  "resampled_1h_rows": 2159,
+  "resampled_4h_rows": 539,
+  "results_by_round_trip_cost_bps": {
+    "10": {
+      "all": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "assumed_round_trip_cost_bps": 10,
+      "chronological_final_third": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "raw_candidate_signals": 0
+    },
+    "15": {
+      "all": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "assumed_round_trip_cost_bps": 15,
+      "chronological_final_third": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "raw_candidate_signals": 0
+    },
+    "30": {
+      "all": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "assumed_round_trip_cost_bps": 30,
+      "chronological_final_third": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "raw_candidate_signals": 0
+    },
+    "5": {
+      "all": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "assumed_round_trip_cost_bps": 5,
+      "chronological_final_third": {
+        "avg_net_r": null,
+        "max_drawdown_r": 0.0,
+        "median_net_r": null,
+        "outcomes": {},
+        "profit_factor": null,
+        "total_net_r": 0.0,
+        "trades": 0,
+        "win_rate_pct": null,
+        "wins": 0
+      },
+      "raw_candidate_signals": 0
+    }
+  },
+  "schema": "hes_range_strategy_v2_research_report",
+  "source_end_utc": "2026-11-04T19:30:00+00:00",
+  "source_gap_count": 0,
+  "source_path": "/opt/hes-trade-agent/evidence/research/gateio_btcusdt_90d_20261104/hes-gateio-btcusdt-15m-90d-paginated-20261104T193800Z.jsonl",
+  "source_rows": 8639,
+  "source_sha256": "b1b411118bdb103491a4c9a713a63367fbe1cb985e8d5bf26eb50168d7e5f1c1",
+  "source_start_utc": "2026-08-06T19:45:00+00:00",
+  "status": "RESEARCH_ONLY_NOT_ACTIVE"
+}
