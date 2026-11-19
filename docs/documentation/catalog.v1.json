@@ -1,6 +1,6 @@
 {
   "schema": "hes_documentation_catalog_v1",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "product": "HES Trade Agent",
   "languages": [
     "fa",
@@ -19,7 +19,7 @@
   },
   "source_register": [
     "docs/PROJECT_DNA.md",
-    "docs/checkpoints/HES_TRADE_AI_DNA_2026-11-17.md (snapshot synchronized from canonical Notion page on 2026-11-19T07:16:29Z; source verification metadata remains unverified; not a live Notion connection)",
+    "docs/checkpoints/HES_TRADE_AI_DNA_2026-11-17.md (curated extract synchronized from canonical Notion page on 2026-11-19T07:24:17.899Z; source verification metadata remains unverified; not a full mirror or live Notion connection)",
     "docs/architecture/HES_PRODUCT_NAMING_V1.md",
     "docs/checkpoints/MOTHER_V2_ORCHESTRATION_2026-11-01.md",
     "docs/checkpoints/MOTHER_CHAT_COMMAND_CENTER_CONTRACT_2026-11-06.md",
@@ -61,7 +61,7 @@
           },
           {
             "heading": "Source freshness and authority",
-            "body": "The local DNA snapshot was synchronized from the canonical Notion page on 2026-11-19T07:16:29Z. Its source verification metadata remains unverified and it is not a live Notion connection; refresh and verify it whenever the canonical source changes.",
+            "body": "The curated local DNA extract was synchronized from the canonical Notion page on 2026-11-19T07:24:17.899Z. It is not a full-page mirror; source verification metadata remains unverified and it is not a live Notion connection. Refresh it whenever the canonical source changes.",
             "bullets": [
               "Current code, schemas, tests and runtime evidence remain the technical source of truth.",
               "If a source conflicts with live code or an approved checkpoint, record the conflict instead of silently choosing one."
@@ -233,6 +233,17 @@
               "Volume/flow: VWAP, relative volume, OBV, MFI and CMF, only when source volume semantics are valid.",
               "Regime: choppiness and efficiency ratio. Missing volume semantics disables volume-derived indicators only."
             ]
+          },
+          {
+            "heading": "Range strategy family — research-only status (2026-11-19)",
+            "body": "A standalone mean-reversion Range engine was implemented on an isolated branch as a research candidate. It uses prior-only dynamic boundaries, two-sided touch/persistence, CHOP/ER/ADX regime filters, 1h/4h EMA50 pressure checks, closed-candle sweep/reclaim, RSI/MFI reversal and cost-adjusted midpoint geometry. It is bound to the shared provenance-bound strategy-family context. Range profile v2 and router/context v1.1.0 were added; the Trend profile and its 3R/gate contract remain unchanged.",
+            "bullets": [
+              "Historical replay used 8,639 closed 15m candles with zero gaps and 646 boundary-sweep prefilter bars. It produced zero eligible candidates across assumed 5/10/15/30 bp round-trip costs.",
+              "VPS shadow replay used 1,733 15m, 1,119 1h, 654 4h and 19,985 1m closed Gate.io candles. All four feeds passed uniqueness/contiguity checks; actual 1h/4h data were used. It produced zero eligible candidates.",
+              "No win rate, expectancy or edge has been measured. This is insufficient candidate frequency under the frozen hypothesis, not a 0% win rate and not proof that all Range strategies fail. Do not tune thresholds on these same samples.",
+              "Focused tests: 61 passed. Full repository regression: 1,610 passed and 84 subtests passed. Candidate, confirmation, risk, execution and order-authority fields remain false.",
+              "The engine is not deployed, not active in the dashboard and not connected to live Strategy V2 approval; it cannot place orders. Keep fail-closed NO_TRADE until a separately preregistered future hypothesis earns acceptance."
+            ]
           }
         ]
       },
@@ -287,6 +298,7 @@
             ]
           }
         ]
+
       },
       {
         "id": "news-journal",
@@ -422,7 +434,8 @@
               "1.0.2 — Explicitly disclosed that the 2026-11-17 DNA snapshot has unverified source metadata and is not a live Notion connection.",
               "1.0.3 — Added troubleshooting/FAQ and documentation version-history pages.",
               "1.0.4 — Refined German and French category labels and strengthened automated checks for complete localized copy and browser asset loading.",
-              "1.0.5 — Synchronized the local DNA snapshot with the 2026-11-19 Notion update and added documentation as a cross-cutting DNA/roadmap gate."
+              "1.0.5 — Synchronized the local DNA snapshot with the 2026-11-19 Notion update and added documentation as a cross-cutting DNA/roadmap gate.",
+              "1.0.6 — Added the 2026-11-19 Range research-only status and clarified the local DNA file as a curated extract rather than a full Notion mirror."
             ]
           },
           {
@@ -448,7 +461,6 @@
           {
             "heading": "هویت محصول",
             "body": "HES Trade Agent محصول کامل ایجنت معاملاتی است. HES Trade AI مغز هوشمند و دستیار گفت‌وگویی آن است که با هماهنگ‌کننده مادر و ایجنت‌های تخصصی کار می‌کند. HES Command Center محیط کاربر برای ارتباط، مشاهده، فرمان و کنترل است. این نام‌ها به لایه‌های متفاوت اشاره دارند و نباید به‌جای یکدیگر استفاده شوند.",
-
             "bullets": [
               "نام HOSHYAR از هویت نمایشی محصول کنار گذاشته شده است؛ شناسه‌های فنی قدیمی تا زمان بررسی و مهاجرت جداگانه تغییر نمی‌کنند.",
               "پروژه برای انتقال‌پذیری میان بازارها، صرافی‌ها، نمادها، تایم‌فریم‌ها و استراتژی‌ها طراحی شده است؛ هر آداپتور یا پروفایل جدید همچنان به شواهد و اعتبارسنجی مستقل نیاز دارد."
@@ -465,7 +477,7 @@
           },
           {
             "heading": "تازگی و اعتبار منبع",
-            "body": "snapshot محلی DNA در تاریخ ۲۰۲۶-۱۱-۱۹ ساعت ۰۷:۱۶:۲۹ UTC با صفحه مرجع Notion همگام شد. وضعیت تأیید منبع همچنان «تأییدنشده» است و این فایل اتصال زنده به Notion نیست؛ با هر تغییر منبع مرجع، آن را دوباره همگام و اعتبارسنجی کنید.",
+            "body": "گزیده محلی و گزینش‌شده DNA در تاریخ ۲۰۲۶-۱۱-۱۹ ساعت ۰۷:۲۴:۱۷٫۸۹۹ UTC با صفحه مرجع Notion همگام شد. این فایل نسخه کامل صفحه نیست؛ وضعیت تأیید منبع همچنان «تأییدنشده» است و اتصال زنده به Notion ندارد. با هر تغییر منبع مرجع، آن را دوباره همگام کنید.",
             "bullets": [
               "کد فعلی، schemaها، آزمون‌ها و شواهد زمان اجرا همچنان مرجع حقیقت فنی هستند.",
               "اگر منبعی با کد زنده یا چک‌پوینت تأییدشده تعارض داشت، تعارض را ثبت کنید و بی‌سروصدا یکی را انتخاب نکنید."
@@ -587,6 +599,7 @@
             "bullets": [
               "Unknown یک وضعیت مستقل است و با false یکسان نیست؛ وضعیت نامشخص هیچ قابلیتی را مجاز نمی‌کند.",
               "هویت معامله با ترتیب رویداد یکی نیست؛ ترتیب با پیوستگی یکی نیست؛ پیوستگی نیز به معنی قابلیت مقایسه میان اتصال‌ها نیست.",
+
               "فقط بازه‌ها یا پیوندهای مستند دفتر سفارش، آن هم در محدوده مستند خود، مجاز به تشخیص شکاف هستند.",
               "تکرار دقیق payload خام، در صورت پشتیبانی آداپتور، می‌تواند مستقل از شناسه عددی مبهم به‌صورت idempotent مدیریت شود؛ عدد تکراری به‌تنهایی تکرار یا تعارض نیست."
             ]
@@ -636,6 +649,17 @@
               "نوسان: ATR، باندهای بولینگر، کلتنر و سنجه‌های دونچیان.",
               "حجم و جریان: VWAP، حجم نسبی، OBV، MFI و CMF؛ فقط وقتی معنای حجم منبع معتبر باشد.",
               "رژیم: چپینس و نسبت کارایی. نبود معنای معتبر حجم فقط اندیکاتورهای مبتنی بر حجم را غیرفعال می‌کند."
+            ]
+          },
+          {
+            "heading": "خانواده استراتژی رنج — وضعیت پژوهشی و غیرفعال (۲۰۲۶-۱۱-۱۹)",
+            "body": "یک موتور مستقل بازگشت به میانگین برای وضعیت رنج، در یک شاخه ایزوله و صرفاً به‌عنوان نامزد پژوهشی پیاده‌سازی شده است. این موتور از مرزهای پویای مبتنی بر داده‌های گذشته، لمس و ماندگاری دوطرفه، فیلترهای رژیم CHOP/ER/ADX، بررسی فشار EMA50 در تایم‌فریم‌های ۱ساعته و ۴ساعته، sweep/reclaim روی کندل بسته‌شده، بازگشت RSI/MFI و هندسه نقطه میانی با لحاظ هزینه استفاده می‌کند. این موتور به context مشترک خانواده استراتژی با منشأ داده متصل است. پروفایل Range نسخه ۲ و router/context نسخه ۱.۱.۰ اضافه شده‌اند؛ پروفایل Trend و قرارداد 3R و گیت‌های آن بدون تغییر مانده‌اند.",
+            "bullets": [
+              "بازپخش تاریخی با ۸٬۶۳۹ کندل بسته‌شده ۱۵دقیقه‌ای و بدون شکاف، و ۶۴۶ کندل پیش‌فیلتر boundary-sweep انجام شد. در هزینه رفت‌وبرگشت فرضی ۵/۱۰/۱۵/۳۰ واحد پایه، هیچ نامزد واجد شرایطی تولید نشد.",
+              "بازپخش سایه‌ای VPS از ۱٬۷۳۳ کندل ۱۵دقیقه‌ای، ۱٬۱۱۹ کندل ۱ساعته، ۶۵۴ کندل ۴ساعته و ۱۹٬۹۸۵ کندل ۱دقیقه‌ای بسته‌شده Gate.io استفاده کرد. هر چهار جریان از آزمون یکتایی و پیوستگی عبور کردند و داده واقعی ۱ساعته/۴ساعته به کار رفت؛ هیچ نامزد واجد شرایطی تولید نشد.",
+              "نرخ برد، امید ریاضی یا مزیت معاملاتی هنوز اندازه‌گیری نشده است. نتیجه فقط نشان‌دهنده فراوانی ناکافی نامزدها تحت فرضیه ثابت فعلی است؛ نه نرخ برد صفر و نه اثبات شکست همه استراتژی‌های رنج. آستانه‌ها را با همین نمونه‌ها تنظیم نکنید.",
+              "آزمون‌های متمرکز: ۶۱ موفق. آزمون کامل مخزن: ۱٬۶۱۰ موفق و ۸۴ زیرآزمون موفق. تمام فیلدهای اختیار نامزد، تأیید، ریسک، اجرا و سفارش همچنان false هستند.",
+              "موتور منتشر نشده، در داشبورد فعال نیست و به تأیید زنده Strategy V2 متصل نشده است؛ امکان ثبت سفارش ندارد. تا پذیرش یک فرضیه آینده با پیش‌ثبت مستقل، وضعیت fail-closed و NO_TRADE حفظ شود."
             ]
           }
         ]
@@ -826,7 +850,8 @@
               "۱.۰.۲ — اعلام صریح اینکه snapshot مربوط به DNA مورخ ۲۰۲۶-۱۱-۱۷ فرادادهٔ تأییدنشده دارد و اتصال زنده به Notion نیست.",
               "۱.۰.۳ — افزودن صفحات عیب‌یابی/پرسش‌های متداول و تاریخچهٔ نسخه‌های مستندات.",
               "۱.۰.۴ — اصلاح برچسب دسته‌بندی آلمانی و فرانسوی و تقویت آزمون‌های خودکار برای کامل‌بودن ترجمه‌ها و بارگذاری دارایی‌های مرورگر.",
-              "۱.۰.۵ — snapshot محلی DNA با به‌روزرسانی Notion در ۲۰۲۶-۱۱-۱۹ همگام شد و مستندات به‌عنوان دروازه‌ای سراسری به DNA و نقشه راه افزوده شد."
+              "۱.۰.۵ — snapshot محلی DNA با به‌روزرسانی Notion در ۲۰۲۶-۱۱-۱۹ همگام شد و مستندات به‌عنوان دروازه‌ای سراسری به DNA و نقشه راه افزوده شد.",
+              "۱.۰.۶ — وضعیت پژوهشی و غیرفعال موتور رنج در ۲۰۲۶-۱۱-۱۹ افزوده شد و فایل محلی DNA به‌عنوان گزیده‌ای گزینش‌شده، نه نسخه کامل Notion، مشخص شد."
             ]
           },
           {
@@ -868,13 +893,14 @@
           },
           {
             "heading": "Aktualität und Verbindlichkeit der Quelle",
-            "body": "Der lokale DNA-Snapshot wurde am 19.11.2026 um 07:16:29 UTC mit der kanonischen Notion-Seite synchronisiert. Der Quellenverifizierungsstatus bleibt nicht verifiziert; es besteht keine Live-Verbindung zu Notion. Bei jeder Änderung der kanonischen Quelle muss der Snapshot erneut synchronisiert und geprüft werden.",
+            "body": "Der kuratierte lokale DNA-Auszug wurde am 19.11.2026 um 07:24:17.899 UTC mit der kanonischen Notion-Seite synchronisiert. Er ist kein vollständiger Seitenspiegel; der Quellenverifizierungsstatus bleibt nicht verifiziert und es besteht keine Live-Verbindung zu Notion. Bei Änderungen der kanonischen Quelle erneut synchronisieren.",
             "bullets": [
               "Aktueller Code, Schemas, Tests und Laufzeitnachweise bleiben die technische Wahrheit.",
               "Widerspricht eine Quelle dem Live-Code oder einem freigegebenen Checkpoint, ist der Konflikt zu dokumentieren, statt stillschweigend eine Seite zu bevorzugen."
             ]
           },
           {
+
             "heading": "Dokumentation als Kernfunktion",
             "body": "Die Dokumentation ist eine versionierte, durchsuchbare Funktion innerhalb des bestehenden HES Command Center. Sie erläutert kuratiert die Projektabsicht und belegtes technisches Wissen; sie ist weder eine separate Anwendung noch eine Quelle für Handels- oder Laufzeitwahrheit.",
             "bullets": [
@@ -899,7 +925,6 @@
               "Phase 0 — Bestandsaufnahme und Machbarkeit: vorhandenen VPS, Dienste, Mother/Chat, Abhängigkeiten, Sicherheitsgrenzen und den veränderten Checkout prüfen. Checkout nicht zurücksetzen oder bereinigen und keine unbeteiligten Dienste neu starten.",
               "Phase 1 — Benchmark des lokalen Modells: CPU/RAM, Latenz, Kontext, mehrsprachige Qualität und Auswirkungen gleichzeitiger Last messen. Bei unzureichenden Ressourcen oder Qualität die Einschränkung melden; keine kostenpflichtige Inferenz als Ersatz verwenden.",
               "Phase 2 — Dialog und Gedächtnis: den vorhandenen Mother-Chat um mehrsprachigen Mehrfachdialog, Sitzungstrennung, kontrolliertes dauerhaftes Gedächtnis, Herkunftsnachweise und Benutzerkontrolle erweitern.",
-
               "Phase 3 — Diagnose und Strategieintelligenz: schreibgeschützte, beleggestützte Erklärungen zu Betriebs- und Handelsdaten bereitstellen.",
               "Phase 4 — Hypothesenlabor: reproduzierbare isolierte Experimente, Baselines, Kennzahlen, Out-of-Sample-Validierung und Kosten-/Slippage-Prüfungen.",
               "Phase 5 — Engineering-Copilot mit Freigabe: minimale Änderungsvorschläge, Tests, Review, ausdrückliche Freigabe, kontrollierte Bereitstellung und Rollback."
@@ -1041,6 +1066,17 @@
               "Volumen/Flow: VWAP, relatives Volumen, OBV, MFI und CMF – nur bei gültiger Volumensemantik der Quelle.",
               "Regime: Choppiness und Efficiency Ratio. Fehlende Volumensemantik deaktiviert nur volumenbasierte Indikatoren."
             ]
+          },
+          {
+            "heading": "Range-Strategiefamilie — Forschungsstatus ohne Freigabe (19.11.2026)",
+            "body": "Eine eigenständige Mean-Reversion-Range-Engine wurde auf einem isolierten Branch als Forschungskandidat implementiert. Sie verwendet ausschließlich vergangenheitsbasierte dynamische Grenzen, beidseitige Berührung/Persistenz, CHOP/ER/ADX-Regimefilter, EMA50-Druckprüfungen auf 1h/4h, Sweep/Reclaim auf abgeschlossenen Kerzen, RSI/MFI-Umkehr und kostenbereinigte Mittelpunktsgeometrie. Sie ist an den gemeinsamen, herkunftsgebundenen Strategy-Family-Kontext gekoppelt. Range-Profil v2 sowie Router/Kontext v1.1.0 wurden ergänzt; das Trend-Profil und sein 3R-/Gate-Vertrag bleiben unverändert.",
+            "bullets": [
+              "Der historische Replay verwendete 8.639 geschlossene 15m-Kerzen ohne Lücken und 646 Boundary-Sweep-Vorfilter-Bars. Bei angenommenen Round-Trip-Kosten von 5/10/15/30 Basispunkten entstand kein einziger zulässiger Kandidat.",
+              "Der VPS-Shadow-Replay verwendete 1.733 15m-, 1.119 1h-, 654 4h- und 19.985 geschlossene 1m-Gate.io-Kerzen. Alle vier Feeds bestanden Eindeutigkeits- und Kontiguitätsprüfungen; für 1h/4h wurden echte Daten verwendet. Es entstand kein zulässiger Kandidat.",
+              "Gewinnquote, Erwartungswert und Edge wurden nicht gemessen. Das bedeutet zu geringe Kandidatenfrequenz unter der eingefrorenen Hypothese, nicht 0 % Gewinnquote und nicht, dass alle Range-Strategien gescheitert sind. Schwellenwerte nicht anhand derselben Stichproben nachjustieren.",
+              "Fokustests: 61 bestanden. Vollständige Repository-Regression: 1.610 bestanden und 84 Subtests bestanden. Kandidaten-, Bestätigungs-, Risiko-, Ausführungs- und Order-Berechtigungsfelder bleiben false.",
+              "Die Engine ist nicht bereitgestellt, im Dashboard nicht aktiv und nicht mit der Live-Freigabe von Strategy V2 verbunden; sie kann keine Orders platzieren. Fail-closed NO_TRADE bleibt bestehen, bis eine separat vorregistrierte zukünftige Hypothese die Abnahme besteht."
+            ]
           }
         ]
       },
@@ -1165,6 +1201,7 @@
               "Sequence-Epoche: eine Sitzungs- oder Synchronisierungsperiode; Werte verschiedener Epochen sind ohne ausdrückliche Dokumentation nicht vergleichbar.",
               "Herkunftsnachweis: Quelle, Abrufkontext, Zeitstempel, Schema und kryptografische Hashes, die die Herkunft der Evidenz erklären."
             ]
+
           },
           {
             "heading": "Entscheidungs- und Sicherheitsbegriffe",
@@ -1230,7 +1267,8 @@
               "1.0.2 — Klarstellung, dass der DNA-Snapshot vom 17.11.2026 nicht verifizierte Quellenmetadaten trägt und keine Live-Notion-Verbindung darstellt.",
               "1.0.3 — Seiten zur Fehlerbehebung/FAQ und zur Dokumentationshistorie ergänzt.",
               "1.0.4 — Deutsche und französische Kategorienamen präzisiert und automatische Prüfungen für vollständige Übersetzungen sowie das Laden der Browser-Ressourcen erweitert.",
-              "1.0.5 — Den lokalen DNA-Snapshot mit der Notion-Aktualisierung vom 19.11.2026 synchronisiert und Dokumentation als übergreifendes DNA-/Roadmap-Gate ergänzt."
+              "1.0.5 — Den lokalen DNA-Snapshot mit der Notion-Aktualisierung vom 19.11.2026 synchronisiert und Dokumentation als übergreifendes DNA-/Roadmap-Gate ergänzt.",
+              "1.0.6 — Forschungsstatus der Range-Engine vom 19.11.2026 ergänzt und die lokale DNA-Datei als kuratierter Auszug statt als vollständiger Notion-Spiegel gekennzeichnet."
             ]
           },
           {
@@ -1272,7 +1310,7 @@
           },
           {
             "heading": "Fraîcheur et autorité de la source",
-            "body": "L’instantané local de l’ADN a été synchronisé avec la page Notion canonique le 19/11/2026 à 07:16:29 UTC. Les métadonnées de vérification de la source restent « non vérifiées » et il ne s’agit pas d’une connexion Notion en direct ; il faut le synchroniser et le vérifier à nouveau à chaque évolution de la source canonique.",
+            "body": "L’extrait DNA local éditorialisé a été synchronisé avec la page Notion canonique le 19/11/2026 à 07:24:17.899 UTC. Il ne constitue pas un miroir intégral de la page ; les métadonnées de vérification restent « non vérifiées » et il ne s’agit pas d’une connexion Notion en direct. Le resynchroniser à chaque évolution de la source canonique.",
             "bullets": [
               "Le code actuel, les schémas, les tests et les preuves d’exécution restent la source de vérité technique.",
               "Si une source contredit le code en production ou un checkpoint approuvé, consigner le conflit au lieu de choisir silencieusement une version."
@@ -1350,7 +1388,6 @@
             "heading": "Limites d’autorité",
             "body": "Le modèle conversationnel local est facultatif et subordonné. Il peut router des intentions limitées et expliquer des preuves vérifiées ; il ne peut remplacer les spécialistes Mother, modifier la politique stratégique, écrire dans les journaux, accéder aux comptes d’exchange ni envoyer d’ordres.",
             "bullets": [
-
               "Réutiliser les adaptateurs, lecteurs, API, mécanismes d’authentification, journal et tableau de bord existants ; ne créer une infrastructure parallèle qu’en cas de nécessité démontrée.",
               "Un graphique ou un indicateur reste descriptif tant que son rôle décisionnel précis n’a pas été validé et autorisé."
             ]
@@ -1445,6 +1482,17 @@
               "Volume et flux : VWAP, volume relatif, OBV, MFI et CMF, uniquement si la sémantique du volume source est valide.",
               "Régime : choppiness et ratio d’efficacité. Une sémantique de volume absente désactive uniquement les indicateurs fondés sur le volume."
             ]
+          },
+          {
+            "heading": "Famille de stratégies Range — état de recherche non activé (19/11/2026)",
+            "body": "Un moteur Range autonome de retour à la moyenne a été implémenté sur une branche isolée comme candidat de recherche. Il utilise des bornes dynamiques fondées uniquement sur le passé, des conditions de contact/persistance dans les deux sens, des filtres de régime CHOP/ER/ADX, des contrôles de pression EMA50 en 1h/4h, un sweep/reclaim sur bougies clôturées, un retournement RSI/MFI et une géométrie du point médian ajustée des coûts. Il est lié au contexte partagé des familles de stratégies avec provenance. Le profil Range v2 et le routeur/contexte v1.1.0 ont été ajoutés ; le profil Trend et son contrat 3R/de filtres restent inchangés.",
+            "bullets": [
+              "Le rejeu historique a utilisé 8 639 bougies 15m clôturées sans lacune et 646 barres de préfiltrage boundary-sweep. Aucun candidat admissible n’a été produit avec des coûts aller-retour supposés de 5/10/15/30 points de base.",
+              "Le rejeu d’observation sur VPS a utilisé 1 733 bougies 15m, 1 119 en 1h, 654 en 4h et 19 985 bougies Gate.io 1m clôturées. Les quatre flux ont passé les contrôles d’unicité et de continuité ; les données réelles 1h/4h ont été utilisées. Aucun candidat admissible n’a été produit.",
+              "Aucun taux de réussite, espérance ni avantage statistique n’a été mesuré. Cela indique une fréquence insuffisante de candidats sous l’hypothèse figée, et non un taux de réussite de 0 % ni l’échec de toutes les stratégies Range. Ne réglez pas les seuils sur ces mêmes échantillons.",
+              "Tests ciblés : 61 réussis. Régression complète du dépôt : 1 610 réussis et 84 sous-tests réussis. Les champs d’autorité candidat, confirmation, risque, exécution et ordre restent à false.",
+              "Le moteur n’est pas déployé, n’est pas actif dans le tableau de bord et n’est pas relié à l’approbation Strategy V2 en direct ; il ne peut pas passer d’ordres. Maintenir NO_TRADE en échec fermé jusqu’à l’acceptation d’une hypothèse future préenregistrée séparément."
+            ]
           }
         ]
       },
@@ -1454,6 +1502,7 @@
         "title": "Filtres de risque et limites d’exécution",
         "summary": "Pourquoi HOLD et NO_TRADE sont des résultats valides et pourquoi le tableau de bord ne peut pas envoyer d’ordres.",
         "sections": [
+
           {
             "heading": "Politique de décision en échec fermé",
             "body": "Des preuves manquantes, périmées, contradictoires ou non vérifiées doivent bloquer le chemin de décision concerné. NO_TRADE est un résultat de sécurité intentionnel, pas une panne système ni une invitation à abaisser les seuils.",
@@ -1634,7 +1683,8 @@
               "1.0.2 — Mention explicite que l’instantané DNA du 17/11/2026 porte des métadonnées de source non vérifiées et ne constitue pas une connexion Notion en direct.",
               "1.0.3 — Ajout des pages de dépannage/FAQ et d’historique des versions documentaires.",
               "1.0.4 — Précision des libellés de catégories en allemand et en français, et renforcement des contrôles automatisés des traductions et du chargement des ressources du navigateur.",
-              "1.0.5 — Instantané DNA local synchronisé avec la mise à jour Notion du 19/11/2026 et documentation ajoutée comme jalon transversal de l’ADN et de la feuille de route."
+              "1.0.5 — Instantané DNA local synchronisé avec la mise à jour Notion du 19/11/2026 et documentation ajoutée comme jalon transversal de l’ADN et de la feuille de route.",
+              "1.0.6 — Ajout de l’état de recherche Range du 19/11/2026 et clarification du fichier DNA local comme extrait éditorialisé, non comme miroir complet de Notion."
             ]
           },
           {

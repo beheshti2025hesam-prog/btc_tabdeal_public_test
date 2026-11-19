@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Current catalog release: **1.0.5** (2026-11-19). It contains 13 aligned pages in each of the four supported languages.
+Current catalog release: **1.0.6** (2026-11-19). It contains 13 aligned pages in each of the four supported languages.
 
 This package adds a read-only, searchable Documentation section to the existing HES Command Center. It reuses the existing dashboard, locale selector, HTTP handler and static-asset delivery. It does not create a second application or a second source of trading truth.
 

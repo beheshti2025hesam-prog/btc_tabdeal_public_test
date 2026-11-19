@@ -1,11 +1,11 @@
-# HES Trade AI — Canonical Project DNA Snapshot
+# HES Trade AI — Curated Project DNA Extract
 
 - Source: Notion page **HES Trade AI — Local Private AI Environment — DNA & Roadmap — 2026-11-17**
 - Source URL: https://app.notion.com/p/41b0a937939181bcae32e628746b1324
-- Source last edited: 2026-11-19T07:16:29.906Z
+- Source last edited: 2026-11-19T07:24:17.899Z
 - Source verification metadata: `unverified`
 - Related Master Checkpoint: https://app.notion.com/p/3f80a937939181619f0fce6b19b968d0
-- Snapshot purpose: bounded, read-only local retrieval; refresh when the canonical Notion page changes. This is not a live Notion connection.
+- Snapshot purpose: curated, bounded, read-only local extract of core DNA/roadmap and selected implementation status; not a full-page mirror or live Notion connection. Source verification metadata remains unverified; refresh when the canonical Notion page changes.
 
 ## Official product naming — approved 2026-11-17
 
@@ -91,3 +91,14 @@ This snapshot is copied from the canonical Notion DNA page into the VPS reposito
 - Exact-head CI: 34/34 check-runs passed, including full repository regression, candidate-validation, browser-render and dashboard-native-path. Browser acceptance passed all four locales, desktop/mobile, fail-closed behavior, zero browser console errors and no horizontal overflow.
 - PR #532 is Ready for Review, open and mergeable. No merge or production deployment occurred; operational dashboard, release pointer and services were unchanged.
 - Independent native-speaker review remains pending; no certification is claimed.
+
+
+## Range Strategy Engine v2 — research-only status (2026-11-19)
+
+- Implemented on isolated branch feat/range-strategy-research-v1-20261119 as a standalone mean-reversion research candidate using prior-only dynamic boundaries, two-sided touch/persistence, CHOP/ER/ADX regime filters, 1h/4h EMA50 pressure, closed-candle sweep/reclaim, RSI/MFI reversal and cost-adjusted midpoint geometry.
+- Bound to the shared provenance-bound strategy-family context. Range profile v2 and router/context v1.1.0; Trend profile and its 3R/gate contract remain unchanged.
+- Historical replay: 8,639 closed 15m candles, zero gaps, 646 boundary-sweep prefilter bars; zero eligible candidates at assumed 5/10/15/30 bp round-trip costs.
+- VPS shadow replay: 1,733 15m, 1,119 1h, 654 4h and 19,985 1m closed Gate.io candles. All four feeds passed uniqueness/contiguity checks and actual 1h/4h data were used; zero eligible candidates.
+- No win rate, expectancy or edge has been measured. This is insufficient candidate frequency under the frozen hypothesis, not a 0% win rate and not proof all Range strategies fail. Do not tune thresholds on these same samples.
+- Focused tests: 61 passed; full repository regression: 1,610 passed and 84 subtests passed. Candidate/confirmation/risk/execution/order authority fields remain false.
+- Not deployed, not active in the dashboard, not connected to live Strategy V2 approval and cannot place orders. Keep fail-closed NO_TRADE until a separately preregistered future hypothesis earns acceptance.
