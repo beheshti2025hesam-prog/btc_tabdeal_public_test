@@ -31,7 +31,8 @@ Reduce visual noise and make the existing HES Trade Agent dashboard easier to sc
 - Dashboard native-path workflow: PASS.
 - Browser-render smoke: PASS on the CSS-only commit; full rerun is required after progressive disclosure changes.
 - Dashboard native-path and full regression workflows passed on the CSS-only commit; full rerun is required after progressive disclosure changes.
-- Visual acceptance of the updated compact layout remains pending.
+- Browser screenshot review confirmed the overview hierarchy and collapsed secondary panels; disclosure controls are anchored to their own panels.
+- Final visual acceptance and complete latest-head regression remain pending.
 - No merge, production deployment, service restart, or live-execution change performed.
 
 ## Release rule
