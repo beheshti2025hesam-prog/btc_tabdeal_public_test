@@ -42,7 +42,9 @@ class DocumentationRouteTests(unittest.TestCase):
                 "policy_mutation": False,
             })
             ids = [page["id"] for page in payload["pages"]]
-            self.assertEqual(len(ids), 11)
+            self.assertEqual(len(ids), 13)
+            self.assertIn("troubleshooting", ids)
+            self.assertIn("changelog", ids)
             self.assertEqual(len(set(ids)), len(ids))
             expected_ids = ids if expected_ids is None else expected_ids
             self.assertEqual(ids, expected_ids)

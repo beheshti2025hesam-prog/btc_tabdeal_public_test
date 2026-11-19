@@ -1,6 +1,6 @@
 {
   "schema": "hes_documentation_catalog_v1",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "product": "HES Trade Agent",
   "languages": [
     "fa",
@@ -348,7 +348,71 @@
               "Read-only: data may be inspected and explained, but not changed or acted upon.",
               "Descriptive-only: a feature provides context but has no independent signal or policy authority."
             ]
+          }
+        ]
+      },
+      {
+        "id": "troubleshooting",
+        "category": "Support",
+        "title": "Troubleshooting and FAQ",
+        "summary": "A safe diagnostic path for common dashboard, data, chat and protocol states.",
+        "sections": [
+          {
+            "heading": "Dashboard and market-data checks",
+            "body": "Start with the reported status and the exact evidence reference. Check source identity, freshness, closed-candle state, gap count and batch hash before interpreting a chart or indicator.",
+            "bullets": [
+              "If the chart is blocked or stale, inspect the health endpoint, dashboard logs and canonical Gate.io reader; do not substitute cached or manually fabricated candles.",
+              "If an indicator is unavailable, verify that its input batch matches the chart batch. Missing volume semantics should disable volume-derived features only.",
+              "If a mapped symbol is descriptive-only, do not treat its chart as a validated strategy profile."
+            ]
+          },
+          {
+            "heading": "Command Center and protocol questions",
+            "body": "The Command Center is read-only and uses the existing local authentication/session boundary. Documentation cannot unlock the chat, change policy or enable execution.",
+            "bullets": [
+              "If chat access is unavailable, verify the locally configured access token and session state; never paste credentials into a report or documentation page.",
+              "If a sequence value repeats or jumps, consult the exact venue/product/channel registry record. Do not infer a lost trade from arithmetic.",
+              "After a required stream reconnect, resubscribe and rebuild state from the documented snapshot procedure. Keep dependent stateful processing blocked until synchronization is verified.",
+              "HOLD and NO_TRADE are valid outcomes when evidence is missing, stale or contradictory; do not lower thresholds to make a panel appear healthy."
+            ]
+          },
+          {
+            "heading": "Escalation evidence",
+            "body": "When a fault persists, collect only the minimum non-secret evidence needed to reproduce it.",
+            "bullets": [
+              "Record timestamp and timezone, component/version, venue/product/channel, symbol/timeframe, status/reason code and relevant content hash.",
+              "Redact tokens, account identifiers, private keys, personal data and full private payloads before sharing.",
+              "Preserve the original event and log; do not rewrite journals, checkpoints or historical decisions to hide the failure."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "changelog",
+        "category": "Reference",
+        "title": "Documentation versions and change history",
+        "summary": "Versioned history of the documentation catalog and its editorial/source-policy changes.",
+        "sections": [
+          {
+            "heading": "Catalog releases",
+            "body": "The catalog version describes the documentation presentation and content, not the HES trading strategy or runtime release.",
+            "bullets": [
+              "1.0.0 — Initial four-language library and core project, architecture, data, protocol, strategy, risk, learning, news, journal and operations guides.",
 
+              "1.0.1 — Added editorial-review metadata, a source register and the exchange-sequence research digest.",
+              "1.0.2 — Explicitly disclosed that the 2026-11-17 DNA snapshot has unverified source metadata and is not a live Notion connection.",
+              "1.0.3 — Added troubleshooting/FAQ and documentation version-history pages."
+            ]
+          },
+          {
+            "heading": "Change-control rules",
+            "body": "Every content change must preserve the four-language page and section structure and must be tied to a source or an explicitly labeled editorial clarification.",
+            "bullets": [
+              "Increment the catalog version and update date when published content changes.",
+              "Record source paths, source revision/hash where available, and the reason for the change.",
+              "Update all four languages together; never let one locale silently become the only current version.",
+              "Do not use the documentation version to imply that code, model, strategy or production runtime has changed."
+            ]
           }
         ]
       }
@@ -668,9 +732,74 @@
             ]
           }
         ]
+      },
+      {
+        "id": "troubleshooting",
+        "category": "پشتیبانی",
+        "title": "عیب‌یابی و پرسش‌های متداول",
+        "summary": "مسیر تشخیص ایمن برای وضعیت‌های رایج داشبورد، داده، چت و پروتکل.",
+        "sections": [
+          {
+            "heading": "بررسی داشبورد و دادهٔ بازار",
+            "body": "تشخیص را از وضعیت گزارش‌شده و ارجاع دقیق شواهد آغاز کنید. پیش از تفسیر نمودار یا اندیکاتور، هویت منبع، تازگی، بسته‌بودن کندل، تعداد شکاف‌ها و هش بستهٔ داده را بررسی کنید.",
+            "bullets": [
+              "اگر نمودار مسدود یا داده کهنه است، endpoint سلامت، گزارش‌های داشبورد و خوانشگر مرجع Gate.io را بررسی کنید؛ کندل ذخیره‌شدهٔ قدیمی یا ساختگی را جایگزین نکنید.",
+              "اگر اندیکاتوری در دسترس نیست، مطمئن شوید بستهٔ ورودی آن با بستهٔ نمودار یکسان است. نبود معنای معتبر حجم فقط باید ویژگی‌های مبتنی بر حجم را غیرفعال کند.",
+              "اگر نمادی فقط برای توصیف فعال است، نمودار آن را پروفایل استراتژی اعتبارسنجی‌شده تلقی نکنید."
+            ]
+          },
+          {
+            "heading": "پرسش‌های Command Center و پروتکل",
+            "body": "مرکز فرمان فقط‌خواندنی است و از مرز احراز هویت و نشست محلی موجود استفاده می‌کند. مستندات نمی‌توانند چت را باز کنند، سیاست را تغییر دهند یا اجرا را فعال کنند.",
+            "bullets": [
+              "اگر دسترسی چت برقرار نیست، توکن دسترسی محلی و وضعیت نشست را بررسی کنید؛ اعتبارنامه را در گزارش یا صفحهٔ مستندات قرار ندهید.",
+              "اگر مقدار sequence تکرار یا جهش دارد، رکورد رجیستری دقیق صرافی/محصول/کانال را ببینید. از روی محاسبات عددی، معاملهٔ ازدست‌رفته استنباط نکنید.",
+              "پس از اتصال مجدد جریان که به همگام‌سازی نیاز دارد، اشتراک را دوباره برقرار و وضعیت را طبق روش snapshot مستند بازسازی کنید. تا تأیید همگام‌سازی، پردازش وابسته باید مسدود بماند.",
+              "HOLD و NO_TRADE وقتی شواهد مفقود، کهنه یا متناقض‌اند نتایج معتبر هستند؛ برای سالم نشان‌دادن پنل‌ها آستانه‌ها را پایین نیاورید."
+            ]
+          },
+          {
+            "heading": "شواهد لازم برای ارجاع مشکل",
+            "body": "اگر خطا ادامه داشت، فقط حداقل شواهد غیرمحرمانهٔ لازم برای بازتولید آن را جمع‌آوری کنید.",
+            "bullets": [
+              "زمان و منطقهٔ زمانی، مؤلفه/نسخه، صرافی/محصول/کانال، نماد/تایم‌فریم، وضعیت/کد دلیل و هش محتوای مرتبط را ثبت کنید.",
+              "توکن‌ها، شناسه‌های حساب، کلیدهای خصوصی، دادهٔ شخصی و payload کامل خصوصی را پیش از اشتراک‌گذاری حذف یا پوشانده کنید.",
+              "رویداد و گزارش اصلی را حفظ کنید؛ برای پنهان‌کردن خطا ژورنال، checkpoint یا تصمیم تاریخی را بازنویسی نکنید."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "changelog",
+        "category": "مرجع",
+        "title": "نسخه‌ها و تاریخچهٔ تغییرات مستندات",
+        "summary": "تاریخچهٔ نسخه‌بندی‌شدهٔ کاتالوگ مستندات و تغییرات سیاست ویرایشی و منابع.",
+        "sections": [
+          {
+            "heading": "نسخه‌های کاتالوگ",
+            "body": "نسخهٔ کاتالوگ، ارائه و محتوای مستندات را مشخص می‌کند، نه استراتژی معاملاتی یا نسخهٔ زمان اجرای HES را.",
+            "bullets": [
+              "۱.۰.۰ — کتابخانهٔ اولیهٔ چهارزبانه و راهنماهای اصلی پروژه، معماری، داده، پروتکل، استراتژی، ریسک، یادگیری، اخبار، ژورنال و عملیات.",
+              "۱.۰.۱ — افزودن فرادادهٔ بازبینی ویرایشی، فهرست منابع و چکیدهٔ پژوهش معنای Sequence در صرافی‌ها.",
+              "۱.۰.۲ — اعلام صریح اینکه snapshot مربوط به DNA مورخ ۲۰۲۶-۱۱-۱۷ فرادادهٔ تأییدنشده دارد و اتصال زنده به Notion نیست.",
+              "۱.۰.۳ — افزودن صفحات عیب‌یابی/پرسش‌های متداول و تاریخچهٔ نسخه‌های مستندات."
+            ]
+          },
+          {
+            "heading": "قواعد کنترل تغییر",
+            "body": "هر تغییر محتوا باید ساختار صفحه‌ها و بخش‌ها در چهار زبان را حفظ کند و به یک منبع یا توضیح ویرایشی با برچسب مشخص متصل باشد.",
+            "bullets": [
+              "هنگام انتشار تغییر محتوا، نسخهٔ کاتالوگ و تاریخ به‌روزرسانی را افزایش دهید.",
+              "مسیر منابع، نسخه/هش منبع در صورت وجود و دلیل تغییر را ثبت کنید.",
+              "هر چهار زبان را هم‌زمان به‌روزرسانی کنید؛ اجازه ندهید یک زبان بی‌سروصدا تنها نسخهٔ به‌روز باشد.",
+              "از نسخهٔ مستندات برای القای تغییر در کد، مدل، استراتژی یا زمان اجرای تولید استفاده نکنید."
+            ]
+          }
+        ]
       }
     ],
     "de": [
+
       {
         "id": "dna",
         "category": "Grundlagen",
@@ -699,7 +828,6 @@
             "body": "Die DNA-Momentaufnahme vom 17.11.2026 kennzeichnet ihre Quellenverifizierung ausdrücklich als nicht verifiziert und stellt klar, dass keine Live-Verbindung zu Notion besteht. Sie ist als lokale Momentaufnahme der Produktabsicht zu behandeln, nicht als Beleg dafür, dass die übergeordnete Seite unverändert ist. Bei Änderungen der kanonischen Quelle muss sie aktualisiert und erneut geprüft werden.",
             "bullets": [
               "Aktueller Code, Schemas, Tests und Laufzeitnachweise bleiben die technische Wahrheit.",
-
               "Widerspricht eine Quelle dem Live-Code oder einem freigegebenen Checkpoint, ist der Konflikt zu dokumentieren, statt stillschweigend eine Seite zu bevorzugen."
             ]
           }
@@ -986,6 +1114,70 @@
             ]
           }
         ]
+      },
+      {
+        "id": "troubleshooting",
+        "category": "Support",
+        "title": "Fehlerbehebung und häufige Fragen",
+        "summary": "Ein sicherer Diagnoseweg für typische Dashboard-, Daten-, Chat- und Protokollzustände.",
+        "sections": [
+          {
+            "heading": "Dashboard und Marktdaten prüfen",
+            "body": "Beginnen Sie mit dem gemeldeten Status und dem genauen Evidenzverweis. Prüfen Sie Quellenidentität, Aktualität, Kerzenschluss, Lückenzahl und Batch-Hash, bevor Sie Charts oder Indikatoren interpretieren.",
+            "bullets": [
+              "Ist das Chart blockiert oder veraltet, prüfen Sie den Health-Endpunkt, Dashboard-Protokolle und den kanonischen Gate.io-Reader; ersetzen Sie Daten niemals durch alte Cache- oder erfundene Kerzen.",
+              "Ist ein Indikator nicht verfügbar, prüfen Sie, ob sein Eingabebatch mit dem Chart-Batch übereinstimmt. Fehlende Volumensemantik darf nur volumenbasierte Merkmale deaktivieren.",
+              "Ist ein Symbol nur beschreibend verfügbar, behandeln Sie sein Chart nicht als validiertes Strategieprofil."
+            ]
+          },
+          {
+            "heading": "Fragen zu Command Center und Protokollen",
+            "body": "Das Command Center ist schreibgeschützt und verwendet die vorhandene lokale Authentifizierungs- und Sitzungsgrenze. Die Dokumentation kann den Chat nicht entsperren, Richtlinien ändern oder Ausführung aktivieren.",
+            "bullets": [
+              "Ist der Chat-Zugriff nicht verfügbar, prüfen Sie das lokal konfigurierte Zugriffstoken und den Sitzungsstatus; Zugangsdaten gehören niemals in Berichte oder Dokumentationsseiten.",
+              "Wiederholt sich ein Sequence-Wert oder springt er, prüfen Sie den genauen Registry-Eintrag für Handelsplatz/Produkt/Kanal. Leiten Sie aus Arithmetik keinen verlorenen Trade ab.",
+              "Nach einem Reconnect, der eine Synchronisierung erfordert, erneut abonnieren und den Zustand nach dem dokumentierten Snapshot-Verfahren neu aufbauen. Abhängige Verarbeitung bleibt bis zum verifizierten Sync blockiert.",
+              "HOLD und NO_TRADE sind gültige Ergebnisse bei fehlenden, veralteten oder widersprüchlichen Belegen; Schwellenwerte dürfen nicht gesenkt werden, nur damit ein Panel gesund aussieht."
+            ]
+          },
+          {
+            "heading": "Nachweise für die Eskalation",
+            "body": "Bleibt ein Fehler bestehen, sammeln Sie nur die minimal erforderlichen, nicht geheimen Informationen zur Reproduktion.",
+            "bullets": [
+              "Zeitstempel und Zeitzone, Komponente/Version, Handelsplatz/Produkt/Kanal, Symbol/Zeitrahmen, Status/Fehlercode und relevanten Inhalts-Hash festhalten.",
+              "Tokens, Kontokennungen, private Schlüssel, personenbezogene Daten und vollständige private Payloads vor dem Teilen entfernen oder schwärzen.",
+              "Originalereignis und Protokoll bewahren; Journale, Checkpoints oder historische Entscheidungen nicht umschreiben, um den Fehler zu verbergen."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "changelog",
+        "category": "Referenz",
+        "title": "Dokumentationsversionen und Änderungshistorie",
+        "summary": "Versionierte Historie des Dokumentationskatalogs und seiner redaktionellen sowie quellenbezogenen Änderungen.",
+        "sections": [
+          {
+            "heading": "Katalogversionen",
+            "body": "Die Katalogversion bezeichnet Darstellung und Inhalt der Dokumentation, nicht die HES-Handelsstrategie oder die Laufzeitversion.",
+            "bullets": [
+              "1.0.0 — Erste mehrsprachige Bibliothek mit Kernleitfäden zu Projekt, Architektur, Daten, Protokoll, Strategie, Risiko, Lernen, News, Journal und Betrieb.",
+              "1.0.1 — Redaktionelle Metadaten, Quellenverzeichnis und Digest zur Sequence-Semantik von Handelsplätzen ergänzt.",
+              "1.0.2 — Klarstellung, dass der DNA-Snapshot vom 17.11.2026 nicht verifizierte Quellenmetadaten trägt und keine Live-Notion-Verbindung darstellt.",
+              "1.0.3 — Seiten zur Fehlerbehebung/FAQ und zur Dokumentationshistorie ergänzt."
+            ]
+          },
+          {
+            "heading": "Regeln zur Änderungssteuerung",
+            "body": "Jede Inhaltsänderung muss die Seiten- und Abschnittsstruktur in allen vier Sprachen erhalten und auf eine Quelle oder eine ausdrücklich gekennzeichnete redaktionelle Klarstellung zurückgehen.",
+            "bullets": [
+              "Bei veröffentlichten Inhaltsänderungen Katalogversion und Aktualisierungsdatum erhöhen.",
+              "Quellpfade, Quellrevision/Hash soweit verfügbar und Änderungsgrund festhalten.",
+              "Alle vier Sprachen gemeinsam aktualisieren; keine Sprache darf unbemerkt zur einzigen aktuellen Fassung werden.",
+              "Aus der Dokumentationsversion keine Änderung an Code, Modell, Strategie oder Produktionslaufzeit ableiten."
+            ]
+          }
+        ]
       }
     ],
     "fr": [
@@ -1008,6 +1200,7 @@
             "body": "La qualité durable des décisions prime sur la fréquence des transactions. Chaque fonctionnalité doit disposer d’une mesure quantifiable, d’un test reproductible et de preuves traçables. Les preuves absentes ou inconnues ne doivent pas être présentées comme des faits vérifiés.",
             "bullets": [
               "Priorité au gratuit : aucune API LLM hébergée payante ou facturée à l’usage, ni aucun recours à un modèle distant pour le Command Center.",
+
               "Les lecteurs de preuves Mother font autorité pour les faits du projet HES ; le modèle local peut aider sur des tâches linguistiques limitées, mais ne décide pas des transactions.",
               "L’approbation humaine, le moindre privilège, la protection du capital et le comportement en échec fermé priment sur la commodité."
             ]
@@ -1050,7 +1243,6 @@
             ]
           }
         ]
-
       },
       {
         "id": "architecture",
@@ -1301,6 +1493,70 @@
               "Fail closed : bloquer l’opération concernée lorsque les preuves ou validations requises sont absentes.",
               "Lecture seule : les données peuvent être consultées et expliquées, mais ni modifiées ni utilisées pour agir.",
               "Descriptif uniquement : une caractéristique fournit du contexte, sans autorité indépendante de signal ou de politique."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "troubleshooting",
+        "category": "Assistance",
+        "title": "Dépannage et questions fréquentes",
+        "summary": "Une démarche de diagnostic sûre pour les états courants du tableau de bord, des données, du chat et des protocoles.",
+        "sections": [
+          {
+            "heading": "Contrôles du tableau de bord et des données de marché",
+            "body": "Commencez par l’état signalé et la référence exacte de la preuve. Vérifiez l’identité de la source, sa fraîcheur, la clôture des bougies, le nombre de lacunes et le hash du lot avant d’interpréter un graphique ou un indicateur.",
+            "bullets": [
+              "Si le graphique est bloqué ou périmé, examinez le point de santé, les journaux du tableau de bord et le lecteur canonique Gate.io ; ne remplacez jamais les données par des bougies anciennes en cache ou fabriquées.",
+              "Si un indicateur est indisponible, vérifiez que son lot d’entrée correspond au lot du graphique. Une sémantique de volume absente ne doit désactiver que les caractéristiques fondées sur le volume.",
+              "Si un symbole est disponible uniquement à titre descriptif, ne considérez pas son graphique comme un profil stratégique validé."
+            ]
+          },
+          {
+            "heading": "Questions sur Command Center et les protocoles",
+            "body": "Command Center est en lecture seule et utilise la limite locale existante d’authentification et de session. La documentation ne peut pas déverrouiller le chat, modifier une politique ni activer l’exécution.",
+            "bullets": [
+              "Si l’accès au chat est indisponible, vérifiez le jeton d’accès configuré localement et l’état de session ; ne collez jamais d’identifiants dans un rapport ou une page documentaire.",
+              "Si une valeur de séquence se répète ou saute, consultez l’entrée exacte du registre plateforme/produit/canal. Ne déduisez pas une transaction perdue par simple calcul.",
+              "Après une reconnexion qui exige une synchronisation, réabonnez-vous et reconstruisez l’état selon la procédure snapshot documentée. Le traitement dépendant reste bloqué jusqu’à la vérification de la synchronisation.",
+              "HOLD et NO_TRADE sont des résultats valides lorsque les preuves sont absentes, périmées ou contradictoires ; n’abaissez pas les seuils pour faire paraître un panneau sain."
+            ]
+          },
+          {
+            "heading": "Preuves à fournir lors d’une escalade",
+            "body": "Si le problème persiste, recueillez uniquement les éléments non secrets minimaux nécessaires à sa reproduction.",
+            "bullets": [
+              "Consignez l’horodatage et le fuseau horaire, le composant/la version, la plateforme/le produit/le canal, le symbole/l’unité de temps, l’état/le code motif et le hash de contenu pertinent.",
+              "Retirez ou masquez les jetons, identifiants de compte, clés privées, données personnelles et payloads privés complets avant tout partage.",
+              "Préservez l’événement et le journal d’origine ; ne réécrivez pas les journaux, checkpoints ou décisions historiques pour dissimuler le problème."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "changelog",
+        "category": "Référence",
+        "title": "Versions et historique des modifications documentaires",
+        "summary": "Historique versionné du catalogue documentaire et de ses évolutions éditoriales et de sources.",
+        "sections": [
+          {
+            "heading": "Versions du catalogue",
+            "body": "La version du catalogue décrit la présentation et le contenu documentaire, pas la stratégie de trading ni la version d’exécution HES.",
+            "bullets": [
+              "1.0.0 — Bibliothèque initiale en quatre langues et guides essentiels sur le projet, l’architecture, les données, les protocoles, la stratégie, le risque, l’apprentissage, les actualités, le journal et les opérations.",
+              "1.0.1 — Ajout des métadonnées éditoriales, du registre des sources et du résumé de recherche sur la sémantique des séquences des plateformes.",
+              "1.0.2 — Mention explicite que l’instantané DNA du 17/11/2026 porte des métadonnées de source non vérifiées et ne constitue pas une connexion Notion en direct.",
+              "1.0.3 — Ajout des pages de dépannage/FAQ et d’historique des versions documentaires."
+            ]
+          },
+          {
+            "heading": "Règles de contrôle des modifications",
+            "body": "Chaque modification de contenu doit préserver la structure des pages et sections dans les quatre langues et être liée à une source ou à une clarification éditoriale explicitement signalée.",
+            "bullets": [
+              "Incrémenter la version du catalogue et la date de mise à jour lors de toute modification publiée.",
+              "Consigner les chemins des sources, leur révision/hash lorsque disponible et la raison du changement.",
+              "Mettre à jour les quatre langues ensemble ; aucune langue ne doit devenir silencieusement la seule version à jour.",
+              "Ne pas utiliser la version documentaire pour laisser entendre qu’un changement de code, de modèle, de stratégie ou d’exécution en production a eu lieu."
             ]
           }
         ]

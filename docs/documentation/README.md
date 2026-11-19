@@ -7,8 +7,8 @@ This package adds a read-only, searchable Documentation section to the existing 
 ## Content model
 
 - `catalog.v1.json` is the versioned presentation catalog for Persian, English, German and French.
-- Each language contains the same 11 stable document IDs, section counts and safety meaning.
-- The curated pages summarize the approved project DNA, product naming, roadmap, Mother architecture, market-data boundary, exchange sequence semantics, timeframe/indicator roles, Risk Gate, training/evaluation, News Radar, journal and operations.
+- Each language contains the same 13 stable document IDs, section counts and safety meaning.
+- The curated pages summarize project DNA, product naming, roadmap, Mother architecture, market-data boundary, exchange sequence semantics, timeframe/indicator roles, Risk Gate, training/evaluation, News Radar, journal, operations, troubleshooting and version history.
 - `source_register` lists the repository documents used to prepare the summaries.
 - `EXCHANGE_SEQUENCE_SEMANTICS_RESEARCH_DIGEST_2026-10-10.md` preserves the key technical conclusions of the user-supplied sequence-semantics report. It is explicitly a digest, not primary exchange evidence.
 
