@@ -449,7 +449,8 @@
               "1.0.3 — Added troubleshooting/FAQ and documentation version-history pages.",
               "1.0.4 — Refined German and French category labels and strengthened automated checks for complete localized copy and browser asset loading.",
               "1.0.5 — Synchronized the local DNA snapshot with the 2026-11-19 Notion update and added documentation as a cross-cutting DNA/roadmap gate.",
-              "1.0.6 — Added the 2026-11-19 Range research-only status and clarified the local DNA file as a curated extract rather than a full Notion mirror."
+              "1.0.6 — Added the 2026-11-19 Range research-only status and clarified the local DNA file as a curated extract rather than a full Notion mirror.",
+              "1.0.7 — Added NO_TRADE decision-quality evaluation and a 1m structure-only shadow replay, with explicit counterfactual and execution-safety boundaries."
             ]
           },
           {
@@ -876,7 +877,8 @@
               "۱.۰.۳ — افزودن صفحات عیب‌یابی/پرسش‌های متداول و تاریخچهٔ نسخه‌های مستندات.",
               "۱.۰.۴ — اصلاح برچسب دسته‌بندی آلمانی و فرانسوی و تقویت آزمون‌های خودکار برای کامل‌بودن ترجمه‌ها و بارگذاری دارایی‌های مرورگر.",
               "۱.۰.۵ — snapshot محلی DNA با به‌روزرسانی Notion در ۲۰۲۶-۱۱-۱۹ همگام شد و مستندات به‌عنوان دروازه‌ای سراسری به DNA و نقشه راه افزوده شد.",
-              "۱.۰.۶ — وضعیت پژوهشی و غیرفعال موتور رنج در ۲۰۲۶-۱۱-۱۹ افزوده شد و فایل محلی DNA به‌عنوان گزیده‌ای گزینش‌شده، نه نسخه کامل Notion، مشخص شد."
+              "۱.۰.۶ — وضعیت پژوهشی و غیرفعال موتور رنج در ۲۰۲۶-۱۱-۱۹ افزوده شد و فایل محلی DNA به‌عنوان گزیده‌ای گزینش‌شده، نه نسخه کامل Notion، مشخص شد.",
+              "۱.۰.۷ — ارزیابی کیفیت تصمیم NO_TRADE و بازپخش سایه‌ای ساختاری ۱دقیقه‌ای افزوده شد؛ مرزهای ضدواقعیت و ایمنی اجرا نیز صریح شدند."
             ]
           },
           {
@@ -1303,7 +1305,8 @@
               "1.0.3 — Seiten zur Fehlerbehebung/FAQ und zur Dokumentationshistorie ergänzt.",
               "1.0.4 — Deutsche und französische Kategorienamen präzisiert und automatische Prüfungen für vollständige Übersetzungen sowie das Laden der Browser-Ressourcen erweitert.",
               "1.0.5 — Den lokalen DNA-Snapshot mit der Notion-Aktualisierung vom 19.11.2026 synchronisiert und Dokumentation als übergreifendes DNA-/Roadmap-Gate ergänzt.",
-              "1.0.6 — Forschungsstatus der Range-Engine vom 19.11.2026 ergänzt und die lokale DNA-Datei als kuratierter Auszug statt als vollständiger Notion-Spiegel gekennzeichnet."
+              "1.0.6 — Forschungsstatus der Range-Engine vom 19.11.2026 ergänzt und die lokale DNA-Datei als kuratierter Auszug statt als vollständiger Notion-Spiegel gekennzeichnet.",
+              "1.0.7 — NO_TRADE-Entscheidungsqualitätsprüfung und 1m-Structure-only-Shadow-Replay ergänzt, einschließlich klarer Gegenfaktual- und Ausführungssicherheitsgrenzen."
             ]
           },
           {
@@ -1730,7 +1733,8 @@
               "1.0.3 — Ajout des pages de dépannage/FAQ et d’historique des versions documentaires.",
               "1.0.4 — Précision des libellés de catégories en allemand et en français, et renforcement des contrôles automatisés des traductions et du chargement des ressources du navigateur.",
               "1.0.5 — Instantané DNA local synchronisé avec la mise à jour Notion du 19/11/2026 et documentation ajoutée comme jalon transversal de l’ADN et de la feuille de route.",
-              "1.0.6 — Ajout de l’état de recherche Range du 19/11/2026 et clarification du fichier DNA local comme extrait éditorialisé, non comme miroir complet de Notion."
+              "1.0.6 — Ajout de l’état de recherche Range du 19/11/2026 et clarification du fichier DNA local comme extrait éditorialisé, non comme miroir complet de Notion.",
+              "1.0.7 — Ajout de l’évaluation de la qualité des décisions NO_TRADE et du rejeu Shadow structure-only en 1m, avec des limites explicites pour les contrefactuels et la sécurité d’exécution."
             ]
           },
           {
