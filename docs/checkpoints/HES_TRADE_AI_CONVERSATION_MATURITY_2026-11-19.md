@@ -13,6 +13,7 @@
 - Ordinary turns still read only the latest eight messages; the larger history read occurs only for an explicit summary request.
 - Added regression coverage for a 16-message/eight-turn Persian dialogue and for a 12-turn history where the output is bounded to the latest eight and reports older turns as outside the display window.
 - Persian count labels use Persian numerals. No model call is required for the tested summary path.
+- Wired the dashboard to instantiate the deterministic memory-backed assistant when `HES_HOSHYAR_LOCAL_LLM_ENABLED=0`; the model client is not initialized, but authenticated chat history, contextual conversation and memory clearing remain available. The history API now reports model availability separately from memory availability. If optional model initialization fails, the dashboard falls back to the deterministic memory-backed assistant instead of dropping memory.
 
 ## Verification
 
@@ -27,7 +28,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" /opt/hes-trade-agent/.venv/bin/pytho
   tests/test_mother_chat_persian_eval_v1.py
 ```
 
-Result after the candidate patch: **92 passed**. The two new cases verify all eight stored turns are represented in a 16-message dialogue and that a longer history is bounded transparently. All response safety flags remain false.
+Result after the candidate patch: **95 focused tests passed**. The new cases verify all eight stored turns are represented in a 16-message dialogue, longer histories are bounded transparently, and the dashboard retains deterministic memory while the local model is disabled or unavailable. All response safety flags remain false.
 
 ## Explicitly not done
 
@@ -35,3 +36,10 @@ Result after the candidate patch: **92 passed**. The two new cases verify all ei
 - No local model was enabled; no paid/remote inference was introduced.
 - No claim is made that the full HES Trade AI roadmap is complete. Operational diagnostics, broader evidence QA, hypothesis-lab workflows and human-approved engineering remain separate maturity gates and must be validated against their existing HES components.
 - The new work is an isolated candidate only. It still requires exact-head full-suite CI, diff/security review, and release/rollback approval before any merge or deployment.
+
+## Expanded dashboard integration verification — 2026-11-19
+
+- Full repository suite on the updated mainline-based candidate: **1,603 passed, 84 subtests passed**.
+- Focused HES AI/Mother/dashboard suite: **95 passed**.
+- Python compilation, dashboard JavaScript syntax and Git whitespace checks: PASS.
+- GitHub PR #534 was updated with the deterministic memory wiring; exact-head CI must complete again before the candidate is considered review-ready.
