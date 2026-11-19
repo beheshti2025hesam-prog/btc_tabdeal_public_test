@@ -4,8 +4,11 @@ import hashlib, json, os, sys, re, math
 from collections import Counter, defaultdict
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-ROOT=Path(os.environ.get('HES_DATA_ROOT', '/opt/hes-trade-agent')).expanduser().resolve(); DATA=ROOT/'data/forward'
-if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
+CODE_ROOT=Path(__file__).resolve().parents[1]
+DATA_ROOT=Path(os.environ.get('HES_DATA_ROOT', '/opt/hes-trade-agent')).expanduser().resolve()
+DATA=DATA_ROOT/'data/forward'
+# Code imports must resolve from this immutable release, never from the mutable data root.
+if str(CODE_ROOT) not in sys.path: sys.path.insert(0, str(CODE_ROOT))
 from forward.strategy_family_router_v1 import route_strategy_family
 from forward.structure_only_no_trade_shadow_v1 import evaluate_structure_only_shadow
 JOURNAL=DATA/'trade_journal_v2.jsonl'; CANDLES=DATA/'global_market_candles_v1.jsonl'; CANDLES_1M=DATA/'global_market_candles_1m_v1.jsonl'; NEUTRAL=DATA/'neutral_decision_outcomes_v1.jsonl'
