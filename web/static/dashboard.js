@@ -373,6 +373,7 @@ refreshPrecisionEntry();setInterval(refreshPrecisionEntry,15000);
   ['SETUP AUTHORITY','مرجع ستاپ','SETUP-AUTORITÄT','AUTORITÉ DE CONFIGURATION'],
   ['PRECISION REFINEMENT','بهبود دقت','PRÄZISIONSVERFEINERUNG','AFFINAGE DE PRÉCISION'],
   ['HIGHER TIMEFRAME CONTEXT','زمینه تایم‌فریم بالاتر','KONTEXT HÖHERER ZEITRAHMEN','CONTEXTE DE TEMPS SUPÉRIEUR']
+  ['Toggle section details','نمایش یا پنهان کردن جزئیات','Bereichsdetails ein- oder ausblenden','Afficher ou masquer les détails de la section'],
  ];
  const maps={};
  const CLEAN_COPY=COPY.filter(row=>Array.isArray(row)&&row.length===4);
