@@ -49,3 +49,11 @@ Promote the existing append-only NO_TRADE outcome tracking from market-movement 
 
 ## Portability
 The matured validator now resolves its data root from `HES_DATA_ROOT` (default `/opt/hes-trade-agent`) so it can be validated on isolated copies and installed at a new VPS path without hard-coded data locations.
+
+## Post-merge immutable-code-root isolation hardening — 2026-11-19
+- A second-pass release rehearsal found that the first V2 candidate conflated the shared mutable data root (`HES_DATA_ROOT`) with the Python code import root. In a VPS where `/opt/hes-trade-agent` is a dirty checkout, inserting that data root into `sys.path` could shadow modules from `/opt/hes-trade-agent/current` and violate immutable-release provenance.
+- Follow-up correction separates `CODE_ROOT` (resolved from this validator's immutable release path) from `DATA_ROOT` (shared evidence path). Only `CODE_ROOT` is inserted into `sys.path`; data files remain under `DATA_ROOT/data/forward`.
+- Added a regression test that sets an unrelated temporary `HES_DATA_ROOT` and proves strategy-family imports still resolve from the exact code release. Focused suite after correction: 46 passed.
+- Replayed current copied VPS evidence with the corrected code: 94 decisions in the 24–48h cohort; 93 complete gap-free 24h horizons; 0 tracker boundary mismatches; 33 independent structure candidates; 29 evaluated shadow geometries; 4 invalid stop geometries; 20,386 closed 1m rows with 0 duplicate open times, 0 gaps and 0 invalid open-time rows. Two 24h LONG target-hit clusters remain review-only; actual missed-profit claim remains false.
+- Import provenance was verified: `forward.strategy_family_router_v1` loaded from the isolated exact-commit source tree, not the mutable VPS checkout. No production pointer or service was changed.
+- This hardening is a follow-up PR and must pass exact-head CI before any release promotion.
