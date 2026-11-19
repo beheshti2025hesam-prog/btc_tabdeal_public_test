@@ -341,3 +341,21 @@ def test_structure_only_shadow_is_reported_separately_from_missed_profit(tmp_pat
     assert report["structure_only_shadow"]["potential_missed_opportunity_review"]["actual_missed_profit_claim"] is False
     assert report["decision_quality_buckets_by_horizon"]["1h"]["missed_profit_hypotheses"] == 0
     assert report["execution_enabled"] is False and report["orders_placed"] is False
+
+
+
+def test_data_root_never_overrides_immutable_code_root(monkeypatch, tmp_path):
+    import importlib.util
+    import sys
+    data_root = tmp_path / "shared-data"
+    monkeypatch.setenv("HES_DATA_ROOT", str(data_root))
+    isolated_spec = importlib.util.spec_from_file_location("matured_validator_isolated_root", MODULE)
+    isolated = importlib.util.module_from_spec(isolated_spec)
+    isolated_spec.loader.exec_module(isolated)
+    assert isolated.CODE_ROOT == MODULE.resolve().parents[1]
+    assert isolated.DATA_ROOT == data_root.resolve()
+    assert isolated.DATA == data_root.resolve() / "data" / "forward"
+    assert str(isolated.CODE_ROOT) in sys.path
+    assert str(isolated.DATA_ROOT) not in sys.path
+    import forward.strategy_family_router_v1 as router
+    assert Path(router.__file__).resolve().is_relative_to(isolated.CODE_ROOT)
