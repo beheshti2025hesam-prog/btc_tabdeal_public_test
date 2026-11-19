@@ -246,9 +246,9 @@ def test_conversation_summary_uses_local_sqlite_history_without_local_model(tmp_
     assert response["direction"] == "rtl"
     assert response["local_llm_used"] is False
     assert response["conversation_memory_used"] is True
-    assert "خلاصهٔ گفت‌وگوی ثبت‌شده" in response["answer"]
+    assert "مرور فشردهٔ گفت‌وگوی ثبت‌شده" in response["answer"]
     assert "NO_CONFIRMED_20_BAR_BREAKOUT" in response["answer"]
-    assert "وضعیت زندهٔ بازار را دوباره بررسی نمی‌کند" in response["answer"]
+    assert "وضعیت زندهٔ بازار دوباره بررسی نشده است" in response["answer"]
     _assert_read_only(response)
 
 
