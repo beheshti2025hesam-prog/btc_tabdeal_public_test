@@ -342,7 +342,8 @@ a{color:#91bbff}
 
 
 /* Progressive disclosure: keep the overview quiet; reveal diagnostics on demand. */
-.panel-disclosure{position:absolute;inset-block-start:13px;inset-inline-end:14px;z-index:2}
+.panel-disclosure{position:static}
+.panel-disclosure-summary{position:absolute;inset-block-start:13px;inset-inline-end:14px;z-index:2}
 .panel-disclosure-summary{
   display:grid;place-items:center;
   width:30px;height:30px;
@@ -372,7 +373,7 @@ a{color:#91bbff}
 #technicalIntelligencePanel,#motherPanel,#newsRadarPanel,#safetyPanel,#documentationPanel,#journalPanel{padding-inline-end:58px}
 #documentationPanel .panel-disclosure-body,#journalPanel .panel-disclosure-body{padding-top:14px}
 @media(max-width:600px){
-  .panel-disclosure{inset-block-start:10px;inset-inline-end:10px}
+  .panel-disclosure-summary{inset-block-start:10px;inset-inline-end:10px}
   .panel-disclosure-summary{width:28px;height:28px}
   #technicalIntelligencePanel,#motherPanel,#newsRadarPanel,#safetyPanel,#documentationPanel,#journalPanel{padding-inline-end:48px}
 }
