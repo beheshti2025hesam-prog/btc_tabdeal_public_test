@@ -127,7 +127,9 @@ class DocumentationRouteTests(unittest.TestCase):
             localized = {page["id"]: page for page in payloads[language]["pages"]}
             self.assertEqual(set(localized), set(english))
             self.assertEqual(len(localized["dna"]["sections"]), 4)
-            self.assertEqual(len(localized["roadmap"]["sections"]), 3)
+            self.assertEqual(len(localized["roadmap"]["sections"]), 4)
+            expected_roadmap_heading = {"fa": "دروازه انتشار ارزیابی کیفیت تصمیم NO_TRADE", "de": "NO_TRADE-Entscheidungsqualität als Release-Gate", "fr": "NO_TRADE comme jalon de qualité décisionnelle avant release"}[language]
+            self.assertEqual(localized["roadmap"]["sections"][-1]["heading"], expected_roadmap_heading)
             self.assertEqual(len(localized["strategy"]["sections"]), 4)
             expected_heading = {"fa": "ارزیابی کیفیت تصمیم NO_TRADE", "de": "Bewertung der NO_TRADE-Entscheidungsqualität", "fr": "Évaluation de la qualité des décisions NO_TRADE"}[language]
             self.assertEqual(localized["strategy"]["sections"][-1]["heading"], expected_heading)
