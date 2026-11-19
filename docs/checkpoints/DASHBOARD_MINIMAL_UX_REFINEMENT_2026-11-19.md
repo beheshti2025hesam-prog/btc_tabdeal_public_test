@@ -20,17 +20,18 @@ Reduce visual noise and make the existing HES Trade Agent dashboard easier to sc
 - Preserve Persian RTL, English LTR, German and French language behavior.
 
 ## Implementation
-- CSS-only visual refinement in `web/static/dashboard.css`.
-- No new runtime dependency.
-- No HTML, JavaScript, backend, market-data, strategy, risk, or execution changes.
+- Visual refinement in `web/static/dashboard.css` plus accessible progressive disclosure in the existing dashboard HTML.
+- Six secondary panels (technical detail, Mother diagnostics, news, safety, documentation, journal) are collapsed by default and remain available on demand.
+- Disclosure control labels are localized in Persian, English, German and French.
+- No new runtime dependency; no market-data, decision, strategy, risk, journal data contract, or execution logic changed.
 - Working branch: `feat/dashboard-minimal-ux-mainline-20261119`.
 - Pull request: #539 (draft).
 
 ## Validation status at checkpoint
 - Dashboard native-path workflow: PASS.
-- Browser-render smoke: running at checkpoint time.
-- Full dashboard repository regression: running at checkpoint time.
-- Full regression and visual acceptance are not yet declared complete.
+- Browser-render smoke: PASS on the CSS-only commit; full rerun is required after progressive disclosure changes.
+- Dashboard native-path and full regression workflows passed on the CSS-only commit; full rerun is required after progressive disclosure changes.
+- Visual acceptance of the updated compact layout remains pending.
 - No merge, production deployment, service restart, or live-execution change performed.
 
 ## Release rule
