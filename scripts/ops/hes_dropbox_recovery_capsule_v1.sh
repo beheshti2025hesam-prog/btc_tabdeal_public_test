@@ -55,11 +55,11 @@ for p in opt/hes-trade-agent/current opt/hes-trade-agent/current-before-4329a3df
 done
 mkdir -p "$WORK/recovery-metadata"
 /opt/hes-trade-agent/.venv/bin/python -m pip freeze --all | sort > "$WORK/recovery-metadata/python-venv-freeze.txt"
-dpkg-query -W -f='\${db:Status-Status}\t\${binary:Package}\t\${Version}\n' | awk -F '\t' '$1=="installed"{print $2 "\t" $3}' | sort > "$WORK/recovery-metadata/apt-installed-packages.tsv"
+dpkg-query -W -f='${db:Status-Status}\t${binary:Package}\t${Version}\n' | awk -F '\t' '$1=="installed"{print $2 "\t" $3}' | sort > "$WORK/recovery-metadata/apt-installed-packages.tsv"
 . /etc/os-release
 printf 'OS=%s\nKERNEL=%s\nPYTHON=%s\nCAPTURED_UTC=%s\n' "$PRETTY_NAME" "$(uname -r)" "$(python3 --version 2>&1)" "$(date -u +%FT%TZ)" > "$WORK/recovery-metadata/platform.txt"
 cp "$INV" "$WORK/recovery-metadata/release-inventory.json"
-find "\${WORK#/}" -mindepth 0 -print0 >> "$LIST"
+find "${WORK#/}" -mindepth 0 -print0 >> "$LIST"
 sort -zu "$LIST" -o "$LIST"
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 BASE="hes-recovery-capsule-$STAMP.tar.zst.gpg"; PART="$WORK/$BASE.partial"; FINAL="$OUT/$BASE"
