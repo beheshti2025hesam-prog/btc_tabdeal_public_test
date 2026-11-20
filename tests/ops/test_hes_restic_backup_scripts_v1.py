@@ -6,19 +6,21 @@ OPS = ROOT / "scripts" / "ops"
 DEPLOY = ROOT / "deploy" / "systemd"
 
 
-def test_local_restic_backup_has_43_recovery_roots_and_scope_safe_retention():
+def test_local_restic_backup_discovers_all_live_release_roots_and_scope_safe_retention():
     source = (OPS / "hes_restic_incremental_backup_v1.sh").read_text()
     block = re.search(r"ROOTS=\((.*?)\n\)", source, re.S)
     assert block
     roots = block.group(1).split()
-    assert len(roots) == 43
+    assert len(roots) >= 40
+    assert '"${RELEASES[@]}"' in block
+    assert "RESTIC_RELEASE_INVENTORY_OK" in source
     assert '"$ACTIVE" "$ROLLBACK"' in source
     for p in ("/usr/local/sbin/hes-operational-healthcheck", "/usr/local/sbin/hes-restic-incremental-backup", "/usr/local/sbin/hes-restic-production-dropbox-sync"):
         assert p in roots
     assert "--group-by host,paths" in source
     assert "--keep-daily 7 --keep-weekly 4 --keep-monthly 6 --keep-yearly 2" in source
     assert "--read-data-subset=1/20" in source
-    assert "RESTIC_NO_VALID_NON_FUTURE_43_ROOT_FULL_SCOPE_SNAPSHOT" in source
+    assert "RESTIC_NO_VALID_NON_FUTURE_FULL_SCOPE_SNAPSHOT" in source
 
 
 def test_restic_secret_is_not_included_in_backup_roots():
