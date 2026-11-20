@@ -291,6 +291,8 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
     remote_recovery=remote_restore_assessment(remote_restore_evidence)
     recovery["remote_restore"]=remote_recovery["status"]
     recovery["remote_restore_details"]=remote_recovery
+    if remote_recovery.get("status") == "PASS" and recovery.get("full_archive_restore") == "PASS":
+        recovery["reason"]="Local full restore and Dropbox core restore both passed in isolated same-host drills; replacement-host recovery remains separate and NOT_PROVEN."
     restic_repo = BACKUP_ROOT / "restic-production-v1" / "repo"
     try:
         restic_bytes = int(subprocess.check_output(["du", "-sxB1", str(restic_repo)], text=True).split()[0]) if restic_repo.is_dir() else 0
