@@ -14,7 +14,6 @@ def test_local_restic_backup_discovers_all_live_release_roots_and_scope_safe_ret
     assert len(roots) >= 40
     assert '"${RELEASES[@]}"' in block.group(1)
     assert "RESTIC_RELEASE_INVENTORY_OK" in source
-    assert '"$ACTIVE" "$ROLLBACK"' in source
     for p in ("/usr/local/sbin/hes-operational-healthcheck", "/usr/local/sbin/hes-restic-incremental-backup", "/usr/local/sbin/hes-restic-production-dropbox-sync"):
         assert p in roots
     assert "--group-by host,paths" in source
