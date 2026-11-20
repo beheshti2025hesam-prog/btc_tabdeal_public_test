@@ -18,7 +18,12 @@ def test_capsule_publish_is_immutable_quota_gated_and_non_destructive():
 def test_full_restic_mirror_is_separate_and_validates_remote_repository():
  s=(ROOT/"scripts/ops/hes_restic_google_drive_sync_v1.sh").read_text()
  assert 'RESTIC_REPOSITORY="rclone:$REMOTE" restic check' in s
- assert "rclone copy " in s and "rclone check " in s and "rclone sync" not in s
+ assert "restic copy --from-repo" in s
+ assert "--copy-chunker-params" in s
+ assert "restic forget" in s
+ assert "RESTIC_DRIVE_SNAPSHOT_COVERAGE_OK" in s
+ assert "rclone size" in s and "rclone sync" not in s
+ assert "rclone copy " not in s and "rclone check" not in s
  assert "RESTIC_DRIVE_REMOTE_NOT_CONFIGURED" in s
 
 
