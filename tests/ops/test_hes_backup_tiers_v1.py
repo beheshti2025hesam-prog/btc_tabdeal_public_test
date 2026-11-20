@@ -27,7 +27,7 @@ def test_daily_capsule_cycle_and_scoped_remote_rotation_are_sandboxed():
     publish = (ROOT / "scripts/ops/hes_dropbox_recovery_capsule_publish_v1.sh").read_text()
     service = (ROOT / "deploy/systemd/hes-dropbox-recovery-capsule.service").read_text()
     timer = (ROOT / "deploy/systemd/hes-dropbox-recovery-capsule.timer").read_text()
-    assert '"$PUBLISH" --rotate --enforce-20pct "$ARCHIVE"' in cycle
+    assert 'PUBLISH_ARGS+=(--enforce-20pct)' in cycle
     assert "i=7" in cycle
     assert "CAPSULE_REMOTE_READBACK_PASS" in publish
     assert "i=2" in publish
@@ -38,6 +38,7 @@ def test_daily_capsule_cycle_and_scoped_remote_rotation_are_sandboxed():
  assert "CAPSULE_20PCT_ACCOUNT_BUDGET_BLOCK" in publish
  assert "used+bytes<=total/5" in publish
  assert "--enforce-20pct" in cycle
+ assert "enforce-dropbox-20pct" in cycle
     assert "ProtectSystem=strict" in service
     assert "ProtectHome=read-only" in service
     assert "CPUWeight=20" in service
