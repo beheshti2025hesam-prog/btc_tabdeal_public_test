@@ -275,15 +275,24 @@ HTML = r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name
 
 _MOTHER_CHAT_SECURITY = MotherChatSecurityV1()
 _PROJECT_MEMORY_READER = HoshyarProjectMemoryReaderV1(PROJECT_ROOT)
-_HOSHYAR_LOCAL_ASSISTANT = None
-if os.environ.get("HES_HOSHYAR_LOCAL_LLM_ENABLED", "0") == "1":
-    try:
-        _HOSHYAR_LOCAL_ASSISTANT = HoshyarLocalAssistantV1(
-            HoshyarLocalLLMV1(),
-            HoshyarConversationMemoryV1(os.environ.get("HES_HOSHYAR_MEMORY_DB", "/var/lib/hes-news-monitor/hoshyar-memory.sqlite3")),
-        )
-    except HoshyarLocalError:
-        _HOSHYAR_LOCAL_ASSISTANT = None
+
+
+def _build_hoshyar_local_assistant() -> HoshyarLocalAssistantV1:
+    """Always provide deterministic chat + memory; attach a model only when explicitly enabled."""
+    memory = HoshyarConversationMemoryV1(
+        os.environ.get("HES_HOSHYAR_MEMORY_DB", "/var/lib/hes-news-monitor/hoshyar-memory.sqlite3")
+    )
+    llm = None
+    if os.environ.get("HES_HOSHYAR_LOCAL_LLM_ENABLED", "0").strip() == "1":
+        try:
+            llm = HoshyarLocalLLMV1()
+        except HoshyarLocalError:
+            # Keep the deterministic, memory-backed assistant available if the optional model is unavailable.
+            llm = None
+    return HoshyarLocalAssistantV1(llm, memory)
+
+
+_HOSHYAR_LOCAL_ASSISTANT = _build_hoshyar_local_assistant()
 
 
 def _mother_chat_core_evidence():
@@ -465,8 +474,15 @@ class Handler(BaseHTTPRequestHandler):
                 _MOTHER_CHAT_SECURITY.check_rate_limit(client, "history", limit=60, window_seconds=60)
                 if not _MOTHER_CHAT_SECURITY.has_valid_session(self.headers):
                     raise MotherChatError("CHAT_SESSION_REQUIRED", 401)
-                messages = _HOSHYAR_LOCAL_ASSISTANT.read_history() if _HOSHYAR_LOCAL_ASSISTANT is not None else []
-                body = json.dumps({"messages": messages, "local_llm_enabled": _HOSHYAR_LOCAL_ASSISTANT is not None, "conversation_memory_enabled": _HOSHYAR_LOCAL_ASSISTANT is not None, "execution_enabled": False, "orders_placed": False}, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                assistant = _HOSHYAR_LOCAL_ASSISTANT
+                messages = assistant.read_history() if assistant is not None else []
+                body = json.dumps({
+                    "messages": messages,
+                    "local_llm_enabled": bool(assistant and assistant.local_llm_enabled),
+                    "conversation_memory_enabled": bool(assistant and assistant.conversation_memory_enabled),
+                    "execution_enabled": False,
+                    "orders_placed": False,
+                }, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
                 return self._send(200, body, "application/json")
             except MotherChatError as exc:
                 body = json.dumps({"error": exc.code}, separators=(",", ":")).encode()
