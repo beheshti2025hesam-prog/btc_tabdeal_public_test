@@ -66,7 +66,7 @@ for item in json.load(open(sys.argv[1]))["release_targets"]:
 PY
 mapfile -t RELEASES < "$RELEASE_PATHS"
 declare -A INCLUDED_RELEASES
-for p in "\${RELEASES[@]}"; do INCLUDED_RELEASES["$p"]=1; done
+for p in "${RELEASES[@]}"; do INCLUDED_RELEASES["$p"]=1; done
 EXCLUDE="$RUNTIME_DIR/excludes.txt"
 EXPECTED="$RUNTIME_DIR/expected-paths.txt"
 : > "$EXCLUDE"
@@ -81,7 +81,7 @@ printf '%s\n' \
   '/opt/hes-trade-agent/**/.mypy_cache' \
   '/opt/hes-trade-agent/**/.ruff_cache' > "$EXCLUDE"
 while IFS= read -r d; do
-  [[ -n "\${INCLUDED_RELEASES[$d]+x}" ]] || printf '%s\n' "$d" >> "$EXCLUDE"
+  [[ -n "${INCLUDED_RELEASES[$d]+x}" ]] || printf '%s\n' "$d" >> "$EXCLUDE"
 done < <(find /opt/hes-trade-agent/releases -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort)
 ROOTS=(
  /opt/hes-trade-agent /srv/hes-evidence
@@ -95,7 +95,7 @@ ROOTS=(
  /var/lib/systemd /var/spool/cron/crontabs /root/.config/rclone /root/.ssh
  /usr/local/sbin/hes-operational-healthcheck /usr/local/sbin/hes-restic-incremental-backup
  /usr/local/sbin/hes-restic-production-dropbox-sync
- "\${RELEASES[@]}"
+ "${RELEASES[@]}"
 )
 for p in "${ROOTS[@]}"; do
   [[ -e "$p" || -L "$p" ]] || { echo "RESTIC_REQUIRED_ROOT_MISSING path=$p"; exit 13; }
