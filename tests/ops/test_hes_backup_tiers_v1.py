@@ -17,7 +17,7 @@ def test_capsule_publish_is_immutable_quota_gated_and_non_destructive():
  assert "REMOTE_DELETE_SCOPE=VERSIONED_RECOVERY_CAPSULES_ONLY" in s and "rclone sync" not in s and "--delete" not in s
 def test_full_restic_mirror_is_separate_and_validates_remote_repository():
  s=(ROOT/"scripts/ops/hes_restic_google_drive_sync_v1.sh").read_text()
- assert 'RESTIC_REPOSITORY="rclone:$REMOTE" restic check' in s
+ assert 'RESTIC_REPOSITORY="$REMOTE_REPO"' in s and 'restic check --read-data-subset=1/20' in s
  assert "restic copy --from-repo" in s
  assert "--copy-chunker-params" in s
  assert "restic forget" in s
