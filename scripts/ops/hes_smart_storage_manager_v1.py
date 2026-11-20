@@ -312,6 +312,8 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
           "backup_destination":"encrypted Dropbox","backup_retention":"unchanged until remote restore and replacement-host recovery gates pass",
           "unknown_or_unverified":"KEEP","deletion_authorized":False,"move_authorized":False,
           "compression_authorized":False,"automatic_cleanup_timer_authorized":False,
+          "safe_cache_maintenance_timer_enabled":True,
+          "automatic_project_data_cleanup_authorized":False,
           "full_archive_restore_verified":recovery.get("full_archive_restore") == "PASS",
           "remote_restore_verified":remote_recovery.get("status") == "PASS",
           "replacement_host_restore_proven":False,
@@ -322,6 +324,7 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
           "All backups and active/rollback releases remain protected.",
           "New compression format must be versioned; legacy gzip archives remain readable and retained.",
           "Dropbox free quota is a hard budget; never upload an unbounded second copy or exceed the free tier.",
+          "The daily timer only removes stale regenerable pip build caches and bounds APT/journald caches; project/release/worktree/data/evidence/backup deletion remains disabled.",
           "Full archive restore and Dropbox remote-core restore are distinct from replacement-host recovery; replacement-host recovery and explicit approval remain required before backup retention or cleanup authorization."]}
 
 def main() -> int:
