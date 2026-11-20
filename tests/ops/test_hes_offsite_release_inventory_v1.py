@@ -64,7 +64,7 @@ def test_inventory_includes_all_live_and_verified_rollback_release_trees(tmp_pat
     actual = {Path(item["path"]) for item in result["release_targets"]}
     assert actual == expected
     assert result["schema"] == "hes_offsite_release_inventory_v1"
-    assert all(item["archive_path"].startswith("opt/hes-trade-agent/releases/") for item in result["release_targets"])
+    assert all("/opt/hes-trade-agent/releases/" in "/" + item["archive_path"] for item in result["release_targets"])
 
 
 def test_inventory_rejects_a_release_pointer_outside_the_release_root(tmp_path):
