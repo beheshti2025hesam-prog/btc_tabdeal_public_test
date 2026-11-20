@@ -3,7 +3,7 @@
 ## Recovery layout
 
 - Local full-scope Restic repository: `/var/backups/hes-trade-agent/restic-production-v1/repo`.
-- The 43-root set explicitly includes the operational healthcheck and both backup runner scripts, so a restored system can re-establish its own backup automation.
+- The full recovery root set explicitly includes the operational healthcheck and both backup runner scripts, so a restored system can re-establish its own backup automation.
 - Dropbox Restic repository: `hesdropbox:HES Trade Agent Backups/restic-production-v1`.
 - Independent compact recovery archive: `hesdropbox:HES Trade Agent Backups/hes-recovery-core-latest.tar.zst.gpg`, with adjacent `.sha256` and `.manifest.json` files.
 - Restic repository encryption and compact-archive GPG AES-256 use the recovery passphrase stored in the owner's Bitwarden Secure Note (owner-confirmed 2026-11-16). The secret is not embedded in the repository, archive, Dropbox, or source control. A root-only working copy exists on the VPS for unattended jobs and is excluded from all backup roots.
@@ -28,7 +28,7 @@ Restic retention is 7 daily, 4 weekly, 6 monthly, and 2 yearly snapshots, groupe
 1. Copy `hesdropbox:HES Trade Agent Backups/restic-production-v1` to an isolated recovery host using `rclone copy`.
 2. Retrieve the passphrase from the owner's Bitwarden Secure Note and supply it through a root-only file outside the restored backup tree.
 3. Set `RESTIC_REPOSITORY` to the copied repository and `RESTIC_PASSWORD_FILE` to that secret file; run `restic snapshots` and `restic check --read-data`.
-4. Select a snapshot with host `hes-vps-recovery-v1`, tag `hes-full-recovery-v1`, and all 43 required roots. Do not rely on the unqualified `latest` alias because partial evidence-only snapshots may exist.
+4. Select a snapshot with host `hes-vps-recovery-v1`, tag `hes-full-recovery-v1`, and all required recovery roots. Do not rely on the unqualified `latest` alias because partial evidence-only snapshots may exist.
 5. Restore to an isolated target first; never overwrite a running production root.
 
 The compact archive can independently be verified and listed with GPG and Zstandard before extraction. Its JSON manifest identifies active/rollback releases, included recovery scope, and exclusions.
@@ -69,3 +69,10 @@ a verified replacement and explicit approval.
 - The daily local Restic backup remains enabled. The Dropbox sync timer remains enabled but will continue to stop at the quota gate until a sufficiently large free offsite destination is authorized and verified.
 
 A separate free-tier offsite destination with sufficient available quota is still required for the complete Restic mirror. No second provider is configured by this change. Do not delete or replace existing Dropbox recovery objects until a newer candidate has passed integrity checks and an isolated restore drill.
+
+
+## Dynamic release coverage — 2026-11-20
+
+The Restic backup now discovers every live release symlink under the project root, validates that each target resolves to a direct directory under releases, and adds each target to the full backup scope. It also adds the rollback target recorded by the latest healthy dashboard deployment. Historical release directories remain excluded unless referenced by a current/rollback pointer.
+
+The live VPS inventory on 2026-11-20 discovered six release trees: core current, core rollback, current rollback pointer, dashboard current, precision current, and verified dashboard rollback. The backup selector validates the exact sorted root set for each snapshot; scope-aware Restic retention keeps old 43-root snapshots in their historical group and new dynamic-scope snapshots in a separate group. No old snapshot is deleted merely because the scope changes.
