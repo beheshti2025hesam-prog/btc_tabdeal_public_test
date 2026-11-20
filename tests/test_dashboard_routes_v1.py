@@ -190,7 +190,7 @@ class DashboardRouteTests(unittest.TestCase):
                 result = json.loads(response.read())
                 self.assertEqual(response.status, 200)
         data_root.assert_called_once_with()
-        mother.assert_called_once_with(data_root="/tmp/hes-mother-test")
+        mother.assert_called_once_with(data_root="/tmp/hes-mother-test", supervised=True)
         self.assertTrue(result["witness"]["verified"])
         self.assertFalse(result["execution_authorized"])
         self.assertFalse(result["execution_enabled"])
