@@ -129,7 +129,7 @@ def test_storage_budget_counts_direct_children_once_and_separates_backup_copies(
       {"path":"/var/backups/hes-trade-agent/encrypted-local","allocated_bytes":1000},
       {"path":"/var/backups/hes-trade-agent/encrypted-local/a.gpg","allocated_bytes":500},
     ]
-    result=storage_budget(items,target_gib=0)
+    result=storage_budget(items,target_gb=0)
     assert result["components_bytes"]=={
       "project_checkout_including_releases_candidates_worktrees":700,
       "independent_evidence_store":50,
@@ -213,3 +213,22 @@ def test_invalid_or_incomplete_restore_evidence_fails_closed():
     assert result["status"] == "INCOMPLETE_EVIDENCE"
     assert result["full_archive_restore"] == "NOT_PROVEN"
     assert result["cleanup_authorized"] is False
+
+
+def test_storage_budget_uses_decimal_five_gb_hard_target():
+    from scripts.ops.hes_smart_storage_manager_v1 import storage_budget
+    result=storage_budget([],target_gb=5)
+    assert result["target_bytes"] == 5_000_000_000
+    assert result["target_gb"] == 5
+    assert result["complete_footprint_within_target"] is True
+
+
+def test_archive_inventory_recognizes_versioned_zstd_and_git_bundle(tmp_path):
+    from scripts.ops.hes_smart_storage_manager_v1 import archive_inventory
+    (tmp_path/"hes-recovery-core.tar.zst.gpg").write_bytes(b"z"*11)
+    (tmp_path/"strategy.bundle").write_bytes(b"b"*17)
+    (tmp_path/"archive.tar.zst.gpg.manifest.json").write_text("{}")
+    result=archive_inventory(tmp_path)
+    assert result["archive_count"] == 2
+    assert result["total_bytes"] == 28
+    assert {x["format"] for x in result["archives"]} == {"zstd+gpg","git-bundle"}
