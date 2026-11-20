@@ -12,7 +12,7 @@ trap 'rm -f "$BUILD_LOG"' EXIT
 "$BUILD" 2>&1 | tee -a "$BUILD_LOG" | tee -a "$LOG"
 ARCHIVE=$(awk '/^CAPSULE_BUILD_OK /{for(i=1;i<=NF;i++) if($i ~ /^file=/){sub(/^file=/,"",$i);print $i}}' "$BUILD_LOG" | tail -1)
 [[ -s "$ARCHIVE" ]] || { echo 'CAPSULE_CYCLE_ARCHIVE_NOT_FOUND' | tee -a "$LOG"; exit 30; }
-"$PUBLISH" --rotate "$ARCHIVE" 2>&1 | tee -a "$LOG"
+"$PUBLISH" --rotate --enforce-20pct "$ARCHIVE" 2>&1 | tee -a "$LOG"
 mapfile -t LOCAL_CAPSULES < <(find "$OUT" -maxdepth 1 -type f -name 'hes-recovery-capsule-*.tar.zst.gpg' -printf '%f\n' | sort -r)
 for ((i=7;i<${#LOCAL_CAPSULES[@]};i++)); do
   f=${LOCAL_CAPSULES[$i]}
