@@ -3,6 +3,7 @@ ROOT=Path(__file__).resolve().parents[2]
 def test_dropbox_capsule_is_small_and_excludes_full_restic_and_bulk_evidence():
  s=(ROOT/"scripts/ops/hes_dropbox_recovery_capsule_v1.sh").read_text()
  assert "MAX_BYTES=$((64 * 1024 * 1024))" in s
+ assert "\\ncd /\\n" in s
  assert "zstd -q -T1 -19 --long=27" in s
  assert "restic-production-v1/repo" not in s
  assert "srv/hes-evidence" not in s
