@@ -7,6 +7,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 from web import dashboard
+from web.hoshyar_local_v1 import HoshyarLocalError
 
 
 class FakeSecurity:
@@ -24,6 +25,9 @@ class FakeSecurity:
 
 
 class FakeAssistant:
+    local_llm_enabled = True
+    conversation_memory_enabled = True
+
     def __init__(self):
         self.cleared = False
         self.language = None
@@ -78,6 +82,7 @@ def test_history_endpoint_returns_only_authenticated_local_memory(monkeypatch):
         status, payload = call(base, "/api/mother-chat/history")
     assert status == 200
     assert payload["local_llm_enabled"] is True
+    assert payload["conversation_memory_enabled"] is True
     assert payload["messages"] == assistant.messages
     assert payload["execution_enabled"] is False
     assert payload["orders_placed"] is False
@@ -112,6 +117,7 @@ def test_history_endpoint_reports_disabled_when_local_assistant_is_off(monkeypat
         status, payload = call(base, "/api/mother-chat/history")
     assert status == 200
     assert payload["local_llm_enabled"] is False
+    assert payload["conversation_memory_enabled"] is False
     assert payload["messages"] == []
 
 
@@ -165,3 +171,87 @@ def test_command_center_uses_canonical_hes_trade_ai_user_facing_name():
     assert "HOSHYAR · Private local AI" not in html
     assert "Message HOSHYAR" not in html
     assert "HES_PRODUCT_NAMING_V1.md" not in html
+
+
+
+def test_disabled_local_model_keeps_deterministic_conversation_memory_available(monkeypatch, tmp_path):
+    monkeypatch.setenv("HES_HOSHYAR_LOCAL_LLM_ENABLED", "0")
+    monkeypatch.setenv("HES_HOSHYAR_MEMORY_DB", str(tmp_path / "memory.sqlite3"))
+    monkeypatch.setattr(dashboard, "HoshyarLocalLLMV1", lambda: pytest.fail("disabled local model must not initialize"))
+    assistant = dashboard._build_hoshyar_local_assistant()
+    assert assistant.local_llm_enabled is False
+    assert assistant.conversation_memory_enabled is True
+    assert assistant.allow_freeform is False
+
+    first = assistant.respond("سلام رفیق", {}, language="fa")
+    assert first["intent"] == "GENERAL_CHAT"
+    assert first["local_llm_used"] is False
+    assert first["conversation_memory_used"] is True
+    second = assistant.respond("خلاصه مکالمه قبلی را بگو", {}, language="fa")
+    assert second["intent"] == "GENERAL_CHAT"
+    assert second["local_llm_used"] is False
+    assert "سلام رفیق" in second["answer"]
+    assert "۱ نوبت آخر از ۱ نوبت ثبت‌شده" in second["answer"]
+    assert second["execution_enabled"] is False
+    assert second["orders_placed"] is False
+
+
+def test_optional_local_model_initialization_failure_falls_back_to_memory_assistant(monkeypatch, tmp_path):
+    monkeypatch.setenv("HES_HOSHYAR_LOCAL_LLM_ENABLED", "1")
+    monkeypatch.setenv("HES_HOSHYAR_MEMORY_DB", str(tmp_path / "memory.sqlite3"))
+    def unavailable():
+        raise HoshyarLocalError("HOSHYAR_LOCAL_ENDPOINT_REJECTED")
+    monkeypatch.setattr(dashboard, "HoshyarLocalLLMV1", unavailable)
+    assistant = dashboard._build_hoshyar_local_assistant()
+    assert assistant.local_llm_enabled is False
+    assert assistant.conversation_memory_enabled is True
+    assert assistant.allow_freeform is False
+
+
+def test_chat_and_history_api_keep_memory_on_when_local_model_is_disabled(monkeypatch, tmp_path):
+    monkeypatch.setenv("HES_HOSHYAR_LOCAL_LLM_ENABLED", "0")
+    monkeypatch.setenv("HES_HOSHYAR_MEMORY_DB", str(tmp_path / "memory.sqlite3"))
+    monkeypatch.setattr(dashboard, "HoshyarLocalLLMV1", lambda: pytest.fail("disabled local model must not initialize"))
+    assistant = dashboard._build_hoshyar_local_assistant()
+    with running_dashboard(monkeypatch, assistant) as base:
+        chat_status, chat = call(base, "/api/mother-chat", method="POST", payload={"message": "سلام رفیق", "language": "fa"})
+        history_status, history = call(base, "/api/mother-chat/history")
+    assert chat_status == 200
+    assert chat["local_llm_used"] is False
+    assert chat["conversation_memory_used"] is True
+    assert chat["execution_enabled"] is False
+    assert chat["orders_placed"] is False
+    assert history_status == 200
+    assert history["local_llm_enabled"] is False
+    assert history["conversation_memory_enabled"] is True
+    assert [item["content"] for item in history["messages"]] == ["سلام رفیق", chat["answer"]]
+
+
+def test_sixteen_message_persian_summary_survives_real_chat_http_flow(monkeypatch, tmp_path):
+    monkeypatch.setenv("HES_HOSHYAR_LOCAL_LLM_ENABLED", "0")
+    monkeypatch.setenv("HES_HOSHYAR_MEMORY_DB", str(tmp_path / "memory.sqlite3"))
+    monkeypatch.setattr(dashboard, "HoshyarLocalLLMV1", lambda: pytest.fail("disabled local model must not initialize"))
+    assistant = dashboard._build_hoshyar_local_assistant()
+    with running_dashboard(monkeypatch, assistant) as base:
+        for index in range(1, 9):
+            status, result = call(
+                base, "/api/mother-chat", method="POST",
+                payload={"message": f"پرسش ثبت‌شدهٔ شمارهٔ {index} دربارهٔ HES", "language": "fa"},
+            )
+            assert status == 200
+            assert result["local_llm_used"] is False
+            assert result["conversation_memory_used"] is True
+        status, summary = call(
+            base, "/api/mother-chat", method="POST",
+            payload={"message": "خلاصهٔ مکالمهٔ قبلی را بگو", "language": "fa"},
+        )
+        assert status == 200
+        assert summary["local_llm_used"] is False
+        assert "۸ نوبت آخر از ۸ نوبت ثبت‌شده" in summary["answer"]
+        for index in range(1, 9):
+            assert f"پرسش ثبت‌شدهٔ شمارهٔ {index}" in summary["answer"]
+        history_status, history = call(base, "/api/mother-chat/history")
+    assert history_status == 200
+    assert history["local_llm_enabled"] is False
+    assert history["conversation_memory_enabled"] is True
+    assert len(history["messages"]) == 18

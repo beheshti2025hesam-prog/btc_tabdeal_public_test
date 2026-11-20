@@ -26,8 +26,16 @@ const server=http.createServer((req,res)=>{
  if(u.pathname==="/"){return send(200,html,"text/html; charset=utf-8");}
  if(u.pathname==="/static/dashboard.css"){return send(200,fs.readFileSync(path.join(root,"web/static/dashboard.css")),"text/css");}
  if(u.pathname==="/static/dashboard.js"){return send(200,fs.readFileSync(path.join(root,"web/static/dashboard.js")),"application/javascript");}
+ if(u.pathname==="/static/documentation.js"){return send(200,fs.readFileSync(path.join(root,"web/static/documentation.js")),"application/javascript");}
+ if(u.pathname==="/static/documentation.css"){return send(200,fs.readFileSync(path.join(root,"web/static/documentation.css")),"text/css");}
  if(u.pathname==="/static/hes-mark.svg"){return send(200,fs.readFileSync(path.join(root,"web/static/hes-mark.svg")),"image/svg+xml");}
  if(u.pathname.includes("lightweight-charts.standalone.production.js")){return send(200,chartStub,"application/javascript");}
+ if(u.pathname==="/api/documentation"){
+  const language=u.searchParams.get("lang")||"en";
+  const catalog=JSON.parse(fs.readFileSync(path.join(root,"docs/documentation/catalog.v1.json"),"utf8"));
+  if(!catalog.locales[language])return send(400,JSON.stringify({error:"unsupported_documentation_language"}));
+  return send(200,JSON.stringify({schema:"hes.documentation_response.v1",version:catalog.version,updated_at:catalog.updated_at,language,pages:catalog.locales[language],ui:catalog.ui[language],source_register:catalog.source_register,editorial_review:catalog.editorial_review,safety:catalog.safety}));
+ }
  if(u.pathname==="/api/technical-intelligence"){const symbol=u.searchParams.get("symbol")||"BTCUSDT",sourceMap={BTCUSDT:"BTC_USDT",ETHUSDT:"ETH_USDT",SOLUSDT:"SOL_USDT"};if(!sourceMap[symbol])return send(400,JSON.stringify({error:"unsupported_symbol"}));if(failTechnical)return send(200,JSON.stringify({status:"BLOCKED",source:"unavailable",source_reader:"unavailable",symbol:sourceMap[symbol],canonical_symbol:symbol,controls:{decision_authority:false,execution_enabled:false,orders_placed:false}}));const btc=symbol==="BTCUSDT";return send(200,JSON.stringify({...technical,symbol:sourceMap[symbol],canonical_symbol:symbol,source_reader:btc?"global_market_data_reader_v1":"native_ohlcv_gateio_v1",timeframe_roles:btc?technical.timeframe_roles:{},timeframe_roles_status:btc?"INITIAL_BTC_PROFILE":"DESCRIPTIVE_ONLY_NOT_YET_VALIDATED_FOR_SYMBOL"}));}
  if(u.pathname==="/api/candles"){
   const interval=u.searchParams.get("interval")||"15m",symbol=u.searchParams.get("symbol")||"BTCUSDT",sourceMap={BTCUSDT:"BTC_USDT",ETHUSDT:"ETH_USDT",SOLUSDT:"SOL_USDT"};
@@ -56,6 +64,8 @@ const server=http.createServer((req,res)=>{
   assert.equal(await page.locator("#technicalConsensus").textContent(),"MIXED");
   assert.equal(await page.locator("#technicalSafety").textContent(),"READ ONLY · NO ORDERS");
   assert.equal(await page.locator("#technicalIndicatorRows tr").count(),39);
+  await page.locator("#technicalIntelligencePanel .panel-disclosure-summary").click();
+  await page.waitForFunction(()=>document.querySelector("#technicalIntelligencePanel .panel-disclosure")?.open===true);
   await page.selectOption("#technicalTimeframe","4h");
   await page.waitForFunction(()=>document.querySelector("#technicalProfile").textContent.includes("TRANSITION"));
   await page.selectOption("#technicalTimeframe","1m");
@@ -69,6 +79,26 @@ const server=http.createServer((req,res)=>{
   await page.waitForFunction(()=>document.querySelector("#technicalProvenance").textContent.includes("BTC_USDT"));
   await page.selectOption("#languageSelect","fa");
   await page.waitForFunction(()=>document.documentElement.dir==="rtl");
+  const expectedDocumentationVersion = JSON.parse(fs.readFileSync(path.join(root,"docs/documentation/catalog.v1.json"),"utf8")).version;
+  await page.waitForFunction(version=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.querySelectorAll("#documentationIndex button").length===13&&document.querySelector("#documentationStatus")?.textContent.includes(version),expectedDocumentationVersion);
+  assert.ok((await page.locator("#documentationArticle").textContent()).includes("DNA"));
+  assert.equal(await page.locator("#documentationSafety").textContent(),"فقط‌خواندنی");
+  await page.locator("#documentationPanel .panel-disclosure-summary").click();
+  await page.waitForFunction(()=>document.querySelector("#documentationPanel .panel-disclosure")?.open===true);
+  await page.locator("#documentationIndex button[data-doc-id=\"strategy\"]").click();
+  await page.waitForFunction(()=>document.querySelector("#documentationArticle")?.textContent.includes("NO_TRADE")&&document.querySelector("#documentationArticle")?.textContent.includes("Range"));
+  await page.selectOption("#languageSelect","de");
+  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="Dokumentation"&&document.querySelector("#documentationArticle .documentation-article-title")?.textContent==="Projekt-DNA und Produktidentität");
+  assert.equal(await page.evaluate(()=>document.documentElement.dir),"ltr");
+  await page.locator("#documentationIndex button[data-doc-id=\"strategy\"]").click();
+  await page.waitForFunction(()=>document.querySelector("#documentationArticle")?.textContent.includes("Range-Strategiefamilie"));
+  await page.selectOption("#languageSelect","fr");
+  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="Documentation"&&document.querySelector("#documentationArticle .documentation-article-title")?.textContent==="ADN du projet et identité du produit");
+  assert.equal(await page.evaluate(()=>document.documentElement.dir),"ltr");
+  await page.locator("#documentationIndex button[data-doc-id=\"strategy\"]").click();
+  await page.waitForFunction(()=>document.querySelector("#documentationArticle")?.textContent.includes("Famille de stratégies Range"));
+  await page.selectOption("#languageSelect","fa");
+  await page.waitForFunction(()=>document.querySelector("#documentationTitle")?.textContent==="مستندات"&&document.documentElement.dir==="rtl");
   assert.ok((await page.locator("#technicalIntelligenceTitle").textContent()).includes("هوش فنی"));
   assert.ok((await page.locator("#technicalIndicatorRows").textContent()).includes("روند"));
   assert.ok((await page.locator("#technicalIntelligencePanel").textContent()).includes("پژوهش فقط‌خواندنی"));

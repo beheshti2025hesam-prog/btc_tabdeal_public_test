@@ -7,4 +7,10 @@
     <path d="M240 30 V150"/>
     <path d="M95 165 H270 C295 165 315 185 315 210 V270 C315 295 295 315 270 315 C245 315 225 295 225 270 V195"/>
   </g>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M145 60V85M145 111V137" stroke="#39c99a" stroke-width="7"/>
+    <rect x="132" y="85" width="26" height="26" rx="5" fill="#39c99a"/>
+    <path d="M190 195V218M190 244V267" stroke="#f07882" stroke-width="7"/>
+    <rect x="177" y="218" width="26" height="26" rx="5" fill="#f07882"/>
+  </g>
 </svg>

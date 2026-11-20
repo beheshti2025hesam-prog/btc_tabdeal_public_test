@@ -39,7 +39,8 @@ quota=$(rclone about hesdropbox: --json)
 free=$(printf '%s' "$quota" | /usr/bin/python3 -c 'import json,sys;print(int(json.load(sys.stdin).get("free",0)))')
 (( free + remote_bytes >= local_bytes + RESERVE_BYTES )) || { echo "DROPBOX_PRODUCTION_RESTIC_QUOTA_GUARD_BLOCK free=$free remote_existing=$remote_bytes incoming=$local_bytes reserve=$RESERVE_BYTES"; exit 20; }
 printf 'RESTIC_PRODUCTION_DROPBOX_SYNC_START local_bytes=%s local_files=%s remote_existing_bytes=%s free_bytes=%s reserve=%s\n' "$local_bytes" "$local_files" "$remote_bytes" "$free" "$RESERVE_BYTES"
-rclone sync "$REPO" "$REMOTE" --transfers 2 --checkers 4 --check-first --delete-after --retries 5 --low-level-retries 10 --stats 30s --stats-one-line
+# Append-only mirror: never delete remote-only recovery objects automatically.
+rclone copy "$REPO" "$REMOTE" --transfers 2 --checkers 4 --check-first --retries 5 --low-level-retries 10 --stats 30s --stats-one-line
 rclone check "$REPO" "$REMOTE" --checkers 2
 remote_after=$(rclone size "$REMOTE" --json | /usr/bin/python3 -c 'import json,sys;print(int(json.load(sys.stdin).get("bytes",0)))')
 remote_files=$(rclone size "$REMOTE" --json | /usr/bin/python3 -c 'import json,sys;print(int(json.load(sys.stdin).get("count",0)))')
