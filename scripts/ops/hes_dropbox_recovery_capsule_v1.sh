@@ -60,13 +60,13 @@ dpkg-query -W -f='${db:Status-Status}\t${binary:Package}\t${Version}\n' | awk -F
 . /etc/os-release
 printf 'OS=%s\nKERNEL=%s\nPYTHON=%s\nCAPTURED_UTC=%s\n' "$PRETTY_NAME" "$(uname -r)" "$(python3 --version 2>&1)" "$(date -u +%FT%TZ)" > "$WORK/recovery-metadata/platform.txt"
 cp "$INV" "$WORK/recovery-metadata/release-inventory.json"
-find "${WORK#/}" -mindepth 0 -print0 >> "$LIST"
+find "${WORK#/}/recovery-metadata" -mindepth 0 -print0 >> "$LIST"
 sort -zu "$LIST" -o "$LIST"
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 BASE="hes-recovery-capsule-$STAMP.tar.zst.gpg"; PART="$WORK/$BASE.partial"; FINAL="$OUT/$BASE"
 [[ ! -e "$FINAL" ]] || exit 14
 echo "CAPSULE_BUILD_START utc=$STAMP cap_bytes=$MAX_BYTES"
-if tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --null --files-from="$LIST" -cf - | zstd -q -T1 -19 --long=27 -c | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-count 65011712 --passphrase-file "$KEY" --output - | head -c "$MAX_BYTES" > "$PART"; then :
+if tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --transform='s#^var/backups/hes-trade-agent/offsite-staging/\.capsule\.[^/]*/recovery-metadata#recovery-metadata#' --null --files-from="$LIST" -cf - | zstd -q -T1 -19 --long=27 -c | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 --s2k-mode 3 --s2k-count 65011712 --passphrase-file "$KEY" --output - | head -c "$MAX_BYTES" > "$PART"; then :
 else rc=$?; bytes=$(stat -c %s "$PART" 2>/dev/null || echo 0); if ((bytes>=MAX_BYTES)); then echo "CAPSULE_REJECTED_SIZE_CAP bytes=$bytes cap=$MAX_BYTES"; exit 30; fi; echo "CAPSULE_BUILD_FAILED rc=$rc bytes=$bytes"; exit "$rc"; fi
 chmod 0600 "$PART"; bytes=$(stat -c %s "$PART"); ((bytes<MAX_BYTES)) || exit 30
 gpg --batch --pinentry-mode loopback --passphrase-file "$KEY" --decrypt "$PART" 2>/dev/null | zstd -t -q
@@ -79,6 +79,26 @@ if missing: raise SystemExit("CAPSULE_RELEASE_COVERAGE_FAIL "+",".join(missing))
 for p in ("etc/systemd/system","etc/hes-trade-agent","var/lib/hes-operational-health","recovery-metadata"):
  if not any(x==p or x.startswith(p+"/") for x in entries): raise SystemExit("CAPSULE_REQUIRED_PATH_MISSING "+p)
 print("CAPSULE_CONTENT_VALIDATION_OK release_trees="+str(len(inv["release_targets"])))
+PY
+# Perform a real isolated extraction, not just a tar listing. This is a same-host
+# archive restore rehearsal; it never writes over production paths.
+RESTORE="$WORK/restore"
+mkdir -p "$RESTORE"
+gpg --batch --pinentry-mode loopback --passphrase-file "$KEY" --decrypt "$PART" 2>/dev/null \
+  | zstd -dc -q | tar -C "$RESTORE" --no-same-owner --xattrs --acls -xpf -
+python3 - "$INV" "$RESTORE" <<'PY'
+import json,sys
+from pathlib import Path
+inv=json.load(open(sys.argv[1])); root=Path(sys.argv[2])
+for item in inv["release_targets"]:
+    p=root/item["archive_path"]
+    if not p.is_dir(): raise SystemExit("CAPSULE_RESTORE_RELEASE_MISSING "+str(p))
+for pointer in ("opt/hes-trade-agent/current","opt/hes-trade-agent/current-before-4329a3df","opt/hes-trade-agent/dashboard-current","opt/hes-trade-agent/precision-current"):
+    p=root/pointer
+    if not p.is_symlink() or not p.is_dir(): raise SystemExit("CAPSULE_RESTORE_POINTER_FAIL "+str(p))
+for required in ("etc/systemd/system","etc/hes-trade-agent","var/lib/hes-operational-health","recovery-metadata"):
+    if not (root/required).exists(): raise SystemExit("CAPSULE_RESTORE_REQUIRED_PATH_MISSING "+required)
+print("CAPSULE_ISOLATED_RESTORE_PASS release_trees="+str(len(inv["release_targets"])))
 PY
 mv "$PART" "$FINAL"; chmod 0600 "$FINAL"
 sha256sum "$FINAL" > "$FINAL.sha256"; chmod 0600 "$FINAL.sha256"
