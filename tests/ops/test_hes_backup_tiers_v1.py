@@ -27,7 +27,7 @@ def test_daily_capsule_cycle_and_scoped_remote_rotation_are_sandboxed():
     publish = (ROOT / "scripts/ops/hes_dropbox_recovery_capsule_publish_v1.sh").read_text()
     service = (ROOT / "deploy/systemd/hes-dropbox-recovery-capsule.service").read_text()
     timer = (ROOT / "deploy/systemd/hes-dropbox-recovery-capsule.timer").read_text()
-    assert '"$PUBLISH" --rotate "$ARCHIVE"' in cycle
+    assert '"$PUBLISH" --rotate --enforce-20pct "$ARCHIVE"' in cycle
     assert "i=7" in cycle
     assert "CAPSULE_REMOTE_READBACK_PASS" in publish
     assert "i=2" in publish
