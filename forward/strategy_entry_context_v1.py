@@ -6,6 +6,15 @@ from typing import Any, Mapping
 SCHEMA = "hes_strategy_entry_context_v1"
 ENTRY_ZONE_POLICY = "FAVORABLE_SIDE_RISK_FRACTION_V1"
 ENTRY_ZONE_FRACTION_OF_RISK = 0.25
+RR_MINIMUM_TOLERANCE = 1e-12
+
+
+def _meets_minimum_rr(value: float, minimum: float = 3.0) -> bool:
+    """Allow only floating-point representation noise at an exact RR boundary."""
+    return math.isfinite(value) and (
+        value >= minimum
+        or math.isclose(value, minimum, rel_tol=RR_MINIMUM_TOLERANCE, abs_tol=RR_MINIMUM_TOLERANCE)
+    )
 
 def _canonical_hash(value: Mapping[str, Any]) -> str:
     raw=json.dumps(dict(value),sort_keys=True,separators=(",",":"),ensure_ascii=True,allow_nan=False).encode("utf-8")
@@ -37,7 +46,9 @@ def build_entry_context(*, source: str, symbol: str, candidate_time: int, policy
     if direction=="SHORT" and not target<entry<stop: raise ValueError("ENTRY_CONTEXT_GEOMETRY_INVALID")
     risk_distance=abs(entry-stop)
     rr=abs(target-entry)/risk_distance
-    if rr<3.0: raise ValueError("ENTRY_CONTEXT_RR_BELOW_MINIMUM")
+    if not _meets_minimum_rr(rr, 3.0): raise ValueError("ENTRY_CONTEXT_RR_BELOW_MINIMUM")
+    if math.isclose(rr, 3.0, rel_tol=RR_MINIMUM_TOLERANCE, abs_tol=RR_MINIMUM_TOLERANCE):
+        rr = 3.0  # canonicalize the mathematically exact boundary, not the policy threshold
     zone_width=risk_distance*ENTRY_ZONE_FRACTION_OF_RISK
     if direction=="LONG":
         entry_zone_low,entry_zone_high=entry-zone_width,entry
@@ -120,7 +131,7 @@ def verify_entry_context(context: Any, *, gate_evidence: Mapping[str, Any] | Non
             raise ValueError()
         if direction=="LONG" and not stop<low<=entry==high<target: raise ValueError()
         if direction=="SHORT" and not target<low==entry<=high<stop: raise ValueError()
-        if abs(target-entry)/abs(entry-stop)<3.0: raise ValueError()
+        if not _meets_minimum_rr(abs(target-entry)/abs(entry-stop), 3.0): raise ValueError()
     except (KeyError,TypeError,ValueError,ZeroDivisionError):
         return False,"ENTRY_CONTEXT_GEOMETRY_INVALID"
     return True,None

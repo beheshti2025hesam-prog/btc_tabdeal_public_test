@@ -117,8 +117,10 @@ def _valid_context(
     values["planned_entry_price"] = planned_entry
     values["entry_zone_fraction_of_risk"] = float(fraction)
     rr = reward / risk if risk > 0 else 0.0
+    if math.isclose(rr, float(min_rr), rel_tol=1e-12, abs_tol=1e-12):
+        rr = float(min_rr)  # remove binary-float noise at an exact policy boundary
     values["worst_case_rr"] = rr
-    if not math.isfinite(rr) or rr < min_rr:
+    if not math.isfinite(rr) or (rr < min_rr and not math.isclose(rr, float(min_rr), rel_tol=1e-12, abs_tol=1e-12)):
         return None, "RISK_REWARD_BELOW_MINIMUM"
     return values, None
 
