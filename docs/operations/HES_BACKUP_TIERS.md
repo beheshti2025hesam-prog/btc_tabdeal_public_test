@@ -34,3 +34,12 @@ The latest full Restic snapshot measured 3.434 GiB raw repository data and 2.844
 - Local Restic full read-data check passed 205/205 packs and 6/6 snapshots.
 - The 400 MiB full-scope archive builder correctly rejected the new release set.
 - No Dropbox objects were deleted or overwritten.
+
+
+## First successful capsule build and isolated restore — 2026-11-20
+
+- Built a fresh encrypted capsule from the live VPS after discovering six active/rollback release trees.
+- Encrypted artifact: 15,833,570 bytes (about 15.1 MiB), SHA-256 4026e3654698b3a1991c7cf2a37ca1ff6ffd64e0ab13899b62248430f1b7f0b8.
+- GPG decryption, Zstandard integrity, tar member coverage and isolated extraction all passed; the isolated restore verified all six release directories plus core/dashboard/precision symlinks and critical config/runtime paths.
+- This is the first current capsule candidate; it has not yet been uploaded to Dropbox. No remote object was changed.
+- The 24 MiB per-capsule cap leaves headroom for release growth; two remote versions are capped at 48 MiB total. Account-wide 20% enforcement is enabled only after the complete Restic secondary migration marker is created.
