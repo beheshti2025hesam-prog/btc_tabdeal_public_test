@@ -42,3 +42,15 @@ def test_daily_capsule_cycle_and_scoped_remote_rotation_are_sandboxed():
     assert "ProtectHome=read-only" in service
     assert "CPUWeight=20" in service
     assert "04:00:00 UTC" in timer
+
+
+def test_google_drive_full_restic_timer_is_separate_and_safe_to_leave_disabled():
+    service = (ROOT / "deploy/systemd/hes-restic-google-drive-sync.service").read_text()
+    timer = (ROOT / "deploy/systemd/hes-restic-google-drive-sync.timer").read_text()
+    script = (ROOT / "scripts/ops/hes_restic_google_drive_sync_v1.sh").read_text()
+    assert "ConditionPathExists=/root/.config/rclone/rclone.conf" in service
+    assert "ProtectSystem=strict" in service
+    assert "ProtectHome=read-only" in service
+    assert "ReadWritePaths=/run/hes-restic /run/lock" in service
+    assert "03:30:00 UTC" in timer
+    assert "RESTIC_DRIVE_REMOTE_NOT_CONFIGURED" in script
