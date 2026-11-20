@@ -135,10 +135,15 @@ _CONVERSATION_SUMMARY_PATTERNS = tuple(re.compile(pattern, re.IGNORECASE) for pa
 ))
 
 
+def _is_conversation_summary_request(message: str) -> bool:
+    return any(pattern.search(str(message or "")) for pattern in _CONVERSATION_SUMMARY_PATTERNS)
+
+
 def _deterministic_conversation_summary(
     message: str, history: list[dict[str, str]], language: str, memory_available: bool
 ) -> str | None:
-    if not any(pattern.search(str(message or "")) for pattern in _CONVERSATION_SUMMARY_PATTERNS):
+    """Return a bounded, extractive review of the latest stored conversation turns."""
+    if not _is_conversation_summary_request(message):
         return None
     if not memory_available:
         return {
@@ -155,7 +160,7 @@ def _deterministic_conversation_summary(
             user_text = " ".join(str(user_item.get("content") or "").split())
             assistant_text = " ".join(str(assistant_item.get("content") or "").split())
             if user_text and assistant_text:
-                pairs.append((user_text[:100], assistant_text[:100]))
+                pairs.append((user_text[:180], assistant_text[:180]))
     if not pairs:
         return {
             "fa": "هنوز گفت‌وگوی قبلی در حافظهٔ محلی ثبت نشده است؛ چیزی برای خلاصه‌سازی وجود ندارد.",
@@ -163,22 +168,38 @@ def _deterministic_conversation_summary(
             "fr": "Aucun échange précédent n'est encore enregistré dans la mémoire locale.",
             "en": "No earlier conversation turns are recorded in local memory yet.",
         }[language]
+
+    # Keep the complete eight-turn acceptance window, not merely the last two turns.
+    # Older history remains stored; the output is deliberately bounded and extractive.
+    selected = pairs[-8:]
+    total = len(pairs)
     labels = {
-        "fa": ("خلاصهٔ گفت‌وگوی ثبت‌شده، بر پایهٔ دو نوبت اخیر:", "پرسش", "پاسخ ثبت‌شده"),
-        "de": ("Zusammenfassung der letzten zwei gespeicherten Gesprächsrunden:", "Frage", "Gespeicherte Antwort"),
-        "fr": ("Résumé des deux derniers échanges enregistrés :", "Question", "Réponse enregistrée"),
-        "en": ("Summary of the last two stored conversation turns:", "Question", "Recorded answer"),
+        "fa": ("مرور فشردهٔ گفت‌وگوی ثبت‌شده", "پرسش", "پاسخ ثبت‌شده"),
+        "de": ("Kompakter Rückblick auf das gespeicherte Gespräch", "Frage", "Gespeicherte Antwort"),
+        "fr": ("Récapitulatif compact de la conversation enregistrée", "Question", "Réponse enregistrée"),
+        "en": ("Compact review of the recorded conversation", "Question", "Recorded answer"),
     }
     heading, question_label, answer_label = labels[language]
+    if language == "fa":
+        digits = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+        shown_count = str(len(selected)).translate(digits)
+        total_count = str(total).translate(digits)
+        heading += f" ({shown_count} نوبت آخر از {total_count} نوبت ثبت‌شده):"
+    elif language == "de":
+        heading += f" ({len(selected)} der letzten {total} gespeicherten Runden):"
+    elif language == "fr":
+        heading += f" ({len(selected)} derniers échanges sur {total} enregistrés) :"
+    else:
+        heading += f" ({len(selected)} latest turns out of {total} stored):"
     rows = []
-    for user_text, assistant_text in pairs[-2:]:
+    for user_text, assistant_text in selected:
         rows.append(f"- {question_label}: {user_text}")
         rows.append(f"  - {answer_label}: {assistant_text}")
     footer = {
-        "fa": "این خلاصه فقط از پیام‌های ذخیره‌شده ساخته شده و وضعیت زندهٔ بازار را دوباره بررسی نمی‌کند.",
-        "de": "Diese Zusammenfassung nutzt nur gespeicherte Nachrichten und prüft keine Live-Marktdaten erneut.",
-        "fr": "Ce résumé utilise uniquement les messages enregistrés et ne vérifie pas à nouveau le marché en direct.",
-        "en": "This summary uses stored messages only and does not re-check live market data.",
+        "fa": "این مرور استخراجی فقط از پیام‌های ذخیره‌شده ساخته شده؛ نوبت‌های قدیمی‌تر از محدودهٔ نمایش حذف نشده‌اند و وضعیت زندهٔ بازار دوباره بررسی نشده است.",
+        "de": "Dieser extraktive Rückblick verwendet nur gespeicherte Nachrichten; ältere Runden außerhalb der Anzeige wurden nicht gelöscht und Live-Marktdaten wurden nicht erneut geprüft.",
+        "fr": "Ce récapitulatif extractif utilise uniquement les messages enregistrés ; les échanges plus anciens hors affichage ne sont pas supprimés et le marché en direct n'a pas été revérifié.",
+        "en": "This extractive review uses stored messages only; older turns outside the display were not deleted, and live market data was not re-checked.",
     }[language]
     return heading + "\n" + "\n".join(rows) + "\n" + footer
 
@@ -447,17 +468,27 @@ class HoshyarLocalAssistantV1:
 
     def __init__(
         self,
-        llm: HoshyarLocalLLMV1,
+        llm: HoshyarLocalLLMV1 | None,
         memory: HoshyarConversationMemoryV1,
         *,
         allow_freeform: bool | None = None,
     ):
         self.llm = llm
         self.memory = memory
-        self.allow_freeform = (
+        configured_freeform = (
             os.environ.get("HES_HOSHYAR_LOCAL_LLM_GENERAL_CHAT_ENABLED", "0").strip() == "1"
             if allow_freeform is None else bool(allow_freeform)
         )
+        # A deterministic assistant can operate with no model client at all.
+        self.allow_freeform = configured_freeform and self.llm is not None
+
+    @property
+    def local_llm_enabled(self) -> bool:
+        return self.llm is not None
+
+    @property
+    def conversation_memory_enabled(self) -> bool:
+        return self.memory is not None
 
     @staticmethod
     def _safe_general_answer(answer: str, language: str) -> str:
@@ -491,8 +522,10 @@ class HoshyarLocalAssistantV1:
         effective_language = language if language in {"fa", "en", "de", "fr"} else _language(message)
         history: list[dict[str, str]] = []
         memory_ok = False
+        summary_requested = _is_conversation_summary_request(message)
         try:
-            history = self.memory.history()
+            # Summaries read the bounded retained history; ordinary turns read only recent context.
+            history = self.memory.history(limit=MAX_STORED_MESSAGES if summary_requested else MAX_HISTORY_MESSAGES)
             memory_ok = True
         except HoshyarLocalError:
             history = []
@@ -546,8 +579,8 @@ class HoshyarLocalAssistantV1:
                         {"role": "user", "content": message},
                     ]
                     try:
-                        answer = self.llm.general_answer(messages)
-                        local_used = True
+                        answer = self.llm.general_answer(messages) if self.llm is not None else ""
+                        local_used = self.llm is not None
                     except HoshyarLocalError:
                         answer = ""
                     answer = self._safe_general_answer(answer, effective_language)
