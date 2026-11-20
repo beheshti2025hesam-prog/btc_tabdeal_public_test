@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily HES smart storage and lifecycle audit
+
+[Timer]
+OnCalendar=*-*-* 03:45:00 UTC
+Persistent=true
+RandomizedDelaySec=120
+Unit=hes-smart-storage-maintenance.service
+
+[Install]
+WantedBy=timers.target
