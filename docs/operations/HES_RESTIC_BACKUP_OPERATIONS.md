@@ -55,3 +55,17 @@ with 769,199,337 bytes free; the production 128 MiB reserve guard passes.
 The 400 MiB ceiling applies to the compact archive object, not to the sum of
 both recovery layers. Do not delete either independent recovery object without
 a verified replacement and explicit approval.
+
+
+## Verified offsite status — 2026-11-20
+
+- The local full-scope Restic repository contains 218 files and is approximately 3.408 GB.
+- The Dropbox Restic mirror contains 72 files (981,413,452 bytes). A read-only rclone check found 72 matching files, 146 local-only files, and no remote-only files. The remote is therefore an incomplete strict subset of the local repository; it is not a proven full offsite restore source.
+- Dropbox Basic reports 2 GiB total, 1,743,885,121 bytes used, and 403,598,527 bytes free. The quota gate correctly blocks the missing Restic payload plus the 128 MiB reserve. No Dropbox upload, overwrite, prune, or deletion was performed.
+- The existing Dropbox compact recovery archive is 398,216,865 bytes and dates from 2026-11-16. It predates the 2026-11-20 dashboard release and must not be treated as a current recovery image.
+- The compact archive builder now discovers the current core, dashboard, precision, and verified rollback release trees from live symlinks and the latest healthy dashboard deployment record. It verifies that every discovered release tree is present in the archive.
+- The encrypted archive size ceiling is enforced during streaming at 400 MiB. An oversized candidate is rejected and its temporary build is cleaned up.
+- The Restic Dropbox mirror uses append-only rclone copy; remote-only objects are never deleted automatically. Quota and integrity gates remain fail-closed.
+- The daily local Restic backup remains enabled. The Dropbox sync timer remains enabled but will continue to stop at the quota gate until a sufficiently large free offsite destination is authorized and verified.
+
+A separate free-tier offsite destination with sufficient available quota is still required for the complete Restic mirror. No second provider is configured by this change. Do not delete or replace existing Dropbox recovery objects until a newer candidate has passed integrity checks and an isolated restore drill.
