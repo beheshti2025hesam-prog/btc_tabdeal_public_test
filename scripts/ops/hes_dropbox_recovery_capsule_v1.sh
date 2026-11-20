@@ -73,7 +73,7 @@ gpg --batch --pinentry-mode loopback --passphrase-file "$KEY" --decrypt "$PART" 
 gpg --batch --pinentry-mode loopback --passphrase-file "$KEY" --decrypt "$PART" 2>/dev/null | zstd -dc -q | tar -tf - > "$WORK/archive.list"
 python3 - "$INV" "$WORK/archive.list" <<'PY'
 import json,sys
-inv=json.load(open(sys.argv[1])); entries=set(x.rstrip("/") for x in open(sys.argv[2]))
+inv=json.load(open(sys.argv[1])); entries=set(x.strip().rstrip("/") for x in open(sys.argv[2]))
 missing=[x["archive_path"] for x in inv["release_targets"] if x["archive_path"] not in entries]
 if missing: raise SystemExit("CAPSULE_RELEASE_COVERAGE_FAIL "+",".join(missing))
 for p in ("etc/systemd/system","etc/hes-trade-agent","var/lib/hes-operational-health","recovery-metadata"):
