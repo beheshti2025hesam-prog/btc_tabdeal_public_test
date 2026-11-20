@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import pytest
-from scripts.ops.hes_smart_storage_manager_v1 import archive_inventory, build_report, compression_advice, load_inventory, restore_assessment
+from scripts.ops.hes_smart_storage_manager_v1 import archive_inventory, build_report, compression_advice, load_inventory, remote_restore_assessment, restore_assessment
 
 NOW=datetime(2026,11,15,15,0,tzinfo=timezone.utc)
 
@@ -232,3 +232,38 @@ def test_archive_inventory_recognizes_versioned_zstd_and_git_bundle(tmp_path):
     assert result["archive_count"] == 2
     assert result["total_bytes"] == 28
     assert {x["format"] for x in result["archives"]} == {"zstd+gpg","git-bundle"}
+
+
+def valid_remote_restore_evidence():
+    return {
+        "schema":"hes_dropbox_core_restore_drill_v1",
+        "remote_archive_sha256":"f"*64,
+        "manifest_sha256":"f"*64,
+        "remote_archive_bytes":398216865,
+        "remote_restore":{
+            "status":"PASS","rclone_copy":"PASS","remote_hash_match":"PASS",
+            "gpg_decrypt":"PASS","zstd_integrity":"PASS","tar_safe_path_verification":"PASS_8897_MEMBERS",
+            "full_extract":"PASS","required_core_roots":"PASS_5_OF_5",
+            "active_release":"PASS_PRESENT","rollback_release":"PASS_PRESENT",
+            "main_git_connectivity":"PASS","restored_files":57748,"restored_file_bytes":9759758674
+        }
+    }
+
+
+def test_remote_restore_requires_hash_and_full_extract_evidence():
+    result=remote_restore_assessment(valid_remote_restore_evidence())
+    assert result["status"]=="PASS"
+    assert result["cleanup_authorized"] is False
+    bad=valid_remote_restore_evidence(); bad["remote_archive_sha256"]="0"*64
+    assert remote_restore_assessment(bad)["status"]=="INCOMPLETE_EVIDENCE"
+
+
+def test_storage_report_distinguishes_local_and_remote_restore_from_replacement_host():
+    idlm,cleanup=source_reports()
+    result=build_report(idlm=idlm,cleanup=cleanup,now=NOW,restore_evidence=valid_full_restore_evidence(),remote_restore_evidence=valid_remote_restore_evidence())
+    rec=result["recovery_assessment"]
+    assert rec["full_archive_restore"]=="PASS"
+    assert rec["remote_restore"]=="PASS"
+    assert rec["replacement_host_restore"]=="NOT_PROVEN"
+    assert rec["cleanup_authorized"] is False
+    assert result["policy"]["remote_restore_verified"] is True
