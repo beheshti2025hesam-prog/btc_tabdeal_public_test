@@ -265,6 +265,7 @@ def test_storage_report_distinguishes_local_and_remote_restore_from_replacement_
     assert rec["full_archive_restore"]=="PASS"
     assert rec["remote_restore"]=="PASS"
     assert rec["replacement_host_restore"]=="NOT_PROVEN"
+    assert "replacement-host recovery remains separate" in rec["reason"]
     assert rec["cleanup_authorized"] is False
     assert result["policy"]["remote_restore_verified"] is True
     assert result["policy"]["safe_cache_maintenance_timer_enabled"] is True
