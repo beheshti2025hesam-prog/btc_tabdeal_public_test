@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 umask 077
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+cd /
 ROOT=/opt/hes-trade-agent KEY=/root/.config/hes-backup/passphrase
 OUT=/var/backups/hes-trade-agent/offsite-staging STATE=/var/lib/hes-operational-health
 MAX_BYTES=$((64 * 1024 * 1024))
