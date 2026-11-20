@@ -10,7 +10,7 @@ exec 9>/run/lock/hes-dropbox-recovery-capsule.lock
 flock -n 9 || exit 10
 [[ -s "$KEY" && -d "$ROOT/releases" && -d "$STATE" ]] || exit 11
 mkdir -p "$OUT"; chmod 0700 "$OUT"
-WORK=$(mktemp -d "$OUT/.capsule.XXXXXX"); trap 'rm -rf -- "$WORK"' EXIT
+WORK=$(mktemp -d "$OUT/.capsule.XXXXXX"); mkdir -m 0700 "$WORK/gnupg"; export GNUPGHOME="$WORK/gnupg"; trap 'rm -rf -- "$WORK"' EXIT
 LIST="$WORK/include.list0" INV="$WORK/release-inventory.json"
 python3 - "$ROOT" "$STATE" "$INV" <<'PY'
 import json,sys
