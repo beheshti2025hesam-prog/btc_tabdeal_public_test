@@ -53,7 +53,11 @@ def main():
     idlm=out/f'hes-idlm-audit-{stamp}.json'; cleanup=out/f'hes-smart-cleanup-{stamp}.json'; storage=out/f'hes-smart-storage-{stamp}.json'
     run([sys.executable,str(LIB/'hes_data_lifecycle_audit_v1.py'),'--stale-after-days','3','--output',str(idlm)])
     run([sys.executable,str(LIB/'hes_smart_cleanup_manager_v1.py'),'--audit-manifest',str(idlm),'--output',str(cleanup)])
-    run([sys.executable,str(LIB/'hes_smart_storage_manager_v1.py'),'--idlm-report',str(idlm),'--cleanup-report',str(cleanup),'--output',str(storage),'--target-gb','5'])
+    storage_cmd=[sys.executable,str(LIB/'hes_smart_storage_manager_v1.py'),'--idlm-report',str(idlm),'--cleanup-report',str(cleanup),'--output',str(storage),'--target-gb','5']
+    restore_candidates=sorted(EVID.glob('*/full-restore-drill.json'),key=lambda p:p.stat().st_mtime,reverse=True)
+    if restore_candidates:
+        storage_cmd.extend(['--restore-evidence',str(restore_candidates[0])])
+    run(storage_cmd)
     # Cache cleanup is deliberately separate from project/release/backup cleanup.
     cache=pip_temp_cleanup(out)
     # Package download cache is always reproducible; no package database or installed package is removed.
