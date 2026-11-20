@@ -20,7 +20,9 @@ rclone copyto "$ARCHIVE.sha256" "$REMOTE/$name.sha256" --immutable
 rclone copyto "$ARCHIVE.manifest.txt" "$REMOTE/$name.manifest.txt" --immutable
 rclone check "$(dirname "$ARCHIVE")" "$REMOTE" --include "$name" --include "$name.sha256" --include "$name.manifest.txt" --checkers 2
 
-VERIFY=$(mktemp -d /run/hes-capsule-remote-verify.XXXXXX)
+VERIFY=$(mktemp -d /var/backups/hes-trade-agent/offsite-staging/.remote-verify.XXXXXX)
+mkdir -m 0700 "$VERIFY/gnupg"
+export GNUPGHOME="$VERIFY/gnupg"
 trap 'rm -rf -- "$VERIFY"' EXIT
 rclone copyto "$REMOTE/$name" "$VERIFY/$name"
 rclone copyto "$REMOTE/$name.sha256" "$VERIFY/$name.sha256"
