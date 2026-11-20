@@ -10,7 +10,7 @@ def test_dropbox_capsule_is_small_and_excludes_full_restic_and_bulk_evidence():
  assert "CAPSULE_CONTENT_VALIDATION_OK" in s
  assert "x.strip().rstrip(\"/\")" in s
  assert "CAPSULE_ISOLATED_RESTORE_PASS" in s
- assert "recovery-metadata#recovery-metadata#" not in s
+ assert "--transform=" in s
 def test_capsule_publish_is_immutable_quota_gated_and_non_destructive():
  s=(ROOT/"scripts/ops/hes_dropbox_recovery_capsule_publish_v1.sh").read_text()
  assert "rclone copyto" in s and "--immutable" in s and "RESERVE=" in s
