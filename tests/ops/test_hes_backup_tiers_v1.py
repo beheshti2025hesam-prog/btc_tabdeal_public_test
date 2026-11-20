@@ -2,7 +2,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 def test_dropbox_capsule_is_small_and_excludes_full_restic_and_bulk_evidence():
  s=(ROOT/"scripts/ops/hes_dropbox_recovery_capsule_v1.sh").read_text()
- assert "MAX_BYTES=$((64 * 1024 * 1024))" in s
+ assert "MAX_BYTES=$((24 * 1024 * 1024))" in s
  assert "cd /" in s
  assert "zstd -q -T1 -19 --long=27" in s
  assert "restic-production-v1/repo" not in s
@@ -35,6 +35,9 @@ def test_daily_capsule_cycle_and_scoped_remote_rotation_are_sandboxed():
     assert "rclone deletefile" in publish
     assert "rclone sync" not in publish
     assert "REMOTE_DELETE_SCOPE=VERSIONED_RECOVERY_CAPSULES_ONLY" in publish
+ assert "CAPSULE_20PCT_ACCOUNT_BUDGET_BLOCK" in publish
+ assert "used+bytes<=total/5" in publish
+ assert "--enforce-20pct" in cycle
     assert "ProtectSystem=strict" in service
     assert "ProtectHome=read-only" in service
     assert "CPUWeight=20" in service
