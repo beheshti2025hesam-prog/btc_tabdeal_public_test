@@ -32,13 +32,11 @@ for s in snapshots:
     valid.append((t,s,releases))
 if not valid: raise SystemExit("RESTIC_DRIVE_RESTORE_NO_FULL_RELEASE_SNAPSHOT")
 _,latest,releases=max(valid,key=lambda x:x[0])
-pointers=[
- "/opt/hes-trade-agent/current",
- "/opt/hes-trade-agent/current-before-4329a3df",
- "/opt/hes-trade-agent/dashboard-current",
- "/opt/hes-trade-agent/precision-current",
- "/opt/hes-trade-agent/current-rollback-20261119-09f660d6",
-]
+project=Path("/opt/hes-trade-agent")
+pointers=sorted(str(p) for p in project.iterdir() if p.is_symlink() and (
+    p.name=="current" or p.name.endswith("-current") or
+    p.name.startswith("current-before-") or p.name.startswith("current-rollback-")
+))
 includes=sorted(set(releases+pointers+[
  "/srv/hes-evidence",
  "/etc/hes-trade-agent",
@@ -51,7 +49,7 @@ includes=sorted(set(releases+pointers+[
  "/usr/local/sbin/hes-operational-healthcheck",
  "/usr/local/sbin/hes-restic-incremental-backup",
 ]))
-with open(out,"w") as f: json.dump({"snapshot_id":latest["short_id"],"time":latest["time"],"paths":latest["paths"],"release_paths":releases,"includes":includes},f,indent=2)
+with open(out,"w") as f: json.dump({"snapshot_id":latest["short_id"],"time":latest["time"],"paths":latest["paths"],"release_paths":releases,"pointer_paths":pointers,"includes":includes},f,indent=2)
 print("RESTIC_DRIVE_RESTORE_PLAN_OK snapshot="+latest["short_id"]+" releases="+str(len(releases))+" includes="+str(len(includes)))
 PY
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
@@ -77,7 +75,7 @@ from pathlib import Path
 plan=json.load(open(sys.argv[1])); root=Path(sys.argv[2])
 for p in plan["release_paths"]:
     if not (root/p.lstrip("/")).is_dir(): raise SystemExit("RESTIC_DRIVE_RESTORE_RELEASE_MISSING "+p)
-for p in ("/opt/hes-trade-agent/current","/opt/hes-trade-agent/current-before-4329a3df","/opt/hes-trade-agent/dashboard-current","/opt/hes-trade-agent/precision-current"):
+for p in plan["pointer_paths"]:
     q=root/p.lstrip("/")
     if not q.is_symlink() or not q.is_dir(): raise SystemExit("RESTIC_DRIVE_RESTORE_POINTER_FAIL "+p)
 for p in ("/srv/hes-evidence","/etc/systemd/system","/etc/hes-trade-agent","/var/lib/hes-operational-health"):
