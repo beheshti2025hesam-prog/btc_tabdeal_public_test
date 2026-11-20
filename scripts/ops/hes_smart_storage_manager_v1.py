@@ -118,6 +118,26 @@ def restore_assessment(evidence: dict[str, Any] | None) -> dict[str, Any]:
             "reason": "Full archive restored and verified in an isolated same-host directory; replacement-host and remote restore remain separate gates."}
 
 
+def remote_restore_assessment(evidence: dict[str, Any] | None) -> dict[str, Any]:
+    if evidence is None:
+        return {"status":"NOT_RUN","cleanup_authorized":False,"reason":"No Dropbox remote-restore drill evidence was supplied."}
+    if evidence.get("schema") != "hes_dropbox_core_restore_drill_v1":
+        return {"status":"INVALID_EVIDENCE","cleanup_authorized":False,"reason":"Remote restore evidence schema mismatch."}
+    r=evidence.get("remote_restore") or {}
+    required=("rclone_copy","remote_hash_match","gpg_decrypt","zstd_integrity","tar_safe_path_verification","full_extract","required_core_roots","active_release","rollback_release","main_git_connectivity")
+    checks={k:str(r.get(k) or "") for k in required}
+    valid=(r.get("status")=="PASS" and all(v.startswith("PASS") for v in checks.values())
+           and int(r.get("restored_files") or 0)>0 and int(r.get("restored_file_bytes") or 0)>0
+           and str(evidence.get("remote_archive_sha256") or "")==str(evidence.get("manifest_sha256") or ""))
+    if not valid:
+        return {"status":"INCOMPLETE_EVIDENCE","cleanup_authorized":False,"checks":checks,
+                "reason":"Remote copy/hash/decrypt/extract or content verification did not pass."}
+    return {"status":"PASS","cleanup_authorized":False,"archive_sha256":evidence.get("remote_archive_sha256"),
+            "archive_bytes":evidence.get("remote_archive_bytes"),"restored_files":int(r["restored_files"]),
+            "restored_file_bytes":int(r["restored_file_bytes"]),"checks":checks,
+            "reason":"Dropbox core copied, hash-matched, decrypted, integrity-checked and fully extracted in an isolated same-host directory."}
+
+
 def disk_state(path: Path = Path("/")) -> dict[str, Any]:
     st = __import__("os").statvfs(path)
     total = st.f_blocks * st.f_frsize
@@ -131,16 +151,23 @@ def disk_state(path: Path = Path("/")) -> dict[str, Any]:
         "pressure": "CRITICAL" if total and free/total < .10 else "WARN" if total and free/total < .15 else "OK",
     }
 
-def archive_inventory(folder: Path, prefix: str) -> dict[str, Any]:
+def archive_inventory(folder: Path, prefix: str = "") -> dict[str, Any]:
     rows, errors = [], 0
     if not folder.is_dir():
         return {"status": "MISSING", "archive_count": 0, "total_bytes": 0, "archives": [], "errors": 1}
+    archive_suffixes = (".tar.gz.gpg", ".tar.zst.gpg", ".tar.gz", ".tar.zst", ".bundle")
     for p in sorted(folder.glob(prefix + "*")):
-        if not p.is_file() or p.name.endswith((".sha256", ".manifest.txt")): continue
+        if not p.is_file() or p.name.endswith((".sha256", ".manifest.txt", ".restore-list")):
+            continue
+        if not p.name.endswith(archive_suffixes):
+            continue
         try:
             size = p.stat().st_size
-            rows.append({"name": p.name, "size_bytes": size,
-                         "format": "zstd" if ".tar.zst." in p.name else "gzip"})
+            fmt = ("zstd+gpg" if p.name.endswith(".tar.zst.gpg") else
+                   "gzip+gpg" if p.name.endswith(".tar.gz.gpg") else
+                   "git-bundle" if p.name.endswith(".bundle") else
+                   "zstd" if p.name.endswith(".tar.zst") else "gzip")
+            rows.append({"name": p.name, "size_bytes": size, "format": fmt})
         except OSError:
             errors += 1
     by_day: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -210,15 +237,16 @@ def direct_child_bytes(items: list[dict[str, Any]], root: str) -> int:
             total += size
     return total
 
-def storage_budget(items: list[dict[str, Any]], target_gib: int = 10) -> dict[str, Any]:
-    target = int(target_gib) * 1024**3
+def storage_budget(items: list[dict[str, Any]], target_gb: int = 5) -> dict[str, Any]:
+    # User's hard storage objective is decimal GB, not GiB: 5 GB = 5,000,000,000 bytes.
+    target = int(target_gb) * 1_000_000_000
     project = direct_child_bytes(items, "/opt/hes-trade-agent")
     evidence = direct_child_bytes(items, "/srv/hes-evidence")
     backups = direct_child_bytes(items, "/var/backups/hes-trade-agent")
     core = project + evidence
     total = core + backups
     return {
-        "target_gib": target_gib,
+        "target_gb": target_gb,
         "target_bytes": target,
         "scope": "HES local project checkout + independent evidence store + local backup/staging roots; excludes Ubuntu and SentinelX platform files",
         "components_bytes": {
@@ -229,6 +257,7 @@ def storage_budget(items: list[dict[str, Any]], target_gib: int = 10) -> dict[st
         "agent_core_bytes_excluding_backup_copies": core,
         "total_local_hes_bytes_including_backups": total,
         "total_local_hes_gib": round(total / 1024**3, 3),
+        "total_local_hes_gb": round(total / 1_000_000_000, 3),
         "core_within_target": core <= target,
         "complete_footprint_within_target": total <= target,
         "over_target_bytes": max(0, total-target),
@@ -250,36 +279,55 @@ def dropbox_quota() -> dict[str, Any]:
 def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|None=None,
                  disk: dict[str,Any]|None=None, quota: dict[str,Any]|None=None,
                  evidence: dict[str,Any]|None=None,
-                 restore_evidence: dict[str,Any]|None=None) -> dict[str,Any]:
+                 restore_evidence: dict[str,Any]|None=None,
+                 remote_restore_evidence: dict[str,Any]|None=None) -> dict[str,Any]:
     now=now or datetime.now(timezone.utc)
     inventory=load_inventory(idlm,cleanup,now)
-    local=archive_inventory(BACKUP_ROOT/"encrypted-local","hes-full-")
-    offsite=archive_inventory(BACKUP_ROOT/"offsite-staging","hes-offsite-core-")
+    local=archive_inventory(BACKUP_ROOT/"encrypted-local")
+    offsite=archive_inventory(BACKUP_ROOT/"offsite-staging")
     capacity=disk or disk_state()
     quota=quota or dropbox_quota()
     recovery=restore_assessment(restore_evidence)
+    remote_recovery=remote_restore_assessment(remote_restore_evidence)
+    recovery["remote_restore"]=remote_recovery["status"]
+    recovery["remote_restore_details"]=remote_recovery
+    if remote_recovery.get("status") == "PASS" and recovery.get("full_archive_restore") == "PASS":
+        recovery["reason"]="Local full restore and Dropbox core restore both passed in isolated same-host drills; replacement-host recovery remains separate and NOT_PROVEN."
+    restic_repo = BACKUP_ROOT / "restic-production-v1" / "repo"
+    try:
+        restic_bytes = int(subprocess.check_output(["du", "-sxB1", str(restic_repo)], text=True).split()[0]) if restic_repo.is_dir() else 0
+        restic_status = "READ_OK" if restic_repo.is_dir() else "MISSING"
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        restic_bytes, restic_status = 0, "READ_ERROR"
     return {
         "schema":"hes_smart_storage_manager_v1","generated_at":now.isoformat(),
         "mode":"READ_ONLY_CAPACITY_AND_COMPRESSION_PLAN","disk":capacity,
         "inventory_source":"IDLM_V1_PLUS_SMART_CLEANUP_MANAGER_V1",
         "inventory":inventory,
         "recovery_assessment":recovery,
-        "summary":{"local_backup":local,"offsite_staging":offsite,"dropbox_quota":quota},
-        "storage_budget":storage_budget(cleanup.get("items", []), target_gib=10),
+        "summary":{"local_backup":local,"offsite_staging":offsite,
+                   "local_restic_repository":{"status":restic_status,"allocated_bytes":restic_bytes},
+                   "dropbox_quota":quota},
+        "storage_budget":storage_budget(cleanup.get("items", []), target_gb=5),
         "compression":compression_advice(evidence),
         "policy":{"canonical_market_data":"Gate.io Public Spot BTC_USDT",
           "backup_destination":"encrypted Dropbox","backup_retention":"unchanged until remote restore and replacement-host recovery gates pass",
           "unknown_or_unverified":"KEEP","deletion_authorized":False,"move_authorized":False,
           "compression_authorized":False,"automatic_cleanup_timer_authorized":False,
+          "safe_cache_maintenance_timer_enabled":True,
+          "automatic_project_data_cleanup_authorized":False,
           "full_archive_restore_verified":recovery.get("full_archive_restore") == "PASS",
+          "remote_restore_verified":remote_recovery.get("status") == "PASS",
           "replacement_host_restore_proven":False,
-          "local_footprint_target_gib":10},
+          "local_footprint_target_gb":5,
+          "local_footprint_target_bytes":5_000_000_000},
         "invariants":["Uses the existing IDLM and dependency-aware Smart Cleanup inventories; does not rescan project trees.",
           "No file is deleted, moved, truncated, rotated, pruned or compressed by this report.",
           "All backups and active/rollback releases remain protected.",
           "New compression format must be versioned; legacy gzip archives remain readable and retained.",
           "Dropbox free quota is a hard budget; never upload an unbounded second copy or exceed the free tier.",
-          "Full archive restore evidence is distinct from replacement-host recovery; remote restore and explicit approval remain required before retention or cleanup authorization."]}
+          "The daily timer only removes stale regenerable pip build caches and bounds APT/journald caches; project/release/worktree/data/evidence/backup deletion remains disabled.",
+          "Full archive restore and Dropbox remote-core restore are distinct from replacement-host recovery; replacement-host recovery and explicit approval remain required before backup retention or cleanup authorization."]}
 
 def main() -> int:
     parser=argparse.ArgumentParser(description=__doc__)
@@ -288,12 +336,18 @@ def main() -> int:
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--compression-evidence",type=Path)
     parser.add_argument("--restore-evidence",type=Path)
+    parser.add_argument("--remote-restore-evidence",type=Path)
+    parser.add_argument("--target-gb",type=int,default=5,help="Decimal GB budget for complete local HES footprint (default: 5)")
     args=parser.parse_args()
     idlm=json.loads(args.idlm_report.read_text())
     cleanup=json.loads(args.cleanup_report.read_text())
     evidence=json.loads(args.compression_evidence.read_text()) if args.compression_evidence else None
     restore_evidence=json.loads(args.restore_evidence.read_text()) if args.restore_evidence else None
-    report=build_report(idlm=idlm,cleanup=cleanup,evidence=evidence,restore_evidence=restore_evidence)
+    remote_restore_evidence=json.loads(args.remote_restore_evidence.read_text()) if args.remote_restore_evidence else None
+    report=build_report(idlm=idlm,cleanup=cleanup,evidence=evidence,restore_evidence=restore_evidence,remote_restore_evidence=remote_restore_evidence)
+    report["storage_budget"]=storage_budget(cleanup.get("items", []), target_gb=args.target_gb)
+    report["policy"]["local_footprint_target_gb"]=args.target_gb
+    report["policy"]["local_footprint_target_bytes"]=args.target_gb*1_000_000_000
     args.output.parent.mkdir(parents=True,exist_ok=True)
     tmp=args.output.with_suffix(args.output.suffix+".partial")
     tmp.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n",encoding="utf-8")

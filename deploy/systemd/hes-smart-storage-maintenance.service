@@ -1,0 +1,17 @@
+[Unit]
+Description=HES IDLM and Smart Storage Manager daily audit with bounded safe cache maintenance
+Wants=local-fs.target
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0027
+ExecStart=/usr/local/sbin/hes-smart-storage-maintenance-v1.py
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=20
+TimeoutStartSec=15min
+NoNewPrivileges=true
+PrivateTmp=false
