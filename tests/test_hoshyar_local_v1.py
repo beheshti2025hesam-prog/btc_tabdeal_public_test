@@ -348,3 +348,46 @@ def test_specialist_followup_reuses_intent_without_model_rerouting(tmp_path):
     assert second_claims[0]["label"] == "Mother specialist risk"
     assert second_followup["local_llm_used"] is False
     assert result["execution_enabled"] is False
+
+
+
+def test_persian_summary_covers_full_sixteen_message_dialogue_without_model(tmp_path):
+    memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
+    for index in range(1, 9):
+        memory.append_turn(
+            f"پرسش ثبت‌شدهٔ شمارهٔ {index} دربارهٔ HES",
+            f"پاسخ ثبت‌شدهٔ شمارهٔ {index} با شاهد شمارهٔ {index}",
+        )
+    assistant = HoshyarLocalAssistantV1(FakeLLM(), memory)
+    response = assistant.respond("خلاصهٔ مکالمهٔ قبلی را بگو", {}, language="fa")
+    assert response["intent"] == "GENERAL_CHAT"
+    assert response["status"] == "CHAT_ONLY"
+    assert response["local_llm_used"] is False
+    assert response["conversation_memory_used"] is True
+    assert "۸ نوبت آخر از ۸ نوبت ثبت‌شده" in response["answer"]
+    for index in range(1, 9):
+        assert f"پرسش ثبت‌شدهٔ شمارهٔ {index}" in response["answer"]
+        assert f"پاسخ ثبت‌شدهٔ شمارهٔ {index}" in response["answer"]
+    assert "وضعیت زندهٔ بازار دوباره بررسی نشده است" in response["answer"]
+    assert response["external_llm_used"] is False
+    assert response["execution_enabled"] is False
+    assert response["orders_placed"] is False
+    assert response["journal_write"] is False
+    assert response["policy_mutation"] is False
+
+
+def test_persian_summary_is_bounded_and_reports_omitted_older_turns(tmp_path):
+    memory = HoshyarConversationMemoryV1(tmp_path / "memory.sqlite3")
+    for index in range(1, 13):
+        memory.append_turn(f"پرسش {index}", f"پاسخ {index}")
+    response = HoshyarLocalAssistantV1(FakeLLM(), memory).respond("خلاصه مکالمه قبلی", {}, language="fa")
+    assert "۸ نوبت آخر از ۱۲ نوبت ثبت‌شده" in response["answer"]
+    assert "- پرسش: پرسش 1\n" not in response["answer"]
+    assert "پرسش 5" in response["answer"]
+    assert "پرسش 12" in response["answer"]
+    assert response["local_llm_used"] is False
+    assert response["external_llm_used"] is False
+    assert response["execution_enabled"] is False
+    assert response["orders_placed"] is False
+    assert response["journal_write"] is False
+    assert response["policy_mutation"] is False

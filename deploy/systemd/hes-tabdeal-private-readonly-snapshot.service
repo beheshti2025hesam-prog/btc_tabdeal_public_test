@@ -1,0 +1,39 @@
+[Unit]
+Description=HES Tabdeal FAPI private read-only account evidence snapshot (no order writes)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=hes-tabdeal-reader
+Group=hes-tabdeal-reader
+WorkingDirectory=/opt/hes-trade-agent
+Environment=PYTHONPATH=/opt/hes-trade-agent
+ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/scripts/run_tabdeal_private_readonly_snapshot_v1.py
+LoadCredentialEncrypted=tabdeal_api_key:/etc/credstore.encrypted/hes-tabdeal-api-key
+LoadCredentialEncrypted=tabdeal_api_secret:/etc/credstore.encrypted/hes-tabdeal-api-secret
+StateDirectory=hes-tabdeal-readonly
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateDevices=true
+ProtectClock=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectHostname=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+ProtectProc=invisible
+ProcSubset=pid
+UMask=0077
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TimeoutStartSec=60

@@ -69,12 +69,26 @@ find opt/hes-trade-agent -mindepth 0 \
      -o -name '.mypy_cache' -o -name '.ruff_cache' \) -prune \
   -o -print0 > "$LIST"
 
-for p in "$ACTIVE_REL" "$ROLLBACK_REL" "opt/hes-trade-agent/releases/deployment-records"; do
-  [[ ! -e "/$p" && ! -L "/$p" ]] || find "$p" -mindepth 0 \
+RELEASE_INVENTORY="$WORK/release-inventory.json"
+python3 "$ROOT/scripts/ops/hes_offsite_release_inventory_v1.py" \
+  --project-root "$ROOT" \
+  --deploy-state-root /var/lib/hes-operational-health \
+  --output "$RELEASE_INVENTORY"
+
+while IFS= read -r p; do
+  [[ -n "$p" && -d "/$p" ]] || { echo "BUILD_REJECTED_RELEASE_TREE_MISSING path=$p"; exit 33; }
+  find "$p" -mindepth 0 \
     \( -name '.venv' -o -name '__pycache__' -o -name '.pytest_cache' \
        -o -name '.mypy_cache' -o -name '.ruff_cache' \) -prune \
     -o -print0 >> "$LIST"
-done
+done < <(python3 - "$RELEASE_INVENTORY" <<'PY'
+import json,sys
+for item in json.load(open(sys.argv[1], encoding="utf-8"))["release_targets"]:
+    print(item["archive_path"])
+PY
+)
+
+[[ ! -e /opt/hes-trade-agent/releases/deployment-records ]] || find opt/hes-trade-agent/releases/deployment-records -mindepth 0 -print0 >> "$LIST"
 
 for p in etc/ssh etc/nftables.conf etc/systemd/system etc/ufw etc/netplan \
          etc/apt etc/sentinelx etc/hes-trade-agent etc/sysctl.d etc/modules-load.d \
@@ -106,15 +120,29 @@ echo "ROLLBACK_RELEASE=$ROLLBACK_REL"
 echo "MAX_ARCHIVE_BYTES=$MAX_BYTES"
 echo "REMOTE_ACTION=NONE"
 
-tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --null --files-from="$LIST" -cf - \
+# Enforce the cap while encrypted bytes are written; never create an oversized
+# temporary archive and rely on a post-build size check.
+if tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --null --files-from="$LIST" -cf - \
   | zstd -q -T1 -9 \
   | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
-      --s2k-mode 3 --s2k-count 65011712 --passphrase-file "$KEY_FILE" --output "$tmp"
+      --s2k-mode 3 --s2k-count 65011712 --passphrase-file "$KEY_FILE" --output - \
+  | head -c "$MAX_BYTES" > "$tmp"; then
+  :
+else
+  pipeline_rc=$?
+  size="$(stat -c %s "$tmp" 2>/dev/null || printf '0')"
+  if (( size >= MAX_BYTES )); then
+    echo "BUILD_REJECTED_STREAM_CAP size_bytes=$size cap_bytes=$MAX_BYTES"
+    exit 30
+  fi
+  echo "BUILD_FAILED pipeline_rc=$pipeline_rc partial_bytes=$size"
+  exit "$pipeline_rc"
+fi
 
 chmod 0600 "$tmp"
 size="$(stat -c %s "$tmp")"
 if (( size > MAX_BYTES )); then
-  echo "BUILD_REJECTED size_bytes=$size cap_bytes=$MAX_BYTES"
+  echo "BUILD_REJECTED_INTERNAL_CAP_BREACH size_bytes=$size cap_bytes=$MAX_BYTES"
   exit 30
 fi
 
@@ -123,6 +151,15 @@ gpg --batch --pinentry-mode loopback --passphrase-file "$KEY_FILE" --decrypt "$t
 
 grep -Fxq "$ACTIVE_REL/" "$WORK/archive.list" || grep -Fxq "$ACTIVE_REL" "$WORK/archive.list"
 grep -Fxq "$ROLLBACK_REL/" "$WORK/archive.list" || grep -Fxq "$ROLLBACK_REL" "$WORK/archive.list"
+python3 - "$RELEASE_INVENTORY" "$WORK/archive.list" <<'PY'
+import json,sys
+inventory=json.load(open(sys.argv[1], encoding="utf-8"))
+entries=set(line.rstrip("/") for line in open(sys.argv[2], encoding="utf-8"))
+missing=[item["archive_path"] for item in inventory["release_targets"] if item["archive_path"] not in entries]
+if missing:
+    raise SystemExit("BUILD_REJECTED_RELEASE_TREE_INCOMPLETE missing="+",".join(missing))
+print("RELEASE_TREE_ARCHIVE_COVERAGE_OK count="+str(len(inventory["release_targets"])))
+PY
 expected_evidence_entries=$(find /srv/hes-evidence -xdev \( -type f -o -type l \) -printf '%y\n' | wc -l)
 archived_evidence_entries=$(awk 'index($0, "srv/hes-evidence/") == 1 && $0 !~ /\/$/ { n++ } END { print n+0 }' "$WORK/archive.list")
 grep -Fxq "srv/hes-evidence/" "$WORK/archive.list" || grep -Fxq "srv/hes-evidence" "$WORK/archive.list" || { echo "BUILD_REJECTED evidence_store_missing"; exit 31; }
@@ -139,8 +176,15 @@ Created UTC: $stamp
 Archive: $base
 Archive bytes: $size
 SHA-256: $(sha256sum "$final" | awk '{print $1}')
-Active release: $ACTIVE_REL
-Rollback release: $ROLLBACK_REL
+Core active release: $ACTIVE_REL
+Core rollback release: $ROLLBACK_REL
+Additional live/rollback release trees:
+$(python3 - "$RELEASE_INVENTORY" <<'PY'
+import json,sys
+for item in json.load(open(sys.argv[1], encoding="utf-8"))["release_targets"]:
+    print("- "+",".join(item["pointers"])+": "+item["archive_path"])
+PY
+)
 Required evidence store: /srv/hes-evidence (coverage verified by archive listing).
 Evidence store entries: $archived_evidence_entries
 Evidence store source bytes: $(du -sb /srv/hes-evidence | awk '{print $1}')

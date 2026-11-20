@@ -145,7 +145,9 @@ class RealDataBacktest:
                     timestamp=candle.end,
                     decision=decision,
                     risk=risk_decision,
-                    entry_price=candle.close,
+                    # A close-based signal is available only after this candle closes.
+                    # Execute at the next contiguous candle open to avoid look-ahead bias.
+                    entry_price=next_candle.open,
                     exit_price=next_candle.close,
                 )
             )

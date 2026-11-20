@@ -34,8 +34,9 @@ def test_production_dropbox_sync_has_quota_reserve_and_remote_verification():
     assert "free + remote_bytes >= local_bytes + RESERVE_BYTES" in source
     assert "restic-production-v1/repo" in source
     assert "len(s.get('paths') or [])!=43" in source
-    assert "rclone sync" in source
-    assert "--delete-after" in source
+    assert "rclone copy" in source
+    assert "rclone sync" not in source
+    assert "--delete-after" not in source
     assert "RESTIC_PRODUCTION_REMOTE_SIZE_MISMATCH" in source
     assert "rclone check" in source
     assert "restic-compact-v1/repo" not in source

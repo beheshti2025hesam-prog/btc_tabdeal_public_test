@@ -32,8 +32,11 @@ class RealDataBacktestTests(unittest.TestCase):
                 writer.writeheader()
                 writer.writerows(rows)
 
-            result = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=20).run()
+            runner = RealDataBacktest(str(path), timeframe_seconds=60, ema_period=20)
+            result = runner.run()
+            first_entry = runner._last_observations[0].sample.entry_price
 
+        self.assertEqual(first_entry, 120.0)  # minute 20 open, after minute 19 close signal
         self.assertEqual(result.rows_read, 50)
         self.assertEqual(result.rows_valid, 50)
         self.assertEqual(result.rows_invalid, 0)

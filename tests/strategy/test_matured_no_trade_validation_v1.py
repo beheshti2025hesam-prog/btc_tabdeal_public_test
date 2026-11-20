@@ -2,12 +2,12 @@ import importlib.util,json
 from datetime import datetime,timezone,timedelta
 from pathlib import Path
 import pytest
-REPO_ROOT=Path(__file__).resolve().parents[2]
-MODULE=REPO_ROOT/'scripts'/'run_matured_no_trade_validation_v1.py'
+MODULE=Path(__file__).resolve().parents[2]/'scripts/run_matured_no_trade_validation_v1.py'
 spec=importlib.util.spec_from_file_location('matured_no_trade_validation_v1',MODULE); mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
 def setup(tmp_path,monkeypatch):
  d=tmp_path/'data'/'forward'; d.mkdir(parents=True)
- for name,file in [('JOURNAL','journal.jsonl'),('CANDLES','candles.jsonl'),('NEUTRAL','neutral.jsonl'),('REPORT','report.json'),('RECORDS','records.jsonl')]: monkeypatch.setattr(mod,name,d/file)
+ for name,file in [('JOURNAL','journal.jsonl'),('CANDLES','candles.jsonl'),('CANDLES_1M','candles_1m.jsonl'),('NEUTRAL','neutral.jsonl'),('REPORT','report.json'),('RECORDS','records.jsonl')]: monkeypatch.setattr(mod,name,d/file)
+ (d/'candles_1m.jsonl').write_text('')
  return d
 def test_matured_cohort_requires_complete_gap_free_horizons_and_crosschecks_tracker(tmp_path,monkeypatch):
  d=setup(tmp_path,monkeypatch); now=datetime(2026,10,27,12,tzinfo=timezone.utc); decision=now-timedelta(hours=30)
@@ -51,7 +51,7 @@ def test_malformed_input_preserves_previous_reports(tmp_path,monkeypatch):
 
 def test_directional_counterfactuals_are_separate_from_directionless_context(tmp_path,monkeypatch):
  d=setup(tmp_path,monkeypatch); now=datetime(2026,10,27,12,tzinfo=timezone.utc); decision=now-timedelta(hours=30)
- mod.JOURNAL.write_text(json.dumps({'event_id':'e1','observed_at':decision.isoformat(),'decision':'NO_TRADE','direction':'NONE','proposal_direction':'SHORT','gate_reasons':[],'gate_evidence':{'confirmation':{'state':'CONFIRMED_SHORT','checks':[{'state':'PASS'}]},'risk':{'state':'RISK_APPROVED','checks':[{'state':'PASS'}]},'structure':{'status':'OBSERVED','regime':'DOWNTREND'}}})+'\n')
+ mod.JOURNAL.write_text(json.dumps({'event_id':'e1','observed_at':decision.isoformat(),'decision':'NO_TRADE','direction':'NONE','proposal_direction':'SHORT','proposal_entry':100.0,'proposal_stop_loss':101.0,'proposal_take_profit':97.0,'gate_reasons':[],'gate_evidence':{'confirmation':{'state':'CONFIRMED_SHORT','checks':[{'state':'PASS'}]},'risk':{'state':'RISK_APPROVED','checks':[{'state':'PASS'}]},'structure':{'status':'OBSERVED','regime':'DOWNTREND'}}})+'\n')
  base=int(decision.timestamp())//900*900
  candles=[]
  for i in range(-1,97):
@@ -115,6 +115,38 @@ def test_gate_rejected_profitable_proposal_is_not_a_missed_profit(tmp_path,monke
  assert report['policy_mutation_enabled'] is False and report['orders_placed'] is False
 
 
+def test_three_r_geometry_accepts_float_rounding_but_not_real_shortfall():
+    decision = {
+        "proposal_direction": "SHORT",
+        "proposal_entry": 66879.0,
+        "proposal_stop_loss": 67402.11435,
+        "proposal_take_profit": 65309.65695,
+        "gate_reasons": ["FINAL_POLICY_APPROVAL_REQUIRED"],
+        "gate_evidence": {
+            "confirmation": {"state": "CONFIRMED_SHORT", "checks": [
+                {"name": "candidate_valid", "state": "PASS"},
+                {"name": "direction_regime_alignment", "state": "PASS",
+                 "evidence_ref": "candidate_direction:SHORT;regime:DOWNTREND"},
+                {"name": "structural_event_present", "state": "PASS"},
+            ]},
+            "risk": {"state": "RISK_APPROVED", "checks": [{"state": "PASS"}]},
+            "structure": {"status": "OBSERVED", "regime": "DOWNTREND"},
+        },
+    }
+    qualified = mod.gate_qualification(decision, "SHORT")
+    assert qualified["status"] == "QUALIFIED"
+    assert qualified["geometry_valid"] is True
+    assert qualified["final_policy_pending"] is True
+    candidate = mod.independent_candidate_attribution(decision, candidate_generation_authorized=True)
+    assert candidate["status"] == "ALIGNED_COUNTERFACTUAL_CANDIDATE"
+    assert candidate["geometry_valid"] is True
+    decision["proposal_take_profit"] = 65310.0
+    rejected = mod.gate_qualification(decision, "SHORT")
+    assert rejected["status"] == "REJECTED"
+    assert rejected["final_policy_pending"] is False
+    assert rejected["geometry_valid"] is False
+
+
 def test_final_policy_hold_is_reported_separately_from_missed_profit(tmp_path,monkeypatch):
  d=setup(tmp_path,monkeypatch); now=datetime(2026,10,27,12,tzinfo=timezone.utc); decision=now-timedelta(hours=30)
  journal={'event_id':'preapproval','observed_at':decision.isoformat(),'decision':'NO_TRADE',
@@ -144,3 +176,186 @@ def test_final_policy_hold_is_reported_separately_from_missed_profit(tmp_path,mo
  assert report['preapproval_hold_counterfactuals']['evaluated_unique_decisions']==1
  assert report['directional_counterfactuals']['evaluated_unique_decisions']==0
  assert report['policy_mutation_enabled'] is False and report['orders_placed'] is False
+
+
+def test_matured_report_attributes_regime_to_correct_family_without_authorizing(tmp_path,monkeypatch):
+ d=setup(tmp_path,monkeypatch); now=datetime(2026,10,27,12,tzinfo=timezone.utc); decision=now-timedelta(hours=30)
+ rows=[]
+ for eid,regime,source in [('trend','UPTREND','gateio_public_spot'),('range','RANGE','gateio_public_spot'),('unknown','UNKNOWN','gateio_public_spot')]:
+  rows.append({'event_id':eid,'observed_at':decision.isoformat(),'decision':'NO_TRADE','direction':'NONE','evidence_source':source,'symbol':'BTC_USDT','timeframe':'15m','gate_evidence':{'structure':{'status':'OBSERVED','regime':regime},'confirmation':{'state':'UNCONFIRMED','checks':[]},'risk':{'state':'RISK_REJECTED','checks':[]}}})
+ mod.JOURNAL.write_text(''.join(json.dumps(x)+'\n' for x in rows))
+ base=int(decision.timestamp())//900*900; candles=[]
+ for i in range(-1,97):
+  ct=base+(i+1)*900; close=100+i*.01
+  candles.append({'source':'gateio_public_spot','symbol':'BTC_USDT','timeframe':'15m','closed':True,'open_time':ct-900,'close_time':ct,'open':str(close),'high':str(close+1),'low':str(close-1),'close':str(close),'volume':'10'})
+ mod.CANDLES.write_text(''.join(json.dumps(c)+'\n' for c in candles)); mod.NEUTRAL.write_text('')
+ report=mod.build(now); recs=[json.loads(x) for x in mod.RECORDS.read_text().splitlines()]
+ by={r['event_id']:r for r in recs}
+ assert by['trend']['strategy_family_id']=='trend_breakout'
+ assert by['range']['strategy_family_id']=='range_mean_reversion'
+ assert by['unknown']['strategy_family_id'] is None
+ assert report['strategy_family_attribution']['trend_breakout']['decisions']==1
+ assert report['strategy_family_attribution']['range_mean_reversion']['decisions']==1
+ assert report['strategy_family_attribution']['UNROUTED']['decisions']==1
+ assert report['policy_mutation_enabled'] is False and report['execution_enabled'] is False
+
+
+def test_independent_candidate_is_not_misclassified_as_directionless_or_missed_profit():
+    decision = {
+        "decision": "NO_TRADE",
+        "direction": "NONE",
+        "proposal_direction": "NONE",
+        "market_regime": "DOWNTREND",
+        "gate_evidence": {
+            "structure": {"status": "OBSERVED", "regime": "DOWNTREND"},
+            "confirmation": {"state": "UNCONFIRMED", "checks": [
+                {"name": "candidate_valid", "state": "PASS", "evidence_ref": "candidate:CANDIDATE_SHORT"},
+                {"name": "direction_regime_alignment", "state": "FAIL",
+                 "evidence_ref": "proposal_direction:NONE;candidate_direction:SHORT;regime:DOWNTREND"},
+                {"name": "structural_event_present", "state": "PASS",
+                 "evidence_ref": "candidate_direction:SHORT;matching_event_present:True"},
+            ]},
+            "risk": {"state": "RISK_REJECTED"},
+        },
+    }
+    result = mod.independent_candidate_attribution(decision, candidate_generation_authorized=False)
+    assert result["independent_candidate_detected"] is True
+    assert result["candidate_direction"] == "SHORT"
+    assert result["proposal_exists"] is False
+    assert result["candidate_generation_authorized"] is False
+    assert result["status"] == "STRUCTURE_ONLY_CANDIDATE_NO_PROPOSAL"
+    assert result["geometry_valid"] is False
+
+def test_independent_candidate_requires_direction_bound_geometry():
+    decision = {
+        "decision": "NO_TRADE", "direction": "NONE", "proposal_direction": "SHORT",
+        "proposal_entry": 100.0, "proposal_stop_loss": 101.0, "proposal_take_profit": 97.0,
+        "gate_evidence": {
+            "structure": {"status": "OBSERVED", "regime": "DOWNTREND"},
+            "confirmation": {"state": "CONFIRMED_SHORT", "checks": [
+                {"name": "candidate_valid", "state": "PASS"},
+                {"name": "direction_regime_alignment", "state": "PASS",
+                 "evidence_ref": "proposal_direction:SHORT;candidate_direction:SHORT;regime:DOWNTREND"},
+                {"name": "structural_event_present", "state": "PASS"},
+            ]},
+            "risk": {"state": "RISK_APPROVED"},
+        },
+    }
+    result = mod.independent_candidate_attribution(decision)
+    assert result["status"] == "ALIGNED_COUNTERFACTUAL_CANDIDATE"
+    assert result["geometry_valid"] is True and result["proposal_direction_matches_candidate"] is True
+    decision["proposal_direction"] = "LONG"
+    result = mod.independent_candidate_attribution(decision)
+    assert result["status"] == "CANDIDATE_PROPOSAL_DIRECTION_MISMATCH"
+
+
+def test_rejection_attribution_flags_candidate_review_without_inventing_fear():
+    decision = {
+        "gate_reasons": ["NO_CONFIRMED_20_BAR_BREAKOUT"],
+        "gate_evidence": {
+            "structure": {"regime": "DOWNTREND"},
+            "confirmation": {"state": "UNCONFIRMED"},
+            "risk": {"state": "RISK_REJECTED"},
+        },
+    }
+    candidate = {"independent_candidate_detected": True, "status": "STRUCTURE_ONLY_CANDIDATE_NO_PROPOSAL",
+                 "candidate_generation_authorized": False, "proposal_exists": False}
+    result = mod.rejection_attribution(decision, candidate)
+    assert result["primary_category"] == "CANDIDATE_GENERATION_LOCKED"
+    assert result["human_fear_inferred"] is False
+
+def test_invalid_proposal_geometry_is_not_misclassified_as_overfiltering():
+    decision = {
+        "gate_reasons": ["RISK_CHECK_FAILED"],
+        "gate_evidence": {
+            "structure": {"regime": "DOWNTREND"},
+            "confirmation": {"state": "CONFIRMED_SHORT"},
+            "risk": {"state": "RISK_REJECTED"},
+        },
+    }
+    candidate = {"independent_candidate_detected": True, "status": "CANDIDATE_GEOMETRY_INVALID"}
+    result = mod.rejection_attribution(decision, candidate)
+    assert result["primary_category"] == "INVALID_PROPOSAL_GEOMETRY"
+    assert result["human_fear_inferred"] is False
+
+
+def test_rejection_attribution_does_not_mislabel_missing_setup_as_risk_fear():
+    decision = {
+        "gate_reasons": ["NO_CONFIRMED_20_BAR_BREAKOUT"],
+        "gate_evidence": {
+            "structure": {"regime": "RANGE"},
+            "confirmation": {"state": "UNCONFIRMED"},
+            "risk": {"state": "RISK_REJECTED"},
+        },
+    }
+    result = mod.rejection_attribution(decision, {"independent_candidate_detected": False})
+    assert result["primary_category"] == "CONFIRMATION_REJECT"
+    assert result["human_fear_inferred"] is False
+
+
+def test_structure_only_shadow_is_reported_separately_from_missed_profit(tmp_path, monkeypatch):
+    d = setup(tmp_path, monkeypatch)
+    now = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+    decision = now - timedelta(hours=30) + timedelta(seconds=11)
+    record = {
+        "event_id": "shadow-long",
+        "observed_at": decision.isoformat(),
+        "decision": "NO_TRADE",
+        "direction": "NONE",
+        "proposal_direction": "NONE",
+        "market_regime": "UPTREND",
+        "gate_reasons": ["NO_CONFIRMED_20_BAR_BREAKOUT"],
+        "gate_evidence": {
+            "structure": {"status": "OBSERVED", "regime": "UPTREND",
+                          "last_swing_low": "95", "last_swing_high": "105"},
+            "confirmation": {"state": "UNCONFIRMED", "checks": [
+                {"name": "candidate_valid", "state": "PASS"},
+                {"name": "structural_event_present", "state": "PASS"},
+                {"name": "direction_regime_alignment", "state": "FAIL",
+                 "evidence_ref": "proposal_direction:NONE;candidate_direction:LONG;regime:UPTREND"},
+            ]},
+            "risk": {"state": "RISK_REJECTED"},
+        },
+    }
+    mod.JOURNAL.write_text(json.dumps(record) + "\n")
+    mod.CANDLES.write_text("")
+    mod.NEUTRAL.write_text("")
+    start = int(decision.timestamp()) // 60 * 60 + 60
+    one_minute = []
+    for i in range(60):
+        op = start + i * 60
+        one_minute.append({
+            "source": "gateio_public_spot", "symbol": "BTC_USDT", "timeframe": "1m",
+            "closed": True, "open_time": op, "close_time": op + 60,
+            "open": "100", "high": "116" if i == 0 else "100.2",
+            "low": "99.5", "close": "100",
+        })
+    mod.CANDLES_1M.write_text("".join(json.dumps(x) + "\n" for x in one_minute))
+    report = mod.build(now)
+    row = json.loads(mod.RECORDS.read_text().splitlines()[0])
+    assert row["structure_only_shadow"]["status"] == "SHADOW_EVALUATED"
+    assert row["structure_only_shadow"]["horizons"]["1h"]["outcome_class"] == "SHADOW_TARGET_HIT"
+    assert report["structure_only_shadow"]["evaluated_candidates"] == 1
+    assert report["structure_only_shadow"]["outcomes_by_direction_and_horizon"]["LONG|1h"] == {"SHADOW_TARGET_HIT": 1}
+    assert report["structure_only_shadow"]["potential_missed_opportunity_review"]["target_hit_event_count_24h"] == 0
+    assert report["structure_only_shadow"]["potential_missed_opportunity_review"]["actual_missed_profit_claim"] is False
+    assert report["decision_quality_buckets_by_horizon"]["1h"]["missed_profit_hypotheses"] == 0
+    assert report["execution_enabled"] is False and report["orders_placed"] is False
+
+
+
+def test_data_root_never_overrides_immutable_code_root(monkeypatch, tmp_path):
+    import importlib.util
+    import sys
+    data_root = tmp_path / "shared-data"
+    monkeypatch.setenv("HES_DATA_ROOT", str(data_root))
+    isolated_spec = importlib.util.spec_from_file_location("matured_validator_isolated_root", MODULE)
+    isolated = importlib.util.module_from_spec(isolated_spec)
+    isolated_spec.loader.exec_module(isolated)
+    assert isolated.CODE_ROOT == MODULE.resolve().parents[1]
+    assert isolated.DATA_ROOT == data_root.resolve()
+    assert isolated.DATA == data_root.resolve() / "data" / "forward"
+    assert str(isolated.CODE_ROOT) in sys.path
+    assert str(isolated.DATA_ROOT) not in sys.path
+    import forward.strategy_family_router_v1 as router
+    assert Path(router.__file__).resolve().is_relative_to(isolated.CODE_ROOT)
