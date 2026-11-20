@@ -138,3 +138,29 @@ The scanner includes `/srv/hes-evidence` as an explicit root and classifies all 
 ## 13. Phase A inventory depth limitation
 
 Phase A emits one record per direct child of each configured scan root and computes recursive allocated-size/file-count rollups for directories. It does not emit one manifest row per file inside every protected tree. This keeps the first audit bounded and avoids exposing unnecessary internal filenames from protected stores. A later targeted deep-inventory pass may inspect only allowlisted REVIEW candidates; KEEP_EVIDENCE, KEEP_BACKUP, registered worktrees, and other protected roots remain summarized and untouched.
+
+## 14. Narrow temporary-cache quarantine candidate — isolated IDLM extension
+
+The production IDLM scanner and Smart Cleanup Manager remain read-only by default. This isolated CLI extension reuses the existing lifecycle policy and permits only a reversible quarantine of old `__pycache__` and `.pytest_cache` directories below `/tmp` and `/var/tmp`; it adds no daemon, systemd timer, second production service, or permanent-delete operation.
+
+**Owner-approved development scope (2026-11-10):**
+- Exact directory names only: `__pycache__` and `.pytest_cache`.
+- Both directory metadata and every contained entry must be at least 14 days old.
+- Exclude every registered Git worktree; fail closed if the worktree registry cannot be read.
+- Reject symlinks, mount/device boundaries, hardlinks, special files, mixed ownership, setuid/setgid bits, recent entries, open FDs, process cwd/root/executable references, memory mappings, incomplete scans, and changed tree fingerprints.
+- Bound each candidate to 16 MiB, each batch to 32 MiB, and each apply to at most 10 candidates.
+- Default mode is read-only. Applying requires a root-owned SHA-256-pinned manifest plus the exact typed phrase `QUARANTINE HES TEMP CACHES`; restore requires the separate phrase `RESTORE HES QUARANTINED CACHE`.
+- Quarantine is reversible by audited same-filesystem atomic rename. There is no recursive delete or purge command.
+
+## 15. Temporary-cache discovery completeness correction — 2026-11-16
+
+The candidate's discovery ceiling was raised to 300 after a live read-only scan found 267 allowlisted-name directories across `/tmp` and `/var/tmp`. systemd-private temporary roots are skipped; ENOENT/ESRCH races for vanished ephemeral paths are ignored, while permission and other scan errors still fail closed. A fresh scan must be globally complete again immediately before each quarantine operation.
+
+## 16. Evidence-backed quarantine and audit hardening — 2026-11-17
+
+- The durable quarantine root is `/srv/hes-evidence/.hes-idlm/.hes-idlm-quarantine-v1`; the append-only audit is `/srv/hes-evidence/.hes-idlm/cleanup-audit.jsonl`. The private `.hes-idlm` parent is created root-owned with mode 0700. Both paths are inside the existing `/srv/hes-evidence` Restic backup root.
+- A candidate is ineligible unless its filesystem device matches the evidence root, preserving atomic rename and ensuring quarantined bytes/audit evidence are included in the encrypted Restic snapshot and Dropbox mirror. No new backup repository or paid storage is introduced.
+- Candidate and batch budgets are limited to 16 MiB and 32 MiB respectively to protect the free Dropbox quota and its 128 MiB reserve.
+- Live read-only plan at 2026-11-17 14:18 UTC: 449 discovered cache directories; 10 eligible, totaling 716,800 allocated bytes; 26 registered worktrees; zero scan errors. All 10 eligible entries belong to one old pip-build-env tree. Other candidates were rejected for age, batch budget, hardlinks, recent entries, or symlinks.
+- The focused safety suite passes 26 tests, including interrupted-rename recovery, content-change recovery, incomplete-scan rejection, and systemd-private exclusion.
+- No quarantine was applied; no cache was moved or deleted; no production service, timer, release pointer, or backup setting was changed. The tool remains a draft CLI candidate only. Permanent purge remains disabled until a current full restore/replacement-host recovery gate and a separate owner approval are satisfied.
