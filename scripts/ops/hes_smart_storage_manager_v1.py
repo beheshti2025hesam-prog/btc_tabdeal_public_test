@@ -118,6 +118,26 @@ def restore_assessment(evidence: dict[str, Any] | None) -> dict[str, Any]:
             "reason": "Full archive restored and verified in an isolated same-host directory; replacement-host and remote restore remain separate gates."}
 
 
+def remote_restore_assessment(evidence: dict[str, Any] | None) -> dict[str, Any]:
+    if evidence is None:
+        return {"status":"NOT_RUN","cleanup_authorized":False,"reason":"No Dropbox remote-restore drill evidence was supplied."}
+    if evidence.get("schema") != "hes_dropbox_core_restore_drill_v1":
+        return {"status":"INVALID_EVIDENCE","cleanup_authorized":False,"reason":"Remote restore evidence schema mismatch."}
+    r=evidence.get("remote_restore") or {}
+    required=("rclone_copy","remote_hash_match","gpg_decrypt","zstd_integrity","tar_safe_path_verification","full_extract","required_core_roots","active_release","rollback_release","main_git_connectivity")
+    checks={k:str(r.get(k) or "") for k in required}
+    valid=(r.get("status")=="PASS" and all(v.startswith("PASS") for v in checks.values())
+           and int(r.get("restored_files") or 0)>0 and int(r.get("restored_file_bytes") or 0)>0
+           and str(evidence.get("remote_archive_sha256") or "")==str(evidence.get("manifest_sha256") or ""))
+    if not valid:
+        return {"status":"INCOMPLETE_EVIDENCE","cleanup_authorized":False,"checks":checks,
+                "reason":"Remote copy/hash/decrypt/extract or content verification did not pass."}
+    return {"status":"PASS","cleanup_authorized":False,"archive_sha256":evidence.get("remote_archive_sha256"),
+            "archive_bytes":evidence.get("remote_archive_bytes"),"restored_files":int(r["restored_files"]),
+            "restored_file_bytes":int(r["restored_file_bytes"]),"checks":checks,
+            "reason":"Dropbox core copied, hash-matched, decrypted, integrity-checked and fully extracted in an isolated same-host directory."}
+
+
 def disk_state(path: Path = Path("/")) -> dict[str, Any]:
     st = __import__("os").statvfs(path)
     total = st.f_blocks * st.f_frsize
@@ -259,7 +279,8 @@ def dropbox_quota() -> dict[str, Any]:
 def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|None=None,
                  disk: dict[str,Any]|None=None, quota: dict[str,Any]|None=None,
                  evidence: dict[str,Any]|None=None,
-                 restore_evidence: dict[str,Any]|None=None) -> dict[str,Any]:
+                 restore_evidence: dict[str,Any]|None=None,
+                 remote_restore_evidence: dict[str,Any]|None=None) -> dict[str,Any]:
     now=now or datetime.now(timezone.utc)
     inventory=load_inventory(idlm,cleanup,now)
     local=archive_inventory(BACKUP_ROOT/"encrypted-local")
@@ -267,6 +288,9 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
     capacity=disk or disk_state()
     quota=quota or dropbox_quota()
     recovery=restore_assessment(restore_evidence)
+    remote_recovery=remote_restore_assessment(remote_restore_evidence)
+    recovery["remote_restore"]=remote_recovery["status"]
+    recovery["remote_restore_details"]=remote_recovery
     restic_repo = BACKUP_ROOT / "restic-production-v1" / "repo"
     try:
         restic_bytes = int(subprocess.check_output(["du", "-sxB1", str(restic_repo)], text=True).split()[0]) if restic_repo.is_dir() else 0
@@ -289,6 +313,7 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
           "unknown_or_unverified":"KEEP","deletion_authorized":False,"move_authorized":False,
           "compression_authorized":False,"automatic_cleanup_timer_authorized":False,
           "full_archive_restore_verified":recovery.get("full_archive_restore") == "PASS",
+          "remote_restore_verified":remote_recovery.get("status") == "PASS",
           "replacement_host_restore_proven":False,
           "local_footprint_target_gb":5,
           "local_footprint_target_bytes":5_000_000_000},
@@ -297,7 +322,7 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
           "All backups and active/rollback releases remain protected.",
           "New compression format must be versioned; legacy gzip archives remain readable and retained.",
           "Dropbox free quota is a hard budget; never upload an unbounded second copy or exceed the free tier.",
-          "Full archive restore evidence is distinct from replacement-host recovery; remote restore and explicit approval remain required before retention or cleanup authorization."]}
+          "Full archive restore and Dropbox remote-core restore are distinct from replacement-host recovery; replacement-host recovery and explicit approval remain required before backup retention or cleanup authorization."]}
 
 def main() -> int:
     parser=argparse.ArgumentParser(description=__doc__)
@@ -306,13 +331,15 @@ def main() -> int:
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--compression-evidence",type=Path)
     parser.add_argument("--restore-evidence",type=Path)
+    parser.add_argument("--remote-restore-evidence",type=Path)
     parser.add_argument("--target-gb",type=int,default=5,help="Decimal GB budget for complete local HES footprint (default: 5)")
     args=parser.parse_args()
     idlm=json.loads(args.idlm_report.read_text())
     cleanup=json.loads(args.cleanup_report.read_text())
     evidence=json.loads(args.compression_evidence.read_text()) if args.compression_evidence else None
     restore_evidence=json.loads(args.restore_evidence.read_text()) if args.restore_evidence else None
-    report=build_report(idlm=idlm,cleanup=cleanup,evidence=evidence,restore_evidence=restore_evidence)
+    remote_restore_evidence=json.loads(args.remote_restore_evidence.read_text()) if args.remote_restore_evidence else None
+    report=build_report(idlm=idlm,cleanup=cleanup,evidence=evidence,restore_evidence=restore_evidence,remote_restore_evidence=remote_restore_evidence)
     report["storage_budget"]=storage_budget(cleanup.get("items", []), target_gb=args.target_gb)
     report["policy"]["local_footprint_target_gb"]=args.target_gb
     report["policy"]["local_footprint_target_bytes"]=args.target_gb*1_000_000_000
