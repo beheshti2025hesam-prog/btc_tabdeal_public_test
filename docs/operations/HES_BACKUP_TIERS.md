@@ -8,7 +8,8 @@ The latest full Restic snapshot measured 3.434 GiB raw repository data and 2.844
 - Contains current core, dashboard and precision releases; verified rollback release trees; service/system configuration; operational health and release manifests; dependency inventories; docs/reports and compact project evidence.
 - Excludes full Restic packs, bulk evidence, old candidates/worktrees, caches, virtualenv binaries and the recovery passphrase.
 - Zstandard level 19 is applied before GPG AES-256; cap is enforced during streaming. Decrypt, zstd, tar listing and release coverage are verified before publication.
-- Publish is immutable/versioned, quota-gated with 128 MiB reserve, and non-destructive.
+- Publish is immutable/versioned, quota-gated with 128 MiB reserve, and reads the new remote object back for checksum/decryption/compression/tar validation.
+- Daily systemd cycle is scheduled for 04:00 UTC at low CPU/IO priority. It retains 7 local capsules and 2 remote capsules; remote rotation verifies both retained generations and deletes only older files matching the exact capsule filename pattern.
 
 ## Tier 2 — full encrypted Restic
 - Mirror the complete local Restic repository to a separately authorized larger free-tier remote using append-only rclone copy.
