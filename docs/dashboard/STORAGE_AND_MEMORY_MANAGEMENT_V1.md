@@ -63,3 +63,23 @@ Unknown or uncertain means KEEP. No full-restore proof means no backup-retention
 - Daily maintenance timer succeeds; each cleanup has a machine-readable manifest and exact byte accounting.
 
 **Status:** safe temporary/cache/log maintenance is active; 5 GB budget is not yet met. Release/worktree/candidate compaction and full backup recovery are separate blocked gates, not authorized by this report.
+
+## 6. Verified compaction update — 2026-11-20 13:35 UTC
+
+- 18 unreferenced release snapshots retired after manifest or exact Git-tree byte-for-byte verification, GitHub commit availability, and no active symlink/deployment/systemd/process/open-file references: 1,383,575,552 bytes.
+- Two exact-Git-tree candidate snapshots with no live references retired: 148,008,960 bytes.
+- 77 stale `/tmp/pip-*` build/install/unpack directories retired: 848,449,536 bytes.
+- Total verified HES temporary/release/candidate reclamation: 2,380,034,048 bytes, plus APT cache and journald retention reductions.
+- Latest measured complete HES footprint: **17,970,057,216 bytes (17.97 GB)**; over the 5 GB target by **12,970,057,216 bytes**. Project checkout: 12,204,572,672 bytes; evidence: 442,011,648; local backups/staging: 5,469,429,760.
+- Root filesystem: 74% used, 13 GB free; HES operational healthcheck HEALTHY.
+- All current/rollback pointers and newest-five release snapshots remain; deployment-record references retained. Dirty/registered worktrees, active models, Gate.io data, journals, evidence and backup archives untouched.
+- Full 43-root Restic restore drill from exact Nov20 snapshot is in progress in isolated `/var/tmp`; remote Dropbox restore and replacement-host recovery are still separate gates.
+
+The 5 GB objective is not yet met. Remaining footprint is not disposable cache; any further reduction needs a reviewed cold-storage/recovery plan for protected candidates, worktrees, runtime/model assets and backups.
+
+## 7. Recovery validation update — 2026-11-20 13:50 UTC
+
+- Local full Restic recovery: `restic check --read-data` passed (205/205 packs, zero errors); full 43-root snapshot restored in isolation (65,047 files/directories, 9.089 GiB), 12/12 required roots and four static configuration hashes passed. Test tree removed.
+- Dropbox compact core remote recovery: exact remote object copied back, SHA-256/size matched its sidecar (`f4702fff3275f828706e081c4f4b3e4dc937058b958bd54f8dbefa599e3d01ec`, 398,216,865 bytes); GPG, Zstandard and safe tar listing passed (8,897 entries); full extraction passed; active release 620/620 and rollback release 582/582 manifest files verified; main Git object connectivity passed. Test tree and downloaded object removed.
+- Remote restore evidence is stored at `.../2026-11-20T1323Z/dropbox-core-remote-restore.json`; local full restore evidence is stored at `.../2026-11-20T1323Z/full-restore-drill.json`.
+- The Smart Storage Manager now reports local and remote restore independently. Replacement-host boot/recovery remains NOT_PROVEN; no backup pruning or destructive cleanup is authorized.
