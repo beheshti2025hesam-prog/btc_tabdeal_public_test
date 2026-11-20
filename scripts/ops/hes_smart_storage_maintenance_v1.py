@@ -57,6 +57,9 @@ def main():
     restore_candidates=sorted(EVID.glob('*/full-restore-drill.json'),key=lambda p:p.stat().st_mtime,reverse=True)
     if restore_candidates:
         storage_cmd.extend(['--restore-evidence',str(restore_candidates[0])])
+    remote_candidates=sorted(EVID.glob('*/dropbox-core-remote-restore.json'),key=lambda p:p.stat().st_mtime,reverse=True)
+    if remote_candidates:
+        storage_cmd.extend(['--remote-restore-evidence',str(remote_candidates[0])])
     run(storage_cmd)
     # Cache cleanup is deliberately separate from project/release/backup cleanup.
     cache=pip_temp_cleanup(out)
