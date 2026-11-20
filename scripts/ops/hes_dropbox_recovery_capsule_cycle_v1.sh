@@ -7,7 +7,7 @@ OUT=/var/backups/hes-trade-agent/offsite-staging
 LOGDIR=/var/log/hes-trade-agent
 mkdir -p "$LOGDIR"; chmod 0700 "$LOGDIR"
 LOG="$LOGDIR/dropbox-recovery-capsule-cycle.log"
-BUILD_LOG=$(mktemp /run/hes-capsule-build.XXXXXX)
+BUILD_LOG=$(mktemp "$OUT/.capsule-build.XXXXXX")
 trap 'rm -f "$BUILD_LOG"' EXIT
 "$BUILD" 2>&1 | tee -a "$BUILD_LOG" | tee -a "$LOG"
 ARCHIVE=$(awk '/^CAPSULE_BUILD_OK /{for(i=1;i<=NF;i++) if($i ~ /^file=/){sub(/^file=/,"",$i);print $i}}' "$BUILD_LOG" | tail -1)
