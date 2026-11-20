@@ -14,7 +14,7 @@ def test_dropbox_capsule_is_small_and_excludes_full_restic_and_bulk_evidence():
 def test_capsule_publish_is_immutable_quota_gated_and_non_destructive():
  s=(ROOT/"scripts/ops/hes_dropbox_recovery_capsule_publish_v1.sh").read_text()
  assert "rclone copyto" in s and "--immutable" in s and "RESERVE=" in s
- assert "REMOTE_DELETE=NONE" in s and "rclone sync" not in s and "--delete" not in s
+ assert "REMOTE_DELETE_SCOPE=VERSIONED_RECOVERY_CAPSULES_ONLY" in s and "rclone sync" not in s and "--delete" not in s
 def test_full_restic_mirror_is_separate_and_validates_remote_repository():
  s=(ROOT/"scripts/ops/hes_restic_google_drive_sync_v1.sh").read_text()
  assert 'RESTIC_REPOSITORY="rclone:$REMOTE" restic check' in s
@@ -35,10 +35,10 @@ def test_daily_capsule_cycle_and_scoped_remote_rotation_are_sandboxed():
     assert "rclone deletefile" in publish
     assert "rclone sync" not in publish
     assert "REMOTE_DELETE_SCOPE=VERSIONED_RECOVERY_CAPSULES_ONLY" in publish
- assert "CAPSULE_20PCT_ACCOUNT_BUDGET_BLOCK" in publish
- assert "used+bytes<=total/5" in publish
- assert "--enforce-20pct" in cycle
- assert "enforce-dropbox-20pct" in cycle
+    assert "CAPSULE_20PCT_ACCOUNT_BUDGET_BLOCK" in publish
+    assert "used+bytes<=total/5" in publish
+    assert "--enforce-20pct" in cycle
+    assert "enforce-dropbox-20pct" in cycle
     assert "ProtectSystem=strict" in service
     assert "ProtectHome=read-only" in service
     assert "CPUWeight=20" in service
