@@ -1,0 +1,27 @@
+[Unit]
+Description=HES isolated restore drill from full encrypted Restic secondary
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/root/.config/hes-backup/passphrase
+ConditionPathExists=/root/.config/rclone/rclone.conf
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/local/sbin/hes-restic-google-drive-restore-drill
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/run/hes-restic /run/lock /var/lib/hes-operational-health /var/backups/hes-trade-agent/restore-drills

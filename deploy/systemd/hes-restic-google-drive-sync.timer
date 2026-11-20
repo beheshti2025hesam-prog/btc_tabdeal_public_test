@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily HES full Restic offsite sync schedule (enable only after Drive authorization)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+Unit=hes-restic-google-drive-sync.service
+
+[Install]
+WantedBy=timers.target

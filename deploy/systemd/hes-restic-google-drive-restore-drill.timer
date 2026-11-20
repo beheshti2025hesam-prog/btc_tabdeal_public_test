@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly isolated restore drill for HES full Restic secondary (enable after authorization)
+
+[Timer]
+OnCalendar=Sun *-*-* 05:00:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+Unit=hes-restic-google-drive-restore-drill.service
+
+[Install]
+WantedBy=timers.target
