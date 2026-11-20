@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 umask 077
-ARCHIVE=\${1:?usage: publish-capsule.sh /path/to/archive.tar.zst.gpg}
+ARCHIVE=${1:?usage: publish-capsule.sh /path/to/archive.tar.zst.gpg}
 KEY=/root/.config/hes-backup/passphrase
 REMOTE='hesdropbox:HES Trade Agent Backups/recovery-capsules'
 RESERVE=$((128*1024*1024))
