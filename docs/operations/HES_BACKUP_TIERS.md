@@ -14,7 +14,7 @@ The latest full Restic snapshot measured 3.434 GiB raw repository data and 2.844
 ## Tier 2 — full encrypted Restic
 - Mirror the complete local Restic repository to a separately authorized larger free-tier remote using append-only rclone copy.
 - Verify exact content with rclone check and the repository itself with remote restic check.
-- Google Drive is a candidate only: a standard account offers up to 15 GB shared with Gmail and Photos; actual free quota must be checked after owner authorization. No credential or remote is configured by this change.
+- Google Drive is a candidate only: a standard account offers up to 15 GB shared with Gmail and Photos; actual free quota must be checked after owner authorization. No credential or remote is configured by this change. Use the least-privilege drive.file scope for the dedicated rclone-created backup folder. Since rclone's shared Google client ID is being retired during 2026, the owner must create and use a personal OAuth client ID/secret; do not rely on the shared default.
 - A separate daily 03:30 UTC Restic Drive timer/service is provided but must remain disabled until the owner authorizes the rclone remote and the actual free quota passes the 512 MiB reserve gate.
 - Full isolated restore is mandatory before retiring any existing Dropbox object.
 
@@ -43,3 +43,6 @@ The latest full Restic snapshot measured 3.434 GiB raw repository data and 2.844
 - GPG decryption, Zstandard integrity, tar member coverage and isolated extraction all passed; the isolated restore verified all six release directories plus core/dashboard/precision symlinks and critical config/runtime paths.
 - This is the first current capsule candidate; it has not yet been uploaded to Dropbox. No remote object was changed.
 - The 24 MiB per-capsule cap leaves headroom for release growth; two remote versions are capped at 48 MiB total. Account-wide 20% enforcement is enabled only after the complete Restic secondary migration marker is created.
+
+
+References: Google storage allowance https://support.google.com/googleone/answer/9004014 ; rclone Drive backend/scopes and client ID requirements https://rclone.org/drive/.
