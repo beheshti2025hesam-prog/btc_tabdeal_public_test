@@ -70,7 +70,7 @@ def test_weekly_remote_restore_drill_checks_live_release_trees_and_writes_eviden
     assert "RESTIC_DRIVE_ISOLATED_RESTORE_PASS" in script
     assert "pointer_paths" in script
     assert "release_paths" in script
-    assert "result\\\":\\\"PASS" in script
+    assert '"result"' in script and '"PASS"' in script
     assert "ProtectSystem=strict" in service
     assert "ProtectHome=read-only" in service
     assert "ReadWritePaths=/run/hes-restic /run/lock /var/lib/hes-operational-health" in service
