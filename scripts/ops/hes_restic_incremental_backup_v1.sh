@@ -17,12 +17,56 @@ flock -n 9 || { echo 'RESTIC_BACKUP_ALREADY_RUNNING'; exit 0; }
 /usr/local/sbin/hes-operational-healthcheck >/dev/null
 free=$(df -PB1 "$REPO" | awk 'NR==2 {print $4}')
 [[ "$free" =~ ^[0-9]+$ ]] && (( free >= MIN_FREE_BYTES )) || { echo "RESTIC_DISK_GUARD_BLOCK free=$free minimum=$MIN_FREE_BYTES"; exit 20; }
-ACTIVE=$(readlink -f /opt/hes-trade-agent/current)
-ROLLBACK=$(readlink -f /opt/hes-trade-agent/current-before-4329a3df)
-for p in "$ACTIVE" "$ROLLBACK"; do
-  [[ "$p" == /opt/hes-trade-agent/releases/* && -d "$p" ]] || { echo "RESTIC_RELEASE_POINTER_INVALID path=$p"; exit 11; }
-done
-[[ "$ACTIVE" != "$ROLLBACK" ]] || { echo 'RESTIC_RELEASE_POINTERS_COLLIDE'; exit 12; }
+ROOT=/opt/hes-trade-agent
+RELEASE_INVENTORY="$RUNTIME_DIR/release-inventory.json"
+RELEASE_PATHS="$RUNTIME_DIR/release-paths.txt"
+python3 - "$ROOT" /var/lib/hes-operational-health "$RELEASE_INVENTORY" <<'PY'
+import json,sys
+from pathlib import Path
+root=Path(sys.argv[1]).resolve(strict=True)
+state=Path(sys.argv[2]).resolve(strict=True)
+out=Path(sys.argv[3])
+for name in ("current","current-before-4329a3df"):
+    if not (root/name).is_symlink():
+        raise SystemExit("RESTIC_REQUIRED_RELEASE_POINTER_MISSING "+name)
+pointers={root/"current"}
+pointers.update(root.glob("*-current"))
+pointers.update(root.glob("current-before-*"))
+pointers.update(root.glob("current-rollback-*"))
+targets={}
+def add(label,value):
+    p=Path(value)
+    if not p.is_absolute(): p=root/p
+    p=p.resolve(strict=True)
+    if p.parent!=(root/"releases").resolve(strict=True) or not p.is_dir():
+        raise SystemExit("RESTIC_UNSAFE_RELEASE_TARGET "+str(p))
+    targets.setdefault(p,set()).add(label)
+for pointer in sorted(pointers):
+    if pointer.is_symlink(): add(pointer.name,pointer)
+if (root/"dashboard-current").is_symlink():
+    rollback=None
+    for record_path in reversed(sorted(state.glob("dashboard-deploy-*/postdeploy.json"))):
+        record=json.loads(record_path.read_text())
+        if record.get("result")!="DEPLOYED_HEALTHY": continue
+        checks=record.get("checks") or {}
+        rollback=checks.get("rollback_target") or record.get("previous_release")
+        if rollback: break
+    if not rollback: raise SystemExit("RESTIC_DASHBOARD_ROLLBACK_UNVERIFIED")
+    add("dashboard-rollback",rollback)
+rows=[{"path":str(p),"archive_path":p.relative_to("/").as_posix(),"pointers":sorted(labels)}
+      for p,labels in sorted(targets.items(),key=lambda item:str(item[0]))]
+if len(rows)<2: raise SystemExit("RESTIC_RELEASE_COVERAGE_TOO_SMALL")
+out.write_text(json.dumps({"schema":"hes_restic_release_inventory_v1","release_targets":rows},indent=2)+"\n")
+print("RESTIC_RELEASE_INVENTORY_OK count="+str(len(rows)))
+PY
+python3 - "$RELEASE_INVENTORY" > "$RELEASE_PATHS" <<'PY'
+import json,sys
+for item in json.load(open(sys.argv[1]))["release_targets"]:
+    print(item["path"])
+PY
+mapfile -t RELEASES < "$RELEASE_PATHS"
+declare -A INCLUDED_RELEASES
+for p in "\${RELEASES[@]}"; do INCLUDED_RELEASES["$p"]=1; done
 EXCLUDE="$RUNTIME_DIR/excludes.txt"
 EXPECTED="$RUNTIME_DIR/expected-paths.txt"
 : > "$EXCLUDE"
@@ -37,7 +81,7 @@ printf '%s\n' \
   '/opt/hes-trade-agent/**/.mypy_cache' \
   '/opt/hes-trade-agent/**/.ruff_cache' > "$EXCLUDE"
 while IFS= read -r d; do
-  [[ "$d" == "$ACTIVE" || "$d" == "$ROLLBACK" ]] || printf '%s\n' "$d" >> "$EXCLUDE"
+  [[ -n "\${INCLUDED_RELEASES[$d]+x}" ]] || printf '%s\n' "$d" >> "$EXCLUDE"
 done < <(find /opt/hes-trade-agent/releases -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort)
 ROOTS=(
  /opt/hes-trade-agent /srv/hes-evidence
@@ -51,13 +95,13 @@ ROOTS=(
  /var/lib/systemd /var/spool/cron/crontabs /root/.config/rclone /root/.ssh
  /usr/local/sbin/hes-operational-healthcheck /usr/local/sbin/hes-restic-incremental-backup
  /usr/local/sbin/hes-restic-production-dropbox-sync
- "$ACTIVE" "$ROLLBACK"
+ "\${RELEASES[@]}"
 )
 for p in "${ROOTS[@]}"; do
   [[ -e "$p" || -L "$p" ]] || { echo "RESTIC_REQUIRED_ROOT_MISSING path=$p"; exit 13; }
 done
 printf '%s\n' "${ROOTS[@]}" | sort -u > "$EXPECTED"
-printf 'RESTIC_BACKUP_START utc=%s roots=%s active=%s rollback=%s free_bytes=%s\n' "$(date -u +%FT%TZ)" "${#ROOTS[@]}" "$ACTIVE" "$ROLLBACK" "$free"
+printf 'RESTIC_BACKUP_START utc=%s roots=%s release_trees=%s free_bytes=%s\n' "$(date -u +%FT%TZ)" "${#ROOTS[@]}" "${#RELEASES[@]}" "$free"
 /usr/bin/restic backup --host "$HOST" --tag "$TAG" --one-file-system --exclude-file "$EXCLUDE" "${ROOTS[@]}"
 /usr/bin/restic snapshots --json > "$RUNTIME_DIR/snapshots.json"
 /usr/bin/python3 - "$RUNTIME_DIR/snapshots.json" "$EXPECTED" "$HOST" "$TAG" <<'PY'
@@ -68,13 +112,13 @@ valid=[s for s in snapshots if s.get('hostname')==host and tag in (s.get('tags')
 full=[s for s in valid if set(s.get('paths') or [])==expected]
 now=datetime.now(timezone.utc)
 full=[s for s in full if datetime.fromisoformat(s['time'].replace('Z','+00:00')) <= now+timedelta(minutes=5)]
-if not full: raise SystemExit('RESTIC_NO_VALID_NON_FUTURE_43_ROOT_FULL_SCOPE_SNAPSHOT')
+if not full: raise SystemExit('RESTIC_NO_VALID_NON_FUTURE_FULL_SCOPE_SNAPSHOT')
 latest=max(full,key=lambda s:s['time'])
 actual=set(latest.get('paths') or [])
 print('RESTIC_SCOPE_VERIFIED snapshot='+latest['id']+' roots='+str(len(actual))+' time='+latest['time'])
 PY
 # Scope-aware retention: Restic groups snapshots by the exact host + path set.
-# Full 43-root snapshots and evidence-only partial snapshots therefore remain
+# Full-scope snapshots and evidence-only partial snapshots therefore remain
 # separate retention groups; a partial snapshot can never replace a full restore point.
 /usr/bin/restic forget --host "$HOST" --tag "$TAG" --group-by host,paths \
   --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --keep-yearly 2 --prune
