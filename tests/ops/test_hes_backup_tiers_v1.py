@@ -60,3 +60,18 @@ def test_google_drive_full_restic_timer_is_separate_and_safe_to_leave_disabled()
     assert "ReadWritePaths=/run/hes-restic /run/lock" in service
     assert "03:30:00 UTC" in timer
     assert "RESTIC_DRIVE_REMOTE_NOT_CONFIGURED" in script
+
+
+def test_weekly_remote_restore_drill_checks_live_release_trees_and_writes_evidence():
+    script = (ROOT / "scripts/ops/hes_restic_google_drive_restore_drill_v1.sh").read_text()
+    service = (ROOT / "deploy/systemd/hes-restic-google-drive-restore-drill.service").read_text()
+    timer = (ROOT / "deploy/systemd/hes-restic-google-drive-restore-drill.timer").read_text()
+    assert "restic restore" in script
+    assert "RESTIC_DRIVE_ISOLATED_RESTORE_PASS" in script
+    assert "pointer_paths" in script
+    assert "release_paths" in script
+    assert "result\\\":\\\"PASS" in script
+    assert "ProtectSystem=strict" in service
+    assert "ProtectHome=read-only" in service
+    assert "ReadWritePaths=/run/hes-restic /run/lock /var/lib/hes-operational-health" in service
+    assert "Sun *-*-* 05:00:00 UTC" in timer
