@@ -106,15 +106,30 @@ echo "ROLLBACK_RELEASE=$ROLLBACK_REL"
 echo "MAX_ARCHIVE_BYTES=$MAX_BYTES"
 echo "REMOTE_ACTION=NONE"
 
-tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --null --files-from="$LIST" -cf - \
+# Enforce the Dropbox-sized cap while bytes are written, not after a multi-GB
+# temporary archive has already consumed the VPS disk. head bounds the only
+# on-disk archive; pipefail makes upstream SIGPIPE a detectable cap rejection.
+if tar -C / --no-recursion --one-file-system --numeric-owner --xattrs --acls --null --files-from="$LIST" -cf - \
   | zstd -q -T1 -9 \
   | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
-      --s2k-mode 3 --s2k-count 65011712 --passphrase-file "$KEY_FILE" --output "$tmp"
+      --s2k-mode 3 --s2k-count 65011712 --passphrase-file "$KEY_FILE" --output - \
+  | head -c "$MAX_BYTES" > "$tmp"; then
+  :
+else
+  pipeline_rc=$?
+  size="$(stat -c %s "$tmp" 2>/dev/null || printf '0')"
+  if (( size >= MAX_BYTES )); then
+    echo "BUILD_REJECTED_STREAM_CAP size_bytes=$size cap_bytes=$MAX_BYTES"
+    exit 30
+  fi
+  echo "BUILD_FAILED pipeline_rc=$pipeline_rc partial_bytes=$size"
+  exit "$pipeline_rc"
+fi
 
 chmod 0600 "$tmp"
 size="$(stat -c %s "$tmp")"
 if (( size > MAX_BYTES )); then
-  echo "BUILD_REJECTED size_bytes=$size cap_bytes=$MAX_BYTES"
+  echo "BUILD_REJECTED_INTERNAL_CAP_BREACH size_bytes=$size cap_bytes=$MAX_BYTES"
   exit 30
 fi
 
