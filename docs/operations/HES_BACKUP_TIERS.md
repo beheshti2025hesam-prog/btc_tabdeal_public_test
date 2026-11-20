@@ -4,12 +4,12 @@
 The latest full Restic snapshot measured 3.434 GiB raw repository data and 2.844 GiB after Restic compression (1.21x). A 400 MiB cap cannot contain this full repository. Recompressing encrypted/already compressed objects is not a valid capacity strategy.
 
 ## Tier 1 — Dropbox recovery capsule
-- Maximum 64 MiB per encrypted capsule.
+- Maximum 24 MiB per encrypted capsule; two remote generations are retained, for at most 48 MiB of HES capsule objects.
 - Contains current core, dashboard and precision releases; verified rollback release trees; service/system configuration; operational health and release manifests; dependency inventories; docs/reports and compact project evidence.
 - Excludes full Restic packs, bulk evidence, old candidates/worktrees, caches, virtualenv binaries and the recovery passphrase.
 - Zstandard level 19 is applied before GPG AES-256; cap is enforced during streaming. Decrypt, zstd, tar listing and release coverage are verified before publication.
 - Publish is immutable/versioned, quota-gated with 128 MiB reserve, and reads the new remote object back for checksum/decryption/compression/tar validation.
-- Daily systemd cycle is scheduled for 04:00 UTC at low CPU/IO priority. It retains 7 local capsules and 2 remote capsules; remote rotation verifies both retained generations and deletes only older files matching the exact capsule filename pattern.
+- Daily systemd cycle is scheduled for 04:00 UTC at low CPU/IO priority. It retains 7 local capsules and 2 remote capsules; remote rotation verifies both retained generations and deletes only older files matching the exact capsule filename pattern. After migration, the scheduled publisher enforces account-wide Dropbox used storage at or below 20% of the actual quota before upload and after rotation.
 
 ## Tier 2 — full encrypted Restic
 - Mirror the complete local Restic repository to a separately authorized larger free-tier remote using append-only rclone copy.
