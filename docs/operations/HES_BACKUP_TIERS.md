@@ -15,6 +15,7 @@ The latest full Restic snapshot measured 3.434 GiB raw repository data and 2.844
 - Mirror the complete local Restic repository to a separately authorized larger free-tier remote using append-only rclone copy.
 - Verify exact content with rclone check and the repository itself with remote restic check.
 - Google Drive is a candidate only: a standard account offers up to 15 GB shared with Gmail and Photos; actual free quota must be checked after owner authorization. No credential or remote is configured by this change.
+- A separate daily 03:30 UTC Restic Drive timer/service is provided but must remain disabled until the owner authorizes the rclone remote and the actual free quota passes the 512 MiB reserve gate.
 - Full isolated restore is mandatory before retiring any existing Dropbox object.
 
 ## Retention invariants
