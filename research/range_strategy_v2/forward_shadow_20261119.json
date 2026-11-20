@@ -1,0 +1,84 @@
+{
+  "candidate_setup_count": 0,
+  "cost_scenarios": {
+    "10": {
+      "cost_pass": 0,
+      "cost_reject": 0,
+      "one_minute_window_complete": 0,
+      "one_minute_window_missing": 0,
+      "raw_candidates": 0
+    },
+    "15": {
+      "cost_pass": 0,
+      "cost_reject": 0,
+      "one_minute_window_complete": 0,
+      "one_minute_window_missing": 0,
+      "raw_candidates": 0
+    },
+    "30": {
+      "cost_pass": 0,
+      "cost_reject": 0,
+      "one_minute_window_complete": 0,
+      "one_minute_window_missing": 0,
+      "raw_candidates": 0
+    },
+    "5": {
+      "cost_pass": 0,
+      "cost_reject": 0,
+      "one_minute_window_complete": 0,
+      "one_minute_window_missing": 0,
+      "raw_candidates": 0
+    }
+  },
+  "execution_enabled": false,
+  "htf_source": "actual Gate.io 1h and 4h candle files; no resampling",
+  "limitations": [
+    "This is a read-only historical replay of append-only VPS candle files, not a live paper order.",
+    "A complete 1m window is only a data-availability check; the 1m precision-entry contract is not implemented here.",
+    "Cost scenarios are assumptions, not verified fills or fee schedules.",
+    "No candidate is an approval; all family candidates remain research-only."
+  ],
+  "orders_placed": false,
+  "policy_version": "2.0.0-research",
+  "precision_source": "actual closed Gate.io 1m candle file; window completeness only, no precision-entry approval",
+  "rejection_reason_counts": {
+    "BOUNDARY_TOUCHES_NOT_PERSISTENT": 538,
+    "NO_UNAMBIGUOUS_SWEEP_RECLAIM_REVERSAL": 1,
+    "RANGE_CLASSIFIER_NOT_CONFIRMED": 769,
+    "RANGE_WIDTH_OUT_OF_BOUNDS": 75,
+    "TREND_STRENGTH_TOO_HIGH": 131
+  },
+  "schema": "hes_range_strategy_v2_forward_shadow_report",
+  "setup_source": "actual closed Gate.io 15m candle file",
+  "source_files": {
+    "15m": {
+      "first_open_utc": "2026-11-01T06:00:00+00:00",
+      "last_close_utc": "2026-11-19T07:15:00+00:00",
+      "path": "/opt/hes-trade-agent/data/forward/global_market_candles_v1.jsonl",
+      "rows": 1733,
+      "sha256": "17a3b7de7602a17c5233624ea7180822679bda166e1a8354dbe08953d9728d58"
+    },
+    "1h": {
+      "first_open_utc": "2026-10-03T16:00:00+00:00",
+      "last_close_utc": "2026-11-19T07:00:00+00:00",
+      "path": "/opt/hes-trade-agent/data/forward/global_market_candles_1h_v1.jsonl",
+      "rows": 1119,
+      "sha256": "1bfad56645535c2d2ce08a915f2c6b517c117b9d51633ff72c0e0dfac94f9dec"
+    },
+    "1m": {
+      "first_open_utc": "2026-11-05T10:10:00+00:00",
+      "last_close_utc": "2026-11-19T07:15:00+00:00",
+      "path": "/opt/hes-trade-agent/data/forward/global_market_candles_1m_v1.jsonl",
+      "rows": 19985,
+      "sha256": "34fd176281eff430d9651d17e63b90f36f6775ac4092285875705a7992f335be"
+    },
+    "4h": {
+      "first_open_utc": "2026-08-02T04:00:00+00:00",
+      "last_close_utc": "2026-11-19T04:00:00+00:00",
+      "path": "/opt/hes-trade-agent/data/forward/global_market_candles_4h_v1.jsonl",
+      "rows": 654,
+      "sha256": "e6c748d432c6bd3aa9980562d0b9f8076c33557e34336acdf4dfe942fbe7b87b"
+    }
+  },
+  "status": "RESEARCH_ONLY_NOT_ACTIVE"
+}
