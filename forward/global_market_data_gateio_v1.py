@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from urllib.error import URLError
 
 import websocket
 
@@ -108,9 +109,33 @@ def _native_candle_to_record(candle, fetched_at_ms: int) -> dict[str, Any]:
     }
 
 
-def fetch_recent_closed(source: GateioSpotKlineSource | None = None, *, now: int | None = None) -> list[dict[str, Any]]:
-    """Fetch closed REST candles through the shared, versioned native adapter."""
+def fetch_recent_closed(
+    source: GateioSpotKlineSource | None = None,
+    *,
+    now: int | None = None,
+    last_ts: int | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch closed REST candles through the shared, versioned native adapter.
+
+    On a populated 1m ledger, reconcile only a three-candle overlap plus new
+    candles. The 1,500-candle bootstrap is reserved for an empty ledger; it is
+    not downloaded twice every 20 seconds during steady state.
+    """
     source = source or GateioSpotKlineSource()
+    if INTERVAL == "1m" and last_ts is not None and type(last_ts) is int and last_ts >= 0:
+        now_ms = int(now * 1000) if now is not None else int(time.time() * 1000)
+        overlap_start_ms = max(0, (last_ts - 2 * INTERVAL_SECONDS) * 1000)
+        batch = source.fetch(
+            symbol=INTERNAL_SYMBOL,
+            interval=INTERVAL,
+            limit=1000,
+            start_time_ms=overlap_start_ms,
+            end_time_ms=now_ms,
+            as_of_ms=now_ms,
+        )
+        if batch.gaps:
+            raise ValueError(f"Gate.io incremental 1m reconciliation contains {len(batch.gaps)} candle gap(s)")
+        return [_native_candle_to_record(candle, batch.fetched_at_ms) for candle in batch.candles]
     if INTERVAL != "1m" or MAX_PERSISTED_CANDLES <= 1000:
         kwargs = {"symbol": INTERNAL_SYMBOL, "interval": INTERVAL, "limit": MAX_PERSISTED_CANDLES}
         if now is not None:
@@ -395,6 +420,31 @@ def normalize_ws_message(message: dict[str, Any], *, now: int | None = None) -> 
         return None
 
 
+
+def _sync_rest(source: GateioSpotKlineSource, last_ts: int, *, context: str) -> tuple[int, bool]:
+    """Attempt canonical REST reconciliation without dropping a healthy WS session.
+
+    Transient transport failures preserve the last durable candle state and are
+    retried by the normal reconciliation loop. Data/schema/integrity failures
+    still propagate and fail closed.
+    """
+    try:
+        candles = fetch_recent_closed(source, last_ts=last_ts)
+    except (URLError, TimeoutError, OSError) as exc:
+        print(
+            f"HES_GLOBAL_MARKET_REST_RETRY context={context} error={type(exc).__name__}",
+            flush=True,
+        )
+        return last_ts, False
+    return _append_new(candles, last_ts), True
+
+
+
+def _rest_retry_interval(*, transient_failure: bool) -> int:
+    """Keep normal REST cadence bounded; accelerate only 1m transient recovery."""
+    return 5 if transient_failure and INTERVAL == "1m" else 20
+
+
 def run() -> None:
     global STOP
     STOP = False
@@ -407,11 +457,17 @@ def run() -> None:
         flush=True,
     )
     backoff = 2
+    rest_retry_interval = 20
+    ping_interval = 15
+    max_backoff = 10 if INTERVAL == "1m" else 60
     while not STOP:
         ws = None
         try:
-            last_ts = _append_new(fetch_recent_closed(source), last_ts)
-            ws = websocket.create_connection(WS_URL, timeout=12, origin="https://www.gate.com")
+            last_ts, rest_ok = _sync_rest(source, last_ts, context="startup")
+            rest_retry_interval = _rest_retry_interval(transient_failure=not rest_ok)
+            if rest_ok:
+                backoff = 2
+            ws = websocket.create_connection(WS_URL, timeout=5, origin="https://www.gate.com")
             ws.send(
                 json.dumps(
                     {
@@ -424,17 +480,26 @@ def run() -> None:
             )
             deadline = time.monotonic() + 10
             last_rest_sync = time.monotonic()
+            next_ping = last_rest_sync + ping_interval
             subscribed = False
             while not STOP:
                 try:
                     raw = ws.recv()
-                except websocket.WebSocketTimeoutException:
-                    if time.monotonic() > deadline and not subscribed:
+                except (websocket.WebSocketTimeoutException, TimeoutError):
+                    # A quiet socket/read timeout is not itself a broken session.
+                    # Keep the stream alive and let the bounded REST reconciliation
+                    # below maintain the canonical persisted candle feed.
+                    if not subscribed and time.monotonic() > deadline:
                         raise RuntimeError("Gate.io WebSocket subscription timed out")
                     raw = None
                 if raw is not None:
                     message = json.loads(raw)
-                    if message.get("event") == "subscribe":
+                    if message.get("channel") == "spot.pong":
+                        pass
+                    elif message.get("channel") == "spot.system" and message.get("event") == "update":
+                        if (message.get("result") or {}).get("type") == "upgrade":
+                            raise RuntimeError("Gate.io WebSocket service upgrade requested reconnect")
+                    elif message.get("event") == "subscribe":
                         if (message.get("result") or {}).get("status") != "success":
                             raise RuntimeError("Gate.io WebSocket subscription rejected")
                         subscribed = True
@@ -442,22 +507,33 @@ def run() -> None:
                         backoff = 2
                         print("HES_GLOBAL_MARKET_WS_SUBSCRIBED", flush=True)
                         continue
-                    candle = normalize_ws_message(message)
-                    if candle is not None and candle["closed"]:
-                        # WS is a wake-up only. Persist the final closed bar from the
-                        # shared eight-field REST adapter, never from WS payloads.
-                        last_ts = _append_new(fetch_recent_closed(source), last_ts)
-                        last_rest_sync = time.monotonic()
-                # Reconcile at least every 20s even if WS sends a continuous stream
+                    else:
+                        candle = normalize_ws_message(message)
+                        if candle is not None and candle["closed"]:
+                            # WS is a wake-up only. Persist the final closed bar from the
+                            # shared eight-field REST adapter, never from WS payloads.
+                            last_ts, rest_ok = _sync_rest(source, last_ts, context="ws_close")
+                            last_rest_sync = time.monotonic()
+                            rest_retry_interval = _rest_retry_interval(transient_failure=not rest_ok)
+                            if rest_ok:
+                                backoff = 2
+                now_mono = time.monotonic()
+                if subscribed and now_mono >= next_ping:
+                    ws.send(json.dumps({"time": int(time.time()), "channel": "spot.ping"}))
+                    next_ping = now_mono + ping_interval
+                # Reconcile at the bounded retry interval even if WS sends a continuous stream
                 # of malformed/unrelated messages and recv() never times out.
-                if subscribed and time.monotonic() - last_rest_sync >= 20:
-                    last_ts = _append_new(fetch_recent_closed(source), last_ts)
+                if subscribed and now_mono - last_rest_sync >= rest_retry_interval:
+                    last_ts, rest_ok = _sync_rest(source, last_ts, context="periodic")
                     last_rest_sync = time.monotonic()
+                    rest_retry_interval = _rest_retry_interval(transient_failure=not rest_ok)
+                    if rest_ok:
+                        backoff = 2
         except Exception as exc:
             print(f"HES_GLOBAL_MARKET_RECONNECT error={type(exc).__name__} wait_s={backoff}", flush=True)
             if not STOP:
                 time.sleep(backoff)
-            backoff = min(backoff * 2, 60)
+            backoff = min(backoff * 2, max_backoff)
         finally:
             if ws is not None:
                 try:
