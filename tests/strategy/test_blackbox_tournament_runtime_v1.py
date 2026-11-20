@@ -123,3 +123,70 @@ def test_paired_oos_tournament_accepts_only_preregistered_verified_evidence(tmp_
     assert rows[-1]["status"] == "ACCEPTED"
     assert report["safety"]["execution_enabled"] is False
     assert report["safety"]["policy_mutation_enabled"] is False
+
+def test_tournament_rejects_rows_that_fail_family_audit_even_if_local_flags_pass(tmp_path):
+    base = tmp_path / "data" / "forward"
+    base.mkdir(parents=True)
+    sha = "a" * 64
+    manifest_sha = "b" * 64
+    hypothesis_id = "HES-BBX-UNVERIFIED-001"
+    discovery = build_hypothesis_event(
+        hypothesis_id=hypothesis_id, family_id="trend_breakout",
+        statement="Reject outcomes that bypass the canonical family evidence audit.",
+        discovery_window={"start": "2026-01-01T00:00:00+00:00", "end": "2026-06-30T00:00:00+00:00"},
+        source_hashes={"discovery": sha},
+        feature_definition={"feature": "audit_linkage", "threshold": 1.0},
+        null_hypothesis="No net-R improvement over baseline.",
+        alternative_hypothesis="Positive paired net-R improvement over baseline.",
+        primary_metric="oos_mean_net_r_minus_baseline",
+        falsification_rule="Reject if canonical evidence linkage or cost provenance is absent.",
+        multiple_testing_family="family-v1",
+    )
+    ledger = base / "blackbox_hypothesis_events_v1.jsonl"
+    append_hypothesis_events(ledger, [discovery])
+    append_hypothesis_events(ledger, [
+        build_hypothesis_transition_event(hypothesis_id=hypothesis_id, previous_status="DISCOVERED",
+                                          next_status="PREREGISTERED"),
+        build_hypothesis_transition_event(hypothesis_id=hypothesis_id, previous_status="PREREGISTERED",
+                                          next_status="TESTING"),
+    ])
+
+    candidates, outcomes = [], []
+    for role, count in (("TRAIN", 100), ("OOS", 100)):
+        for i in range(count):
+            cid = f"{role.lower()}-c{i}"
+            candidates.append({
+                "event_type": "PAPER_CANDIDATE", "event_id": cid,
+                "family_id": "trend_breakout", "family_version": "family-v1",
+                "final_gate_decision": "LONG", "run_id": "run-1",
+                "source_record_sha256": "c" * 64,
+            })
+            outcomes.append({
+                "event_type": "PAPER_OUTCOME", "event_id": f"{role.lower()}-o{i}",
+                "family_id": "trend_breakout", "family_version": "family-v1", "run_id": "run-1",
+                # Deliberately invalid linkage: the candidate does not exist in the family journal.
+                "candidate_event_id": f"missing-{cid}", "candidate_source_sha256": "c" * 64,
+                "source_record_sha256": "d" * 64,
+                "performance_eligible": True, "costs_verified": True, "cost_model_status": "VERIFIED",
+                # Deliberately omit fee_schedule_sha256 and slippage_evidence_sha256.
+                "baseline_source_sha256": "e" * 64 if role == "OOS" else None,
+                "net_R": 1.0 if role == "TRAIN" else 1.2,
+                "baseline_net_R": 0.2 if role == "OOS" else None,
+                "independent_oos": role == "OOS", "chronological_purged": True,
+                "provenance_complete": True, "sample_role": role,
+                "preregistered": True, "hypothesis_status": "TESTING",
+                "preregistration_sha256": sha, "source_manifest_sha256": manifest_sha,
+                "source_hashes": {"source": sha}, "hypothesis_id": hypothesis_id,
+                "multiple_testing_family": "family-v1", "direction": "LONG",
+                "regime": ("BULLISH" if i % 2 else "BEARISH") if role == "OOS" else "BULLISH",
+                "unmatched": 0, "unscorable": 0,
+            })
+
+    _write_family_fixture(tmp_path, outcomes, candidates)
+    report = run_competition_cycle(tmp_path)
+
+    assert report["family_evidence_audit"]["eligible_outcomes"] == 0
+    assert report["hypotheses_tested"] == 0
+    assert report["status"] == "WAITING_FOR_PREREGISTERED_INDEPENDENT_OOS_EVIDENCE"
+    assert report["safety"]["policy_mutation_enabled"] is False
+    assert report["safety"]["execution_enabled"] is False
