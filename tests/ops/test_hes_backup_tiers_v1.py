@@ -20,3 +20,22 @@ def test_full_restic_mirror_is_separate_and_validates_remote_repository():
  assert 'RESTIC_REPOSITORY="rclone:$REMOTE" restic check' in s
  assert "rclone copy " in s and "rclone check " in s and "rclone sync" not in s
  assert "RESTIC_DRIVE_REMOTE_NOT_CONFIGURED" in s
+
+
+def test_daily_capsule_cycle_and_scoped_remote_rotation_are_sandboxed():
+    cycle = (ROOT / "scripts/ops/hes_dropbox_recovery_capsule_cycle_v1.sh").read_text()
+    publish = (ROOT / "scripts/ops/hes_dropbox_recovery_capsule_publish_v1.sh").read_text()
+    service = (ROOT / "deploy/systemd/hes-dropbox-recovery-capsule.service").read_text()
+    timer = (ROOT / "deploy/systemd/hes-dropbox-recovery-capsule.timer").read_text()
+    assert '"$PUBLISH" --rotate "$ARCHIVE"' in cycle
+    assert "i=7" in cycle
+    assert "CAPSULE_REMOTE_READBACK_PASS" in publish
+    assert "i=2" in publish
+    assert "hes-recovery-capsule-" in publish
+    assert "rclone deletefile" in publish
+    assert "rclone sync" not in publish
+    assert "REMOTE_DELETE_SCOPE=VERSIONED_RECOVERY_CAPSULES_ONLY" in publish
+    assert "ProtectSystem=strict" in service
+    assert "ProtectHome=read-only" in service
+    assert "CPUWeight=20" in service
+    assert "04:00:00 UTC" in timer
