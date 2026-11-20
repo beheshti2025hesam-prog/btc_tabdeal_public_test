@@ -203,6 +203,7 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
             "outcome_count": len(outcomes), "verified_eligible_outcome_count": len(eligible),
             "verified_train_count": sum(r.get("sample_role") == "TRAIN" for r in eligible),
             "verified_oos_count": sum(r.get("sample_role") == "OOS" for r in eligible),
+            "verified_eligible_outcome_ids": sorted(str(r.get("event_id")) for r in eligible if r.get("event_id")),
             "rejection_reason_counts": reason_counts, "blockers": family_blockers,
             "execution_enabled": False, "orders_placed": False,
             "policy_mutation_enabled": False,
@@ -220,7 +221,9 @@ def collect_family_evidence_audit(data_root: str | Path) -> dict[str, Any]:
     }
 
 
-def _aggregate_hypothesis_evidence(data_root: Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
+def _aggregate_hypothesis_evidence(
+    data_root: Path, *, verified_outcome_keys: set[tuple[str, str]]
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     base = data_root / "data" / "forward"
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     counts = {"outcomes_seen": 0, "outcomes_qualified": 0, "outcomes_rejected": 0}
@@ -229,6 +232,13 @@ def _aggregate_hypothesis_evidence(data_root: Path) -> tuple[list[dict[str, Any]
             if row.get("event_type") != "PAPER_OUTCOME":
                 continue
             counts["outcomes_seen"] += 1
+            # The family audit is the single source of truth for candidate linkage,
+            # journal hashes, fee/slippage evidence, run/version provenance and OOS gates.
+            # Never let the tournament use a weaker parallel eligibility check.
+            evidence_key = (str(row.get("family_id") or ""), str(row.get("event_id") or ""))
+            if evidence_key not in verified_outcome_keys:
+                counts["outcomes_rejected"] += 1
+                continue
             required_true = ("performance_eligible", "costs_verified",
                              "chronological_purged", "provenance_complete", "preregistered")
             ok = all(row.get(k) is True for k in required_true)
@@ -313,7 +323,14 @@ def run_competition_cycle(data_root: str | Path) -> dict[str, Any]:
     root = Path(data_root).resolve()
     base = root / "data" / "forward"
     family_audit = collect_family_evidence_audit(root)
-    evidence_rows, evidence_counts = _aggregate_hypothesis_evidence(root)
+    verified_outcome_keys = {
+        (family_id, event_id)
+        for family_id, family in family_audit.get("families", {}).items()
+        for event_id in family.get("verified_eligible_outcome_ids", [])
+    }
+    evidence_rows, evidence_counts = _aggregate_hypothesis_evidence(
+        root, verified_outcome_keys=verified_outcome_keys
+    )
     hypothesis_ledger = base / "blackbox_hypothesis_events_v1.jsonl"
     states = _latest_hypothesis_states(hypothesis_ledger)
     eligible_rows = [r for r in evidence_rows if states.get(r["hypothesis_id"], {}).get("status") in ("TESTING", "INCONCLUSIVE")]
