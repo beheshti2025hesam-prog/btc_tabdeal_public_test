@@ -1,0 +1,25 @@
+name: Signed Source Evidence Contract v1
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [security/source-signature-identity-contract-20261013]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  adversarial-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned verifier dependency
+        run: python -m pip install 'cryptography==45.0.7'
+      - name: Run combined hostile source-signature tests
+        run: python -m unittest -v tests.test_signed_source_evidence_v1
