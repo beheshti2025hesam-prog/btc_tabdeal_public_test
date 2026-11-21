@@ -22,12 +22,10 @@ class DashboardLocalizationTests(unittest.TestCase):
 
     def test_english_copyright_owner_is_present_and_separate_from_vendor_notice(self):
         self.assertIn('Copyright © HES Trade Agent. All rights reserved.', dashboard.HTML)
-        self.assertIn('class=\"brand-footer-name\">HES Trade Agent</span>', dashboard.HTML)
-        self.assertIn('class=\"copyright-notice\">Copyright © HES Trade Agent. All rights reserved.', dashboard.HTML)
-        self.assertIn('class=\"owner-name\">SEYED HESAMEDDIN BEHESHTI SHIRAZI</span>', dashboard.HTML)
-        self.assertIn('class=\"owner-role\">Designer &amp; Owner</span>', dashboard.HTML)
+        self.assertIn('aria-label="HES Trade Agent — Designer and Owner"', dashboard.HTML)
+        self.assertIn('alt="HES Trade Agent. Copyright © HES Trade Agent. All rights reserved. SEYED HESAMEDDIN BEHESHTI SHIRAZI — Designer &amp; Owner"', dashboard.HTML)
         self.assertIn('Copyright (c) 2025 TradingView, Inc.', dashboard.HTML)
-        self.assertIn('lang="en" dir="ltr"', dashboard.HTML)
+        self.assertIn('class="brand-footer-art"', dashboard.HTML)
 
     def test_locale_persistence_direction_and_fallback_are_client_side(self):
         root = Path(dashboard.__file__).resolve().parents[1]
@@ -81,20 +79,24 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertIn("API payloads, machine enums, symbols and evidence remain untouched", script)
         for api_id in ("price", "peReasons", "v2Decision", "motherStages", "newsSummary", "newsItems", "journalRows"):
             self.assertRegex(dashboard.HTML, rf'id="{api_id}" data-no-translate')
-        self.assertIn('class="copyright" lang="en" dir="ltr" data-no-translate', dashboard.HTML)
+        self.assertIn('class="brand-footer-art"', dashboard.HTML)
+        self.assertIn('alt="HES Trade Agent. Copyright © HES Trade Agent. All rights reserved.', dashboard.HTML)
+        self.assertIn('Copyright (c) 2025 TradingView, Inc.', dashboard.HTML)
 
 
-    def test_original_hes_mark_is_integrated_as_header_brand_and_favicon(self):
+    def test_official_hes_brand_assets_are_integrated_as_header_and_footer(self):
         root = Path(dashboard.__file__).resolve().parents[1]
-        asset = root / "web" / "static" / "hes-mark.svg"
-        self.assertTrue(asset.is_file())
-        svg = asset.read_text(encoding="utf-8")
-        self.assertIn('viewBox="0 0 340 340"', svg)
-        self.assertIn('original interwoven HES monogram supplied by the owner', svg)
-        self.assertIn('href="/static/hes-mark.svg" type="image/svg+xml"', dashboard.HTML)
-        self.assertIn('class="brand-mark" src="/static/hes-mark.svg"', dashboard.HTML)
+        emblem = root / "web" / "static" / "hes-official-emblem.png"
+        logo = root / "web" / "static" / "hes-official-logo.png"
+        self.assertTrue(emblem.is_file())
+        self.assertTrue(logo.is_file())
+        self.assertIn('href="/static/hes-official-emblem.png" type="image/png"', dashboard.HTML)
+        self.assertIn('class="brand-mark" src="/static/hes-official-emblem.png"', dashboard.HTML)
+        self.assertIn('href="/static/hes-official-logo.png"', dashboard.HTML)
+        self.assertIn('src="/static/hes-official-logo.png"', dashboard.HTML)
         dashboard_source = (root / "web" / "dashboard.py").read_text(encoding="utf-8")
-        self.assertIn('"/static/hes-mark.svg": ("hes-mark.svg", "image/svg+xml; charset=utf-8")', dashboard_source)
+        self.assertIn('"/static/hes-official-emblem.png": ("hes-official-emblem.png", "image/png")', dashboard_source)
+        self.assertIn('"/static/hes-official-logo.png": ("hes-official-logo.png", "image/png")', dashboard_source)
         self.assertIn(".brand-lockup", (root / "web" / "static" / "dashboard.css").read_text(encoding="utf-8"))
 
 if __name__ == "__main__":

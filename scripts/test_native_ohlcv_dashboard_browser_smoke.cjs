@@ -92,6 +92,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     let directMarketDataRequest = false;
     let chartAssetResponse = null;
     let logoAssetResponse = null;
+    let footerLogoAssetResponse = null;
     const consoleErrors = [];
     const pageErrors = [];
     const requestFailures = [];
@@ -115,8 +116,11 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
         if (responseUrl.pathname === "/static/third_party/lightweight-charts/5.0.8/lightweight-charts.standalone.production.js") {
           chartAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
         }
-        if (responseUrl.pathname === "/static/hes-mark.svg") {
+        if (responseUrl.pathname === "/static/hes-official-emblem.png") {
           logoAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
+        }
+        if (responseUrl.pathname === "/static/hes-official-logo.png") {
+          footerLogoAssetResponse = { status: response.status(), content_type: response.headers()["content-type"] || null };
         }
         const url = new URL(response.url());
         if (url.pathname.startsWith("/api/")) {
@@ -276,10 +280,19 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
     assert.equal(candlePayload.taker_buy_flow_available, false);
     assert.equal(candlePayload.venue, "gateio");
     assert.equal(candlePayload.execution_enabled, false);
-    assert.equal(logoAssetResponse?.status, 200, "HES logo asset must be served locally");
-    assert.ok((logoAssetResponse?.content_type || "").startsWith("image/svg+xml"), "HES logo must be served as SVG");
+    assert.equal(logoAssetResponse?.status, 200, "HES official emblem must be served locally");
+    assert.ok((logoAssetResponse?.content_type || "").startsWith("image/png"), "HES official emblem must be served as PNG");
+    assert.equal(footerLogoAssetResponse?.status, 200, "HES official footer logo must be served locally");
+    assert.ok((footerLogoAssetResponse?.content_type || "").startsWith("image/png"), "HES official footer logo must be served as PNG");
     assert.equal(externalChartCdnRequested, false, "chart must not request a remote CDN");
     assert.equal(directMarketDataRequest, false, "dashboard must read the persisted global feed, not call an exchange REST endpoint");
+
+    await page.locator(".brand-footer-art").scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => {
+      const img = document.querySelector(".brand-footer-art img");
+      return !!img && img.complete && img.naturalWidth > 0;
+    });
+    await page.evaluate(() => window.scrollTo(0, 0));
 
     const last = candlePayload.candles[candlePayload.candles.length - 1];
     const ui = await page.evaluate(() => ({
@@ -300,13 +313,15 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       chartIndicatorStatus: document.querySelector("#chartIndicatorStatus")?.textContent || "",
       chartScriptIntegrity: document.querySelector('script[src*="lightweight-charts.standalone.production.js"]')?.integrity || null,
       logo: (() => { const img = document.querySelector(".brand-mark"); return img ? { complete: img.complete, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: img.getAttribute("src") } : null; })(),
+      footerLogo: (() => { const img = document.querySelector(".brand-footer-art img"); return img ? { complete: img.complete, naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, src: img.getAttribute("src") } : null; })(),
       bars: typeof bars !== "undefined" ? bars.map(b => ({
         open_time: b.open_time, open: Number(b.open), high: Number(b.high), low: Number(b.low),
         close: Number(b.close), volume: String(b.volume)
       })) : null
     }));
 
-    assert.ok(ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0, "HES logo image did not render");
+    assert.ok(ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0, "HES header emblem did not render");
+    assert.ok(ui.footerLogo && ui.footerLogo.complete && ui.footerLogo.naturalWidth > 0 && ui.footerLogo.naturalHeight > 0, "HES footer logo did not render");
 
     const languageSelect = page.locator("#languageSelect");
     const motherTitle = page.locator("#motherTitle");
@@ -423,6 +438,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       chart_script_integrity: ui.chartScriptIntegrity,
       chart_asset_response: chartAssetResponse,
       logo_asset_response: logoAssetResponse,
+      footer_logo_asset_response: footerLogoAssetResponse,
       logo_rendered: !!ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0,
       visible_candle_pixels: candlePixels,
       console_errors: consoleErrors,
@@ -651,6 +667,7 @@ const dashboardBaseUrl = process.env.HES_DASHBOARD_SMOKE_BASE_URL || "http://127
       chart_all_candles_match_api_batch: true,
       execution_enabled: false,
       logo_asset_response: logoAssetResponse,
+      footer_logo_asset_response: footerLogoAssetResponse,
       logo_rendered: !!ui.logo && ui.logo.complete && ui.logo.naturalWidth > 0 && ui.logo.naturalHeight > 0,
       message: oneMinuteUi.message
     };

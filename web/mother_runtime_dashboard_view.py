@@ -13,11 +13,14 @@ import hashlib
 import json
 import math
 import os
+import uuid
 
 from core.orchestration.mother_v1 import MotherOrchestratorV1
 from core.orchestration.mother_runtime_specialists_v1 import (
     LiveMarketContextV1,
+    bootstrap_market_context_v1,
     live_specialists_v1,
+    runtime_supervisor_v1,
     specialist_registry_v1,
 )
 from core.orchestration.witness_v1 import MotherAuditWitnessV1
@@ -280,21 +283,44 @@ def read_mother_runtime_dashboard(
     data_root: str | Path = "/opt/hes-trade-agent",
     journal_path: str | Path | None = None,
     now: datetime | None = None,
+    supervised: bool = False,
 ) -> dict[str, Any]:
     observed = now or datetime.now(timezone.utc)
     if observed.tzinfo is None or observed.utcoffset() is None:
         raise MotherRuntimeDashboardError("MOTHER_RUNTIME_CLOCK_NOT_TIMEZONE_AWARE")
     observed = observed.astimezone(timezone.utc)
     market = LiveMarketContextV1(data_root=data_root, observed_at=observed, journal_path=journal_path)
-
-    # Load the canonical persisted market input once. Every specialist below
-    # shares this memoized snapshot; no specialist makes a second REST request.
-    try:
-        market.load()
-    except Exception:
-        # The data-quality specialist will re-surface the failure as a blocked
-        # stage; hashes remain valid so the independent witness can verify it.
-        pass
+    supervisor = runtime_supervisor_v1() if supervised else None
+    bootstrap = None
+    if supervisor is not None:
+        # The potentially blocking market bootstrap is also killable. A failed
+        # bootstrap becomes an explicit Data Quality failure; it never fabricates
+        # an empty/healthy market snapshot.
+        # Bootstrap is intentionally a fresh read on every dashboard request;
+        # do not let the supervisor's idempotency cache reuse a prior file read.
+        bootstrap_request = "mother-market-bootstrap-" + uuid.uuid4().hex
+        bootstrap = supervisor.execute(
+            "market_bootstrap", bootstrap_request, bootstrap_market_context_v1,
+            market, timeout_seconds=4.0, retry_safe=False,
+        )
+        bootstrap_state = bootstrap.value if bootstrap.status in {"SUCCEEDED", "DUPLICATE"} else None
+        required_market_state = {"root", "observed_at", "now_s", "journal_path", "_loaded", "snapshot_sha256"}
+        if isinstance(bootstrap_state, dict) and required_market_state.issubset(bootstrap_state):
+            market.__dict__.update(bootstrap_state)
+        else:
+            market._loaded = True
+            market.error = "MOTHER_MARKET_BOOTSTRAP_" + (bootstrap.reason_code or bootstrap.status)
+            market.snapshot_sha256 = _canonical_hash({
+                "source": SOURCE, "symbol": SYMBOL, "error": market.error,
+                "observed_at": observed.isoformat(),
+            })
+    else:
+        try:
+            market.load()
+        except Exception:
+            # The data-quality specialist will re-surface the failure as a blocked
+            # stage; hashes remain valid so the independent witness can verify it.
+            pass
 
     snapshot_sha = market.snapshot_sha256 or _canonical_hash({
         "source": SOURCE, "symbol": SYMBOL, "observed_at": observed.isoformat(),
@@ -307,6 +333,12 @@ def read_mother_runtime_dashboard(
         "news_snapshot_sha256": news_context.get("snapshot_sha256"),
         "news_brief_sha256": news_context.get("brief_sha256"),
         "specialist_registry": registry,
+        "specialist_supervisor": ({
+            "version": supervisor.VERSION,
+            "specialist_timeout_seconds": 2.0,
+            "bootstrap_timeout_seconds": 4.0,
+            "max_concurrent_per_agent": supervisor.max_concurrent_per_agent,
+        } if supervisor is not None else {"status": "UNSUPERVISED_TEST_OR_LEGACY_CALL"}),
         "runtime_mode": "LIVE_DATA_RUNTIME_SPECIALISTS",
     })
     request_id = "hes-mother-live-" + observed.strftime("%Y%m%dT%H%M%S") + "-" + snapshot_sha[:16]
@@ -318,7 +350,9 @@ def read_mother_runtime_dashboard(
         "request_id": request_id,
         "news_context": news_context,
     }
-    result = MotherOrchestratorV1(live_specialists_v1(market)).run(context)
+    result = MotherOrchestratorV1(
+        live_specialists_v1(market, supervisor=supervisor, timeout_seconds=2.0)
+    ).run(context)
     envelope = result.as_dict()
     witness = MotherAuditWitnessV1().verify(envelope)
     if not witness.verified:
@@ -348,6 +382,14 @@ def read_mother_runtime_dashboard(
         "paper_execution_gate": summary.get("paper_execution_gate"),
         "sequence_validation": summary.get("sequence_validation"),
         "registered_specialists": registry,
+        "specialist_supervisor": ({
+            "version": supervisor.VERSION,
+            "timeout_seconds": 2.0,
+            "bootstrap_timeout_seconds": 4.0,
+            "max_concurrent_per_agent": supervisor.max_concurrent_per_agent,
+            "bootstrap_status": bootstrap.status if bootstrap is not None else None,
+            "health": supervisor.health(),
+        } if supervisor is not None else {"status": "DISABLED_FOR_TEST_OR_LEGACY_CALL"}),
         "executed_specialists": [row["agent"] for row in stages],
         "registered_count": len(registry),
         "executed_count": len(stages),
