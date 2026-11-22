@@ -25,6 +25,7 @@ class StrategyFamilyProfile:
     activation_state: ActivationState
     minimum_rr: float | None
     required_gates: tuple[str, ...]
+    paper_shadow_enabled: bool = False
     signal_generation_enabled: bool = False
     execution_enabled: bool = False
     orders_placed: bool = False
@@ -42,6 +43,7 @@ class StrategyFamilyRoute:
     timeframe: str
     reason_codes: tuple[str, ...]
     candidate_generation_authorized: bool = False
+    paper_candidate_generation_authorized: bool = False
     execution_enabled: bool = False
     orders_placed: bool = False
 
@@ -75,6 +77,7 @@ TREND_BREAKOUT_V2 = StrategyFamilyProfile(
         "INDEPENDENT_RISK_GATE",
         "FINAL_POLICY_APPROVAL",
     ),
+    paper_shadow_enabled=True,
 )
 
 RANGE_MEAN_REVERSION_RESEARCH_V2 = StrategyFamilyProfile(
@@ -107,13 +110,17 @@ def route_strategy_family(
     symbol: str,
     timeframe: str,
     regime: str,
+    purpose: Literal["IDENTIFY", "PAPER_SHADOW"] = "IDENTIFY",
 ) -> StrategyFamilyRoute:
-    """Identify a family without authorizing candidate generation or trading.
+    """Route a family; optionally authorize only the isolated Paper-shadow lane.
 
-    Only the canonical Gate.io BTC_USDT 15m setup context is routed in this contract version.
-    The 1m timeframe remains a downstream precision-entry layer.
+    The live candidate-generation authority always remains false. PAPER_SHADOW is
+    a separate research permission and is available only to the frozen Trend family.
+    Only canonical Gate.io BTC_USDT 15m setup context is routed; 1m is downstream.
     """
     normalized_regime = regime if isinstance(regime, str) else "UNKNOWN"
+    if purpose not in ("IDENTIFY", "PAPER_SHADOW"):
+        return _no_family(symbol, timeframe, normalized_regime, "ROUTE_PURPOSE_INVALID")
     if source != CANONICAL_SOURCE:
         return _no_family(symbol, timeframe, normalized_regime, "NON_CANONICAL_MARKET_DATA_SOURCE")
     if symbol != CANONICAL_SYMBOL:
@@ -124,6 +131,11 @@ def route_strategy_family(
 
     for profile in _PROFILES:
         if normalized_regime in profile.regimes:
+            paper_authorized = purpose == "PAPER_SHADOW" and profile.paper_shadow_enabled
+            reasons = (
+                ("FAMILY_ROUTED_FOR_PAPER_SHADOW_ONLY", "LIVE_SIGNAL_GENERATION_DISABLED")
+                if paper_authorized else ("FAMILY_ROUTED_BUT_NOT_AUTHORIZED", profile.activation_state)
+            )
             return StrategyFamilyRoute(
                 router_version=ROUTER_VERSION,
                 state="FAMILY_IDENTIFIED_NOT_AUTHORIZED",
@@ -133,7 +145,11 @@ def route_strategy_family(
                 regime=normalized_regime,
                 symbol=symbol,
                 timeframe=timeframe,
-                reason_codes=("FAMILY_ROUTED_BUT_NOT_AUTHORIZED", profile.activation_state),
+                reason_codes=reasons,
+                candidate_generation_authorized=False,
+                paper_candidate_generation_authorized=paper_authorized,
+                execution_enabled=False,
+                orders_placed=False,
             )
     return _no_family(symbol, timeframe, normalized_regime, "REGIME_HAS_NO_APPROVED_FAMILY")
 

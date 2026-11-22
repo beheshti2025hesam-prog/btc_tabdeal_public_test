@@ -182,3 +182,32 @@ def test_writer_does_not_require_directory_creation_when_parent_already_exists(t
     monkeypatch.setattr(type(tmp_path), "mkdir", deny_mkdir)
     assert ForwardJournalV1(path).append_event(row) is True
     assert path.is_file()
+
+def test_mother_writer_uses_parent_family_route_and_reference_entry():
+    mother = _mother()
+    mother["strategy_family_paper_lane"] = {
+        "status": "CONFIRMED_RISK_APPROVED_PAPER_ONLY",
+        "paper_candidate_generation_authorized": True,
+        "selected_candidate": {
+            "event_id": "family-paper:test-001", "direction": "SHORT",
+            "reference_price": 100, "stop_loss": 110, "take_profit": 70, "rr": 3.0,
+            "entry_semantics": "CLOSED_15M_REFERENCE_NOT_EXECUTION_FILL",
+            "family_id": "indicator_strategy", "family_version": "indicator-v1",
+            "parent_family_id": "trend_breakout",
+            "strategy_family_route": {
+                "family_id": "trend_breakout", "family_version": "trend-breakout-v2",
+                "activation_state": "CANDIDATE_LOCKED_NOT_ACTIVE",
+                "paper_candidate_generation_authorized": True,
+                "candidate_generation_authorized": False,
+                "execution_enabled": False, "orders_placed": False,
+            },
+        },
+    }
+    row = build_mother_journal_record(mother)
+    assert row["entry"] == 100.0 and row["rr"] == 3.0
+    assert row["strategy_family_id"] == "trend_breakout"
+    assert row["strategy_family_version"] == "trend-breakout-v2"
+    assert row["strategy_family_activation_state"] == "CANDIDATE_LOCKED_NOT_ACTIVE"
+    assert row["candidate_event_id"] == "family-paper:test-001"
+    assert row["candidate_entry_semantics"] == "CLOSED_15M_REFERENCE_NOT_EXECUTION_FILL"
+    assert row["witness_verified"] is True

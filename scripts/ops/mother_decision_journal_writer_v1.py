@@ -178,11 +178,12 @@ def build_mother_journal_record(mother: Mapping[str, Any]) -> dict[str, Any]:
     if direction not in ("LONG", "SHORT"):
         direction = "NONE"
 
-    entry = _number(candidate.get("entry", proposal.get("entry")))
-    stop_loss = _number(candidate.get("stop_loss", candidate.get("stop", proposal.get("stop_loss"))))
-    take_profit = _number(candidate.get("take_profit", candidate.get("target", proposal.get("take_profit"))))
+    entry = _number(candidate.get("entry") or candidate.get("reference_price") or proposal.get("entry"))
+    stop_loss = _number(candidate.get("stop_loss") or candidate.get("stop") or proposal.get("stop_loss"))
+    take_profit = _number(candidate.get("take_profit") or candidate.get("target") or proposal.get("take_profit"))
+    rr = _number(candidate.get("rr") or proposal.get("rr"))
     if not (direction in ("LONG", "SHORT") and entry and stop_loss and take_profit):
-        entry = stop_loss = take_profit = None
+        entry = stop_loss = take_profit = rr = None
 
     stage_order = ("data_quality", "market_structure", "signal", "confirmation", "risk", "decision", "evaluation")
     ordered_stages = [stage_by_name[name] for name in stage_order if name in stage_by_name]
@@ -267,8 +268,15 @@ def build_mother_journal_record(mother: Mapping[str, Any]) -> dict[str, Any]:
     }
     event_id = "hes-mother-" + _sha(stable_identity)
 
-    family_id = candidate.get("strategy_family_id") or candidate.get("family_id")
-    family_version = candidate.get("strategy_family_version") or candidate.get("family_version")
+    family_route = candidate.get("strategy_family_route")
+    family_route = family_route if isinstance(family_route, dict) else {}
+    family_id = (candidate.get("parent_family_id") or family_route.get("family_id")
+                 or candidate.get("strategy_family_id") or candidate.get("family_id"))
+    family_version = (family_route.get("family_version") or candidate.get("strategy_family_version")
+                      or candidate.get("family_version"))
+    family_activation_state = (family_route.get("activation_state")
+                               or candidate.get("strategy_family_activation_state")
+                               or candidate.get("live_activation_state"))
     policy_version = proposal.get("policy_version") or family_version or "hes-mother-orchestrator-v1"
 
     record = {
@@ -291,13 +299,17 @@ def build_mother_journal_record(mother: Mapping[str, Any]) -> dict[str, Any]:
         "entry": entry,
         "stop_loss": stop_loss,
         "take_profit": take_profit,
-        "rr": None,
-        "quality_score": proposal.get("quality_score"),
+        "rr": rr,
+        "candidate_event_id": candidate.get("event_id"),
+        "candidate_entry_semantics": candidate.get("entry_semantics"),
+        "quality_score": candidate.get("quality_score", proposal.get("quality_score")),
         "market_regime": mother.get("market_regime", "UNKNOWN"),
         "status": mother.get("status", "UNKNOWN"),
         "policy_version": policy_version,
         "strategy_family_id": family_id,
         "strategy_family_version": family_version,
+        "strategy_family_activation_state": family_activation_state,
+        "witness_verified": True,
         "decision_gate": decision_gate,
         "rejected_at": decision_gate,
         "signal_state": signal_state,

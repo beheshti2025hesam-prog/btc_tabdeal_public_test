@@ -137,25 +137,40 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
             if not isinstance(row, dict): raise ValueError(f"SOURCE_ROW_NOT_OBJECT:{filename}:{line_no}")
             if kind == "decision":
                 decision = row.get("decision"); proposal = row.get("proposal_direction")
-                if decision in ("LONG", "SHORT") and row.get("outcome") is not None:
-                    etype = "TRADE_OUTCOME"
+                schema = row.get("schema")
+                if decision == "PAPER_OUTCOME":
+                    outcome = {"wins":"WIN", "losses":"LOSS", "flats":"FLAT", "timeouts":"TIMEOUT"}.get(
+                        str(row.get("outcome", "")).lower(), row.get("outcome"))
+                    etype = "TRADE_OUTCOME" if outcome in ("WIN", "LOSS", "FLAT", "TIMEOUT") else "FAMILY_RESEARCH"
+                    matured = outcome in ("WIN", "LOSS", "FLAT", "TIMEOUT")
+                    verified = row.get("costs_verified") is True
+                elif decision == "PAPER_CANDIDATE":
+                    etype = "FAMILY_RESEARCH"; outcome = None; matured = False; verified = False
+                elif schema == "hes_mother_decision_journal_event_v1" and isinstance(
+                        ((row.get("gate_evidence") or {}).get("strategy_family_paper_lane")), dict):
+                    etype = "FAMILY_RESEARCH"; outcome = None; matured = False; verified = False
+                elif decision in ("LONG", "SHORT") and row.get("outcome") is not None:
+                    etype = "TRADE_OUTCOME"; outcome = row.get("outcome"); matured = False; verified = False
                 elif proposal in ("LONG", "SHORT") and decision not in ("LONG", "SHORT"):
-                    etype = "REJECTED_PROPOSAL"
+                    etype = "REJECTED_PROPOSAL"; outcome = row.get("outcome"); matured = False; verified = False
                 else:
-                    etype = "MARKET_CONTEXT"
+                    etype = "MARKET_CONTEXT"; outcome = row.get("outcome"); matured = False; verified = False
                 event_id = row.get("event_id"); observed = row.get("observed_at")
-                gate = decision; outcome = row.get("outcome"); direction = row.get("direction")
-                matured = False; verified = False; family = row.get("policy_version")
+                gate = row.get("final_gate_decision", decision) if decision in ("PAPER_CANDIDATE", "PAPER_OUTCOME") else decision
+                direction = row.get("direction")
+                family = row.get("strategy_family_id") or row.get("policy_version")
             elif kind == "neutral":
                 etype = "NO_TRADE_COUNTERFACTUAL"; event_id = row.get("outcome_id") or row.get("decision_event_id")
                 observed = row.get("observed_at"); gate = "NO_TRADE"; outcome = row.get("outcome_class")
-                direction = None; matured = row.get("horizon_complete") is True; verified = False; family = row.get("policy_version")
+                direction = None; matured = row.get("horizon_complete") is True; verified = False
+                family = row.get("strategy_family_id") or row.get("policy_version")
             elif kind == "strategy_outcome":
                 etype = "TRADE_OUTCOME" if row.get("outcome") in ("wins", "losses", "flats") else "FAMILY_RESEARCH"
                 event_id = row.get("event_id") or row.get("candidate_event_id"); observed = row.get("resolved_at")
                 gate = row.get("final_gate_decision"); outcome = {"wins":"WIN", "losses":"LOSS", "flats":"FLAT"}.get(row.get("outcome"), row.get("outcome"))
                 direction = row.get("direction"); matured = row.get("outcome") in ("wins", "losses", "flats")
-                verified = row.get("costs_verified") is True; family = row.get("policy_version")
+                verified = row.get("costs_verified") is True
+                family = row.get("strategy_family_id") or row.get("policy_version")
             elif kind == "family":
                 etype = "FAMILY_RESEARCH"; event_id = row.get("event_id"); observed = row.get("exit_time") or row.get("observed_at")
                 if isinstance(observed, (int, float)): observed = datetime.fromtimestamp(observed, timezone.utc).isoformat()
@@ -173,8 +188,21 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
             regime = regime_map.get(raw_regime, "NO_TRADE")
             source_hashes = row.get("source_hashes") if isinstance(row.get("source_hashes"), dict) else {}
             provenance_ok = bool(kind == "strategy_outcome" and len(source_hashes) >= 5
-                and all(isinstance(v, str) and len(v) == 64 for v in source_hashes.values())
+                and all(_is_sha256(v) for v in source_hashes.values())
                 and isinstance(row.get("run_manifest_sha256"), str) and len(row["run_manifest_sha256"]) == 64)
+            if kind == "decision" and row.get("schema") in (
+                    "hes_mother_decision_journal_event_v1",
+                    "hes_trade_journal_paper_candidate_v1",
+                    "hes_trade_journal_paper_outcome_v1"):
+                required = ("mother_snapshot_sha256", "mother_audit_sha256", "mother_trace_id")
+                if row.get("schema") != "hes_mother_decision_journal_event_v1":
+                    required = tuple(required)
+                provenance_ok = all(_is_sha256(source_hashes.get(key)) for key in required)
+                if row.get("schema") == "hes_mother_decision_journal_event_v1":
+                    news_context = row.get("gate_evidence", {}).get("news_context", {})
+                    if isinstance(news_context, dict) and news_context.get("status") == "READY":
+                        provenance_ok = provenance_ok and all(_is_sha256(source_hashes.get(key))
+                            for key in ("news_snapshot_sha256", "news_brief_sha256"))
             events.append(build_experience_event(source_ref=f"data/forward/{filename}",
                 source_sha256=canonical_sha256(row), source_event_id=str(event_id),
                 experience_type=etype, observed_at=str(observed), venue="gateio", market="spot",

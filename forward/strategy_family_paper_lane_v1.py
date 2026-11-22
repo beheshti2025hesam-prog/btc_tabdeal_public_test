@@ -75,6 +75,25 @@ def _normalized_rows(rows: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _regime_consensus(indicator_regimes: Mapping[str, str], structure: Mapping[str, Any], direction: str) -> dict[str, Any]:
+    expected_indicator = "BULLISH" if direction == "LONG" else "BEARISH" if direction == "SHORT" else None
+    expected_structure = "UPTREND" if direction == "LONG" else "DOWNTREND" if direction == "SHORT" else None
+    if expected_indicator is None:
+        return {"status": "UNKNOWN", "direction": direction, "indicator_regimes": dict(indicator_regimes),
+                "structure_regime": structure.get("regime"), "reason_codes": ["DIRECTION_NOT_RESOLVED"]}
+    if structure.get("status") != "OBSERVED" or structure.get("regime") in (None, "UNKNOWN"):
+        return {"status": "UNKNOWN", "direction": direction, "indicator_regimes": dict(indicator_regimes),
+                "structure_regime": structure.get("regime"), "reason_codes": ["MARKET_STRUCTURE_REGIME_UNAVAILABLE"]}
+    if any(indicator_regimes.get(tf) != expected_indicator for tf in TIMEFRAMES):
+        return {"status": "CONFLICT", "direction": direction, "indicator_regimes": dict(indicator_regimes),
+                "structure_regime": structure.get("regime"), "reason_codes": ["MULTI_TIMEFRAME_REGIME_DISAGREEMENT"]}
+    if structure.get("regime") != expected_structure:
+        return {"status": "CONFLICT", "direction": direction, "indicator_regimes": dict(indicator_regimes),
+                "structure_regime": structure.get("regime"), "reason_codes": ["STRUCTURE_INDICATOR_REGIME_DISAGREEMENT"]}
+    return {"status": "ALIGNED", "direction": direction, "indicator_regimes": dict(indicator_regimes),
+            "structure_regime": structure.get("regime"), "reason_codes": []}
+
+
 def evaluate_strategy_family_paper_lane(
     *, data: Mapping[str, Any], structure: Mapping[str, Any], observed_at: datetime,
     precision_entry_1m: Mapping[str, Any], news_context: Mapping[str, Any] | None = None,
@@ -125,18 +144,31 @@ def evaluate_strategy_family_paper_lane(
         vetoes = sorted(set((*vetoes, "NEWS_CONTEXT_NOT_READY")))
 
     rows = []
+    consensus_blocks: list[str] = []
+    router_blocks: list[str] = []
     for candidate in candidates:
         risk_geometry = geometry(candidate, last_close)
         if risk_geometry is None:
             continue
         route_regime = {"BULLISH": "UPTREND", "BEARISH": "DOWNTREND"}.get(candidate.regime, candidate.regime)
-        route = route_strategy_family(
-            source=SOURCE, symbol=SYMBOL, timeframe="15m", regime=route_regime,
-        ).as_dict()
         parent_family = (
             "range_mean_reversion" if candidate.variant_id == "range_mean_reversion"
             else "trend_breakout"
         )
+        route_result = route_strategy_family(
+            source=SOURCE, symbol=SYMBOL, timeframe="15m", regime=route_regime,
+            purpose="PAPER_SHADOW",
+        )
+        route = route_result.as_dict()
+        if (route_result.family_id != parent_family
+                or route_result.paper_candidate_generation_authorized is not True
+                or route_result.candidate_generation_authorized is not False):
+            router_blocks.extend(route_result.reason_codes or ("PAPER_ROUTER_AUTHORITY_MISSING",))
+            continue
+        consensus = _regime_consensus(indicator_regimes, structure, candidate.direction)
+        if consensus["status"] != "ALIGNED":
+            consensus_blocks.extend(consensus["reason_codes"])
+            continue
         proposal = _FamilyProposal(
             policy_version=candidate.family_version,
             decision=candidate.direction, direction=candidate.direction,
@@ -179,6 +211,7 @@ def evaluate_strategy_family_paper_lane(
             "source": SOURCE, "symbol": SYMBOL, "timeframe": "15m",
             "observed_at": candidate.observed_at, "variant": candidate.variant_id,
             "direction": candidate.direction, "version": candidate.family_version,
+            "router_version": route.get("router_version"), "regime_consensus": consensus,
         })[:32]
         rows.append({
             "schema": "hes_strategy_family_paper_candidate_v1",
@@ -203,6 +236,7 @@ def evaluate_strategy_family_paper_lane(
             "take_profit": risk_geometry["take_profit"], "rr": risk_geometry["rr"],
             "reason_codes": list(candidate.reason_codes),
             "strategy_family_route": route,
+            "regime_consensus": consensus,
             "confirmation": {
                 "state": confirmation_state, "reason_codes": confirmation_reasons,
                 "passed_count": base_confirmation.passed_count,
@@ -236,12 +270,21 @@ def evaluate_strategy_family_paper_lane(
         })
 
     if not rows:
+        blocked_reasons = sorted(set(consensus_blocks))
+        router_reasons = sorted(set(router_blocks))
+        blocked = bool(blocked_reasons or router_reasons)
         return {
             "schema": "hes_strategy_family_paper_lane_v1", "lane_version": LANE_VERSION,
-            "status": "NO_CANDIDATE", "paper_lane_activation_state": "PAPER_SHADOW_ACTIVE",
-            "reason_codes": ["NO_TREND_FAMILY_CANDIDATE"],
+            "status": ("BLOCKED_REGIME_CONSENSUS" if blocked_reasons else
+                       "BLOCKED_ROUTER_AUTHORITY" if router_reasons else "NO_CANDIDATE"),
+            "paper_lane_activation_state": "PAPER_SHADOW_ACTIVE",
+            "reason_codes": blocked_reasons or router_reasons or ["NO_TREND_FAMILY_CANDIDATE"],
             "candidate_count": 0, "candidates": [], "selected_candidate": None,
             "indicator_regimes": indicator_regimes,
+            "regime_consensus": {"status": "CONFLICT" if blocked_reasons else "NOT_EVALUATED",
+                                 "indicator_regimes": indicator_regimes,
+                                 "structure_regime": structure.get("regime"),
+                                 "reason_codes": blocked_reasons},
             "research_families": {"range_mean_reversion": range_research},
             "paper_candidate_generation_authorized": True, "decision_authority": False,
             "execution_enabled": False, "orders_placed": False,
@@ -254,6 +297,7 @@ def evaluate_strategy_family_paper_lane(
         "reason_codes": list(selected["reason_codes"]) if selected else ["MULTIPLE_CANDIDATES_REVIEW_REQUIRED"],
         "candidate_count": len(rows), "candidates": rows, "selected_candidate": selected,
         "indicator_regimes": indicator_regimes,
+        "regime_consensus": rows[0]["regime_consensus"] if len(rows) == 1 else {"status": "ALIGNED"},
         "research_families": {"range_mean_reversion": range_research},
         "paper_candidate_generation_authorized": True, "decision_authority": False,
         "execution_enabled": False, "orders_placed": False,

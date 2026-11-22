@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Forward-only paper evaluator. No live orders."""
-import json,sys,time,uuid
+import hashlib,json,sys,time,uuid
 from pathlib import Path
 from datetime import datetime,timezone
+from types import SimpleNamespace
 CODE_ROOT=Path(__file__).resolve().parents[1]
 if str(CODE_ROOT) not in sys.path: sys.path.insert(0,str(CODE_ROOT))
 from scripts.runtime_paths_v1 import CODE_ROOT, DATA_ROOT
@@ -55,11 +56,12 @@ def sync_outcomes_to_journal():
    if not line.strip(): continue
    row=json.loads(line)
    if kind=='PAPER_CANDIDATE':
-    event_id=f"hes-v2-candidate-{row.get('symbol','BTC_USDT')}-15m-{row['candidate_time']}"
-    event={'schema':'hes_trade_journal_paper_candidate_v1','event_id':event_id,'candidate_event_id':event_id,'observed_at':row.get('observed_at'),'candle_close_time':row.get('candidate_time'),'symbol':row.get('symbol','BTC_USDT'),'timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'rr':row.get('rr'),'final_gate_decision':row.get('final_gate_decision'),'final_gate_reasons':row.get('final_gate_reasons',[]),'outcome':None,'execution_enabled':False,'orders_placed':False,**{k:row[k] for k in PROVENANCE_FIELDS if k in row}}
+    candidate_id=_candidate_event_id(row)
+    event_id=candidate_id
+    event={'schema':'hes_trade_journal_paper_candidate_v1','event_id':event_id,'candidate_event_id':candidate_id,'observed_at':row.get('observed_at'),'candle_close_time':row.get('candidate_time'),'symbol':row.get('symbol','BTC_USDT'),'timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'rr':row.get('rr'),'final_gate_decision':row.get('final_gate_decision'),'final_gate_reasons':row.get('final_gate_reasons',[]),'preapproval_paper_eligible':row.get('preapproval_paper_eligible') is True,'entry_semantics':row.get('entry_semantics'),'strategy_family_id':row.get('strategy_family_id'),'strategy_family_version':row.get('strategy_family_version'),'strategy_family_activation_state':row.get('strategy_family_activation_state'),'source_hashes':row.get('source_hashes'),'outcome':None,'execution_enabled':False,'orders_placed':False,**{k:row[k] for k in PROVENANCE_FIELDS if k in row}}
    else:
     event_id=row.get('event_id') or f"hes-v2-outcome-BTC_USDT-15m-{row.get('candidate_time')}"
-    event={'schema':'hes_trade_journal_paper_outcome_v1','event_id':event_id,'candidate_event_id':row.get('candidate_event_id'),'observed_at':row.get('resolved_at'),'candidate_time':row.get('candidate_time'),'symbol':'BTC_USDT','timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'outcome':row.get('outcome'),'exit_time':row.get('exit_close_time'),'exit_close':row.get('exit_close'),'exit_price':row.get('exit_price'),'outcome_reason':row.get('reason'),'policy_version':row.get('policy_version',POLICY_VERSION),'execution_enabled':False,'orders_placed':False,**{k:row[k] for k in PROVENANCE_FIELDS if k in row}}
+    event={'schema':'hes_trade_journal_paper_outcome_v1','event_id':event_id,'candidate_event_id':row.get('candidate_event_id'),'observed_at':row.get('resolved_at'),'candidate_time':row.get('candidate_time'),'symbol':'BTC_USDT','timeframe':'15m','direction':row.get('direction'),'decision':kind,'entry':row.get('entry'),'stop_loss':row.get('stop_loss'),'take_profit':row.get('take_profit'),'outcome':row.get('outcome'),'exit_time':row.get('exit_close_time'),'exit_close':row.get('exit_close'),'exit_price':row.get('exit_price'),'outcome_reason':row.get('reason'),'policy_version':row.get('policy_version',POLICY_VERSION),'preapproval_paper_eligible':row.get('preapproval_paper_eligible') is True,'entry_semantics':row.get('entry_semantics'),'strategy_family_id':row.get('strategy_family_id'),'strategy_family_version':row.get('strategy_family_version'),'strategy_family_activation_state':row.get('strategy_family_activation_state'),'source_hashes':row.get('source_hashes'),'execution_enabled':False,'orders_placed':False,**{k:row[k] for k in PROVENANCE_FIELDS if k in row}}
    if event_id not in known:
     append(journal,event); known.add(event_id)
 def _candidate_event_id(row):
@@ -67,6 +69,11 @@ def _candidate_event_id(row):
  return str(row.get('candidate_event_id') or row.get('event_id') or
             (f"hes-v2-candidate-{row.get('symbol','BTC_USDT')}-15m-{row.get('candidate_time')}"
              if row.get('candidate_time') is not None else ""))
+
+def _outcome_event_id(candidate_event_id, kind='outcome'):
+ if kind not in ('outcome','timeout'): raise ValueError('INVALID_OUTCOME_EVENT_KIND')
+ digest=hashlib.sha256(str(candidate_event_id).encode('utf-8')).hexdigest()[:32]
+ return f'hes-v2-{kind}-{digest}'
 
 def preapproval_paper_eligibility(proposal, gate_evidence):
  # Research-only paper cohort: all observable structure/confirmation/risk checks must pass,
@@ -96,6 +103,123 @@ def preapproval_paper_eligibility(proposal, gate_evidence):
  return {'eligible':not reasons,'status':'PREAPPROVAL_PAPER_ELIGIBLE' if not reasons else 'BLOCKED',
          'reasons':reasons,'final_gate_approval_required':True,
          'execution_enabled':False,'orders_placed':False}
+
+def _epoch_seconds(value):
+ if isinstance(value,(int,float)) and not isinstance(value,bool): return int(value)
+ if isinstance(value,str):
+  try:
+   stamp=datetime.fromisoformat(value.replace('Z','+00:00'))
+   if stamp.tzinfo is None or stamp.utcoffset() is None: return None
+   return int(stamp.astimezone(timezone.utc).timestamp())
+  except ValueError: return None
+ return None
+
+def _read_jsonl(path):
+ rows=[]
+ if not Path(path).exists(): return rows
+ for n,line in enumerate(Path(path).read_text(encoding='utf-8').splitlines(),1):
+  if not line.strip(): continue
+  try: row=json.loads(line)
+  except json.JSONDecodeError as exc: raise RuntimeError(f'malformed evidence {Path(path).name}:{n}') from exc
+  if not isinstance(row,dict): raise RuntimeError(f'invalid evidence row {Path(path).name}:{n}')
+  rows.append(row)
+ return rows
+
+def project_mother_family_candidates(*, journal_path=None, candidates_path=None, now=None):
+ """Project witnessed Mother family candidates into the existing 15m Paper evaluator ledger.
+
+ This is a research-only projection. It creates no second journal, never changes live
+ authority, and keeps preapproval outcomes separate from the official 1m acceptance cohort.
+ """
+ journal_path=Path(journal_path or BASE/'trade_journal_v2.jsonl')
+ candidates_path=Path(candidates_path or CAND)
+ now=int(now if now is not None else datetime.now(timezone.utc).timestamp())
+ existing={_candidate_event_id(row) for row in _read_jsonl(candidates_path) if _candidate_event_id(row)}
+ projected=[]
+ for mother in _read_jsonl(journal_path):
+  if mother.get('schema')!='hes_mother_decision_journal_event_v1': continue
+  if mother.get('witness_verified') is not True: continue
+  if any(mother.get(key) is not False for key in ('execution_enabled','orders_placed','outcomes_inferred')): continue
+  gate=mother.get('gate_evidence') if isinstance(mother.get('gate_evidence'),dict) else {}
+  lane=gate.get('strategy_family_paper_lane') if isinstance(gate.get('strategy_family_paper_lane'),dict) else {}
+  if lane.get('paper_candidate_generation_authorized') is not True: continue
+  candidate=lane.get('selected_candidate')
+  if not isinstance(candidate,dict): continue
+  route=candidate.get('strategy_family_route') if isinstance(candidate.get('strategy_family_route'),dict) else {}
+  consensus=candidate.get('regime_consensus') if isinstance(candidate.get('regime_consensus'),dict) else {}
+  if candidate.get('paper_candidate_generation_authorized') is not True: continue
+  if route.get('paper_candidate_generation_authorized') is not True or route.get('candidate_generation_authorized') is not False: continue
+  if route.get('execution_enabled') is not False or route.get('orders_placed') is not False: continue
+  if candidate.get('execution_enabled') is not False or candidate.get('orders_placed') is not False: continue
+  if candidate.get('decision_authority') is not False or candidate.get('risk_gate_bypass') is not False: continue
+  if consensus.get('status')!='ALIGNED': continue
+  family_id=route.get('family_id')
+  if not family_id or family_id!=candidate.get('parent_family_id'): continue
+  candidate_id=candidate.get('event_id')
+  if not isinstance(candidate_id,str) or not candidate_id or candidate_id in existing: continue
+  candidate_time=_epoch_seconds(candidate.get('candidate_observed_at') or candidate.get('observed_at'))
+  if candidate_time is None or candidate_time<=0 or candidate_time>now+60: continue
+  direction=candidate.get('direction')
+  if direction not in ('LONG','SHORT'): continue
+  entry=candidate.get('reference_price') or candidate.get('entry')
+  stop=candidate.get('stop_loss') or candidate.get('stop')
+  target=candidate.get('take_profit') or candidate.get('target')
+  rr=candidate.get('rr')
+  try:
+   entry=float(entry); stop=float(stop); target=float(target); rr=float(rr)
+   if not all(map(lambda v: v>0 and v< float('inf'),(entry,stop,target,rr))): continue
+  except (TypeError,ValueError,OverflowError): continue
+  structure={'status':'OBSERVED','regime':consensus.get('structure_regime','UNKNOWN')}
+  confirmation=candidate.get('confirmation') if isinstance(candidate.get('confirmation'),dict) else {}
+  risk=candidate.get('risk') if isinstance(candidate.get('risk'),dict) else {}
+  gate_evidence={'structure':structure,'confirmation':confirmation,'risk':risk,
+                 'strategy_family_route':route,'regime_consensus':consensus,
+                 'execution_enabled':False,'orders_placed':False}
+  proposal=SimpleNamespace(decision=direction,direction=direction,entry=entry,stop_loss=stop,
+                           take_profit=target,rr=rr)
+  eligibility=preapproval_paper_eligibility(proposal,gate_evidence)
+  if candidate.get('status')!='CONFIRMED_RISK_APPROVED_PAPER_ONLY':
+   eligibility={**eligibility,'eligible':False,'status':'BLOCKED',
+                'reasons':list(dict.fromkeys((*eligibility.get('reasons',[]),'CANDIDATE_NOT_FULLY_CONFIRMED')))}
+  if candidate.get('precision_entry_1m_ready') is not True:
+   eligibility={**eligibility,'eligible':False,'status':'BLOCKED',
+                'reasons':list(dict.fromkeys((*eligibility.get('reasons',[]),'PRECISION_ENTRY_1M_FEED_NOT_READY')))}
+  source_hashes=mother.get('source_hashes') if isinstance(mother.get('source_hashes'),dict) else {}
+  if len(source_hashes)<3 or any(not isinstance(v,str) or len(v)!=64 for v in source_hashes.values()): continue
+  record={'schema':'hes_strategy_policy_v2_paper_candidate','candidate_event_id':candidate_id,'event_id':candidate_id,
+          'candidate_time':candidate_time,'direction':direction,'entry':entry,'stop_loss':stop,'take_profit':target,'rr':rr,
+          'strategy_family_id':family_id,'strategy_family_version':route.get('family_version'),
+          'strategy_family_activation_state':route.get('activation_state'),
+          'family_candidate_origin':'MOTHER_STRATEGY_FAMILY_PAPER_LANE',
+          'evaluation_mode':'PREAPPROVAL_PAPER_ONLY' if eligibility['eligible'] else 'RESEARCH_ONLY_PAPER',
+          'preapproval_paper_eligible':eligibility['eligible'],'preapproval_paper_status':eligibility['status'],
+          'preapproval_paper_reasons':eligibility['reasons'],'final_gate_decision':mother.get('decision','NO_TRADE'),
+          'final_gate_reasons':mother.get('reason_codes',[]),'entry_semantics':candidate.get('entry_semantics'),
+          'entry_context':{'entry_semantics':candidate.get('entry_semantics'),
+                           'precision_entry_1m_feed_ready':candidate.get('precision_entry_1m_ready') is True,
+                           'fill_model':'15M_CLOSED_REFERENCE_NOT_EXECUTION_FILL'},
+          'gate_evidence':gate_evidence,'source_hashes':source_hashes,
+          'observed_at':mother.get('observed_at'),'source':mother.get('source','gateio_public_spot'),
+          'symbol':mother.get('symbol','BTC_USDT'),'policy_version':route.get('family_version'),
+          'execution_enabled':False,'orders_placed':False,'decision_authority':False,'risk_gate_bypass':False}
+  if append(candidates_path,record):
+   projected.append(record); existing.add(candidate_id)
+ return projected
+
+def reconcile_active_candidates(state):
+ """Rebuild missing active Paper candidates from the append-only candidate/outcome ledgers."""
+ candidates=_read_jsonl(CAND); outcomes=_read_jsonl(OUT)
+ resolved={str(row.get('candidate_event_id')) for row in outcomes if row.get('candidate_event_id')}
+ active=state.setdefault('active',[])
+ active_ids={_candidate_event_id(row) for row in active if _candidate_event_id(row)}
+ recovered=0
+ for row in candidates:
+  cid=_candidate_event_id(row)
+  if not cid or cid in resolved or cid in active_ids: continue
+  if row.get('execution_enabled') is not False or row.get('orders_placed') is not False: continue
+  if not all(row.get(key) is not None for key in ('candidate_time','direction','entry','stop_loss','take_profit')): continue
+  active.append(row); active_ids.add(cid); recovered+=1
+ return recovered
 
 def win_rate_target_met(metrics, *, minimum_resolved=100, target_pct=90.0, cohort='eligible'):
  # Contract uses strict >90%; exactly 90% never passes.
@@ -215,6 +339,8 @@ def main():
  while True:
   try:
    src=load_market_input(root=ROOT);frames=src['timeframes'];bars=frames['15m'];now=int(bars[-1]['close_time'])
+   project_mother_family_candidates(now=now)
+   reconcile_active_candidates(st)
    sync_outcomes_to_journal()
    pending=[]
    for t in st['active']:
@@ -232,7 +358,8 @@ def main():
       closed_at=datetime.now(timezone.utc).isoformat()
       candidate_event_id=t.get('candidate_event_id') or f"hes-v2-candidate-{src['symbol'] if 'src' in locals() else 'BTC_USDT'}-15m-{t['candidate_time']}"
       exit_price=float(t['stop_loss']) if sl else float(t['take_profit'])
-      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-outcome-{src['symbol'] if 'src' in locals() else 'BTC_USDT'}-15m-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_close_time':ct,'exit_close':float(b['close']),'exit_price':exit_price,'reason':reason,'resolved_at':closed_at,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
+      outcome_event_id=_outcome_event_id(candidate_event_id,'outcome')
+      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':outcome_event_id,'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':t.get('policy_version',POLICY_VERSION),'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'entry_semantics':t.get('entry_semantics'),'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_close_time':ct,'exit_close':float(b['close']),'exit_price':exit_price,'reason':reason,'resolved_at':closed_at,'source_hashes':t.get('source_hashes'),**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
       append(OUT,outcome_record)
       append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':outcome,'exit_time':ct,'exit_close':float(b['close']),'outcome_reason':reason,'policy_version':POLICY_VERSION,'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False})
       done=True;break
@@ -240,7 +367,8 @@ def main():
       st['timeouts']+=1
       closed_at=datetime.now(timezone.utc).isoformat()
       candidate_event_id=t.get('candidate_event_id') or f"hes-v2-candidate-{src['symbol']}-15m-{t['candidate_time']}"
-      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':f"hes-v2-timeout-{t['candidate_time']}",'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':POLICY_VERSION,'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'outcome':'timeouts','exit_close_time':ct,'exit_close':float(b['close']),'exit_price':float(b['close']),'reason':'MAX_HOLD_24H','resolved_at':closed_at,**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
+      timeout_event_id=_outcome_event_id(candidate_event_id,'timeout')
+      outcome_record={'schema':'hes_strategy_policy_v2_paper_outcome','event_id':timeout_event_id,'candidate_event_id':candidate_event_id,'preapproval_paper_eligible':bool(t.get('preapproval_paper_eligible',False)),'policy_version':t.get('policy_version',POLICY_VERSION),'candidate_time':t['candidate_time'],'direction':t['direction'],'final_gate_decision':t.get('final_gate_decision','UNKNOWN'),'performance_eligible':t.get('final_gate_decision') in ('LONG','SHORT'),'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),'entry_semantics':t.get('entry_semantics'),'outcome':'timeouts','exit_close_time':ct,'exit_close':float(b['close']),'exit_price':float(b['close']),'reason':'MAX_HOLD_24H','resolved_at':closed_at,'source_hashes':t.get('source_hashes'),**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False}
       append(OUT,outcome_record)
       append(BASE/'trade_journal_v2.jsonl',{'schema':'hes_trade_journal_paper_outcome_v1','event_id':outcome_record['event_id'],'observed_at':closed_at,'symbol':'BTC_USDT','timeframe':'15m','direction':t['direction'],'decision':'PAPER_OUTCOME','candidate_time':t['candidate_time'],'candidate_event_id':candidate_event_id,'entry':t['entry'],'stop_loss':t['stop_loss'],'take_profit':t['take_profit'],'outcome':'timeouts','exit_time':ct,'exit_price':float(b['close']),'exit_close':float(b['close']),'outcome_reason':'MAX_HOLD_24H','policy_version':POLICY_VERSION,'strategy_family_id':t.get('strategy_family_id'),'strategy_family_version':t.get('strategy_family_version'),'strategy_family_activation_state':t.get('strategy_family_activation_state'),**{k:t[k] for k in PROVENANCE_FIELDS if k in t},'execution_enabled':False,'orders_placed':False})
       done=True;break
