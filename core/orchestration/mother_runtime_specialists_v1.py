@@ -30,6 +30,7 @@ from forward.strategy_gate_pipeline_v1 import (
 )
 from forward.strategy_policy_v2 import POLICY_VERSION, evaluate as evaluate_strategy
 from forward.strategy_policy_gate_v1 import GATE_VERSION, enforce_final_gates
+from forward.strategy_family_paper_lane_v1 import LANE_VERSION, evaluate_strategy_family_paper_lane
 from forward.trade_journal_view_v1 import JournalProjectionError, read_decision_journal
 from scripts.analyze_gateio_snapshot_v1 import snapshot
 
@@ -103,6 +104,8 @@ class LiveMarketContextV1:
         self.final_gate: dict[str, Any] | None = None
         self.journal: dict[str, Any] | None = None
         self.snapshot_sha256 = ""
+        self.family_paper_lane: dict[str, Any] | None = None
+        self.family_paper_lane_news_hash: str | None = None
 
     def load(self) -> dict[str, Any]:
         if self._loaded:
@@ -174,6 +177,20 @@ class LiveMarketContextV1:
         if self.structure is None:
             self.structure = inspect_structure(data["timeframes"]["15m"], self.observed_at)
         return self.structure
+
+    def ensure_family_paper_lane(self, news_context: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        """Build one cached, fail-closed paper-only family lane for this snapshot."""
+        data = self.load()
+        structure = self.ensure_structure()
+        news = news_context if isinstance(news_context, Mapping) else {}
+        news_hash = _canonical_hash(news)
+        if self.family_paper_lane is None or self.family_paper_lane_news_hash != news_hash:
+            self.family_paper_lane = evaluate_strategy_family_paper_lane(
+                data=data, structure=structure, observed_at=self.observed_at,
+                precision_entry_1m=self.precision_1m, news_context=news,
+            )
+            self.family_paper_lane_news_hash = news_hash
+        return self.family_paper_lane
 
     def ensure_proposal(self):
         data = self.load()
@@ -365,6 +382,8 @@ class LiveMarketContextV1:
                 "reason_codes": list(self.proposal.reasons),
                 "policy_version": self.proposal.policy_version,
             }
+        if self.family_paper_lane is not None:
+            result["strategy_family_paper_lane"] = self.family_paper_lane
         if self.error:
             result["data_error"] = self.error
         return result
@@ -422,18 +441,34 @@ class SignalSpecialistV1:
 
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
         proposal = self.market.ensure_proposal()
-        payload = {
-            "decision": proposal.decision,
-            "direction": proposal.direction,
-            "quality_score": proposal.quality_score,
-            "entry": proposal.entry,
-            "stop_loss": proposal.stop_loss,
-            "take_profit": proposal.take_profit,
-            "rr": proposal.rr,
-            "checks": dict(proposal.checks),
-        }
-        refs = _unique((*self.market.batch_refs(), "strategy_proposal_sha256:" + _canonical_hash(proposal.as_dict())))
-        return AgentResult(self.name, "PASS", tuple(proposal.reasons), refs, payload, self.VERSION)
+        lane_builder = getattr(self.market, "ensure_family_paper_lane", None)
+        lane = lane_builder(context.get("news_context")) if callable(lane_builder) else {}
+        selected = lane.get("selected_candidate") if isinstance(lane, Mapping) else None
+        if isinstance(selected, Mapping):
+            direction = selected.get("direction") if selected.get("direction") in ("LONG", "SHORT") else "NONE"
+            payload = {
+                "decision": direction if direction in ("LONG", "SHORT") else "NO_TRADE",
+                "direction": direction, "quality_score": 100,
+                "entry": selected.get("reference_price"), "stop_loss": selected.get("stop_loss"),
+                "take_profit": selected.get("take_profit"), "rr": selected.get("rr"),
+                "checks": {"indicator_family": "PASS", "family_candidate": "PASS"},
+                "policy_version": LANE_VERSION, "strategy_family_paper_lane": lane,
+                "legacy_breakout_policy": proposal.as_dict(),
+            }
+            reasons = tuple(selected.get("reason_codes", ()))
+        else:
+            payload = {
+                "decision": proposal.decision, "direction": proposal.direction,
+                "quality_score": proposal.quality_score, "entry": proposal.entry,
+                "stop_loss": proposal.stop_loss, "take_profit": proposal.take_profit,
+                "rr": proposal.rr, "checks": dict(proposal.checks),
+                "strategy_family_paper_lane": lane,
+            }
+            reasons = tuple(proposal.reasons)
+        refs = _unique((*self.market.batch_refs(),
+                        "strategy_proposal_sha256:" + _canonical_hash(proposal.as_dict()),
+                        "strategy_family_paper_lane_sha256:" + _canonical_hash(lane)))
+        return AgentResult(self.name, "PASS", reasons, refs, payload, self.VERSION)
 
 
 class ConfirmationSpecialistV1:
@@ -444,9 +479,13 @@ class ConfirmationSpecialistV1:
         self.market = market
 
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
-        bundle = self.market.ensure_confirmation()
-        confirmation = bundle["confirmation"]
-        upstream = str(confirmation.state or "UNCONFIRMED")
+        lane_builder = getattr(self.market, "ensure_family_paper_lane", None)
+        lane = lane_builder(context.get("news_context")) if callable(lane_builder) else {}
+        selected = lane.get("selected_candidate") if isinstance(lane, Mapping) else None
+        bundle = self.market.ensure_confirmation() if not isinstance(selected, Mapping) else None
+        confirmation = bundle["confirmation"] if bundle else None
+        family_confirmation = selected.get("confirmation", {}) if isinstance(selected, Mapping) else {}
+        upstream = str(family_confirmation.get("state") if isinstance(selected, Mapping) else (confirmation.state if confirmation else "UNCONFIRMED"))
         news = context.get("news_context", {})
         news = news if isinstance(news, Mapping) else {}
         news_status = str(news.get("status") or "BLOCKED")
@@ -466,8 +505,20 @@ class ConfirmationSpecialistV1:
         if news_status != "READY":
             news_veto_flags = tuple(sorted(set((*news_veto_flags, "NEWS_CONTEXT_NOT_READY"))))
         state = "CONFIRMED" if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") and not news_veto_flags else "UNCONFIRMED"
-        base_reasons = tuple(confirmation.reason_codes or (() if upstream in ("CONFIRMED_LONG", "CONFIRMED_SHORT") else ("CONFIRMATION_NOT_VALID",)))
+        base_reasons = tuple(
+            family_confirmation.get("reason_codes", ()) if isinstance(selected, Mapping)
+            else (confirmation.reason_codes if confirmation else ("CONFIRMATION_NOT_VALID",))
+        )
         reasons = tuple(dict.fromkeys((*base_reasons, *news_veto_flags)))
+        confirmation_evidence = family_confirmation if isinstance(selected, Mapping) else {
+            "state": confirmation.state if confirmation else "UNCONFIRMED",
+            "reason_codes": list(confirmation.reason_codes) if confirmation else ["CONFIRMATION_NOT_VALID"],
+            "checks": [
+                {"name": check.name, "state": check.state, "evidence_ref": check.evidence_ref,
+                 "observed_at": check.observed_at.isoformat()}
+                for check in (confirmation.checks if confirmation else ())
+            ],
+        }
         news_item_refs = tuple(
             ref
             for item in news.get("findings", [])
@@ -491,17 +542,8 @@ class ConfirmationSpecialistV1:
         refs = _unique((
             *self.market.batch_refs(),
             *news_refs,
-            "confirmation_sha256:" + _canonical_hash({
-                "state": confirmation.state,
-                "passed_count": confirmation.passed_count,
-                "required_count": confirmation.required_count,
-                "reason_codes": list(confirmation.reason_codes),
-                "checks": [
-                    {"name": check.name, "state": check.state, "evidence_ref": check.evidence_ref,
-                     "observed_at": check.observed_at.isoformat()}
-                    for check in confirmation.checks
-                ],
-            }),
+            "confirmation_sha256:" + _canonical_hash(confirmation_evidence),
+            "strategy_family_paper_lane_sha256:" + _canonical_hash(lane),
         ))
         payload = {
             "upstream_state": upstream,
@@ -522,6 +564,7 @@ class ConfirmationSpecialistV1:
                 if isinstance(item, Mapping) and isinstance(item.get("interpretation"), Mapping)
             ] if isinstance(news.get("findings"), list) else [],
             "news_alone_can_authorize_trade": False,
+            "strategy_family_paper_lane": lane,
         }
         return AgentResult(self.name, state, reasons, refs, payload, self.VERSION)
 
@@ -534,24 +577,34 @@ class RiskSpecialistV1:
         self.market = market
 
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
-        bundle = self.market.ensure_risk()
-        risk = bundle["risk"]
-        upstream = str(risk.state or "UNKNOWN")
+        lane_builder = getattr(self.market, "ensure_family_paper_lane", None)
+        lane = lane_builder(context.get("news_context")) if callable(lane_builder) else {}
+        selected = lane.get("selected_candidate") if isinstance(lane, Mapping) else None
+        if isinstance(selected, Mapping):
+            risk_payload = selected.get("risk", {})
+            upstream = str(risk_payload.get("state") or "RISK_REJECTED")
+            confirmation_state = selected.get("confirmation", {}).get("state")
+            if confirmation_state not in ("CONFIRMED_LONG", "CONFIRMED_SHORT"):
+                upstream = "RISK_REJECTED"
+            reasons = tuple(risk_payload.get("reason_codes", ())) or (("RISK_GATE_NOT_APPROVED",) if upstream != "RISK_APPROVED" else ())
+            checks = list(risk_payload.get("checks", []))
+        else:
+            bundle = self.market.ensure_risk()
+            risk = bundle["risk"]
+            upstream = str(risk.state or "UNKNOWN")
+            reasons = tuple(risk.reason_codes or ("RISK_GATE_NOT_APPROVED",))
+            checks = [
+                {"name": check.name, "state": check.state, "evidence_ref": check.evidence_ref,
+                 "observed_at": check.observed_at.isoformat()}
+                for check in risk.checks
+            ]
         state = "APPROVED" if upstream == "RISK_APPROVED" else "REJECTED"
-        reasons = tuple(risk.reason_codes or (() if state == "APPROVED" else ("RISK_GATE_NOT_APPROVED",)))
-        checks = [
-            {"name": check.name, "state": check.state, "evidence_ref": check.evidence_ref,
-             "observed_at": check.observed_at.isoformat()}
-            for check in risk.checks
-        ]
-        refs = _unique((*self.market.batch_refs(), "risk_sha256:" + _canonical_hash({
-            "state": risk.state, "reason_codes": list(risk.reason_codes), "checks": checks,
-        })))
-        return AgentResult(
-            self.name, state, reasons, refs,
-            {"upstream_state": upstream, "checks": checks},
-            self.VERSION,
-        )
+        refs = _unique((*self.market.batch_refs(),
+                        "risk_sha256:" + _canonical_hash({"state": upstream, "reason_codes": list(reasons), "checks": checks}),
+                        "strategy_family_paper_lane_sha256:" + _canonical_hash(lane)))
+        return AgentResult(self.name, state, reasons, refs,
+                           {"upstream_state": upstream, "checks": checks,
+                            "strategy_family_paper_lane": lane}, self.VERSION)
 
 
 class DecisionSpecialistV1:
@@ -564,7 +617,12 @@ class DecisionSpecialistV1:
     def evaluate(self, context: Mapping[str, Any]) -> AgentResult:
         decision = self.market.ensure_final_gate()
         decision["paper_execution_gate"] = self.market.paper_execution_gate()
-        refs = _unique((*self.market.batch_refs(), "final_gate_sha256:" + _canonical_hash(decision)))
+        lane_builder = getattr(self.market, "ensure_family_paper_lane", None)
+        lane = lane_builder(context.get("news_context")) if callable(lane_builder) else {}
+        decision["strategy_family_paper_lane"] = lane
+        refs = _unique((*self.market.batch_refs(),
+                        "strategy_family_paper_lane_sha256:" + _canonical_hash(lane),
+                        "final_gate_sha256:" + _canonical_hash(decision)))
         return AgentResult(
             self.name, "DECIDED", tuple(decision.get("reasons", [])), refs,
             decision, self.VERSION,

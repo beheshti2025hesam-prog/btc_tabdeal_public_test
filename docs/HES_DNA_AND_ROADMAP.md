@@ -258,3 +258,20 @@ The primary checkout root recorded in Git worktree metadata is not a child workt
 - Temporary archives and paths that identify backup, restore, recovery, archive, evidence, journal, model, dataset, candidate, release, rollback, snapshot, fulltest, soak, smoke, hash-check, security, review, audit, training, lineage, lab, differential, preview, Restic or strace artifacts are KEEP_TEMP_EVIDENCE.
 - Only generic, unmarked temporary paths may enter REVIEW_STALE_TEMP/REVIEW_TEMP. These labels never authorize deletion.
 - This rule prevents a stale-age heuristic from treating dirty Git clones, recovery archives, model/data snapshots, test evidence or audit artifacts as disposable.
+
+## Mother strategy-family paper lane — 2026-11-22
+
+The Mother Signal specialist now consumes a dedicated paper-shadow family lane built from the existing canonical Gate.io BTC_USDT closed-candle snapshot. Trend-family candidates (`trend_confirmation`, `momentum_breakout`) are passed through the independent structure/opportunity Confirmation and Risk gates; 1m remains precision-only. The dashboard exposes candidate family/variant, direction, regime, 3R geometry, confirmation, risk, News Radar veto and live activation state.
+
+`PAPER_SHADOW_ACTIVE` authorizes only shadow-candidate generation. It does not grant live decision authority, policy/ruleset activation, risk bypass, order routing, execution or capital mutation. The legacy indicator-family Range variant is excluded from Mother candidates; Range v2 remains `RESEARCH_ONLY_NOT_PROMOTED` until its own engine/evidence gates authorize promotion. A Range route label is not candidate-generation approval.
+
+The 2026-11-22 live observation found a bearish trend-family SHORT candidate, but the active high-impact news veto correctly blocked confirmation and risk. Final decision remains `NO_TRADE`; paper-execution policy/ruleset gates remain separate and blocked. This is expected fail-closed behavior, not a missing strategy family.
+
+### Dashboard deployment evidence — 2026-11-22
+
+- Deployed immutable dashboard release: `7e06c9c73eb26a7ade12d7c14e90466bdca5c6da`.
+- Release manifest SHA-256: `9b489cced6d8f0ceeb17ea79243182945474e01840c280cf1099d13e19046dae`; manifest status PASS, 791 tracked files checked.
+- `/opt/hes-trade-agent/dashboard-current` points to the new release. `/opt/hes-trade-agent/current` remains on `4c9a0f30c9aac67c6d711fe3699f55820a9b1322`; market-data and evaluator services were not changed.
+- `hes-readonly-dashboard.service` restarted and is active. `/api/mother`, dashboard panel, JavaScript, and official HES emblem/footer logo asset smoke checks passed.
+- Live API remains `BLOCKED_RISK_VETO / NO_TRADE`: News Radar is READY but has partial coverage and `HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION`; current family lane has zero qualifying Trend candidates. Range is explicitly `RESEARCH_ONLY_NOT_PROMOTED`. Audit witness verified; execution, orders and capital mutation remain false.
+- Deployment-branch regression: 1,626 passed, 84 subtests passed. This is not a live-policy activation or trading authorization.
