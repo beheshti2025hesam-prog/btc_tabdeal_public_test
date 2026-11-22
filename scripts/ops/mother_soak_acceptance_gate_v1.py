@@ -40,6 +40,7 @@ def validate_summary(summary: dict, *, source_commit: str, source_tree: str, sou
     last = summary.get("last_observation") if isinstance(summary.get("last_observation"), dict) else {}
     if last.get("failures") != []: errors.append("LAST_OBSERVATION_FAILURES_PRESENT")
     if last.get("journal_unchanged") is not True: errors.append("LAST_OBSERVATION_JOURNAL_CHANGED")
+    if last.get("journal_sha256") != before: errors.append("LAST_OBSERVATION_JOURNAL_HASH_MISMATCH")
     if last.get("witness_verified") is not True: errors.append("LAST_OBSERVATION_WITNESS_INVALID")
     states = last.get("stage_states")
     if not isinstance(states, list) or len(states) != 7 or "UNKNOWN" in states: errors.append("LAST_OBSERVATION_STAGE_STATE_INVALID")
@@ -67,7 +68,12 @@ def main() -> int:
     parser.add_argument("--summary", type=Path, required=True)
     parser.add_argument("--source-root", type=Path, required=True)
     args = parser.parse_args()
-    summary = json.loads(args.summary.read_text(encoding="utf-8"))
+    if not args.summary.is_file():
+        raise SystemExit("SOAK_SUMMARY_MISSING_OR_NOT_COMPLETE")
+    try:
+        summary = json.loads(args.summary.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit("SOAK_SUMMARY_UNREADABLE_OR_INVALID") from exc
     commit = subprocess.run(["git", "-C", str(args.source_root), "rev-parse", "HEAD"],
                             check=True, capture_output=True, text=True).stdout.strip()
     tree = subprocess.run(["git", "-C", str(args.source_root), "rev-parse", "HEAD^{tree}"],

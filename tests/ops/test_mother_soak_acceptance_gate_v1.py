@@ -22,7 +22,7 @@ def _summary():
         "soak_journal_snapshot_sha256_after": "a" * 64,
         "soak_journal_snapshot_unchanged": True,
         "last_observation": {
-            "failures": [], "journal_unchanged": True, "witness_verified": True,
+            "failures": [], "journal_unchanged": True, "journal_sha256": "a" * 64, "witness_verified": True,
             "stage_states": ["PASS", "PASS", "PASS", "UNCONFIRMED", "REJECTED", "DECIDED", "OBSERVED"],
             "supervisor": {
                 "bootstrap_status": "SUCCEEDED",
@@ -48,6 +48,7 @@ def test_exact_complete_24h_soak_passes_only_with_frozen_source_and_journal():
     (lambda d: d.update(complete=False), "SOAK_NOT_COMPLETE"),
     (lambda d: d["last_observation"].update(stage_states=["PASS", "UNKNOWN", "PASS", "PASS", "PASS", "PASS", "PASS"]), "LAST_OBSERVATION_STAGE_STATE_INVALID"),
     (lambda d: d["last_observation"].update(witness_verified=False), "LAST_OBSERVATION_WITNESS_INVALID"),
+    (lambda d: d["last_observation"].update(journal_sha256="f" * 64), "LAST_OBSERVATION_JOURNAL_HASH_MISMATCH"),
 ])
 def test_soak_gate_rejects_short_or_unsafe_summaries(mutate, expected):
     summary = _summary(); mutate(summary)
