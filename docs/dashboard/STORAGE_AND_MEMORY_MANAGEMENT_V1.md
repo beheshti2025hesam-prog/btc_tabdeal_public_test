@@ -110,3 +110,7 @@ The 5 GB objective is not yet met. Remaining footprint is not disposable cache; 
 - Preserve active/rollback releases and every dirty, unpushed, open, referenced, or unverified path.
 - Backup pruning stays blocked until remote restore, replacement-host recovery, and external key escrow are proven.
 - The 5 GB objective is currently **NOT MET**; a previous manager path-sum is not acceptance-grade until global inode-aware accounting and full HES scope are in place.
+
+### Worktree reference semantics — 2026-11-23
+
+The dashboard must distinguish the primary repository root from child worktrees. The primary repo root itself must not make every project directory appear referenced. A child worktree path and any parent container that would remove that worktree remain blocked; unrelated sibling paths can proceed to dependency-aware review. The correction is covered by regression tests.
