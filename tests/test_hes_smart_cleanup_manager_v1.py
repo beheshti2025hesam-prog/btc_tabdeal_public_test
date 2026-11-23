@@ -5,13 +5,53 @@ from scripts.ops.hes_smart_cleanup_manager_v1 import build_manager_report
 
 
 def _audit(items=None):
+    rows = []
+    for raw in items or []:
+        row = dict(raw)
+        path = str(row.get("path", ""))
+        logical = int(row.get("logical_allocated_bytes", row.get("allocated_bytes", 0)))
+        unique = int(row.get("unique_allocated_bytes", logical))
+        scope = row.get("ownership_scope")
+        if scope is None:
+            if path.startswith("/opt/hes-trade-agent/"):
+                scope = "HES_PROJECT"
+            elif path.startswith("/srv/hes-evidence/"):
+                scope = "HES_EVIDENCE"
+            elif path.startswith("/var/backups/hes-trade-agent/"):
+                scope = "HES_BACKUP"
+            elif path.startswith(("/tmp/", "/var/tmp/")):
+                scope = "HES_TEMP"
+            elif path.startswith(("/var/lib/hes-", "/var/log/hes-", "/var/cache/hes-")):
+                scope = "HES_RUNTIME"
+            else:
+                scope = "OTHER"
+        row.update({
+            "allocated_bytes": int(row.get("allocated_bytes", logical)),
+            "logical_allocated_bytes": logical,
+            "unique_allocated_bytes": unique,
+            "shared_inode_path_bytes": int(row.get("shared_inode_path_bytes", logical - unique)),
+            "ownership_scope": scope,
+            "scan_errors": int(row.get("scan_errors", 0)),
+        })
+        rows.append(row)
     return {
         "schema": "hes_data_lifecycle_audit_v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mode": "READ_ONLY_DRY_RUN",
         "disk": {"total_bytes": 1000, "used_bytes": 800, "free_bytes": 200, "free_percent": 20},
         "worktree_registry": {"paths": ["/opt/hes-trade-agent/.worktrees/example"]},
-        "items": items or [],
+        "scan_summary": {
+            "item_count": len(rows),
+            "scan_errors": sum(int(row.get("scan_errors", 0)) for row in rows),
+            "logical_allocated_bytes": sum(int(row["logical_allocated_bytes"]) for row in rows),
+            "unique_allocated_bytes": sum(int(row["unique_allocated_bytes"]) for row in rows),
+            "shared_inode_path_bytes": sum(int(row["shared_inode_path_bytes"]) for row in rows),
+            "unclassified_temp_items": sum(row["ownership_scope"] == "UNCLASSIFIED_TEMP" for row in rows),
+            "unclassified_temp_bytes": sum(int(row["unique_allocated_bytes"]) for row in rows if row["ownership_scope"] == "UNCLASSIFIED_TEMP"),
+            "missing_roots": [],
+            "global_inode_dedup": True,
+        },
+        "items": rows,
     }
 
 
@@ -542,3 +582,22 @@ def test_restic_backup_gate_requires_evidence_coverage_hash_match_and_quota():
     report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                            backup_status=backup, active_targets=[], pointer_errors=[])
     assert report["recovery_gate"]["backup_integrity_gate"] == "INCOMPLETE"
+
+
+def test_physical_inode_accounting_fields_are_preserved_through_cleanup_manager():
+    report = _build_report(
+        _audit([{
+            "path": "/tmp/cache-x", "classification": "REVIEW_TEMP", "allocated_bytes": 100,
+            "logical_allocated_bytes": 100, "unique_allocated_bytes": 60,
+            "shared_inode_path_bytes": 40, "ownership_scope": "HES_TEMP", "scan_errors": 0,
+        }]),
+        proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+        backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    row = report["items"][0]
+    assert row["logical_allocated_bytes"] == 100
+    assert row["unique_allocated_bytes"] == 60
+    assert row["shared_inode_path_bytes"] == 40
+    assert row["ownership_scope"] == "HES_TEMP"
+    assert row["scan_errors"] == 0
+    assert report["source_audit_gate"]["status"] == "PASS"
