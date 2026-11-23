@@ -7,10 +7,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-POLICY = {"daily_days": 7, "weekly_sunday_days": 28, "monthly_first_day_days": 180}
+POLICY = {"daily_days": 7, "weekly_sunday_days": 28, "monthly_first_day_days": 180, "yearly_jan1_days": 730}
 EXPECTED_TAG = "hes-full-recovery-v1"
 EXPECTED_HOST = "hes-vps-recovery-v1"
-REQUIRED_FULL_PATHS = frozenset({
+BASE_REQUIRED_FULL_PATHS = frozenset({
     "/etc/apt", "/etc/cloud", "/etc/cron.d", "/etc/cron.daily",
     "/etc/cron.hourly", "/etc/cron.weekly", "/etc/environment", "/etc/fstab",
     "/etc/hes-trade-agent", "/etc/hostname", "/etc/hosts", "/etc/logrotate.d",
@@ -18,8 +18,6 @@ REQUIRED_FULL_PATHS = frozenset({
     "/etc/security", "/etc/sentinelx", "/etc/ssh", "/etc/sudoers",
     "/etc/sudoers.d", "/etc/sysctl.d", "/etc/systemd/system", "/etc/ufw",
     "/opt/hes-trade-agent",
-    "/opt/hes-trade-agent/releases/737d0555f9348f1e2584714a988d0751bb4448d4",
-    "/opt/hes-trade-agent/releases/f5d505567522555ee1be9c260e83085347515721",
     "/root/.config/rclone", "/root/.ssh", "/srv/hes-evidence",
     "/var/lib/apt/extended_states", "/var/lib/cloud", "/var/lib/dpkg/status",
     "/var/lib/hes-operational-health", "/var/lib/sentinelx/audit.jsonl",
@@ -30,6 +28,15 @@ REQUIRED_FULL_PATHS = frozenset({
     "/usr/local/sbin/hes-restic-incremental-backup",
     "/usr/local/sbin/hes-restic-production-dropbox-sync",
 })
+PROJECT_ROOT = Path("/opt/hes-trade-agent")
+ACTIVE_RELEASE_POINTERS = (
+    PROJECT_ROOT / "current",
+    PROJECT_ROOT / "current-before-4329a3df",
+    PROJECT_ROOT / "dashboard-current",
+)
+# Resolve symlinks at runtime; a missing pointer resolves to its own path and
+# therefore fails closed against a snapshot that lacks a real release target.
+REQUIRED_FULL_PATHS = BASE_REQUIRED_FULL_PATHS | frozenset(str(p.resolve()) for p in ACTIVE_RELEASE_POINTERS)
 
 def _parse_time(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value.strip():
@@ -124,6 +131,8 @@ def plan_retention(
             keep[sid] = "MONTHLY_FIRST_DAY_ANCHOR"
         elif age < POLICY["weekly_sunday_days"] and dt.isoweekday() == 7:
             keep[sid] = "WEEKLY_SUNDAY_ANCHOR"
+        elif age < POLICY["yearly_jan1_days"] and dt.month == 1 and dt.day == 1:
+            keep[sid] = "YEARLY_JAN1_ANCHOR"
         else:
             delete[sid] = "RETENTION_EXPIRED_FULL_SCOPE"
 
