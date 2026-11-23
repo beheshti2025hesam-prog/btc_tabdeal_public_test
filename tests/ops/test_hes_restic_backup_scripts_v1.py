@@ -15,6 +15,7 @@ def test_local_restic_backup_has_44_declared_roots_and_restore_safe_retention():
     assert '"$ACTIVE" "$ROLLBACK" "$DASHBOARD"' in source
     for p in ("/usr/local/sbin/hes-operational-healthcheck", "/usr/local/sbin/hes-restic-incremental-backup", "/usr/local/sbin/hes-restic-production-dropbox-sync"):
         assert p in roots
+    assert 'SCRIPT_DIR="/usr/local/lib/hes-storage-v1"' in source
     assert "RESTIC_RESTORE_DRILL_DEFERRED_INSUFFICIENT_SPACE" in source
     assert "RESTIC_RETENTION_SKIPPED" in source
     assert "--replacement-host-attestation" in source
