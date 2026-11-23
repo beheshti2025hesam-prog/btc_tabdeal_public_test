@@ -287,3 +287,7 @@ The 5 GB objective remains NOT MET until a fresh complete-scope report proves th
 ### Worktree dependency-scan correction — 2026-11-23
 
 Smart Cleanup now validates and reads worktree_registry.repo_root, excludes the primary checkout from child-worktree reference matching, and retains blocking only for actual child worktrees and their containing/contained paths. This fixes the prior false-positive where the primary checkout root made every project directory appear registered-worktree-related. Regression tests verify that /opt/hes-trade-agent/releases is not blocked by the primary root while /opt/hes-trade-agent/.worktrees remains blocked because it contains a real child worktree.
+
+### Fail-closed temporary classification — 2026-11-23
+
+IDLM now protects an unregistered Git workspace under /tmp or /var/tmp as KEEP_UNREGISTERED_GIT_WORKSPACE whenever its root contains .git metadata. It also classifies archive/recovery/evidence/model/data/candidate/release/rollback/snapshot/test/soak/smoke/audit/review/Restic/strace-named temporary paths as KEEP_TEMP_EVIDENCE. Only generic unmarked temporary paths remain REVIEW_TEMP or REVIEW_STALE_TEMP. These are review-only labels and do not grant deletion authority. Regression tests cover Git workspace and encrypted recovery archive cases.
