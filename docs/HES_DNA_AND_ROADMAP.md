@@ -251,3 +251,10 @@ Current state: the 5 GB objective is **NOT MET**. The Smart Storage accounting c
 ### Dependency-scan correctness correction — 2026-11-23
 
 The primary checkout root recorded in Git worktree metadata is not a child worktree. Smart Cleanup must exclude worktree_registry.repo_root when evaluating registered-worktree references. Only a real child worktree and its containing/contained paths block cleanup review. This prevents the primary checkout root from falsely marking every project directory as referenced while still protecting .worktrees and any parent that contains a real child worktree.
+
+### Temporary-workspace preservation rule — 2026-11-23
+
+- Any temporary directory containing its own .git metadata is KEEP_UNREGISTERED_GIT_WORKSPACE until dirty/untracked/ignored state, upstream status, exact commit and remote provenance are verified.
+- Temporary archives and paths that identify backup, restore, recovery, archive, evidence, journal, model, dataset, candidate, release, rollback, snapshot, fulltest, soak, smoke, hash-check, security, review, audit, training, lineage, lab, differential, preview, Restic or strace artifacts are KEEP_TEMP_EVIDENCE.
+- Only generic, unmarked temporary paths may enter REVIEW_STALE_TEMP/REVIEW_TEMP. These labels never authorize deletion.
+- This rule prevents a stale-age heuristic from treating dirty Git clones, recovery archives, model/data snapshots, test evidence or audit artifacts as disposable.
