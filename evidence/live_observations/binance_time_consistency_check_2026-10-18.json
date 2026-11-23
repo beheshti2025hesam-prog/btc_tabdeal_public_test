@@ -1,0 +1,92 @@
+{
+  "schema": "hes-time-consistency-check-v1",
+  "captured_at_utc": "2026-10-18T12:53:04.622Z",
+  "capture_method": "Binance connector calls; parsed payloads; not raw HTTP bytes",
+  "futures": {
+    "serverTime": 1792137674761,
+    "serverTime_utc": "2026-10-16T08:01:14.761Z",
+    "server_time_age_ms": 190309861,
+    "klines": [
+      {
+        "open_time": 1792327680000,
+        "close_time": 1792327739999,
+        "close_time_utc": "2026-10-18T12:48:59.999Z",
+        "close": "81899.40"
+      },
+      {
+        "open_time": 1792327740000,
+        "close_time": 1792327799999,
+        "close_time_utc": "2026-10-18T12:49:59.999Z",
+        "close": "81942.50"
+      },
+      {
+        "open_time": 1792327800000,
+        "close_time": 1792327859999,
+        "close_time_utc": "2026-10-18T12:50:59.999Z",
+        "close": "81934.50"
+      },
+      {
+        "open_time": 1792327860000,
+        "close_time": 1792327919999,
+        "close_time_utc": "2026-10-18T12:51:59.999Z",
+        "close": "81959.00"
+      },
+      {
+        "open_time": 1792327920000,
+        "close_time": 1792327979999,
+        "close_time_utc": "2026-10-18T12:52:59.999Z",
+        "close": "81927.60"
+      }
+    ]
+  },
+  "spot": {
+    "serverTime": 1792327962533,
+    "serverTime_utc": "2026-10-18T12:52:42.533Z",
+    "server_time_age_ms": 22089,
+    "klines": [
+      {
+        "open_time": 1792327680000,
+        "close_time": 1792327739999,
+        "close_time_utc": "2026-10-18T12:48:59.999Z",
+        "close": "81931.32000000"
+      },
+      {
+        "open_time": 1792327740000,
+        "close_time": 1792327799999,
+        "close_time_utc": "2026-10-18T12:49:59.999Z",
+        "close": "81970.00000000"
+      },
+      {
+        "open_time": 1792327800000,
+        "close_time": 1792327859999,
+        "close_time_utc": "2026-10-18T12:50:59.999Z",
+        "close": "81967.33000000"
+      },
+      {
+        "open_time": 1792327860000,
+        "close_time": 1792327919999,
+        "close_time_utc": "2026-10-18T12:51:59.999Z",
+        "close": "81986.00000000"
+      },
+      {
+        "open_time": 1792327920000,
+        "close_time": 1792327979999,
+        "close_time_utc": "2026-10-18T12:52:59.999Z",
+        "close": "81961.91000000"
+      }
+    ]
+  },
+  "comparison": {
+    "spot_minus_futures_server_time_ms": 190287772,
+    "spot_server_time_minus_capture_ms": -22089,
+    "futures_server_time_minus_capture_ms": -190309861,
+    "assessment": "FUTURES_SERVER_TIME_STALE_OR_CACHED; BLOCK_FRESHNESS_GATE"
+  },
+  "limits": [
+    "No independent direct HTTP request was possible through this connector session.",
+    "The latest kline can be forming; only rows with close_time < capture time are eligible as closed.",
+    "No official chart comparison, reconnect, gap, or duplicate replay test has been performed."
+  ]
+}
+
+SHA256_UTF8_JSON_BODY=689cfc5fe7fef5bdb3ab7fa5ac80218f82e917e47cd6250023f9fe8defd2096a

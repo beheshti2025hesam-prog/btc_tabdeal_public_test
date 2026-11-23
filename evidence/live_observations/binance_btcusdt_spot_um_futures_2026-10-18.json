@@ -1,0 +1,126 @@
+{
+  "schema": "hes-market-data-observation-v1",
+  "captured_at_utc": "2026-10-18T12:51:22.895Z",
+  "source": "Binance connector; parsed response payload, not byte-for-byte HTTP capture",
+  "futures_exchange_info": {
+    "timezone": "UTC",
+    "serverTime": 1792137674761,
+    "futuresType": "U_MARGINED",
+    "btc_symbol": [
+      {
+        "symbol": "BTCUSDT",
+        "status": "TRADING",
+        "contractType": "PERPETUAL"
+      }
+    ]
+  },
+  "futures_klines": {
+    "symbol": "BTCUSDT",
+    "interval": "1m",
+    "rows": [
+      [
+        1792327740000,
+        "81899.50",
+        "81942.60",
+        "81899.40",
+        "81942.50",
+        "92.482",
+        1792327799999,
+        "7574755.95250",
+        1387,
+        "89.935",
+        "7366147.63970",
+        "0"
+      ],
+      [
+        1792327800000,
+        "81942.60",
+        "81942.60",
+        "81916.60",
+        "81934.50",
+        "31.489",
+        1792327859999,
+        "2579999.64920",
+        1057,
+        "6.606",
+        "541219.85580",
+        "0"
+      ],
+      [
+        1792327860000,
+        "81934.60",
+        "81939.90",
+        "81934.50",
+        "81939.90",
+        "3.763",
+        1792327919999,
+        "308328.75720",
+        167,
+        "2.730",
+        "223687.08660",
+        "0"
+      ]
+    ]
+  },
+  "spot_klines": {
+    "symbol": "BTCUSDT",
+    "interval": "1m",
+    "rows": [
+      [
+        1792327740000,
+        "81931.31000000",
+        "81970.01000000",
+        "81931.31000000",
+        "81970.00000000",
+        "2.02114000",
+        1792327799999,
+        "165629.64050130",
+        1503,
+        "1.90294000",
+        "155942.84501020",
+        "0"
+      ],
+      [
+        1792327800000,
+        "81970.01000000",
+        "81970.01000000",
+        "81950.96000000",
+        "81967.33000000",
+        "3.56437000",
+        1792327859999,
+        "292144.43684440",
+        1026,
+        "1.74329000",
+        "142874.52988250",
+        "0"
+      ],
+      [
+        1792327860000,
+        "81967.33000000",
+        "81967.33000000",
+        "81967.32000000",
+        "81967.33000000",
+        "0.34663000",
+        1792327919999,
+        "28412.33486450",
+        67,
+        "0.27329000",
+        "22400.85161570",
+        "0"
+      ]
+    ]
+  },
+  "validation": {
+    "server_time_consistency": "FAIL_PENDING_INVESTIGATION",
+    "fully_closed_candle_validation": "NOT_YET_PASSED",
+    "official_chart_comparison": "NOT_PERFORMED",
+    "reconnect_gap_duplicate_event_tests": "NOT_PERFORMED",
+    "legal_operational_gates": "OPEN"
+  },
+  "caveats": [
+    "Connector provides parsed results; exact wire bytes and HTTP receive headers are unavailable here.",
+    "No claim of independent chart verification or operational readiness."
+  ]
+}
+
+SHA256_UTF8_JSON_BODY=564ef629625441883c99e55880d6b043d4d34a5f886bb634451b627c7a737e8c
