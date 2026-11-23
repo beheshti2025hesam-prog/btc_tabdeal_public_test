@@ -1,0 +1,44 @@
+{
+  "finished_at": "2026-10-17T13:51:46.609871+00:00",
+  "frame_count": 5,
+  "frames": [
+    {
+      "kind": "other",
+      "raw": "{\"sid\":\"37ed0756-c63d-4727-aa64-3dba6b213ff2\",\"upgrades\":[],\"pingInterval\":20000,\"pingTimeout\":30000,\"maxPayload\":1048576}\n",
+      "received_at": "2026-10-17T13:51:29.442973+00:00",
+      "sha256": "ae6cfb52aa3ceb35179a30d1f6750fcd1f87975d72bff37241ee85f660bf238e"
+    },
+    {
+      "kind": "trade",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.92\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:51:29Z\"}]",
+      "received_at": "2026-10-17T13:51:29.460027+00:00",
+      "sha256": "cf2d64384ed69d105439a3935bbf2b5f898a2d5f68c3e7c53145b886e90045e4"
+    },
+    {
+      "kind": "trade",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.92\",\"quantity\":\"0.000598\",\"timestamp\":\"2026-10-17T13:51:33Z\"}]",
+      "received_at": "2026-10-17T13:51:33.714991+00:00",
+      "sha256": "3af12998f2a8a6d9c9e12b36cf730fae07b33c45d14d4240ec03344cf794c8c6"
+    },
+    {
+      "kind": "trade",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.92\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:51:38Z\"}]",
+      "received_at": "2026-10-17T13:51:38.355132+00:00",
+      "sha256": "514164a2617a85ed5d0e6c4260588355ca52d6094c0b3cbf883e6f6661b1a863"
+    },
+    {
+      "kind": "trade",
+      "raw": "[\"BTCUSDT@trade\",{\"isBuyOrder\":true,\"price\":\"81514.92\",\"quantity\":\"0.000599\",\"timestamp\":\"2026-10-17T13:51:42Z\"}]",
+      "received_at": "2026-10-17T13:51:42.573543+00:00",
+      "sha256": "533ee089243dafd553eb962c24757fc389386a8cffe57ede14a81d43b70565c8"
+    }
+  ],
+  "proxy_disabled": true,
+  "rest_latest_after": "2026-10-17T13:51:42Z",
+  "rest_latest_before": "2026-10-17T13:51:25Z",
+  "started_at": "2026-10-17T13:51:29.283989+00:00",
+  "subscription_sent_immediately": true,
+  "trade_frame_count": 4,
+  "verdict": "PASS",
+  "ws_error": null
+}
