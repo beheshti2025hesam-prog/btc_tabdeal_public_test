@@ -69,3 +69,16 @@ a verified replacement and explicit approval.
 - The daily local Restic backup remains enabled. The Dropbox sync timer remains enabled but will continue to stop at the quota gate until a sufficiently large free offsite destination is authorized and verified.
 
 A separate free-tier offsite destination with sufficient available quota is still required for the complete Restic mirror. No second provider is configured by this change. Do not delete or replace existing Dropbox recovery objects until a newer candidate has passed integrity checks and an isolated restore drill.
+
+
+## Restore-space and replacement-host retention gates (2026-11-23)
+
+- The isolated restore drill estimates the full Restic snapshot restore size with `restic stats --mode restore-size` before creating a temporary restore directory. It requires the estimate plus the greater of 1 GiB or 10% safety margin.
+- If free space is below that threshold, the drill exits with code `75` and `DEFERRED_INSUFFICIENT_SPACE`; it does not create a partial restore or write a PASS marker. The backup runner then performs a Restic read-data subset integrity check and marks retention as skipped. Backup creation can therefore continue without risking a full disk.
+- Retention pruning is blocked until a fresh, independently signed replacement-host restore attestation is supplied. Same-host restore success is necessary but not sufficient.
+- The replacement host must restore the exact latest full-scope snapshot, verify all snapshot roots, release manifests/files, Git strategy ref, host configuration, journals/evidence, and a boot/service smoke test. Its JSON attestation must be signed with an Ed25519 private key kept on the replacement host. The source VPS stores only the pinned public key at `/etc/hes-trade-agent/recovery-attestation.pub`.
+- Expected source-side attestation files are `/var/lib/hes-operational-health/replacement-host-restore-attestation.json` and `.sig`. Missing, stale, unsigned, same-host, wrong-snapshot, or incomplete attestations block pruning. Backups and integrity checks continue; no snapshot is forgotten or pruned.
+
+### Replacement-host signing outline
+
+Generate the Ed25519 key pair on the independent recovery host, not on the source VPS. Transfer only the public key to `/etc/hes-trade-agent/recovery-attestation.pub` on the source VPS. After a successful full-scope restore and boot smoke test, create the JSON attestation using schema `hes_replacement_host_restore_attestation_v1`, sign the exact JSON bytes with `openssl pkeyutl -sign -inkey recovery-attestation.key -rawin -in attestation.json -out attestation.sig`, and transfer the JSON plus signature to the source-side paths above. Keep the private key on the replacement host/offline escrow.
