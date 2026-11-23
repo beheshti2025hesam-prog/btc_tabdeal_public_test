@@ -1,0 +1,37 @@
+[Unit]
+Description=HES immutable offsite snapshot content deduplication
+After=local-fs.target
+Wants=local-fs.target
+ConditionPathIsDirectory=/var/backups/hes-trade-agent/offsite-staging/recovery-metadata
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+RuntimeDirectory=hes-storage-content-dedupe
+RuntimeDirectoryMode=0700
+ExecStart=/usr/bin/python3 /usr/local/lib/hes-storage-v1/hes_storage_content_dedupe_v1.py --root /var/backups/hes-trade-agent/offsite-staging/recovery-metadata --manifest-dir /srv/hes-evidence/operations/storage-lifecycle --min-age-seconds 3600 --apply
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/backups/hes-trade-agent/offsite-staging /srv/hes-evidence/operations/storage-lifecycle /run/lock /run/hes-storage-content-dedupe
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+TimeoutStartSec=1800
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
