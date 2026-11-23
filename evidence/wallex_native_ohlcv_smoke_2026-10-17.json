@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-17",
+  "venue": "Wallex",
+  "symbol": "BTCUSDT",
+  "endpoint": "/v1/udf/history",
+  "resolution": "1",
+  "query_from_unix": 1792239079,
+  "query_to_unix": 1792242679,
+  "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792239079&to=1792242679",
+  "http_status": 200,
+  "response_headers": {
+    "date": "Sat, 17 Oct 2026 13:11:20 GMT",
+    "content_type": "application/json",
+    "server": "Wallex"
+  },
+  "request_started_at": "2026-10-17T13:11:19.979401+00:00",
+  "response_received_at": "2026-10-17T13:11:20.093595+00:00",
+  "response_bytes": 3746,
+  "response_sha256": "726c9e017aaa767b5e2a6afe780843e78ef47f8199f7792176d24991fbd33605",
+  "source_status": "ok",
+  "array_lengths": {
+    "t": 60,
+    "o": 60,
+    "h": 60,
+    "l": 60,
+    "c": 60,
+    "v": 60
+  },
+  "all_arrays_equal_length": true,
+  "source_bar_count": 60,
+  "first_source_timestamp": 1792239120,
+  "last_source_timestamp": 1792242660,
+  "first_source_open_time": "2026-10-17T12:12:00+00:00",
+  "last_source_open_time": "2026-10-17T13:11:00+00:00",
+  "fully_closed_bar_count_at_receive": 59,
+  "not_yet_closed_bar_count_at_receive": 1,
+  "timestamps_strictly_increasing": true,
+  "minute_aligned": true,
+  "sample_first_bar": {
+    "t": 1792239120,
+    "o": "81515.02",
+    "h": "81515.02",
+    "l": "81515.02",
+    "c": "81515.02",
+    "v": "0"
+  },
+  "sample_last_bar": {
+    "t": 1792242660,
+    "o": "81514.91",
+    "h": "81514.91",
+    "l": "81514.91",
+    "c": "81514.91",
+    "v": "0.003592"
+  },
+  "raw_payload_stored_locally": "/tmp/wallex_native_ohlcv_raw_20261017.json",
+  "raw_payload_committed_to_repo": false,
+  "account_credentials_used": false,
+  "orders_sent": false,
+  "chart_parity_verified": false,
+  "official_documentation": "https://api-docs.wallex.ir/",
+  "interpretation": "Read-only endpoint and payload shape observed successfully. One currently forming minute bar was excluded by the client-side closed-candle rule. This does not prove UI chart parity or venue finalization guarantees."
+}

@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-17T13:45:43.653675Z",
+  "venue": "Wallex",
+  "symbol": "BTCUSDT",
+  "request_window": {
+    "from_unix": 1792158343,
+    "to_unix": 1792244743,
+    "range_seconds": 86400
+  },
+  "transport": {
+    "method": "GET",
+    "proxy_used": false,
+    "credentials_used": false,
+    "private_endpoints_used": false,
+    "orders_or_account_mutations": false
+  },
+  "chart_ui_inspection": {
+    "page_url": "https://wallex.ir/app/trade/BTCUSDT?trade-type=spot&trade-history=spot",
+    "page_http_status": 200,
+    "page_sha256": "cdf4175a45aa43a3d0d81ddafdbc40ad0f81a72c0058506f2f0c074367ca6860",
+    "chart_bundle_url": "https://wallex.ir/_next/static/chunks/21v8tx2u_2l_g.js",
+    "chart_bundle_sha256": "333bac8e5b79e4188dbd764fd4d498940517e0420ced6cacf3f62a90c0f87d82",
+    "api_wrapper_bundle_url": "https://wallex.ir/_next/static/chunks/04h_i7nro62s_.js",
+    "api_wrapper_bundle_sha256": "8f141e723e44e25e5536ccf2eeec1125096e655b1229aad5ed2b43a219a06b7d",
+    "source_observation": "The official page's TradingView-compatible datafeed code requests history with symbol/resolution/from/to; the API wrapper calls v1/udf/history. Its fallback config advertises 1,5,15,30,60,1D,1W,1M. This inspection proves the datafeed route and advertised intervals, not a visual pixel-level chart comparison.",
+    "visual_chart_parity_verified": false
+  },
+  "resolutions": [
+    {
+      "resolution": "1",
+      "http_status": 200,
+      "source_status": "ok",
+      "bars": 1439,
+      "unique_deltas_seconds": [
+        60
+      ],
+      "raw_sha256": "0656869c1b01bd7e6a738ca2921bc745dff3b569e95114af7d5e3aaa7baa5be8",
+      "raw_capture": "evidence/raw/wallex_resolution_1_20261017T134543Z.json.gz.b64"
+    },
+    {
+      "resolution": "5",
+      "http_status": 200,
+      "source_status": "error",
+      "bars": 0,
+      "unique_deltas_seconds": [],
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "raw_capture": "evidence/raw/wallex_resolution_5_20261017T134543Z.json.gz.b64"
+    },
+    {
+      "resolution": "15",
+      "http_status": 200,
+      "source_status": "ok",
+      "bars": 1439,
+      "unique_deltas_seconds": [
+        60
+      ],
+      "raw_sha256": "0656869c1b01bd7e6a738ca2921bc745dff3b569e95114af7d5e3aaa7baa5be8",
+      "identical_response_to_resolution": "1"
+    },
+    {
+      "resolution": "60",
+      "http_status": 200,
+      "source_status": "ok",
+      "bars": 24,
+      "unique_deltas_seconds": [
+        3600
+      ],
+      "raw_sha256": "ad1a1128a64059936d22fb4b6dd848099b4a18810487feefc4b2562773147a22",
+      "raw_capture": "evidence/raw/wallex_resolution_60_20261017T134543Z.json.gz.b64"
+    },
+    {
+      "resolution": "180",
+      "http_status": 200,
+      "source_status": "error",
+      "bars": 0,
+      "unique_deltas_seconds": [],
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "identical_response_to_resolution": "5"
+    },
+    {
+      "resolution": "360",
+      "http_status": 200,
+      "source_status": "error",
+      "bars": 0,
+      "unique_deltas_seconds": [],
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "identical_response_to_resolution": "5"
+    },
+    {
+      "resolution": "720",
+      "http_status": 200,
+      "source_status": "ok",
+      "bars": 24,
+      "unique_deltas_seconds": [
+        3600
+      ],
+      "raw_sha256": "ad1a1128a64059936d22fb4b6dd848099b4a18810487feefc4b2562773147a22",
+      "identical_response_to_resolution": "60"
+    },
+    {
+      "resolution": "D",
+      "http_status": 200,
+      "source_status": "ok",
+      "bars": 1,
+      "unique_deltas_seconds": [],
+      "raw_sha256": "4d056a997ce4633a12e4e92c716ac5a2c430af2e817899c655f99bdfba84bf4b",
+      "identical_response_to_resolution": "1D"
+    },
+    {
+      "resolution": "1D",
+      "http_status": 200,
+      "source_status": "ok",
+      "bars": 1,
+      "unique_deltas_seconds": [],
+      "raw_sha256": "4d056a997ce4633a12e4e92c716ac5a2c430af2e817899c655f99bdfba84bf4b",
+      "raw_capture": "evidence/raw/wallex_resolution_1D_20261017T134543Z.json.gz.b64"
+    }
+  ],
+  "verdict": {
+    "enabled_resolutions": [
+      "1",
+      "60",
+      "1D"
+    ],
+    "disabled_until_verified": [
+      "5",
+      "15",
+      "180",
+      "360",
+      "720",
+      "D",
+      "30",
+      "1W",
+      "1M"
+    ],
+    "reason": "15 returned minute spacing; 720 returned hourly spacing; 5/180/360 returned source status error. Other advertised intervals were not tested in this capture.",
+    "chart_endpoint_parity": "The direct endpoint is the route used by the official TradingView-compatible datafeed; no independent screenshot/rendered-candle comparison has been completed.",
+    "execution": "OFF",
+    "collector_enabled": false
+  },
+  "raw_capture_format": "Each .json.gz.b64 file is base64-encoded gzip of the exact response body. Decode base64, gunzip, then compare SHA-256 with raw_sha256. Capture response bytes were retained on the VPS under /srv/hes-evidence/wallex.",
+  "source_capture_manifest": "evidence/raw/wallex_timeframe_semantics_capture_20261017T134543Z.json",
+  "source_capture_manifest_sha256": "verified by evidence/raw/wallex_timeframe_semantics_capture_20261017T134543Z.json.sha256"
+}

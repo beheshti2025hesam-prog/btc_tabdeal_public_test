@@ -1,0 +1,15 @@
+{
+  "adapter_path": "forward/wallex_native_candles_v1.py",
+  "adapter_sha256": "849b835221050d799c61c90694cc89e9a2562162e168aa33fe257c7aed80ba47",
+  "captured_at": "2026-10-17T13:57:00Z",
+  "command": "PYTHONPATH=forward PYTHONDONTWRITEBYTECODE=1 /opt/hes-trade-agent/.venv/bin/python -m pytest -q -p no:cacheprovider forward/test_wallex_native_candles_v1.py",
+  "commit_sha": "37bf4cb8ff60890d94e7c1b114f8f800fb3f41db",
+  "duration_seconds": 0.11,
+  "environment": "enrolled VPS, existing Python 3.12 virtualenv",
+  "repository": "beheshti2025hesam-prog/btc_tabdeal_public_test",
+  "result": "PASS",
+  "safety": "Offline deterministic tests against an isolated exact-commit code copy; no production collector or orders.",
+  "test_path": "forward/test_wallex_native_candles_v1.py",
+  "test_sha256": "36a9deb034cf6508a76302adfb357983ccb7098bdc34795a33d70d24cecf47d8",
+  "tests_passed": 21
+}

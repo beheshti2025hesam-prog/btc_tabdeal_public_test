@@ -26,3 +26,7 @@ It does **not** contain:
 ## Important
 
 The current implementation is a normalization contract/reference implementation. It is not yet wired into the live collector and therefore does not change collection behavior.
+
+## Separate venue-native OHLCV path (research / adapter only)
+
+The Tabdeal trade-to-candle contract above remains unchanged and is not a native candle client. A separate read-only Wallex native OHLCV adapter is documented in `forward/wallex_native_candles_README.md`. It is isolated and **not wired into the collector or decision path**. Its bounded live REST and WebSocket smoke records are under `evidence/`; these records do not prove chart parity, national-intranet compatibility, or trade identity/order/replay semantics.

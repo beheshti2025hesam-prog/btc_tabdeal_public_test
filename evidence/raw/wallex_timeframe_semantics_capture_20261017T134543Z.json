@@ -1,0 +1,152 @@
+{
+  "captured_at": "2026-10-17T13:45:43.653675+00:00",
+  "interpretation": "Observed spacing is empirical for this bounded request only; do not infer chart parity.",
+  "proxy_used": false,
+  "range_seconds": 86400,
+  "resolutions": [
+    {
+      "arrays_equal_length": true,
+      "bar_count": 1439,
+      "delta_count": 1438,
+      "first_timestamp": 1792158360,
+      "http_status": 200,
+      "last_timestamp": 1792244640,
+      "proxy_used": false,
+      "raw_sha256": "0656869c1b01bd7e6a738ca2921bc745dff3b569e95114af7d5e3aaa7baa5be8",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1&from=1792158343&to=1792244743",
+      "resolution": "1",
+      "response_bytes": 85195,
+      "source_status": "ok",
+      "unique_deltas_seconds": [
+        60
+      ]
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 0,
+      "delta_count": 0,
+      "first_timestamp": null,
+      "http_status": 200,
+      "last_timestamp": null,
+      "proxy_used": false,
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=5&from=1792158343&to=1792244743",
+      "resolution": "5",
+      "response_bytes": 44,
+      "source_status": "error",
+      "unique_deltas_seconds": []
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 1439,
+      "delta_count": 1438,
+      "first_timestamp": 1792158360,
+      "http_status": 200,
+      "last_timestamp": 1792244640,
+      "proxy_used": false,
+      "raw_sha256": "0656869c1b01bd7e6a738ca2921bc745dff3b569e95114af7d5e3aaa7baa5be8",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=15&from=1792158343&to=1792244743",
+      "resolution": "15",
+      "response_bytes": 85195,
+      "source_status": "ok",
+      "unique_deltas_seconds": [
+        60
+      ]
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 24,
+      "delta_count": 23,
+      "first_timestamp": 1792159200,
+      "http_status": 200,
+      "last_timestamp": 1792242000,
+      "proxy_used": false,
+      "raw_sha256": "ad1a1128a64059936d22fb4b6dd848099b4a18810487feefc4b2562773147a22",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=60&from=1792158343&to=1792244743",
+      "resolution": "60",
+      "response_bytes": 1632,
+      "source_status": "ok",
+      "unique_deltas_seconds": [
+        3600
+      ]
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 0,
+      "delta_count": 0,
+      "first_timestamp": null,
+      "http_status": 200,
+      "last_timestamp": null,
+      "proxy_used": false,
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=180&from=1792158343&to=1792244743",
+      "resolution": "180",
+      "response_bytes": 44,
+      "source_status": "error",
+      "unique_deltas_seconds": []
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 0,
+      "delta_count": 0,
+      "first_timestamp": null,
+      "http_status": 200,
+      "last_timestamp": null,
+      "proxy_used": false,
+      "raw_sha256": "a2e320361819e490efded625a9f7c4babc4952283e046e0647505221ce59d245",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=360&from=1792158343&to=1792244743",
+      "resolution": "360",
+      "response_bytes": 44,
+      "source_status": "error",
+      "unique_deltas_seconds": []
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 24,
+      "delta_count": 23,
+      "first_timestamp": 1792159200,
+      "http_status": 200,
+      "last_timestamp": 1792242000,
+      "proxy_used": false,
+      "raw_sha256": "ad1a1128a64059936d22fb4b6dd848099b4a18810487feefc4b2562773147a22",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=720&from=1792158343&to=1792244743",
+      "resolution": "720",
+      "response_bytes": 1632,
+      "source_status": "ok",
+      "unique_deltas_seconds": [
+        3600
+      ]
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 1,
+      "delta_count": 0,
+      "first_timestamp": 1792195200,
+      "http_status": 200,
+      "last_timestamp": 1792195200,
+      "proxy_used": false,
+      "raw_sha256": "4d056a997ce4633a12e4e92c716ac5a2c430af2e817899c655f99bdfba84bf4b",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=D&from=1792158343&to=1792244743",
+      "resolution": "D",
+      "response_bytes": 110,
+      "source_status": "ok",
+      "unique_deltas_seconds": []
+    },
+    {
+      "arrays_equal_length": true,
+      "bar_count": 1,
+      "delta_count": 0,
+      "first_timestamp": 1792195200,
+      "http_status": 200,
+      "last_timestamp": 1792195200,
+      "proxy_used": false,
+      "raw_sha256": "4d056a997ce4633a12e4e92c716ac5a2c430af2e817899c655f99bdfba84bf4b",
+      "request_url": "https://api.wallex.ir/v1/udf/history?symbol=BTCUSDT&resolution=1D&from=1792158343&to=1792244743",
+      "resolution": "1D",
+      "response_bytes": 110,
+      "source_status": "ok",
+      "unique_deltas_seconds": []
+    }
+  ],
+  "symbol": "BTCUSDT"
+}

@@ -1,0 +1,18 @@
+{
+  "all_passed": true,
+  "captured_at": "2026-10-17T13:49:27.636355+00:00",
+  "checks": {
+    "duplicate_id_rejected": true,
+    "partial_write_fails_closed": true,
+    "read_after_new_process_start": true,
+    "tampered_checkpoint_rejected": true
+  },
+  "details": {
+    "cross_process_returncode": 0,
+    "simulated_crash_exit_code": 77
+  },
+  "orders_or_account_mutations": false,
+  "production_collector_started": false,
+  "production_evidence_touched": false,
+  "test_location": "isolated temporary directory on same filesystem as /srv/hes-evidence/wallex"
+}
