@@ -39,7 +39,7 @@ def _audit(items=None):
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mode": "READ_ONLY_DRY_RUN",
         "disk": {"total_bytes": 1000, "used_bytes": 800, "free_bytes": 200, "free_percent": 20},
-        "worktree_registry": {"paths": ["/opt/hes-trade-agent/.worktrees/example"]},
+        "worktree_registry": {"repo_root": "/opt/hes-trade-agent", "paths": ["/opt/hes-trade-agent", "/opt/hes-trade-agent/.worktrees/example"]},
         "scan_summary": {
             "item_count": len(rows),
             "scan_errors": sum(int(row.get("scan_errors", 0)) for row in rows),
@@ -601,3 +601,27 @@ def test_physical_inode_accounting_fields_are_preserved_through_cleanup_manager(
     assert row["ownership_scope"] == "HES_TEMP"
     assert row["scan_errors"] == 0
     assert report["source_audit_gate"]["status"] == "PASS"
+
+
+def test_primary_repo_root_does_not_block_unrelated_project_children():
+    report = _build_report(
+        _audit([{"path": "/opt/hes-trade-agent/releases", "classification": "REVIEW_TEMP", "allocated_bytes": 10}]),
+        proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+        backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    row = report["items"][0]
+    assert row["registered_worktree_related"] is False
+    assert row["dependency_status"] == "NO_LIVE_REFERENCE_OBSERVED"
+    assert row["decision"] == "REVIEW_ONLY"
+
+
+def test_parent_of_registered_child_worktree_remains_blocked():
+    report = _build_report(
+        _audit([{"path": "/opt/hes-trade-agent/.worktrees", "classification": "REVIEW_TEMP", "allocated_bytes": 10}]),
+        proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
+        backup_status={}, active_targets=[], pointer_errors=[],
+    )
+    row = report["items"][0]
+    assert row["registered_worktree_related"] is True
+    assert row["dependency_status"] == "BLOCKED_REFERENCED"
+    assert row["decision"] == "KEEP"
