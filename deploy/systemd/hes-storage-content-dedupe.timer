@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily HES immutable offsite snapshot content deduplication
+
+[Timer]
+OnCalendar=*-*-* 04:05:00 UTC
+Persistent=true
+RandomizedDelaySec=5m
+Unit=hes-storage-content-dedupe.service
+
+[Install]
+WantedBy=timers.target
