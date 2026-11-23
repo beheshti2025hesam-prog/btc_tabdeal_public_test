@@ -42,7 +42,11 @@ def _patch_engines(monkeypatch, *, confirmation_state="CONFIRMED_SHORT", risk_st
         state=confirmation_state, passed_count=3, required_count=3,
         reason_codes=("ALL_REQUIRED_CONFIRMATIONS_PASSED",), checks=(check,),
     )
-    monkeypatch.setattr(lane, "evaluate_confirmation_evidence", lambda **k: {"confirmation": confirmation})
+    captured = {}
+    def fake_confirmation(**kwargs):
+        captured["proposal"] = kwargs["proposal"]
+        return {"confirmation": confirmation}
+    monkeypatch.setattr(lane, "evaluate_confirmation_evidence", fake_confirmation)
     risk_check = SimpleNamespace(name="risk_reward_gate_passed", state="PASS", evidence_ref="risk:3R")
     risk = SimpleNamespace(state=risk_state, reason_codes=("ALL_RISK_GATES_PASSED",) if risk_state == "RISK_APPROVED" else ("CONFIRMATION_NOT_VALID",), checks=(risk_check,))
     sizing = SimpleNamespace(approved=True, quantity=1.0, notional=100.0, risk_budget=0.5)
@@ -53,16 +57,18 @@ def _patch_engines(monkeypatch, *, confirmation_state="CONFIRMED_SHORT", risk_st
         return {"risk": effective, "sizing": sizing, "risk_context_ok": True,
                 "geometry_ok": True, "rr_ok": True, "config": {}}
     monkeypatch.setattr(lane, "evaluate_risk_evidence", fake_risk)
+    return captured
 
 
 def test_family_paper_lane_generates_candidate_but_never_execution(monkeypatch):
-    _patch_engines(monkeypatch)
+    captured = _patch_engines(monkeypatch)
     result = lane.evaluate_strategy_family_paper_lane(
         data=_inputs(), structure={"status": "OBSERVED", "regime": "DOWNTREND", "events": ["BOS_BEARISH"]},
         observed_at=datetime.now(timezone.utc), precision_entry_1m={"status": "READY"},
         news_context={"status": "READY", "veto_flags": []},
     )
     candidate = result["selected_candidate"]
+    assert captured["proposal"].quality_score is None
     assert result["status"] == "CONFIRMED_RISK_APPROVED_PAPER_ONLY"
     assert candidate["direction"] == "SHORT" and candidate["rr"] == 3.0
     assert candidate["parent_family_id"] == "trend_breakout"

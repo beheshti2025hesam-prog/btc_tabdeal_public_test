@@ -29,7 +29,7 @@ class _FamilyProposal:
     policy_version: str
     decision: str
     direction: str
-    quality_score: int
+    quality_score: float | None
     entry: float
     stop_loss: float
     take_profit: float
@@ -140,7 +140,8 @@ def evaluate_strategy_family_paper_lane(
         proposal = _FamilyProposal(
             policy_version=candidate.family_version,
             decision=candidate.direction, direction=candidate.direction,
-            quality_score=100, entry=risk_geometry["entry"],
+            # No calibrated family-lane quality model exists; do not fabricate a score.
+            quality_score=None, entry=risk_geometry["entry"],
             stop_loss=risk_geometry["stop_loss"], take_profit=risk_geometry["take_profit"],
             rr=risk_geometry["rr"], reasons=tuple(candidate.reason_codes),
             checks={"indicator_family": "PASS", "htf_alignment": "PASS", "closed_candles": "PASS"},
