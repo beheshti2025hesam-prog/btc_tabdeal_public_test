@@ -83,3 +83,30 @@ The 5 GB objective is not yet met. Remaining footprint is not disposable cache; 
 - Dropbox compact core remote recovery: exact remote object copied back, SHA-256/size matched its sidecar (`f4702fff3275f828706e081c4f4b3e4dc937058b958bd54f8dbefa599e3d01ec`, 398,216,865 bytes); GPG, Zstandard and safe tar listing passed (8,897 entries); full extraction passed; active release 620/620 and rollback release 582/582 manifest files verified; main Git object connectivity passed. Test tree and downloaded object removed.
 - Remote restore evidence is stored at `.../2026-11-20T1323Z/dropbox-core-remote-restore.json`; local full restore evidence is stored at `.../2026-11-20T1323Z/full-restore-drill.json`.
 - The Smart Storage Manager now reports local and remote restore independently. Replacement-host boot/recovery remains NOT_PROVEN; no backup pruning or destructive cleanup is authorized.
+
+## Dashboard contract update — 2026-11-23
+
+### Hard budget and accounting
+- Target: complete local HES footprint **strictly below 5,000,000,000 allocated bytes (decimal 5 GB)**.
+- Scope: project checkout/releases/candidates/worktrees, independent evidence, local backups/offsite staging, HES-owned temporary/restore artifacts, and HES runtime state/logs.
+- Use the exact IDLM snapshot and global (st_dev, st_ino) deduplication. Show:
+  - total_local_hes_bytes_including_backups — conservative physical allocation;
+  - total_local_hes_logical_path_bytes — path-summed allocation;
+  - shared_inode_path_bytes_not_double_counted — duplicate inode paths not counted twice;
+  - component bytes for project, evidence, backups, HES temp/restore, HES runtime, and unclassified temp.
+- allocated_bytes is the logical path sum; unique_allocated_bytes is the unique physical value used for the hard budget. Never sum hardlinked paths as separate disk use.
+- HES-owned /tmp and /var/tmp plus /var/lib/hes-*, /var/log/hes-*, and /var/cache/hes-* must be included. Platform-private temp roots are excluded. Unclassified temp paths are counted conservatively and block acceptance.
+
+### Status semantics
+- WITHIN_BUDGET: complete/error-free scope and physical total below the target.
+- OVER_BUDGET: complete/error-free scope but physical total exceeds the target.
+- SCOPE_INCOMPLETE: unknown temp ownership or incomplete scope; no compliance claim.
+- SCOPE_INCOMPLETE_OVER_BUDGET: scope is incomplete and the known/conservative total already exceeds the target.
+- Display scan errors, missing roots, unclassified temp item count/bytes, and last successful daily audit. Do not show a green/pass state unless scope_complete=true and complete_footprint_within_target=true.
+
+### Safety and operations
+- The daily hes-smart-storage-maintenance.timer runs the existing IDLM → Smart Cleanup → Smart Storage chain.
+- Automatic cleanup is cache-only and bounded. Release/worktree, model, dataset, evidence, and backup deletion/pruning remain disabled.
+- Preserve active/rollback releases and every dirty, unpushed, open, referenced, or unverified path.
+- Backup pruning stays blocked until remote restore, replacement-host recovery, and external key escrow are proven.
+- The 5 GB objective is currently **NOT MET**; a previous manager path-sum is not acceptance-grade until global inode-aware accounting and full HES scope are in place.
