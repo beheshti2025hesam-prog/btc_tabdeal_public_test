@@ -178,6 +178,20 @@ def _classify(
     if path in {Path("/tmp"), Path("/var/tmp")} or path.parent in {Path("/tmp"), Path("/var/tmp")}:
         if not worktree_registry_ok:
             return "KEEP_UNKNOWN", "Git worktree registry could not be verified; preserve temporary paths until dependencies are known."
+        # An unregistered Git clone/worktree can contain dirty, unpushed, or ignored user data.
+        # Keep it until its exact commit, status, ignored files, and remote provenance are reviewed.
+        if path.is_dir() and os.path.lexists(path / ".git"):
+            return "KEEP_UNREGISTERED_GIT_WORKSPACE", "Temporary path contains its own Git metadata; preserve until dirty/untracked/ignored state and remote commit provenance are verified."
+        archive_suffixes = (".tar", ".tar.gz", ".tar.zst", ".tar.zst.gpg", ".tar.gz.gpg", ".gpg", ".zip", ".bundle", ".7z", ".zst")
+        evidence_tokens = (
+            "backup", "restore", "recovery", "archive", "evidence", "journal", "model",
+            "dataset", "candidate", "release", "rollback", "snapshot", "fulltest",
+            "soak", "smoke", "hash-check", "security", "review", "audit", "training",
+            "lineage", "lab", "differential", "preview", "restic", "strace",
+        )
+        name = path.name.lower()
+        if name.endswith(archive_suffixes) or any(token in name for token in evidence_tokens):
+            return "KEEP_TEMP_EVIDENCE", "Temporary path looks like an archive, backup, recovery, test, model, dataset, review, or audit artifact; preserve until exact content and retention evidence authorize compaction."
         if age_days >= stale_after_days:
             return "REVIEW_STALE_TEMP", "Older temporary workspace; verify run/evidence ownership and process references."
         return "REVIEW_TEMP", "Temporary workspace; verify ownership and reproducibility before any action."
