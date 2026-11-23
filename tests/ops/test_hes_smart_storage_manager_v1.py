@@ -6,17 +6,27 @@ from scripts.ops.hes_smart_storage_manager_v1 import archive_inventory, build_re
 NOW=datetime(2026,11,15,15,0,tzinfo=timezone.utc)
 
 def source_reports():
+    rows=[
+      {"path":"/var/tmp/a","classification":"REVIEW_TEMP","allocated_bytes":4096,
+       "logical_allocated_bytes":4096,"unique_allocated_bytes":4096,"shared_inode_path_bytes":0,
+       "ownership_scope":"HES_TEMP","scan_errors":0,"file_count":1,"directory_count":0},
+      {"path":"/var/backups/hes-trade-agent/a","classification":"KEEP_BACKUP","allocated_bytes":8192,
+       "logical_allocated_bytes":8192,"unique_allocated_bytes":8192,"shared_inode_path_bytes":0,
+       "ownership_scope":"HES_BACKUP","scan_errors":0,"file_count":1,"directory_count":0},
+    ]
     idlm={"schema":"hes_data_lifecycle_audit_v1","mode":"READ_ONLY_DRY_RUN",
-          "generated_at":NOW.isoformat(),"items":[]}
+          "generated_at":NOW.isoformat(),"items":[dict(x) for x in rows],
+          "scan_summary":{"item_count":2,"scan_errors":0,"logical_allocated_bytes":12288,
+             "unique_allocated_bytes":12288,"shared_inode_path_bytes":0,
+             "unclassified_temp_items":0,"unclassified_temp_bytes":0,"missing_roots":[],
+             "global_inode_dedup":True}}
     cleanup={"schema":"hes_smart_cleanup_manager_v1","mode":"READ_ONLY_DEPENDENCY_AWARE_DRY_RUN",
       "generated_at":NOW.isoformat(),"source_audit_schema":idlm["schema"],
       "source_audit_generated_at":idlm["generated_at"],"source_audit_gate":{"status":"PASS","errors":[],"age_seconds":1},
       "dependency_scan":{"process_scan_errors":0,"scheduled_job_scan_errors":0,"unit_scan_errors":0,
                          "active_pointer_errors":[],"process_reference_count":2,"running_unit_reference_count":1,
                          "scheduled_job_reference_count":3},
-      "inventory_items":2,"items":[
-        {"path":"/var/tmp/a","classification":"REVIEW_TEMP","allocated_bytes":4096},
-        {"path":"/var/backups/a","classification":"KEEP_BACKUP","allocated_bytes":8192}],
+      "inventory_items":2,"items":rows,
       "recovery_gate":{"full_restore_gate":"BLOCKED_NOT_PROVEN","cleanup_authorization":False}}
     return idlm,cleanup
 
@@ -86,7 +96,7 @@ def test_report_has_no_mutation_authority():
     idlm,cleanup=source_reports()
     result=build_report(idlm=idlm,cleanup=cleanup,now=NOW,disk={"pressure":"WARN"},
                         quota={"status":"READ_OK","free_bytes":123},evidence=None)
-    assert result["inventory_source"]=="IDLM_V1_PLUS_SMART_CLEANUP_MANAGER_V1"
+    assert result["inventory_source"]=="IDLM_V1_GLOBAL_INODE_ACCOUNTING_PLUS_SMART_CLEANUP_MANAGER_V1"
     assert result["policy"]["deletion_authorized"] is False
     assert result["policy"]["move_authorized"] is False
     assert result["policy"]["compression_authorized"] is False
@@ -121,24 +131,53 @@ def test_nested_full_scope_compression_evidence_is_parsed_without_overclaiming_l
 def test_storage_budget_counts_direct_children_once_and_separates_backup_copies():
     from scripts.ops.hes_smart_storage_manager_v1 import storage_budget
     items=[
-      {"path":"/opt/hes-trade-agent/releases","allocated_bytes":500},
-      {"path":"/opt/hes-trade-agent/releases/active","allocated_bytes":100},
-      {"path":"/opt/hes-trade-agent/data","allocated_bytes":200},
-      {"path":"/srv/hes-evidence/gateio","allocated_bytes":50},
-      {"path":"/srv/hes-evidence/gateio/raw","allocated_bytes":25},
-      {"path":"/var/backups/hes-trade-agent/encrypted-local","allocated_bytes":1000},
-      {"path":"/var/backups/hes-trade-agent/encrypted-local/a.gpg","allocated_bytes":500},
+      {"path":"/opt/hes-trade-agent/releases","allocated_bytes":500,"logical_allocated_bytes":500,"unique_allocated_bytes":500,"shared_inode_path_bytes":0,"ownership_scope":"HES_PROJECT"},
+      {"path":"/opt/hes-trade-agent/releases/active","allocated_bytes":100,"logical_allocated_bytes":100,"unique_allocated_bytes":100,"shared_inode_path_bytes":0,"ownership_scope":"HES_PROJECT"},
+      {"path":"/opt/hes-trade-agent/data","allocated_bytes":200,"logical_allocated_bytes":200,"unique_allocated_bytes":200,"shared_inode_path_bytes":0,"ownership_scope":"HES_PROJECT"},
+      {"path":"/srv/hes-evidence/gateio","allocated_bytes":50,"logical_allocated_bytes":50,"unique_allocated_bytes":50,"shared_inode_path_bytes":0,"ownership_scope":"HES_EVIDENCE"},
+      {"path":"/srv/hes-evidence/gateio/raw","allocated_bytes":25,"logical_allocated_bytes":25,"unique_allocated_bytes":25,"shared_inode_path_bytes":0,"ownership_scope":"HES_EVIDENCE"},
+      {"path":"/var/backups/hes-trade-agent/encrypted-local","allocated_bytes":1000,"logical_allocated_bytes":1000,"unique_allocated_bytes":1000,"shared_inode_path_bytes":0,"ownership_scope":"HES_BACKUP"},
+      {"path":"/var/backups/hes-trade-agent/encrypted-local/a.gpg","allocated_bytes":500,"logical_allocated_bytes":500,"unique_allocated_bytes":500,"shared_inode_path_bytes":0,"ownership_scope":"HES_BACKUP"},
     ]
-    result=storage_budget(items,target_gb=0)
+    summary={"scan_errors":0,"unclassified_temp_items":0,"unclassified_temp_bytes":0,"missing_roots":[],"global_inode_dedup":True}
+    result=storage_budget(items,target_gb=0,scan_summary=summary)
     assert result["components_bytes"]=={
       "project_checkout_including_releases_candidates_worktrees":700,
       "independent_evidence_store":50,
-      "local_backups_and_offsite_staging":1000
+      "local_backups_and_offsite_staging":1000,
+      "hes_owned_temporary_and_restore_artifacts":0,
+      "hes_runtime_state_and_logs":0,
+      "unclassified_temporary_paths_counted_conservatively":0,
     }
     assert result["total_local_hes_bytes_including_backups"]==1750
     assert result["complete_footprint_within_target"] is False
     assert result["agent_core_bytes_excluding_backup_copies"]==750
+    assert result["scope_complete"] is True
+    assert result["scope_status"]=="OVER_BUDGET"
     assert result["no_data_mutated"] is True
+
+
+def test_storage_budget_counts_unique_physical_bytes_and_includes_temp_runtime():
+    from scripts.ops.hes_smart_storage_manager_v1 import storage_budget
+    items=[
+      {"path":"/opt/hes-trade-agent/releases","allocated_bytes":1000,"logical_allocated_bytes":1000,"unique_allocated_bytes":600,"shared_inode_path_bytes":400,"ownership_scope":"HES_PROJECT"},
+      {"path":"/srv/hes-evidence/gateio","allocated_bytes":100,"logical_allocated_bytes":100,"unique_allocated_bytes":100,"shared_inode_path_bytes":0,"ownership_scope":"HES_EVIDENCE"},
+      {"path":"/var/backups/hes-trade-agent/encrypted-local","allocated_bytes":200,"logical_allocated_bytes":200,"unique_allocated_bytes":200,"shared_inode_path_bytes":0,"ownership_scope":"HES_BACKUP"},
+      {"path":"/tmp/hes-review","allocated_bytes":300,"logical_allocated_bytes":300,"unique_allocated_bytes":300,"shared_inode_path_bytes":0,"ownership_scope":"HES_TEMP"},
+      {"path":"/var/lib/hes-runtime","allocated_bytes":400,"logical_allocated_bytes":400,"unique_allocated_bytes":400,"shared_inode_path_bytes":0,"ownership_scope":"HES_RUNTIME"},
+      {"path":"/tmp/unclassified","allocated_bytes":50,"logical_allocated_bytes":50,"unique_allocated_bytes":50,"shared_inode_path_bytes":0,"ownership_scope":"UNCLASSIFIED_TEMP"},
+    ]
+    summary={"scan_errors":0,"unclassified_temp_items":1,"unclassified_temp_bytes":50,"missing_roots":[],"global_inode_dedup":True}
+    result=storage_budget(items,target_gb=0,scan_summary=summary)
+    assert result["components_bytes"]["hes_owned_temporary_and_restore_artifacts"]==300
+    assert result["components_bytes"]["hes_runtime_state_and_logs"]==400
+    assert result["components_bytes"]["unclassified_temporary_paths_counted_conservatively"]==50
+    assert result["total_local_hes_bytes_including_backups"]==1650
+    assert result["total_local_hes_logical_path_bytes"]==2050
+    assert result["shared_inode_path_bytes_not_double_counted"]==400
+    assert result["scope_complete"] is False
+    assert result["scope_status"]=="SCOPE_INCOMPLETE_OVER_BUDGET"
+    assert result["complete_footprint_within_target"] is False
 
 def test_local_backup_benchmark_is_distinguished_from_offsite_scope():
     evidence={
@@ -217,7 +256,7 @@ def test_invalid_or_incomplete_restore_evidence_fails_closed():
 
 def test_storage_budget_uses_decimal_five_gb_hard_target():
     from scripts.ops.hes_smart_storage_manager_v1 import storage_budget
-    result=storage_budget([],target_gb=5)
+    result=storage_budget([],target_gb=5,scan_summary={"scan_errors":0,"unclassified_temp_items":0,"unclassified_temp_bytes":0,"missing_roots":[],"global_inode_dedup":True})
     assert result["target_bytes"] == 5_000_000_000
     assert result["target_gb"] == 5
     assert result["complete_footprint_within_target"] is True
@@ -270,3 +309,16 @@ def test_storage_report_distinguishes_local_and_remote_restore_from_replacement_
     assert result["policy"]["remote_restore_verified"] is True
     assert result["policy"]["safe_cache_maintenance_timer_enabled"] is True
     assert result["policy"]["automatic_project_data_cleanup_authorized"] is False
+
+def test_load_inventory_fails_closed_when_global_inode_accounting_is_missing():
+    idlm,cleanup=source_reports()
+    idlm["scan_summary"].pop("global_inode_dedup")
+    with pytest.raises(ValueError,match="summary missing"):
+        load_inventory(idlm,cleanup,NOW)
+
+
+def test_load_inventory_fails_closed_when_cleanup_drops_physical_fields():
+    idlm,cleanup=source_reports()
+    cleanup["items"][0].pop("unique_allocated_bytes")
+    with pytest.raises(ValueError,match="malformed"):
+        load_inventory(idlm,cleanup,NOW)
