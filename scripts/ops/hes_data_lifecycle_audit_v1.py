@@ -18,20 +18,26 @@ import subprocess
 import sys
 from typing import Any
 
+# HES roots are scanned before platform roots so shared inodes are attributed to HES.
 DEFAULT_ROOTS = (
+    "/opt/hes-trade-agent",
+    "/srv/hes-evidence",
+    "/var/backups/hes-trade-agent",
     "/tmp",
     "/var/tmp",
-    "/var/backups/hes-trade-agent",
-    "/srv/hes-evidence",
-    "/var/backups/hes-trade-agent/encrypted-local",
-    "/var/backups/hes-trade-agent/dropbox-staging",
-    "/opt/hes-trade-agent",
-    "/opt/sentinelx-cloud-core",
-    "/home/hes-remote",
+    "/var/lib",
     "/var/log",
     "/var/cache",
-    "/var/lib",
+    "/var/backups/hes-trade-agent/encrypted-local",
+    "/var/backups/hes-trade-agent/dropbox-staging",
+    "/opt/sentinelx-cloud-core",
+    "/home/hes-remote",
 )
+TEMP_ROOTS = {Path("/tmp"), Path("/var/tmp")}
+RUNTIME_ROOTS = {Path("/var/lib"), Path("/var/log"), Path("/var/cache")}
+PLATFORM_TEMP_EXACT = {".X11-unix", ".ICE-unix", ".XIM-unix", ".font-unix"}
+PLATFORM_TEMP_PREFIXES = ("systemd-private-", "snap-private-tmp", "apt-", "apt.")
+HES_TEMP_PREFIXES = ("hes-", "hes_", "hes.", "p398", "phead", "t398", "h398", "pytest-of")
 EVIDENCE_ROOT = Path("/srv/hes-evidence")
 BACKUP_PARENT = Path("/var/backups/hes-trade-agent")
 BACKUP_STAGING = BACKUP_PARENT / "dropbox-staging"
@@ -51,19 +57,44 @@ def _allocated_size(st: os.stat_result) -> int:
     return int(blocks * 512) if blocks is not None else int(st.st_size)
 
 
-def _tree_usage(path: Path, device: int) -> tuple[int, int, int]:
-    """Return allocated bytes, regular-file count, and error count; never follow symlinks."""
+def _tree_usage(
+    path: Path, device: int, seen_inodes: set[tuple[int, int]]
+) -> tuple[int, int, int, int, int, int]:
+    """Return logical bytes, globally unique physical bytes, shared-inode bytes, files, dirs, errors.
+
+    Directory metadata is included. Symlinks are never followed or counted as target data.
+    The shared inode set is global to the exact IDLM scan, including overlapping roots.
+    """
     try:
         root_st = path.lstat()
     except OSError:
-        return 0, 0, 1
-    if stat.S_ISLNK(root_st.st_mode):
-        return 0, 0, 0
-    if not stat.S_ISDIR(root_st.st_mode):
-        return _allocated_size(root_st), int(stat.S_ISREG(root_st.st_mode)), 0
-    total = 0
+        return 0, 0, 0, 0, 0, 1
+    if root_st.st_dev != device or stat.S_ISLNK(root_st.st_mode):
+        return 0, 0, 0, 0, 0, 0
+
+    logical = 0
+    unique = 0
+    shared = 0
     files = 0
+    directories = 0
     errors = 0
+
+    def account(st: os.stat_result) -> None:
+        nonlocal logical, unique, shared
+        size = _allocated_size(st)
+        logical += size
+        key = (int(st.st_dev), int(st.st_ino))
+        if key in seen_inodes:
+            shared += size
+        else:
+            unique += size
+            seen_inodes.add(key)
+
+    account(root_st)
+    if not stat.S_ISDIR(root_st.st_mode):
+        return logical, unique, shared, int(stat.S_ISREG(root_st.st_mode)), 0, errors
+
+    directories += 1
     stack = [path]
     while stack:
         current = stack.pop()
@@ -72,21 +103,19 @@ def _tree_usage(path: Path, device: int) -> tuple[int, int, int]:
                 for entry in entries:
                     try:
                         st = entry.stat(follow_symlinks=False)
-                        if st.st_dev != device:
+                        if st.st_dev != device or stat.S_ISLNK(st.st_mode):
                             continue
-                        if stat.S_ISLNK(st.st_mode):
-                            continue
+                        account(st)
                         if stat.S_ISDIR(st.st_mode):
+                            directories += 1
                             stack.append(Path(entry.path))
                         elif stat.S_ISREG(st.st_mode):
-                            total += _allocated_size(st)
                             files += 1
                     except OSError:
                         errors += 1
         except OSError:
             errors += 1
-    return total, files, errors
-
+    return logical, unique, shared, files, directories, errors
 
 def _is_relative_to(path: Path, parent: Path) -> bool:
     try:
@@ -95,6 +124,36 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
     except ValueError:
         return False
 
+
+
+def _ownership_scope(
+    path: Path, *, owner_uid: int, project_owner_uid: int,
+    registered_worktrees: set[Path] | None = None,
+) -> str:
+    """Classify the storage owner without guessing from file content."""
+    if _is_relative_to(path, Path("/opt/hes-trade-agent")):
+        return "HES_PROJECT"
+    if _is_relative_to(path, EVIDENCE_ROOT):
+        return "HES_EVIDENCE"
+    if _is_relative_to(path, BACKUP_PARENT):
+        return "HES_BACKUP"
+    if path.parent in TEMP_ROOTS:
+        name = path.name.lower()
+        if name in PLATFORM_TEMP_EXACT or name.startswith(PLATFORM_TEMP_PREFIXES):
+            return "PLATFORM_TEMP"
+        if registered_worktrees and path in registered_worktrees:
+            return "HES_TEMP"
+        # Root-owned and project-service-owned temp files are conservatively included.
+        if name.startswith(HES_TEMP_PREFIXES) or owner_uid in {0, project_owner_uid}:
+            return "HES_TEMP"
+        return "UNCLASSIFIED_TEMP"
+    if path.parent in RUNTIME_ROOTS and path.name.lower() in {"hes", "hes-trade-agent"}:
+        return "HES_RUNTIME"
+    if path.parent in RUNTIME_ROOTS and path.name.lower().startswith(("hes-", "hes_", "hes.")):
+        return "HES_RUNTIME"
+    if _is_relative_to(path, Path("/opt/sentinelx-cloud-core")) or _is_relative_to(path, Path("/home/hes-remote")):
+        return "PLATFORM"
+    return "OTHER"
 
 def _classify(
     path: Path, *, age_days: float, is_symlink: bool, stale_after_days: int = 7,
@@ -243,76 +302,181 @@ def build_report(
         registered_worktrees, worktree_registry_error = _load_registered_worktrees(worktree_repo_root)
     else:
         worktree_registry_error = None
+    try:
+        project_owner_uid = worktree_repo_root.stat().st_uid
+    except OSError:
+        project_owner_uid = os.getuid()
+
     records: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen_paths: set[str] = set()
+    seen_inodes: set[tuple[int, int]] = set()
+    missing_roots: list[str] = []
+
     for root in scan_roots:
         try:
             root_st = root.lstat()
         except OSError as exc:
+            missing_roots.append(str(root))
             records.append({
                 "path": str(root), "kind": "missing_or_unreadable",
+                "allocated_bytes": 0, "logical_allocated_bytes": 0,
+                "unique_allocated_bytes": 0, "shared_inode_path_bytes": 0,
+                "file_count": 0, "directory_count": 0, "scan_errors": 1,
+                "ownership_scope": _ownership_scope(
+                    root, owner_uid=-1, project_owner_uid=project_owner_uid,
+                    registered_worktrees=registered_worktrees,
+                ),
                 "classification": "KEEP_UNKNOWN", "reason": type(exc).__name__,
                 "automatic_action": "NONE",
             })
             continue
         if stat.S_ISLNK(root_st.st_mode):
+            missing_roots.append(str(root))
             records.append({
-                "path": str(root), "kind": "symlink", "classification": "KEEP_SYMLINK",
-                "reason": "Scan root is a symlink; not followed.", "automatic_action": "NONE",
+                "path": str(root), "kind": "symlink", "allocated_bytes": 0,
+                "logical_allocated_bytes": 0, "unique_allocated_bytes": 0,
+                "shared_inode_path_bytes": 0, "file_count": 0, "directory_count": 0,
+                "scan_errors": 1,
+                "ownership_scope": _ownership_scope(
+                    root, owner_uid=root_st.st_uid, project_owner_uid=project_owner_uid,
+                    registered_worktrees=registered_worktrees,
+                ),
+                "classification": "KEEP_SYMLINK",
+                "reason": "Scan root is a symlink; not followed and its scope is incomplete.",
+                "automatic_action": "NONE",
             })
             continue
-        if not stat.S_ISDIR(root_st.st_mode):
-            children = [root]
-            device = root_st.st_dev
-        else:
-            device = root_st.st_dev
+
+        device = root_st.st_dev
+        if stat.S_ISDIR(root_st.st_mode):
             try:
                 children = [Path(entry.path) for entry in os.scandir(root)]
             except OSError as exc:
+                missing_roots.append(str(root))
                 records.append({
-                    "path": str(root), "kind": "unreadable", "classification": "KEEP_UNKNOWN",
-                    "reason": type(exc).__name__, "automatic_action": "NONE",
+                    "path": str(root), "kind": "unreadable", "allocated_bytes": 0,
+                    "logical_allocated_bytes": 0, "unique_allocated_bytes": 0,
+                    "shared_inode_path_bytes": 0, "file_count": 0, "directory_count": 0,
+                    "scan_errors": 1,
+                    "ownership_scope": _ownership_scope(
+                        root, owner_uid=root_st.st_uid, project_owner_uid=project_owner_uid,
+                        registered_worktrees=registered_worktrees,
+                    ),
+                    "classification": "KEEP_UNKNOWN", "reason": type(exc).__name__,
+                    "automatic_action": "NONE",
                 })
                 continue
+        else:
+            children = [root]
+
+        def scope_priority(candidate: Path) -> tuple[int, str]:
+            try:
+                owner_uid = candidate.lstat().st_uid
+            except OSError:
+                owner_uid = -1
+            scope = _ownership_scope(
+                candidate, owner_uid=owner_uid, project_owner_uid=project_owner_uid,
+                registered_worktrees=registered_worktrees,
+            )
+            if scope.startswith("HES_"):
+                priority = 0
+            elif scope == "UNCLASSIFIED_TEMP":
+                priority = 1
+            else:
+                priority = 2
+            return priority, str(candidate)
+
+        children.sort(key=scope_priority)
         for path in children:
             key = str(path)
-            if key in seen:
+            if key in seen_paths:
                 continue
-            seen.add(key)
+            seen_paths.add(key)
             try:
                 st = path.lstat()
                 is_link = stat.S_ISLNK(st.st_mode)
                 age_days = max(0.0, (now.timestamp() - st.st_mtime) / 86400.0)
+                scope = _ownership_scope(
+                    path, owner_uid=st.st_uid, project_owner_uid=project_owner_uid,
+                    registered_worktrees=registered_worktrees,
+                )
                 if is_link:
-                    size, files, errors, kind = 0, 0, 0, "symlink"
-                elif stat.S_ISDIR(st.st_mode):
-                    size, files, errors = _tree_usage(path, device)
-                    kind = "directory"
+                    logical = unique = shared = files = directories = errors = 0
+                    kind = "symlink"
                 else:
-                    size, files, errors = _allocated_size(st), int(stat.S_ISREG(st.st_mode)), 0
-                    kind = "file"
+                    logical, unique, shared, files, directories, errors = _tree_usage(
+                        path, device, seen_inodes
+                    )
+                    kind = "directory" if stat.S_ISDIR(st.st_mode) else "file"
+
                 classification, reason = _classify(
                     path, age_days=age_days, is_symlink=is_link,
                     stale_after_days=stale_after_days,
                     registered_worktrees=registered_worktrees,
                     worktree_registry_ok=worktree_registry_error is None,
                 )
+                if scope == "PLATFORM_TEMP":
+                    classification = "KEEP_PLATFORM_TEMP"
+                    reason = "Platform-private temporary path; excluded from HES application storage."
+                elif scope == "UNCLASSIFIED_TEMP":
+                    classification = "KEEP_UNKNOWN"
+                    reason = "Temporary path owner is not mapped to HES or platform; included conservatively and blocks budget acceptance."
+                elif scope == "HES_RUNTIME":
+                    classification = "KEEP_HES_RUNTIME"
+                    reason = "HES runtime state/log data; preserve and include in the local HES storage budget."
+
                 records.append({
-                    "path": key, "kind": kind, "allocated_bytes": size, "file_count": files,
+                    "path": key,
+                    "kind": kind,
+                    # Backward-compatible allocated_bytes remains the logical path sum.
+                    "allocated_bytes": logical,
+                    "logical_allocated_bytes": logical,
+                    "unique_allocated_bytes": unique,
+                    "shared_inode_path_bytes": shared,
+                    "file_count": files,
+                    "directory_count": directories,
                     "scan_errors": errors,
+                    "ownership_scope": scope,
                     "mtime_utc": datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(),
-                    "age_days": round(age_days, 2), "classification": classification,
-                    "reason": reason, "automatic_action": "NONE",
+                    "age_days": round(age_days, 2),
+                    "classification": classification,
+                    "reason": reason,
+                    "automatic_action": "NONE",
                 })
             except OSError as exc:
                 records.append({
-                    "path": key, "kind": "unreadable", "classification": "KEEP_UNKNOWN",
-                    "reason": type(exc).__name__, "automatic_action": "NONE",
+                    "path": key, "kind": "unreadable", "allocated_bytes": 0,
+                    "logical_allocated_bytes": 0, "unique_allocated_bytes": 0,
+                    "shared_inode_path_bytes": 0, "file_count": 0, "directory_count": 0,
+                    "scan_errors": 1,
+                    "ownership_scope": _ownership_scope(
+                        path, owner_uid=-1, project_owner_uid=project_owner_uid,
+                        registered_worktrees=registered_worktrees,
+                    ),
+                    "classification": "KEEP_UNKNOWN", "reason": type(exc).__name__,
+                    "automatic_action": "NONE",
                 })
 
     backup_summary = _backup_groups(records)
     backup_retention_plan = _backup_retention_plan(records, now)
     records.sort(key=lambda row: (-int(row.get("allocated_bytes", 0)), row["path"]))
+    unclassified_temp = [row for row in records if row.get("ownership_scope") == "UNCLASSIFIED_TEMP"]
+    scan_summary = {
+        "item_count": len(records),
+        "scan_errors": sum(int(row.get("scan_errors", 0)) for row in records),
+        "logical_allocated_bytes": sum(int(row.get("logical_allocated_bytes", 0)) for row in records),
+        "unique_allocated_bytes": sum(int(row.get("unique_allocated_bytes", 0)) for row in records),
+        "shared_inode_path_bytes": sum(int(row.get("shared_inode_path_bytes", 0)) for row in records),
+        "unclassified_temp_items": len(unclassified_temp),
+        "unclassified_temp_bytes": sum(int(row.get("unique_allocated_bytes", 0)) for row in unclassified_temp),
+        "hes_temp_items": sum(row.get("ownership_scope") == "HES_TEMP" for row in records),
+        "hes_temp_unique_allocated_bytes": sum(int(row.get("unique_allocated_bytes", 0)) for row in records if row.get("ownership_scope") == "HES_TEMP"),
+        "hes_runtime_items": sum(row.get("ownership_scope") == "HES_RUNTIME" for row in records),
+        "hes_runtime_unique_allocated_bytes": sum(int(row.get("unique_allocated_bytes", 0)) for row in records if row.get("ownership_scope") == "HES_RUNTIME"),
+        "missing_roots": missing_roots,
+        "global_inode_dedup": True,
+        "counting_method": "st_blocks*512; each (st_dev, st_ino) counted once globally across the exact IDLM scan roots; HES scopes are visited before platform scopes; symlinks are not followed",
+    }
     try:
         usage = shutil.disk_usage("/")
         vfs = os.statvfs("/")
@@ -334,6 +498,7 @@ def build_report(
         "automatic_action": "NONE",
         "stale_temp_review_threshold_days": stale_after_days,
         "disk": disk,
+        "scan_summary": scan_summary,
         "backup_summary": backup_summary,
         "backup_retention_plan": backup_retention_plan,
         "worktree_registry": {
@@ -351,12 +516,12 @@ def build_report(
         ],
         "items": records,
         "limitations": [
-            "Directory sizes are allocated-byte estimates and may omit mountpoints, unreadable entries, and open-but-unlinked files.",
-            "This report does not prove a path is unused; process, descriptor, service, job, Git, and recovery dependencies require separate checks.",
+            "Allocated bytes are reported both as logical path sums and globally unique physical inode allocation; unreadable entries and open-but-unlinked files remain outside the scan.",
+            "The report does not prove a path is unused; process, descriptor, service, job, Git, and recovery dependencies require separate checks.",
+            "Unknown temporary owners are included as unclassified bytes and block budget acceptance.",
             "No record in this report authorizes deletion, compression, movement, rotation, or pruning.",
         ],
     }
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
