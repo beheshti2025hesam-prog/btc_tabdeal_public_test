@@ -251,3 +251,35 @@ The full 43-root local Restic snapshot `6518cb4854b9253a7b14730d60ab04d8db09881f
 The Dropbox compact core object `HES Trade Agent Backups/hes-recovery-core-latest.tar.zst.gpg` was copied back from Dropbox, hash/size matched its remote manifest (`f4702fff3275f828706e081c4f4b3e4dc937058b958bd54f8dbefa599e3d01ec`, 398,216,865 bytes), GPG decryption and Zstandard/tar path validation passed (8,897 members, zero unsafe paths), and full isolated extraction passed. Active release manifest verified 620/620 files; rollback release manifest verified 582/582 files; main Git object connectivity check passed. 7,562 files / 899,049,730 bytes were extracted and the test tree/download removed. Evidence: `/srv/hes-evidence/operations/storage-lifecycle/2026-11-20T1323Z/dropbox-core-remote-restore.json`.
 
 The manager now accepts separate local full-restore and Dropbox remote-restore evidence and reports each independently. Both same-host and remote-core restore are PASS. Replacement-host boot/recovery is still NOT_PROVEN; therefore backup retention/pruning and destructive cleanup remain unauthorized. The daily maintenance runner automatically supplies the latest local and remote restore evidence to the report.
+
+## Global physical accounting and safe compaction — 2026-11-23
+
+The existing IDLM/Smart Cleanup/Smart Storage chain is the sole authority for HES local storage accounting. This is an extension of the current managers, not a parallel scanner.
+
+### IDLM additions
+- One global (st_dev, st_ino) set across the exact scan roots.
+- logical_allocated_bytes: allocated blocks summed by path.
+- unique_allocated_bytes: physical allocated blocks counted once per inode.
+- shared_inode_path_bytes: path bytes whose inode was already counted in an earlier scan root.
+- ownership_scope: HES_PROJECT, HES_EVIDENCE, HES_BACKUP, HES_TEMP, HES_RUNTIME, PLATFORM_TEMP, PLATFORM, UNCLASSIFIED_TEMP, or OTHER.
+- scan_summary: global logical/unique/shared bytes, scan errors, missing roots, HES temp/runtime counts and bytes, unclassified temp count/bytes, and counting method.
+- Directory metadata is included; symlinks are not followed. HES scopes are scanned before platform scopes so a shared inode is attributed to HES.
+
+### Smart Cleanup additions
+- Preserve the IDLM physical fields and ownership scope in each cleanup item.
+- Fail closed on missing global scan summary, missing physical fields, inconsistent logical/unique/shared byte values, or scan errors.
+- Unknown/unclassified temporary paths remain KEEP; no cleanup authority is added.
+
+### Smart Storage acceptance
+- Sum only unique physical bytes for immediate children of the canonical HES project/evidence/backup roots, plus HES temp/runtime scopes.
+- Count unclassified temp conservatively and mark the scope incomplete.
+- Report both physical and logical totals; expose shared-inode savings separately.
+- complete_footprint_within_target is true only when the scan is complete, error-free, has no unclassified temp paths, and total unique physical HES allocation is below 5,000,000,000 bytes.
+- No deletion, move, compression, release pruning, worktree removal, or backup retention change is authorized by a storage report.
+
+### Preservation gates
+- Release/worktree compaction requires clean state, preserved branch/commit provenance, no active/rollback/process/unit/job reference, and exact remote/recovery proof.
+- Backup pruning requires successful remote recovery, replacement-host recovery, and external encryption-key escrow. Same-host extraction is not replacement-host proof.
+- Raw market data, trade/decision journals, rejection evidence, model artifacts, secrets, Git history, user changes, and last known-good releases remain protected.
+
+The 5 GB objective remains NOT MET until a fresh complete-scope report proves the target.
