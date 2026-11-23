@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import os
 
-from scripts.ops.hes_data_lifecycle_audit_v1 import _classify, build_report
+from scripts.ops.hes_data_lifecycle_audit_v1 import _classify, _ownership_scope, build_report
 
 
 def _item(report, path):
@@ -159,3 +160,38 @@ def test_srv_evidence_store_is_protected():
     )
     assert classification == "KEEP_EVIDENCE"
     assert "Immutable project evidence store" in reason
+
+
+def test_global_inode_accounting_counts_hardlinks_once(tmp_path):
+    root = tmp_path / "scan"
+    left = root / "left"
+    right = root / "right"
+    left.mkdir(parents=True)
+    right.mkdir()
+    source = left / "same.bin"
+    source.write_bytes(b"x" * 8192)
+    os.link(source, right / "same.bin")
+
+    report = build_report(
+        [root], now=datetime.now(timezone.utc), registered_worktrees=set(),
+        worktree_repo_root=tmp_path,
+    )
+
+    summary = report["scan_summary"]
+    assert summary["global_inode_dedup"] is True
+    assert summary["scan_errors"] == 0
+    assert summary["unique_allocated_bytes"] < summary["logical_allocated_bytes"]
+    assert summary["shared_inode_path_bytes"] == (
+        summary["logical_allocated_bytes"] - summary["unique_allocated_bytes"]
+    )
+    assert any(row["shared_inode_path_bytes"] > 0 for row in report["items"])
+    assert all(row["unique_allocated_bytes"] <= row["logical_allocated_bytes"] for row in report["items"])
+
+
+def test_temp_and_runtime_ownership_scope_is_conservative():
+    assert _ownership_scope(Path("/tmp/hes-run"), owner_uid=1000, project_owner_uid=999) == "HES_TEMP"
+    assert _ownership_scope(Path("/tmp/tmpq7fc6n83"), owner_uid=999, project_owner_uid=999) == "HES_TEMP"
+    assert _ownership_scope(Path("/tmp/root-temp"), owner_uid=0, project_owner_uid=999) == "HES_TEMP"
+    assert _ownership_scope(Path("/tmp/systemd-private-abc"), owner_uid=0, project_owner_uid=999) == "PLATFORM_TEMP"
+    assert _ownership_scope(Path("/tmp/unrelated-user-temp"), owner_uid=1000, project_owner_uid=999) == "UNCLASSIFIED_TEMP"
+    assert _ownership_scope(Path("/var/lib/hes-mother-state"), owner_uid=999, project_owner_uid=999) == "HES_RUNTIME"
