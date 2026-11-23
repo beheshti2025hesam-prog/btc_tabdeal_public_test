@@ -3,7 +3,7 @@ set -Eeuo pipefail
 umask 077
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ROOT=/opt/hes-trade-agent
-SCRIPT_DIR="$ROOT/scripts/ops"
+SCRIPT_DIR="/usr/local/lib/hes-storage-v1"
 REPO=/var/backups/hes-trade-agent/restic-production-v1/repo
 KEY=/root/.config/hes-backup/passphrase
 HOST=hes-vps-recovery-v1
