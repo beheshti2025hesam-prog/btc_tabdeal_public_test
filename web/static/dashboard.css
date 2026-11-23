@@ -389,3 +389,13 @@ a{color:#91bbff}
 
 /* Short visible Mother label; retain canonical full heading in the accessibility tree. */
 #motherTitle::after{content:"Mother";font-size:16px;font-weight:650;letter-spacing:normal}
+
+/* HES Trade Agent full identity artwork. */
+.brand-footer-art{display:flex;justify-content:center;align-items:center;margin:18px auto 4px;max-width:100%;}
+.brand-footer-art img{display:block;width:auto;height:auto;max-width:min(100%,560px);max-height:260px;object-fit:contain;border-radius:8px;}
+@media(max-width:600px){.brand-footer-art{margin-top:14px}.brand-footer-art img{max-height:190px}}
+
+/* Official HES transparent chrome identity: one emblem and one full wordmark. */
+.brand-mark{object-fit:contain;background:transparent;border:0;border-radius:0;box-shadow:none}
+.brand-footer-art{background:transparent;border:0;box-shadow:none}
+.brand-footer-art img{background:transparent;object-fit:contain}

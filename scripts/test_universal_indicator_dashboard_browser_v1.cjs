@@ -28,6 +28,8 @@ const server=http.createServer((req,res)=>{
  if(u.pathname==="/static/dashboard.js"){return send(200,fs.readFileSync(path.join(root,"web/static/dashboard.js")),"application/javascript");}
  if(u.pathname==="/static/documentation.js"){return send(200,fs.readFileSync(path.join(root,"web/static/documentation.js")),"application/javascript");}
  if(u.pathname==="/static/documentation.css"){return send(200,fs.readFileSync(path.join(root,"web/static/documentation.css")),"text/css");}
+ if(u.pathname==="/static/hes-official-emblem.png"){return send(200,fs.readFileSync(path.join(root,"web/static/hes-official-emblem.png")),"image/png");}
+ if(u.pathname==="/static/hes-official-logo.png"){return send(200,fs.readFileSync(path.join(root,"web/static/hes-official-logo.png")),"image/png");}
  if(u.pathname==="/static/hes-mark.svg"){return send(200,fs.readFileSync(path.join(root,"web/static/hes-mark.svg")),"image/svg+xml");}
  if(u.pathname.includes("lightweight-charts.standalone.production.js")){return send(200,chartStub,"application/javascript");}
  if(u.pathname==="/api/documentation"){
