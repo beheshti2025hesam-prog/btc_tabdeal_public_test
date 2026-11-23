@@ -829,6 +829,9 @@ def _source_audit_gate(audit: dict[str, Any], now: datetime) -> tuple[list[str],
     else:
         if registry.get("error"):
             errors.append("worktree_registry_unverified")
+        repo_root = registry.get("repo_root")
+        if not isinstance(repo_root, str) or not Path(repo_root).is_absolute():
+            errors.append("worktree_registry_repo_root_invalid")
         paths = registry.get("paths")
         if not isinstance(paths, list) or not all(isinstance(path, str) and Path(path).is_absolute() for path in paths):
             errors.append("worktree_registry_paths_invalid")
@@ -936,7 +939,16 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         active_match = any(_under(target, path) or _under(path, target) for target in active_targets)
         registry = audit.get("worktree_registry", {})
         worktrees = registry.get("paths", []) if isinstance(registry, dict) else []
-        worktree_match = any(_under(path, root) or _under(root, path) for root in worktrees)
+        primary_repo_root = str(Path(registry.get("repo_root", PROJECT_ROOT)).resolve())
+        # The primary checkout is not a child worktree. Treating it as one
+        # incorrectly marks every project directory as referenced.
+        child_worktrees = [
+            str(Path(root).resolve()) for root in worktrees
+            if str(Path(root).resolve()) != primary_repo_root
+        ]
+        worktree_match = any(
+            _under(path, root) or _under(root, path) for root in child_worktrees
+        )
         dependency_errors = int(proc_errors or 0) + int(unit_errors or 0) + int(scheduled_errors or 0) + len(pointer_errors) + len(source_audit_errors)
         if process_matches or unit_matches or scheduled_matches or active_match or worktree_match:
             dependency_status = "BLOCKED_REFERENCED"
