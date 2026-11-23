@@ -1,0 +1,41 @@
+{
+  "captured_at_utc": "2026-10-18T17:41:03.098571+00:00",
+  "credentials_used": false,
+  "interpretation": "Both official Socket.IO Engine.IO polling handshake URLs were requested without credentials. HTTP 503 means the documented Socket.IO path could not be live-validated from this observation host at capture time; it does not prove the service is universally unavailable.",
+  "orders_sent": false,
+  "read_only": true,
+  "requests": [
+    {
+      "body_sha256": "b429e25e7813a9e2b90dcec11d9cb5287751246128dd6c76a7349774829c5554",
+      "body_utf8": "<html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n",
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "connection": "close",
+        "content-length": "190",
+        "content-type": "text/html",
+        "date": "Sun, 18 Oct 2026 17:41:03 GMT",
+        "server": "Wallex",
+        "x-cache-status": "BYPASS"
+      },
+      "status": 503,
+      "url": "https://api.wallex.ir/socket.io/?EIO=3&transport=polling&t=hes-readonly-probe"
+    },
+    {
+      "body_sha256": "b429e25e7813a9e2b90dcec11d9cb5287751246128dd6c76a7349774829c5554",
+      "body_utf8": "<html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n",
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "connection": "close",
+        "content-length": "190",
+        "content-type": "text/html",
+        "date": "Sun, 18 Oct 2026 17:41:03 GMT",
+        "server": "Wallex",
+        "x-cache-status": "BYPASS"
+      },
+      "status": 503,
+      "url": "https://api.wallex.ir/socket.io/?EIO=4&transport=polling&t=hes-readonly-probe"
+    }
+  ],
+  "schema": "HES_WALLEX_OFFICIAL_SOCKETIO_REACHABILITY_PROBE_V1",
+  "socket_opened": false
+}

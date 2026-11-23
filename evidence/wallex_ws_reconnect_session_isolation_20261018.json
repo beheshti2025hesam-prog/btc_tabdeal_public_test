@@ -1,0 +1,297 @@
+{
+  "captured_at_utc": "2026-10-18T16:47:17.766809+00:00",
+  "channels": [
+    "BTCUSDT@buyDepth",
+    "BTCUSDT@sellDepth",
+    "BTCUSDT@trade"
+  ],
+  "credentials_used": false,
+  "current_epoch_event_accepted_by_deterministic_guard_harness": true,
+  "delayed_previous_epoch_event_rejected_by_deterministic_guard_harness": true,
+  "endpoint": "wss://api.wallex.ir/ws",
+  "harness_accepted_events": [
+    "session-1-before-reconnect",
+    "session-2-after-reconnect"
+  ],
+  "interpretation": "Two live WebSocket sessions connected and received depth frames; server session IDs differ. No trade frames arrived during these short windows, consistent with the REST trade snapshot showing no new trade since 16:15:34Z. The epoch guard rejects delayed prior-session events in a deterministic harness. This is not a production collector integration test because no Wallex WS collector is wired/enabled. Raw received frames are retained in adjacent JSONL.",
+  "manifest_sha256_excluded_self": "ffca17730e626747b09b2bdb489aaf85807dd5e5dd23d6530177f108a5124d6c",
+  "orders_or_account_mutations": false,
+  "production_collector_started": false,
+  "schema": "HES_WALLEX_WS_RECONNECT_SESSION_ISOLATION_V1",
+  "server_session_ids_distinct": true,
+  "sessions": [
+    {
+      "channel_counts": {
+        "BTCUSDT@buyDepth": 13,
+        "BTCUSDT@sellDepth": 13,
+        "BTCUSDT@trade": 0,
+        "unknown": 0,
+        "unparsed": 0
+      },
+      "closed_at": "2026-10-18T16:47:11.988691+00:00",
+      "frame_count": 26,
+      "frames": [
+        {
+          "at": "2026-10-18T16:47:07.004613+00:00",
+          "bytes": 2880,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "f9dc09c53861cb3f6dde850522e7ccd04a9f450f72865ded3017bd9f3753fc39"
+        },
+        {
+          "at": "2026-10-18T16:47:07.006056+00:00",
+          "bytes": 2925,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "54440e44dfc32ad511ca3edc6e44e035d2f71d51473ee4b126639fc0346c29c9"
+        },
+        {
+          "at": "2026-10-18T16:47:08.332736+00:00",
+          "bytes": 2919,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "4b4caf45437565f9c7b6440b0ba71341a6e2faefe18dc919f2fce827be7714f1"
+        },
+        {
+          "at": "2026-10-18T16:47:08.450264+00:00",
+          "bytes": 2922,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "f4f7aa7906deb69c79275d3ee85187ac9dec18539de54770c9dcd89699e54035"
+        },
+        {
+          "at": "2026-10-18T16:47:08.563819+00:00",
+          "bytes": 2874,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "ec814708b857aa53bc98893d16182bbb6675c91efa3966a22e0ad04dc8b856b8"
+        },
+        {
+          "at": "2026-10-18T16:47:08.647570+00:00",
+          "bytes": 2881,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "f6509fc59d68d5a4bb49f56acd64d669efe2e80e5cbef0aa60adecd7abb22881"
+        },
+        {
+          "at": "2026-10-18T16:47:08.707021+00:00",
+          "bytes": 2880,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "532772e76eb0bd69cb59ced72665cbe4696c1814dd651ebfd6be91e64de04c21"
+        },
+        {
+          "at": "2026-10-18T16:47:08.709864+00:00",
+          "bytes": 2922,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "f4f7aa7906deb69c79275d3ee85187ac9dec18539de54770c9dcd89699e54035"
+        },
+        {
+          "at": "2026-10-18T16:47:10.120564+00:00",
+          "bytes": 2920,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "7ff1e8d2acf29d4ffc2aa67ec0f9075ba1e4d36184e3508a3779d80623af65cb"
+        },
+        {
+          "at": "2026-10-18T16:47:10.135673+00:00",
+          "bytes": 2920,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "babdcc466343139d2f98ffcef099002c4df59db38edf63f09ce5ece3b139aa02"
+        },
+        {
+          "at": "2026-10-18T16:47:10.170236+00:00",
+          "bytes": 2918,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "627ed8dfd8d8d5dd4f2cb9caa4e9183c1d78b5b36a8da8369ba0344bb2edbe0e"
+        },
+        {
+          "at": "2026-10-18T16:47:10.222462+00:00",
+          "bytes": 2889,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "c1d3760928c522a65260520404442d0a88e42b005decab19ab19039c0b7bcfb0"
+        },
+        {
+          "at": "2026-10-18T16:47:10.278689+00:00",
+          "bytes": 2896,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "5e6225ab4c9a19a41e835a9c5eeed82f2097abc8e3504d555882972546ef8109"
+        },
+        {
+          "at": "2026-10-18T16:47:10.340600+00:00",
+          "bytes": 2902,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "d4fbd229beb3fe259550f2bf9ef43f5628e7865d74aa53c95a46f0c6338ac5c1"
+        },
+        {
+          "at": "2026-10-18T16:47:11.056114+00:00",
+          "bytes": 2902,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "d4fbd229beb3fe259550f2bf9ef43f5628e7865d74aa53c95a46f0c6338ac5c1"
+        },
+        {
+          "at": "2026-10-18T16:47:11.058728+00:00",
+          "bytes": 2920,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "18396cb9a6d45b2edcaeb8ded442da6ef72967ff42e219f3f56119e91c62eb6e"
+        },
+        {
+          "at": "2026-10-18T16:47:11.072105+00:00",
+          "bytes": 2900,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "6f14c92e9d24139b28e21fca33fbbf2747bcbfece63e5405fa0b02f88a39af4c"
+        },
+        {
+          "at": "2026-10-18T16:47:11.074240+00:00",
+          "bytes": 2920,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "18396cb9a6d45b2edcaeb8ded442da6ef72967ff42e219f3f56119e91c62eb6e"
+        },
+        {
+          "at": "2026-10-18T16:47:11.104499+00:00",
+          "bytes": 2900,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "6f14c92e9d24139b28e21fca33fbbf2747bcbfece63e5405fa0b02f88a39af4c"
+        },
+        {
+          "at": "2026-10-18T16:47:11.106500+00:00",
+          "bytes": 2920,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "166fce75919847655ccf5f193ea8a804e2cc52f6a85974f62b219639911ca060"
+        },
+        {
+          "at": "2026-10-18T16:47:11.221328+00:00",
+          "bytes": 2891,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "dc356dbfaf6ffe924b0686ac741b215eb7dc1b2f372fd9416939d5189ea18953"
+        },
+        {
+          "at": "2026-10-18T16:47:11.223981+00:00",
+          "bytes": 2922,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "221cb3210119b8a78c354d02cce16926886e023af550e33ed07dc4e9c3b9e147"
+        },
+        {
+          "at": "2026-10-18T16:47:11.228092+00:00",
+          "bytes": 2900,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "6f14c92e9d24139b28e21fca33fbbf2747bcbfece63e5405fa0b02f88a39af4c"
+        },
+        {
+          "at": "2026-10-18T16:47:11.230243+00:00",
+          "bytes": 2922,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "221cb3210119b8a78c354d02cce16926886e023af550e33ed07dc4e9c3b9e147"
+        },
+        {
+          "at": "2026-10-18T16:47:11.267606+00:00",
+          "bytes": 2880,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "c56bdfde21f9a83fa90449d2fdc649e5578b3e6b3753d58f2d4ce3b8a6e9e343"
+        },
+        {
+          "at": "2026-10-18T16:47:11.271032+00:00",
+          "bytes": 2922,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "221cb3210119b8a78c354d02cce16926886e023af550e33ed07dc4e9c3b9e147"
+        }
+      ],
+      "handshake_sha256": "5544e3ae73ed340d20929d86530ad53ac9657520b41c84e6a4659a3feb2bb5b6",
+      "local_session": 1,
+      "server_sid": "cc0a3225-f0db-48e6-8ab0-f63ce551d986",
+      "started_at": "2026-10-18T16:47:06.981632+00:00"
+    },
+    {
+      "channel_counts": {
+        "BTCUSDT@buyDepth": 4,
+        "BTCUSDT@sellDepth": 4,
+        "BTCUSDT@trade": 0,
+        "unknown": 0,
+        "unparsed": 0
+      },
+      "closed_at": "2026-10-18T16:47:17.762006+00:00",
+      "frame_count": 8,
+      "frames": [
+        {
+          "at": "2026-10-18T16:47:16.608053+00:00",
+          "bytes": 2925,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "f6ef1bd47e1e779ffd8288b74594ca341eb715ad77b3c6abd21dac33087d15c8"
+        },
+        {
+          "at": "2026-10-18T16:47:16.968911+00:00",
+          "bytes": 2880,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "c56bdfde21f9a83fa90449d2fdc649e5578b3e6b3753d58f2d4ce3b8a6e9e343"
+        },
+        {
+          "at": "2026-10-18T16:47:16.970911+00:00",
+          "bytes": 2922,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "43b3b58443a07be2d751c9b590b0fa0dec520cd9d4fb9de5c402ca8099f37cbd"
+        },
+        {
+          "at": "2026-10-18T16:47:17.376406+00:00",
+          "bytes": 2881,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "f2c5817176bded08b085ed4738ef303b643480948f04e95378fca7a4b297fd70"
+        },
+        {
+          "at": "2026-10-18T16:47:17.517319+00:00",
+          "bytes": 2881,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "f2c5817176bded08b085ed4738ef303b643480948f04e95378fca7a4b297fd70"
+        },
+        {
+          "at": "2026-10-18T16:47:17.519529+00:00",
+          "bytes": 2920,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "fb83cd5ea880aa3e10d61c3b4851ca0c5b2a12a6169824069e8dfa568d457cfe"
+        },
+        {
+          "at": "2026-10-18T16:47:17.649947+00:00",
+          "bytes": 2881,
+          "channel": "BTCUSDT@sellDepth",
+          "payload_items": 50,
+          "raw_sha256": "f2c5817176bded08b085ed4738ef303b643480948f04e95378fca7a4b297fd70"
+        },
+        {
+          "at": "2026-10-18T16:47:17.652283+00:00",
+          "bytes": 2925,
+          "channel": "BTCUSDT@buyDepth",
+          "payload_items": 50,
+          "raw_sha256": "d21b2e9a5cf632b00bdd506cf1bd2d87713ef9ce94bcb72fe8aaea0d2342eb96"
+        }
+      ],
+      "handshake_sha256": "3377c526093b29c5a0a84c94d3e654a0bc4d8228c9eb976d59e60e6b8f6d1c87",
+      "local_session": 2,
+      "server_sid": "2a5efb31-24ba-457e-930f-6ab7e533d7a1",
+      "started_at": "2026-10-18T16:47:12.673415+00:00"
+    }
+  ],
+  "symbol": "BTCUSDT"
+}
