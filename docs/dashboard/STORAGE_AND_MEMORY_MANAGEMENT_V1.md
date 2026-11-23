@@ -114,3 +114,12 @@ The 5 GB objective is not yet met. Remaining footprint is not disposable cache; 
 ### Worktree reference semantics — 2026-11-23
 
 The dashboard must distinguish the primary repository root from child worktrees. The primary repo root itself must not make every project directory appear referenced. A child worktree path and any parent container that would remove that worktree remain blocked; unrelated sibling paths can proceed to dependency-aware review. The correction is covered by regression tests.
+
+### Temporary-path safety classification — 2026-11-23
+
+The dashboard must separate:
+- KEEP_UNREGISTERED_GIT_WORKSPACE: temporary path contains .git metadata; retain until clean/dirty/ignored state and remote provenance are verified.
+- KEEP_TEMP_EVIDENCE: archive, backup, restore, recovery, model/data, candidate/release, test/soak/smoke, audit/review, Restic or similar evidence artifact.
+- REVIEW_STALE_TEMP / REVIEW_TEMP: generic temporary paths only; review status is not deletion authorization.
+
+Show counts and allocated bytes for each class. No automated deletion of Git workspaces, archives, recovery data, model/data snapshots or test evidence.
