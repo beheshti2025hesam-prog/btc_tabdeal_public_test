@@ -389,5 +389,21 @@ class NewsBrainTests(unittest.TestCase):
             fetch_rss("http://example.test/feed", source="test")
 
 
+    def test_high_impact_news_older_than_confirmation_window_is_context_not_hard_veto(self):
+        item = NewsItem(
+            "Unexpected Bitcoin exchange hack and withdrawals suspended",
+            source="ExampleWire",
+            url="https://example.test/news/aged-hack",
+            published_at="2026-10-23T06:00:00Z",
+        )
+        brief = self.brain.analyze(
+            [item], MarketContext("crypto", "BTCUSDT", "range", "15m"), now=NOW
+        )
+        self.assertEqual(len(brief.findings), 1)
+        self.assertEqual(brief.findings[0].freshness, "recent")
+        self.assertNotIn("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION", brief.veto_flags)
+        self.assertEqual(brief.suggested_action, "CONTEXT_ONLY")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -74,7 +74,7 @@ class DashboardLocalizationTests(unittest.TestCase):
         self.assertIn("fetchWithTimeout('/api/strategy-v2'", script)
         self.assertIn("fetchWithTimeout('/api/mother'", script)
         self.assertIn("fetchWithTimeout('/api/news'", script)
-        self.assertIn("fetchWithTimeout('/api/journal?limit=50'", script)
+        self.assertIn("fetchWithTimeout('/api/journal?limit=200'", script)
         for machine_value in ("NO_TRADE", "BLOCKED", "VERIFIED", "1m", "15m", "4h"):
             self.assertIn(machine_value, script)
         self.assertIn("BTCUSDT", dashboard.HTML)

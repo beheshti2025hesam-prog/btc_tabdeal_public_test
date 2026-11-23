@@ -156,3 +156,29 @@ def test_noncanonical_source_and_missing_history_block(monkeypatch):
     )
     assert result["status"] == "BLOCKED"
     assert "INSUFFICIENT_CLOSED_CANDLES" in result["reason_codes"][0]
+
+def test_family_paper_lane_requires_structure_regime_consensus(monkeypatch):
+    _patch_engines(monkeypatch)
+    result = lane.evaluate_strategy_family_paper_lane(
+        data=_inputs(), structure={"status": "OBSERVED", "regime": "UPTREND", "events": ["BOS_BULLISH"]},
+        observed_at=datetime.now(timezone.utc), precision_entry_1m={"status": "READY"},
+        news_context={"status": "READY", "veto_flags": []},
+    )
+    assert result["status"] == "BLOCKED_REGIME_CONSENSUS"
+    assert result["candidate_count"] == 0
+    assert "STRUCTURE_INDICATOR_REGIME_DISAGREEMENT" in result["reason_codes"]
+
+
+def test_family_paper_lane_router_grants_only_paper_shadow_authority(monkeypatch):
+    _patch_engines(monkeypatch)
+    result = lane.evaluate_strategy_family_paper_lane(
+        data=_inputs(), structure={"status": "OBSERVED", "regime": "DOWNTREND", "events": ["BOS_BEARISH"]},
+        observed_at=datetime.now(timezone.utc), precision_entry_1m={"status": "READY"},
+        news_context={"status": "READY", "veto_flags": []},
+    )
+    route = result["selected_candidate"]["strategy_family_route"]
+    assert route["family_id"] == "trend_breakout"
+    assert route["paper_candidate_generation_authorized"] is True
+    assert route["candidate_generation_authorized"] is False
+    assert route["execution_enabled"] is False and route["orders_placed"] is False
+    assert result["regime_consensus"]["status"] == "ALIGNED"

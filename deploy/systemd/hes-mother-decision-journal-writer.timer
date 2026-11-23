@@ -1,0 +1,12 @@
+[Unit]
+Description=Run HES Mother decision journal writer every 15 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/15:00
+Persistent=true
+AccuracySec=30s
+RandomizedDelaySec=15s
+Unit=hes-mother-decision-journal-writer.service
+
+[Install]
+WantedBy=timers.target

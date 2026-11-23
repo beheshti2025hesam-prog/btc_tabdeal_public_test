@@ -54,7 +54,10 @@ class ForwardJournalV1:
 
     @contextmanager
     def _write_lock(self) -> Iterator[None]:
-        self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.lock_path.parent.exists():
+            self.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.lock_path.parent.is_symlink() or not self.lock_path.parent.is_dir():
+            raise ValueError("journal parent must be a real directory")
         if self.lock_path.is_symlink():
             raise ValueError("journal lock path must not be a symlink")
         with self.lock_path.open("a+", encoding="utf-8") as lock_file:
@@ -114,7 +117,10 @@ class ForwardJournalV1:
         if not isinstance(event_id, str) or not event_id.strip():
             raise ValueError("event_id is required")
 
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.parent.exists():
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+        if self.path.parent.is_symlink() or not self.path.parent.is_dir():
+            raise ValueError("journal parent must be a real directory")
         with self._write_lock():
             if event_id in self._ids():
                 return False

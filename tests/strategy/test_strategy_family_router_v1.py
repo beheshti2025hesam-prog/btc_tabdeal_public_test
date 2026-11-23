@@ -91,3 +91,28 @@ def test_serialized_route_carries_explicit_safety_boundary():
     assert payload["candidate_generation_authorized"] is False
     assert payload["execution_enabled"] is False
     assert payload["orders_placed"] is False
+
+def test_paper_shadow_route_is_separate_from_live_authority():
+    result = route_strategy_family(
+        source="gateio_public_spot", symbol="BTC_USDT", timeframe="15m",
+        regime="DOWNTREND", purpose="PAPER_SHADOW",
+    )
+    assert result.family_id == "trend_breakout"
+    assert result.paper_candidate_generation_authorized is True
+    assert result.candidate_generation_authorized is False
+    assert result.execution_enabled is False and result.orders_placed is False
+
+
+def test_range_and_invalid_purpose_never_get_paper_authority():
+    range_result = route_strategy_family(
+        source="gateio_public_spot", symbol="BTC_USDT", timeframe="15m",
+        regime="RANGE", purpose="PAPER_SHADOW",
+    )
+    invalid = route_strategy_family(
+        source="gateio_public_spot", symbol="BTC_USDT", timeframe="15m",
+        regime="UPTREND", purpose="LIVE_TRADE",
+    )
+    assert range_result.family_id == "range_mean_reversion"
+    assert range_result.paper_candidate_generation_authorized is False
+    assert invalid.state == "NO_FAMILY"
+    assert invalid.reason_codes == ("ROUTE_PURPOSE_INVALID",)

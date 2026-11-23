@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 MAX_LINE_BYTES = 1024 * 1024
-MAX_ROWS = 100
+MAX_ROWS = 250
 _ALLOWED_DECISIONS = {"LONG", "SHORT", "NO_TRADE"}
 
 
@@ -123,6 +123,77 @@ def _gate_summary(record: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _decision_verification(event_id: str, observed_at: datetime, records: dict[str, dict[str, Any]], now: datetime) -> dict[str, Any]:
+    """Classify NO_TRADE only when a matured, gate-qualified, instrument-verified counterfactual exists."""
+    row = records.get(event_id)
+    if row is None:
+        age = max(0.0, (now - observed_at).total_seconds())
+        state = "PENDING" if age < 24 * 3600 else "VALIDATION_PENDING"
+        return {"state": state, "icon": "…", "label": state, "missed_profit": "UNKNOWN", "horizon": "24h", "reason": "MATURITY_RECORD_NOT_AVAILABLE"}
+    if row.get("validation_status") != "VALIDATED_24H":
+        return {"state": "PENDING", "icon": "…", "label": "PENDING · incomplete forward coverage", "missed_profit": "UNKNOWN", "horizon": "24h", "reason": "INCOMPLETE_FORWARD_COVERAGE"}
+    qualification = row.get("gate_qualification") if isinstance(row.get("gate_qualification"), dict) else {}
+    candidate = row.get("independent_candidate_attribution") if isinstance(row.get("independent_candidate_attribution"), dict) else {}
+    shadow = row.get("structure_only_shadow") if isinstance(row.get("structure_only_shadow"), dict) else {}
+    h24 = shadow.get("horizons", {}).get("24h", {}) if isinstance(shadow.get("horizons"), dict) else {}
+    qualified = (
+        qualification.get("status") == "QUALIFIED"
+        and qualification.get("geometry_valid") is True
+        and qualification.get("confirmation_state") in {"CONFIRMED_LONG", "CONFIRMED_SHORT"}
+        and qualification.get("risk_state") == "RISK_APPROVED"
+        and candidate.get("candidate_generation_authorized") is True
+        and shadow.get("candidate_valid_pass") is True
+        and shadow.get("economic_status") == "EXECUTION_INSTRUMENT_VERIFIED"
+    )
+    if not qualified:
+        potential = h24.get("outcome_class") == "SHADOW_TARGET_HIT"
+        return {
+            "state": "POTENTIAL_ONLY" if potential else "NOT_CLASSIFIABLE",
+            "icon": "~" if potential else "—",
+            "label": "POTENTIAL ONLY · rejected/unqualified setup" if potential else "NOT CLASSIFIABLE · gate not qualified",
+            "missed_profit": "POTENTIAL_NOT_COUNTED" if potential else "NOT_ESTABLISHED",
+            "horizon": "24h",
+            "reason": "GATE_OR_EXECUTION_INSTRUMENT_EVIDENCE_INCOMPLETE",
+        }
+    outcome = h24.get("outcome_class")
+    complete = h24.get("observed_1m_candles") == h24.get("expected_1m_candles") and h24.get("ambiguous_same_candle") is False
+    if not complete:
+        return {"state": "PENDING", "icon": "…", "label": "PENDING · 24h evidence incomplete", "missed_profit": "UNKNOWN", "horizon": "24h", "reason": "INCOMPLETE_OR_AMBIGUOUS_HORIZON"}
+    if outcome == "SHADOW_STOP_HIT":
+        return {"state": "CORRECT", "icon": "✓", "label": "CORRECT · avoided-loss hypothesis", "missed_profit": "NO", "horizon": "24h", "reason": "QUALIFIED_SETUP_WOULD_HAVE_HIT_STOP"}
+    if outcome == "SHADOW_TARGET_HIT":
+        return {"state": "INCORRECT", "icon": "✕", "label": "INCORRECT · missed-profit hypothesis", "missed_profit": "YES_HYPOTHETICAL", "horizon": "24h", "reason": "QUALIFIED_SETUP_WOULD_HAVE_HIT_TARGET"}
+    return {"state": "NOT_CLASSIFIABLE", "icon": "—", "label": "NOT CLASSIFIABLE · no decisive barrier", "missed_profit": "NOT_ESTABLISHED", "horizon": "24h", "reason": "NO_DECISIVE_24H_OUTCOME"}
+
+
+def _load_matured_verifications(path: str | Path | None) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
+    file_path = Path(path)
+    if not file_path.exists():
+        return {}
+    if file_path.is_symlink() or not file_path.is_file():
+        raise JournalProjectionError("matured_verification_not_regular_file")
+    result: dict[str, dict[str, Any]] = {}
+    with file_path.open("rb") as handle:
+        for line_no, raw in enumerate(handle, 1):
+            if len(raw) > MAX_LINE_BYTES or not raw.endswith(b"\n"):
+                raise JournalProjectionError(f"invalid_matured_record:{line_no}")
+            try:
+                row = json.loads(raw.decode("utf-8", errors="strict"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise JournalProjectionError(f"invalid_matured_json:{line_no}") from exc
+            if not isinstance(row, dict) or row.get("schema") != "hes_matured_no_trade_validation_record_v1":
+                raise JournalProjectionError(f"invalid_matured_schema:{line_no}")
+            event_id = row.get("event_id")
+            if not isinstance(event_id, str) or not event_id or event_id in result:
+                raise JournalProjectionError(f"invalid_or_duplicate_matured_event:{line_no}")
+            if row.get("execution_enabled") is not False or row.get("orders_placed") is not False or row.get("policy_mutation_enabled") is not False:
+                raise JournalProjectionError(f"matured_safety_boundary_violation:{line_no}")
+            result[event_id] = row
+    return result
+
+
 class JournalProjectionError(ValueError):
     """The canonical journal cannot safely be projected to the UI."""
 
@@ -136,6 +207,7 @@ def read_decision_journal(
     expected_symbol: str | None = None,
     expected_policy_version: str | None = None,
     require_execution_off: bool = False,
+    matured_verification_path: str | Path | None = None,
 ) -> dict[str, Any]:
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_ROWS:
         raise JournalProjectionError("invalid_limit")
@@ -158,6 +230,7 @@ def read_decision_journal(
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None or current.utcoffset() is None:
         raise JournalProjectionError("verifier_clock_not_timezone_aware")
+    matured = _load_matured_verifications(matured_verification_path)
     events: list[dict[str, Any]] = []
     seen: set[str] = set()
     total_records = 0
@@ -241,6 +314,13 @@ def read_decision_journal(
                     "symbol": record.get("symbol", "UNKNOWN"),
                     "timeframe": record.get("timeframe", "UNKNOWN"),
                     "decision": record["decision"],
+                    "decision_origin": (
+                        "MOTHER" if record.get("service_name") == "mother_runtime_decision_journal_writer"
+                        else "STRATEGY_V2" if record.get("service_name") == "strategy_policy_v2_forward_evaluator"
+                        else None
+                    ),
+                    "service_name": record.get("service_name"),
+                    "event_schema": record.get("schema"),
                     "direction": record.get("direction", "NONE"),
                     "status": record.get("status", "RECORDED"),
                     "market_regime": record.get("market_regime", "UNKNOWN"),
@@ -285,6 +365,7 @@ def read_decision_journal(
                     "event_sha256": sha256(raw_line.rstrip(b"\r\n")).hexdigest(),
                     "execution": "OFF" if record.get("execution_enabled") is False and record.get("orders_placed") is False else "UNKNOWN",
                     "realized_outcome": "NOT_LINKED",
+                    "decision_verification": _decision_verification(event_id, parsed, matured, current) if record["decision"] == "NO_TRADE" else {"state": "PENDING", "icon": "…", "label": "PENDING · paper outcome linkage", "missed_profit": "UNKNOWN", "horizon": "24h", "reason": "DIRECTIONAL_PAPER_OUTCOME_LINK_REQUIRED"},
                 })
                 if len(events) > MAX_ROWS * 2:
                     events.sort(key=lambda item: (item["observed_at"], item["event_id"]), reverse=True)
@@ -320,4 +401,5 @@ def configured_decision_journal(*, journal_path: str | Path | None = None, limit
             "execution_enabled": False,
             "outcomes_inferred": False,
         }
-    return read_decision_journal(path, limit=limit)
+    matured_path = os.environ.get("HES_MATURED_NO_TRADE_VALIDATION_PATH", "").strip() or (path.parent / "matured_no_trade_validation_v1.jsonl")
+    return read_decision_journal(path, limit=limit, matured_verification_path=matured_path)

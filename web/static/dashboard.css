@@ -389,3 +389,7 @@ a{color:#91bbff}
 
 /* Short visible Mother label; retain canonical full heading in the accessibility tree. */
 #motherTitle::after{content:"Mother";font-size:16px;font-weight:650;letter-spacing:normal}
+
+
+/* Evidence-qualified decision verification; neutral/pending states are never colored as correct or incorrect. */
+.decision-verification{display:inline-flex;align-items:center;gap:.35rem;font-weight:650;white-space:normal}.decision-verification-correct{color:#1c9b68}.decision-verification-incorrect{color:#d94b57}.decision-verification-pending,.decision-verification-validation_pending{color:var(--muted,#8994a8)}.decision-verification-not_classifiable,.decision-verification-potential_only{color:var(--muted,#8994a8)}

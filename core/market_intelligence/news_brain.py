@@ -134,6 +134,7 @@ _NEGATIVE = ("hack", "exploit", "breach", "ban", "lawsuit", "outflow", "liquidat
 _HIGH_IMPACT = ("emergency", "unexpected", "surprise", "halted", "suspended", "delisting", "delist", "hack",
                 "exploit", "breach", "theft", "attack", "rate decision", "cpi", "fomc", "war", "default",
                 "bankruptcy", "liquidation", "فوری")
+HIGH_IMPACT_CONFIRMATION_WINDOW_MINUTES = 180
 _MARKET_ALIASES = {
     # Broad market terms only; asset tickers/names are matched separately.
     "crypto": ("crypto", "cryptocurrency", "stablecoin", "blockchain",
@@ -652,6 +653,20 @@ class NewsIntelligenceBrain:
         findings.sort(key=lambda f: (f.impact * f.relevance, f.confidence, f.published_at), reverse=True)
         findings = findings[:self.max_findings]
         high_impact = [f for f in findings if f.impact >= self.high_impact_threshold and f.relevance >= 0.45]
+        # Old high-impact headlines remain visible as context, but cannot veto a
+        # current setup indefinitely. A hard confirmation veto requires a
+        # verified publication timestamp inside the explicit 3-hour window.
+        confirmation_required = [
+            f for f in high_impact
+            if (
+                f.freshness == "unknown"
+                or (
+                    f.freshness == "fresh"
+                    and f.age_minutes is not None
+                    and 0 <= f.age_minutes <= HIGH_IMPACT_CONFIRMATION_WINDOW_MINUTES
+                )
+            )
+        ]
         cluster_rows = {}
         for finding in high_impact:
             cluster_id = _event_cluster_key(finding.title, finding.item_id, finding.published_at)
@@ -669,8 +684,10 @@ class NewsIntelligenceBrain:
             for finding in findings
         ]
         implications = []
-        if high_impact_clusters:
-            implications.append(f"{len(high_impact_clusters)} high-impact event cluster(s) require a confirmation check ({len(high_impact)} source item(s)).")
+        if confirmation_required:
+            implications.append(f"{len(confirmation_required)} fresh high-impact item(s) require a confirmation check inside the {HIGH_IMPACT_CONFIRMATION_WINDOW_MINUTES}-minute window.")
+        elif high_impact:
+            implications.append("Older high-impact headlines remain context only; they do not hard-veto a new setup without fresh event evidence.")
         if any("security" in f.categories or "exchange" in f.categories for f in high_impact):
             implications.append("Check venue/asset operational risk and liquidity before considering any signal.")
         if any("monetary_policy" in f.categories or "macro" in f.categories for f in high_impact):
@@ -686,7 +703,7 @@ class NewsIntelligenceBrain:
         if invalid_time_count: veto_flags.append("NEWS_TIMESTAMP_INVALID")
         if any(f.freshness == "unknown" for f in findings): veto_flags.append("NEWS_TIMESTAMP_UNVERIFIED")
         if any("source_identity_unverified" in f.caveats for f in findings): veto_flags.append("NEWS_SOURCE_UNVERIFIED")
-        if high_impact: veto_flags.append("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION")
+        if confirmation_required: veto_flags.append("HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION")
         status = "degraded" if source_failures else "no_relevant_news" if not findings else "ok"
         headline = (f"{len(high_impact_clusters)} high-impact event cluster(s)" if high_impact_clusters else
                     "No high-impact relevant event cluster crossed the review threshold")
