@@ -49,6 +49,8 @@ def validate_summary(summary: dict, *, source_commit: str, source_tree: str, sou
     if supervisor.get("bootstrap_status") != "SUCCEEDED": errors.append("SUPERVISOR_BOOTSTRAP_INVALID")
     if health.get("version") != "hes-specialist-supervisor-v1": errors.append("SUPERVISOR_VERSION_INVALID")
     if health.get("inflight_requests") != 0 or health.get("active_counts") != {}: errors.append("SUPERVISOR_NOT_QUIESCENT")
+    if health.get("execution_authorized") is not False: errors.append("SUPERVISOR_EXECUTION_AUTHORIZED")
+    if health.get("active_agents") != []: errors.append("SUPERVISOR_ACTIVE_AGENTS_PRESENT")
     agents = health.get("agents") if isinstance(health.get("agents"), dict) else {}
     if set(agents) != EXPECTED_AGENTS: errors.append("SUPERVISOR_AGENT_SET_INVALID")
     for name, state in agents.items():

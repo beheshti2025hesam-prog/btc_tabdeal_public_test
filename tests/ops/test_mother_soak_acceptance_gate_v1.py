@@ -27,7 +27,8 @@ def _summary():
             "supervisor": {
                 "bootstrap_status": "SUCCEEDED",
                 "health": {"version": "hes-specialist-supervisor-v1", "inflight_requests": 0,
-                           "active_counts": {}, "agents": agents},
+                           "active_counts": {}, "execution_authorized": False,
+                           "active_agents": [], "agents": agents},
             },
         },
     }
@@ -49,6 +50,8 @@ def test_exact_complete_24h_soak_passes_only_with_frozen_source_and_journal():
     (lambda d: d["last_observation"].update(stage_states=["PASS", "UNKNOWN", "PASS", "PASS", "PASS", "PASS", "PASS"]), "LAST_OBSERVATION_STAGE_STATE_INVALID"),
     (lambda d: d["last_observation"].update(witness_verified=False), "LAST_OBSERVATION_WITNESS_INVALID"),
     (lambda d: d["last_observation"].update(journal_sha256="f" * 64), "LAST_OBSERVATION_JOURNAL_HASH_MISMATCH"),
+    (lambda d: d["last_observation"]["supervisor"]["health"].update(execution_authorized=True), "SUPERVISOR_EXECUTION_AUTHORIZED"),
+    (lambda d: d["last_observation"]["supervisor"]["health"].update(active_agents=["risk"]), "SUPERVISOR_ACTIVE_AGENTS_PRESENT"),
 ])
 def test_soak_gate_rejects_short_or_unsafe_summaries(mutate, expected):
     summary = _summary(); mutate(summary)

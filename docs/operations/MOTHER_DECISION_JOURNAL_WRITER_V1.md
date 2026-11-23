@@ -44,12 +44,16 @@ wins/losses. Strategy performance remains candidate-linked and gate-qualified.
 
 ## Acceptance and activation gate
 
-The 2026-11-21 Mother 24-hour read-only soak intentionally hashes a frozen
+The 2026-11-22 Mother 24-hour read-only soak intentionally hashes a frozen
 journal snapshot and requires it to remain unchanged. Therefore this writer
-must not be enabled while hes-mother-supervisor-soak-20261121-v2.service is
-active. After it finishes, run
-scripts/ops/activate_mother_decision_journal_writer_v1.sh with the immutable
-release ID. The activation script fails closed unless the soak summary is PASS,
-complete, and confirms the journal snapshot was unchanged. It then installs and
-enables the 15-minute timer. No production journal append is performed by
-installation.
+must not be enabled while hes-mother-supervisor-soak-20261122-v1.service is
+active. Its summary is written to
+/var/lib/hes-mother-supervisor-soak-20261122-v1/mother-supervisor-soak-summary.json.
+After it finishes, run
+scripts/ops/activate_mother_decision_journal_writer_v1.sh from the exact
+immutable release directory with that release ID. The activation script fails
+closed unless the soak summary is PASS, complete, has at least 288 observations,
+matches the frozen source commit/tree, confirms the journal snapshot is
+unchanged, and reports a verified witness with no authorized execution or
+active supervisor agents. It then installs and enables the 15-minute timer.
+No production journal append is performed by installation.
