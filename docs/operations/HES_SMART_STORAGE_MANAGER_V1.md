@@ -283,3 +283,7 @@ The existing IDLM/Smart Cleanup/Smart Storage chain is the sole authority for HE
 - Raw market data, trade/decision journals, rejection evidence, model artifacts, secrets, Git history, user changes, and last known-good releases remain protected.
 
 The 5 GB objective remains NOT MET until a fresh complete-scope report proves the target.
+
+### Worktree dependency-scan correction — 2026-11-23
+
+Smart Cleanup now validates and reads worktree_registry.repo_root, excludes the primary checkout from child-worktree reference matching, and retains blocking only for actual child worktrees and their containing/contained paths. This fixes the prior false-positive where the primary checkout root made every project directory appear registered-worktree-related. Regression tests verify that /opt/hes-trade-agent/releases is not blocked by the primary root while /opt/hes-trade-agent/.worktrees remains blocked because it contains a real child worktree.
