@@ -195,3 +195,43 @@ def test_temp_and_runtime_ownership_scope_is_conservative():
     assert _ownership_scope(Path("/tmp/systemd-private-abc"), owner_uid=0, project_owner_uid=999) == "PLATFORM_TEMP"
     assert _ownership_scope(Path("/tmp/unrelated-user-temp"), owner_uid=1000, project_owner_uid=999) == "UNCLASSIFIED_TEMP"
     assert _ownership_scope(Path("/var/lib/hes-mother-state"), owner_uid=999, project_owner_uid=999) == "HES_RUNTIME"
+
+
+def test_unregistered_temp_git_workspace_is_kept_until_provenance_review(tmp_path):
+    import shutil
+
+    workspace = Path("/tmp") / f"hes-idlm-git-workspace-{tmp_path.name}"
+    workspace.mkdir()
+    (workspace / ".git").mkdir()
+    try:
+        classification, reason = _classify(
+            workspace, age_days=30, is_symlink=False,
+            registered_worktrees=set(), worktree_registry_ok=True,
+        )
+        assert classification == "KEEP_UNREGISTERED_GIT_WORKSPACE"
+        assert "Git metadata" in reason
+    finally:
+        shutil.rmtree(workspace)
+
+
+def test_temp_archive_and_recovery_evidence_are_kept(tmp_path):
+    import shutil
+
+    archive = Path("/tmp") / f"hes-recovery-{tmp_path.name}.tar.zst.gpg"
+    archive.write_bytes(b"encrypted-archive-fixture")
+    recovery_dir = Path("/tmp") / f"hes-restore-drill-{tmp_path.name}"
+    recovery_dir.mkdir()
+    try:
+        archive_class, _ = _classify(
+            archive, age_days=30, is_symlink=False,
+            registered_worktrees=set(), worktree_registry_ok=True,
+        )
+        recovery_class, _ = _classify(
+            recovery_dir, age_days=30, is_symlink=False,
+            registered_worktrees=set(), worktree_registry_ok=True,
+        )
+        assert archive_class == "KEEP_TEMP_EVIDENCE"
+        assert recovery_class == "KEEP_TEMP_EVIDENCE"
+    finally:
+        archive.unlink(missing_ok=True)
+        shutil.rmtree(recovery_dir)
