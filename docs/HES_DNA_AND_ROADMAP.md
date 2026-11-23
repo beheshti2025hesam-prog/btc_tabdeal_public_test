@@ -247,3 +247,7 @@ See `docs/dashboard/STRATEGY_REGIME_AND_RANGE_FAMILY_V1.md` for the operator-fac
 5. **Acceptance:** fresh complete-scope unique physical allocation below 5 GB, daily maintenance guard healthy, no protected-data loss.
 
 Current state: the 5 GB objective is **NOT MET**. The Smart Storage accounting correction is being validated in this draft branch; do not claim compliance until the acceptance gate passes.
+
+### Dependency-scan correctness correction — 2026-11-23
+
+The primary checkout root recorded in Git worktree metadata is not a child worktree. Smart Cleanup must exclude worktree_registry.repo_root when evaluating registered-worktree references. Only a real child worktree and its containing/contained paths block cleanup review. This prevents the primary checkout root from falsely marking every project directory as referenced while still protecting .worktrees and any parent that contains a real child worktree.
