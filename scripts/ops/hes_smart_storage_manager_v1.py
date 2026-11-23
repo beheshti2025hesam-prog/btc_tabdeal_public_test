@@ -21,6 +21,21 @@ def load_inventory(idlm: dict[str, Any], cleanup: dict[str, Any], now: datetime)
         raise ValueError("IDLM schema/mode mismatch")
     if cleanup.get("schema") != "hes_smart_cleanup_manager_v1" or cleanup.get("mode") != "READ_ONLY_DEPENDENCY_AWARE_DRY_RUN":
         raise ValueError("Smart Cleanup schema/mode mismatch")
+    scan = idlm.get("scan_summary")
+    required_scan_fields = (
+        "item_count", "scan_errors", "logical_allocated_bytes", "unique_allocated_bytes",
+        "shared_inode_path_bytes", "unclassified_temp_items", "unclassified_temp_bytes",
+        "missing_roots", "global_inode_dedup",
+    )
+    if not isinstance(scan, dict) or any(key not in scan for key in required_scan_fields):
+        raise ValueError("IDLM global physical scan summary missing or incomplete")
+    if scan.get("global_inode_dedup") is not True:
+        raise ValueError("IDLM global inode accounting is not enabled")
+    if int(scan.get("scan_errors", -1)) != 0 or scan.get("missing_roots") != []:
+        raise ValueError("IDLM scan is incomplete or has errors")
+    if int(scan.get("item_count", -1)) != len(idlm.get("items", [])):
+        raise ValueError("IDLM scan summary item count mismatch")
+
     generated = parse_time(str(idlm["generated_at"]))
     age = (now - generated).total_seconds()
     if age < -60 or age > MAX_REPORT_AGE_SECONDS:
@@ -47,22 +62,47 @@ def load_inventory(idlm: dict[str, Any], cleanup: dict[str, Any], now: datetime)
     items = cleanup.get("items")
     if not isinstance(items, list) or int(cleanup.get("inventory_items", -1)) != len(items):
         raise ValueError("Smart Cleanup inventory count mismatch")
-    by_class: dict[str, dict[str, int]] = defaultdict(lambda: {"items": 0, "allocated_bytes": 0})
+    if len(items) != int(scan["item_count"]):
+        raise ValueError("Smart Cleanup did not preserve the complete IDLM inventory")
+    by_class: dict[str, dict[str, int]] = defaultdict(lambda: {
+        "items": 0, "allocated_bytes": 0, "logical_allocated_bytes": 0,
+        "unique_allocated_bytes": 0, "shared_inode_path_bytes": 0,
+    })
     errors = 0
+    valid_scopes = {
+        "HES_PROJECT", "HES_EVIDENCE", "HES_BACKUP", "HES_TEMP", "HES_RUNTIME",
+        "PLATFORM_TEMP", "PLATFORM", "UNCLASSIFIED_TEMP", "OTHER",
+    }
     for item in items:
         if not isinstance(item, dict) or not item.get("classification") or not item.get("path"):
+            errors += 1
+            continue
+        required = (
+            "allocated_bytes", "logical_allocated_bytes", "unique_allocated_bytes",
+            "shared_inode_path_bytes", "ownership_scope", "scan_errors",
+        )
+        if any(key not in item for key in required) or item.get("ownership_scope") not in valid_scopes:
             errors += 1
             continue
         classification = str(item["classification"])
         by_class[classification]["items"] += 1
         try:
-            size = int(item.get("allocated_bytes") or 0)
-            if size < 0: raise ValueError
-            by_class[classification]["allocated_bytes"] += size
+            logical = int(item["logical_allocated_bytes"])
+            unique = int(item["unique_allocated_bytes"])
+            shared = int(item["shared_inode_path_bytes"])
+            row_errors = int(item["scan_errors"])
+            allocated = int(item["allocated_bytes"])
+            if (logical < 0 or unique < 0 or unique > logical or shared != logical - unique
+                    or allocated != logical or row_errors != 0):
+                raise ValueError
+            by_class[classification]["allocated_bytes"] += allocated
+            by_class[classification]["logical_allocated_bytes"] += logical
+            by_class[classification]["unique_allocated_bytes"] += unique
+            by_class[classification]["shared_inode_path_bytes"] += shared
         except (TypeError, ValueError):
             errors += 1
     if errors:
-        raise ValueError("malformed cleanup inventory rows")
+        raise ValueError("malformed or incomplete cleanup inventory physical-accounting rows")
     counts = Counter(str(x.get("classification")) for x in items)
     return {
         "status": "PASS",
@@ -72,6 +112,8 @@ def load_inventory(idlm: dict[str, Any], cleanup: dict[str, Any], now: datetime)
         "items": len(items),
         "classification_counts": dict(counts),
         "classification_storage": dict(by_class),
+        "scan_summary": scan,
+        "scope_complete": int(scan.get("unclassified_temp_items", -1)) == 0,
         "recovery_gate": cleanup.get("recovery_gate", {}),
         "dependency_scan": {
             "process_reference_count": deps.get("process_reference_count"),
@@ -222,47 +264,129 @@ def compression_advice(evidence: dict[str, Any] | None) -> dict[str, Any]:
                  if is_local else "Full-scope offsite include-set benchmark; local-backup-specific benchmark still required.")
     }
 
-def direct_child_bytes(items: list[dict[str, Any]], root: str) -> int:
+def direct_child_bytes(items: list[dict[str, Any]], root: str, field: str = "unique_allocated_bytes") -> int:
     base = PurePosixPath(root)
     total = 0
     for item in items:
         try:
             path = PurePosixPath(str(item["path"]))
-            size = int(item.get("allocated_bytes") or 0)
         except (KeyError, TypeError, ValueError):
             continue
-        # Only immediate children are counted. Nested manifest rows are not added
-        # again, preventing the scanner's overlapping-root reports from double counting.
-        if path.parent == base and size >= 0:
-            total += size
+        if path.parent != base:
+            continue
+        if field not in item:
+            raise ValueError("physical inventory field missing: " + field)
+        size = int(item[field])
+        if size < 0:
+            raise ValueError("negative inventory size: " + field)
+        total += size
     return total
 
-def storage_budget(items: list[dict[str, Any]], target_gb: int = 5) -> dict[str, Any]:
-    # User's hard storage objective is decimal GB, not GiB: 5 GB = 5,000,000,000 bytes.
+def storage_budget(
+    items: list[dict[str, Any]], target_gb: int = 5,
+    scan_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    # Decimal GB: 5 GB = 5,000,000,000 bytes. Physical budget is globally inode-deduplicated.
+    if not isinstance(scan_summary, dict):
+        raise ValueError("IDLM global physical scan summary is required")
     target = int(target_gb) * 1_000_000_000
-    project = direct_child_bytes(items, "/opt/hes-trade-agent")
-    evidence = direct_child_bytes(items, "/srv/hes-evidence")
-    backups = direct_child_bytes(items, "/var/backups/hes-trade-agent")
-    core = project + evidence
-    total = core + backups
+
+    project = direct_child_bytes(items, "/opt/hes-trade-agent", "unique_allocated_bytes")
+    evidence = direct_child_bytes(items, "/srv/hes-evidence", "unique_allocated_bytes")
+    backups = direct_child_bytes(items, "/var/backups/hes-trade-agent", "unique_allocated_bytes")
+    project_logical = direct_child_bytes(items, "/opt/hes-trade-agent", "logical_allocated_bytes")
+    evidence_logical = direct_child_bytes(items, "/srv/hes-evidence", "logical_allocated_bytes")
+    backups_logical = direct_child_bytes(items, "/var/backups/hes-trade-agent", "logical_allocated_bytes")
+
+    def scoped_bytes(scope: str, field: str) -> int:
+        total = 0
+        for item in items:
+            if item.get("ownership_scope") != scope:
+                continue
+            path = PurePosixPath(str(item.get("path", "")))
+            if scope == "HES_TEMP" and path.parent not in {PurePosixPath("/tmp"), PurePosixPath("/var/tmp")}:
+                continue
+            if scope == "HES_RUNTIME" and path.parent not in {
+                PurePosixPath("/var/lib"), PurePosixPath("/var/log"), PurePosixPath("/var/cache")
+            }:
+                continue
+            if scope == "UNCLASSIFIED_TEMP" and path.parent not in {
+                PurePosixPath("/tmp"), PurePosixPath("/var/tmp")
+            }:
+                continue
+            if field not in item:
+                raise ValueError("physical inventory field missing: " + field)
+            size = int(item[field])
+            if size < 0:
+                raise ValueError("negative inventory size: " + field)
+            total += size
+        return total
+
+    temp = scoped_bytes("HES_TEMP", "unique_allocated_bytes")
+    runtime = scoped_bytes("HES_RUNTIME", "unique_allocated_bytes")
+    unclassified_temp = scoped_bytes("UNCLASSIFIED_TEMP", "unique_allocated_bytes")
+    temp_logical = scoped_bytes("HES_TEMP", "logical_allocated_bytes")
+    runtime_logical = scoped_bytes("HES_RUNTIME", "logical_allocated_bytes")
+    unclassified_temp_logical = scoped_bytes("UNCLASSIFIED_TEMP", "logical_allocated_bytes")
+
+    known_hes = project + evidence + backups + temp + runtime
+    total = known_hes + unclassified_temp
+    logical_total = project_logical + evidence_logical + backups_logical + temp_logical + runtime_logical + unclassified_temp_logical
+    scan_errors = int(scan_summary.get("scan_errors", -1))
+    unclassified_items = int(scan_summary.get("unclassified_temp_items", -1))
+    unclassified_reported = int(scan_summary.get("unclassified_temp_bytes", -1))
+    missing_roots = scan_summary.get("missing_roots")
+    if scan_errors != 0:
+        raise ValueError("IDLM scan errors prevent a physical storage budget")
+    if unclassified_items < 0 or unclassified_reported < 0 or missing_roots != []:
+        raise ValueError("IDLM scan scope metadata is incomplete")
+    if unclassified_reported != unclassified_temp:
+        raise ValueError("unclassified temporary byte total mismatch")
+    scope_complete = unclassified_items == 0 and unclassified_temp == 0
+    status = (
+        "SCOPE_INCOMPLETE_OVER_BUDGET" if not scope_complete and total > target
+        else "SCOPE_INCOMPLETE" if not scope_complete
+        else "OVER_BUDGET" if total > target
+        else "WITHIN_BUDGET"
+    )
+    core = project + evidence + temp + runtime + unclassified_temp
     return {
         "target_gb": target_gb,
         "target_bytes": target,
-        "scope": "HES local project checkout + independent evidence store + local backup/staging roots; excludes Ubuntu and SentinelX platform files",
+        "scope": "HES project checkout, independent evidence, local backups/staging, HES-owned /tmp and /var/tmp artifacts, and HES runtime state/logs; Ubuntu/SentinelX platform-private paths are excluded; unclassified temp is counted conservatively and blocks acceptance",
         "components_bytes": {
             "project_checkout_including_releases_candidates_worktrees": project,
             "independent_evidence_store": evidence,
-            "local_backups_and_offsite_staging": backups
+            "local_backups_and_offsite_staging": backups,
+            "hes_owned_temporary_and_restore_artifacts": temp,
+            "hes_runtime_state_and_logs": runtime,
+            "unclassified_temporary_paths_counted_conservatively": unclassified_temp,
+        },
+        "component_logical_path_bytes": {
+            "project_checkout_including_releases_candidates_worktrees": project_logical,
+            "independent_evidence_store": evidence_logical,
+            "local_backups_and_offsite_staging": backups_logical,
+            "hes_owned_temporary_and_restore_artifacts": temp_logical,
+            "hes_runtime_state_and_logs": runtime_logical,
+            "unclassified_temporary_paths": unclassified_temp_logical,
         },
         "agent_core_bytes_excluding_backup_copies": core,
+        "known_hes_physical_bytes": known_hes,
         "total_local_hes_bytes_including_backups": total,
+        "total_local_hes_logical_path_bytes": logical_total,
+        "shared_inode_path_bytes_not_double_counted": max(0, logical_total - total),
         "total_local_hes_gib": round(total / 1024**3, 3),
         "total_local_hes_gb": round(total / 1_000_000_000, 3),
+        "scope_complete": scope_complete,
+        "scope_status": status,
+        "unclassified_temp_items": unclassified_items,
+        "unclassified_temp_bytes": unclassified_temp,
+        "scan_errors": scan_errors,
         "core_within_target": core <= target,
-        "complete_footprint_within_target": total <= target,
-        "over_target_bytes": max(0, total-target),
-        "counting_method": "sum only direct-child allocated-byte rows from the exact IDLM/Smart Cleanup snapshot; nested rows are excluded to avoid double counting",
-        "no_data_mutated": True
+        "complete_footprint_within_target": scope_complete and total <= target,
+        "over_target_bytes": max(0, total - target),
+        "counting_method": "sum unique st_blocks*512 per (st_dev, st_ino) globally across the exact IDLM scan; logical path bytes and shared-inode path bytes are reported separately; nested roots are not double-counted",
+        "no_data_mutated": True,
     }
 
 def dropbox_quota() -> dict[str, Any]:
@@ -302,19 +426,22 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
     return {
         "schema":"hes_smart_storage_manager_v1","generated_at":now.isoformat(),
         "mode":"READ_ONLY_CAPACITY_AND_COMPRESSION_PLAN","disk":capacity,
-        "inventory_source":"IDLM_V1_PLUS_SMART_CLEANUP_MANAGER_V1",
+        "inventory_source":"IDLM_V1_GLOBAL_INODE_ACCOUNTING_PLUS_SMART_CLEANUP_MANAGER_V1",
         "inventory":inventory,
         "recovery_assessment":recovery,
         "summary":{"local_backup":local,"offsite_staging":offsite,
                    "local_restic_repository":{"status":restic_status,"allocated_bytes":restic_bytes},
                    "dropbox_quota":quota},
-        "storage_budget":storage_budget(cleanup.get("items", []), target_gb=5),
+        "storage_budget":storage_budget(cleanup.get("items", []), target_gb=5, scan_summary=inventory["scan_summary"]),
         "compression":compression_advice(evidence),
         "policy":{"canonical_market_data":"Gate.io Public Spot BTC_USDT",
           "backup_destination":"encrypted Dropbox","backup_retention":"unchanged until remote restore and replacement-host recovery gates pass",
           "unknown_or_unverified":"KEEP","deletion_authorized":False,"move_authorized":False,
           "compression_authorized":False,"automatic_cleanup_timer_authorized":False,
           "safe_cache_maintenance_timer_enabled":True,
+          "hardlink_aware_physical_accounting":True,
+          "local_footprint_scope_complete":inventory.get("scope_complete",False),
+          "local_footprint_scope_status":"COMPLETE" if inventory.get("scope_complete",False) else "INCOMPLETE",
           "automatic_project_data_cleanup_authorized":False,
           "full_archive_restore_verified":recovery.get("full_archive_restore") == "PASS",
           "remote_restore_verified":remote_recovery.get("status") == "PASS",
@@ -322,6 +449,8 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
           "local_footprint_target_gb":5,
           "local_footprint_target_bytes":5_000_000_000},
         "invariants":["Uses the existing IDLM and dependency-aware Smart Cleanup inventories; does not rescan project trees.",
+          "Counts globally unique physical inodes once; reports logical path sums and shared-inode path bytes separately.",
+          "Includes HES-owned temporary/restore paths and HES runtime state; unclassified temporary paths block 5 GB acceptance.",
           "No file is deleted, moved, truncated, rotated, pruned or compressed by this report.",
           "All backups and active/rollback releases remain protected.",
           "New compression format must be versioned; legacy gzip archives remain readable and retained.",
@@ -345,7 +474,7 @@ def main() -> int:
     restore_evidence=json.loads(args.restore_evidence.read_text()) if args.restore_evidence else None
     remote_restore_evidence=json.loads(args.remote_restore_evidence.read_text()) if args.remote_restore_evidence else None
     report=build_report(idlm=idlm,cleanup=cleanup,evidence=evidence,restore_evidence=restore_evidence,remote_restore_evidence=remote_restore_evidence)
-    report["storage_budget"]=storage_budget(cleanup.get("items", []), target_gb=args.target_gb)
+    report["storage_budget"]=storage_budget(cleanup.get("items", []), target_gb=args.target_gb, scan_summary=idlm.get("scan_summary"))
     report["policy"]["local_footprint_target_gb"]=args.target_gb
     report["policy"]["local_footprint_target_bytes"]=args.target_gb*1_000_000_000
     args.output.parent.mkdir(parents=True,exist_ok=True)
