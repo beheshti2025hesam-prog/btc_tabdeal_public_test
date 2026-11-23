@@ -1,0 +1,38 @@
+name: Paper Order Reconciliation Harness v1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "tests/test_paper_order_reconciliation_harness_v1.py"
+      - "core/execution/contract.py"
+      - "core/feature_engine/quality.py"
+      - "core/risk/boundary.py"
+      - "core/strategy/baseline.py"
+      - ".github/workflows/paper-order-reconciliation-harness-v1.yml"
+  push:
+    branches: [test/paper-order-reconciliation-main-20261021]
+    paths:
+      - "tests/test_paper_order_reconciliation_harness_v1.py"
+      - "core/execution/contract.py"
+      - "core/feature_engine/quality.py"
+      - "core/risk/boundary.py"
+      - "core/strategy/baseline.py"
+      - ".github/workflows/paper-order-reconciliation-harness-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  paper-order-reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip pytest
+      - run: pytest -q tests/test_paper_order_reconciliation_harness_v1.py
