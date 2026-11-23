@@ -80,10 +80,20 @@ The deployed record schema does not persist a separate top-level
 rows. The recent service logs also report successful `RECORDED` results and
 no orders or policy mutation.
 
-This discovery corrects the earlier operational assumption that the timer was
-not installed and that no production journal appends had occurred. The timer
-was not changed, restarted, or replaced during this inspection. The current
-PR implementation is not the deployed implementation. Do not rerun the
-activation script, replace the deployed release, or claim this PR is deployed
-until source/provenance and journal-schema compatibility are reconciled and
-revalidated. Keep the production writer's execution and order flags disabled.
+This discovery corrects the earlier operational assumption that the timer
+was not installed and that no production journal appends had occurred. The
+timer was not changed, restarted, or replaced during this inspection. The
+current PR implementation is not the deployed implementation. Do not rerun
+the activation script, replace the deployed release, or claim this PR is
+deployed until source/provenance and journal-schema compatibility are
+reconciled and revalidated. Keep the production writer's execution and order
+flags disabled.
+
+## Merge sequence
+
+PR #559 (strategy-family to Mother Paper lane) was merged into `main` as
+merge commit `8fa66f94f6f06ecc0d7e4f58a57dafe2b5609260` on 2026-11-23.
+This PR was then retargeted from the former PR #559 head to `main`.
+The final PR head must pass all six required `main-security-gate` status
+contexts before merge; the existing five passing check-runs alone are not
+sufficient evidence of branch-protection compliance.
