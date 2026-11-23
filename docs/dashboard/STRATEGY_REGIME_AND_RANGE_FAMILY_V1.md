@@ -67,3 +67,9 @@ Existing research records Range as RESEARCH_ONLY_NOT_ACTIVE / EDGE_NOT_PROVEN. T
 ## Current implementation/evidence update (2026-11-19)
 
 The Range v2 engine exists in an isolated research branch and is not deployed or activated. Both the 90-day historical replay and recent VPS multi-timeframe shadow replay produced zero eligible candidates. Keep the dashboard status at RESEARCH_ONLY_NOT_ACTIVE / EDGE_NOT_PROVEN; do not display actionable Range signals. The engine binds to the shared family-context envelope but is not connected to Strategy V2 approval, Confirmation, Risk Gate, Precision Entry, order routing or live dashboard actions. Trend remains unchanged. See `docs/checkpoints/RANGE_STRATEGY_ENGINE_V2_RESULTS_2026-11-19.md`.
+
+## Implemented Mother paper-shadow panel — 2026-11-22
+
+The dashboard now contains a visible Strategy-family paper lane summary in the Mother panel. It is an observation-only view of the Mother family candidate and its independent Confirmation, Risk and News veto results; it does not make router selection actionable. The lane's `PAPER_SHADOW_ACTIVE` state is distinct from the routed live family state, which remains locked/research-only.
+
+Only the Trend variants `trend_confirmation` and `momentum_breakout` can enter this Mother paper candidate path. The legacy indicator-family `range_mean_reversion` variant is filtered out. Range v2 remains `RESEARCH_ONLY_NOT_PROMOTED`, with no Mother candidate authority until its own research/evidence contract is explicitly promoted. Missing/unready news, high-impact vetoes, stale or incomplete candles, failed Confirmation or rejected Risk all remain non-actionable. Final `NO_TRADE` and the separate policy/ruleset paper-execution gate are preserved.

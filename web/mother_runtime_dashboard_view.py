@@ -343,6 +343,7 @@ def read_mother_runtime_dashboard(
         "market_data_provenance": summary.get("market_data_provenance"),
         "market_regime": summary.get("market_regime", "UNKNOWN"),
         "strategy_proposal": summary.get("strategy_proposal"),
+        "strategy_family_paper_lane": summary.get("strategy_family_paper_lane"),
         "precision_entry": summary.get("precision_entry"),
         "recovery_evidence": summary.get("recovery_evidence"),
         "paper_execution_gate": summary.get("paper_execution_gate"),

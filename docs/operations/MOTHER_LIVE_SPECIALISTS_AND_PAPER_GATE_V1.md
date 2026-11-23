@@ -88,3 +88,19 @@ A read-only runtime evaluation on the current Gate.io Spot BTC_USDT 15m snapshot
 - MotherAuditWitnessV1 verified the complete consensus assessment set. execution_enabled=false, orders_placed=false, execution_authorized=false, venue_adapter_called=false, capital_mutated=false.
 
 This is one live read-only evidence point, not a 24-hour soak acceptance, a paper-trading performance sample, or proof of the requested win-rate target.
+
+
+## Strategy-family paper-candidate lane — 2026-11-22
+
+The Mother runtime now has a separate `strategy_family_paper_lane` path. It reuses the existing universal indicator engine and indicator strategy-family evaluator on the same validated, closed Gate.io BTC_USDT 15m/1h/4h snapshot. It does not create another market-data reader or change the canonical source.
+
+- `trend_confirmation` and `momentum_breakout` map to the trend family. The legacy indicator-family `range_mean_reversion` variant is explicitly excluded from Mother candidates; Range v2 remains `RESEARCH_ONLY_NOT_PROMOTED` until its own frozen engine and evidence gate are promoted.
+- A candidate is passed through the existing independent structure/opportunity confirmation and risk gate. Risk geometry must be valid and meet the existing 3R floor; sizing is explicitly simulation-assumption-only.
+- The 1m feed remains precision-only and cannot create direction. Candidate reference price is the closed 15m close, explicitly not an execution fill.
+- News context is mandatory. Missing/unready news or a high-impact veto changes confirmation to UNCONFIRMED and risk to RISK_REJECTED.
+- The dashboard exposes `strategy_family_paper_lane` separately from the legacy Strategy V2 proposal and paper-execution readiness gate, with a visible Mother-panel summary for family/variant, direction, candidate status, confirmation, risk, news veto and live-activation state. Machine enums and evidence remain untranslated.
+- `paper_lane_activation_state=PAPER_SHADOW_ACTIVE` authorizes only observation/shadow-candidate generation. The routed live family remains `CANDIDATE_LOCKED_NOT_ACTIVE` or `RESEARCH_ONLY_NOT_ACTIVE`; decision authority, risk bypass, execution and orders remain false.
+
+The family lane is intentionally not a live-policy activation. The final Decision gate remains fail-closed and `PaperExecutionGateV1` continues to require the separate active policy/ruleset and verified recovery evidence. A candidate that passes family confirmation and paper-risk checks therefore remains a paper-only candidate, not a trade instruction or a created position.
+
+The 2026-11-22 live read-only check found one `trend_confirmation` SHORT candidate in a DOWNTREND, with 3R geometry and matching bearish structure. The current News Radar supplied `HIGH_IMPACT_NEWS_REQUIRES_CONFIRMATION`, so the lane correctly returned `BLOCKED_NEWS_VETO`, Confirmation=UNCONFIRMED and Risk=RISK_REJECTED. With a controlled test fixture containing READY news and no veto, the same family path passed Confirmation and Risk, Mother consensus resolved SHORT, and the final decision still remained NO_TRADE because policy activation is separate. The dashboard audit witness verified both cases.

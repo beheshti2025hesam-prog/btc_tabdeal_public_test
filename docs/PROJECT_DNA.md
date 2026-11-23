@@ -64,3 +64,7 @@ Backup pruning is prohibited until full archive restore, remote restore and repl
 ## Smart memory/storage recovery validation — 2026-11-20
 
 Local full Restic same-host restore and Dropbox compact-core remote restore are both verified PASS. The local full snapshot passed read-data integrity and full 43-root extraction; the remote 398,216,865-byte core matched its Dropbox manifest hash, passed GPG/Zstandard/tar safety and full extraction, with active/rollback release manifests and main Git connectivity verified. The Smart Storage Manager and daily runner record these as separate evidence gates. Replacement-host boot/recovery remains NOT_PROVEN; no backup pruning is authorized.
+
+## Strategy-family activation boundary
+
+Strategy families may be enabled for a dedicated PAPER_SHADOW candidate lane without being activated for live decisions. Trend-family candidates must pass the existing independent market-structure/confirmation and risk gates, the current news veto, and the closed-candle data contract. The legacy indicator-family Range variant is not admitted to Mother candidates; Range v2 remains RESEARCH_ONLY_NOT_PROMOTED until its own evidence gate passes. Shadow activation never grants decision authority, risk-gate bypass, execution, orders, or capital mutation. Live policy/ruleset activation remains a separate evidence-backed promotion decision.

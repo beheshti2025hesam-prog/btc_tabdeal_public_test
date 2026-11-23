@@ -164,10 +164,15 @@ class DashboardRouteTests(unittest.TestCase):
             page = response.read().decode()
         self.assertIn('id="motherPanel"', page)
         self.assertIn("Mother Orchestrator · canonical V2 evidence chain", page)
+        self.assertIn('id="motherFamilyLane"', page)
+        self.assertIn("Strategy-family paper lane", page)
         with urlopen(self.base + "/static/dashboard.js") as response:
             script = response.read().decode()
         self.assertIn("fetchWithTimeout('/api/mother'", script)
         self.assertIn("witness", script)
+        self.assertIn("strategy_family_paper_lane", script)
+        self.assertIn("PAPER_SHADOW_ACTIVE", script)
+        self.assertIn("RESEARCH_ONLY_NOT_PROMOTED", script)
 
     def test_mother_endpoint_returns_independently_witnessed_observation(self):
         payload = {

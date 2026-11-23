@@ -144,6 +144,45 @@ class MotherRuntimeSpecialistsTests(TestCase):
             )
         return result, confirm_mock, risk_mock
 
+    def test_family_paper_candidate_is_wired_through_mother_confirmation_and_risk(self):
+        lane = {
+            "schema": "hes_strategy_family_paper_lane_v1",
+            "lane_version": "hes-strategy-family-paper-lane-v1.0.0",
+            "status": "CONFIRMED_RISK_APPROVED_PAPER_ONLY",
+            "paper_lane_activation_state": "PAPER_SHADOW_ACTIVE",
+            "candidate_count": 1,
+            "reason_codes": ["HTF_ALIGNMENT"],
+            "selected_candidate": {
+                "direction": "LONG", "variant_id": "trend_confirmation",
+                "reference_price": 100.0, "stop_loss": 98.0,
+                "take_profit": 106.0, "rr": 3.0,
+                "reason_codes": ["HTF_ALIGNMENT"],
+                "confirmation": {"state": "CONFIRMED_LONG",
+                                  "reason_codes": ["ALL_REQUIRED_CONFIRMATIONS_PASSED"],
+                                  "checks": []},
+                "risk": {"state": "RISK_APPROVED",
+                         "reason_codes": ["ALL_RISK_GATES_PASSED"], "checks": []},
+                "execution_enabled": False, "orders_placed": False,
+            },
+        }
+        with patch.object(runtime, "evaluate_strategy_family_paper_lane", return_value=lane):
+            result, confirm_mock, risk_mock = self._run()
+        self.assertEqual(result["strategy_family_paper_lane"]["status"],
+                         "CONFIRMED_RISK_APPROVED_PAPER_ONLY")
+        self.assertEqual(result["consensus"]["decision"], "LONG")
+        confirmation = next(stage for stage in result["stages"] if stage["agent"] == "confirmation")
+        risk = next(stage for stage in result["stages"] if stage["agent"] == "risk")
+        self.assertEqual(confirmation["state"], "CONFIRMED")
+        self.assertEqual(risk["state"], "APPROVED")
+        self.assertEqual(result["decision"], "NO_TRADE")
+        self.assertEqual(result["paper_execution_gate"]["status"], "BLOCKED")
+        self.assertFalse(result["execution_authorized"])
+        self.assertFalse(result["execution_enabled"])
+        self.assertFalse(result["orders_placed"])
+        self.assertTrue(result["witness"]["verified"])
+        confirm_mock.assert_called_once()
+        risk_mock.assert_called_once()
+
     def test_evaluation_blocks_unverified_journal_without_agent_exception(self):
         market = SimpleNamespace(ensure_journal=lambda: {
             "status": "MISSING", "count": 0, "decision_count": 0, "events": [],
