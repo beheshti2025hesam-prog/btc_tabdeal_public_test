@@ -832,6 +832,60 @@ def _source_audit_gate(audit: dict[str, Any], now: datetime) -> tuple[list[str],
         paths = registry.get("paths")
         if not isinstance(paths, list) or not all(isinstance(path, str) and Path(path).is_absolute() for path in paths):
             errors.append("worktree_registry_paths_invalid")
+
+    scan = audit.get("scan_summary")
+    if not isinstance(scan, dict):
+        errors.append("source_scan_summary_missing")
+    else:
+        required_summary = (
+            "item_count", "scan_errors", "logical_allocated_bytes",
+            "unique_allocated_bytes", "shared_inode_path_bytes",
+            "unclassified_temp_items", "unclassified_temp_bytes", "missing_roots",
+            "global_inode_dedup",
+        )
+        for field in required_summary:
+            if field not in scan:
+                errors.append("source_scan_summary_field_missing:" + field)
+        try:
+            if int(scan.get("scan_errors", -1)) != 0:
+                errors.append("source_scan_errors")
+            if int(scan.get("unclassified_temp_items", -1)) < 0 or int(scan.get("unclassified_temp_bytes", -1)) < 0:
+                errors.append("source_scan_unclassified_temp_invalid")
+            if scan.get("missing_roots") != []:
+                errors.append("source_scan_roots_incomplete")
+            if scan.get("global_inode_dedup") is not True:
+                errors.append("source_global_inode_accounting_missing")
+        except (TypeError, ValueError):
+            errors.append("source_scan_summary_invalid")
+
+    source_items = audit.get("items")
+    if not isinstance(source_items, list):
+        errors.append("source_inventory_missing")
+    else:
+        for row in source_items:
+            if not isinstance(row, dict):
+                errors.append("source_inventory_row_invalid")
+                continue
+            required = (
+                "path", "allocated_bytes", "logical_allocated_bytes",
+                "unique_allocated_bytes", "shared_inode_path_bytes",
+                "ownership_scope", "scan_errors",
+            )
+            if any(field not in row for field in required):
+                errors.append("source_inventory_physical_fields_missing")
+                continue
+            try:
+                logical = int(row["logical_allocated_bytes"])
+                unique = int(row["unique_allocated_bytes"])
+                shared = int(row["shared_inode_path_bytes"])
+                row_errors = int(row["scan_errors"])
+                if logical < 0 or unique < 0 or unique > logical or shared != logical - unique:
+                    errors.append("source_inventory_physical_accounting_invalid")
+                if row_errors != 0:
+                    errors.append("source_inventory_scan_errors")
+            except (TypeError, ValueError):
+                errors.append("source_inventory_physical_accounting_invalid")
+
     age_seconds: float | None = None
     try:
         generated = datetime.fromisoformat(str(audit.get("generated_at", "")).replace("Z", "+00:00"))
@@ -843,7 +897,6 @@ def _source_audit_gate(audit: dict[str, Any], now: datetime) -> tuple[list[str],
     except (TypeError, ValueError):
         errors.append("source_audit_timestamp_invalid")
     return errors, age_seconds
-
 
 def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
                          proc_refs: list[dict[str, Any]] | None = None,
@@ -900,6 +953,13 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
             "path": path,
             "classification": classification,
             "allocated_bytes": int(row.get("allocated_bytes", 0)),
+            "logical_allocated_bytes": int(row.get("logical_allocated_bytes", row.get("allocated_bytes", 0))),
+            "unique_allocated_bytes": int(row.get("unique_allocated_bytes", row.get("allocated_bytes", 0))),
+            "shared_inode_path_bytes": int(row.get("shared_inode_path_bytes", 0)),
+            "ownership_scope": str(row.get("ownership_scope", "UNKNOWN")),
+            "scan_errors": int(row.get("scan_errors", 0)),
+            "file_count": int(row.get("file_count", 0)),
+            "directory_count": int(row.get("directory_count", 0)),
             "age_days": row.get("age_days"),
             "dependency_status": dependency_status,
             "process_references": process_matches,
@@ -974,6 +1034,7 @@ def build_manager_report(audit: dict[str, Any], *, now: datetime | None = None,
         "invariants": [
             "No delete, move, truncate, compress, rotate, prune, or service mutation is implemented.",
             "Unknown ownership/dependency/recovery state means KEEP.",
+            "Preserve IDLM logical bytes, globally unique physical inode bytes, shared-inode path bytes, and ownership scope without mutation.",
             "Active and rollback release trees, registered worktrees, canonical market data, journals, evidence, backups, and unknown files remain protected.",
             "Gate.io remains the sole canonical market-data/chart/candle/indicator source; cleanup has no market-data or execution authority.",
             "Dropbox quota is monitored through the existing hesdropbox rclone remote; no credentials or passphrase are read into the report.",
