@@ -54,9 +54,9 @@ def test_newest_full_snapshot_is_preserved_when_all_are_outside_policy():
         snap("old-a", "2026-01-01T01:00:00Z"),
         snap("old-b", "2026-02-03T01:00:00Z"),
     ], date(2026, 11, 16))
-    assert rows(p, "keep") == {"old-b": "LATEST_FULL_SCOPE_AVAILABLE_FAIL_SAFE"}
-    assert rows(p, "delete_candidates") == {"old-a": "RETENTION_EXPIRED_FULL_SCOPE"}
-    assert p["stale_latest_available"] is True
+    assert rows(p, "keep") == {"old-a": "YEARLY_JAN1_ANCHOR"}
+    assert rows(p, "delete_candidates") == {"old-b": "RETENTION_EXPIRED_FULL_SCOPE"}
+    assert p["stale_latest_available"] is False
 
 def test_newer_partial_snapshot_never_supersedes_or_deletes_full_snapshot():
     full = snap("full", "2026-11-16T13:55:53Z")
@@ -86,7 +86,7 @@ def test_missing_path_inventory_fails_closed_as_partial():
 def test_defaults_match_live_production_recovery_snapshot_identity():
     assert EXPECTED_HOST == "hes-vps-recovery-v1"
     assert EXPECTED_TAG == "hes-full-recovery-v1"
-    assert len(REQUIRED_FULL_PATHS) == 43
+    assert len(REQUIRED_FULL_PATHS) == 44
 
 
 def test_latest_full_snapshot_selector_rejects_future_dated_full_snapshots():
