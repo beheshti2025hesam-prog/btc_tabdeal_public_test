@@ -48,3 +48,19 @@ Report in plain language, briefly and accurately. State what changed, the exact 
 - Production Learning Loop remains read-only. No automatic gate tuning, policy mutation, strategy activation, execution or orders.
 - 2026-11-19 production snapshot: 94 matured decisions; 93 complete gap-free 24h horizons; zero tracker-boundary mismatches; 34 independent candidates; 30 evaluated shadow geometries; 4 invalid stop geometries; two LONG 24h target-hit review clusters. The actual-missed-profit claim remains false.
 - Source checkpoint: `docs/checkpoints/NO_TRADE_COUNTERFACTUAL_MATURITY_V2_2026-11-19.md`. The operational report is evidence, not a trading authorization.
+
+
+## Smart memory and storage lifecycle — 2026-11-20
+
+The owner-set hard objective is to keep the complete local HES footprint below 5,000,000,000 allocated bytes (5 decimal GB). Scope: project checkout including releases/candidates/worktrees, independent evidence store, and local backup/offsite-staging roots. Ubuntu and SentinelX platform files are reported separately. This target supersedes the earlier 10 GiB planning objective; it is not yet achieved.
+
+The daily IDLM → dependency-aware Smart Cleanup → Smart Storage Manager pipeline runs at 03:45 UTC and produces a machine-readable 5 GB budget report. Automatic maintenance is deliberately narrow: only old direct-child `/tmp/pip-*` build/install/unpack directories older than 24 hours, with no active pip/build process and no open file handles; APT download cache; and journald retention capped at 256 MiB / 30 days.
+
+Unknown files remain KEEP. Active/rollback releases, registered or dirty worktrees, Gate.io market data, trade journals, evaluation evidence, Hoshyar models referenced by services, local Restic repositories, encrypted backup archives and Dropbox objects are protected. Release compaction is allowed only when an exact release snapshot is proven reproducible from a GitHub-hosted commit, its manifest or full Git tree matches byte-for-byte, and there are no active symlink, deployment-record, systemd, process or open-file references. Current and rollback pointers, newest-five releases, and deployment-record references are retained.
+
+Backup pruning is prohibited until full archive restore, remote restore and replacement-host recovery pass. Dropbox's separate 400,000,000-byte folder cap remains unchanged. Current 5 GB objective is not yet met; remaining large HES assets include candidate snapshots, active/registered worktrees, Hoshyar runtime/model assets, local Restic repository and protected offsite staging. These are not generic cache and must not be deleted by age-based cleanup. Dashboard contract: `docs/dashboard/STORAGE_AND_MEMORY_MANAGEMENT_V1.md`.
+
+
+## Smart memory/storage recovery validation — 2026-11-20
+
+Local full Restic same-host restore and Dropbox compact-core remote restore are both verified PASS. The local full snapshot passed read-data integrity and full 43-root extraction; the remote 398,216,865-byte core matched its Dropbox manifest hash, passed GPG/Zstandard/tar safety and full extraction, with active/rollback release manifests and main Git connectivity verified. The Smart Storage Manager and daily runner record these as separate evidence gates. Replacement-host boot/recovery remains NOT_PROVEN; no backup pruning is authorized.

@@ -227,3 +227,34 @@ See `docs/dashboard/STRATEGY_REGIME_AND_RANGE_FAMILY_V1.md` for the operator-fac
 - Therefore no win rate, expectancy or edge has been measured. This is insufficient candidate frequency under the frozen hypothesis, not a 0% win rate and not proof that all Range strategies fail. Do not loosen thresholds on these same samples.
 - Full repository regression after integration: 1,610 passed, 84 subtests passed. All candidate authority, confirmation, risk, execution and order flags remain false.
 - The engine is not deployed, not connected to live Strategy V2 approval, not activated in the dashboard, and cannot place orders. Continue RANGE/unknown → NO_TRADE unless a separately preregistered future hypothesis earns acceptance.
+
+## Permanent Smart HDD / local footprint contract — 2026-11-23
+
+- Hard ceiling: the complete local HES footprint must be strictly below **5,000,000,000 allocated bytes (decimal 5 GB)**. The ceiling covers the project checkout (including releases, candidates and registered worktrees), independent evidence, local backups/offsite staging, HES-owned temporary/restore artifacts, and HES runtime state/logs.
+- Reuse the existing chain only: **IDLM → dependency-aware Smart Cleanup Manager → Smart Storage Manager**. No parallel storage scanner or cleanup manager.
+- Physical accounting is global and inode-aware: count each (st_dev, st_ino) once across the exact IDLM scan; report logical path bytes, unique physical allocated bytes, and shared-inode path bytes separately. allocated_bytes remains the backward-compatible logical path sum; unique_allocated_bytes is the physical budget value.
+- Include HES-owned /tmp and /var/tmp artifacts plus /var/lib/hes-*, /var/log/hes-*, and /var/cache/hes-*. Platform-private temporary paths are excluded. Unknown temporary ownership is counted conservatively and blocks acceptance.
+- Acceptance requires a fresh, complete, error-free scan, zero unclassified temporary paths, a healthy daily guard, and total unique physical HES allocation below 5 decimal GB. A scan, proposed saving, or same-host restore alone is not acceptance evidence.
+- Unknown, permission-denied, open, active, referenced, dirty, unpushed, or unverified data remains KEEP. Never delete raw market data, trade/decision journals, rejection evidence, model artifacts, secrets, Git history, user changes, or the last known-good active/rollback release.
+- No automatic deletion of releases, candidates, worktrees, datasets, models, evidence, or backups. Automatic maintenance remains limited to proven regenerable caches and bounded APT/journald retention.
+- Backup retention reduction remains blocked until remote recovery, replacement-host recovery, and external encryption-key escrow are proven.
+
+### Smart HDD roadmap gates
+1. **Accounting correctness:** global inode-aware physical inventory, HES temp/runtime scope, unknown-scope fail-closed status, and exact-snapshot provenance.
+2. **Safe compaction:** path-by-path release/worktree manifest; preserve branch refs and dirty/untracked changes; remove only verified duplicate/reproducible working copies.
+3. **Recovery proof:** complete remote restore and clean replacement-host recovery, including key escrow, before backup-generation reduction.
+4. **Backup redesign:** incremental, deduplicated, encrypted, quota-preflighted archives with legacy restore compatibility.
+5. **Acceptance:** fresh complete-scope unique physical allocation below 5 GB, daily maintenance guard healthy, no protected-data loss.
+
+Current state: the 5 GB objective is **NOT MET**. The Smart Storage accounting correction is being validated in this draft branch; do not claim compliance until the acceptance gate passes.
+
+### Dependency-scan correctness correction — 2026-11-23
+
+The primary checkout root recorded in Git worktree metadata is not a child worktree. Smart Cleanup must exclude worktree_registry.repo_root when evaluating registered-worktree references. Only a real child worktree and its containing/contained paths block cleanup review. This prevents the primary checkout root from falsely marking every project directory as referenced while still protecting .worktrees and any parent that contains a real child worktree.
+
+### Temporary-workspace preservation rule — 2026-11-23
+
+- Any temporary directory containing its own .git metadata is KEEP_UNREGISTERED_GIT_WORKSPACE until dirty/untracked/ignored state, upstream status, exact commit and remote provenance are verified.
+- Temporary archives and paths that identify backup, restore, recovery, archive, evidence, journal, model, dataset, candidate, release, rollback, snapshot, fulltest, soak, smoke, hash-check, security, review, audit, training, lineage, lab, differential, preview, Restic or strace artifacts are KEEP_TEMP_EVIDENCE.
+- Only generic, unmarked temporary paths may enter REVIEW_STALE_TEMP/REVIEW_TEMP. These labels never authorize deletion.
+- This rule prevents a stale-age heuristic from treating dirty Git clones, recovery archives, model/data snapshots, test evidence or audit artifacts as disposable.
