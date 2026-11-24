@@ -4,6 +4,7 @@ import hashlib, json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from .sealed_jsonl_segments_v1 import read_jsonl_records, has_sealed_segments
 
 SCHEMA = "hes_neutral_decision_outcome_v1"
 DEFAULT_HORIZONS = {"1h": 3600, "4h": 14400, "24h": 86400}
@@ -14,15 +15,10 @@ def _dt(value: Any) -> datetime:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(timezone.utc)
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists(): return []
-    result = []
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip(): continue
-        try: row = json.loads(line)
-        except json.JSONDecodeError as exc: raise ValueError(f"MALFORMED_JSONL:{path.name}:{line_no}") from exc
-        if not isinstance(row, dict): raise ValueError(f"INVALID_JSONL_RECORD:{path.name}:{line_no}")
-        result.append(row)
-    return result
+    if not path.exists() and not has_sealed_segments(path):
+        return []
+    return read_jsonl_records(path)
+
 
 def _price(row: dict[str, Any], key: str) -> float:
     value = float(row[key])
