@@ -1,4 +1,10 @@
 {
+  "audit_reports": {
+    "all_generated_read_only": true,
+    "idlm": "/srv/hes-evidence/operations/storage-lifecycle/active-data-sealed-dashboard-compatibility-20261124/idlm.json",
+    "installed_smart_storage": "/srv/hes-evidence/operations/storage-lifecycle/active-data-sealed-dashboard-compatibility-20261124/storage-installed.json",
+    "smart_cleanup": "/srv/hes-evidence/operations/storage-lifecycle/active-data-sealed-dashboard-compatibility-20261124/cleanup.json"
+  },
   "dashboard": {
     "api_status": "VERIFIED",
     "decisions": 2931,
@@ -18,6 +24,12 @@
     }
   },
   "generated_at": "2026-11-24T08:30:14.926476+00:00",
+  "github": {
+    "branch": "feat/hes-active-data-intelligent-compression-v1",
+    "head": "d5254d073c88c5eaa42db8c4b8ca70cd23b81500",
+    "main_merged": false,
+    "pull_request_created": false
+  },
   "installed_smart_storage_manager": {
     "automatic_project_data_cleanup_authorized": false,
     "compression_authorized": false,
