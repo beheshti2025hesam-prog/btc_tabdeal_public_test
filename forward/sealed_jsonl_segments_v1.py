@@ -205,6 +205,7 @@ def _iter_compressed_segment_raw(path: Path, item: dict[str, Any]) -> Iterator[b
     assert process.stdout is not None
     digest = hashlib.sha256()
     total_bytes = 0
+    stderr = ""
     try:
         for raw in process.stdout:
             digest.update(raw)
@@ -212,8 +213,14 @@ def _iter_compressed_segment_raw(path: Path, item: dict[str, Any]) -> Iterator[b
             yield raw
     finally:
         process.stdout.close()
-    stderr = process.stderr.read().decode("utf-8", errors="replace") if process.stderr else ""
-    rc = process.wait()
+        try:
+            if process.stderr:
+                stderr = process.stderr.read().decode("utf-8", errors="replace")
+        finally:
+            if process.stderr:
+                process.stderr.close()
+            process.wait()
+    rc = process.returncode
     if rc != 0:
         raise JsonlSegmentError("ZSTD_DECOMPRESSION_FAILED:" + stderr[-200:])
     if digest.hexdigest() != item["source_sha256"] or total_bytes != item["source_bytes"]:
