@@ -17,6 +17,7 @@ import tempfile
 from typing import Any, Mapping
 
 from .forward_journal_v1 import ForwardJournalV1
+from .sealed_jsonl_segments_v1 import read_jsonl_records, logical_sha256, has_sealed_segments
 from .strategy_family_router_v1 import (
     CANONICAL_SOURCE,
     CANONICAL_SYMBOL,
@@ -40,18 +41,9 @@ FAMILY_FILES = {
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
+    if not path.exists() and not has_sealed_segments(path):
         return []
-    rows: list[dict[str, Any]] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for number, line in enumerate(handle, 1):
-            if not line.strip():
-                raise ValueError(f"blank_jsonl_line:{path.name}:{number}")
-            value = json.loads(line)
-            if not isinstance(value, dict):
-                raise ValueError(f"jsonl_row_not_object:{path.name}:{number}")
-            rows.append(value)
-    return rows
+    return read_jsonl_records(path)
 
 
 def _sha256(value: Mapping[str, Any]) -> str:
@@ -281,7 +273,7 @@ def _journal_summary(path: Path, family_id: str, profile: Any) -> dict[str, Any]
             row.get("preapproval_paper_eligible") is True for row in outcomes
         ),
         "journal_event_count": len(rows),
-        "journal_sha256": hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None,
+        "journal_sha256": logical_sha256(path) if path.exists() or has_sealed_segments(path) else None,
         "journal_file": path.name,
         "execution_enabled": False,
         "orders_placed": False,
@@ -367,7 +359,6 @@ def sync_strategy_family_result_journals(
     appended: dict[str, int] = {}
     for family_id, profile in FAMILY_PROFILES.items():
         path = destination / FAMILY_FILES[family_id]
-        path.touch(exist_ok=True)
         existing_rows = _load_jsonl(path)
         existing_by_id = {row.get("event_id"): row for row in existing_rows}
         if len(existing_by_id) != len(existing_rows):
