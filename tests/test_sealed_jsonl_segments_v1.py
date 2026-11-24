@@ -229,7 +229,7 @@ def test_read_only_jsonl_uses_read_only_source_lock_fallback(tmp_path):
     finally:
         path.parent.chmod(0o755)
 
- 
+
 def test_parent_directory_symlink_is_rejected_before_creating_lock_or_journal(tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
