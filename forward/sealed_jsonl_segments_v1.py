@@ -509,8 +509,14 @@ def _seal_hot_file_unlocked(path: Path, *, truncate_hot: bool = True) -> dict[st
         with path.open("rb") as original:
             cmp = subprocess.run(["cmp", "-s", "-", str(path)], stdin=decoder.stdout)
         decoder.stdout.close()
-        decoder_stderr = decoder.stderr.read().decode("utf-8", errors="replace") if decoder.stderr else ""
-        decoder_rc = decoder.wait()
+        decoder_stderr = ""
+        try:
+            if decoder.stderr:
+                decoder_stderr = decoder.stderr.read().decode("utf-8", errors="replace")
+        finally:
+            if decoder.stderr:
+                decoder.stderr.close()
+            decoder_rc = decoder.wait()
         if cmp.returncode != 0 or decoder_rc != 0:
             raise JsonlSegmentError("SEGMENT_ROUNDTRIP_FAILED:" + decoder_stderr[-200:])
         os.replace(temp_path, final_path)
