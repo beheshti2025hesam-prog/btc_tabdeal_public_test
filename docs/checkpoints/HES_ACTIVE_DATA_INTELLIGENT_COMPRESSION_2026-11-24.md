@@ -173,5 +173,12 @@ Created a second isolated worktree from the exact active release commit:
 - Post-fix learning loop refreshed strategy_learning_v1_report.json at 2026-11-24T07:22:16Z with 3132 decisions, 51 candidates, and 0 resolved outcomes. Policy mutation and execution remain disabled.
 - Final runtime healthcheck: overall OK, 42 checks, 0 critical, 0 issues. Gate.io 1m candle file continued advancing. No recent 4h collector error was recorded after the earlier transient URLError reconnect event.
 - Production data safety: trade_journal_v2.jsonl, global_market_candles_1m_v1.jsonl, observations_live_v1.jsonl, and neutral_decision_outcomes_v1.jsonl remain plain JSONL. No segment directories were created. No live file was sealed, truncated, rewritten, moved, deleted, or pruned. No automatic sealing timer was enabled.
-- Remaining gates before any production canary: dashboard-current reader needs a compatibility port and regression before it can read sealed journals; installed Smart Storage maintenance scripts under /usr/local need a deliberate contract-checked update; GitHub branch synchronization must be completed without weakening SSH host-key verification. Only after these gates should a separate explicit approval be requested for a one-file production canary.
+- Remaining gates before any production canary: dashboard-current reader needs a compatibility port and regression before it can read sealed journals; installed Smart Storage maintenance scripts under /usr/local need a deliberate contract-checked update. Only after these gates should a separate explicit approval be requested for a one-file production canary.
 - Disk free after deployment: approximately 8.7 GiB, 82 percent used. Deployment stayed within the single-VPS constraint and introduced no new paid dependency.
+
+## GitHub branch synchronization follow-up — 2026-11-24 07:29 UTC
+
+- Initial Git SSH push remained blocked by strict host-key verification for ssh.github.com port 443. No host-key checking was weakened.
+- Published the final active-release compression tree through the connected GitHub integration on branch feat/hes-active-data-intelligent-compression-v1, based exactly on 4c9a0f30c9aac67c6d711fe3699f55820a9b1322.
+- GitHub mirror commit: 2de44b6deb6c31247955bb35eecd8041c28c0d09. Tree: 30920f5118d24feace48895351a960d45c1d7734. The commit contains the 35 changed source, test, documentation, and evidence files. Remote verification confirmed the sealed JSONL module and learning-loop fix blob hashes match the staged release.
+- No pull request was created, no branch was merged, and main remains unchanged. The earlier note that no remote branch existed is superseded by this follow-up.
