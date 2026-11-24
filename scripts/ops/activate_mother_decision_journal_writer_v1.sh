@@ -24,7 +24,11 @@ if [[ ! -s "$SOAK_SUMMARY" ]]; then
   echo "BLOCKED: Mother soak summary is missing" >&2
   exit 4
 fi
-if systemctl show "$SOAK_UNIT" -p ActiveState --value >/dev/null 2>&1; then
+if ! SOAK_LOAD_STATE="$(systemctl show "$SOAK_UNIT" -p LoadState --value 2>/dev/null)"; then
+  echo "BLOCKED: unable to query Mother soak unit load state" >&2
+  exit 4
+fi
+if [[ "$SOAK_LOAD_STATE" == "loaded" ]]; then
   SOAK_ACTIVE_STATE="$(systemctl show "$SOAK_UNIT" -p ActiveState --value)"
   SOAK_RESULT="$(systemctl show "$SOAK_UNIT" -p Result --value)"
   SOAK_WORKDIR="$(systemctl show "$SOAK_UNIT" -p WorkingDirectory --value)"
@@ -45,8 +49,11 @@ if systemctl show "$SOAK_UNIT" -p ActiveState --value >/dev/null 2>&1; then
     echo "BLOCKED: Mother soak command does not match the frozen 24-hour read-only contract" >&2
     exit 4
   fi
-else
+elif [[ "$SOAK_LOAD_STATE" == "not-found" ]]; then
   echo "NOTICE: completed transient soak unit metadata was collected; validating the durable summary and pinned source tree instead"
+else
+  echo "BLOCKED: unexpected Mother soak unit load state: $SOAK_LOAD_STATE" >&2
+  exit 4
 fi
 # The activation path runs as root while the frozen source worktree belongs to sentinelx.
 # Mark only this exact worktree as safe for Git's ownership check.
