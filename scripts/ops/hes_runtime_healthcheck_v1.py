@@ -318,7 +318,7 @@ def collect_checks(
                 expected = precision_report.get(count_key)
                 if type(expected) is not int or expected < 0:
                     raise ValueError(f'{count_key}_invalid')
-                if not path.exists():
+                if not path.exists() and not has_sealed_segments(path):
                     if expected != 0:
                         add(f'precision:{filename}', 'CRITICAL', f'missing_but_reported_count={expected}')
                     else:
