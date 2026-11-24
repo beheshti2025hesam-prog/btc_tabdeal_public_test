@@ -89,6 +89,15 @@
     "prune_dry_run": "NO_STALE_REGISTRATIONS",
     "registered": 52
   },
+  "github": {
+    "append_after_seal_regression_tests_commit": "bdf5b84ab40daecb1cc1eb6a7d1d2c8ed45532e0",
+    "branch": "feat/hes-active-data-intelligent-compression-v1",
+    "branch_readback_verification": "PASS",
+    "initial_multifile_threshold_tests_commit": "342a626bcbfca777a4e3a7629aeab586d7eba651",
+    "main_merged": false,
+    "manager_source_commit": "c048262e4642bfa62f4ace4ffafc37a07d216549",
+    "pull_request_created": false
+  },
   "host": "vps-second-261930",
   "maintenance": {
     "over_5gb_target_bytes": 24450326016,
