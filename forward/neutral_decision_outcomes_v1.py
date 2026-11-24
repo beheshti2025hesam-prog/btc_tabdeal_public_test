@@ -4,7 +4,10 @@ import hashlib, json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
-from .sealed_jsonl_segments_v1 import read_jsonl_records, has_sealed_segments
+try:
+    from .sealed_jsonl_segments_v1 import read_jsonl_records, has_sealed_segments
+except ImportError:  # direct-file test loading has no package parent
+    from forward.sealed_jsonl_segments_v1 import read_jsonl_records, has_sealed_segments
 
 SCHEMA = "hes_neutral_decision_outcome_v1"
 DEFAULT_HORIZONS = {"1h": 3600, "4h": 14400, "24h": 86400}
