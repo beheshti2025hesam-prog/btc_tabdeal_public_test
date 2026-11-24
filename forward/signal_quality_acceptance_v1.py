@@ -6,6 +6,7 @@ import json
 import math
 from datetime import datetime, timezone
 from pathlib import Path
+from .sealed_jsonl_segments_v1 import read_jsonl_records, logical_sha256, has_sealed_segments
 
 CONTRACT_RELATIVE_PATH = Path("docs/execution/SIGNAL_QUALITY_ACCEPTANCE_CONTRACT_V1.json")
 PRECISION_15M_SETUP_CANDIDATES = Path("data/forward/strategy_policy_v2_eval_candidates.jsonl")
@@ -42,18 +43,10 @@ def _hash_matches(value: dict, field: str) -> bool:
 
 
 def _read_jsonl(path: Path):
-    if not path.exists():
+    if not path.exists() and not has_sealed_segments(path):
         return None, []
-    raw = path.read_bytes()
-    rows = []
-    for number, line in enumerate(raw.decode("utf-8").splitlines(), 1):
-        if not line.strip():
-            raise ValueError(f"blank precision ledger row:{path.name}:{number}")
-        row = json.loads(line)
-        if not isinstance(row, dict):
-            raise ValueError(f"precision ledger row is not an object:{path.name}:{number}")
-        rows.append(row)
-    return hashlib.sha256(raw).hexdigest(), rows
+    rows = read_jsonl_records(path)
+    return logical_sha256(path), rows
 
 
 def _read_json(path: Path):
