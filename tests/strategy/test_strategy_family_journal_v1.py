@@ -177,3 +177,98 @@ def test_family_journal_rejects_conflicting_top_level_and_route_family_identity(
             outcomes_path=tmp_path / "outcomes.jsonl",
             output_dir=tmp_path / "family-results",
         )
+
+
+def test_legacy_range_route_version_is_accepted_and_preserved(tmp_path):
+    candidates = tmp_path / "candidates.jsonl"
+    outcomes = tmp_path / "outcomes.jsonl"
+    candidate = _candidate("legacy-range-candidate", "RANGE")
+    route = candidate["gate_evidence"]["strategy_family_route"]
+    route["router_version"] = "hes-strategy-family-router-v1.0.0"
+    route["family_version"] = "hes-range-mean-reversion-research-v1.1"
+    candidate["strategy_family_id"] = "range_mean_reversion"
+    candidate["strategy_family_version"] = "hes-range-mean-reversion-research-v1.1"
+    candidate["strategy_family_activation_state"] = "RESEARCH_ONLY_NOT_ACTIVE"
+    outcome = _outcome("legacy-range-outcome", "legacy-range-candidate", "wins")
+    outcome["strategy_family_id"] = "range_mean_reversion"
+    outcome["strategy_family_version"] = "hes-range-mean-reversion-research-v1.1"
+    outcome["strategy_family_activation_state"] = "RESEARCH_ONLY_NOT_ACTIVE"
+    _write(candidates, [candidate])
+    _write(outcomes, [outcome])
+
+    output = tmp_path / "family-results"
+    first = sync_strategy_family_result_journals(
+        candidates_path=candidates, outcomes_path=outcomes, output_dir=output
+    )
+    rows = _read(output / FAMILY_FILES["range_mean_reversion"])
+    assert [row["event_type"] for row in rows] == ["PAPER_CANDIDATE", "PAPER_OUTCOME"]
+    assert {row["family_version"] for row in rows} == {"hes-range-mean-reversion-v2.0.0-research"}
+    assert {row["source_family_version"] for row in rows} == {"hes-range-mean-reversion-research-v1.1"}
+    assert {row["source_router_version"] for row in rows} == {"hes-strategy-family-router-v1.0.0"}
+    assert all(row["execution_enabled"] is False and row["orders_placed"] is False for row in rows)
+    assert first["families"]["range_mean_reversion"]["candidate_count"] == 1
+    assert first["families"]["range_mean_reversion"]["outcome_count"] == 1
+
+    second = sync_strategy_family_result_journals(
+        candidates_path=candidates, outcomes_path=outcomes, output_dir=output
+    )
+    assert second["new_records_appended"]["range_mean_reversion"] == 0
+    assert len(_read(output / FAMILY_FILES["range_mean_reversion"])) == 2
+
+
+def test_legacy_range_route_alias_rejects_unrecognized_router_version(tmp_path):
+    candidates = tmp_path / "candidates.jsonl"
+    candidate = _candidate("legacy-range-candidate", "RANGE")
+    route = candidate["gate_evidence"]["strategy_family_route"]
+    route["router_version"] = "unrecognized-router"
+    route["family_version"] = "hes-range-mean-reversion-research-v1.1"
+    candidate["strategy_family_id"] = "range_mean_reversion"
+    candidate["strategy_family_version"] = "hes-range-mean-reversion-research-v1.1"
+    _write(candidates, [candidate])
+    _write(tmp_path / "outcomes.jsonl", [])
+
+    with pytest.raises(ValueError, match="ROUTE_IDENTITY_MISMATCH"):
+        sync_strategy_family_result_journals(
+            candidates_path=candidates,
+            outcomes_path=tmp_path / "outcomes.jsonl",
+            output_dir=tmp_path / "family-results",
+        )
+
+
+def test_existing_legacy_range_journal_rows_replay_without_rewrite(tmp_path):
+    candidates = tmp_path / "candidates.jsonl"
+    outcomes = tmp_path / "outcomes.jsonl"
+    candidate = _candidate("legacy-range-candidate", "RANGE")
+    route = candidate["gate_evidence"]["strategy_family_route"]
+    route["router_version"] = "hes-strategy-family-router-v1.0.0"
+    route["family_version"] = "hes-range-mean-reversion-research-v1.1"
+    candidate["strategy_family_id"] = "range_mean_reversion"
+    candidate["strategy_family_version"] = "hes-range-mean-reversion-research-v1.1"
+    candidate["strategy_family_activation_state"] = "RESEARCH_ONLY_NOT_ACTIVE"
+    outcome = _outcome("legacy-range-outcome", "legacy-range-candidate", "wins")
+    outcome["strategy_family_id"] = "range_mean_reversion"
+    outcome["strategy_family_version"] = "hes-range-mean-reversion-research-v1.1"
+    outcome["strategy_family_activation_state"] = "RESEARCH_ONLY_NOT_ACTIVE"
+    _write(candidates, [candidate])
+    _write(outcomes, [outcome])
+
+    output = tmp_path / "family-results"
+    sync_strategy_family_result_journals(
+        candidates_path=candidates, outcomes_path=outcomes, output_dir=output
+    )
+    path = output / FAMILY_FILES["range_mean_reversion"]
+    rows = _read(path)
+    for row in rows:
+        row["family_version"] = "hes-range-mean-reversion-research-v1.1"
+        row.pop("source_family_version", None)
+        row.pop("source_router_version", None)
+    _write(path, rows)
+
+    replay = sync_strategy_family_result_journals(
+        candidates_path=candidates, outcomes_path=outcomes, output_dir=output
+    )
+    assert replay["new_records_appended"]["range_mean_reversion"] == 0
+    assert len(_read(path)) == 2
+    assert {row["family_version"] for row in _read(path)} == {
+        "hes-range-mean-reversion-research-v1.1"
+    }

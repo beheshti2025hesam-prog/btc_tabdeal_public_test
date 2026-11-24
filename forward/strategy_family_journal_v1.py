@@ -38,6 +38,13 @@ FAMILY_FILES = {
     "trend_breakout": "strategy_family_trend_breakout_results_v1.jsonl",
     "range_mean_reversion": "strategy_family_range_mean_reversion_results_v1.jsonl",
 }
+# Explicit, fail-closed aliases for route identities emitted by older deployed
+# routers. These aliases preserve historical research attribution only.
+LEGACY_FAMILY_ROUTE_VERSIONS = {
+    "range_mean_reversion": {
+        "hes-range-mean-reversion-research-v1.1": "hes-strategy-family-router-v1.0.0",
+    },
+}
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -69,10 +76,17 @@ def _family_identity(candidate: Mapping[str, Any]) -> dict[str, str] | None:
     if family_id not in FAMILY_PROFILES:
         return None
     profile = FAMILY_PROFILES[family_id]
-    family_version = candidate.get("strategy_family_version") or route.get("family_version")
+    route_version = route.get("family_version")
+    candidate_version = candidate.get("strategy_family_version")
     activation_state = (
         candidate.get("strategy_family_activation_state")
         or route.get("activation_state")
+    )
+    legacy_router = LEGACY_FAMILY_ROUTE_VERSIONS.get(family_id, {}).get(route_version)
+    route_version_is_current = route_version == profile.version
+    route_version_is_known_legacy = (
+        isinstance(legacy_router, str)
+        and route.get("router_version") == legacy_router
     )
 
     if candidate.get("source") != CANONICAL_SOURCE or candidate.get("symbol") != CANONICAL_SYMBOL:
@@ -85,11 +99,14 @@ def _family_identity(candidate: Mapping[str, Any]) -> dict[str, str] | None:
         raise ValueError("FAMILY_JOURNAL_ROUTE_SCOPE_MISMATCH")
     if (
         route.get("family_id") != family_id
-        or route.get("family_version") != profile.version
+        or not (route_version_is_current or route_version_is_known_legacy)
         or route.get("activation_state") != profile.activation_state
     ):
         raise ValueError("FAMILY_JOURNAL_ROUTE_IDENTITY_MISMATCH")
-    if family_version != profile.version or activation_state != profile.activation_state:
+    if (
+        candidate_version not in (None, route_version)
+        or activation_state != profile.activation_state
+    ):
         raise ValueError("FAMILY_JOURNAL_PROFILE_VERSION_OR_ACTIVATION_MISMATCH")
     if (
         route.get("candidate_generation_authorized") is not False
@@ -104,12 +121,14 @@ def _family_identity(candidate: Mapping[str, Any]) -> dict[str, str] | None:
         raise ValueError("FAMILY_JOURNAL_CANDIDATE_NOT_PAPER_ONLY")
     if candidate.get("strategy_family_id") not in (None, family_id):
         raise ValueError("FAMILY_JOURNAL_CANDIDATE_FAMILY_ID_MISMATCH")
-    if candidate.get("strategy_family_version") not in (None, profile.version):
+    if candidate.get("strategy_family_version") not in (None, route_version):
         raise ValueError("FAMILY_JOURNAL_CANDIDATE_FAMILY_VERSION_MISMATCH")
 
     return {
         "family_id": family_id,
         "family_version": profile.version,
+        "source_family_version": str(route_version),
+        "source_router_version": str(route.get("router_version", "")),
         "activation_state": profile.activation_state,
         "regime": str(route["regime"]),
         "symbol": CANONICAL_SYMBOL,
@@ -172,8 +191,14 @@ def _outcome_event(
         raise ValueError("FAMILY_JOURNAL_OUTCOME_NOT_PAPER_ONLY")
     if outcome.get("strategy_family_id") not in (None, identity["family_id"]):
         raise ValueError("FAMILY_JOURNAL_OUTCOME_FAMILY_ID_MISMATCH")
-    if outcome.get("strategy_family_version") not in (None, identity["family_version"]):
+    if outcome.get("strategy_family_version") not in (
+        None, identity["family_version"], identity.get("source_family_version")
+    ):
         raise ValueError("FAMILY_JOURNAL_OUTCOME_FAMILY_VERSION_MISMATCH")
+    if outcome.get("strategy_family_activation_state") not in (
+        None, identity["activation_state"]
+    ):
+        raise ValueError("FAMILY_JOURNAL_OUTCOME_ACTIVATION_STATE_MISMATCH")
     resolved_at = outcome.get("resolved_at") or outcome.get("observed_at")
     if not isinstance(resolved_at, str) or not resolved_at:
         raise ValueError("FAMILY_JOURNAL_OUTCOME_TIMESTAMP_MISSING")
@@ -226,11 +251,23 @@ def _journal_summary(path: Path, family_id: str, profile: Any) -> dict[str, Any]
             raise ValueError(f"FAMILY_JOURNAL_SCHEMA_OR_PROJECTION_MISMATCH:{family_id}")
         if row.get("family_id") != family_id:
             raise ValueError(f"FAMILY_JOURNAL_CROSS_FAMILY_CONTAMINATION:{family_id}")
-        if (
-            row.get("family_version") != profile.version
-            or row.get("activation_state") != profile.activation_state
-        ):
+        row_version = row.get("family_version")
+        known_legacy_versions = LEGACY_FAMILY_ROUTE_VERSIONS.get(family_id, {})
+        source_version = row.get("source_family_version")
+        source_router = row.get("source_router_version")
+        if row.get("activation_state") != profile.activation_state:
             raise ValueError(f"FAMILY_JOURNAL_PROFILE_MISMATCH:{family_id}")
+        if row_version != profile.version and row_version not in known_legacy_versions:
+            raise ValueError(f"FAMILY_JOURNAL_PROFILE_MISMATCH:{family_id}")
+        if source_version is not None:
+            if source_version not in (profile.version, row_version) and source_version not in known_legacy_versions:
+                raise ValueError(f"FAMILY_JOURNAL_SOURCE_PROFILE_MISMATCH:{family_id}")
+            expected_router = known_legacy_versions.get(source_version)
+            if expected_router is not None and source_router not in (None, expected_router):
+                raise ValueError(f"FAMILY_JOURNAL_SOURCE_ROUTER_MISMATCH:{family_id}")
+        elif row_version in known_legacy_versions and source_router is not None:
+            if source_router != known_legacy_versions[row_version]:
+                raise ValueError(f"FAMILY_JOURNAL_SOURCE_ROUTER_MISMATCH:{family_id}")
         if row.get("event_type") not in ("PAPER_CANDIDATE", "PAPER_OUTCOME"):
             raise ValueError(f"FAMILY_JOURNAL_EVENT_TYPE_INVALID:{family_id}")
         digest = row.get("source_record_sha256")
