@@ -163,3 +163,64 @@ def test_runtime_healthcheck_warns_when_disk_free_is_below_fifteen_percent(tmp_p
     disk_check = next(row for row in report['checks'] if row['check'] == 'disk-free')
     assert disk_check['state'] == 'WARN'
     assert disk_check['detail'] == '13.0%'
+
+ 
+def test_runtime_healthcheck_accepts_precision_ledgers_with_sealed_segments_and_no_hot_file(tmp_path, monkeypatch):
+    from forward.forward_journal_v1 import ForwardJournalV1
+
+    now = 2_000_000_000
+    data = tmp_path / 'data' / 'forward'
+    data.mkdir(parents=True)
+    for filename in health.FRESHNESS_LIMITS:
+        path = data / filename
+        if filename.endswith('.jsonl'):
+            _write_jsonl(path, [{'observed_at': _iso(now), 'event_id': filename, 'execution_enabled': False, 'orders_placed': False}])
+        else:
+            path.write_text(json.dumps({'updated_at': _iso(now), 'execution_enabled': False, 'orders_placed': False, 'source': 'gateio_public_spot', 'symbol': 'BTC_USDT'}), encoding='utf-8')
+
+    observer_report = {
+        'schema': 'hes_indicator_strategy_forward_paper_report_v1', 'updated_at': _iso(now),
+        'source': 'gateio_public_spot', 'symbol': 'BTC_USDT', 'decision_records': 0, 'outcome_records': 0,
+        'safety': {'research_only': True, 'performance_eligible': False, 'training_label_eligible': False,
+                   'decision_authority': False, 'candidate_generation_authorized': False, 'risk_gate_bypass': False,
+                   'execution_enabled': False, 'orders_placed': False},
+    }
+    (data / 'indicator_strategy_forward_paper_report_v1.json').write_text(json.dumps(observer_report), encoding='utf-8')
+    (data / 'indicator_strategy_forward_paper_state_v1.json').write_text(json.dumps({
+        'schema': 'hes_indicator_strategy_forward_paper_state_v2', 'bootstrap_mode': 'NO_RETROACTIVE_TRADES',
+        'last_processed_1m_open_time': now - 60, 'last_processed_signal_close_time': now - 900,
+        'processed_1m_bars': 0, 'active': {},
+    }), encoding='utf-8')
+
+    ledger_rows = {
+        'precision_entry_events_v1.jsonl': [{'event_id': 'ev1', 'observed_at': _iso(now)}],
+        'precision_entry_candidates_v1.jsonl': [{'event_id': 'ca1', 'candidate_event_id': 'ca1', 'entry_time': now, 'observed_at': _iso(now)}],
+        'precision_entry_outcomes_v1.jsonl': [{'event_id': 'out1', 'candidate_event_id': 'ca1', 'observed_at': _iso(now)}],
+    }
+    for filename, rows in ledger_rows.items():
+        for row in rows:
+            row.update({'source': 'gateio_public_spot', 'symbol': 'BTC_USDT', 'timeframe': '1m',
+                        'execution_enabled': False, 'orders_placed': False})
+        path = data / filename
+        writer = ForwardJournalV1(path)
+        for row in rows:
+            writer.append_event(row)
+        writer.seal()
+        path.unlink()
+
+    (data / 'precision_entry_journal_report_v1.json').write_text(json.dumps({
+        'updated_at': _iso(now), 'execution_enabled': False, 'orders_placed': False,
+        'event_count': 1, 'candidate_count': 1, 'outcome_count': 1,
+        'daily_signal_cap': 3, 'daily_signal_cap_is_quota': False,
+    }), encoding='utf-8')
+    witness = tmp_path / 'witness.jsonl'
+    _write_jsonl(witness, [{'observed_at': _iso(now), 'status': 'PASS', 'source': 'gateio_public_spot',
+                           'symbol': 'BTC_USDT', 'timeframe': '1m', 'execution_enabled': False,
+                           'orders_placed': False, 'latest_age_seconds': 20}])
+    monkeypatch.setattr(health, 'WITNESS', witness)
+    monkeypatch.setattr(health.shutil, 'disk_usage', lambda _: health.shutil._ntuple_diskusage(100, 50, 50))
+
+    report = health.collect_checks(root=tmp_path, now=now, runner=FakeRunner())
+    assert report['overall'] == 'OK'
+    for filename in ledger_rows:
+        assert any(item['check'] == f'precision:{filename}' and item['state'] == 'OK' for item in report['checks'])
