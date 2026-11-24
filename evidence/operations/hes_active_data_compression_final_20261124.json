@@ -144,7 +144,9 @@
   "generated_at": "2026-11-24T08:47:00.981266+00:00",
   "github": {
     "feature_branch": "feat/hes-active-data-intelligent-compression-v1",
+    "latest_verified_commit": "51d0a372c9e01fbaf904a475a51d543e1cdef9f0",
     "main_merged": false,
+    "permission_fix_commit": "600b7d450e4a6e60370c1dcf1db53e12d4edc092",
     "pull_request_created": false
   },
   "implementation": {
