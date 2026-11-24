@@ -201,3 +201,9 @@ Created a second isolated worktree from the exact active release commit:
 - Published the streaming sealed-JSONL reader, dashboard projection integration (including the full matured NO_TRADE/neutral-outcome semantics), regression test, evidence JSON, and updated checkpoint to branch feat/hes-active-data-intelligent-compression-v1.
 - GitHub commits in this follow-up: dda743093140e8b36fbefcbdf4852f3506791eeb (streaming reader), 1a92c452d2f89b670b6336d51ca99149c431184b (dashboard projection), eb929a9d11dcf9ffb8edcf49fe8327712c68451e (checkpoint), 803a056e6ea635fca60416169ef5847d33342a96 (regression test), d38c264f270ae07d5138240edcdd0d5e38acd013 (evidence). Remote read-back verified the streaming API, sealed dashboard reader, preserved matured verification function, test, evidence and checkpoint.
 - Branch head at this checkpoint: d38c264f270ae07d5138240edcdd0d5e38acd013. No pull request was created or merged; main remains unchanged.
+
+## Evidence archive and final synchronization follow-up — 2026-11-24 08:42 UTC
+
+- Full read-only IDLM, Smart Cleanup and installed Smart Storage reports (2.3 MB total) were preserved under /srv/hes-evidence/operations/storage-lifecycle/active-data-sealed-dashboard-compatibility-20261124/. The 44 MB isolated compressed test copy was removed from /tmp after its hashes, round-trip, projection parity and segment verification were captured in the evidence record.
+- The evidence JSON now links the preserved reports and records the GitHub evidence update commit 05aed421428609e991ade48c93cd3b6ed4bc32c2. The feature branch remains separate from main; no PR or merge was performed.
+- Final live check: dashboard and strategy learning services active; all four production target journals remain plain JSONL with no .segments directories. The live trade journal continued growing normally after the isolated-copy canary, confirming the production writer remained in control. No live compression or automatic sealing was enabled.
