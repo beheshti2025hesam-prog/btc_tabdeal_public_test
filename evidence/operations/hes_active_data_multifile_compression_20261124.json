@@ -1,0 +1,173 @@
+{
+  "aggregate": {
+    "compressed_segments_plus_hot_tails_bytes": 4461250,
+    "inventory_status": "VERIFIED",
+    "logical_bytes": 84863187,
+    "segment_count": 4,
+    "space_saving_percent": 94.74,
+    "total_ledgers": 4,
+    "verified_ledgers": 4
+  },
+  "archive_1_37gb": {
+    "bytes": 1369944609,
+    "coverage_against_latest_full_restic_snapshot": "NOT_PROVEN",
+    "decision": "KEEP_PENDING_PROVENANCE_AND_CONTENT_COVERAGE",
+    "deleted": false,
+    "exact_duplicate_of_current_compact_core": false,
+    "historical_decrypt_and_zstd_test": "PASS_PER_2026-11-23_DUPLICATE_AUDIT",
+    "path": "/var/tmp/hes-old-remote-hash-check/hes-offsite-latest.tar.zst.gpg",
+    "sha256": "16a1c3ced6be0723dd80494eb4b7b2b8a02cbe661ca94430b13b3777b927da52"
+  },
+  "automatic_policy": {
+    "all_other_data_archives_models_releases_worktrees_backups_excluded": true,
+    "deletion_authorized": false,
+    "general_compression_authorized": false,
+    "maintenance_timer": "hes-smart-storage-maintenance.timer",
+    "manager": "/usr/local/lib/hes-storage-v1/hes_smart_storage_manager_v1.py",
+    "manager_sha256": "bc07526719bd652c979044eb7da6591477dcffd5b09f66f9352f3461d080d16f",
+    "move_authorized": false,
+    "only_allowlisted_ledgers": true,
+    "restic_prune_authorized": false,
+    "thresholds_bytes": {
+      "global_market_candles_1m_v1.jsonl": 16777216,
+      "neutral_decision_outcomes_v1.jsonl": 16777216,
+      "observations_live_v1.jsonl": 16777216,
+      "trade_journal_v2.jsonl": 67108864
+    },
+    "timer_state": "active"
+  },
+  "compatibility": {
+    "additional_multifile_threshold_test": "PASS",
+    "application_readers": "PASS",
+    "isolated_copy_canaries": "PASS",
+    "logical_sha256_preservation": "PASS",
+    "regression_suite": {
+      "status": "PASS",
+      "tests_passed": 63
+    },
+    "writer_lock_contracts": "PASS"
+  },
+  "dashboard": {
+    "api_status": "VERIFIED",
+    "decision_records": 2935,
+    "execution_enabled": false,
+    "journal_records": 3145,
+    "orders_placed": false,
+    "outcomes_inferred": false,
+    "release": "/opt/hes-trade-agent/releases/hes-journal-outcome-ui-sealed-reader-v1"
+  },
+  "disk": {
+    "filesystem": "/dev/vda1",
+    "free_bytes": 9482424320,
+    "total_bytes": 52721094656,
+    "use_percent": "82%",
+    "used_bytes": 40537751552
+  },
+  "dropbox": {
+    "bytes": 345841190,
+    "core_remote_sha256": "b189f6470e240a8241be19f9eba21ada41736174e99e7e90bf485257016d7533",
+    "hard_cap_bytes": 400000000,
+    "isolated_same_host_restore": "PASS",
+    "object_count": 21,
+    "overlay_remote_sha256": "b269ef1962fe7b7d550ebb5edcfba598b1b33d490d8bf15e89c75c4806d47908",
+    "remaining_headroom_bytes": 54158810,
+    "remote_folder": "HES Trade Agent Backups",
+    "remote_readback_hashes": "PASS",
+    "replacement_host_restore": "NOT_PROVEN"
+  },
+  "generated_at": "2026-11-24T08:55:40.213320+00:00",
+  "git_worktrees": {
+    "branch_refs": 36,
+    "detached": 16,
+    "main_checkout_dirty": true,
+    "merge_or_removal_performed": false,
+    "prune_dry_run": "NO_STALE_REGISTRATIONS",
+    "registered": 52
+  },
+  "host": "vps-second-261930",
+  "maintenance": {
+    "over_5gb_target_bytes": 24450326016,
+    "report": "/srv/hes-evidence/operations/storage-lifecycle/2026-11-24T0848Z/hes-storage-maintenance-2026-11-24T084815Z.json",
+    "result": "hes_storage_maintenance_result_v1",
+    "service_state": "inactive",
+    "storage_budget_gb": 29.45
+  },
+  "production_active_ledgers": {
+    "global_market_candles_1m_v1.jsonl": {
+      "compressed_segment_bytes": 1154966,
+      "compression_saving_percent": 87.3,
+      "hot_bytes": 4352,
+      "last_segment_seq": 1,
+      "logical_bytes": 9099579,
+      "logical_sha256": "95405360dc767a629b0179daaa50966928220f05bf298bd47e4064eff2530fd9",
+      "manifest_sha256": "ac2b58642f8beb29a958a8f60e5f5e3373dfaf5b02a3cda75c5b6913b1cafc7e",
+      "record_count": 27285,
+      "sealed_source_bytes": 9095227,
+      "segment_count": 1,
+      "source_name": "global_market_candles_1m_v1.jsonl",
+      "status": "VERIFIED",
+      "verified": true
+    },
+    "neutral_decision_outcomes_v1.jsonl": {
+      "compressed_segment_bytes": 568794,
+      "compression_saving_percent": 93.11,
+      "hot_bytes": 6484,
+      "last_segment_seq": 1,
+      "logical_bytes": 8260746,
+      "logical_sha256": "3e99d7ec17c22fbf52c7b9debd7e1919596ef12f464ca348f7b36a82f14b2b6c",
+      "manifest_sha256": "f0caac3654a8058defc0cb9d1ba33c5ce16de87d4effaa9fbefa7489d8fecd2b",
+      "record_count": 8568,
+      "sealed_source_bytes": 8254262,
+      "segment_count": 1,
+      "source_name": "neutral_decision_outcomes_v1.jsonl",
+      "status": "VERIFIED",
+      "verified": true
+    },
+    "observations_live_v1.jsonl": {
+      "compressed_segment_bytes": 2068887,
+      "compression_saving_percent": 91.02,
+      "hot_bytes": 0,
+      "last_segment_seq": 1,
+      "logical_bytes": 23038973,
+      "logical_sha256": "c6867da2fd4b8ac315154c2a670cd963f08b13a91863b94e8783a3673c44172f",
+      "manifest_sha256": "82c77e9f315423d0ecac311d09e4e6c9e198058d4d588e16f5efec5c1d0323f4",
+      "record_count": 95886,
+      "sealed_source_bytes": 23038973,
+      "segment_count": 1,
+      "source_name": "observations_live_v1.jsonl",
+      "status": "VERIFIED",
+      "verified": true
+    },
+    "trade_journal_v2.jsonl": {
+      "compressed_segment_bytes": 631825,
+      "compression_saving_percent": 98.58,
+      "hot_bytes": 25942,
+      "last_segment_seq": 1,
+      "logical_bytes": 44463889,
+      "logical_sha256": "50714ea149cbd63f253dcd19a92281cc8d49c1c174fb59bee58a0bcabf5e671e",
+      "manifest_sha256": "826080e4ef2ea99ae90fa26b97939f10bc6654d91981141e88936fd3c56508bd",
+      "record_count": 3145,
+      "sealed_source_bytes": 44437947,
+      "segment_count": 1,
+      "source_name": "trade_journal_v2.jsonl",
+      "status": "VERIFIED",
+      "verified": true
+    }
+  },
+  "restic": {
+    "dropbox_sync_last_exit_code": 21,
+    "dropbox_sync_timer_state": "inactive",
+    "forget_or_prune_run": false,
+    "incremental_timer_state": "inactive",
+    "local_repository_allocated_bytes": 3463421952,
+    "read_data_integrity_check": "RUNNING",
+    "replacement_host_restore": "NOT_PROVEN",
+    "sync_block_reason": "400 MB total Dropbox hard-cap guard"
+  },
+  "safety": {
+    "all_four_active_ledgers_remain_logically_readable": true,
+    "no_new_server_or_laptop": true,
+    "no_trading_orders_enabled": true
+  },
+  "schema": "hes_active_data_multifile_compression_evidence_v1"
+}
