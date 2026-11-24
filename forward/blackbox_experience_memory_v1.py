@@ -113,6 +113,57 @@ def append_experience_events(path: str | Path, events: Iterable[dict[str, Any]])
 
 
 
+def _normalize_outcome_label(value: Any) -> str:
+    aliases = {
+        "wins": "WIN", "win": "WIN",
+        "losses": "LOSS", "loss": "LOSS",
+        "flats": "FLAT", "flat": "FLAT",
+        "timeouts": "TIMEOUT", "timeout": "TIMEOUT",
+    }
+    text = str(value).strip()
+    return aliases.get(text.lower(), text.upper())
+
+
+def _paper_outcome_mirror_conflicts(journal_row: dict[str, Any],
+                                    outcome_row: dict[str, Any]) -> list[str]:
+    """Compare fields shared by the human journal mirror and canonical outcome ledger."""
+    pairs = (
+        ("candidate_event_id", "candidate_event_id"),
+        ("candidate_time", "candidate_time"),
+        ("direction", "direction"),
+        ("strategy_family_id", "strategy_family_id"),
+        ("outcome", "outcome"),
+        ("entry", "entry"),
+        ("stop_loss", "stop_loss"),
+        ("take_profit", "take_profit"),
+        ("exit_close", "exit_close"),
+        ("exit_price", "exit_price"),
+        ("exit_time", "exit_close_time"),
+        ("outcome_reason", "reason"),
+        ("symbol", "symbol"),
+        ("timeframe", "timeframe"),
+    )
+    numeric = {"candidate_time", "entry", "stop_loss", "take_profit",
+               "exit_close", "exit_price", "exit_time"}
+    conflicts = []
+    for left, right in pairs:
+        a, b = journal_row.get(left), outcome_row.get(right)
+        if a is None or b is None:
+            continue
+        if left == "outcome":
+            equal = _normalize_outcome_label(a) == _normalize_outcome_label(b)
+        elif left in numeric:
+            try:
+                equal = math.isclose(float(a), float(b), rel_tol=1e-9, abs_tol=1e-9)
+            except (TypeError, ValueError, OverflowError):
+                equal = False
+        else:
+            equal = a == b
+        if not equal:
+            conflicts.append(left)
+    return conflicts
+
+
 def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Build reference-only memory events from existing HES ledgers; never mutates source data."""
     root = Path(data_root).resolve(); base = root / "data" / "forward"
@@ -125,6 +176,26 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
         "strategy_family_trend_breakout_results_v1.jsonl": "family",
         "strategy_family_range_mean_reversion_results_v1.jsonl": "family",
     }
+    # Strategy outcomes are mirrored into trade_journal_v2 for human audit. Index the
+    # richer canonical ledger first so the journal mirror cannot double-count an outcome.
+    strategy_outcome_path = base / "strategy_policy_v2_eval_outcomes.jsonl"
+    strategy_outcomes: dict[str, dict[str, Any]] = {}
+    if strategy_outcome_path.exists():
+        for line_no, line in enumerate(strategy_outcome_path.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if not isinstance(row, dict):
+                raise ValueError(f"SOURCE_ROW_NOT_OBJECT:strategy_policy_v2_eval_outcomes.jsonl:{line_no}")
+            event_id = str(row.get("event_id") or row.get("candidate_event_id") or "")
+            if not event_id:
+                continue
+            prior = strategy_outcomes.get(event_id)
+            if prior is not None and canonical_sha256(prior) != canonical_sha256(row):
+                raise ValueError(f"STRATEGY_OUTCOME_EVENT_ID_COLLISION:{event_id}")
+            strategy_outcomes[event_id] = row
+
+    seen_strategy_outcome_ids: set[str] = set()
     events: list[dict[str, Any]] = []; counts: dict[str, int] = {}
     regime_map = {"UPTREND": "BULLISH", "BULLISH": "BULLISH", "DOWNTREND": "BEARISH",
                   "BEARISH": "BEARISH", "RANGE": "RANGE"}
@@ -136,7 +207,16 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
             row = json.loads(line)
             if not isinstance(row, dict): raise ValueError(f"SOURCE_ROW_NOT_OBJECT:{filename}:{line_no}")
             if kind == "decision":
-                decision = row.get("decision"); proposal = row.get("proposal_direction")
+                decision = row.get("decision")
+                if decision == "PAPER_OUTCOME":
+                    mirror_id = str(row.get("event_id") or row.get("candidate_event_id") or "")
+                    mirrored = strategy_outcomes.get(mirror_id)
+                    if mirrored is not None:
+                        conflicts = _paper_outcome_mirror_conflicts(row, mirrored)
+                        if conflicts:
+                            raise ValueError("PAPER_OUTCOME_MIRROR_CONFLICT:" + mirror_id + ":" + ",".join(conflicts))
+                        continue
+                proposal = row.get("proposal_direction")
                 schema = row.get("schema")
                 if decision == "PAPER_OUTCOME":
                     outcome = {"wins":"WIN", "losses":"LOSS", "flats":"FLAT", "timeouts":"TIMEOUT"}.get(
@@ -165,6 +245,11 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
                 direction = None; matured = row.get("horizon_complete") is True; verified = False
                 family = row.get("strategy_family_id") or row.get("policy_version")
             elif kind == "strategy_outcome":
+                event_id = str(row.get("event_id") or row.get("candidate_event_id") or "")
+                if event_id and event_id in seen_strategy_outcome_ids:
+                    continue
+                if event_id:
+                    seen_strategy_outcome_ids.add(event_id)
                 etype = "TRADE_OUTCOME" if row.get("outcome") in ("wins", "losses", "flats") else "FAMILY_RESEARCH"
                 event_id = row.get("event_id") or row.get("candidate_event_id"); observed = row.get("resolved_at")
                 gate = row.get("final_gate_decision"); outcome = {"wins":"WIN", "losses":"LOSS", "flats":"FLAT"}.get(row.get("outcome"), row.get("outcome"))
