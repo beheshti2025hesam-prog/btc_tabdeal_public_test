@@ -234,3 +234,5 @@ Created a second isolated worktree from the exact active release commit:
 - Consolidated evidence: /srv/hes-evidence/operations/storage-lifecycle/active-data-final-20261124/all-active-jsonl-segments-20261124.json and /srv/hes-evidence/operations/storage-lifecycle/production-canary-20261124/production-seal-evidence.json. Read-only IDLM/cleanup/manager reports are preserved beside them.
 
 - Final installed Smart Storage Manager SHA-256: bc07526719bd652c979044eb7da6591477dcffd5b09f66f9352f3461d080d16f. Rollback copy: /var/backups/hes-trade-agent/hes_smart_storage_manager_v1.py.pre-multifile-seal-20261124 (SHA-256 6facadbdc9db3c97a31ad057933f383fde1a15bab2951028af8fb8c1056c797d). Active segment module SHA-256: 8ea608a0919c768a582cbe515da30aa61d97d3583eae622d12690b2a1275d403. Existing timer remains active.
+
+- GitHub feature branch synchronization: sealed JSONL ownership/permission preservation committed as 600b7d450e4a6e60370c1dcf1db53e12d4edc092; allowlisted active JSONL threshold policy committed as 51d0a372c9e01fbaf904a475a51d543e1cdef9f0. Branch remains unmerged; main was not changed.
