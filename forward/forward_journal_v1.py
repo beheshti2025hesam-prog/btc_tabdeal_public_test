@@ -12,10 +12,8 @@ import os
 import stat
 from typing import Any, Iterator, Mapping
 
-try:
-    import fcntl
-except ImportError:  # pragma: no cover - supported runtime is Linux
-    fcntl = None
+from .sealed_jsonl_segments_v1 import _locked, _read_records_unlocked, _seal_hot_file_unlocked
+
 
 DECISIONS = {"LONG", "SHORT", "NO_TRADE"}
 REQUIRED_FIELDS = {
@@ -54,60 +52,32 @@ class ForwardJournalV1:
 
     @contextmanager
     def _write_lock(self) -> Iterator[None]:
-        if not self.lock_path.parent.exists():
-            self.lock_path.parent.mkdir(parents=True, exist_ok=True)
-        if self.lock_path.parent.is_symlink() or not self.lock_path.parent.is_dir():
-            raise ValueError("journal parent must be a real directory")
-        if self.lock_path.is_symlink():
-            raise ValueError("journal lock path must not be a symlink")
-        with self.lock_path.open("a+", encoding="utf-8") as lock_file:
-            if fcntl is None:
-                raise RuntimeError("atomic single-writer locking requires fcntl on the supported runtime")
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        with _locked(self.path, exclusive=True):
+            yield
 
     def _ids(self) -> set[str]:
         if self.path.is_symlink():
             raise ValueError("journal path must not be a symlink")
-        if not self.path.exists():
+        if not self.path.exists() and not self.path.with_name(self.path.name + ".segments").exists():
             return set()
-        if not stat.S_ISREG(self.path.stat().st_mode):
+        if self.path.exists() and not stat.S_ISREG(self.path.stat().st_mode):
             raise ValueError("journal path is not a regular file")
-
         ids: set[str] = set()
-        with self.path.open("rb") as handle:
-            line_number = 0
-            while True:
-                raw_line = handle.readline(MAX_LINE_BYTES + 1)
-                if not raw_line:
-                    break
-                line_number += 1
-                if len(raw_line) > MAX_LINE_BYTES:
-                    raise ValueError(f"journal record size limit exceeded at line {line_number}")
-                if not raw_line.endswith(b"\n"):
-                    raise ValueError(f"journal has incomplete trailing record at line {line_number}")
-                if raw_line in (b"\n", b"\r\n"):
-                    raise ValueError(f"journal contains blank record at line {line_number}")
-                try:
-                    item = json.loads(raw_line.decode("utf-8", errors="strict"))
-                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                    raise ValueError(f"journal contains malformed JSON at line {line_number}") from exc
-                if not isinstance(item, dict):
-                    raise ValueError(f"journal record is not an object at line {line_number}")
-                # A small number of pre-existing paper-ledger rows predate event_id.
-                # Preserve them, but never create another unidentifiable row.
-                if "event_id" not in item:
-                    continue
-                event_id = item["event_id"]
-                if not isinstance(event_id, str) or not event_id.strip():
-                    raise ValueError(f"journal record has invalid event_id at line {line_number}")
-                if event_id in ids:
-                    raise ValueError(f"journal contains duplicate event_id at line {line_number}")
-                ids.add(event_id)
+        for line_number, item in enumerate(_read_records_unlocked(self.path), start=1):
+            if "event_id" not in item:
+                continue
+            event_id = item["event_id"]
+            if not isinstance(event_id, str) or not event_id.strip():
+                raise ValueError(f"journal record has invalid event_id at line {line_number}")
+            if event_id in ids:
+                raise ValueError(f"journal contains duplicate event_id at line {line_number}")
+            ids.add(event_id)
         return ids
+
+    def seal(self) -> dict[str, Any] | None:
+        """Seal the current immutable prefix; writers and readers share this file lock."""
+        with self._write_lock():
+            return _seal_hot_file_unlocked(self.path)
 
     def append_event(self, record: Mapping[str, Any]) -> bool:
         """Append any immutable journal event; return False for an existing event_id."""
@@ -119,8 +89,6 @@ class ForwardJournalV1:
 
         if not self.path.parent.exists():
             self.path.parent.mkdir(parents=True, exist_ok=True)
-        if self.path.parent.is_symlink() or not self.path.parent.is_dir():
-            raise ValueError("journal parent must be a real directory")
         with self._write_lock():
             if event_id in self._ids():
                 return False

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import pytest
 from forward.forward_journal_v1 import ForwardJournalV1
 from scripts.run_precision_entry_journal_v1 import (
-    build_paper_candidate, build_precision_event, resolve_candidate,
+    build_blocked_report, build_paper_candidate, build_precision_event, resolve_candidate,
 )
 
 NOW=datetime(2026,11,3,9,0,tzinfo=timezone.utc)
@@ -176,3 +176,32 @@ def test_systemd_unit_runs_immutable_release_and_writes_shared_data_only():
     assert "ExecStart=/opt/hes-trade-agent/.venv/bin/python -u /opt/hes-trade-agent/current/scripts/run_precision_entry_journal_v1.py" in unit
     assert "ReadWritePaths=/opt/hes-trade-agent/data/forward /opt/hes-trade-agent/logs" in unit
     assert "WorkingDirectory=/opt/hes-trade-agent\n" not in unit
+
+
+def test_blocked_report_preserves_verified_segmented_ledger_counts(tmp_path, monkeypatch):
+    import scripts.run_precision_entry_journal_v1 as worker
+
+    journals = {
+        "EVENTS": ForwardJournalV1(tmp_path / "events.jsonl"),
+        "CANDIDATES": ForwardJournalV1(tmp_path / "candidates.jsonl"),
+        "OUTCOMES": ForwardJournalV1(tmp_path / "outcomes.jsonl"),
+    }
+    counts = {"EVENTS": 3, "CANDIDATES": 2, "OUTCOMES": 1}
+    for name, journal in journals.items():
+        for index in range(counts[name]):
+            journal.append_event({"event_id": f"{name}-{index}", "kind": name.lower()})
+        journal.seal()
+        monkeypatch.setattr(worker, name, journal)
+
+    report = build_blocked_report(RuntimeError("MarketDataRejected:INSUFFICIENT_CLOSED_CANDLES"), now=NOW)
+
+    assert report["status"] == "BLOCKED"
+    assert report["event_count"] == 3
+    assert report["candidate_count"] == 2
+    assert report["outcome_count"] == 1
+    assert report["daily_signal_cap"] == 3
+    assert report["daily_signal_cap_is_quota"] is False
+    assert report["ledger_integrity_errors"] == []
+    assert report["execution_enabled"] is False
+    assert report["orders_placed"] is False
+    assert report["reason_codes"] == ["RuntimeError:MarketDataRejected:INSUFFICIENT_CLOSED_CANDLES"]

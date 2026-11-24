@@ -4,6 +4,7 @@ import fcntl, hashlib, json, math
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+from .sealed_jsonl_segments_v1 import read_jsonl_records, logical_sha256, has_sealed_segments
 from .blackbox_experience_memory_v1 import (
     canonical_sha256, evaluate_hypothesis_tournament,
     build_hypothesis_transition_event, append_hypothesis_events,
@@ -13,21 +14,13 @@ AUDIT_SCHEMA = "hes_blackbox_family_evidence_audit_v1"
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows = []
-    if not path.exists():
-        return rows
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        row = json.loads(line)
-        if not isinstance(row, dict):
-            raise ValueError(f"JSONL_ROW_NOT_OBJECT:{path.name}:{line_no}")
-        rows.append(row)
-    return rows
+    if not path.exists() and not has_sealed_segments(path):
+        return []
+    return read_jsonl_records(path)
 
 
 def _sha(path: Path) -> str | None:
-    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+    return logical_sha256(path) if path.exists() or has_sealed_segments(path) else None
 
 
 def _valid_sha(value: Any) -> bool:
@@ -227,7 +220,9 @@ def _aggregate_hypothesis_evidence(
     base = data_root / "data" / "forward"
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     counts = {"outcomes_seen": 0, "outcomes_qualified": 0, "outcomes_rejected": 0}
-    for path in sorted(base.glob("strategy_family_*_results_v1.jsonl")):
+    family_paths = set(base.glob("strategy_family_*_results_v1.jsonl"))
+    family_paths.update(Path(str(item)[:-len(".segments")]) for item in base.glob("strategy_family_*_results_v1.jsonl.segments"))
+    for path in sorted(family_paths):
         for row in _read_jsonl(path):
             if row.get("event_type") != "PAPER_OUTCOME":
                 continue
