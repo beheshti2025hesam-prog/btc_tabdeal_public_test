@@ -41,6 +41,8 @@ def _locked(path: Path, *, exclusive: bool) -> Iterator[None]:
     path = Path(path)
     if not path.parent.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
+    if path.parent.is_symlink() or not path.parent.is_dir():
+        raise JsonlSegmentError("SOURCE_PARENT_NOT_REAL_DIRECTORY")
     if path.is_symlink():
         raise JsonlSegmentError("SOURCE_PATH_SYMLINK")
     lock_path = _lock_path(path)
