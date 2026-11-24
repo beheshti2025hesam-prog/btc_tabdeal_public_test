@@ -107,7 +107,7 @@ def test_mirrored_paper_outcome_is_indexed_once_from_richer_canonical_ledger(tmp
     assert matches[0]["provenance_complete"] is True
     assert matches[0]["costs_verified"] is True
     assert matches[0]["training_eligible"] is False
-    assert counts["trade_journal_v2.jsonl"] == 1
+    assert counts["trade_journal_v2.jsonl"] == 0
     assert counts["strategy_policy_v2_eval_outcomes.jsonl"] == 1
 
 
