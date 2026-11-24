@@ -13,10 +13,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .sealed_jsonl_segments_v1 import JsonlSegmentError, has_sealed_segments, read_jsonl_entries
+from .sealed_jsonl_segments_v1 import JsonlSegmentError, has_sealed_segments, iter_jsonl_entries
 
 MAX_LINE_BYTES = 1024 * 1024
-MAX_ROWS = 100
+MAX_ROWS = 250
 _ALLOWED_DECISIONS = {"LONG", "SHORT", "NO_TRADE"}
 
 
@@ -125,6 +125,147 @@ def _gate_summary(record: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _decision_verification(event_id: str, observed_at: datetime, records: dict[str, dict[str, Any]], neutral: dict[str, dict[str, Any]], now: datetime) -> dict[str, Any]:
+    """Classify NO_TRADE only when a matured, gate-qualified, instrument-verified counterfactual exists."""
+    row = records.get(event_id)
+    if row is None:
+        age = max(0.0, (now - observed_at).total_seconds())
+        state = "PENDING" if age < 24 * 3600 else "VALIDATION_PENDING"
+        return {"state": state, "icon": "…", "label": state, "missed_profit": "UNKNOWN", "financial_impact": {"status": "PENDING", "kind": "UNKNOWN", "amount_usdt": None, "return_pct": None, "r_multiple": None, "realized": False}, "horizon": "24h", "reason": "MATURITY_RECORD_NOT_AVAILABLE"}
+    if row.get("validation_status") != "VALIDATED_24H":
+        return {"state": "PENDING", "icon": "…", "label": "PENDING · incomplete forward coverage", "missed_profit": "UNKNOWN", "financial_impact": {"status": "PENDING", "kind": "UNKNOWN", "amount_usdt": None, "return_pct": None, "r_multiple": None, "realized": False}, "horizon": "24h", "reason": "INCOMPLETE_FORWARD_COVERAGE"}
+    qualification = row.get("gate_qualification") if isinstance(row.get("gate_qualification"), dict) else {}
+    candidate = row.get("independent_candidate_attribution") if isinstance(row.get("independent_candidate_attribution"), dict) else {}
+    shadow = row.get("structure_only_shadow") if isinstance(row.get("structure_only_shadow"), dict) else {}
+    h24 = shadow.get("horizons", {}).get("24h", {}) if isinstance(shadow.get("horizons"), dict) else {}
+    # Final-policy holds are a distinct, explicitly non-authorized cohort.
+    # Their 24h neutral tracker outcomes may be displayed as hypotheses only.
+    neutral_24h = neutral.get(event_id)
+    preapproval = (
+        qualification.get("status") == "QUALIFIED"
+        and qualification.get("geometry_valid") is True
+        and qualification.get("confirmation_state") in {"CONFIRMED_LONG", "CONFIRMED_SHORT"}
+        and qualification.get("risk_state") == "RISK_APPROVED"
+        and qualification.get("final_policy_pending") is True
+        and candidate.get("independent_candidate_detected") is True
+        and candidate.get("candidate_valid_pass") is True
+        and candidate.get("proposal_exists") is True
+        and candidate.get("proposal_direction") == candidate.get("candidate_direction")
+    )
+    if preapproval and neutral_24h is not None:
+        outcome = neutral_24h.get("outcome_class")
+        gross_r = neutral_24h.get("gross_R")
+        if outcome == "TAKE_PROFIT":
+            return {"state": "POTENTIAL_ONLY", "icon": "~", "label": "POTENTIAL ONLY · final-policy hold / missed-profit hypothesis", "missed_profit": "YES_HYPOTHETICAL", "financial_impact": {"status": "PREAPPROVAL_SHADOW_ONLY", "kind": "POTENTIAL_MISSED_PROFIT", "amount_usdt": None, "return_pct": None, "r_multiple": gross_r, "realized": False, "counted_in_performance": False}, "learning_feedback": {"eligible_for_hypothesis_review": True, "performance_eligible": False, "policy_mutation_enabled": False}, "horizon": "24h", "reason": "ALL_OPERATIONAL_GATES_PASSED_FINAL_POLICY_APPROVAL_PENDING"}
+        if outcome == "STOP_LOSS":
+            return {"state": "CORRECT", "icon": "✓", "label": "CORRECT · final-policy hold / avoided-loss hypothesis", "missed_profit": "NO", "financial_impact": {"status": "PREAPPROVAL_SHADOW_ONLY", "kind": "POTENTIAL_AVOIDED_LOSS", "amount_usdt": None, "return_pct": None, "r_multiple": gross_r, "realized": False, "counted_in_performance": False}, "learning_feedback": {"eligible_for_hypothesis_review": True, "performance_eligible": False, "policy_mutation_enabled": False}, "horizon": "24h", "reason": "ALL_OPERATIONAL_GATES_PASSED_FINAL_POLICY_APPROVAL_PENDING"}
+    qualified = (
+        qualification.get("status") == "QUALIFIED"
+        and qualification.get("geometry_valid") is True
+        and qualification.get("confirmation_state") in {"CONFIRMED_LONG", "CONFIRMED_SHORT"}
+        and qualification.get("risk_state") == "RISK_APPROVED"
+        and candidate.get("candidate_generation_authorized") is True
+        and shadow.get("candidate_valid_pass") is True
+        and shadow.get("economic_status") == "EXECUTION_INSTRUMENT_VERIFIED"
+    )
+    if not qualified:
+        independent_candidate = candidate.get("independent_candidate_detected") is True
+        # A structural-only candidate with failed confirmation/risk is not a missed trade.
+        # Only the separately proven final-policy-hold cohort above may show potential PnL.
+        potential = False
+        # A matured NO_TRADE with no independent candidate is correctly conservative;
+        # it is not evidence of missed profit even if BTC later moved substantially.
+        no_candidate = not independent_candidate and row.get("validation_status") == "VALIDATED_24H"
+        state = "POTENTIAL_ONLY" if potential else "CORRECT" if no_candidate else "NOT_CLASSIFIABLE"
+        return {
+            "state": state,
+            "icon": "~" if potential else "✓" if no_candidate else "—",
+            "label": "POTENTIAL ONLY · unqualified shadow candidate" if potential else "CORRECT · no independent trade candidate" if no_candidate else "NOT CLASSIFIABLE · gate not qualified",
+            "missed_profit": "POTENTIAL_NOT_COUNTED" if potential else "NO" if no_candidate else "NOT_ESTABLISHED",
+            "financial_impact": {
+                "status": "SHADOW_ONLY" if potential else "NO_VALID_CANDIDATE" if no_candidate else "NOT_ESTABLISHED",
+                "kind": "POTENTIAL_MISSED_PROFIT" if potential else "NONE" if no_candidate else "UNKNOWN",
+                "amount_usdt": None,
+                "return_pct": h24.get("gross_return_pct") if potential else None,
+                "r_multiple": h24.get("gross_r") if potential else None,
+                "realized": False,
+                "counted_in_performance": False,
+            },
+            "learning_feedback": {"eligible_for_hypothesis_review": True, "performance_eligible": False, "policy_mutation_enabled": False},
+            "horizon": "24h",
+            "reason": "UNQUALIFIED_SHADOW_ONLY_NOT_ECONOMIC_PROOF" if potential else "NO_INDEPENDENT_CANDIDATE_IN_MATURED_WINDOW" if no_candidate else "GATE_OR_EXECUTION_INSTRUMENT_EVIDENCE_INCOMPLETE",
+        }
+    outcome = h24.get("outcome_class")
+    complete = h24.get("observed_1m_candles") == h24.get("expected_1m_candles") and h24.get("ambiguous_same_candle") is False
+    if not complete:
+        return {"state": "PENDING", "icon": "…", "label": "PENDING · 24h evidence incomplete", "missed_profit": "UNKNOWN", "financial_impact": {"status": "PENDING", "kind": "UNKNOWN", "amount_usdt": None, "return_pct": None, "r_multiple": None, "realized": False}, "horizon": "24h", "reason": "INCOMPLETE_OR_AMBIGUOUS_HORIZON"}
+    if outcome == "SHADOW_STOP_HIT":
+        return {"state": "CORRECT", "icon": "✓", "label": "CORRECT · avoided-loss hypothesis", "missed_profit": "NO", "financial_impact": {"status": "SHADOW_ONLY", "kind": "POTENTIAL_AVOIDED_LOSS", "amount_usdt": None, "return_pct": h24.get("gross_return_pct"), "r_multiple": h24.get("gross_r"), "realized": False, "counted_in_performance": False}, "learning_feedback": {"eligible_for_hypothesis_review": True, "performance_eligible": False, "policy_mutation_enabled": False}, "horizon": "24h", "reason": "QUALIFIED_SETUP_WOULD_HAVE_HIT_STOP"}
+    if outcome == "SHADOW_TARGET_HIT":
+        return {"state": "INCORRECT", "icon": "✕", "label": "INCORRECT · missed-profit hypothesis", "missed_profit": "YES_HYPOTHETICAL", "financial_impact": {"status": "SHADOW_ONLY", "kind": "POTENTIAL_MISSED_PROFIT", "amount_usdt": None, "return_pct": h24.get("gross_return_pct"), "r_multiple": h24.get("gross_r"), "realized": False, "counted_in_performance": False}, "learning_feedback": {"eligible_for_hypothesis_review": True, "performance_eligible": False, "policy_mutation_enabled": False}, "horizon": "24h", "reason": "QUALIFIED_SETUP_WOULD_HAVE_HIT_TARGET"}
+    return {"state": "NOT_CLASSIFIABLE", "icon": "—", "label": "NOT CLASSIFIABLE · no decisive barrier", "missed_profit": "NOT_ESTABLISHED", "financial_impact": {"status": "NOT_ESTABLISHED", "kind": "UNKNOWN", "amount_usdt": None, "return_pct": None, "r_multiple": None, "realized": False}, "horizon": "24h", "reason": "NO_DECISIVE_24H_OUTCOME"}
+
+
+def _load_matured_verifications(path: str | Path | None) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
+    file_path = Path(path)
+    if not file_path.exists():
+        return {}
+    if file_path.is_symlink() or not file_path.is_file():
+        raise JournalProjectionError("matured_verification_not_regular_file")
+    result: dict[str, dict[str, Any]] = {}
+    with file_path.open("rb") as handle:
+        for line_no, raw in enumerate(handle, 1):
+            if len(raw) > MAX_LINE_BYTES or not raw.endswith(b"\n"):
+                raise JournalProjectionError(f"invalid_matured_record:{line_no}")
+            try:
+                row = json.loads(raw.decode("utf-8", errors="strict"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise JournalProjectionError(f"invalid_matured_json:{line_no}") from exc
+            if not isinstance(row, dict) or row.get("schema") != "hes_matured_no_trade_validation_record_v1":
+                raise JournalProjectionError(f"invalid_matured_schema:{line_no}")
+            event_id = row.get("event_id")
+            if not isinstance(event_id, str) or not event_id or event_id in result:
+                raise JournalProjectionError(f"invalid_or_duplicate_matured_event:{line_no}")
+            if row.get("execution_enabled") is not False or row.get("orders_placed") is not False or row.get("policy_mutation_enabled") is not False:
+                raise JournalProjectionError(f"matured_safety_boundary_violation:{line_no}")
+            result[event_id] = row
+    return result
+
+
+def _load_neutral_24h_outcomes(path: str | Path | None) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
+    file_path = Path(path)
+    if not file_path.exists():
+        return {}
+    if file_path.is_symlink() or not file_path.is_file():
+        raise JournalProjectionError("neutral_outcome_not_regular_file")
+    result: dict[str, dict[str, Any]] = {}
+    with file_path.open("rb") as handle:
+        for line_no, raw in enumerate(handle, 1):
+            if len(raw) > MAX_LINE_BYTES or not raw.endswith(b"\n"):
+                raise JournalProjectionError(f"invalid_neutral_outcome_record:{line_no}")
+            try:
+                row = json.loads(raw.decode("utf-8", errors="strict"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise JournalProjectionError(f"invalid_neutral_outcome_json:{line_no}") from exc
+            if not isinstance(row, dict) or row.get("schema") != "hes_neutral_decision_outcome_v1":
+                raise JournalProjectionError(f"invalid_neutral_outcome_schema:{line_no}")
+            if row.get("horizon") != "24h" or row.get("horizon_complete") is not True:
+                continue
+            if row.get("execution_enabled") is not False or row.get("orders_placed") is not False or row.get("policy_mutation_enabled") is not False:
+                raise JournalProjectionError(f"neutral_outcome_safety_boundary_violation:{line_no}")
+            event_id = row.get("decision_event_id")
+            if not isinstance(event_id, str) or not event_id:
+                raise JournalProjectionError(f"invalid_neutral_decision_event_id:{line_no}")
+            if event_id in result:
+                raise JournalProjectionError(f"duplicate_neutral_24h_outcome:{line_no}")
+            result[event_id] = row
+    return result
+
+
 class JournalProjectionError(ValueError):
     """The canonical journal cannot safely be projected to the UI."""
 
@@ -133,11 +274,13 @@ def read_decision_journal(
     path: str | Path,
     *,
     limit: int = 50,
+    neutral_outcome_path: str | Path | None = None,
     now: datetime | None = None,
     expected_source: str | None = None,
     expected_symbol: str | None = None,
     expected_policy_version: str | None = None,
     require_execution_off: bool = False,
+    matured_verification_path: str | Path | None = None,
 ) -> dict[str, Any]:
     if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_ROWS:
         raise JournalProjectionError("invalid_limit")
@@ -148,6 +291,11 @@ def read_decision_journal(
         size = file_path.stat().st_size
         if size == 0 and not has_sealed_segments(file_path):
             return {"schema": "hes.trade_journal_view.v1", "status": "EMPTY", "count": 0, "decision_count": 0, "events": []}
+        if not has_sealed_segments(file_path):
+            with file_path.open("rb") as handle:
+                handle.seek(-1, 2)
+                if handle.read(1) != b"\n":
+                    raise JournalProjectionError("partial_trailing_record")
     except JournalProjectionError:
         raise
     except (OSError, JsonlSegmentError) as exc:
@@ -156,147 +304,170 @@ def read_decision_journal(
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None or current.utcoffset() is None:
         raise JournalProjectionError("verifier_clock_not_timezone_aware")
+    matured = _load_matured_verifications(matured_verification_path)
+    neutral = _load_neutral_24h_outcomes(neutral_outcome_path)
     events: list[dict[str, Any]] = []
     seen: set[str] = set()
     total_records = 0
     decision_total = 0
     try:
-        records = read_jsonl_entries(file_path)
-        for line_no, (record, raw_line) in enumerate(records, start=1):
-            if len(raw_line) > MAX_LINE_BYTES:
-                raise JournalProjectionError(f"record_size_limit_exceeded:{line_no}")
-            total_records += 1
-            event_id = record.get("event_id")
-            if not isinstance(event_id, str) or not event_id:
-                raise JournalProjectionError(f"missing_event_id:{line_no}")
-            if event_id in seen:
-                raise JournalProjectionError(f"duplicate_event:{line_no}")
-            seen.add(event_id)
-            if record.get("decision") not in _ALLOWED_DECISIONS:
-                continue
-            decision_total += 1
-            source = record.get("source") or record.get("evidence_source")
-            if expected_source is not None and source != expected_source:
-                raise JournalProjectionError(f"unexpected_source:{line_no}")
-            if expected_symbol is not None and record.get("symbol") != expected_symbol:
-                raise JournalProjectionError(f"unexpected_symbol:{line_no}")
-            if expected_policy_version is not None and record.get("policy_version") != expected_policy_version:
-                raise JournalProjectionError(f"unexpected_policy_version:{line_no}")
-            if require_execution_off and (
-                record.get("execution_enabled") is not False or record.get("orders_placed") is not False
-            ):
-                raise JournalProjectionError(f"execution_boundary_violation:{line_no}")
-            if record.get("outcome") is not None or record.get("closed_at") is not None:
-                raise JournalProjectionError(f"outcome_leakage_in_decision_journal:{line_no}")
-            observed_at = record.get("observed_at")
-            if not isinstance(observed_at, str):
-                raise JournalProjectionError(f"invalid_timestamp:{line_no}")
-            try:
-                parsed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
-            except ValueError as exc:
-                raise JournalProjectionError(f"invalid_timestamp:{line_no}") from exc
-            if parsed.tzinfo is None or parsed.utcoffset() is None:
-                raise JournalProjectionError(f"naive_timestamp:{line_no}")
-            if (parsed - current).total_seconds() > 5:
-                raise JournalProjectionError(f"future_timestamp:{line_no}")
-            rejected_at = _rejection_stage(record)
-            if record.get("decision_gate") is not None and not isinstance(record.get("decision_gate"), str):
-                raise JournalProjectionError(f"invalid_decision_gate:{line_no}")
-            decision_gate = record.get("decision_gate")
-            if not decision_gate or decision_gate in {"UNKNOWN", "—", "-"}:
-                decision_gate = rejected_at
-            reasons = _reason_list(record.get("reason_codes"))
-            if not reasons and rejected_at == "STRATEGY_POLICY":
-                reasons = _reason_list(record.get("proposal_reasons"))
-            if not reasons:
-                reasons = _reason_list(record.get("gate_reasons"))
-            if not reasons:
-                reasons = _reason_list(record.get("final_gate_reasons"))
-            if not reasons and record.get("no_trade_reason"):
-                reasons = str(record["no_trade_reason"]).split("|")
-            if not reasons:
-                gate_evidence = record.get("gate_evidence")
-                if isinstance(gate_evidence, dict):
-                    stage = gate_evidence.get(rejected_at.lower()) if rejected_at in {"CONFIRMATION", "RISK"} else None
-                    if isinstance(stage, dict):
-                        reasons = _reason_list(stage.get("reason_codes"))
-            if any(not isinstance(reason, str) for reason in reasons):
-                raise JournalProjectionError(f"invalid_reason_codes:{line_no}")
-            evidence_source = record.get("evidence_source")
-            if not isinstance(evidence_source, (str, list, tuple)):
-                raise JournalProjectionError(f"missing_evidence_source:{line_no}")
-            events.append({
-                "event_id": event_id,
-                "observed_at": parsed.astimezone(timezone.utc).isoformat(),
-                "symbol": record.get("symbol", "UNKNOWN"),
-                "timeframe": record.get("timeframe", "UNKNOWN"),
-                "decision": record["decision"],
-                "direction": record.get("direction", "NONE"),
-                "status": record.get("status", "RECORDED"),
-                "market_regime": record.get("market_regime", "UNKNOWN"),
-                "decision_gate": decision_gate,
-                "rejected_at": rejected_at,
-                "signal_state": record.get("signal_state", "UNKNOWN"),
-                "confirmation_state": record.get("confirmation_state", "UNKNOWN"),
-                "risk_state": record.get("risk_state", "UNKNOWN"),
-                "reason_codes": reasons,
-                "source": source,
-                "product": record.get("product", "UNKNOWN"),
-                "policy_version": record.get("policy_version", "UNKNOWN"),
-                "response_sha256": record.get("response_sha256"),
-                "htf_response_sha256": record.get("htf_response_sha256"),
-                "strategy_family_id": record.get("strategy_family_id") or (
-                    record.get("strategy_family_route", {}).get("family_id")
-                    if isinstance(record.get("strategy_family_route"), dict) else None
-                ),
-                "strategy_family_version": record.get("strategy_family_version") or (
-                    record.get("strategy_family_route", {}).get("family_version")
-                    if isinstance(record.get("strategy_family_route"), dict) else None
-                ),
-                "strategy_family_activation_state": record.get("strategy_family_activation_state") or (
-                    record.get("strategy_family_route", {}).get("activation_state")
-                    if isinstance(record.get("strategy_family_route"), dict) else None
-                ),
-                "strategy_family_context_status": record.get("strategy_family_context_status"),
-                "gate_summary": _gate_summary(record),
-                "market_data_batch_sha256_by_timeframe": _market_batch_hashes(record),
-                "code_release_id": record.get("code_release_id") or (
-                    record.get("strategy_run_provenance", {}).get("code_release_id")
-                    if isinstance(record.get("strategy_run_provenance"), dict) else None
-                ),
-                "run_id": record.get("run_id") or (
-                    record.get("strategy_run_provenance", {}).get("run_id")
-                    if isinstance(record.get("strategy_run_provenance"), dict) else None
-                ),
-                "run_manifest_sha256": record.get("run_manifest_sha256") or (
-                    record.get("strategy_run_provenance", {}).get("run_manifest_sha256")
-                    if isinstance(record.get("strategy_run_provenance"), dict) else None
-                ),
-                "event_sha256": sha256(raw_line.rstrip(b"\r\n")).hexdigest(),
-                "execution": "OFF" if record.get("execution_enabled") is False and record.get("orders_placed") is False else "UNKNOWN",
-                "realized_outcome": "NOT_LINKED",
-            })
-            if len(events) > MAX_ROWS * 2:
-                events.sort(key=lambda item: (item["observed_at"], item["event_id"]), reverse=True)
-                del events[MAX_ROWS:]
+        for line_no, (record, raw_line) in enumerate(iter_jsonl_entries(file_path), start=1):
+                if len(raw_line) > MAX_LINE_BYTES:
+                    raise JournalProjectionError(f"record_size_limit_exceeded:{line_no}")
+                if not isinstance(record, dict):
+                    raise JournalProjectionError(f"invalid_record_shape:{line_no}")
+                total_records += 1
+                event_id = record.get("event_id")
+                if not isinstance(event_id, str) or not event_id:
+                    raise JournalProjectionError(f"missing_event_id:{line_no}")
+                if event_id in seen:
+                    raise JournalProjectionError(f"duplicate_event:{line_no}")
+                seen.add(event_id)
+                if record.get("decision") not in _ALLOWED_DECISIONS:
+                    continue
+                decision_total += 1
+                source = record.get("source") or record.get("evidence_source")
+                if expected_source is not None and source != expected_source:
+                    raise JournalProjectionError(f"unexpected_source:{line_no}")
+                if expected_symbol is not None and record.get("symbol") != expected_symbol:
+                    raise JournalProjectionError(f"unexpected_symbol:{line_no}")
+                if expected_policy_version is not None and record.get("policy_version") != expected_policy_version:
+                    raise JournalProjectionError(f"unexpected_policy_version:{line_no}")
+                if require_execution_off and (
+                    record.get("execution_enabled") is not False or record.get("orders_placed") is not False
+                ):
+                    raise JournalProjectionError(f"execution_boundary_violation:{line_no}")
+                if record.get("outcome") is not None or record.get("closed_at") is not None:
+                    raise JournalProjectionError(f"outcome_leakage_in_decision_journal:{line_no}")
+                observed_at = record.get("observed_at")
+                if not isinstance(observed_at, str):
+                    raise JournalProjectionError(f"invalid_timestamp:{line_no}")
+                try:
+                    parsed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+                except ValueError as exc:
+                    raise JournalProjectionError(f"invalid_timestamp:{line_no}") from exc
+                if parsed.tzinfo is None or parsed.utcoffset() is None:
+                    raise JournalProjectionError(f"naive_timestamp:{line_no}")
+                if (parsed - current).total_seconds() > 5:
+                    raise JournalProjectionError(f"future_timestamp:{line_no}")
+                rejected_at = _rejection_stage(record)
+                if record.get("decision_gate") is not None and not isinstance(record.get("decision_gate"), str):
+                    raise JournalProjectionError(f"invalid_decision_gate:{line_no}")
+                decision_gate = record.get("decision_gate")
+                if not decision_gate or decision_gate in {"UNKNOWN", "—", "-"}:
+                    decision_gate = rejected_at
+                reasons = _reason_list(record.get("reason_codes"))
+                if not reasons and rejected_at == "STRATEGY_POLICY":
+                    reasons = _reason_list(record.get("proposal_reasons"))
+                if not reasons:
+                    reasons = _reason_list(record.get("gate_reasons"))
+                if not reasons:
+                    reasons = _reason_list(record.get("final_gate_reasons"))
+                if not reasons and record.get("no_trade_reason"):
+                    reasons = str(record["no_trade_reason"]).split("|")
+                if not reasons:
+                    gate_evidence = record.get("gate_evidence")
+                    if isinstance(gate_evidence, dict):
+                        stage = gate_evidence.get(rejected_at.lower()) if rejected_at in {"CONFIRMATION", "RISK"} else None
+                        if isinstance(stage, dict):
+                            reasons = _reason_list(stage.get("reason_codes"))
+                if any(not isinstance(reason, str) for reason in reasons):
+                    raise JournalProjectionError(f"invalid_reason_codes:{line_no}")
+                evidence_source = record.get("evidence_source")
+                if not isinstance(evidence_source, (str, list, tuple)):
+                    raise JournalProjectionError(f"missing_evidence_source:{line_no}")
+                events.append({
+                    "event_id": event_id,
+                    "observed_at": parsed.astimezone(timezone.utc).isoformat(),
+                    "symbol": record.get("symbol", "UNKNOWN"),
+                    "timeframe": record.get("timeframe", "UNKNOWN"),
+                    "decision": record["decision"],
+                    "decision_origin": (
+                        "MOTHER" if record.get("service_name") == "mother_runtime_decision_journal_writer"
+                        else "STRATEGY_V2" if record.get("service_name") == "strategy_policy_v2_forward_evaluator"
+                        else None
+                    ),
+                    "service_name": record.get("service_name"),
+                    "event_schema": record.get("schema"),
+                    "direction": record.get("direction", "NONE"),
+                    "status": record.get("status", "RECORDED"),
+                    "market_regime": record.get("market_regime", "UNKNOWN"),
+                    "decision_gate": decision_gate,
+                    "rejected_at": rejected_at,
+                    "signal_state": record.get("signal_state", "UNKNOWN"),
+                    "confirmation_state": record.get("confirmation_state", "UNKNOWN"),
+                    "risk_state": record.get("risk_state", "UNKNOWN"),
+                    "reason_codes": reasons,
+                    "source": source,
+                    "product": record.get("product", "UNKNOWN"),
+                    "policy_version": record.get("policy_version", "UNKNOWN"),
+                    "response_sha256": record.get("response_sha256"),
+                    "htf_response_sha256": record.get("htf_response_sha256"),
+                    "strategy_family_id": record.get("strategy_family_id") or (
+                        record.get("strategy_family_route", {}).get("family_id")
+                        if isinstance(record.get("strategy_family_route"), dict) else None
+                    ),
+                    "strategy_family_version": record.get("strategy_family_version") or (
+                        record.get("strategy_family_route", {}).get("family_version")
+                        if isinstance(record.get("strategy_family_route"), dict) else None
+                    ),
+                    "strategy_family_activation_state": record.get("strategy_family_activation_state") or (
+                        record.get("strategy_family_route", {}).get("activation_state")
+                        if isinstance(record.get("strategy_family_route"), dict) else None
+                    ),
+                    "strategy_family_context_status": record.get("strategy_family_context_status"),
+                    "gate_summary": _gate_summary(record),
+                    "market_data_batch_sha256_by_timeframe": _market_batch_hashes(record),
+                    "code_release_id": record.get("code_release_id") or (
+                        record.get("strategy_run_provenance", {}).get("code_release_id")
+                        if isinstance(record.get("strategy_run_provenance"), dict) else None
+                    ),
+                    "run_id": record.get("run_id") or (
+                        record.get("strategy_run_provenance", {}).get("run_id")
+                        if isinstance(record.get("strategy_run_provenance"), dict) else None
+                    ),
+                    "run_manifest_sha256": record.get("run_manifest_sha256") or (
+                        record.get("strategy_run_provenance", {}).get("run_manifest_sha256")
+                        if isinstance(record.get("strategy_run_provenance"), dict) else None
+                    ),
+                    "event_sha256": sha256(raw_line.rstrip(b"\r\n")).hexdigest(),
+                    "execution": "OFF" if record.get("execution_enabled") is False and record.get("orders_placed") is False else "UNKNOWN",
+                    "realized_outcome": "NOT_LINKED",
+                    "decision_verification": _decision_verification(event_id, parsed, matured, neutral, current) if record["decision"] == "NO_TRADE" else {"state": "PENDING", "icon": "…", "label": "PENDING · paper outcome linkage", "missed_profit": "UNKNOWN", "financial_impact": {"status": "PENDING", "kind": "UNKNOWN", "amount_usdt": None, "return_pct": None, "r_multiple": None, "realized": False}, "horizon": "24h", "reason": "DIRECTIONAL_PAPER_OUTCOME_LINK_REQUIRED"},
+                })
+                if len(events) > MAX_ROWS * 6:
+                    events.sort(key=lambda item: (item["observed_at"], item["event_id"]), reverse=True)
+                    del events[MAX_ROWS * 3:]
     except JournalProjectionError:
         raise
-    except JsonlSegmentError as exc:
-        if "incomplete trailing record" in str(exc):
-            raise JournalProjectionError("partial_trailing_record") from exc
-        if "malformed JSON" in str(exc):
-            raise JournalProjectionError("invalid_json") from exc
-        raise JournalProjectionError("journal_unavailable_or_segment_invalid") from exc
     except OSError as exc:
         raise JournalProjectionError("journal_unavailable") from exc
 
     events.sort(key=lambda item: (item["observed_at"], item["event_id"]), reverse=True)
+    # Keep the latest operational journal view plus the complete matured NO_TRADE
+    # cohort so 24h outcomes do not disappear merely because they are older than
+    # the newest 200 events. These are projections only; the source journal is untouched.
+    matured_ids = set(matured)
+    matured_events = [item for item in events if item["event_id"] in matured_ids]
+    verification_counts: dict[str, int] = {}
+    for item in matured_events:
+        state = str(item["decision_verification"].get("state", "UNKNOWN"))
+        verification_counts[state] = verification_counts.get(state, 0) + 1
     return {
         "schema": "hes.trade_journal_view.v1",
         "status": "VERIFIED",
         "count": total_records,
         "decision_count": decision_total,
         "events": events[:limit],
+        "matured_verification_events": matured_events,
+        "verification_summary": {
+            "matured_events": len(matured_events),
+            "states": verification_counts,
+            "potential_financial_amount_usdt": None,
+            "realized_pnl_usdt": None,
+            "performance_eligible": False,
+            "policy_mutation_enabled": False,
+        },
         "truncated": total_records > limit,
         "execution_enabled": False,
         "outcomes_inferred": False,
@@ -316,4 +487,6 @@ def configured_decision_journal(*, journal_path: str | Path | None = None, limit
             "execution_enabled": False,
             "outcomes_inferred": False,
         }
-    return read_decision_journal(path, limit=limit)
+    matured_path = os.environ.get("HES_MATURED_NO_TRADE_VALIDATION_PATH", "").strip() or (path.parent / "matured_no_trade_validation_v1.jsonl")
+    neutral_path = os.environ.get("HES_NEUTRAL_DECISION_OUTCOMES_PATH", "").strip() or (path.parent / "neutral_decision_outcomes_v1.jsonl")
+    return read_decision_journal(path, limit=limit, matured_verification_path=matured_path, neutral_outcome_path=neutral_path)
