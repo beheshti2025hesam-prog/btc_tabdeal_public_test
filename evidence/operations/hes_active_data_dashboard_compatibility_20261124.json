@@ -1,0 +1,86 @@
+{
+  "dashboard": {
+    "api_status": "VERIFIED",
+    "decisions": 2931,
+    "events_returned": 20,
+    "execution_enabled": false,
+    "matured_verification_events": 184,
+    "orders_placed": false,
+    "outcomes_inferred": false,
+    "records": 3140,
+    "release": "/opt/hes-trade-agent/releases/hes-journal-outcome-ui-sealed-reader-v1",
+    "rollback_release": "/opt/hes-trade-agent/releases/hes-journal-outcome-ui-20261123-v2",
+    "service_active": true,
+    "tests": {
+      "passed": 52,
+      "subtests_passed": 16,
+      "trade_journal_and_dashboard_routes": "PASS"
+    }
+  },
+  "generated_at": "2026-11-24T08:30:14.926476+00:00",
+  "installed_smart_storage_manager": {
+    "automatic_project_data_cleanup_authorized": false,
+    "compression_authorized": false,
+    "idlm_inventory_items": 1387,
+    "inventory_errors": [],
+    "lock_access_all_pass": true,
+    "path": "/usr/local/lib/hes-storage-v1/hes_smart_storage_manager_v1.py",
+    "read_only_inventory_status": "NO_SEGMENTS",
+    "rollback_backup": "/var/backups/hes-trade-agent/hes_smart_storage_manager_v1.py.pre-sealed-reader-20261124",
+    "rollback_backup_sha256": "9f1002606d457dbb96bd2769bf55aba374054e87436fdb33fb0fea54885b3e6a",
+    "segment_count": 0,
+    "sha256": "2b02277282ebd04414cc127b94834921399c9920c8761c17cb7561429e5857f8",
+    "smart_cleanup_delete_authorized": 0,
+    "smart_cleanup_keep": 618,
+    "smart_cleanup_review_only": 769
+  },
+  "isolated_copy_canary": {
+    "compressed_bytes": 629591,
+    "compression": "zstd level 9",
+    "dashboard_plain_vs_sealed_projection": "IDENTICAL",
+    "full_segment_verification": "PASS",
+    "logical_sha256_roundtrip": "PASS",
+    "matured_events": 184,
+    "production_source_modified": false,
+    "projection_decisions": 2931,
+    "projection_records": 3140,
+    "record_count": 3140,
+    "saving_percent": 98.58,
+    "segment_compressed_sha256": "af1c2512df00f556bdd470de3049fde7a13ef6bb41362efe28b0aa92a88ea1b0",
+    "segment_source_sha256": "844166276ac40ca7270579e0e733709939d7d24ef9bb8610c29116ff18300219",
+    "source_bytes": 44390691,
+    "source_file": "trade_journal_v2.jsonl"
+  },
+  "live_files": {
+    "global_market_candles_1m_v1.jsonl": {
+      "bytes": 9091221,
+      "segments_dir_exists": false,
+      "sha256": null
+    },
+    "neutral_decision_outcomes_v1.jsonl": {
+      "bytes": 8247778,
+      "segments_dir_exists": false,
+      "sha256": null
+    },
+    "observations_live_v1.jsonl": {
+      "bytes": 23038973,
+      "segments_dir_exists": false,
+      "sha256": null
+    },
+    "trade_journal_v2.jsonl": {
+      "bytes": 44390691,
+      "segments_dir_exists": false,
+      "sha256": "844166276ac40ca7270579e0e733709939d7d24ef9bb8610c29116ff18300219"
+    }
+  },
+  "safety": {
+    "all_live_target_files_remain_plain": true,
+    "automatic_sealing_enabled": false,
+    "disk_free_bytes": 9403232256,
+    "disk_total_bytes": 52721094656,
+    "live_compression_performed": false,
+    "no_new_server_or_laptop": true,
+    "restic_restore_status": "NOT_PROVEN"
+  },
+  "schema": "hes_active_data_dashboard_compatibility_v1"
+}
