@@ -14,6 +14,7 @@ from forward.strategy_policy_v2 import evaluate,POLICY_VERSION
 from forward.strategy_policy_gate_v1 import enforce_final_gates
 from forward.strategy_gate_pipeline_v1 import PIPELINE_VERSION, evaluate_gate_evidence
 from forward.forward_journal_v1 import ForwardJournalV1
+from forward.sealed_jsonl_segments_v1 import read_jsonl_records, has_sealed_segments
 from forward.strategy_v2_run_provenance_v1 import create_run_manifest, append_run_manifest
 from forward.signal_quality_acceptance_v1 import evaluate_acceptance
 from forward.strategy_family_journal_v1 import sync_strategy_family_result_journals
@@ -43,18 +44,9 @@ def append(p,x):
 def sync_outcomes_to_journal():
  # Idempotently reconcile candidate and outcome ledgers into the human-auditable trade journal.
  journal=BASE/'trade_journal_v2.jsonl'
- known=set()
- if journal.exists():
-  for line in journal.read_text().splitlines():
-   try:
-    row=json.loads(line)
-    if row.get('event_id'): known.add(row['event_id'])
-   except json.JSONDecodeError: raise RuntimeError('malformed trade journal; refusing to append')
+ known={row.get('event_id') for row in _read_jsonl(journal) if row.get('event_id')}
  for path,kind in ((CAND,'PAPER_CANDIDATE'),(OUT,'PAPER_OUTCOME')):
-  if not path.exists(): continue
-  for line in path.read_text().splitlines():
-   if not line.strip(): continue
-   row=json.loads(line)
+  for row in _read_jsonl(path):
    if kind=='PAPER_CANDIDATE':
     candidate_id=_candidate_event_id(row)
     event_id=candidate_id
@@ -115,15 +107,9 @@ def _epoch_seconds(value):
  return None
 
 def _read_jsonl(path):
- rows=[]
- if not Path(path).exists(): return rows
- for n,line in enumerate(Path(path).read_text(encoding='utf-8').splitlines(),1):
-  if not line.strip(): continue
-  try: row=json.loads(line)
-  except json.JSONDecodeError as exc: raise RuntimeError(f'malformed evidence {Path(path).name}:{n}') from exc
-  if not isinstance(row,dict): raise RuntimeError(f'invalid evidence row {Path(path).name}:{n}')
-  rows.append(row)
- return rows
+ source=Path(path)
+ if not source.exists() and not has_sealed_segments(source): return []
+ return read_jsonl_records(source)
 
 def project_mother_family_candidates(*, journal_path=None, candidates_path=None, now=None):
  """Project witnessed Mother family candidates into the existing 15m Paper evaluator ledger.
@@ -236,15 +222,13 @@ def win_rate_target_met(metrics, *, minimum_resolved=100, target_pct=90.0, cohor
 def performance_metrics():
  # Only proposals that actually passed every operational gate count as strategy trades.
  # Prefer stable candidate IDs. Legacy timestamp matching is allowed only when unique.
- candidates=[]
- if CAND.exists():
-  candidates=[json.loads(line) for line in CAND.read_text().splitlines() if line.strip()]
+ candidates=_read_jsonl(CAND)
  by_id={_candidate_event_id(row):row for row in candidates if _candidate_event_id(row)}
  by_time={}
  for row in candidates:
   if row.get('candidate_time') is not None:
    by_time.setdefault(str(row.get('candidate_time')),[]).append(row)
- outcomes=[json.loads(line) for line in OUT.read_text().splitlines() if line.strip()] if OUT.exists() else []
+ outcomes=_read_jsonl(OUT)
  linked=[]; unmatched=0; ambiguous=0
  for row in outcomes:
   cid=str(row.get('candidate_event_id') or "")
