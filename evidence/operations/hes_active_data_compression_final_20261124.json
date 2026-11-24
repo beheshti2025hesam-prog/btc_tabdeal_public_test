@@ -1,0 +1,189 @@
+{
+  "all_four_full_readback_verified": true,
+  "automatic_sealing_last_run": {
+    "allowlist": [
+      "trade_journal_v2.jsonl",
+      "global_market_candles_1m_v1.jsonl",
+      "neutral_decision_outcomes_v1.jsonl"
+    ],
+    "automatic": true,
+    "excluded": [
+      "observations_live_v1.jsonl"
+    ],
+    "excluded_reason": "No current production writer contract found; existing verified sealed segment is preserved and remains readable.",
+    "files": {
+      "global_market_candles_1m_v1.jsonl": {
+        "automatic": true,
+        "hot_bytes": 1005,
+        "status": "BELOW_THRESHOLD",
+        "threshold_bytes": 16777216
+      },
+      "neutral_decision_outcomes_v1.jsonl": {
+        "automatic": true,
+        "hot_bytes": 0,
+        "status": "BELOW_THRESHOLD",
+        "threshold_bytes": 16777216
+      },
+      "trade_journal_v2.jsonl": {
+        "automatic": true,
+        "hot_bytes": 13479,
+        "status": "BELOW_THRESHOLD",
+        "threshold_bytes": 67108864
+      }
+    },
+    "status": "POLICY_APPLIED"
+  },
+  "automatic_sealing_policy": {
+    "allowlist": {
+      "global_market_candles_1m_v1.jsonl": 16777216,
+      "neutral_decision_outcomes_v1.jsonl": 16777216,
+      "trade_journal_v2.jsonl": 67108864
+    },
+    "automatic": true,
+    "dashboard_reader_compatibility_verified": true,
+    "excluded": [
+      "observations_live_v1.jsonl"
+    ],
+    "excluded_reason": "No current production writer contract found; existing verified sealed segment is preserved and remains readable.",
+    "writer_lock_contract_verified": {
+      "global_market_candles_1m_v1.jsonl": true,
+      "neutral_decision_outcomes_v1.jsonl": true,
+      "trade_journal_v2.jsonl": true
+    }
+  },
+  "files": {
+    "global_market_candles_1m_v1.jsonl": {
+      "compressed_segment_bytes": 1154966,
+      "compression_saving_percent": 87.3,
+      "hot_bytes": 1339,
+      "hot_mode": "0o644",
+      "hot_owner": "999:988",
+      "lock_access": {
+        "can_open_readonly": true,
+        "group_gid": 988,
+        "mode_octal": "0o640",
+        "owner_uid": 0,
+        "service_user": "sentinelx",
+        "status": "PASS"
+      },
+      "logical_record_count": 27276,
+      "logical_sha256": "4794b255f2f91384432ef488276f6dca6d210f71ef65d9bdca6609736f75ea52",
+      "manifest_sha256": "ac2b58642f8beb29a958a8f60e5f5e3373dfaf5b02a3cda75c5b6913b1cafc7e",
+      "sealed_record_count": 27276,
+      "sealed_source_bytes": 9095227,
+      "segment_count": 1,
+      "verified": true
+    },
+    "neutral_decision_outcomes_v1.jsonl": {
+      "compressed_segment_bytes": 568794,
+      "compression_saving_percent": 93.11,
+      "hot_bytes": 0,
+      "hot_mode": "0o644",
+      "hot_owner": "999:988",
+      "lock_access": {
+        "can_open_readonly": true,
+        "group_gid": 988,
+        "mode_octal": "0o640",
+        "owner_uid": 0,
+        "service_user": "sentinelx",
+        "status": "PASS"
+      },
+      "logical_record_count": 8562,
+      "logical_sha256": "46036a13034a0c6d19e6639c8b796576b4ccee9676794d6f65141d7be4661be0",
+      "manifest_sha256": "f0caac3654a8058defc0cb9d1ba33c5ce16de87d4effaa9fbefa7489d8fecd2b",
+      "sealed_record_count": 8562,
+      "sealed_source_bytes": 8254262,
+      "segment_count": 1,
+      "verified": true
+    },
+    "observations_live_v1.jsonl": {
+      "compressed_segment_bytes": 2068887,
+      "compression_saving_percent": 91.02,
+      "hot_bytes": 0,
+      "hot_mode": "0o644",
+      "hot_owner": "999:988",
+      "lock_access": {
+        "can_open_readonly": true,
+        "group_gid": 988,
+        "mode_octal": "0o640",
+        "owner_uid": 0,
+        "service_user": "sentinelx",
+        "status": "PASS"
+      },
+      "logical_record_count": 95886,
+      "logical_sha256": "c6867da2fd4b8ac315154c2a670cd963f08b13a91863b94e8783a3673c44172f",
+      "manifest_sha256": "82c77e9f315423d0ecac311d09e4e6c9e198058d4d588e16f5efec5c1d0323f4",
+      "sealed_record_count": 95886,
+      "sealed_source_bytes": 23038973,
+      "segment_count": 1,
+      "verified": true
+    },
+    "trade_journal_v2.jsonl": {
+      "compressed_segment_bytes": 631825,
+      "compression_saving_percent": 98.58,
+      "hot_bytes": 13479,
+      "hot_mode": "0o644",
+      "hot_owner": "999:988",
+      "lock_access": {
+        "can_open_readonly": true,
+        "group_gid": 988,
+        "mode_octal": "0o600",
+        "owner_uid": 999,
+        "service_user": "sentinelx",
+        "status": "PASS"
+      },
+      "logical_record_count": 3144,
+      "logical_sha256": "1582b9c6fec1309bfa866be13955b18bb722f0360a4230194661418a625f8e43",
+      "manifest_sha256": "826080e4ef2ea99ae90fa26b97939f10bc6654d91981141e88936fd3c56508bd",
+      "sealed_record_count": 3144,
+      "sealed_source_bytes": 44437947,
+      "segment_count": 1,
+      "verified": true
+    }
+  },
+  "generated_at": "2026-11-24T08:47:00.981266+00:00",
+  "github": {
+    "feature_branch": "feat/hes-active-data-intelligent-compression-v1",
+    "main_merged": false,
+    "pull_request_created": false
+  },
+  "implementation": {
+    "active_segment_module": "/opt/hes-trade-agent/current/forward/sealed_jsonl_segments_v1.py",
+    "active_segment_module_sha256": "8ea608a0919c768a582cbe515da30aa61d97d3583eae622d12690b2a1275d403",
+    "daily_timer": "hes-smart-storage-maintenance.timer",
+    "daily_timer_active": true,
+    "dashboard_release": "/opt/hes-trade-agent/releases/hes-journal-outcome-ui-sealed-reader-v1",
+    "installed_manager": "/usr/local/lib/hes-storage-v1/hes_smart_storage_manager_v1.py",
+    "installed_manager_sha256": "bc07526719bd652c979044eb7da6591477dcffd5b09f66f9352f3461d080d16f",
+    "manager_rollback": "/var/backups/hes-trade-agent/hes_smart_storage_manager_v1.py.pre-multifile-seal-20261124",
+    "manager_rollback_sha256": "6facadbdc9db3c97a31ad057933f383fde1a15bab2951028af8fb8c1056c797d",
+    "project_release": "/opt/hes-trade-agent/releases/hes-active-data-sealed-v1-5d90440e3476"
+  },
+  "manager_inventory_status": "VERIFIED",
+  "manager_segment_count": 4,
+  "production_journal_canary": {
+    "backup": "/srv/hes-evidence/operations/storage-lifecycle/production-canary-20261124/trade_journal_v2.jsonl.pre-seal",
+    "backup_sha256": "fd70bccf3ad0e287c9e076e61426c04853aada8124a5d94401fb28220564e919",
+    "compression_saving_percent": 98.58,
+    "logical_hash_roundtrip": "PASS",
+    "sealed_source_sha256": "fd70bccf3ad0e287c9e076e61426c04853aada8124a5d94401fb28220564e919"
+  },
+  "safety": {
+    "automatic_deletion": false,
+    "automatic_move": false,
+    "automatic_prune": false,
+    "execution_enabled": false,
+    "observations_live_auto_sealing": false,
+    "orders_placed": false,
+    "other_three_existing_segments_preserved": true,
+    "outcomes_inferred": false
+  },
+  "schema": "hes_active_jsonl_compression_final_v1",
+  "tests": {
+    "passed": 27,
+    "run_as": "sentinelx",
+    "sealed_segment_and_dashboard_reader": "PASS"
+  },
+  "total_compressed_segment_bytes": 4424472,
+  "total_logical_bytes": 84841227
+}
