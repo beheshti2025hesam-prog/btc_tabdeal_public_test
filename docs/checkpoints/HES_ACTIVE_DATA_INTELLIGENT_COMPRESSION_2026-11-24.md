@@ -195,3 +195,9 @@ Created a second isolated worktree from the exact active release commit:
 - Evidence saved at /srv/hes-evidence/operations/storage-lifecycle/active-data-sealed-dashboard-compatibility-20261124.json.
 - Production safety unchanged: trade_journal_v2.jsonl, observations_live_v1.jsonl, global_market_candles_1m_v1.jsonl, and neutral_decision_outcomes_v1.jsonl remain plain; no production segment directories, sealing, truncation, rewrite, move, delete, prune, or automatic sealing timer. Disk free about 8.75 GiB.
 - Both compatibility gates are complete. The one-file production compression canary has NOT been run. Per the previously recorded safety gate, request separate explicit user approval before sealing any production file. The 1.37 GB archive decision and independent Dropbox/Restic restore proof remain separate outstanding workstreams.
+
+## Dashboard compatibility GitHub synchronization — 2026-11-24 08:37 UTC
+
+- Published the streaming sealed-JSONL reader, dashboard projection integration (including the full matured NO_TRADE/neutral-outcome semantics), regression test, evidence JSON, and updated checkpoint to branch feat/hes-active-data-intelligent-compression-v1.
+- GitHub commits in this follow-up: dda743093140e8b36fbefcbdf4852f3506791eeb (streaming reader), 1a92c452d2f89b670b6336d51ca99149c431184b (dashboard projection), eb929a9d11dcf9ffb8edcf49fe8327712c68451e (checkpoint), 803a056e6ea635fca60416169ef5847d33342a96 (regression test), d38c264f270ae07d5138240edcdd0d5e38acd013 (evidence). Remote read-back verified the streaming API, sealed dashboard reader, preserved matured verification function, test, evidence and checkpoint.
+- Branch head at this checkpoint: d38c264f270ae07d5138240edcdd0d5e38acd013. No pull request was created or merged; main remains unchanged.
