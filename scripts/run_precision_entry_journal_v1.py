@@ -14,6 +14,7 @@ import time
 from typing import Any, Mapping
 
 from forward.forward_journal_v1 import ForwardJournalV1
+from forward.sealed_jsonl_segments_v1 import read_jsonl_records
 from forward.global_market_data_reader_v1 import read_closed_candles
 from forward.precision_entry_engine_v1 import evaluate_precision_entry
 from forward.precision_entry_setup_link_v1 import resolve_precision_setup_context
@@ -44,18 +45,8 @@ def _hash(value: Mapping[str, Any]) -> str:
 
 
 def _read_jsonl(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    rows = []
-    with path.open("r", encoding="utf-8") as handle:
-        for number, line in enumerate(handle, 1):
-            if not line.strip():
-                raise ValueError(f"blank journal line:{number}")
-            row = json.loads(line)
-            if not isinstance(row, dict):
-                raise ValueError(f"journal row is not an object:{number}")
-            rows.append(row)
-    return rows
+    """Read the verified logical ledger across sealed segments and hot tail."""
+    return read_jsonl_records(path)
 
 
 def _utc_day(timestamp: int) -> str:
@@ -373,18 +364,47 @@ def run_cycle(*, now: datetime | None = None) -> dict:
     return report
 
 
+
+def build_blocked_report(error: BaseException, *, now: datetime | None = None) -> dict:
+    """Preserve truthful ledger counts and paper-only flags when a cycle is blocked."""
+    current = now or datetime.now(timezone.utc)
+    counts: dict[str, int | None] = {}
+    ledger_errors: list[str] = []
+    for key, journal in (
+        ("event_count", EVENTS),
+        ("candidate_count", CANDIDATES),
+        ("outcome_count", OUTCOMES),
+    ):
+        try:
+            counts[key] = len(_read_jsonl(journal.path))
+        except Exception as ledger_error:
+            counts[key] = None
+            ledger_errors.append(
+                f"{key}:{type(ledger_error).__name__}:{str(ledger_error)[:120]}"
+            )
+    reasons = [type(error).__name__ + ":" + str(error)[:180], *ledger_errors]
+    return {
+        "schema": "hes_precision_entry_journal_report_v1",
+        "updated_at": current.astimezone(timezone.utc).isoformat(),
+        "status": "BLOCKED",
+        "reason_codes": reasons,
+        "latest_reason_codes": reasons,
+        **counts,
+        "daily_signal_cap": DAILY_SIGNAL_CAP,
+        "daily_signal_cap_is_quota": False,
+        "ledger_integrity_errors": ledger_errors,
+        "execution_enabled": False,
+        "orders_placed": False,
+    }
+
+
 def main() -> None:
     while True:
         try:
             run_cycle()
         except Exception as exc:
             now = datetime.now(timezone.utc)
-            _atomic_report({
-                "schema": "hes_precision_entry_journal_report_v1",
-                "updated_at": now.isoformat(), "status": "BLOCKED",
-                "reason_codes": [type(exc).__name__ + ":" + str(exc)[:180]],
-                "execution_enabled": False, "orders_placed": False,
-            })
+            _atomic_report(build_blocked_report(exc, now=now))
         time.sleep(15)
 
 
