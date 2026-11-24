@@ -164,7 +164,7 @@ def test_runtime_healthcheck_warns_when_disk_free_is_below_fifteen_percent(tmp_p
     assert disk_check['state'] == 'WARN'
     assert disk_check['detail'] == '13.0%'
 
- 
+
 def test_runtime_healthcheck_accepts_precision_ledgers_with_sealed_segments_and_no_hot_file(tmp_path, monkeypatch):
     from forward.forward_journal_v1 import ForwardJournalV1
 
