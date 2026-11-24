@@ -82,7 +82,10 @@ def test_activation_script_targets_the_current_soak_and_uses_strict_validator():
     assert "--interval-seconds 300" in script
     assert "scripts/ops/mother_supervisor_soak_v1.py" in script
     assert "hes-mother-supervisor-soak-20261121-v2.service" not in script
-    assert 'if systemctl show "$SOAK_UNIT" -p ActiveState --value >/dev/null 2>&1; then' in script
+    assert 'SOAK_LOAD_STATE="$(systemctl show "$SOAK_UNIT" -p LoadState --value 2>/dev/null)"' in script
+    assert 'if [[ "$SOAK_LOAD_STATE" == "loaded" ]]; then' in script
+    assert 'elif [[ "$SOAK_LOAD_STATE" == "not-found" ]]; then' in script
+    assert 'unexpected Mother soak unit load state' in script
     assert "completed transient soak unit metadata was collected" in script
     assert "GIT_CONFIG_KEY_0=safe.directory" in script
     assert 'GIT_CONFIG_VALUE_0="$SOAK_SOURCE_ROOT"' in script
