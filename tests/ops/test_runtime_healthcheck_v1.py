@@ -83,7 +83,7 @@ def test_runtime_healthcheck_validates_precision_paper_only_and_daily_cap(tmp_pa
     for filename in ('precision_entry_events_v1.jsonl', 'precision_entry_candidates_v1.jsonl', 'precision_entry_outcomes_v1.jsonl'):
         (data / filename).unlink(missing_ok=True)
     witness = tmp_path / 'witness.jsonl'
-    _write_jsonl(witness, [{'observed_at': _iso(now), 'status': 'PASS', 'source': 'gateio_public_spot', 'symbol': 'BTC_USDT', 'timeframe': '1m', 'execution_enabled': False, 'orders_placed': False, 'latest_age_seconds': 20}])
+    _write_jsonl(witness, [{'observed_at': _iso(now + 0.2), 'status': 'PASS', 'source': 'gateio_public_spot', 'symbol': 'BTC_USDT', 'timeframe': '1m', 'execution_enabled': False, 'orders_placed': False, 'latest_age_seconds': 20}])
     monkeypatch.setattr(health, 'WITNESS', witness)
     # Keep the healthcheck unit test independent of the host running pytest.
     monkeypatch.setattr(health.shutil, 'disk_usage', lambda _: health.shutil._ntuple_diskusage(100, 50, 50))
