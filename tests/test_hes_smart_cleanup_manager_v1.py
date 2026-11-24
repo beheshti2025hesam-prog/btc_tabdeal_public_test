@@ -542,3 +542,61 @@ def test_restic_backup_gate_requires_evidence_coverage_hash_match_and_quota():
     report = _build_report(_audit([]), proc_refs=[], proc_errors=0, unit_refs=[], unit_errors=0,
                            backup_status=backup, active_targets=[], pointer_errors=[])
     assert report["recovery_gate"]["backup_integrity_gate"] == "INCOMPLETE"
+
+
+def test_user_manager_empty_enabled_service_unit_file_list_is_not_scan_error(tmp_path, monkeypatch):
+    import subprocess
+    from scripts.ops import hes_smart_cleanup_manager_v1 as manager
+    (tmp_path / "bus").touch()
+
+    def fake_run(command, **kwargs):
+        if command[:2] == ["loginctl", "list-users"]:
+            return subprocess.CompletedProcess(command, 0, "0 root\n", "")
+        if command[:2] == ["systemctl", "list-units"]:
+            return subprocess.CompletedProcess(command, 0, "user@0.service loaded active running User Manager\n", "")
+        if command[:2] == ["loginctl", "show-user"]:
+            return subprocess.CompletedProcess(command, 0, f"State=active\nLinger=no\nRuntimePath={tmp_path}\n", "")
+        if "list-unit-files" in command and "--type=service" in command:
+            return subprocess.CompletedProcess(command, 1, "", "")
+        if "list-unit-files" in command and "--type=timer" in command:
+            return subprocess.CompletedProcess(command, 0, "sample.timer enabled enabled\n", "")
+        if "list-units" in command and "--type=service" in command:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        if "list-units" in command and "--type=timer" in command:
+            return subprocess.CompletedProcess(command, 0, "sample.timer loaded active waiting\n", "")
+        if "show" in command and "sample.timer" in command:
+            return subprocess.CompletedProcess(command, 0, "ExecStart=/usr/bin/true\n", "")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(manager.subprocess, "run", fake_run)
+    _refs, errors = manager._user_systemd_runtime_references(linger_dir=tmp_path / "no-linger")
+    assert errors == 0
+
+
+def test_user_manager_empty_list_unit_files_with_stderr_still_fails_closed(tmp_path, monkeypatch):
+    import subprocess
+    from scripts.ops import hes_smart_cleanup_manager_v1 as manager
+    (tmp_path / "bus").touch()
+
+    def fake_run(command, **kwargs):
+        if command[:2] == ["loginctl", "list-users"]:
+            return subprocess.CompletedProcess(command, 0, "0 root\n", "")
+        if command[:2] == ["systemctl", "list-units"]:
+            return subprocess.CompletedProcess(command, 0, "user@0.service loaded active running User Manager\n", "")
+        if command[:2] == ["loginctl", "show-user"]:
+            return subprocess.CompletedProcess(command, 0, f"State=active\nLinger=no\nRuntimePath={tmp_path}\n", "")
+        if "list-unit-files" in command and "--type=service" in command:
+            return subprocess.CompletedProcess(command, 1, "", "systemd user manager error")
+        if "list-unit-files" in command and "--type=timer" in command:
+            return subprocess.CompletedProcess(command, 0, "sample.timer enabled enabled\n", "")
+        if "list-units" in command and "--type=service" in command:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        if "list-units" in command and "--type=timer" in command:
+            return subprocess.CompletedProcess(command, 0, "sample.timer loaded active waiting\n", "")
+        if "show" in command and "sample.timer" in command:
+            return subprocess.CompletedProcess(command, 0, "ExecStart=/usr/bin/true\n", "")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(manager.subprocess, "run", fake_run)
+    _refs, errors = manager._user_systemd_runtime_references(linger_dir=tmp_path / "no-linger")
+    assert errors >= 1

@@ -1,0 +1,21 @@
+{
+  "schema": "hes_compression_benchmark_evidence_v1",
+  "scope": "active_operational_data",
+  "source": "Four active HES JSONL operational data streams; read-only Zstandard/gzip benchmark; no archive written",
+  "source_bytes": 84401122,
+  "results": {
+    "gzip_1": {
+      "bytes": 8818273
+    },
+    "zstd_3_single_thread": {
+      "bytes": 5078017
+    },
+    "zstd_9_single_thread": {
+      "bytes": 4399851
+    }
+  },
+  "restore_roundtrip_status": "PASS",
+  "gpg_encryption_included_in_size_benchmark": false,
+  "sample_only": true,
+  "production_format_changed": false
+}

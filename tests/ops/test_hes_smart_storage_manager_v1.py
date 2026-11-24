@@ -1,7 +1,11 @@
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import pytest
-from scripts.ops.hes_smart_storage_manager_v1 import archive_inventory, build_report, compression_advice, load_inventory, restore_assessment
+from scripts.ops.hes_smart_storage_manager_v1 import (
+    active_data_segment_inventory, archive_inventory, build_report, compression_advice,
+    load_inventory, restore_assessment,
+)
+from forward.forward_journal_v1 import ForwardJournalV1
 
 NOW=datetime(2026,11,15,15,0,tzinfo=timezone.utc)
 
@@ -81,6 +85,32 @@ def test_zstd_recommendation_is_prototype_only():
 def test_small_gain_keeps_gzip():
     result=compression_advice({"source_bytes":1000,"gzip1_bytes":600,"zstd3_bytes":598,"zstd9_bytes":590})
     assert result["recommendation"]=="KEEP_GZIP1"
+
+def test_active_operational_data_benchmark_is_distinct_and_never_authorizes_in_place_rewrite():
+    evidence={
+      "schema":"hes_active_data_compression_benchmark_v1",
+      "scope":"active_operational_data",
+      "source":"four live HES JSONL data files; read-only stream benchmark",
+      "source_bytes":84401122,
+      "results":{
+        "gzip_1":{"bytes":8818273},
+        "zstd_3_single_thread":{"bytes":5078017},
+        "zstd_9_single_thread":{"bytes":4399851}
+      },
+      "restore_roundtrip_status":"PASS",
+      "gpg_encryption_included_in_size_benchmark":False
+    }
+    result=compression_advice(evidence)
+    assert result["status"]=="ACTIVE_OPERATIONAL_DATA_STREAM_BENCHMARK_NOT_MIGRATION_PROOF"
+    assert result["scope"]=="active_operational_data"
+    assert result["recommendation"]=="PROTOTYPE_ACTIVE_DATA_SEGMENTS_V1"
+    assert result["zstd9_vs_gzip1_saving_percent"]==50.11
+    assert result["roundtrip_status"]=="PASS"
+    assert result["active_data_migration_required"] is True
+    assert result["hot_file_rewrite_authorized"] is False
+    assert result["production_format_changed"] is False
+    assert result["compression_authorized"] is False
+
 
 def test_report_has_no_mutation_authority():
     idlm,cleanup=source_reports()
@@ -213,3 +243,17 @@ def test_invalid_or_incomplete_restore_evidence_fails_closed():
     assert result["status"] == "INCOMPLETE_EVIDENCE"
     assert result["full_archive_restore"] == "NOT_PROVEN"
     assert result["cleanup_authorized"] is False
+
+
+def test_active_data_segment_inventory_verifies_manifest_and_roundtrip(tmp_path):
+    path = tmp_path / "data/forward/trade_journal_v2.jsonl"
+    writer = ForwardJournalV1(path)
+    writer.append_event({"event_id":"e1","decision":"NO_TRADE"})
+    writer.seal()
+    import getpass
+    report = active_data_segment_inventory(tmp_path, verify=True, service_user=getpass.getuser())
+    assert report["status"] == "VERIFIED"
+    assert report["verified"] is True
+    assert report["segment_count"] == 1
+    assert report["files"]["trade_journal_v2.jsonl"]["logical_bytes"] > 0
+    assert report["production_compression_authorized"] is False

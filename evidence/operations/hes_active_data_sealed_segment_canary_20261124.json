@@ -1,0 +1,65 @@
+{
+  "schema": "hes_active_data_sealed_segment_canary_v1",
+  "generated_at_utc": "2026-11-24T06:25:49Z",
+  "mode": "ISOLATED_COPY_ONLY_NO_PRODUCTION_REWRITE",
+  "rows": [
+    {
+      "source": "trade_journal_v2.jsonl",
+      "status": "PASS",
+      "source_bytes": 44176751,
+      "compressed_bytes": 620557,
+      "saving_percent": 98.6,
+      "records": 3124,
+      "source_sha256": "fd8323b0a2c664d8e49dfa61fb3c83649559f8b5afedcd8ef7146b96933a9b5b",
+      "restored_logical_sha256": "fd8323b0a2c664d8e49dfa61fb3c83649559f8b5afedcd8ef7146b96933a9b5b",
+      "logical_size_bytes": 44176751,
+      "compressed_sha256": "ff71be7b43cac6b04f199c71c50913568aed6a37f82a21af7c7ef5706bf2e04f",
+      "roundtrip": "PASS",
+      "production_source_mutated": false
+    },
+    {
+      "source": "observations_live_v1.jsonl",
+      "status": "PASS",
+      "source_bytes": 23038973,
+      "compressed_bytes": 2068887,
+      "saving_percent": 91.02,
+      "records": 95886,
+      "source_sha256": "c6867da2fd4b8ac315154c2a670cd963f08b13a91863b94e8783a3673c44172f",
+      "restored_logical_sha256": "c6867da2fd4b8ac315154c2a670cd963f08b13a91863b94e8783a3673c44172f",
+      "logical_size_bytes": 23038973,
+      "compressed_sha256": "9965aff77eb3b4ee243e45079a0340e736efd0801a15f1ae9f17fb6fcada4d24",
+      "roundtrip": "PASS",
+      "production_source_mutated": false
+    },
+    {
+      "source": "global_market_candles_1m_v1.jsonl",
+      "status": "PASS",
+      "source_bytes": 9049532,
+      "compressed_bytes": 1149143,
+      "saving_percent": 87.3,
+      "records": 27135,
+      "source_sha256": "e8b69ced45cf44af4b22dee0e612d385471e1798b6d73cd027fc2e59c30b480a",
+      "restored_logical_sha256": "e8b69ced45cf44af4b22dee0e612d385471e1798b6d73cd027fc2e59c30b480a",
+      "logical_size_bytes": 9049532,
+      "compressed_sha256": "fd381f48f74dd535e6eaa79a58fab33d8c9cab8aec49845f3841088695918db1",
+      "roundtrip": "PASS",
+      "production_source_mutated": false
+    },
+    {
+      "source": "neutral_decision_outcomes_v1.jsonl",
+      "status": "PASS",
+      "source_bytes": 8196775,
+      "compressed_bytes": 565086,
+      "saving_percent": 93.11,
+      "records": 8509,
+      "source_sha256": "82fd01636edc1f60688202a297d6584974d9bed02a4fc8cac7b9c3bff58710d3",
+      "restored_logical_sha256": "82fd01636edc1f60688202a297d6584974d9bed02a4fc8cac7b9c3bff58710d3",
+      "logical_size_bytes": 8196775,
+      "compressed_sha256": "7250fae16360d5387e28a317f2f7d09a070697b015c4362811dbd7e2441e8109",
+      "roundtrip": "PASS",
+      "production_source_mutated": false
+    }
+  ],
+  "all_present_sources_pass": true,
+  "production_data_mutated": false
+}

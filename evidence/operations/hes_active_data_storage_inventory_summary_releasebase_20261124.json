@@ -1,0 +1,41 @@
+{
+  "schema": "hes_active_data_storage_inventory_releasebase_v1",
+  "generated_at": "2026-11-24T06:57:26.645391+00:00",
+  "inventory_items": 1370,
+  "active_data_segments_status": "NO_SEGMENTS",
+  "active_data_segment_count": 0,
+  "active_data_lock_errors": [],
+  "compression_status": "ACTIVE_OPERATIONAL_DATA_STREAM_BENCHMARK_NOT_MIGRATION_PROOF",
+  "compression_recommendation": "PROTOTYPE_ACTIVE_DATA_SEGMENTS_V1",
+  "compression_authorized": false,
+  "deletion_authorized": false,
+  "storage_budget": {
+    "agent_core_bytes_excluding_backup_copies": 12364804096,
+    "complete_footprint_within_target": false,
+    "components_bytes": {
+      "independent_evidence_store": 542871552,
+      "local_backups_and_offsite_staging": 14650912768,
+      "project_checkout_including_releases_candidates_worktrees": 11821932544
+    },
+    "core_within_target": false,
+    "counting_method": "sum only direct-child allocated-byte rows from the exact IDLM/Smart Cleanup snapshot; nested rows are excluded to avoid double counting",
+    "no_data_mutated": true,
+    "over_target_bytes": 16278298624,
+    "scope": "HES local project checkout + independent evidence store + local backup/staging roots; excludes Ubuntu and SentinelX platform files",
+    "target_bytes": 10737418240,
+    "target_gib": 10,
+    "total_local_hes_bytes_including_backups": 27015716864,
+    "total_local_hes_gib": 25.16
+  },
+  "disk": {
+    "free_bytes": 9735843840,
+    "free_percent": 18.47,
+    "inode_free": 2803474,
+    "inode_free_percent": 85.56,
+    "inode_total": 3276800,
+    "path": "/",
+    "pressure": "OK",
+    "total_bytes": 52721094656,
+    "used_bytes": 42985250816
+  }
+}

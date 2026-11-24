@@ -1,0 +1,35 @@
+{
+  "schema": "hes_active_data_compression_candidate_validation_v2",
+  "generated_at_utc": "2026-11-24T06:45:00Z",
+  "candidate_branch": "feat/hes-active-data-compression-v1",
+  "base_commit": "4a1d089989b9cbdc974ce12f0bbada6d6755bafe",
+  "prior_candidate_commit": "240caab44b54ccb4c2c98d80323f7e064acc65ec",
+  "focused_tests": {
+    "passed": 169,
+    "failed": 0
+  },
+  "full_test_suite": {
+    "passed": 1707,
+    "subtests_passed": 84,
+    "failed": 0,
+    "duration_seconds": 36.13
+  },
+  "compileall": "PASS",
+  "git_diff_check": "PASS",
+  "sealed_segment_unit_and_integration": "PASS",
+  "isolated_copy_canary": {
+    "files_passed": 4,
+    "source_bytes": 84500525,
+    "compressed_bytes": 4405764,
+    "saving_percent": 94.79,
+    "full_segment_audit": "PASS",
+    "bounded_tail_read": "PASS"
+  },
+  "production_data_mutated": false,
+  "production_format_changed": false,
+  "compression_authorized": false,
+  "hot_file_rewrite_authorized": false,
+  "deployed": false,
+  "merged": false,
+  "pushed": false
+}

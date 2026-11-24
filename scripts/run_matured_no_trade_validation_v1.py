@@ -11,6 +11,7 @@ DATA=DATA_ROOT/'data/forward'
 if str(CODE_ROOT) not in sys.path: sys.path.insert(0, str(CODE_ROOT))
 from forward.strategy_family_router_v1 import route_strategy_family
 from forward.structure_only_no_trade_shadow_v1 import evaluate_structure_only_shadow
+from forward.sealed_jsonl_segments_v1 import has_sealed_segments, logical_sha256, read_jsonl_records
 JOURNAL=DATA/'trade_journal_v2.jsonl'; CANDLES=DATA/'global_market_candles_v1.jsonl'; CANDLES_1M=DATA/'global_market_candles_1m_v1.jsonl'; NEUTRAL=DATA/'neutral_decision_outcomes_v1.jsonl'
 REPORT=DATA/'matured_no_trade_validation_v1.json'; RECORDS=DATA/'matured_no_trade_validation_v1.jsonl'
 HORIZONS={'1h':3600,'4h':14400,'24h':86400}
@@ -21,16 +22,15 @@ def dt(v):
     if x.tzinfo is None: x=x.replace(tzinfo=timezone.utc)
     return x.astimezone(timezone.utc)
 def read(path):
-    if not path.exists(): return []
-    out=[]
-    for i,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
-        if not line.strip(): continue
-        try: row=json.loads(line)
-        except json.JSONDecodeError as e: raise ValueError(f'MALFORMED_JSONL:{path.name}:{i}') from e
-        if not isinstance(row,dict): raise ValueError(f'INVALID_RECORD:{path.name}:{i}')
-        out.append(row)
-    return out
-def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+    try:
+        return read_jsonl_records(path, skip_blank_lines=True)
+    except ValueError as e:
+        if "malformed JSON" in str(e):
+            raise ValueError(f'MALFORMED_JSONL:{path.name}') from e
+        raise ValueError(f'INVALID_OR_CORRUPT_JSONL:{path.name}') from e
+    except OSError as e:
+        raise ValueError(f'INVALID_OR_CORRUPT_JSONL:{path.name}') from e
+def sha(path): return logical_sha256(path) if path.exists() or has_sealed_segments(path) else None
 
 def gate_qualification(decision, direction):
     """A proposal is a valid setup only when frozen confirmation, structure and risk gates passed."""

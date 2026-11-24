@@ -8,6 +8,8 @@ import json, shutil, subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from forward.sealed_jsonl_segments_v1 import JsonlSegmentError, inspect_jsonl_segments, inspect_lock_access
+
 ROOT = Path("/opt/hes-trade-agent")
 BACKUP_ROOT = Path("/var/backups/hes-trade-agent")
 MAX_REPORT_AGE_SECONDS = 900
@@ -177,9 +179,28 @@ def compression_advice(evidence: dict[str, Any] | None) -> dict[str, Any]:
         except (KeyError, TypeError, ValueError):
             return {"status":"INVALID_EVIDENCE","recommendation":"KEEP_CURRENT_FORMAT"}
     saving = round(100 * (gz-z9) / gz, 2)
-    is_local = evidence.get("scope") == "local_backup"
+    scope = evidence.get("scope")
+    is_local = scope == "local_backup"
+    is_active = scope == "active_operational_data"
+    status = (
+        "LOCAL_BACKUP_STREAM_BENCHMARK" if is_local else
+        "ACTIVE_OPERATIONAL_DATA_STREAM_BENCHMARK_NOT_MIGRATION_PROOF" if is_active else
+        "FULL_SCOPE_STREAM_BENCHMARK_NOT_LOCAL_BACKUP_PROOF"
+    )
+    recommendation = (
+        ("PROTOTYPE_ACTIVE_DATA_SEGMENTS_V1" if is_active else "PROTOTYPE_ZSTD9_FOR_LOCAL_BACKUP_V2")
+        if saving >= 5 else "KEEP_GZIP1"
+    )
+    note = (
+        "Operational JSONL stream benchmark only. A passing round-trip does not authorize in-place rewrite or prove reader/writer compatibility; hot files remain plain until the sealed-segment API and every consumer pass."
+        if is_active else
+        "Exact local-backup include-list stream benchmark; encrypted archive fixture passed, but no production archive was written."
+        if is_local else
+        "Full-scope offsite include-set benchmark; local-backup-specific benchmark still required."
+    )
     return {
-        "status": "LOCAL_BACKUP_STREAM_BENCHMARK" if is_local else "FULL_SCOPE_STREAM_BENCHMARK_NOT_LOCAL_BACKUP_PROOF",
+        "status": status,
+        "scope": scope or "unspecified",
         "source_bytes": raw, "gzip1_bytes": gz, "zstd3_bytes": z3, "zstd9_bytes": z9,
         "zstd9_vs_gzip1_saving_percent": saving,
         "benchmark_source": evidence.get("source", "legacy_fixture"),
@@ -187,12 +208,13 @@ def compression_advice(evidence: dict[str, Any] | None) -> dict[str, Any]:
         "roundtrip_status": (evidence.get("restore_roundtrip_status") or
                              evidence.get("fixture_roundtrip_status") or
                              (evidence.get("roundtrip") or {}).get("status", "NOT_PROVEN")),
-        "recommendation": "PROTOTYPE_ZSTD9_FOR_LOCAL_BACKUP_V2" if saving >= 5 else "KEEP_GZIP1",
+        "recommendation": recommendation,
         "legacy_gzip_restore_required": True,
         "production_format_changed": False,
         "compression_authorized": False,
-        "note": ("Exact local-backup include-list stream benchmark; encrypted archive fixture passed, but no production archive was written."
-                 if is_local else "Full-scope offsite include-set benchmark; local-backup-specific benchmark still required.")
+        "active_data_migration_required": is_active,
+        "hot_file_rewrite_authorized": False,
+        "note": note
     }
 
 def direct_child_bytes(items: list[dict[str, Any]], root: str) -> int:
@@ -247,6 +269,43 @@ def dropbox_quota() -> dict[str, Any]:
     except (OSError,subprocess.TimeoutExpired,ValueError,TypeError):
         return {"status":"UNAVAILABLE"}
 
+def active_data_segment_inventory(data_root: Path = ROOT, *, verify: bool = False,
+                                  service_user: str = "sentinelx") -> dict[str, Any]:
+    """Read-only inventory of hot and sealed active JSONL data."""
+    names = (
+        "trade_journal_v2.jsonl",
+        "observations_live_v1.jsonl",
+        "global_market_candles_1m_v1.jsonl",
+        "neutral_decision_outcomes_v1.jsonl",
+    )
+    files = {}
+    errors = []
+    for name in names:
+        path = data_root / "data" / "forward" / name
+        try:
+            files[name] = inspect_jsonl_segments(path, verify=verify)
+            files[name]["lock_access"] = inspect_lock_access(path, username=service_user)
+            if files[name]["lock_access"].get("can_open_readonly") is not True:
+                errors.append(name + ":LOCK_ACCESS")
+        except (OSError, JsonlSegmentError, ValueError) as exc:
+            files[name] = {"status": "BLOCKED", "verified": False, "reason": type(exc).__name__}
+            errors.append(name)
+    segment_count = sum(int(row.get("segment_count", 0)) for row in files.values())
+    status = ("LOCK_PERMISSION_BLOCKED" if any(x.endswith(":LOCK_ACCESS") for x in errors)
+              else "BLOCKED" if errors else "VERIFIED" if segment_count else "NO_SEGMENTS")
+    return {
+        "schema": "hes_active_data_segment_inventory_v1",
+        "status": status,
+        "verified": not errors and (segment_count == 0 or all(
+            row.get("verified") is True for row in files.values() if row.get("segment_count", 0)
+        )),
+        "segment_count": segment_count,
+        "files": files,
+        "errors": errors,
+        "production_compression_authorized": False,
+    }
+
+
 def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|None=None,
                  disk: dict[str,Any]|None=None, quota: dict[str,Any]|None=None,
                  evidence: dict[str,Any]|None=None,
@@ -258,6 +317,7 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
     capacity=disk or disk_state()
     quota=quota or dropbox_quota()
     recovery=restore_assessment(restore_evidence)
+    segment_inventory=active_data_segment_inventory(ROOT, verify=False)
     return {
         "schema":"hes_smart_storage_manager_v1","generated_at":now.isoformat(),
         "mode":"READ_ONLY_CAPACITY_AND_COMPRESSION_PLAN","disk":capacity,
@@ -267,10 +327,12 @@ def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|N
         "summary":{"local_backup":local,"offsite_staging":offsite,"dropbox_quota":quota},
         "storage_budget":storage_budget(cleanup.get("items", []), target_gib=10),
         "compression":compression_advice(evidence),
+        "active_data_segments":segment_inventory,
         "policy":{"canonical_market_data":"Gate.io Public Spot BTC_USDT",
           "backup_destination":"encrypted Dropbox","backup_retention":"unchanged until remote restore and replacement-host recovery gates pass",
           "unknown_or_unverified":"KEEP","deletion_authorized":False,"move_authorized":False,
-          "compression_authorized":False,"automatic_cleanup_timer_authorized":False,
+          "compression_authorized":False,"active_data_segment_migration_authorized":False,
+          "automatic_cleanup_timer_authorized":False,
           "full_archive_restore_verified":recovery.get("full_archive_restore") == "PASS",
           "replacement_host_restore_proven":False,
           "local_footprint_target_gib":10},

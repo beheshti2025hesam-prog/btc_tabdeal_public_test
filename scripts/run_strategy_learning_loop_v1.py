@@ -7,6 +7,7 @@ import sys
 CODE_ROOT=Path(__file__).resolve().parents[1]
 if str(CODE_ROOT) not in sys.path: sys.path.insert(0,str(CODE_ROOT))
 from scripts.runtime_paths_v1 import CODE_ROOT, DATA_ROOT
+from forward.sealed_jsonl_segments_v1 import has_sealed_segments, logical_sha256, read_jsonl_records
 from forward.strategy_v2_run_provenance_v1 import validate_run_manifest
 ROOT=DATA_ROOT; DATA=ROOT/'data/forward'
 sys.path.insert(0, str(CODE_ROOT/'scripts'))
@@ -43,14 +44,16 @@ def read_strategy_run_provenance():
   return {'status':'MISSING_OR_INVALID','fresh':False}
 
 def read_jsonl(p):
- rows=[]
- if p.exists():
-  for n,line in enumerate(p.read_text().splitlines(),1):
-   if line.strip():
-    try: rows.append(json.loads(line))
-    except json.JSONDecodeError as e: raise RuntimeError(f'malformed evidence {p.name}:{n}') from e
- return rows
-def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+ try:
+  return read_jsonl_records(p, skip_blank_lines=True)
+ except (OSError, ValueError) as e:
+  raise RuntimeError(f'malformed evidence {p.name}') from e
+def sha(p):
+ if p.suffix.lower() == ".jsonl":
+  if not p.exists() and not has_sealed_segments(p): return None
+  return logical_sha256(p)
+ return hashlib.sha256(p.read_bytes()).hexdigest() if p.exists() else None
+
 def read_acceptance():
  p=DATA/'strategy_policy_v2_eval_report.json'
  try:

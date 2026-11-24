@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import json
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -15,6 +16,10 @@ if __package__:
 else:
     from hes_capacity_trend_v1 import inode_free_check
 
+CODE_ROOT = Path(__file__).resolve().parents[2]
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
+from forward.sealed_jsonl_segments_v1 import has_sealed_segments, read_jsonl_records
 ROOT = Path('/opt/hes-trade-agent')
 DATA = ROOT / 'data' / 'forward'
 WITNESS = Path('/var/lib/hes-gateio-1m-integrity/observations.jsonl')
@@ -57,16 +62,7 @@ def _parse_aware_timestamp(value: Any) -> float:
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    with path.open('r', encoding='utf-8') as handle:
-        for number, line in enumerate(handle, 1):
-            if not line.strip():
-                raise ValueError(f'blank_line:{number}')
-            row = json.loads(line)
-            if not isinstance(row, dict):
-                raise ValueError(f'row_not_object:{number}')
-            rows.append(row)
-    return rows
+    return read_jsonl_records(path)
 
 
 def _check_indicator_forward_paper(data: Path, add: Callable[[str, str, str], None]) -> None:
@@ -215,7 +211,7 @@ def collect_checks(
 
     for filename, max_age in FRESHNESS_LIMITS.items():
         path = data / filename
-        if not path.exists():
+        if not path.exists() and not has_sealed_segments(path):
             add(f'freshness:{filename}', 'CRITICAL', 'file_missing')
             continue
         try:
@@ -279,7 +275,7 @@ def collect_checks(
             add('integrity:gateio_1m_witness', 'CRITICAL', f'{type(exc).__name__}:{str(exc)[:120]}')
 
     journal = data / 'trade_journal_v2.jsonl'
-    if journal.exists():
+    if journal.exists() or has_sealed_segments(journal):
         try:
             rows = _load_jsonl(journal)
             ids: set[str] = set()

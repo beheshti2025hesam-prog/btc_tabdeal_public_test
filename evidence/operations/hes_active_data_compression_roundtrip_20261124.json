@@ -1,0 +1,59 @@
+{
+  "schema": "hes_active_data_compression_roundtrip_v1",
+  "generated_at_utc": "2026-11-24T06:01:50Z",
+  "mode": "READ_ONLY_ZSTD9_STREAM_ROUNDTRIP_NO_ARCHIVE_WRITTEN",
+  "rows": [
+    {
+      "path": "/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl",
+      "source_bytes": 44136707,
+      "source_stable": true,
+      "roundtrip_exact": true,
+      "returncode": 0,
+      "stderr": "",
+      "zstd9_bytes": 618629,
+      "saving_percent": 98.6
+    },
+    {
+      "path": "/opt/hes-trade-agent/data/forward/observations_live_v1.jsonl",
+      "source_bytes": 23038973,
+      "source_stable": true,
+      "roundtrip_exact": true,
+      "returncode": 0,
+      "stderr": "",
+      "zstd9_bytes": 2068887,
+      "saving_percent": 91.02
+    },
+    {
+      "path": "/opt/hes-trade-agent/data/forward/global_market_candles_1m_v1.jsonl",
+      "source_bytes": 9041551,
+      "source_stable": true,
+      "roundtrip_exact": true,
+      "returncode": 0,
+      "stderr": "",
+      "zstd9_bytes": 1148081,
+      "saving_percent": 87.3
+    },
+    {
+      "path": "/opt/hes-trade-agent/data/forward/neutral_decision_outcomes_v1.jsonl",
+      "source_bytes": 8183891,
+      "source_stable": true,
+      "roundtrip_exact": true,
+      "returncode": 0,
+      "stderr": "",
+      "zstd9_bytes": 564254,
+      "saving_percent": 93.11
+    }
+  ],
+  "totals": {
+    "source_bytes": 84401122,
+    "zstd9_bytes": 4399851,
+    "saving_bytes": 80001271,
+    "saving_percent": 94.79
+  },
+  "all_roundtrips_exact": true,
+  "policy": {
+    "production_files_rewritten": false,
+    "live_writer_reader_contract_changed": false,
+    "compression_deployment_authorized": false
+  }
+}

@@ -13,6 +13,7 @@ from forward.strategy_policy_v2 import evaluate,POLICY_VERSION
 from forward.strategy_policy_gate_v1 import enforce_final_gates
 from forward.strategy_gate_pipeline_v1 import PIPELINE_VERSION, evaluate_gate_evidence
 from forward.forward_journal_v1 import ForwardJournalV1
+from forward.sealed_jsonl_segments_v1 import read_jsonl_records
 from forward.strategy_v2_run_provenance_v1 import create_run_manifest, append_run_manifest
 from forward.signal_quality_acceptance_v1 import evaluate_acceptance
 from forward.strategy_family_journal_v1 import sync_strategy_family_result_journals
@@ -42,13 +43,7 @@ def append(p,x):
 def sync_outcomes_to_journal():
  # Idempotently reconcile candidate and outcome ledgers into the human-auditable trade journal.
  journal=BASE/'trade_journal_v2.jsonl'
- known=set()
- if journal.exists():
-  for line in journal.read_text().splitlines():
-   try:
-    row=json.loads(line)
-    if row.get('event_id'): known.add(row['event_id'])
-   except json.JSONDecodeError: raise RuntimeError('malformed trade journal; refusing to append')
+ known={row.get('event_id') for row in read_jsonl_records(journal) if row.get('event_id')}
  for path,kind in ((CAND,'PAPER_CANDIDATE'),(OUT,'PAPER_OUTCOME')):
   if not path.exists(): continue
   for line in path.read_text().splitlines():
@@ -319,4 +314,3 @@ def main():
   except Exception as e:print(json.dumps({'error':type(e).__name__+':'+str(e)[:180],'decision':'NO_TRADE','execution_enabled':False}),flush=True)
   time.sleep(30)
 if __name__=='__main__':main()
-

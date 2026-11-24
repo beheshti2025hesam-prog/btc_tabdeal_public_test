@@ -66,3 +66,13 @@ def test_event_id_is_forward_run_scoped(tmp_path):
     bad["event_id"] = "OTHER-RUN:obs-001"
     with pytest.raises(ValueError, match="forward_run_id"):
         writer.append(bad, context=ctx())
+
+
+def test_observation_writer_reads_and_rejects_duplicate_across_sealed_segments(tmp_path):
+    writer = ForwardObservationWriterV1(tmp_path / "observations.jsonl")
+    writer.append(obs("sealed"), context=ctx())
+    entry = writer.seal()
+    assert entry["record_count"] == 1
+    assert [row["event_id"] for row in writer.read()] == ["RUN-FWD-001:sealed"]
+    with pytest.raises(ValueError, match="duplicate observation"):
+        writer.append(obs("sealed"), context=ctx())

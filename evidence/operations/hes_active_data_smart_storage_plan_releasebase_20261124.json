@@ -1,0 +1,481 @@
+{
+  "active_data_segments": {
+    "errors": [],
+    "files": {
+      "global_market_candles_1m_v1.jsonl": {
+        "compressed_segment_bytes": 0,
+        "compression_saving_percent": null,
+        "hot_bytes": 9060202,
+        "last_segment_seq": 0,
+        "lock_access": {
+          "can_open_readonly": true,
+          "group_gid": 988,
+          "mode_octal": "0o640",
+          "owner_uid": 0,
+          "service_user": "sentinelx",
+          "status": "PASS"
+        },
+        "logical_bytes": 9060202,
+        "logical_sha256": null,
+        "manifest_sha256": null,
+        "record_count": 0,
+        "sealed_source_bytes": 0,
+        "segment_count": 0,
+        "source_name": "global_market_candles_1m_v1.jsonl",
+        "status": "NO_SEGMENTS",
+        "verified": false
+      },
+      "neutral_decision_outcomes_v1.jsonl": {
+        "compressed_segment_bytes": 0,
+        "compression_saving_percent": null,
+        "hot_bytes": 8208645,
+        "last_segment_seq": 0,
+        "lock_access": {
+          "can_open_readonly": true,
+          "group_gid": 988,
+          "mode_octal": "0o640",
+          "owner_uid": 0,
+          "service_user": "sentinelx",
+          "status": "PASS"
+        },
+        "logical_bytes": 8208645,
+        "logical_sha256": null,
+        "manifest_sha256": null,
+        "record_count": 0,
+        "sealed_source_bytes": 0,
+        "segment_count": 0,
+        "source_name": "neutral_decision_outcomes_v1.jsonl",
+        "status": "NO_SEGMENTS",
+        "verified": false
+      },
+      "observations_live_v1.jsonl": {
+        "compressed_segment_bytes": 0,
+        "compression_saving_percent": null,
+        "hot_bytes": 23038973,
+        "last_segment_seq": 0,
+        "lock_access": {
+          "can_open_readonly": true,
+          "group_gid": 988,
+          "mode_octal": "0o640",
+          "owner_uid": 0,
+          "service_user": "sentinelx",
+          "status": "PASS"
+        },
+        "logical_bytes": 23038973,
+        "logical_sha256": null,
+        "manifest_sha256": null,
+        "record_count": 0,
+        "sealed_source_bytes": 0,
+        "segment_count": 0,
+        "source_name": "observations_live_v1.jsonl",
+        "status": "NO_SEGMENTS",
+        "verified": false
+      },
+      "trade_journal_v2.jsonl": {
+        "compressed_segment_bytes": 0,
+        "compression_saving_percent": null,
+        "hot_bytes": 44230481,
+        "last_segment_seq": 0,
+        "lock_access": {
+          "can_open_readonly": true,
+          "group_gid": 988,
+          "mode_octal": "0o600",
+          "owner_uid": 999,
+          "service_user": "sentinelx",
+          "status": "PASS"
+        },
+        "logical_bytes": 44230481,
+        "logical_sha256": null,
+        "manifest_sha256": null,
+        "record_count": 0,
+        "sealed_source_bytes": 0,
+        "segment_count": 0,
+        "source_name": "trade_journal_v2.jsonl",
+        "status": "NO_SEGMENTS",
+        "verified": false
+      }
+    },
+    "production_compression_authorized": false,
+    "schema": "hes_active_data_segment_inventory_v1",
+    "segment_count": 0,
+    "status": "NO_SEGMENTS",
+    "verified": true
+  },
+  "compression": {
+    "active_data_migration_required": true,
+    "benchmark_source": "Four active HES JSONL operational data streams; read-only Zstandard/gzip benchmark; no archive written",
+    "compression_authorized": false,
+    "gpg_encryption_included_in_size_benchmark": false,
+    "gzip1_bytes": 8818273,
+    "hot_file_rewrite_authorized": false,
+    "legacy_gzip_restore_required": true,
+    "note": "Operational JSONL stream benchmark only. A passing round-trip does not authorize in-place rewrite or prove reader/writer compatibility; hot files remain plain until the sealed-segment API and every consumer pass.",
+    "production_format_changed": false,
+    "recommendation": "PROTOTYPE_ACTIVE_DATA_SEGMENTS_V1",
+    "roundtrip_status": "PASS",
+    "scope": "active_operational_data",
+    "source_bytes": 84401122,
+    "status": "ACTIVE_OPERATIONAL_DATA_STREAM_BENCHMARK_NOT_MIGRATION_PROOF",
+    "zstd3_bytes": 5078017,
+    "zstd9_bytes": 4399851,
+    "zstd9_vs_gzip1_saving_percent": 50.11
+  },
+  "disk": {
+    "free_bytes": 9735843840,
+    "free_percent": 18.47,
+    "inode_free": 2803474,
+    "inode_free_percent": 85.56,
+    "inode_total": 3276800,
+    "path": "/",
+    "pressure": "OK",
+    "total_bytes": 52721094656,
+    "used_bytes": 42985250816
+  },
+  "generated_at": "2026-11-24T06:57:26.645391+00:00",
+  "invariants": [
+    "Uses the existing IDLM and dependency-aware Smart Cleanup inventories; does not rescan project trees.",
+    "No file is deleted, moved, truncated, rotated, pruned or compressed by this report.",
+    "All backups and active/rollback releases remain protected.",
+    "New compression format must be versioned; legacy gzip archives remain readable and retained.",
+    "Dropbox free quota is a hard budget; never upload an unbounded second copy or exceed the free tier.",
+    "Full archive restore evidence is distinct from replacement-host recovery; remote restore and explicit approval remain required before retention or cleanup authorization."
+  ],
+  "inventory": {
+    "classification_counts": {
+      "KEEP_BACKUP": 17,
+      "KEEP_BACKUP_STAGING": 1,
+      "KEEP_EVIDENCE": 105,
+      "KEEP_HES_RUNTIME": 34,
+      "KEEP_PLATFORM_TEMP": 34,
+      "KEEP_PROTECTED": 6,
+      "KEEP_REGISTERED_WORKTREE": 19,
+      "KEEP_SYMLINK": 14,
+      "KEEP_TEMP_EVIDENCE": 203,
+      "KEEP_UNKNOWN": 155,
+      "KEEP_UNREGISTERED_GIT_WORKSPACE": 5,
+      "REVIEW_LOG_POLICY": 1,
+      "REVIEW_REGENERABLE_CACHE": 22,
+      "REVIEW_STALE_TEMP": 654,
+      "REVIEW_SYSTEM_LOG_RETENTION": 1,
+      "REVIEW_TEMP": 99
+    },
+    "classification_storage": {
+      "KEEP_BACKUP": {
+        "allocated_bytes": 14650998784,
+        "items": 17
+      },
+      "KEEP_BACKUP_STAGING": {
+        "allocated_bytes": 4096,
+        "items": 1
+      },
+      "KEEP_EVIDENCE": {
+        "allocated_bytes": 542871552,
+        "items": 105
+      },
+      "KEEP_HES_RUNTIME": {
+        "allocated_bytes": 317009920,
+        "items": 34
+      },
+      "KEEP_PLATFORM_TEMP": {
+        "allocated_bytes": 278528,
+        "items": 34
+      },
+      "KEEP_PROTECTED": {
+        "allocated_bytes": 9678012416,
+        "items": 6
+      },
+      "KEEP_REGISTERED_WORKTREE": {
+        "allocated_bytes": 1436823552,
+        "items": 19
+      },
+      "KEEP_SYMLINK": {
+        "allocated_bytes": 0,
+        "items": 14
+      },
+      "KEEP_TEMP_EVIDENCE": {
+        "allocated_bytes": 2680291328,
+        "items": 203
+      },
+      "KEEP_UNKNOWN": {
+        "allocated_bytes": 3921850368,
+        "items": 155
+      },
+      "KEEP_UNREGISTERED_GIT_WORKSPACE": {
+        "allocated_bytes": 961761280,
+        "items": 5
+      },
+      "REVIEW_LOG_POLICY": {
+        "allocated_bytes": 2043904,
+        "items": 1
+      },
+      "REVIEW_REGENERABLE_CACHE": {
+        "allocated_bytes": 2959691776,
+        "items": 22
+      },
+      "REVIEW_STALE_TEMP": {
+        "allocated_bytes": 53100544,
+        "items": 654
+      },
+      "REVIEW_SYSTEM_LOG_RETENTION": {
+        "allocated_bytes": 33566720,
+        "items": 1
+      },
+      "REVIEW_TEMP": {
+        "allocated_bytes": 156594176,
+        "items": 99
+      }
+    },
+    "deletion_authorized": false,
+    "dependency_scan": {
+      "process_reference_count": 390,
+      "running_unit_reference_count": 210,
+      "scan_errors": 0,
+      "scheduled_job_reference_count": 398
+    },
+    "items": 1370,
+    "recovery_gate": {
+      "archive_restore_gate": "STALE_OR_NOT_PROVEN",
+      "backup_integrity_gate": "INCOMPLETE",
+      "cleanup_authorization": false,
+      "full_restore_gate": "BLOCKED_NOT_PROVEN",
+      "reason": "Same-host archive restore and replacement-host recovery are separate gates; no deletion is authorized.",
+      "replacement_host_restore_gate": "NOT_PROVEN"
+    },
+    "source_age_seconds": 97.87,
+    "source_cleanup_generated_at": "2026-11-24T06:55:53.706824+00:00",
+    "source_idlm_generated_at": "2026-11-24T06:55:48.777633+00:00",
+    "status": "PASS"
+  },
+  "inventory_source": "IDLM_V1_PLUS_SMART_CLEANUP_MANAGER_V1",
+  "mode": "READ_ONLY_CAPACITY_AND_COMPRESSION_PLAN",
+  "policy": {
+    "active_data_segment_migration_authorized": false,
+    "automatic_cleanup_timer_authorized": false,
+    "backup_destination": "encrypted Dropbox",
+    "backup_retention": "unchanged until remote restore and replacement-host recovery gates pass",
+    "canonical_market_data": "Gate.io Public Spot BTC_USDT",
+    "compression_authorized": false,
+    "deletion_authorized": false,
+    "full_archive_restore_verified": false,
+    "local_footprint_target_gib": 10,
+    "move_authorized": false,
+    "replacement_host_restore_proven": false,
+    "unknown_or_unverified": "KEEP"
+  },
+  "recovery_assessment": {
+    "cleanup_authorized": false,
+    "full_archive_restore": "NOT_PROVEN",
+    "reason": "No full-scope restore evidence was supplied.",
+    "remote_restore": "NOT_RUN",
+    "replacement_host_restore": "NOT_PROVEN",
+    "status": "NOT_PROVEN"
+  },
+  "schema": "hes_smart_storage_manager_v1",
+  "storage_budget": {
+    "agent_core_bytes_excluding_backup_copies": 12364804096,
+    "complete_footprint_within_target": false,
+    "components_bytes": {
+      "independent_evidence_store": 542871552,
+      "local_backups_and_offsite_staging": 14650912768,
+      "project_checkout_including_releases_candidates_worktrees": 11821932544
+    },
+    "core_within_target": false,
+    "counting_method": "sum only direct-child allocated-byte rows from the exact IDLM/Smart Cleanup snapshot; nested rows are excluded to avoid double counting",
+    "no_data_mutated": true,
+    "over_target_bytes": 16278298624,
+    "scope": "HES local project checkout + independent evidence store + local backup/staging roots; excludes Ubuntu and SentinelX platform files",
+    "target_bytes": 10737418240,
+    "target_gib": 10,
+    "total_local_hes_bytes_including_backups": 27015716864,
+    "total_local_hes_gib": 25.16
+  },
+  "summary": {
+    "dropbox_quota": {
+      "free_bytes": 1819026948,
+      "status": "READ_OK",
+      "total_bytes": 2147483648,
+      "used_bytes": 328456700,
+      "used_percent": 15.29
+    },
+    "local_backup": {
+      "archive_count": 0,
+      "archives": [],
+      "errors": 0,
+      "same_day_multiple": {},
+      "status": "PASS",
+      "total_bytes": 0
+    },
+    "offsite_staging": {
+      "archive_count": 16,
+      "archives": [
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T053817Z.tar.zst.gpg",
+          "size_bytes": 242990234
+        },
+        {
+          "format": "gzip",
+          "name": "hes-offsite-core-20261123T070504Z.remote-restore-report.json",
+          "size_bytes": 1562
+        },
+        {
+          "format": "gzip",
+          "name": "hes-offsite-core-20261123T070504Z.restore-report.json",
+          "size_bytes": 1586
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T070504Z.tar.zst.gpg",
+          "size_bytes": 254167681
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T070504Z.tar.zst.gpg.remote-restore-20261123T074700Z.json",
+          "size_bytes": 1610
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T070504Z.tar.zst.gpg.restore-report.json",
+          "size_bytes": 1586
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T164823Z.tar.zst.gpg",
+          "size_bytes": 313698204
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T165655Z.tar.zst.gpg",
+          "size_bytes": 313619094
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T165655Z.tar.zst.gpg.remote-restore-20261123T165438Z.json",
+          "size_bytes": 1827
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T165655Z.tar.zst.gpg.restore-report.json",
+          "size_bytes": 1803
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T171145Z.tar.zst.gpg",
+          "size_bytes": 314136804
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T171145Z.tar.zst.gpg.remote-restore-20261123T170912Z.json",
+          "size_bytes": 1827
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T171145Z.tar.zst.gpg.restore-report.json",
+          "size_bytes": 1803
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T172815Z.tar.zst.gpg",
+          "size_bytes": 314339289
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T172815Z.tar.zst.gpg.remote-restore-20261123T172551Z.json",
+          "size_bytes": 2192
+        },
+        {
+          "format": "zstd",
+          "name": "hes-offsite-core-20261123T172815Z.tar.zst.gpg.restore-report.json",
+          "size_bytes": 2168
+        }
+      ],
+      "errors": 0,
+      "same_day_multiple": {
+        "20261123": [
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T053817Z.tar.zst.gpg",
+            "size_bytes": 242990234
+          },
+          {
+            "format": "gzip",
+            "name": "hes-offsite-core-20261123T070504Z.remote-restore-report.json",
+            "size_bytes": 1562
+          },
+          {
+            "format": "gzip",
+            "name": "hes-offsite-core-20261123T070504Z.restore-report.json",
+            "size_bytes": 1586
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T070504Z.tar.zst.gpg",
+            "size_bytes": 254167681
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T070504Z.tar.zst.gpg.remote-restore-20261123T074700Z.json",
+            "size_bytes": 1610
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T070504Z.tar.zst.gpg.restore-report.json",
+            "size_bytes": 1586
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T164823Z.tar.zst.gpg",
+            "size_bytes": 313698204
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T165655Z.tar.zst.gpg",
+            "size_bytes": 313619094
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T165655Z.tar.zst.gpg.remote-restore-20261123T165438Z.json",
+            "size_bytes": 1827
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T165655Z.tar.zst.gpg.restore-report.json",
+            "size_bytes": 1803
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T171145Z.tar.zst.gpg",
+            "size_bytes": 314136804
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T171145Z.tar.zst.gpg.remote-restore-20261123T170912Z.json",
+            "size_bytes": 1827
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T171145Z.tar.zst.gpg.restore-report.json",
+            "size_bytes": 1803
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T172815Z.tar.zst.gpg",
+            "size_bytes": 314339289
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T172815Z.tar.zst.gpg.remote-restore-20261123T172551Z.json",
+            "size_bytes": 2192
+          },
+          {
+            "format": "zstd",
+            "name": "hes-offsite-core-20261123T172815Z.tar.zst.gpg.restore-report.json",
+            "size_bytes": 2168
+          }
+        ]
+      },
+      "status": "PASS",
+      "total_bytes": 1752969270
+    }
+  }
+}

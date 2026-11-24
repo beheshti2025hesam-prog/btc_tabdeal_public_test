@@ -1,0 +1,54 @@
+{
+  "schema": "hes_active_data_compression_releasebase_validation_v1",
+  "generated_at_utc": "2026-11-24T06:57:26Z",
+  "candidate_branch": "feat/hes-active-data-compression-releasebase-v1",
+  "active_release_base": "4c9a0f30c9aac67c6d711fe3699f55820a9b1322",
+  "implementation_commit": "2e6af2b17398be1c4370a2bfff23657849e893d0",
+  "cleanup_scan_fix_commit": "73fe4769ff68f5bfdd007d95b6b4f866c39e8cf6",
+  "focused_tests": {
+    "passed": 202,
+    "failed": 0
+  },
+  "full_test_suite": {
+    "passed": 1627,
+    "subtests_passed": 84,
+    "failed": 0,
+    "duration_seconds": 28.39
+  },
+  "isolated_copy_canary": {
+    "files_passed": 4,
+    "source_bytes": 84500525,
+    "compressed_bytes": 4405764,
+    "saving_percent": 94.79,
+    "full_segment_audit": "PASS",
+    "bounded_tail_read": "PASS"
+  },
+  "lock_preflight": {
+    "status": "PASS",
+    "changed_lock_files": 3,
+    "mode": "0640",
+    "sentinelx_exclusive_flock": "PASS"
+  },
+  "smart_storage_report": {
+    "generated_at_utc": "2026-11-24T06:57:26Z",
+    "idlm_items": 1370,
+    "cleanup_keep": 616,
+    "cleanup_review": 754,
+    "cleanup_delete_authorized": 0,
+    "scheduled_job_scan_errors": 0,
+    "active_data_segments_status": "NO_SEGMENTS",
+    "active_data_segment_count": 0,
+    "active_data_lock_errors": [],
+    "compression_authorized": false,
+    "deletion_authorized": false,
+    "local_footprint_gib": 25.16,
+    "target_gib": 10,
+    "disk_free_percent": 18.47
+  },
+  "production_data_mutated": false,
+  "production_lock_metadata_changed": true,
+  "production_format_changed": false,
+  "production_compression_deployed": false,
+  "merged": false,
+  "pushed": false
+}

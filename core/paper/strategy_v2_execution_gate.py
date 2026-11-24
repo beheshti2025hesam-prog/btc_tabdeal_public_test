@@ -15,6 +15,7 @@ import math
 
 from forward.activation_gate_v1 import validate_activation
 from forward.integration_gate_v1 import ForwardIntegrationGateV1
+from forward.sealed_jsonl_segments_v1 import has_sealed_segments, logical_sha256, read_jsonl_records
 
 EXPECTED_RECOVERY_CANDIDATE_HEAD = "7bc87617440cee0861cce608c297ef26613ce020"
 RECOVERY_SCHEMA = "hes.gateio_1m_recovery_24h_evidence.v1"
@@ -44,6 +45,8 @@ def _strict_int(value: Any, minimum: int | None = None) -> bool:
 
 
 def _file_sha256(path: Path) -> str:
+    if has_sealed_segments(path):
+        return logical_sha256(path)
     digest = sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -429,11 +432,7 @@ def verify_gateio_1m_recovery_evidence(
         return {"status": "BLOCKED", "reason": "RECOVERY_FINISH_TIMESTAMP_MISMATCH"}
 
     try:
-        candle_rows = [
-            json.loads(line)
-            for line in artifact_paths["candle_ledger"].read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        candle_rows = read_jsonl_records(artifact_paths["candle_ledger"], skip_blank_lines=True)
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {"status": "BLOCKED", "reason": "RECOVERY_CANDLE_LEDGER_INVALID_JSONL"}
     if not candle_rows:

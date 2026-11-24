@@ -322,6 +322,13 @@ def _user_systemd_runtime_references(
                 errors += 1
                 continue
             if result.returncode != 0:
+                # A filtered list-unit-files query can return status 1 with no
+                # output/stderr when that user manager has no enabled units of
+                # the requested type. Treat only that exact case as empty.
+                if (args[0] == "list-unit-files"
+                        and not result.stdout.strip()
+                        and not result.stderr.strip()):
+                    continue
                 errors += 1
                 continue
             for row in result.stdout.splitlines():

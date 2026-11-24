@@ -9,6 +9,7 @@ import sys
 CODE_ROOT=Path(__file__).resolve().parents[1]
 if str(CODE_ROOT) not in sys.path: sys.path.insert(0,str(CODE_ROOT))
 from scripts.runtime_paths_v1 import CODE_ROOT, DATA_ROOT
+from forward.sealed_jsonl_segments_v1 import has_sealed_segments, logical_sha256, read_jsonl_records
 ROOT=DATA_ROOT; DATA=ROOT/'data/forward'
 JOURNAL=DATA/'trade_journal_v2.jsonl'; NEUTRAL=DATA/'neutral_decision_outcomes_v1.jsonl'
 CANDLES=DATA/'global_market_candles_v1.jsonl'
@@ -23,16 +24,15 @@ def parse_dt(v):
     if dt.tzinfo is None: dt=dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
 def read_jsonl(path):
-    if not path.exists(): return []
-    out=[]
-    for n,line in enumerate(path.read_text(encoding='utf-8').splitlines(),1):
-        if not line.strip(): continue
-        try: row=json.loads(line)
-        except json.JSONDecodeError as e: raise ValueError(f'MALFORMED_JSONL:{path.name}:{n}') from e
-        if not isinstance(row,dict): raise ValueError(f'INVALID_RECORD:{path.name}:{n}')
-        out.append(row)
-    return out
-def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+    try:
+        return read_jsonl_records(path, skip_blank_lines=True)
+    except ValueError as e:
+        if "malformed JSON" in str(e):
+            raise ValueError(f'MALFORMED_JSONL:{path.name}') from e
+        raise ValueError(f'INVALID_OR_CORRUPT_JSONL:{path.name}') from e
+    except OSError as e:
+        raise ValueError(f'INVALID_OR_CORRUPT_JSONL:{path.name}') from e
+def sha(path): return logical_sha256(path) if path.exists() or has_sealed_segments(path) else None
 def build_audit(now=None):
     now=parse_dt(now if now is not None else datetime.now(timezone.utc)); start=now-timedelta(hours=24)
     journal=read_jsonl(JOURNAL); neutral=read_jsonl(NEUTRAL); candle_rows=read_jsonl(CANDLES)

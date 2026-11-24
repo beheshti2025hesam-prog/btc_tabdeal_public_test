@@ -1,0 +1,120 @@
+{
+  "schema": "hes_active_data_compression_preflight_v1",
+  "generated_at_utc": "2026-11-24T06:01:18Z",
+  "mode": "READ_ONLY_STREAM_BENCHMARK_NO_ARCHIVE_WRITTEN",
+  "rows": [
+    {
+      "path": "/opt/hes-trade-agent/data/forward/trade_journal_v2.jsonl",
+      "source_bytes": 44136707,
+      "mtime_ns_before": 1795500021385376245,
+      "mtime_ns_after": 1795500021385376245,
+      "stable_during_benchmark": true,
+      "open_handle_listing": "",
+      "zstd3": {
+        "rc": 0,
+        "seconds": 0.1,
+        "stderr": "",
+        "bytes": 758536
+      },
+      "zstd9": {
+        "rc": 0,
+        "seconds": 0.335,
+        "stderr": "",
+        "bytes": 618629
+      },
+      "gzip1": {
+        "rc": 0,
+        "seconds": 0.307,
+        "stderr": "",
+        "bytes": 3760916
+      },
+      "source_sha256": "7246e857df8840e282a83fcbc023e09abd7c94896e94f325ec6232029e420307"
+    },
+    {
+      "path": "/opt/hes-trade-agent/data/forward/observations_live_v1.jsonl",
+      "source_bytes": 23038973,
+      "mtime_ns_before": 1792913413411376754,
+      "mtime_ns_after": 1792913413411376754,
+      "stable_during_benchmark": true,
+      "open_handle_listing": "",
+      "zstd3": {
+        "rc": 0,
+        "seconds": 0.151,
+        "stderr": "",
+        "bytes": 2455446
+      },
+      "zstd9": {
+        "rc": 0,
+        "seconds": 0.715,
+        "stderr": "",
+        "bytes": 2068887
+      },
+      "gzip1": {
+        "rc": 0,
+        "seconds": 0.197,
+        "stderr": "",
+        "bytes": 2766762
+      },
+      "source_sha256": "c6867da2fd4b8ac315154c2a670cd963f08b13a91863b94e8783a3673c44172f"
+    },
+    {
+      "path": "/opt/hes-trade-agent/data/forward/global_market_candles_1m_v1.jsonl",
+      "source_bytes": 9041551,
+      "mtime_ns_before": 1795500067882999544,
+      "mtime_ns_after": 1795500067882999544,
+      "stable_during_benchmark": true,
+      "open_handle_listing": "",
+      "zstd3": {
+        "rc": 0,
+        "seconds": 0.082,
+        "stderr": "",
+        "bytes": 1284209
+      },
+      "zstd9": {
+        "rc": 0,
+        "seconds": 0.349,
+        "stderr": "",
+        "bytes": 1148081
+      },
+      "gzip1": {
+        "rc": 0,
+        "seconds": 0.087,
+        "stderr": "",
+        "bytes": 1471947
+      },
+      "source_sha256": "a316dd9de2301b2b778b628b77c957d717b20afe5fc79972cc79bec5055be791"
+    },
+    {
+      "path": "/opt/hes-trade-agent/data/forward/neutral_decision_outcomes_v1.jsonl",
+      "source_bytes": 8183891,
+      "mtime_ns_before": 1795499219568669640,
+      "mtime_ns_after": 1795499219568669640,
+      "stable_during_benchmark": true,
+      "open_handle_listing": "",
+      "zstd3": {
+        "rc": 0,
+        "seconds": 0.034,
+        "stderr": "",
+        "bytes": 579826
+      },
+      "zstd9": {
+        "rc": 0,
+        "seconds": 0.217,
+        "stderr": "",
+        "bytes": 564254
+      },
+      "gzip1": {
+        "rc": 0,
+        "seconds": 0.063,
+        "stderr": "",
+        "bytes": 818648
+      },
+      "source_sha256": "cb7236c220444a865afec0d805f5a0747f03ce53821745c0d2fd791594843866"
+    }
+  ],
+  "policy": {
+    "no_source_mutation": true,
+    "open_files_not_rewritten": true,
+    "compression_authorized": false
+  }
+}

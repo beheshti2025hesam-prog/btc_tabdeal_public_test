@@ -7,6 +7,8 @@ import hashlib, json, math, time
 from pathlib import Path
 from typing import Any
 
+from .sealed_jsonl_segments_v1 import JsonlSegmentError, read_jsonl_records
+
 LIVE_WINDOW_CANDLES = 5000
 
 SOURCE = "gateio_public_spot"
@@ -27,30 +29,13 @@ def read_closed_candles(timeframe: str, *, root: str | Path = ".", now: int | No
         raise MarketDataRejected("UNSUPPORTED_TIMEFRAME")
     seconds, relative_path = SPECS[timeframe]
     path = Path(root) / relative_path
-    if not path.is_file():
+    segment_dir = path.with_name(path.name + ".segments")
+    if not path.is_file() and not (segment_dir.is_dir() and (segment_dir / "manifest.json").is_file()):
         raise MarketDataRejected("CANDLE_FILE_MISSING")
-    records=[]
     try:
-        # Read only the bounded live window; never truncate the append-only history.
-        with path.open("rb") as handle:
-            handle.seek(0, 2)
-            position = handle.tell()
-            chunks = []
-            data = b""
-            while position > 0 and data.count(bytes([10])) <= LIVE_WINDOW_CANDLES:
-                size = min(64 * 1024, position)
-                position -= size
-                handle.seek(position)
-                chunks.insert(0, handle.read(size))
-                data = b"".join(chunks)
-        lines = data.splitlines()
-        if position > 0 and lines:
-            lines = lines[1:]
-        for line in lines[-LIVE_WINDOW_CANDLES:]:
-            if line.strip():
-                records.append(json.loads(line))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise MarketDataRejected("CANDLE_FILE_UNREADABLE") from exc
+        records = read_jsonl_records(path, limit=LIVE_WINDOW_CANDLES, allow_final_no_newline=True)
+    except (OSError, JsonlSegmentError, ValueError) as exc:
+        raise MarketDataRejected("CANDLE_FILE_UNREADABLE_OR_SEGMENT_INVALID") from exc
     if len(records) < min_bars:
         raise MarketDataRejected("INSUFFICIENT_CLOSED_CANDLES")
     previous=None

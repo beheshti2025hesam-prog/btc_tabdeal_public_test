@@ -1,9 +1,14 @@
 """Forward-only outcomes for NO_TRADE decisions. Observation only; never trades or tunes policy."""
 from __future__ import annotations
-import hashlib, json
+import hashlib, json, os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+
+try:
+    from .sealed_jsonl_segments_v1 import _locked, _read_records_unlocked, read_jsonl_records
+except ImportError:  # spec-loaded legacy test and CLI entrypoint compatibility
+    from forward.sealed_jsonl_segments_v1 import _locked, _read_records_unlocked, read_jsonl_records
 
 SCHEMA = "hes_neutral_decision_outcome_v1"
 DEFAULT_HORIZONS = {"1h": 3600, "4h": 14400, "24h": 86400}
@@ -14,15 +19,11 @@ def _dt(value: Any) -> datetime:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00")).astimezone(timezone.utc)
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists(): return []
-    result = []
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip(): continue
-        try: row = json.loads(line)
-        except json.JSONDecodeError as exc: raise ValueError(f"MALFORMED_JSONL:{path.name}:{line_no}") from exc
-        if not isinstance(row, dict): raise ValueError(f"INVALID_JSONL_RECORD:{path.name}:{line_no}")
-        result.append(row)
-    return result
+    try:
+        return read_jsonl_records(path, skip_blank_lines=True)
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"INVALID_OR_CORRUPT_JSONL:{path.name}") from exc
+
 
 def _price(row: dict[str, Any], key: str) -> float:
     value = float(row[key])
@@ -174,9 +175,21 @@ def run(root: str | Path = "/opt/hes-trade-agent") -> dict[str, Any]:
             elif record["outcome_id"] not in done:
                 new.append(record); done.add(record["outcome_id"])
     if new:
-        with output_path.open("a", encoding="utf-8") as handle:
-            for row in new: handle.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
-            handle.flush()
+        # Serialize outcome appends with explicit sealing and re-check idempotency
+        # after acquiring the common per-file lock.
+        with _locked(output_path, exclusive=True):
+            current_rows = _read_records_unlocked(output_path)
+            current_ids = {row.get("outcome_id") for row in current_rows}
+            append_rows = [row for row in new if row.get("outcome_id") not in current_ids]
+            if append_rows:
+                with output_path.open("ab") as handle:
+                    for row in append_rows:
+                        handle.write((json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8"))
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                new = append_rows
+            else:
+                new = []
     all_rows = existing + new
     unscorable_digest = (
         hashlib.sha256("\n".join(sorted(unscorable_no_baseline_event_ids)).encode()).hexdigest()

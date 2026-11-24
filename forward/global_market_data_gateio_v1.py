@@ -20,6 +20,7 @@ from typing import Any
 import websocket
 
 from .native_ohlcv_gateio_v1 import GateioSpotKlineSource
+from .sealed_jsonl_segments_v1 import _locked, _read_records_unlocked
 
 ROOT = Path(__file__).resolve().parents[1]
 WS_URL = "wss://api.gateio.ws/ws/v4/"
@@ -179,60 +180,27 @@ def _validate_persisted_candle(candle: dict[str, Any]) -> int:
 
 
 def _read_existing(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    rows = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            if not line.strip():
-                continue
-            try:
-                candle = json.loads(line)
-            except json.JSONDecodeError as exc:
-                raise ValueError("Malformed persisted Gate.io candle JSONL") from exc
-            _validate_persisted_candle(candle)
-            rows.append(candle)
+    rows = _read_records_unlocked(path)
+    for candle in rows:
+        _validate_persisted_candle(candle)
     return rows
 
 
-
 def _read_existing_tail(path: Path, max_rows: int = LIVE_WINDOW_CANDLES) -> list[dict[str, Any]]:
-    """Read a bounded validated tail for steady-state updates on long-lived JSONL."""
-    if not path.exists():
-        return []
+    """Read a bounded validated tail across sealed segments and the live JSONL file."""
     if type(max_rows) is not int or max_rows < 1:
         raise ValueError("max_rows must be positive")
-    with path.open("rb") as handle:
-        handle.seek(0, os.SEEK_END)
-        position = handle.tell()
-        chunks: list[bytes] = []
-        data = b""
-        while position > 0 and data.count(b"\n") <= max_rows:
-            size = min(64 * 1024, position)
-            position -= size
-            handle.seek(position)
-            chunks.insert(0, handle.read(size))
-            data = b"".join(chunks)
-    lines = data.splitlines()
-    if position > 0 and lines:
-        lines = lines[1:]
-    rows: list[dict[str, Any]] = []
+    rows = _read_records_unlocked(path, limit=max_rows)
     previous = None
-    for line_number, line in enumerate(lines[-max_rows:], 1):
-        if not line.strip():
-            continue
-        try:
-            candle = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise ValueError("Malformed persisted Gate.io candle JSONL") from exc
+    for line_number, candle in enumerate(rows, 1):
         ts = _validate_persisted_candle(candle)
         if previous is not None and ts == previous:
-            if rows and not _same_candle(rows[-1], candle):
+            if rows[line_number - 2] != candle and not _same_candle(rows[line_number - 2], candle):
                 raise ValueError(f"Conflicting persisted Gate.io candle for open_time={ts}")
-            raise ValueError(f"Duplicate persisted Gate.io candle for open_time={ts}")
+            raise ValueError(f"Duplicate persisted Gate.io candle for tail line {line_number}")
         if previous is not None and ts < previous:
             raise ValueError(f"Persisted candle order invalid at tail line {line_number}")
-        rows.append(candle)
+        rows[line_number - 1] = candle
         previous = ts
     return rows
 
@@ -280,7 +248,7 @@ def _same_candle(left: dict[str, Any], right: dict[str, Any]) -> bool:
     return True
 
 
-def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTPUT) -> int:
+def _append_new_unlocked(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTPUT) -> int:
     """Idempotently append closed candles without truncating durable history.
 
     The bounded tail is sufficient for normal REST overlap checks. If an
@@ -330,7 +298,8 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
     append_only = existing_max is None or min(added_times) > existing_max
     if append_only:
         output.parent.mkdir(parents=True, exist_ok=True)
-        if output.exists() and existing_max is not None:
+        if existing_max is not None:
+            output.touch(exist_ok=True)
             with output.open("rb") as check:
                 check.seek(0, os.SEEK_END)
                 if check.tell():
@@ -347,7 +316,10 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
         _atomic_rewrite_history(output, ordered_tail)
         return int(ordered_tail[-1]["open_time"])
 
-    # Rare historical backfill: inspect the complete file, never just the tail.
+    # Rare historical backfill: inspect the complete logical history. A segmented
+    # history must not be flattened into the hot file while sealed manifests remain.
+    if output.with_name(output.name + ".segments").exists():
+        raise ValueError("SEGMENTED_HISTORY_BACKFILL_REQUIRES_SEGMENT_AWARE_COMPACTION")
     full_existing = _read_existing(output)
     full_map: dict[int, dict[str, Any]] = {}
     for candle in full_existing:
@@ -373,8 +345,15 @@ def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTP
     return int(ordered_full[-1]["open_time"])
 
 
+def _append_new(candles: list[dict[str, Any]], last_ts: int, output: Path = OUTPUT) -> int:
+    """Serialize collector appends with readers and explicit segment sealing."""
+    with _locked(output, exclusive=True):
+        return _append_new_unlocked(candles, last_ts, output)
+
+
 def _last_saved_ts(path: Path) -> int:
-    rows = _read_existing_tail(path)
+    with _locked(path, exclusive=False):
+        rows = _read_existing_tail(path)
     return int(rows[-1]["open_time"]) if rows else -1
 
 

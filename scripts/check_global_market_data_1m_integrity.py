@@ -17,6 +17,7 @@ if str(CODE_ROOT) not in sys.path:
     sys.path.insert(0, str(CODE_ROOT))
 
 from forward.global_market_data_reader_v1 import read_closed_candles
+from forward.sealed_jsonl_segments_v1 import logical_sha256, logical_size_bytes, has_sealed_segments
 
 FEED = DATA_ROOT / "data/forward/global_market_candles_1m_v1.jsonl"
 EVIDENCE = Path(os.environ.get(
@@ -37,7 +38,7 @@ record = {
     "orders_placed": False,
 }
 try:
-    if FEED.is_symlink() or not FEED.is_file():
+    if FEED.is_symlink() or (not FEED.is_file() and not has_sealed_segments(FEED)):
         raise RuntimeError("FEED_FILE_MISSING_OR_SYMLINK")
     active = subprocess.run(
         ["systemctl", "is-active", "--quiet", "hes-global-market-data-gateio-1m.service"],
@@ -58,8 +59,8 @@ try:
         latest_open_time=latest["open_time"],
         latest_close_time=latest["close_time"],
         latest_age_seconds=age,
-        feed_bytes=FEED.stat().st_size,
-        feed_sha256=hashlib.sha256(FEED.read_bytes()).hexdigest(),
+        feed_bytes=logical_size_bytes(FEED),
+        feed_sha256=logical_sha256(FEED),
     )
 except Exception as exc:
     allowed = {
