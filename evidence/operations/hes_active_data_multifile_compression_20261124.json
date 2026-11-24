@@ -38,9 +38,14 @@
   },
   "compatibility": {
     "additional_multifile_threshold_test": "PASS",
+    "all_four_writer_read_append_contracts": "PASS",
     "application_readers": "PASS",
+    "forward_journal_append_after_seal": "PASS_PRIOR_RUNTIME_IDENTITY_CANARY",
+    "gateio_1m_live_append_after_seal": "PASS_PRODUCTION_HOT_TAIL_OBSERVED",
     "isolated_copy_canaries": "PASS",
     "logical_sha256_preservation": "PASS",
+    "neutral_outcome_writer_append_after_seal_canary": "PASS_ISOLATED_COPY_ONLY",
+    "observation_writer_append_after_seal_canary": "PASS_ISOLATED_COPY_ONLY",
     "regression_suite": {
       "status": "PASS",
       "tests_passed": 63
