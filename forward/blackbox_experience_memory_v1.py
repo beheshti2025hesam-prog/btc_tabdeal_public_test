@@ -4,10 +4,11 @@ This module indexes existing canonical evidence; it never copies/relabels NO_TRA
 counterfactuals as trade outcomes and never mutates strategy policy or executes.
 """
 from __future__ import annotations
-import fcntl, hashlib, json, math
+import fcntl, hashlib, json, math, os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from .sealed_jsonl_segments_v1 import _locked, _read_records_unlocked, read_jsonl_records, logical_sha256, has_sealed_segments
 
 SCHEMA = "hes_blackbox_experience_event_v1"
 HYPOTHESIS_SCHEMA = "hes_blackbox_hypothesis_event_v1"
@@ -85,30 +86,38 @@ def build_experience_event(*, source_ref: str, source_sha256: str, source_event_
 
 
 def append_experience_events(path: str | Path, events: Iterable[dict[str, Any]]) -> dict[str, int]:
-    """Append idempotently; exact replays skip, same event ID with changed content fails closed."""
-    target = Path(path); target.parent.mkdir(parents=True, exist_ok=True)
+    """Append idempotently across sealed segments and the hot tail under the shared journal lock."""
+    target = Path(path)
     counts = {"appended": 0, "exact_replays": 0}
-    with target.open("a+", encoding="utf-8") as stream:
-        fcntl.flock(stream.fileno(), fcntl.LOCK_EX)
-        stream.seek(0); existing: dict[str, str] = {}
-        for line_no, line in enumerate(stream, 1):
-            if not line.strip(): continue
-            row = json.loads(line)
+    with _locked(target, exclusive=True):
+        existing: dict[str, str] = {}
+        for line_no, row in enumerate(_read_records_unlocked(target), 1):
             if row.get("schema") != SCHEMA or not row.get("event_id"):
                 raise ValueError(f"EXPERIENCE_LEDGER_CORRUPT:{line_no}")
             digest = canonical_sha256(row)
             prior = existing.setdefault(row["event_id"], digest)
-            if prior != digest: raise ValueError("EXPERIENCE_EVENT_ID_COLLISION_IN_LEDGER")
+            if prior != digest:
+                raise ValueError("EXPERIENCE_EVENT_ID_COLLISION_IN_LEDGER")
+        pending = []
         for event in events:
             if event.get("schema") != SCHEMA or not event.get("event_id"):
                 raise ValueError("EXPERIENCE_EVENT_SCHEMA_INVALID")
-            digest = canonical_sha256(event); prior = existing.get(event["event_id"])
+            digest = canonical_sha256(event)
+            prior = existing.get(event["event_id"])
             if prior is not None:
-                if prior != digest: raise ValueError("EXPERIENCE_EVENT_ID_CONTENT_CONFLICT")
-                counts["exact_replays"] += 1; continue
-            stream.seek(0, 2); stream.write(json.dumps(event, sort_keys=True, ensure_ascii=False) + "\n")
-            existing[event["event_id"]] = digest; counts["appended"] += 1
-        stream.flush()
+                if prior != digest:
+                    raise ValueError("EXPERIENCE_EVENT_ID_CONTENT_CONFLICT")
+                counts["exact_replays"] += 1
+                continue
+            pending.append(event)
+            existing[event["event_id"]] = digest
+        if pending:
+            with target.open("ab") as stream:
+                for event in pending:
+                    stream.write((json.dumps(event, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8"))
+                    counts["appended"] += 1
+                stream.flush()
+                os.fsync(stream.fileno())
     return counts
 
 
@@ -180,11 +189,8 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
     # richer canonical ledger first so the journal mirror cannot double-count an outcome.
     strategy_outcome_path = base / "strategy_policy_v2_eval_outcomes.jsonl"
     strategy_outcomes: dict[str, dict[str, Any]] = {}
-    if strategy_outcome_path.exists():
-        for line_no, line in enumerate(strategy_outcome_path.read_text(encoding="utf-8").splitlines(), 1):
-            if not line.strip():
-                continue
-            row = json.loads(line)
+    if strategy_outcome_path.exists() or has_sealed_segments(strategy_outcome_path):
+        for line_no, row in enumerate(read_jsonl_records(strategy_outcome_path), 1):
             if not isinstance(row, dict):
                 raise ValueError(f"SOURCE_ROW_NOT_OBJECT:strategy_policy_v2_eval_outcomes.jsonl:{line_no}")
             event_id = str(row.get("event_id") or row.get("candidate_event_id") or "")
@@ -201,10 +207,8 @@ def collect_canonical_experiences(data_root: str | Path) -> tuple[list[dict[str,
                   "BEARISH": "BEARISH", "RANGE": "RANGE"}
     for filename, kind in sources.items():
         path = base / filename; count = 0
-        if not path.exists(): counts[filename] = 0; continue
-        for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if not line.strip(): continue
-            row = json.loads(line)
+        rows = read_jsonl_records(path) if path.exists() or has_sealed_segments(path) else []
+        for line_no, row in enumerate(rows, 1):
             if not isinstance(row, dict): raise ValueError(f"SOURCE_ROW_NOT_OBJECT:{filename}:{line_no}")
             if kind == "decision":
                 decision = row.get("decision")
@@ -396,14 +400,13 @@ def build_strategy_family_competition_readiness(data_root: str | Path, *,
         if not filename or Path(filename).name != filename:
             raise ValueError("FAMILY_JOURNAL_PATH_INVALID")
         journal = base / filename
-        actual_sha = hashlib.sha256(journal.read_bytes()).hexdigest() if journal.exists() else None
+        actual_sha = logical_sha256(journal) if journal.exists() or has_sealed_segments(journal) else None
         sha_valid = bool(actual_sha and actual_sha == family.get("journal_sha256"))
         if not sha_valid: blockers.append(f"FAMILY_JOURNAL_HASH_MISMATCH:{family_id}")
         outcomes = []; paired = 0; candidate_events = 0; journal_events = 0; actual_eligible = 0
-        if journal.exists():
-            for line_no, line in enumerate(journal.read_text(encoding="utf-8").splitlines(), 1):
-                if not line.strip(): continue
-                event = json.loads(line); journal_events += 1
+        if journal.exists() or has_sealed_segments(journal):
+            for line_no, event in enumerate(read_jsonl_records(journal), 1):
+                journal_events += 1
                 if event.get("family_id") != family_id: raise ValueError(f"FAMILY_JOURNAL_IDENTITY_MISMATCH:{family_id}:{line_no}")
                 if event.get("execution_enabled") is True or event.get("orders_placed") is True:
                     blockers.append(f"UNSAFE_FAMILY_EVENT_FLAGS:{family_id}")
@@ -455,14 +458,9 @@ def build_strategy_family_competition_readiness(data_root: str | Path, *,
 def discover_canonical_shadow_hypotheses(data_root: str | Path, *, minimum_support: int = 20) -> list[dict[str, Any]]:
     """Read the existing historical indicator shadow journal as discovery-only input."""
     path = Path(data_root).resolve() / "data" / "forward" / "indicator_strategy_shadow_journal_v1.jsonl"
-    if not path.exists(): return []
-    rows = []
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip(): continue
-        row = json.loads(line)
-        if not isinstance(row, dict): raise ValueError(f"SHADOW_DISCOVERY_ROW_INVALID:{line_no}")
-        rows.append(row)
-    source_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    if not path.exists() and not has_sealed_segments(path): return []
+    rows = read_jsonl_records(path)
+    source_sha = logical_sha256(path)
     return discover_hypotheses_from_feature_snapshots(rows,
         source_hashes={"indicator_shadow_journal":source_sha}, minimum_support=minimum_support)
 
