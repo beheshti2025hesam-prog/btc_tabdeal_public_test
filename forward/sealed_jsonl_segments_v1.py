@@ -257,6 +257,55 @@ def read_jsonl_entries(path: str | Path) -> list[tuple[dict[str, Any], bytes]]:
         return _read_entries_unlocked(source)
 
 
+
+def iter_jsonl_entries(path: str | Path) -> Iterator[tuple[dict[str, Any], bytes]]:
+    """Stream verified logical JSONL rows without materializing all sealed records.
+
+    Immutable segments are read outside the source lock. The manifest is snapshotted
+    under a shared lock; before reading the hot tail, the manifest is rechecked under
+    lock so a concurrent seal cannot create a mixed-generation view. The hot tail is
+    read under a shared lock, preventing append/seal races while it is consumed.
+    Plain, unsealed files retain the legacy streaming behavior.
+    """
+    source = Path(path)
+    if not has_sealed_segments(source):
+        if source.exists():
+            if source.is_symlink() or not stat.S_ISREG(source.stat().st_mode):
+                raise JsonlSegmentError("HOT_FILE_NOT_REGULAR")
+            with source.open("rb") as handle:
+                for line_no, raw in enumerate(handle, start=1):
+                    yield _parse_jsonl(raw, line_no=line_no), raw
+        return
+
+    with _locked(source, exclusive=False):
+        manifest = _load_manifest_unlocked(source)
+        snapshot = json.loads(json.dumps(manifest, sort_keys=True))
+        skip = _hot_prefix_to_skip(source, snapshot["segments"])
+
+    # Segment payloads are immutable; checksum and record-count validation occurs
+    # as each segment streams. No journal-sized list is built in memory.
+    for item in snapshot["segments"]:
+        yield from _iter_compressed_segment_entries(source, item)
+
+    # Appends may have advanced the hot tail while segments were being read.
+    # A seal changes the manifest and forces a fail-closed retry instead of mixing
+    # generations. Hold the shared lock only while consuming the bounded hot tail.
+    with _locked(source, exclusive=False):
+        current = _load_manifest_unlocked(source)
+        if current != snapshot:
+            raise JsonlSegmentError("MANIFEST_CHANGED_DURING_STREAM")
+        current_skip = _hot_prefix_to_skip(source, current["segments"])
+        if current_skip != skip:
+            raise JsonlSegmentError("HOT_PREFIX_CHANGED_DURING_STREAM")
+        if source.exists():
+            if source.is_symlink() or not stat.S_ISREG(source.stat().st_mode):
+                raise JsonlSegmentError("HOT_FILE_NOT_REGULAR")
+            with source.open("rb") as handle:
+                if current_skip:
+                    handle.seek(current_skip)
+                for line_no, raw in enumerate(handle, start=1):
+                    yield _parse_jsonl(raw, line_no=line_no), raw
+
 def logical_sha256(path: str | Path) -> str:
     """SHA-256 of the logical uncompressed JSONL byte stream across segments + hot tail."""
     source = Path(path)
