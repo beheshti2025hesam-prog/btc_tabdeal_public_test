@@ -50,7 +50,7 @@ def read_strategy_run_provenance():
 
 def read_jsonl(p):
  if not p.exists() and not has_sealed_segments(p): return []
- try: return read_jsonl_records(p)
+ try: return read_jsonl_records(p, skip_blank_lines=True)
  except Exception as e: raise RuntimeError(f'malformed evidence {p.name}:{type(e).__name__}') from e
 def sha(p):
  if p.suffix.lower()=='.jsonl':
