@@ -459,7 +459,10 @@ def _write_manifest_atomic(path: Path, manifest: dict[str, Any]) -> None:
     directory = _segment_dir(path)
     directory.mkdir(parents=True, exist_ok=True, mode=0o750)
     temp_fd, temp_name = tempfile.mkstemp(prefix=".manifest-", suffix=".tmp", dir=directory)
+    source_stat = path.stat() if path.exists() else directory.stat()
     try:
+        os.fchown(temp_fd, source_stat.st_uid, source_stat.st_gid)
+        os.fchmod(temp_fd, 0o640)
         with os.fdopen(temp_fd, "w", encoding="utf-8") as handle:
             json.dump(manifest, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
             handle.write("\n")
@@ -520,12 +523,17 @@ def _seal_hot_file_unlocked(path: Path, *, truncate_hot: bool = True) -> dict[st
     manifest = _load_manifest_unlocked(path)
     seq = manifest["segments"][-1]["seq"] + 1 if manifest["segments"] else 1
     directory = _segment_dir(path)
-    directory.mkdir(parents=True, exist_ok=True, mode=0o750)
+    directory.mkdir(parents=True, exist_ok=True, mode=0o2750)
+    # Preserve runtime writer/dashboard group access even when root performs sealing.
+    os.chown(directory, source_stat.st_uid, source_stat.st_gid)
+    os.chmod(directory, 0o2750)
     filename = f"segment-{seq:08d}-{source_hash[:12]}-{uuid.uuid4().hex[:8]}.jsonl.zst"
     final_path = directory / filename
     if final_path.exists():
         raise JsonlSegmentError("ORPHAN_SEGMENT_FILE_EXISTS")
     fd, temp_name = tempfile.mkstemp(prefix=".segment-", suffix=".tmp", dir=directory)
+    os.fchown(fd, source_stat.st_uid, source_stat.st_gid)
+    os.fchmod(fd, 0o640)
     os.close(fd)
     temp_path = Path(temp_name)
     try:
@@ -563,7 +571,8 @@ def _seal_hot_file_unlocked(path: Path, *, truncate_hot: bool = True) -> dict[st
         if truncate_hot:
             temp_fd, hot_temp_name = tempfile.mkstemp(prefix=f".{path.name}.hot-", dir=path.parent)
             try:
-                mode = stat.S_IMODE(path.stat().st_mode)
+                mode = stat.S_IMODE(source_stat.st_mode)
+                os.fchown(temp_fd, source_stat.st_uid, source_stat.st_gid)
                 os.fchmod(temp_fd, mode)
                 with os.fdopen(temp_fd, "wb") as hot_temp:
                     hot_temp.flush()
