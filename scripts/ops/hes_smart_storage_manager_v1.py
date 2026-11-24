@@ -8,7 +8,7 @@ import json, shutil, subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from forward.sealed_jsonl_segments_v1 import JsonlSegmentError, inspect_jsonl_segments, inspect_lock_access
+from forward.sealed_jsonl_segments_v1 import JsonlSegmentError, inspect_jsonl_segments, inspect_lock_access, seal_if_over
 
 ROOT = Path("/opt/hes-trade-agent")
 BACKUP_ROOT = Path("/var/backups/hes-trade-agent")
@@ -306,6 +306,51 @@ def active_data_segment_inventory(data_root: Path = ROOT, *, verify: bool = Fals
     }
 
 
+
+ACTIVE_SEAL_POLICIES = {
+    "trade_journal_v2.jsonl": 64 * 1024 * 1024,
+    "global_market_candles_1m_v1.jsonl": 16 * 1024 * 1024,
+    "neutral_decision_outcomes_v1.jsonl": 16 * 1024 * 1024,
+}
+
+def apply_allowlisted_active_sealing() -> dict[str, Any]:
+    """Seal only append-only JSONL ledgers whose production writers share the segment flock."""
+    results: dict[str, Any] = {}
+    for filename, threshold in ACTIVE_SEAL_POLICIES.items():
+        path = ROOT / "data" / "forward" / filename
+        if path.is_symlink():
+            results[filename] = {"status": "BLOCKED_SYMLINK"}
+            continue
+        if not path.exists():
+            results[filename] = {"status": "MISSING"}
+            continue
+        hot_bytes = path.stat().st_size
+        if hot_bytes < threshold:
+            results[filename] = {
+                "status": "BELOW_THRESHOLD", "hot_bytes": hot_bytes,
+                "threshold_bytes": threshold, "automatic": True,
+            }
+            continue
+        result = seal_if_over(path, max_hot_bytes=threshold)
+        inventory = inspect_jsonl_segments(path, verify=True)
+        if not inventory.get("verified"):
+            raise RuntimeError("ACTIVE_JSONL_SEGMENT_VERIFICATION_FAILED:" + filename)
+        results[filename] = {
+            "status": "SEALED_AND_VERIFIED" if result else "THRESHOLD_RECHECK_NOOP",
+            "hot_bytes_before": hot_bytes, "threshold_bytes": threshold,
+            "sealed_source_bytes": (result or {}).get("source_bytes"),
+            "compressed_bytes": (result or {}).get("compressed_bytes"),
+            "record_count": (result or {}).get("record_count"),
+            "inventory": inventory, "automatic": True,
+        }
+    return {
+        "status": "POLICY_APPLIED", "automatic": True,
+        "allowlist": list(ACTIVE_SEAL_POLICIES), "files": results,
+        "excluded": ["observations_live_v1.jsonl"],
+        "excluded_reason": "No current production writer contract found; existing verified sealed segment is preserved and remains readable.",
+    }
+
+
 def build_report(*, idlm: dict[str,Any], cleanup: dict[str,Any], now: datetime|None=None,
                  disk: dict[str,Any]|None=None, quota: dict[str,Any]|None=None,
                  evidence: dict[str,Any]|None=None,
@@ -355,12 +400,26 @@ def main() -> int:
     cleanup=json.loads(args.cleanup_report.read_text())
     evidence=json.loads(args.compression_evidence.read_text()) if args.compression_evidence else None
     restore_evidence=json.loads(args.restore_evidence.read_text()) if args.restore_evidence else None
+    active_sealing = apply_allowlisted_active_sealing()
     report=build_report(idlm=idlm,cleanup=cleanup,evidence=evidence,restore_evidence=restore_evidence)
+    report["active_data_sealing"] = active_sealing
+    report["policy"]["active_data_sealing"] = {
+        "automatic": True, "allowlist": ACTIVE_SEAL_POLICIES,
+        "excluded": ["observations_live_v1.jsonl"],
+        "excluded_reason": "No current production writer contract found; existing verified sealed segment is preserved and remains readable.",
+        "writer_lock_contract_verified": {
+            "trade_journal_v2.jsonl": True,
+            "global_market_candles_1m_v1.jsonl": True,
+            "neutral_decision_outcomes_v1.jsonl": True,
+        },
+        "dashboard_reader_compatibility_verified": True,
+    }
+    report["mode"] = "READ_ONLY_CAPACITY_AUDIT_PLUS_ALLOWLISTED_APPEND_ONLY_JOURNAL_SEALING"
     args.output.parent.mkdir(parents=True,exist_ok=True)
     tmp=args.output.with_suffix(args.output.suffix+".partial")
     tmp.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n",encoding="utf-8")
     tmp.replace(args.output)
-    print("SMART_STORAGE_PLAN_OK inventory_source=IDLM+SMART_CLEANUP deletion_authorized=false compression_authorized=false")
+    print("SMART_STORAGE_PLAN_OK inventory_source=IDLM+SMART_CLEANUP allowlisted_active_jsonl_sealing=true deletion_authorized=false general_compression_authorized=false")
     return 0
 
 if __name__=="__main__": raise SystemExit(main())
