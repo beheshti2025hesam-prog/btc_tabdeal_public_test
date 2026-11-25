@@ -1,0 +1,333 @@
+{
+  "schema": "hes.adapter_family_catalog.v1",
+  "revision": 1,
+  "catalog_mode": "inventory_only_no_dynamic_loader",
+  "baseline_release_sha": "786f9187ac326f27c243507ccbd297b34d01db1b",
+  "market_data_policy": {
+    "canonical_adapter_id": "market-data.gateio.spot.ohlcv",
+    "canonical_profile": {
+      "venue": "gateio",
+      "product": "spot",
+      "analysis_symbol": "BTCUSDT",
+      "venue_symbol": "BTC_USDT"
+    },
+    "chart_and_analysis_share_same_persisted_batch": true,
+    "auto_discovery": false,
+    "automatic_failover": false,
+    "browser_direct_exchange_access": false
+  },
+  "execution_policy": {
+    "execution_enabled": false,
+    "orders_placed": false,
+    "manual_execution_surface": "exchange_or_broker_application",
+    "concrete_adapters_active": []
+  },
+  "adapters": [
+    {
+      "adapter_id": "market-data.gateio.spot.ohlcv",
+      "domain": "market_data",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "forward/native_ohlcv_gateio_v1.py",
+      "symbol": "GateioSpotKlineSource",
+      "contract": {
+        "module_path": "forward/native_ohlcv_v1.py",
+        "symbols": [
+          "NativeOHLCVBatch",
+          "NativeOHLCVSource",
+          "validate_native_batch"
+        ]
+      },
+      "contract_version": "gateio_spot_candlestick_v2",
+      "capabilities": [
+        "public_read_only",
+        "closed_ohlcv",
+        "decimal_preservation",
+        "response_sha256",
+        "gap_reporting",
+        "explicit_symbol_mapping"
+      ],
+      "side_effects": [
+        "public_https_read"
+      ],
+      "profile": {
+        "venue": "gateio",
+        "product": "spot",
+        "analysis_symbol": "BTCUSDT",
+        "venue_symbol": "BTC_USDT"
+      },
+      "evidence_ref": "docs/checkpoints/MASTER_CHECKPOINT_2026-11-02_RELEASE_READINESS.md"
+    },
+    {
+      "adapter_id": "analytics.native_ohlcv_to_features",
+      "domain": "feature_bridge",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "forward/native_ohlcv_feature_adapter_v1.py",
+      "symbol": "to_feature_batch",
+      "contract": {
+        "module_path": "forward/native_ohlcv_feature_adapter_v1.py",
+        "symbols": [
+          "NativeOHLCVFeatureBatch"
+        ]
+      },
+      "contract_version": "native-ohlcv-feature-batch-v1",
+      "capabilities": [
+        "closed_candle_only",
+        "as_of_cutoff",
+        "source_digest_preserved",
+        "gap_propagation"
+      ],
+      "side_effects": [],
+      "evidence_ref": "tests/test_native_ohlcv_feature_adapter_v1.py"
+    },
+    {
+      "adapter_id": "strategy.gateio.evidence-provider",
+      "domain": "strategy_evidence",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "forward/strategy_evidence_provider_v1.py",
+      "symbol": "StrategyEvidenceProviderV1",
+      "contract": {
+        "module_path": "forward/strategy_evidence_provider_v1.py",
+        "symbols": [
+          "StrategyEvidenceBundleV1"
+        ]
+      },
+      "contract_version": "strategy-evidence-provider-v1",
+      "capabilities": [
+        "gateio_spot_scope",
+        "timeframe_bound_evidence",
+        "provenance_hashes",
+        "unknown_fail_closed",
+        "no_order_side_effects"
+      ],
+      "side_effects": [],
+      "evidence_ref": "tests/test_strategy_evidence_provider_gateio_contract_v1.py"
+    },
+    {
+      "adapter_id": "journal.decision-to-forward",
+      "domain": "journal",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "forward/decision_journal_adapter_v1.py",
+      "symbol": "decision_to_journal_record_v1",
+      "contract_version": "decision-journal-adapter-v1",
+      "capabilities": [
+        "typed_decision_mapping",
+        "no_future_outcome_injection",
+        "append_only_journal_contract"
+      ],
+      "side_effects": [],
+      "evidence_ref": "forward/forward_pipeline_v1.py"
+    },
+    {
+      "adapter_id": "journal.signal-to-learning-ledger",
+      "domain": "journal",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "forward/learning_evidence_adapter_v1.py",
+      "symbol": "record_signal_decision",
+      "contract": {
+        "module_path": "forward/learning_evidence_adapter_v1.py",
+        "symbols": [
+          "JournalWriteResult"
+        ]
+      },
+      "contract_version": "signal-learning-evidence-adapter-v1",
+      "capabilities": [
+        "deterministic_event_identity",
+        "sha256_provenance",
+        "idempotent_exact_replay",
+        "conflicting_replay_rejected"
+      ],
+      "side_effects": [
+        "append_only_journal_write"
+      ],
+      "evidence_ref": "tests/test_learning_evidence_adapter_v1.py"
+    },
+    {
+      "adapter_id": "news.public-rss-atom",
+      "domain": "news",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "core/market_intelligence/news_brain.py",
+      "symbol": "fetch_rss",
+      "contract": {
+        "module_path": "core/market_intelligence/news_brain.py",
+        "symbols": [
+          "NewsItem"
+        ]
+      },
+      "contract_version": "hes.news_brief.v1",
+      "capabilities": [
+        "public_feed_read",
+        "bounded_fetch",
+        "redirect_rejection",
+        "context_only"
+      ],
+      "side_effects": [
+        "public_https_read"
+      ],
+      "evidence_ref": "docs/news_intelligence_contract_v1.md"
+    },
+    {
+      "adapter_id": "news.gateio-announcements",
+      "domain": "news",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "core/market_intelligence/news_brain.py",
+      "symbol": "fetch_gate_announcements",
+      "contract": {
+        "module_path": "core/market_intelligence/news_brain.py",
+        "symbols": [
+          "NewsItem"
+        ]
+      },
+      "contract_version": "hes.news_brief.v1",
+      "capabilities": [
+        "public_announcement_read",
+        "bounded_fetch",
+        "context_only"
+      ],
+      "side_effects": [
+        "public_https_read"
+      ],
+      "evidence_ref": "docs/news_intelligence_contract_v1.md"
+    },
+    {
+      "adapter_id": "mother.precomputed-specialist-port",
+      "domain": "orchestration",
+      "status": "active",
+      "runtime_enabled": true,
+      "module_path": "core/orchestration/mother_v1.py",
+      "symbol": "PrecomputedSpecialistV1",
+      "contract": {
+        "module_path": "core/orchestration/mother_v1.py",
+        "symbols": [
+          "SpecialistAgent",
+          "AgentResult"
+        ]
+      },
+      "contract_version": "hes.mother_orchestration.v1",
+      "capabilities": [
+        "precomputed_evidence_only",
+        "deterministic_stage_order",
+        "no_market_fetch",
+        "no_execution_authority"
+      ],
+      "side_effects": [],
+      "evidence_ref": "docs/checkpoints/MOTHER_CHAT_COMMAND_CENTER_CONTRACT_2026-11-06.md"
+    },
+    {
+      "adapter_id": "execution.venue-neutral-port",
+      "domain": "execution",
+      "status": "interface_only",
+      "runtime_enabled": false,
+      "module_path": "core/execution/contract.py",
+      "symbol": "ExecutionAdapter",
+      "contract": {
+        "module_path": "core/execution/contract.py",
+        "symbols": [
+          "ExecutionRequest",
+          "ExecutionResult",
+          "ExecutionMode"
+        ]
+      },
+      "contract_version": "execution-port-placeholder-v1",
+      "capabilities": [
+        "venue_neutral_protocol",
+        "disabled_or_shadow_mode_only"
+      ],
+      "side_effects": [],
+      "evidence_ref": "core/execution/contract.py"
+    },
+    {
+      "adapter_id": "market-data.binance-native-fixture",
+      "domain": "market_data",
+      "status": "fixture_only",
+      "runtime_enabled": false,
+      "module_path": "forward/native_ohlcv_v1.py",
+      "symbol": "BinanceNativeKlineSource",
+      "contract": {
+        "module_path": "forward/native_ohlcv_v1.py",
+        "symbols": [
+          "NativeOHLCVBatch",
+          "NativeOHLCVSource"
+        ]
+      },
+      "contract_version": "native-ohlcv-batch-v1",
+      "capabilities": [
+        "research_or_fixture_only",
+        "not_canonical_source"
+      ],
+      "side_effects": [
+        "public_https_read"
+      ],
+      "evidence_ref": "forward/native_ohlcv_v1.py"
+    },
+    {
+      "adapter_id": "market-data.tabdeal-legacy-trade-frame",
+      "domain": "market_data",
+      "status": "legacy_disabled",
+      "runtime_enabled": false,
+      "module_path": "forward/tabdeal_readonly_adapter_v1.py",
+      "symbol": "parse_trade_frame",
+      "contract_version": "tabdeal-readonly-trade-frame-v1",
+      "capabilities": [
+        "legacy_parser_only",
+        "sequence_informational_only",
+        "not_canonical_market_data"
+      ],
+      "side_effects": [],
+      "evidence_ref": "docs/checkpoints/MASTER_CHECKPOINT_2026-11-02_RELEASE_READINESS.md"
+    },
+    {
+      "adapter_id": "protocol.sequence-semantics-registry",
+      "domain": "sequence_semantics",
+      "status": "candidate_not_wired",
+      "runtime_enabled": false,
+      "module_path": "forward/sequence_semantics_registry_v1.py",
+      "symbol": "SequenceSemanticsRegistryV1",
+      "contract_version": "hes_sequence_semantics_registry_v1",
+      "capabilities": [
+        "exact_scope_lookup",
+        "evidence_required_for_capabilities",
+        "no_default_sequence_semantics"
+      ],
+      "side_effects": [],
+      "evidence_ref": "docs/checkpoints/MASTER_CHECKPOINT_2026-11-02_RELEASE_READINESS.md"
+    },
+    {
+      "adapter_id": "collector.forward-observation-bridge",
+      "domain": "collector",
+      "status": "disabled",
+      "runtime_enabled": false,
+      "module_path": "forward/collector_adapter_v1.py",
+      "symbol": "ForwardCollectorAdapterV1",
+      "contract_version": "forward-collector-adapter-v1",
+      "capabilities": [
+        "disabled_until_runtime_wiring_review"
+      ],
+      "side_effects": [],
+      "evidence_ref": "forward/collector_adapter_README.md"
+    },
+    {
+      "adapter_id": "transport.binance-spot-kline-stream",
+      "domain": "transport",
+      "status": "fixture_only",
+      "runtime_enabled": false,
+      "module_path": "forward/native_ohlcv_stream_transport_v1.py",
+      "symbol": "run_spot_kline_stream",
+      "contract_version": "native-ohlcv-stream-transport-v1",
+      "capabilities": [
+        "bounded_reconnect_transport",
+        "not_canonical_gateio_transport"
+      ],
+      "side_effects": [
+        "public_websocket_read"
+      ],
+      "evidence_ref": "forward/native_ohlcv_stream_transport_v1.py"
+    }
+  ]
+}
